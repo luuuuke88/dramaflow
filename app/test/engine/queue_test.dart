@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/queue.dart';
-import 'package:dramaflow/src/engine/pipeline/runners.dart' show JobRow;
 
 Future<void> waitFor(bool Function() cond,
     {Duration timeout = const Duration(seconds: 5)}) async {
@@ -30,7 +28,7 @@ void main() {
   });
   tearDown(() {
     q.dispose();
-    db.dispose();
+    db.close();
   });
 
   test('enqueue→done + onJobFinished 一次', () async {

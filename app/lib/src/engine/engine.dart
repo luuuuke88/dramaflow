@@ -481,6 +481,6 @@ class Engine {
 
   void dispose() {
     queue.dispose();
-    db.dispose();
+    db.close();
   }
 }

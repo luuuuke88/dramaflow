@@ -66,7 +66,7 @@ class EngineConfig {
         stmt.execute([e.key, v]);
       }
     } finally {
-      stmt.dispose();
+      stmt.close();
     }
   }
 }

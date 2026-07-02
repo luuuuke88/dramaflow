@@ -113,7 +113,7 @@ class Runners {
           nowIso()
         ]);
       }
-      ins.dispose();
+      ins.close();
       db.execute('COMMIT');
     } catch (_) {
       db.execute('ROLLBACK');
@@ -224,7 +224,7 @@ class Runners {
           nowIso()
         ]);
       }
-      ins.dispose();
+      ins.close();
       db.execute('COMMIT');
     } catch (_) {
       db.execute('ROLLBACK');

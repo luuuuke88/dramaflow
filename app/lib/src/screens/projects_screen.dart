@@ -130,7 +130,7 @@ class ProjectsScreen extends ConsumerWidget {
       ref,
       () async {
         created =
-            await ref.read(apiProvider).createProject(name, artStyle: artStyle);
+            await ref.read(engineProvider).createProject(name, artStyle: artStyle);
       },
       successMessage: '项目已创建',
     );
@@ -288,7 +288,7 @@ class _ProjectCard extends ConsumerWidget {
     await runAction(
       context,
       ref,
-      () => ref.read(apiProvider).deleteProject(project.id),
+      () => ref.read(engineProvider).deleteProject(project.id),
       successMessage: '项目已删除',
     );
     if (!context.mounted) return;

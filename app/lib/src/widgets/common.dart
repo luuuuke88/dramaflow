@@ -1,6 +1,8 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../api/client.dart';
+import '../engine/util.dart';
 import '../state/providers.dart';
 import '../theme.dart';
 
@@ -195,7 +197,7 @@ Future<void> runAction(
         SnackBar(content: Text(successMessage), duration: const Duration(seconds: 2)),
       );
     }
-  } on ApiException catch (e) {
+  } on EngineException catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(e.message),
@@ -228,12 +230,17 @@ class MediaImage extends StatelessWidget {
     if (relativeUrl == null || relativeUrl!.isEmpty) {
       return _placeholder(const Icon(Icons.image_outlined, color: DF.textLo, size: 28));
     }
+    // Web 构建无本地文件能力（spec：Web 降级为 UI 预览）
+    if (kIsWeb) {
+      return _placeholder(
+          const Icon(Icons.image_not_supported_outlined, color: DF.textLo, size: 28));
+    }
     return Consumer(builder: (context, ref, _) {
-      final url = ref.watch(apiProvider).mediaUrl(relativeUrl!);
+      final abs = ref.watch(engineProvider).mediaAbsPath(relativeUrl!);
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: Image.network(
-          url,
+        child: Image.file(
+          File(abs),
           width: width,
           height: height,
           fit: fit,

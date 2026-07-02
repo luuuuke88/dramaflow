@@ -198,7 +198,7 @@ class ProjectScreen extends ConsumerWidget {
                         context,
                         ref,
                         () async {
-                          await ref.read(apiProvider).extractAssets(projectId);
+                          await ref.read(engineProvider).extractAssets(projectId);
                         },
                         successMessage: '素材提取任务已提交',
                       ),
@@ -280,7 +280,7 @@ class ProjectScreen extends ConsumerWidget {
         context,
         ref,
         () async {
-          await ref.read(apiProvider).retryJob(job.id);
+          await ref.read(engineProvider).retryJob(job.id);
         },
         successMessage: '已重新排队',
       );
@@ -352,7 +352,7 @@ class ProjectScreen extends ConsumerWidget {
       ref,
       () async {
         await ref
-            .read(apiProvider)
+            .read(engineProvider)
             .generateScript(projectId, episodeCount: count);
       },
       successMessage: '剧本生成任务已提交（$count 集）',
@@ -420,7 +420,7 @@ class ProjectScreen extends ConsumerWidget {
       ref,
       () async {
         await ref
-            .read(apiProvider)
+            .read(engineProvider)
             .updateProject(projectId, name: name, artStyle: artStyle);
       },
       successMessage: '项目已更新',

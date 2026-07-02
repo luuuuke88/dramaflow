@@ -1,94 +1,73 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../api/client.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../api/models.dart';
+import '../engine/engine.dart';
 
-/// 客户端连接配置（后端地址 + token）。桌面/移动端默认连本机。
-class ConnectionConfig {
-  final String baseUrl;
-  final String token;
-  const ConnectionConfig({required this.baseUrl, required this.token});
-}
+/// App 级引擎单例：main() 经 overrideWithValue 注入（M0 生命周期约定——
+/// 引擎不挂在可重建的 Provider 上，这里只持引用）。
+final engineProvider = Provider<Engine>(
+    (_) => throw UnimplementedError('engineProvider 由 main() 注入'));
 
-class ConnectionNotifier extends Notifier<ConnectionConfig> {
-  @override
-  ConnectionConfig build() =>
-      const ConnectionConfig(baseUrl: 'http://127.0.0.1:8620', token: 'local-dev');
-
-  void update({String? baseUrl, String? token}) {
-    state = ConnectionConfig(
-      baseUrl: baseUrl ?? state.baseUrl,
-      token: token ?? state.token,
-    );
-  }
-}
-
-final connectionProvider =
-    NotifierProvider<ConnectionNotifier, ConnectionConfig>(ConnectionNotifier.new);
-
-final apiProvider = Provider<ApiClient>((ref) {
-  final conn = ref.watch(connectionProvider);
-  return ApiClient(baseUrl: conn.baseUrl, token: conn.token);
-});
-
-/// 活跃任务轮询器：有活跃任务时 2s 一拍，空闲时 6s 一拍。
-/// 任务集合发生变化（有任务完成/新增）时自增 [jobsGeneration]，
-/// 数据 Provider 监听它来自动刷新列表。
+/// 活跃任务监听：订阅引擎队列事件流（取代 v0.1 的 HTTP 轮询）。
+/// 事件到达即拉取活跃任务并 bump jobsGeneration；活跃任务存在时保持屏幕常亮
+///（对策移动端后台冻结，spec M0 约定）。
 class ActiveJobsNotifier extends Notifier<List<Job>> {
-  Timer? _timer;
+  StreamSubscription<void>? _sub;
   bool _fetching = false;
-  bool _pokePending = false;
+  bool _again = false;
 
   @override
   List<Job> build() {
-    ref.onDispose(() => _timer?.cancel());
-    _schedule(const Duration(milliseconds: 300));
+    final engine = ref.watch(engineProvider);
+    _sub?.cancel();
+    _sub = engine.queue.events.listen((_) => _refresh());
+    ref.onDispose(() {
+      _sub?.cancel();
+    });
+    Future.microtask(_refresh);
     return const [];
   }
 
-  void _schedule(Duration d) {
-    _timer?.cancel();
-    _timer = Timer(d, _tick);
-  }
-
-  Future<void> _tick() async {
-    // 正在请求时到点：保留 poke 意图，由在途请求的 finally 统一重排
-    if (_fetching) return;
+  Future<void> _refresh() async {
+    if (_fetching) {
+      _again = true;
+      return;
+    }
     _fetching = true;
-    _pokePending = false;
     try {
-      final jobs = await ref.read(apiProvider).activeJobs();
-      final oldIds = state.map((j) => '${j.id}:${j.state}').join(',');
-      final newIds = jobs.map((j) => '${j.id}:${j.state}').join(',');
-      if (oldIds != newIds) {
+      final jobs = await ref.read(engineProvider).activeJobs();
+      final oldKey = state.map((j) => '${j.id}:${j.state}').join(',');
+      final newKey = jobs.map((j) => '${j.id}:${j.state}').join(',');
+      if (oldKey != newKey) {
         state = jobs;
         ref.read(jobsGenerationProvider.notifier).bump();
+        _updateWakelock(jobs.isNotEmpty);
       }
     } catch (_) {
-      // 后端暂时不可达：保持现状，下一拍重试
+      // 引擎侧异常：保持现状
     } finally {
       _fetching = false;
-      // 请求期间来过 poke → 立刻补一拍，不能退化成 6s 空闲节奏
-      final d = _pokePending
-          ? const Duration(milliseconds: 200)
-          : Duration(seconds: state.isEmpty ? 6 : 2);
-      _pokePending = false;
-      _schedule(d);
+      if (_again) {
+        _again = false;
+        Future.microtask(_refresh);
+      }
     }
   }
 
-  /// 发起生成动作后立即触发一次轮询（让"排队中"立刻可见）
-  void poke() {
-    _pokePending = true;
-    if (!_fetching) _schedule(const Duration(milliseconds: 200));
+  void _updateWakelock(bool active) {
+    // Web/测试环境下 wakelock 不可用，静默忽略
+    WakelockPlus.toggle(enable: active).catchError((_) {});
   }
+
+  /// 兼容旧签名：发起动作后立即刷新一次
+  void poke() => Future.microtask(_refresh);
 }
 
 final activeJobsProvider =
     NotifierProvider<ActiveJobsNotifier, List<Job>>(ActiveJobsNotifier.new);
 
-/// 数据刷新信号：任务集合每次变化 +1。
-/// 各数据 Provider watch 它 → 任务完成时列表自动重新拉取。
+/// 数据刷新信号：任务集合每次变化 +1，数据 Provider watch 它自动重取。
 class JobsGenerationNotifier extends Notifier<int> {
   @override
   int build() => 0;
@@ -98,57 +77,57 @@ class JobsGenerationNotifier extends Notifier<int> {
 final jobsGenerationProvider =
     NotifierProvider<JobsGenerationNotifier, int>(JobsGenerationNotifier.new);
 
-// ---------- 数据 Providers（全部跟随 jobsGeneration 自动刷新）----------
+// ---------- 数据 Providers（跟随 jobsGeneration 自动刷新） ----------
 
 final projectsProvider = FutureProvider.autoDispose<List<Project>>((ref) {
   ref.watch(jobsGenerationProvider);
-  return ref.watch(apiProvider).listProjects();
+  return ref.watch(engineProvider).listProjects();
 });
 
 final projectProvider =
     FutureProvider.autoDispose.family<Project, String>((ref, id) {
   ref.watch(jobsGenerationProvider);
-  return ref.watch(apiProvider).getProject(id);
+  return ref.watch(engineProvider).getProject(id);
 });
 
 final novelProvider =
     FutureProvider.autoDispose.family<Novel?, String>((ref, projectId) {
   ref.watch(jobsGenerationProvider);
-  return ref.watch(apiProvider).getNovel(projectId);
+  return ref.watch(engineProvider).getNovel(projectId);
 });
 
 final episodesProvider = FutureProvider.autoDispose
     .family<List<EpisodeSummary>, String>((ref, projectId) {
   ref.watch(jobsGenerationProvider);
-  return ref.watch(apiProvider).listEpisodes(projectId);
+  return ref.watch(engineProvider).listEpisodes(projectId);
 });
 
 final episodeProvider =
     FutureProvider.autoDispose.family<Episode, String>((ref, episodeId) {
   ref.watch(jobsGenerationProvider);
-  return ref.watch(apiProvider).getEpisode(episodeId);
+  return ref.watch(engineProvider).getEpisode(episodeId);
 });
 
 final assetsProvider =
     FutureProvider.autoDispose.family<List<Asset>, String>((ref, projectId) {
   ref.watch(jobsGenerationProvider);
-  return ref.watch(apiProvider).listAssets(projectId);
+  return ref.watch(engineProvider).listAssets(projectId);
 });
 
 final shotsProvider =
     FutureProvider.autoDispose.family<List<Shot>, String>((ref, episodeId) {
   ref.watch(jobsGenerationProvider);
-  return ref.watch(apiProvider).listShots(episodeId);
+  return ref.watch(engineProvider).listShots(episodeId);
 });
 
 final projectJobsProvider =
     FutureProvider.autoDispose.family<List<Job>, String>((ref, projectId) {
   ref.watch(jobsGenerationProvider);
-  return ref.watch(apiProvider).projectJobs(projectId);
+  return ref.watch(engineProvider).projectJobs(projectId);
 });
 
 final settingsProvider = FutureProvider.autoDispose<AppSettings>(
-    (ref) => ref.watch(apiProvider).getSettings());
+    (ref) => ref.watch(engineProvider).getSettings());
 
 final healthProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
-    (ref) => ref.watch(apiProvider).health());
+    (ref) => ref.watch(engineProvider).health());

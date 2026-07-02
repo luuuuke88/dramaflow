@@ -24,7 +24,7 @@ class ShotsScreen extends ConsumerWidget {
     int? queued;
     await runAction(context, ref, () async {
       final ids =
-          await ref.read(apiProvider).generateAllShotImages(episodeId);
+          await ref.read(engineProvider).generateAllShotImages(episodeId);
       queued = ids.length;
     });
     if (queued != null && context.mounted) {
@@ -73,7 +73,7 @@ class ShotsScreen extends ConsumerWidget {
                 action: FilledButton.icon(
                   onPressed: () => runAction(context, ref, () async {
                     await ref
-                        .read(apiProvider)
+                        .read(engineProvider)
                         .generateStoryboard(episodeId);
                   }, successMessage: '分镜生成任务已排队'),
                   icon: const Icon(Icons.auto_awesome_rounded, size: 18),
@@ -326,7 +326,7 @@ class _ShotCard extends ConsumerWidget {
     Widget videoButton = OutlinedButton.icon(
       onPressed: videoEnabled
           ? () => runAction(context, ref, () async {
-                await ref.read(apiProvider).generateShotVideo(shot.id);
+                await ref.read(engineProvider).generateShotVideo(shot.id);
               }, successMessage: '视频生成任务已排队')
           : null,
       icon: const Icon(Icons.movie_creation_outlined, size: 16),
@@ -346,7 +346,7 @@ class _ShotCard extends ConsumerWidget {
           onPressed: imageBusy
               ? null
               : () => runAction(context, ref, () async {
-                    await ref.read(apiProvider).generateShotImage(shot.id);
+                    await ref.read(engineProvider).generateShotImage(shot.id);
                   }, successMessage: '镜头图生成任务已排队'),
           icon: Icon(
               imageDone || imageFailed
@@ -371,11 +371,12 @@ class _ShotCard extends ConsumerWidget {
         if (shot.videoUrl != null && shot.videoUrl!.isNotEmpty)
           TextButton.icon(
             onPressed: () async {
-              final url = ref.read(apiProvider).mediaUrl(shot.videoUrl!);
-              await Clipboard.setData(ClipboardData(text: url));
+              final abs =
+                  ref.read(engineProvider).mediaAbsPath(shot.videoUrl!);
+              await Clipboard.setData(ClipboardData(text: abs));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('视频地址已复制，可在浏览器打开'),
+                  content: Text('视频文件路径已复制'),
                   duration: Duration(seconds: 2),
                 ));
               }
@@ -442,7 +443,7 @@ class _ShotEditDialogState extends ConsumerState<_ShotEditDialog> {
     setState(() => _saving = true);
     var ok = false;
     await runAction(context, ref, () async {
-      await ref.read(apiProvider).updateShot(widget.shot.id, patch);
+      await ref.read(engineProvider).updateShot(widget.shot.id, patch);
       ok = true;
     }, successMessage: '分镜已保存');
     if (!mounted) return;

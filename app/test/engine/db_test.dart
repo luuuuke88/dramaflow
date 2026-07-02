@@ -32,13 +32,13 @@ void main() {
         db.select('PRAGMA table_info(shots)').map((r) => r['name']).toSet();
     expect(shotCols,
         containsAll(['selectedTakeId', 'audioPath', 'audioStatus']));
-    db.dispose();
+    db.close();
   });
 
   test('重复初始化幂等（IF NOT EXISTS）', () {
     final db = openEngineDb(':memory:');
     initSchema(db);
-    db.dispose();
+    db.close();
   });
 
   test('nowIso 是 ISO8601 UTC', () {
@@ -55,6 +55,6 @@ void main() {
         () => db.execute(
             "INSERT INTO assets (id,projectId,kind,name,createdAt) VALUES ('a2','p','bogus','x','x')"),
         throwsA(anything));
-    db.dispose();
+    db.close();
   });
 }

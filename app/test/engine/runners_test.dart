@@ -54,7 +54,7 @@ void main() {
         "INSERT INTO projects (id,name,artStyle,createdAt,updatedAt) VALUES ('p1','测试','国风','x','x')");
   });
   tearDown(() {
-    db.dispose();
+    db.close();
     tmp.deleteSync(recursive: true);
   });
 
