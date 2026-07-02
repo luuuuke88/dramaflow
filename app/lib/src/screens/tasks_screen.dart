@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -6,6 +8,19 @@ import '../state/providers.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
+
+Color? _lightAppBarBackground(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.light
+        ? context.df.surface
+        : null;
+
+PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
+  if (Theme.of(context).brightness != Brightness.light) return null;
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(1),
+    child: Container(height: 1, color: context.df.stroke),
+  );
+}
 
 /// 历史区当前选中的项目 id（null = 默认第一个项目）。
 final _selectedProjectProvider = StateProvider<String?>((ref) => null);
@@ -71,7 +86,11 @@ class TasksScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('任务中心')),
+      appBar: AppBar(
+        backgroundColor: _lightAppBarBackground(context),
+        bottom: _lightAppBarBottom(context),
+        title: const Text('任务中心'),
+      ),
       body: RefreshIndicator(
         color: context.df.primary,
         onRefresh: () async {
@@ -87,36 +106,15 @@ class TasksScreen extends ConsumerWidget {
             slivers: [
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
               SliverToBoxAdapter(
-                child: _SectionHeader(
+                child: _JobTableSection(
                   title: '进行中',
                   trailing: active.isEmpty ? null : '${active.length} 个任务',
+                  jobs: active,
+                  active: true,
+                  emptyText: '当前没有进行中的任务',
                 ),
               ),
-              if (active.isEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Text('当前没有进行中的任务',
-                        style:
-                            TextStyle(color: context.df.textLo, fontSize: 13)),
-                  ),
-                )
-              else
-                SliverList.builder(
-                  itemCount: active.length,
-                  itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _ActiveJobCard(job: active[i]),
-                  ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-              SliverToBoxAdapter(
-                child: _HistoryHeader(
-                  projects: projects,
-                  effectiveId: effectiveId,
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
               ..._historySlivers(context, ref, projectsAsync, effectiveId),
               const SliverToBoxAdapter(child: SizedBox(height: 40)),
             ],
@@ -132,13 +130,21 @@ class TasksScreen extends ConsumerWidget {
     AsyncValue<List<Project>> projectsAsync,
     String? effectiveId,
   ) {
+    final historyPicker = _ProjectPicker(
+      projects: projectsAsync.value ?? const <Project>[],
+      effectiveId: effectiveId,
+    );
     if (projectsAsync.isLoading && !projectsAsync.hasValue) {
       return [
         SliverToBoxAdapter(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: context.df.primary),
+          child: _JobTableSection(
+            title: '历史',
+            accessory: historyPicker,
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: CircularProgressIndicator(color: context.df.primary),
+              ),
             ),
           ),
         ),
@@ -147,20 +153,30 @@ class TasksScreen extends ConsumerWidget {
     if (projectsAsync.hasError && !projectsAsync.hasValue) {
       return [
         SliverToBoxAdapter(
-          child: ErrorCard(
-            message: projectsAsync.error.toString(),
-            onRetry: () => ref.invalidate(projectsProvider),
+          child: _JobTableSection(
+            title: '历史',
+            accessory: historyPicker,
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: ErrorCard(
+                message: projectsAsync.error.toString(),
+                onRetry: () => ref.invalidate(projectsProvider),
+              ),
+            ),
           ),
         ),
       ];
     }
     if (effectiveId == null) {
-      return const [
+      return [
         SliverToBoxAdapter(
-          child: EmptyHint(
-            icon: Icons.folder_off_outlined,
-            title: '暂无项目',
-            subtitle: '创建项目并发起生成后，这里会显示任务历史',
+          child: _JobTableSection(
+            title: '历史',
+            body: const EmptyHint(
+              icon: Icons.folder_off_outlined,
+              title: '暂无项目',
+              subtitle: '创建项目并发起生成后，这里会显示任务历史',
+            ),
           ),
         ),
       ];
@@ -170,10 +186,14 @@ class TasksScreen extends ConsumerWidget {
     if (jobsAsync.isLoading && !jobsAsync.hasValue) {
       return [
         SliverToBoxAdapter(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: context.df.primary),
+          child: _JobTableSection(
+            title: '历史',
+            accessory: historyPicker,
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: CircularProgressIndicator(color: context.df.primary),
+              ),
             ),
           ),
         ),
@@ -182,292 +202,508 @@ class TasksScreen extends ConsumerWidget {
     if (jobsAsync.hasError && !jobsAsync.hasValue) {
       return [
         SliverToBoxAdapter(
-          child: ErrorCard(
-            message: jobsAsync.error.toString(),
-            onRetry: () => ref.invalidate(projectJobsProvider(effectiveId)),
+          child: _JobTableSection(
+            title: '历史',
+            accessory: historyPicker,
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: ErrorCard(
+                message: jobsAsync.error.toString(),
+                onRetry: () => ref.invalidate(projectJobsProvider(effectiveId)),
+              ),
+            ),
           ),
         ),
       ];
     }
     final jobs = (jobsAsync.value ?? const <Job>[]).take(50).toList();
-    if (jobs.isEmpty) {
-      return [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Text('该项目暂无历史任务',
-                style: TextStyle(color: context.df.textLo, fontSize: 13)),
-          ),
-        ),
-      ];
-    }
     return [
-      SliverList.builder(
-        itemCount: jobs.length,
-        itemBuilder: (context, i) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _HistoryTile(job: jobs[i]),
+      SliverToBoxAdapter(
+        child: _JobTableSection(
+          title: '历史',
+          accessory: historyPicker,
+          trailing: jobs.isEmpty ? null : '最近 ${jobs.length} 条',
+          jobs: jobs,
+          emptyText: '该项目暂无历史任务',
         ),
       ),
     ];
   }
 }
 
-class _SectionHeader extends StatelessWidget {
+const _statusColumnWidth = 96.0;
+const _typeColumnWidth = 132.0;
+const _durationColumnWidth = 84.0;
+const _finishedColumnWidth = 104.0;
+const _actionColumnWidth = 76.0;
+const _tableMinWidth = 760.0;
+
+/// 历史区项目选择器。
+class _ProjectPicker extends ConsumerWidget {
+  final List<Project> projects;
+  final String? effectiveId;
+
+  const _ProjectPicker({required this.projects, required this.effectiveId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (projects.isEmpty) return const SizedBox.shrink();
+    return DropdownMenu<String>(
+      key: ValueKey('history-project-$effectiveId'),
+      initialSelection: effectiveId,
+      width: 220,
+      requestFocusOnTap: false,
+      leadingIcon:
+          Icon(Icons.movie_outlined, size: 18, color: context.df.textLo),
+      textStyle: TextStyle(fontSize: 13, color: context.df.textHi),
+      inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        filled: true,
+        fillColor: context.df.surface,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: context.df.stroke),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: context.df.stroke),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: context.df.primary, width: 1.5),
+        ),
+      ),
+      dropdownMenuEntries: [
+        for (final p in projects) DropdownMenuEntry(value: p.id, label: p.name),
+      ],
+      onSelected: (v) {
+        if (v != null) {
+          ref.read(_selectedProjectProvider.notifier).state = v;
+        }
+      },
+    );
+  }
+}
+
+class _JobTableSection extends StatelessWidget {
   final String title;
   final String? trailing;
+  final Widget? accessory;
+  final List<Job> jobs;
+  final bool active;
+  final String emptyText;
+  final Widget? body;
 
-  const _SectionHeader({required this.title, this.trailing});
+  const _JobTableSection({
+    required this.title,
+    this.trailing,
+    this.accessory,
+    this.jobs = const [],
+    this.active = false,
+    this.emptyText = '暂无任务',
+    this.body,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          if (trailing != null) ...[
-            const SizedBox(width: 10),
-            Text(trailing!,
-                style: TextStyle(color: context.df.textLo, fontSize: 12)),
-          ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Row(
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                if (trailing != null) ...[
+                  const SizedBox(width: 10),
+                  Text(
+                    trailing!,
+                    style: TextStyle(color: context.df.textLo, fontSize: 12),
+                  ),
+                ],
+                if (accessory != null) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: accessory!,
+                    ),
+                  ),
+                ] else
+                  const Spacer(),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          if (body != null)
+            body!
+          else if (jobs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+              child: Text(
+                emptyText,
+                style: TextStyle(color: context.df.textLo, fontSize: 13),
+              ),
+            )
+          else
+            _JobTable(jobs: jobs, active: active),
         ],
       ),
     );
   }
 }
 
-/// 历史区标题 + 项目选择器。
-class _HistoryHeader extends ConsumerWidget {
-  final List<Project> projects;
-  final String? effectiveId;
+class _JobTable extends StatelessWidget {
+  final List<Job> jobs;
+  final bool active;
 
-  const _HistoryHeader({required this.projects, required this.effectiveId});
+  const _JobTable({required this.jobs, required this.active});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
-      children: [
-        Text('历史', style: Theme.of(context).textTheme.titleMedium),
-        const Spacer(),
-        if (projects.isNotEmpty)
-          DropdownMenu<String>(
-            key: ValueKey('history-project-$effectiveId'),
-            initialSelection: effectiveId,
-            width: 220,
-            requestFocusOnTap: false,
-            leadingIcon:
-                Icon(Icons.movie_outlined, size: 18, color: context.df.textLo),
-            textStyle: TextStyle(fontSize: 13, color: context.df.textHi),
-            inputDecorationTheme: InputDecorationTheme(
-              isDense: true,
-              filled: true,
-              fillColor: context.df.bg,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(
-                borderRadius: const BorderRadius.all(Radius.circular(10)),
-                borderSide: BorderSide(color: context.df.stroke),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: const BorderRadius.all(Radius.circular(10)),
-                borderSide: BorderSide(color: context.df.stroke),
-              ),
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = math.max(constraints.maxWidth, _tableMinWidth);
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: width,
+            child: Column(
+              children: [
+                const _JobTableHeader(),
+                for (final (i, job) in jobs.indexed)
+                  _JobTableRow(
+                    job: job,
+                    active: active,
+                    isLast: i == jobs.length - 1,
+                  ),
+              ],
             ),
-            dropdownMenuEntries: [
-              for (final p in projects)
-                DropdownMenuEntry(value: p.id, label: p.name),
-            ],
-            onSelected: (v) {
-              if (v != null) {
-                ref.read(_selectedProjectProvider.notifier).state = v;
-              }
-            },
           ),
-      ],
+        );
+      },
     );
   }
 }
 
-/// 进行中的任务卡片：图标 + 类型/目标 + 状态 + 排队可取消。
-class _ActiveJobCard extends ConsumerWidget {
-  final Job job;
+class _JobTableHeader extends StatelessWidget {
+  const _JobTableHeader();
 
-  const _ActiveJobCard({required this.job});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: context.df.bg,
+        border: Border(bottom: BorderSide(color: context.df.stroke)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: Row(
+        children: const [
+          _HeaderCell('状态', width: _statusColumnWidth),
+          _HeaderCell('类型', width: _typeColumnWidth),
+          Expanded(child: _HeaderCell('目标')),
+          _HeaderCell('耗时', width: _durationColumnWidth),
+          _HeaderCell('完成时间', width: _finishedColumnWidth),
+          _HeaderCell('操作', width: _actionColumnWidth, alignRight: true),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderCell extends StatelessWidget {
+  final String label;
+  final double? width;
+  final bool alignRight;
+
+  const _HeaderCell(this.label, {this.width, this.alignRight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Text(
+      label,
+      textAlign: alignRight ? TextAlign.right : TextAlign.left,
+      style: TextStyle(
+        color: context.df.textLo,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+    if (width == null) return child;
+    return SizedBox(width: width, child: child);
+  }
+}
+
+class _JobTableRow extends ConsumerWidget {
+  final Job job;
+  final bool active;
+  final bool isLast;
+
+  const _JobTableRow({
+    required this.job,
+    required this.active,
+    required this.isLast,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: context.df.bg,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: context.df.stroke),
-              ),
-              child: Icon(_kindIcon(job.kind),
-                  size: 19, color: context.df.textMid),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${_kindLabel(job.kind)} · ${job.targetLabel}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13.5),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '创建于 ${_hms(job.createdAt)}'
-                    '${job.attempt > 1 ? ' · 第 ${job.attempt} 次尝试' : ''}',
-                    style: TextStyle(color: context.df.textLo, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            StatusChip(job.state, dense: true),
-            if (job.state == 'queued')
-              IconButton(
+    if (!active && job.state == 'failed') {
+      return _FailedJobTableRow(job: job, isLast: isLast);
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : Border(bottom: BorderSide(color: context.df.stroke)),
+      ),
+      child: _JobRowContent(
+        job: job,
+        action: active && job.state == 'queued'
+            ? IconButton(
                 tooltip: '取消任务',
                 visualDensity: VisualDensity.compact,
-                icon: Icon(Icons.close_rounded,
-                    size: 18, color: context.df.textLo),
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: context.df.textLo,
+                ),
                 onPressed: () => runAction(context, ref, () async {
                   await ref.read(engineProvider).cancelJob(job.id);
                   ref.invalidate(projectJobsProvider(job.projectId));
                 }, successMessage: '任务已取消'),
-              ),
-          ],
-        ),
+              )
+            : const _ActionPlaceholder(),
       ),
     );
   }
 }
 
-/// 历史任务行：失败可展开看完整错误并重试；完成显示结果摘要。
-class _HistoryTile extends ConsumerWidget {
+class _FailedJobTableRow extends ConsumerStatefulWidget {
   final Job job;
+  final bool isLast;
 
-  const _HistoryTile({required this.job});
-
-  String get _meta {
-    final parts = <String>[
-      if (job.durationMs != null) _fmtDuration(job.durationMs),
-      if (job.finishedAt != null) '完成于 ${_hms(job.finishedAt)}',
-    ];
-    return parts.join(' · ');
-  }
+  const _FailedJobTableRow({required this.job, required this.isLast});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (job.state == 'failed') return _failedTile(context, ref);
+  ConsumerState<_FailedJobTableRow> createState() => _FailedJobTableRowState();
+}
 
-    final result = job.result ?? '';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _titleRow(context),
-            if (job.state == 'done' && result.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                result,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: context.df.textLo, fontSize: 12, height: 1.5),
+class _FailedJobTableRowState extends ConsumerState<_FailedJobTableRow> {
+  bool _expanded = false;
+
+  Future<void> _retry() => runAction(context, ref, () async {
+        await ref.read(engineProvider).retryJob(widget.job.id);
+        ref.invalidate(projectJobsProvider(widget.job.projectId));
+      }, successMessage: '已重新排队');
+
+  @override
+  Widget build(BuildContext context) {
+    final error =
+        (widget.job.error?.isNotEmpty ?? false) ? widget.job.error! : '未知错误';
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: widget.isLast
+            ? null
+            : Border(bottom: BorderSide(color: context.df.stroke)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: _JobRowContent(
+              job: widget.job,
+              action: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: '重试',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 32,
+                    ),
+                    padding: EdgeInsets.zero,
+                    icon: Icon(Icons.refresh_rounded,
+                        size: 17, color: context.df.red),
+                    onPressed: _retry,
+                  ),
+                  IconButton(
+                    tooltip: _expanded ? '收起原因' : '查看原因',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 32,
+                    ),
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: context.df.textLo,
+                    ),
+                    onPressed: () => setState(() => _expanded = !_expanded),
+                  ),
+                ],
               ),
-            ],
-          ],
-        ),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                242,
+                0,
+                14,
+                12,
+              ),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: context.df.red.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border:
+                      Border.all(color: context.df.red.withValues(alpha: 0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText(
+                      error,
+                      style: TextStyle(
+                        color: context.df.red,
+                        fontSize: 12.5,
+                        height: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('重试'),
+                        onPressed: _retry,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
+}
 
-  Widget _titleRow(BuildContext context) {
-    return Row(
-      children: [
-        StatusChip(job.state, dense: true, errorTooltip: job.error),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            '${_kindLabel(job.kind)} · ${job.targetLabel}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+class _JobRowContent extends StatelessWidget {
+  final Job job;
+  final Widget action;
+
+  const _JobRowContent({required this.job, required this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = _fmtDuration(job.durationMs);
+    final finished = job.finishedAt == null ? '—' : _hms(job.finishedAt);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      child: Row(
+        children: [
+          SizedBox(
+            width: _statusColumnWidth,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: StatusChip(
+                job.state,
+                dense: true,
+                errorTooltip: job.error,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(_meta, style: TextStyle(color: context.df.textLo, fontSize: 11.5)),
-      ],
-    );
-  }
-
-  Widget _failedTile(BuildContext context, WidgetRef ref) {
-    final error = (job.error?.isNotEmpty ?? false) ? job.error! : '未知错误';
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          expandedCrossAxisAlignment: CrossAxisAlignment.start,
-          iconColor: context.df.textMid,
-          collapsedIconColor: context.df.textLo,
-          title: _titleRow(context),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4),
+          SizedBox(
+            width: _typeColumnWidth,
+            child: Row(
+              children: [
+                Icon(_kindIcon(job.kind), size: 16, color: context.df.textLo),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _kindLabel(job.kind),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: context.df.textHi,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
             child: Text(
-              error,
+              job.targetLabel.isEmpty ? '—' : job.targetLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: context.df.red, fontSize: 12),
+              style: TextStyle(color: context.df.textMid, fontSize: 12.5),
             ),
           ),
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: context.df.red.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: context.df.red.withValues(alpha: 0.35)),
-              ),
-              child: SelectableText(
-                error,
-                style: TextStyle(
-                    color: context.df.red, fontSize: 12.5, height: 1.6),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('重试'),
-                onPressed: () => runAction(context, ref, () async {
-                  await ref.read(engineProvider).retryJob(job.id);
-                  ref.invalidate(projectJobsProvider(job.projectId));
-                }, successMessage: '已重新排队'),
-              ),
-            ),
-          ],
-        ),
+          _ValueCell(duration.isEmpty ? '—' : duration,
+              width: _durationColumnWidth),
+          _ValueCell(finished, width: _finishedColumnWidth),
+          SizedBox(
+            width: _actionColumnWidth,
+            child: Align(alignment: Alignment.centerRight, child: action),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _ValueCell extends StatelessWidget {
+  final String value;
+  final double width;
+
+  const _ValueCell(this.value, {required this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: context.df.textLo, fontSize: 12),
+      ),
+    );
+  }
+}
+
+class _ActionPlaceholder extends StatelessWidget {
+  const _ActionPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '—',
+      style: TextStyle(color: context.df.textLo, fontSize: 12),
     );
   }
 }

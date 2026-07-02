@@ -7,6 +7,19 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 
+Color? _lightAppBarBackground(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.light
+        ? context.df.surface
+        : null;
+
+PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
+  if (Theme.of(context).brightness != Brightness.light) return null;
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(1),
+    child: Container(height: 1, color: context.df.stroke),
+  );
+}
+
 /// 小说页：导入 / 编辑项目原著文本（覆盖式保存）。
 class NovelScreen extends ConsumerStatefulWidget {
   final String projectId;
@@ -49,6 +62,8 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: _lightAppBarBackground(context),
+        bottom: _lightAppBarBottom(context),
         leading: IconButton(
           tooltip: '返回项目',
           icon: const Icon(Icons.arrow_back_rounded),
@@ -100,21 +115,32 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: TextField(
-            controller: _contentCtrl,
-            maxLines: null,
-            expands: true,
-            textAlignVertical: TextAlignVertical.top,
-            onChanged: (_) => setState(() {}),
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontFamilyFallback: ['Menlo', 'Consolas', 'PingFang SC'],
-              fontSize: 14,
-              height: 1.8,
-              color: context.df.textHi,
-            ),
-            decoration: const InputDecoration(
-              hintText: '粘贴小说正文……',
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _contentCtrl,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                onChanged: (_) => setState(() {}),
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontFamilyFallback: ['Menlo', 'Consolas', 'PingFang SC'],
+                  fontSize: 14,
+                  height: 1.8,
+                  color: context.df.textHi,
+                ),
+                decoration: const InputDecoration(
+                  hintText: '粘贴小说正文……',
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
             ),
           ),
         ),

@@ -8,6 +8,19 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 
+Color? _lightAppBarBackground(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.light
+        ? context.df.surface
+        : null;
+
+PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
+  if (Theme.of(context).brightness != Brightness.light) return null;
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(1),
+    child: Container(height: 1, color: context.df.stroke),
+  );
+}
+
 /// 项目主页：显式流水线枢纽（小说 → 剧本 → 素材 → 分镜/镜头图 → 视频）。
 class ProjectScreen extends ConsumerWidget {
   final String projectId;
@@ -28,6 +41,8 @@ class ProjectScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: _lightAppBarBackground(context),
+        bottom: _lightAppBarBottom(context),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: '返回项目列表',
@@ -123,6 +138,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 1,
           title: '小说',
+          summary: novelDone ? '1 篇' : '0 篇',
           status: novelDone ? 'done' : 'none',
           completed: novelDone,
           subtitle: novelDone ? '已导入' : '未导入，先把原著小说粘贴进来',
@@ -138,6 +154,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 2,
           title: '剧本',
+          summary: '${s.episodes} 集',
           status: scriptState.status,
           completed: s.episodes > 0,
           failedJob: scriptState.failedJob,
@@ -183,6 +200,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 3,
           title: '素材',
+          summary: '${s.assetsDone}/${s.assets}',
           status: assetState.status,
           completed: s.assets > 0 && s.assetsDone == s.assets,
           failedJob: assetState.failedJob,
@@ -218,6 +236,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 4,
           title: '分镜与镜头图',
+          summary: '${s.shotsImageDone}/${s.shots}',
           status: shotImageState.status,
           completed: s.shots > 0 && s.shotsImageDone == s.shots,
           failedJob: shotImageState.failedJob,
@@ -228,6 +247,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 5,
           title: '视频',
+          summary: '${s.shotsVideoDone}/${s.shots}',
           status: videoState.status,
           completed: s.shots > 0 && s.shotsVideoDone == s.shots,
           failedJob: videoState.failedJob,
@@ -446,6 +466,7 @@ class _StageState {
 class _StageCard extends StatelessWidget {
   final int index;
   final String title;
+  final String? summary;
   final String status;
   final bool completed;
   final String subtitle;
@@ -458,6 +479,7 @@ class _StageCard extends StatelessWidget {
   const _StageCard({
     required this.index,
     required this.title,
+    this.summary,
     required this.status,
     required this.completed,
     required this.subtitle,
@@ -478,12 +500,12 @@ class _StageCard extends StatelessWidget {
         children: [
           // 左侧：序号徽标 + 连接线
           SizedBox(
-            width: 36,
+            width: 32,
             child: Column(
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 28,
+                  height: 28,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: completed ? context.df.primary : context.df.card,
@@ -491,14 +513,14 @@ class _StageCard extends StatelessWidget {
                     border: Border.all(
                         color:
                             completed ? context.df.primary : context.df.stroke,
-                        width: 1.5),
+                        width: 1),
                   ),
                   child: completed
-                      ? Icon(Icons.check_rounded, size: 18, color: onPrimary)
+                      ? Icon(Icons.check_rounded, size: 16, color: onPrimary)
                       : Text(
                           '$index',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: context.df.textMid,
                           ),
@@ -507,8 +529,8 @@ class _StageCard extends StatelessWidget {
                 if (!isLast)
                   Expanded(
                     child: Container(
-                      width: 2,
-                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      width: 1,
+                      margin: const EdgeInsets.symmetric(vertical: 3),
                       decoration: BoxDecoration(
                         color: completed
                             ? context.df.primaryDim
@@ -520,26 +542,46 @@ class _StageCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           // 右侧：内容卡
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
               child: Card(
+                elevation: 0,
+                color: context.df.card,
+                surfaceTintColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(DF.radius),
+                  side: BorderSide(color: context.df.stroke),
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Flexible(
+                          Expanded(
                             child: Text(
                               title,
                               style: Theme.of(context).textTheme.titleMedium,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          if (summary != null) ...[
+                            const SizedBox(width: 10),
+                            Text(
+                              summary!,
+                              style: TextStyle(
+                                color: context.df.textLo,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: 8),
                           StatusChip(
                             status,
                             errorTooltip: failedJob?.error,
@@ -551,7 +593,7 @@ class _StageCard extends StatelessWidget {
                       Text(
                         subtitle,
                         style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12.5,
                             color: context.df.textMid,
                             height: 1.5),
                       ),
@@ -597,11 +639,11 @@ class _StageCard extends StatelessWidget {
                         ),
                       ],
                       if (actions.isNotEmpty) ...[
-                        const SizedBox(height: 14),
-                        Wrap(spacing: 10, runSpacing: 10, children: actions),
+                        const SizedBox(height: 12),
+                        Wrap(spacing: 8, runSpacing: 8, children: actions),
                       ],
                       if (extra != null) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 12),
                         extra!,
                       ],
                     ],

@@ -10,6 +10,19 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 
+Color? _lightAppBarBackground(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.light
+        ? context.df.surface
+        : null;
+
+PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
+  if (Theme.of(context).brightness != Brightness.light) return null;
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(1),
+    child: Container(height: 1, color: context.df.stroke),
+  );
+}
+
 /// 单集剧本页：梗概 + 场次卡片（只读），可发起分镜生成 / 跳转分镜列表。
 class EpisodeScreen extends ConsumerWidget {
   final String projectId;
@@ -89,6 +102,8 @@ class EpisodeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: _lightAppBarBackground(context),
+        bottom: _lightAppBarBottom(context),
         leading: IconButton(
           tooltip: '返回项目',
           icon: const Icon(Icons.arrow_back_rounded),

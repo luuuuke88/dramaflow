@@ -6,6 +6,19 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 
+Color? _lightAppBarBackground(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.light
+        ? context.df.surface
+        : null;
+
+PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
+  if (Theme.of(context).brightness != Brightness.light) return null;
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(1),
+    child: Container(height: 1, color: context.df.stroke),
+  );
+}
+
 /// 设置页：连接 / 模型服务 / 视频服务。
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -21,6 +34,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: _lightAppBarBackground(context),
+        bottom: _lightAppBarBottom(context),
         title: const Text('设置'),
         actions: [
           IconButton(
@@ -43,9 +58,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 16),
             _connectionCard(),
             const SizedBox(height: 16),
-            _modelServicesCard(settingsAsync),
-            const SizedBox(height: 16),
-            _videoServiceCard(settingsAsync),
+            _servicesCard(settingsAsync),
             const SizedBox(height: 40),
           ],
         ),
@@ -57,44 +70,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _appearanceCard() {
     final themeMode = ref.watch(themeModeProvider);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('外观', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 14),
-            SegmentedButton<ThemeMode>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(
-                  value: ThemeMode.light,
-                  icon: Icon(Icons.light_mode_outlined, size: 18),
-                  label: Text('浅色'),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.dark,
-                  icon: Icon(Icons.dark_mode_outlined, size: 18),
-                  label: Text('深色'),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.system,
-                  icon: Icon(Icons.brightness_auto_outlined, size: 18),
-                  label: Text('跟随系统'),
-                ),
-              ],
-              selected: {themeMode},
-              onSelectionChanged: (selected) {
-                final next = selected.single;
-                if (next == themeMode) return;
-                runAction(context, ref, () async {
-                  await ref.read(themeModeProvider.notifier).setThemeMode(next);
-                }, successMessage: '外观已更新');
-              },
-            ),
-          ],
+    return _SettingsCard(
+      title: '外观',
+      child: SegmentedButton<ThemeMode>(
+        showSelectedIcon: false,
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? context.df.primaryDim
+                : context.df.surface,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? context.df.primary
+                : context.df.textMid,
+          ),
+          side: WidgetStateProperty.all(BorderSide(color: context.df.stroke)),
         ),
+        segments: const [
+          ButtonSegment(
+            value: ThemeMode.light,
+            icon: Icon(Icons.light_mode_outlined, size: 18),
+            label: Text('浅色'),
+          ),
+          ButtonSegment(
+            value: ThemeMode.dark,
+            icon: Icon(Icons.dark_mode_outlined, size: 18),
+            label: Text('深色'),
+          ),
+          ButtonSegment(
+            value: ThemeMode.system,
+            icon: Icon(Icons.brightness_auto_outlined, size: 18),
+            label: Text('跟随系统'),
+          ),
+        ],
+        selected: {themeMode},
+        onSelectionChanged: (selected) {
+          final next = selected.single;
+          if (next == themeMode) return;
+          runAction(context, ref, () async {
+            await ref.read(themeModeProvider.notifier).setThemeMode(next);
+          }, successMessage: '外观已更新');
+        },
       ),
     );
   }
@@ -103,39 +120,93 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _connectionCard() {
     final engine = ref.read(engineProvider);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+    return _SettingsCard(
+      title: '存储与引擎',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.folder_outlined, size: 18, color: context.df.textLo),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SelectableText(
+                  engine.mediaAbsPath(''),
+                  style: TextStyle(color: context.df.textMid, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '引擎内嵌运行，数据与媒体全部保存在本机，无需任何后台服务',
+            style: TextStyle(color: context.df.textLo, fontSize: 12),
+          ),
+          const Divider(height: 28),
+          Text('引擎状态',
+              style: TextStyle(
+                  color: context.df.textMid,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          _healthStatus(),
+        ],
+      ),
+    );
+  }
+
+  Widget _servicesCard(AsyncValue<AppSettings> settingsAsync) {
+    return _SettingsCard(
+      title: '模型与视频服务',
+      child: AsyncView<AppSettings>(
+        value: settingsAsync,
+        onRetry: () => ref.invalidate(settingsProvider),
+        builder: (s) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('存储与引擎', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.folder_outlined, size: 18, color: context.df.textLo),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SelectableText(
-                    engine.mediaAbsPath(''),
-                    style: TextStyle(color: context.df.textMid, fontSize: 12),
-                  ),
-                ),
+            _SettingsGroup(
+              title: '文本模型',
+              rows: [
+                ('Base URL', s.textBaseUrl),
+                ('模型', s.textModel),
               ],
+              onEdit: () => _editModelGroup(
+                title: '编辑文本模型',
+                baseUrl: s.textBaseUrl,
+                model: s.textModel,
+                baseUrlKey: 'textBaseUrl',
+                apiKeyKey: 'textApiKey',
+                modelKey: 'textModel',
+              ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              '引擎内嵌运行，数据与媒体全部保存在本机，无需任何后台服务',
-              style: TextStyle(color: context.df.textLo, fontSize: 12),
+            const Divider(height: 24),
+            _SettingsGroup(
+              title: '图片模型',
+              rows: [
+                ('Base URL', s.imageBaseUrl),
+                ('模型', s.imageModel),
+              ],
+              onEdit: () => _editModelGroup(
+                title: '编辑图片模型',
+                baseUrl: s.imageBaseUrl,
+                model: s.imageModel,
+                baseUrlKey: 'imageBaseUrl',
+                apiKeyKey: 'imageApiKey',
+                modelKey: 'imageModel',
+              ),
             ),
-            const Divider(height: 28),
-            Text('引擎状态',
-                style: TextStyle(
-                    color: context.df.textMid,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
-            _healthStatus(),
+            const Divider(height: 24),
+            _SettingsGroup(
+              title: '火山引擎 · 即梦视频',
+              badge: const _VideoServiceBadge(),
+              rows: [
+                ('模型', s.videoModel),
+                ('分辨率', s.videoResolution),
+                ('时长', '${s.videoDuration} 秒'),
+                ('API Key', s.videoApiKey),
+              ],
+              onEdit: () => _editVideoGroup(s),
+            ),
           ],
         ),
       ),
@@ -238,63 +309,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  // ---------- 2. 模型服务 ----------
-
-  Widget _modelServicesCard(AsyncValue<AppSettings> settingsAsync) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('模型服务', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            AsyncView<AppSettings>(
-              value: settingsAsync,
-              onRetry: () => ref.invalidate(settingsProvider),
-              builder: (s) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SettingsGroup(
-                    title: '文本模型',
-                    rows: [
-                      ('Base URL', s.textBaseUrl),
-                      ('模型', s.textModel),
-                    ],
-                    onEdit: () => _editModelGroup(
-                      title: '编辑文本模型',
-                      baseUrl: s.textBaseUrl,
-                      model: s.textModel,
-                      baseUrlKey: 'textBaseUrl',
-                      apiKeyKey: 'textApiKey',
-                      modelKey: 'textModel',
-                    ),
-                  ),
-                  const Divider(height: 24),
-                  _SettingsGroup(
-                    title: '图片模型',
-                    rows: [
-                      ('Base URL', s.imageBaseUrl),
-                      ('模型', s.imageModel),
-                    ],
-                    onEdit: () => _editModelGroup(
-                      title: '编辑图片模型',
-                      baseUrl: s.imageBaseUrl,
-                      model: s.imageModel,
-                      baseUrlKey: 'imageBaseUrl',
-                      apiKeyKey: 'imageApiKey',
-                      modelKey: 'imageModel',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _editModelGroup({
     required String title,
     required String baseUrl,
@@ -367,61 +381,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.invalidate(settingsProvider);
   }
 
-  // ---------- 3. 视频服务 ----------
-
-  Widget _videoServiceCard(AsyncValue<AppSettings> settingsAsync) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text('视频服务', style: Theme.of(context).textTheme.titleMedium),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: context.df.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                        color: context.df.primary.withValues(alpha: 0.5)),
-                  ),
-                  child: Text(
-                    '通道已接好 · 待实测',
-                    style: TextStyle(
-                        color: context.df.primary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            AsyncView<AppSettings>(
-              value: settingsAsync,
-              onRetry: () => ref.invalidate(settingsProvider),
-              builder: (s) => _SettingsGroup(
-                title: '火山引擎 · 即梦视频',
-                rows: [
-                  ('模型', s.videoModel),
-                  ('分辨率', s.videoResolution),
-                  ('时长', '${s.videoDuration} 秒'),
-                  ('API Key', s.videoApiKey),
-                ],
-                onEdit: () => _editVideoGroup(s),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _editVideoGroup(AppSettings s) async {
     final modelCtrl = TextEditingController(text: s.videoModel);
     final keyCtrl = TextEditingController();
@@ -453,6 +412,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     label: const Text('分辨率'),
                     expandedInsets: EdgeInsets.zero,
                     requestFocusOnTap: false,
+                    inputDecorationTheme: InputDecorationTheme(
+                      filled: true,
+                      fillColor: context.df.surface,
+                      border: OutlineInputBorder(
+                        borderRadius:
+                            const BorderRadius.all(Radius.circular(10)),
+                        borderSide: BorderSide(color: context.df.stroke),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius:
+                            const BorderRadius.all(Radius.circular(10)),
+                        borderSide: BorderSide(color: context.df.stroke),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius:
+                            const BorderRadius.all(Radius.circular(10)),
+                        borderSide:
+                            BorderSide(color: context.df.primary, width: 1.5),
+                      ),
+                    ),
                     dropdownMenuEntries: [
                       for (final r in resolutions)
                         DropdownMenuEntry(value: r, label: r),
@@ -517,14 +496,66 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
+class _SettingsCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _SettingsCard({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VideoServiceBadge extends StatelessWidget {
+  const _VideoServiceBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: context.df.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: context.df.primary.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        '通道已接好 · 待实测',
+        style: TextStyle(
+          color: context.df.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
 /// 组标题 + 只读键值行 + 编辑按钮。
 class _SettingsGroup extends StatelessWidget {
   final String title;
+  final Widget? badge;
   final List<(String, String)> rows;
   final VoidCallback onEdit;
 
   const _SettingsGroup({
     required this.title,
+    this.badge,
     required this.rows,
     required this.onEdit,
   });
@@ -545,6 +576,11 @@ class _SettingsGroup extends StatelessWidget {
                     fontWeight: FontWeight.w600),
               ),
             ),
+            if (badge != null) ...[
+              const SizedBox(width: 10),
+              badge!,
+              const SizedBox(width: 8),
+            ],
             TextButton.icon(
               icon: const Icon(Icons.edit_outlined, size: 16),
               label: const Text('编辑'),
