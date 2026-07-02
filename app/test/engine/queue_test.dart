@@ -1,6 +1,8 @@
-import 'package:flutter_test/flutter_test.dart';
+// ignore_for_file: depend_on_referenced_packages
+
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
+import 'package:test/test.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/queue.dart';
 
@@ -82,8 +84,8 @@ void main() {
     q = JobQueue(db, run: (j, t) async => 'ok');
     q.recoverOnColdStart();
     expect(jobState('jr'), 'failed');
-    expect(db.select('SELECT error FROM jobs').first['error'],
-        contains('应用重启'));
+    expect(
+        db.select('SELECT error FROM jobs').first['error'], contains('应用重启'));
     expect(db.select('SELECT status FROM assets').first['status'], 'failed');
   });
 

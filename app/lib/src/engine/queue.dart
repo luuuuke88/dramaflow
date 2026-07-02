@@ -32,6 +32,7 @@ class JobQueue {
     'asset_image': 'image',
     'shot_image': 'image',
     'shot_video': 'video',
+    'compose': 'video',
   };
   static const laneCap = {'text': 1, 'image': 1, 'video': 1};
 
@@ -39,6 +40,8 @@ class JobQueue {
       {required this.run, this.tick = const Duration(milliseconds: 500)});
 
   Stream<void> get events => _events.stream;
+
+  void notifyChanged() => _events.add(null);
 
   void start() {
     if (_started) return;
@@ -48,8 +51,9 @@ class JobQueue {
 
   /// 仅冷启动调用（resume 不调用——后台冻结期间任务可能仍在收尾）
   void recoverOnColdStart() {
-    final n = db.select(
-        "SELECT COUNT(*) n FROM jobs WHERE state='running'").first['n'] as int;
+    final n = db
+        .select("SELECT COUNT(*) n FROM jobs WHERE state='running'")
+        .first['n'] as int;
     db.execute(
         "UPDATE jobs SET state='failed', error='应用重启，任务中断', finishedAt=? WHERE state='running'",
         [nowIso()]);
@@ -59,6 +63,8 @@ class JobQueue {
         "UPDATE shots SET imageStatus='failed', imageError='应用重启，任务中断' WHERE imageStatus='running'");
     db.execute(
         "UPDATE shots SET videoStatus='failed', videoError='应用重启，任务中断' WHERE videoStatus='running'");
+    db.execute(
+        "UPDATE episodes SET composeStatus='failed', composeError='应用重启，任务中断' WHERE composeStatus='running'");
     if (n > 0) _events.add(null);
   }
 
@@ -87,11 +93,9 @@ class JobQueue {
     return id;
   }
 
-  bool hasActiveJob(String kind, String targetId) => db
-      .select(
-          "SELECT id FROM jobs WHERE kind=? AND targetId=? AND state IN ('queued','running') LIMIT 1",
-          [kind, targetId])
-      .isNotEmpty;
+  bool hasActiveJob(String kind, String targetId) => db.select(
+      "SELECT id FROM jobs WHERE kind=? AND targetId=? AND state IN ('queued','running') LIMIT 1",
+      [kind, targetId]).isNotEmpty;
 
   void cancel(String jobId) {
     final rows = db.select(
@@ -129,6 +133,10 @@ class JobQueue {
       case 'shot_video':
         db.execute(
             "UPDATE shots SET videoStatus = CASE WHEN videoPath IS NOT NULL THEN 'done' ELSE 'none' END, videoError=NULL WHERE id=?",
+            [targetId]);
+      case 'compose':
+        db.execute(
+            "UPDATE episodes SET composeStatus = CASE WHEN composedPath IS NOT NULL THEN 'done' ELSE 'none' END, composeError=NULL WHERE id=?",
             [targetId]);
     }
   }
@@ -181,7 +189,11 @@ class JobQueue {
         final msg = errMessage(e);
         db.execute(
             "UPDATE jobs SET state='failed', error=?, finishedAt=? WHERE id=? AND state='running'",
-            [msg.length > 2000 ? msg.substring(0, 2000) : msg, nowIso(), job.id]);
+            [
+              msg.length > 2000 ? msg.substring(0, 2000) : msg,
+              nowIso(),
+              job.id
+            ]);
         finalState = 'failed';
       }
     } finally {

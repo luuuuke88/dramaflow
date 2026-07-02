@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:sqlite3/sqlite3.dart';
 import '../api/models.dart';
+import 'compose.dart';
 import 'config.dart';
 import 'db.dart';
+import 'director.dart';
 import 'media.dart';
 import 'providers/gateway.dart';
 import 'providers/resolve.dart';
@@ -22,21 +25,34 @@ class Engine {
   final MediaStore media;
   final ProviderGateway gateway;
   final EngineConfig config;
+  late final ComposeService compose;
   late final JobQueue queue;
+  late final Director director;
 
   Engine({
     required this.db,
     required this.media,
     required this.gateway,
     required this.config,
+    VideoComposer? composer,
+    Duration queueTick = const Duration(milliseconds: 500),
   }) {
-    final runners = Runners(db, gateway, media);
-    queue = JobQueue(db, run: runners.run);
+    _migrateLegacyVideoPaths(db);
+    final videoComposer = composer ?? const UnsupportedComposer();
+    compose = ComposeService(db: db, media: media, composer: videoComposer);
+    final runners = Runners(db, gateway, media, composer: videoComposer);
+    queue = JobQueue(db, run: runners.run, tick: queueTick);
+    director = Director(this);
+    queue.onJobFinished = (jobId, kind, state) {
+      unawaited(director.onJobFinished(jobId, kind, state));
+    };
   }
 
   /// 生产入口：开库、建媒体仓库、恢复中断任务、启动队列。
   static Future<Engine> boot(
-      {required String dataDir, required bool isMobile}) async {
+      {required String dataDir,
+      required bool isMobile,
+      VideoComposer? composer}) async {
     Directory(dataDir).createSync(recursive: true);
     final db = openEngineDb(path.join(dataDir, 'dramaflow.sqlite'));
     final config = EngineConfig(db, isMobile: isMobile);
@@ -46,7 +62,8 @@ class Engine {
         db: db,
         media: media,
         gateway: HttpProviderGateway(db, config, media),
-        config: config);
+        config: config,
+        composer: composer);
     engine.queue.recoverOnColdStart();
     engine.queue.start();
     return engine;
@@ -55,6 +72,54 @@ class Engine {
   String mediaAbsPath(String rel) => media.absPath(rel);
 
   Map<String, dynamic> _row(Row r) => Map<String, dynamic>.from(r);
+
+  VideoTake _take(Row r) => VideoTake.fromJson(_row(r));
+
+  static void _migrateLegacyVideoPaths(Database db) {
+    final legacy = db.select('''
+SELECT s.id shotId, s.videoPath
+FROM shots s
+WHERE s.videoPath IS NOT NULL
+  AND s.videoPath != ''
+  AND NOT EXISTS (
+    SELECT 1 FROM video_takes vt
+    WHERE vt.shotId=s.id AND vt.videoPath=s.videoPath
+  )
+''');
+    if (legacy.isNotEmpty) {
+      final stmt = db.prepare(
+          'INSERT INTO video_takes (id,shotId,videoPath,createdAt) VALUES (?,?,?,?)');
+      try {
+        for (final row in legacy) {
+          stmt.execute([
+            newId(),
+            row['shotId'] as String,
+            row['videoPath'] as String,
+            nowIso(),
+          ]);
+        }
+      } finally {
+        stmt.close();
+      }
+    }
+    final needsSelection = db.select('''
+SELECT s.id shotId, vt.id takeId, vt.videoPath
+FROM shots s
+JOIN video_takes vt ON vt.shotId=s.id AND vt.videoPath=s.videoPath
+WHERE s.videoPath IS NOT NULL
+  AND s.videoPath != ''
+  AND s.selectedTakeId IS NULL
+ORDER BY vt.createdAt ASC
+''');
+    final seen = <String>{};
+    for (final row in needsSelection) {
+      final shotId = row['shotId'] as String;
+      if (!seen.add(shotId)) continue;
+      db.execute(
+          "UPDATE shots SET selectedTakeId=?, videoPath=?, videoStatus='done' WHERE id=?",
+          [row['takeId'] as String, row['videoPath'] as String, shotId]);
+    }
+  }
 
   static void _seedM2Defaults(Database db, EngineConfig config,
       {required bool isMobile}) {
@@ -271,7 +336,7 @@ class Engine {
       throw EngineException('剧本生成任务已在进行中');
     }
     final downstream = db.select(
-        "SELECT COUNT(*) n FROM jobs WHERE projectId=? AND state IN ('queued','running') AND kind IN ('storyboard_gen','shot_image','shot_video')",
+        "SELECT COUNT(*) n FROM jobs WHERE projectId=? AND state IN ('queued','running') AND kind IN ('storyboard_gen','shot_image','shot_video','compose')",
         [projectId]).first['n'] as int;
     if (downstream > 0) {
       throw EngineException('有分镜/镜头图/视频任务进行中，请等待完成或取消后再重新生成剧本');
@@ -412,7 +477,7 @@ class Engine {
     return _asset(db.select('SELECT * FROM assets WHERE id=?', [id]).first);
   }
 
-  String? _enqueueAssetImage(String assetId) {
+  String? _enqueueAssetImage(String assetId, {int attempt = 1}) {
     final rows = db
         .select('SELECT id, projectId, name FROM assets WHERE id=?', [assetId]);
     if (rows.isEmpty) return null;
@@ -424,7 +489,8 @@ class Engine {
         projectId: a['projectId'] as String,
         kind: 'asset_image',
         targetId: assetId,
-        targetLabel: '素材图·${a['name']}');
+        targetLabel: '素材图·${a['name']}',
+        attempt: attempt);
   }
 
   Future<String?> generateAssetImage(String assetId) async {
@@ -437,13 +503,37 @@ class Engine {
     return _enqueueAssetImage(assetId);
   }
 
-  Future<List<String>> generateAllAssetImages(String projectId) async => db
-      .select(
-          "SELECT id FROM assets WHERE projectId=? AND status NOT IN ('done','queued','running')",
-          [projectId])
-      .map((r) => _enqueueAssetImage(r['id'] as String))
-      .whereType<String>()
-      .toList();
+  Future<List<String>> generateAllAssetImages(String projectId,
+      {bool retryFailedOnce = false}) async {
+    final rows = retryFailedOnce
+        ? db.select('''
+SELECT a.id, a.status,
+  COALESCE((
+    SELECT MAX(j.attempt)
+    FROM jobs j
+    WHERE j.kind='asset_image' AND j.targetId=a.id
+  ), 0) maxAttempt
+FROM assets a
+WHERE a.projectId=?
+  AND a.status NOT IN ('done','queued','running')
+''', [projectId])
+        : db.select(
+            "SELECT id, status, 0 maxAttempt FROM assets WHERE projectId=? AND status NOT IN ('done','queued','running')",
+            [projectId]);
+    return rows
+        .map((r) {
+          final status = r['status'] as String;
+          var attempt = 1;
+          if (retryFailedOnce && status == 'failed') {
+            final maxAttempt = r['maxAttempt'] as int;
+            if (maxAttempt >= 2) return null;
+            attempt = maxAttempt <= 0 ? 2 : maxAttempt + 1;
+          }
+          return _enqueueAssetImage(r['id'] as String, attempt: attempt);
+        })
+        .whereType<String>()
+        .toList();
+  }
 
   // ---------- storyboard & shots ----------
 
@@ -456,8 +546,8 @@ class Engine {
       throw EngineException('分镜生成任务已在进行中');
     }
     final downstream = db.select(
-        "SELECT COUNT(*) n FROM jobs WHERE state IN ('queued','running') AND kind IN ('shot_image','shot_video') AND targetId IN (SELECT id FROM shots WHERE episodeId=?)",
-        [episodeId]).first['n'] as int;
+        "SELECT COUNT(*) n FROM jobs WHERE state IN ('queued','running') AND ((kind IN ('shot_image','shot_video') AND targetId IN (SELECT id FROM shots WHERE episodeId=?)) OR (kind='compose' AND targetId=?))",
+        [episodeId, episodeId]).first['n'] as int;
     if (downstream > 0) {
       throw EngineException('本集有镜头图/视频任务进行中，请等待完成或取消后再重新生成分镜');
     }
@@ -480,6 +570,66 @@ class Engine {
       .select('SELECT * FROM shots WHERE episodeId=? ORDER BY idx', [episodeId])
       .map(_shot)
       .toList();
+
+  Future<List<VideoTake>> listTakes(String shotId) async {
+    if (db.select('SELECT id FROM shots WHERE id=?', [shotId]).isEmpty) {
+      throw EngineException('镜头不存在');
+    }
+    return db
+        .select(
+            'SELECT * FROM video_takes WHERE shotId=? ORDER BY createdAt DESC, id DESC',
+            [shotId])
+        .map(_take)
+        .toList();
+  }
+
+  Future<void> selectTake(String shotId, String takeId) async {
+    final rows = db.select(
+        'SELECT id, videoPath FROM video_takes WHERE id=? AND shotId=?',
+        [takeId, shotId]);
+    if (rows.isEmpty) throw EngineException('视频版本不存在');
+    db.execute(
+        "UPDATE shots SET selectedTakeId=?, videoPath=?, videoStatus='done', videoError=NULL WHERE id=?",
+        [takeId, rows.first['videoPath'] as String, shotId]);
+  }
+
+  Future<void> deleteTake(String takeId) async {
+    final rows = db.select('''
+SELECT vt.id, vt.shotId, s.selectedTakeId
+FROM video_takes vt
+JOIN shots s ON s.id=vt.shotId
+WHERE vt.id=?
+''', [takeId]);
+    if (rows.isEmpty) throw EngineException('视频版本不存在');
+    final shotId = rows.first['shotId'] as String;
+    final wasSelected = rows.first['selectedTakeId'] == takeId;
+    db.execute('BEGIN');
+    try {
+      db.execute('DELETE FROM video_takes WHERE id=?', [takeId]);
+      if (wasSelected) {
+        final fallback = db.select(
+            'SELECT id, videoPath FROM video_takes WHERE shotId=? ORDER BY createdAt DESC, id DESC LIMIT 1',
+            [shotId]);
+        if (fallback.isEmpty) {
+          db.execute(
+              "UPDATE shots SET selectedTakeId=NULL, videoPath=NULL, videoStatus='none', videoError=NULL WHERE id=?",
+              [shotId]);
+        } else {
+          db.execute(
+              "UPDATE shots SET selectedTakeId=?, videoPath=?, videoStatus='done', videoError=NULL WHERE id=?",
+              [
+                fallback.first['id'] as String,
+                fallback.first['videoPath'] as String,
+                shotId
+              ]);
+        }
+      }
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
 
   Future<void> reorderShots(String episodeId, List<String> orderedIds) async {
     final currentIds = db
@@ -556,7 +706,8 @@ class Engine {
     final rows = db.select('SELECT episodeId, idx FROM shots WHERE id=?', [id]);
     if (rows.isEmpty) throw EngineException('镜头不存在');
     if (queue.hasActiveJob('shot_image', id) ||
-        queue.hasActiveJob('shot_video', id)) {
+        queue.hasActiveJob('shot_video', id) ||
+        queue.hasActiveJob('compose', rows.first['episodeId'] as String)) {
       throw EngineException('该镜头有任务进行中，请先取消');
     }
     final shot = rows.first;
@@ -645,6 +796,37 @@ class Engine {
         targetLabel: '视频·#${s['idx']}');
   }
 
+  Future<String> composeEpisode(String episodeId) async {
+    final episodes = db.select(
+        'SELECT id, projectId, idx FROM episodes WHERE id=?', [episodeId]);
+    if (episodes.isEmpty) throw EngineException('剧集不存在');
+    final missing = db.select('''
+SELECT s.idx
+FROM shots s
+LEFT JOIN video_takes vt ON vt.id=s.selectedTakeId AND vt.shotId=s.id
+WHERE s.episodeId=? AND vt.id IS NULL
+ORDER BY s.idx
+''', [episodeId]).map((r) => r['idx'] as int).toList();
+    final shotCount = db.select(
+        'SELECT COUNT(*) n FROM shots WHERE episodeId=?',
+        [episodeId]).first['n'] as int;
+    if (shotCount == 0) throw EngineException('本集还没有分镜');
+    if (missing.isNotEmpty) {
+      throw EngineException('第 ${missing.join('、')} 镜缺少视频');
+    }
+    if (queue.hasActiveJob('compose', episodeId)) {
+      throw EngineException('本集合成任务已在进行中');
+    }
+    db.execute(
+        "UPDATE episodes SET composeStatus='queued', composeError=NULL WHERE id=?",
+        [episodeId]);
+    return queue.enqueue(
+        projectId: episodes.first['projectId'] as String,
+        kind: 'compose',
+        targetId: episodeId,
+        targetLabel: '合成·第${episodes.first['idx']}集');
+  }
+
   // ---------- jobs ----------
 
   Job _job(Row r) {
@@ -694,6 +876,10 @@ class Engine {
         db.execute(
             "UPDATE shots SET videoStatus='queued', videoError=NULL WHERE id=?",
             [targetId]);
+      case 'compose':
+        db.execute(
+            "UPDATE episodes SET composeStatus='queued', composeError=NULL WHERE id=?",
+            [targetId]);
     }
     return queue.enqueue(
         projectId: j['projectId'] as String,
@@ -706,6 +892,14 @@ class Engine {
   }
 
   Future<void> cancelJob(String jobId) async => queue.cancel(jobId);
+
+  // ---------- director / auto mode ----------
+
+  Future<void> startAuto(String projectId) => director.startAuto(projectId);
+
+  Future<void> stopAuto(String projectId) => director.stopAuto(projectId);
+
+  DirectorState directorState(String projectId) => director.state(projectId);
 
   // ---------- providers / models / bindings / prompts ----------
 

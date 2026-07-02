@@ -386,6 +386,15 @@ Shot? _findShot(List<Shot>? shots, String id) {
   return null;
 }
 
+String _formatDuration(double? seconds) {
+  if (seconds == null || seconds <= 0) return '时长 --';
+  final total = seconds.round();
+  final minutes = total ~/ 60;
+  final secs = total % 60;
+  if (minutes == 0) return '时长 ${secs}s';
+  return '时长 $minutes:${secs.toString().padLeft(2, '0')}';
+}
+
 class _WideTimeline extends StatelessWidget {
   final List<Shot> shots;
   final String? selectedId;
@@ -840,7 +849,12 @@ class _ShotDetailPanel extends ConsumerWidget {
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HeroImage(shot: shot, size: 360),
+                  _ShotMediaColumn(
+                    shot: shot,
+                    episodeId: episodeId,
+                    onChanged: onChanged,
+                    size: 360,
+                  ),
                   const SizedBox(width: 20),
                   Expanded(child: _DetailInfo(shot: shot)),
                   const SizedBox(width: 18),
@@ -858,7 +872,11 @@ class _ShotDetailPanel extends ConsumerWidget {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _HeroImage(shot: shot),
+                  _ShotMediaColumn(
+                    shot: shot,
+                    episodeId: episodeId,
+                    onChanged: onChanged,
+                  ),
                   const SizedBox(height: 16),
                   _DetailInfo(shot: shot),
                   const SizedBox(height: 14),
@@ -875,6 +893,57 @@ class _ShotDetailPanel extends ConsumerWidget {
       if (controller != null) return content;
       return Card(child: content);
     });
+  }
+}
+
+class _ShotMediaColumn extends StatelessWidget {
+  final Shot shot;
+  final String episodeId;
+  final VoidCallback onChanged;
+  final double? size;
+
+  const _ShotMediaColumn({
+    required this.shot,
+    required this.episodeId,
+    required this.onChanged,
+    this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final image = size == null
+        ? const SizedBox.shrink()
+        : _HeroImage(shot: shot, size: size);
+    if (size != null) {
+      return SizedBox(
+        width: size,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            image,
+            const SizedBox(height: 12),
+            _VideoTakesStrip(
+              shot: shot,
+              episodeId: episodeId,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _HeroImage(shot: shot),
+        const SizedBox(height: 12),
+        _VideoTakesStrip(
+          shot: shot,
+          episodeId: episodeId,
+          onChanged: onChanged,
+        ),
+      ],
+    );
   }
 }
 
@@ -898,6 +967,200 @@ class _HeroImage extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 1,
       child: MediaImage(shot.imageUrl, radius: 12),
+    );
+  }
+}
+
+class _VideoTakesStrip extends ConsumerWidget {
+  final Shot shot;
+  final String episodeId;
+  final VoidCallback onChanged;
+
+  const _VideoTakesStrip({
+    required this.shot,
+    required this.episodeId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final takesAsync = ref.watch(takesProvider(shot.id));
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: context.df.bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.df.stroke),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.video_library_outlined,
+                  size: 15, color: context.df.textLo),
+              const SizedBox(width: 6),
+              Text(
+                '视频版本',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: context.df.textMid,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          takesAsync.when(
+            skipLoadingOnRefresh: true,
+            skipLoadingOnReload: true,
+            data: (takes) {
+              if (takes.isEmpty) {
+                return SizedBox(
+                  height: 58,
+                  child: Center(
+                    child: Text(
+                      '暂无视频版本',
+                      style: TextStyle(fontSize: 12, color: context.df.textLo),
+                    ),
+                  ),
+                );
+              }
+              return SizedBox(
+                height: 66,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: takes.length,
+                  separatorBuilder: (context, separatorIndex) =>
+                      const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final take = takes[index];
+                    final selected = take.id == shot.selectedTakeId;
+                    return _VideoTakeTile(
+                      label: '版本 ${takes.length - index}',
+                      duration: _formatDuration(take.durationSec),
+                      selected: selected,
+                      onTap: selected
+                          ? null
+                          : () => runAction(context, ref, () async {
+                                await ref
+                                    .read(engineProvider)
+                                    .selectTake(shot.id, take.id);
+                                ref.invalidate(takesProvider(shot.id));
+                                ref.invalidate(shotsProvider(episodeId));
+                                onChanged();
+                              }, successMessage: '已切换视频版本'),
+                    );
+                  },
+                ),
+              );
+            },
+            loading: () => SizedBox(
+              height: 58,
+              child: Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: context.df.primary,
+                  ),
+                ),
+              ),
+            ),
+            error: (e, _) => SizedBox(
+              height: 58,
+              child: Center(
+                child: Text(
+                  e.toString(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: context.df.red),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VideoTakeTile extends StatelessWidget {
+  final String label;
+  final String duration;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  const _VideoTakeTile({
+    required this.label,
+    required this.duration,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? context.df.primary : context.df.textMid;
+    return SizedBox(
+      width: 104,
+      child: Material(
+        color: selected
+            ? context.df.primary.withValues(alpha: 0.1)
+            : context.df.surface,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: selected ? context.df.primary : context.df.stroke,
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.play_circle_outline_rounded,
+                      size: 14,
+                      color: color,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  duration,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, color: context.df.textLo),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1042,10 +1305,10 @@ class _ShotActions extends ConsumerWidget {
       onPressed: videoEnabled
           ? () => runAction(context, ref, () async {
                 await ref.read(engineProvider).generateShotVideo(shot.id);
-              }, successMessage: '视频生成任务已排队')
+              }, successMessage: '视频版本生成任务已排队')
           : null,
       icon: const Icon(Icons.movie_creation_outlined, size: 16),
-      label: Text(videoDone ? '重新生成视频' : (videoFailed ? '重试视频' : '生成视频')),
+      label: Text(videoDone || videoFailed ? '新增视频版本' : '生成视频版本'),
       style: _compactOutlined,
     );
     if (videoTooltip != null) {
@@ -1097,7 +1360,7 @@ class _ShotActions extends ConsumerWidget {
               }
             },
             icon: const Icon(Icons.link_rounded, size: 16),
-            label: const Text('打开视频'),
+            label: const Text('复制视频路径'),
             style: _compactText,
           ),
         TextButton.icon(

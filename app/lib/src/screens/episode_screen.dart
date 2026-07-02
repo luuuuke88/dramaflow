@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -87,6 +88,13 @@ class EpisodeScreen extends ConsumerWidget {
     ref.invalidate(shotsProvider(episodeId));
   }
 
+  Future<void> _composeEpisode(BuildContext context, WidgetRef ref) async {
+    await runAction(context, ref, () async {
+      await ref.read(engineProvider).composeEpisode(episodeId);
+    }, successMessage: '本集合成任务已提交');
+    ref.invalidate(episodeProvider(episodeId));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final episodeAsync = ref.watch(episodeProvider(episodeId));
@@ -97,6 +105,9 @@ class EpisodeScreen extends ConsumerWidget {
     final storyboardRunning = ref
         .watch(activeJobsProvider)
         .any((j) => j.kind == 'storyboard_gen' && j.targetId == episodeId);
+    final composeRunning = ref
+        .watch(activeJobsProvider)
+        .any((j) => j.kind == 'compose' && j.targetId == episodeId);
     final narrow = MediaQuery.sizeOf(context).width < 640;
     final onPrimary = Theme.of(context).colorScheme.onPrimary;
 
@@ -123,6 +134,23 @@ class EpisodeScreen extends ConsumerWidget {
                 : () => _copyScenesJson(context, episode),
           ),
           const SizedBox(width: 4),
+          if (narrow)
+            IconButton.outlined(
+              tooltip: '合成本集',
+              icon: const Icon(Icons.video_file_rounded, size: 20),
+              onPressed: episode == null || composeRunning
+                  ? null
+                  : () => _composeEpisode(context, ref),
+            )
+          else
+            OutlinedButton.icon(
+              icon: const Icon(Icons.video_file_rounded, size: 18),
+              label: Text(composeRunning ? '合成中…' : '合成本集'),
+              onPressed: episode == null || composeRunning
+                  ? null
+                  : () => _composeEpisode(context, ref),
+            ),
+          const SizedBox(width: 8),
           if (narrow)
             IconButton.outlined(
               tooltip: '生成分镜',
@@ -191,9 +219,17 @@ class EpisodeScreen extends ConsumerWidget {
                     itemCount: ep.scenes.length + 1,
                     itemBuilder: (context, i) {
                       if (i == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: _SynopsisCard(synopsis: ep.synopsis),
+                        return Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _SynopsisCard(synopsis: ep.synopsis),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _ComposeCard(episode: ep),
+                            ),
+                          ],
                         );
                       }
                       return Padding(
@@ -289,6 +325,147 @@ class _SynopsisCard extends StatelessWidget {
               style:
                   Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.6),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposeCard extends ConsumerWidget {
+  final Episode episode;
+
+  const _ComposeCard({required this.episode});
+
+  Future<void> _copyPath(BuildContext context, WidgetRef ref) async {
+    final rel = episode.composedPath;
+    if (rel == null || rel.isEmpty) return;
+    final abs = ref.read(engineProvider).mediaAbsPath(rel);
+    await Clipboard.setData(ClipboardData(text: abs));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('成片路径已复制'),
+        duration: Duration(seconds: 2),
+      ));
+    }
+  }
+
+  Future<void> _revealInFinder(BuildContext context, WidgetRef ref) async {
+    final rel = episode.composedPath;
+    if (rel == null || rel.isEmpty) return;
+    final abs = ref.read(engineProvider).mediaAbsPath(rel);
+    try {
+      final result = await Process.run('open', ['-R', abs]);
+      if (!context.mounted) return;
+      if (result.exitCode != 0) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(result.stderr.toString().isEmpty
+              ? '无法在 Finder 中显示成片'
+              : result.stderr.toString()),
+          backgroundColor: context.df.red,
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('无法在 Finder 中显示成片：$e'),
+          backgroundColor: context.df.red,
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rel = episode.composedPath;
+    final hasFile = rel != null && rel.isNotEmpty;
+    final abs = hasFile ? ref.watch(engineProvider).mediaAbsPath(rel) : null;
+    final failed = episode.composeStatus == 'failed' &&
+        episode.composeError != null &&
+        episode.composeError!.isNotEmpty;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.movie_filter_outlined,
+                    size: 16, color: context.df.primary),
+                const SizedBox(width: 6),
+                Text(
+                  '本集成片',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: context.df.textMid,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                StatusChip(episode.composeStatus,
+                    dense: true, errorTooltip: episode.composeError),
+              ],
+            ),
+            if (hasFile) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: context.df.bg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: context.df.stroke),
+                ),
+                child: SelectableText(
+                  abs!,
+                  style: TextStyle(
+                    color: context.df.textMid,
+                    fontSize: 12.5,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _copyPath(context, ref),
+                    icon: const Icon(Icons.copy_rounded, size: 16),
+                    label: const Text('复制路径'),
+                  ),
+                  if (Platform.isMacOS)
+                    OutlinedButton.icon(
+                      onPressed: () => _revealInFinder(context, ref),
+                      icon: const Icon(Icons.folder_open_rounded, size: 16),
+                      label: const Text('在 Finder 显示'),
+                    ),
+                ],
+              ),
+            ],
+            if (!hasFile && !failed) ...[
+              const SizedBox(height: 10),
+              Text(
+                '尚未合成本集',
+                style: TextStyle(fontSize: 12.5, color: context.df.textLo),
+              ),
+            ],
+            if (failed) ...[
+              const SizedBox(height: 10),
+              Text(
+                episode.composeError!,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 12.5, color: context.df.red, height: 1.45),
+              ),
+            ],
           ],
         ),
       ),

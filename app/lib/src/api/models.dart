@@ -181,6 +181,9 @@ class Episode {
   final String title;
   final String synopsis;
   final List<Scene> scenes;
+  final String? composedPath;
+  final String composeStatus;
+  final String? composeError;
 
   const Episode({
     required this.id,
@@ -189,6 +192,9 @@ class Episode {
     required this.title,
     required this.synopsis,
     required this.scenes,
+    required this.composedPath,
+    required this.composeStatus,
+    required this.composeError,
   });
 
   factory Episode.fromJson(Map<String, dynamic> j) => Episode(
@@ -200,6 +206,9 @@ class Episode {
         scenes: (j['scenes'] as List? ?? [])
             .map((s) => Scene.fromJson(s as Map<String, dynamic>))
             .toList(),
+        composedPath: j['composedPath'] as String?,
+        composeStatus: j['composeStatus'] as String? ?? 'none',
+        composeError: j['composeError'] as String?,
       );
 }
 
@@ -255,6 +264,7 @@ class Shot {
   final String? videoUrl;
   final String videoStatus;
   final String? videoError;
+  final String? selectedTakeId;
 
   const Shot({
     required this.id,
@@ -272,6 +282,7 @@ class Shot {
     required this.videoUrl,
     required this.videoStatus,
     required this.videoError,
+    required this.selectedTakeId,
   });
 
   factory Shot.fromJson(Map<String, dynamic> j) => Shot(
@@ -291,6 +302,31 @@ class Shot {
         videoUrl: j['videoUrl'] as String?,
         videoStatus: j['videoStatus'] as String? ?? 'none',
         videoError: j['videoError'] as String?,
+        selectedTakeId: j['selectedTakeId'] as String?,
+      );
+}
+
+class VideoTake {
+  final String id;
+  final String shotId;
+  final String videoPath;
+  final double? durationSec;
+  final String createdAt;
+
+  const VideoTake({
+    required this.id,
+    required this.shotId,
+    required this.videoPath,
+    required this.durationSec,
+    required this.createdAt,
+  });
+
+  factory VideoTake.fromJson(Map<String, dynamic> j) => VideoTake(
+        id: j['id'] as String,
+        shotId: j['shotId'] as String? ?? '',
+        videoPath: j['videoPath'] as String? ?? '',
+        durationSec: (j['durationSec'] as num?)?.toDouble(),
+        createdAt: j['createdAt'] as String? ?? '',
       );
 }
 
@@ -339,6 +375,75 @@ class Job {
         startedAt: j['startedAt'] as String?,
         finishedAt: j['finishedAt'] as String?,
         durationMs: j['durationMs'] as int?,
+      );
+}
+
+class DirectorState {
+  final String mode; // auto | off
+  final String scope; // all
+  final String pausedReason;
+  final String currentStage;
+  final bool finished;
+  final String? finishedAt;
+
+  const DirectorState({
+    required this.mode,
+    required this.scope,
+    required this.pausedReason,
+    required this.currentStage,
+    required this.finished,
+    required this.finishedAt,
+  });
+
+  static const off = DirectorState(
+    mode: 'off',
+    scope: 'all',
+    pausedReason: '',
+    currentStage: '',
+    finished: false,
+    finishedAt: null,
+  );
+
+  bool get isAuto => mode == 'auto';
+  bool get isPaused => mode == 'auto' && pausedReason.isNotEmpty;
+  bool get isRunning => mode == 'auto' && pausedReason.isEmpty;
+
+  factory DirectorState.fromJson(Map<String, dynamic> j) {
+    final mode = j['mode'] == 'auto' ? 'auto' : 'off';
+    return DirectorState(
+      mode: mode,
+      scope: j['scope'] as String? ?? 'all',
+      pausedReason: j['pausedReason'] as String? ?? '',
+      currentStage: j['currentStage'] as String? ?? '',
+      finished: _jsonBool(j['finished'], defaultValue: false),
+      finishedAt: j['finishedAt'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'mode': mode,
+        'scope': scope,
+        'pausedReason': pausedReason,
+        'currentStage': currentStage,
+        'finished': finished,
+        if (finishedAt != null) 'finishedAt': finishedAt,
+      };
+
+  DirectorState copyWith({
+    String? mode,
+    String? scope,
+    String? pausedReason,
+    String? currentStage,
+    bool? finished,
+    String? finishedAt,
+  }) =>
+      DirectorState(
+        mode: mode ?? this.mode,
+        scope: scope ?? this.scope,
+        pausedReason: pausedReason ?? this.pausedReason,
+        currentStage: currentStage ?? this.currentStage,
+        finished: finished ?? this.finished,
+        finishedAt: finishedAt ?? this.finishedAt,
       );
 }
 
