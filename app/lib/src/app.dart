@@ -1,0 +1,66 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'screens/projects_screen.dart';
+import 'screens/project_screen.dart';
+import 'screens/novel_screen.dart';
+import 'screens/episode_screen.dart';
+import 'screens/assets_screen.dart';
+import 'screens/shots_screen.dart';
+import 'screens/tasks_screen.dart';
+import 'screens/settings_screen.dart';
+import 'theme.dart';
+import 'widgets/shell.dart';
+
+final _router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    ShellRoute(
+      builder: (context, state, child) => AppShell(child: child),
+      routes: [
+        GoRoute(path: '/', builder: (c, s) => const ProjectsScreen()),
+        GoRoute(path: '/tasks', builder: (c, s) => const TasksScreen()),
+        GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
+        GoRoute(
+          path: '/projects/:pid',
+          builder: (c, s) => ProjectScreen(projectId: s.pathParameters['pid']!),
+        ),
+        GoRoute(
+          path: '/projects/:pid/novel',
+          builder: (c, s) => NovelScreen(projectId: s.pathParameters['pid']!),
+        ),
+        GoRoute(
+          path: '/projects/:pid/assets',
+          builder: (c, s) => AssetsScreen(projectId: s.pathParameters['pid']!),
+        ),
+        GoRoute(
+          path: '/projects/:pid/episodes/:eid',
+          builder: (c, s) => EpisodeScreen(
+            projectId: s.pathParameters['pid']!,
+            episodeId: s.pathParameters['eid']!,
+          ),
+        ),
+        GoRoute(
+          path: '/projects/:pid/episodes/:eid/shots',
+          builder: (c, s) => ShotsScreen(
+            projectId: s.pathParameters['pid']!,
+            episodeId: s.pathParameters['eid']!,
+          ),
+        ),
+      ],
+    ),
+  ],
+);
+
+class DramaFlowApp extends StatelessWidget {
+  const DramaFlowApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      title: 'DramaFlow',
+      debugShowCheckedModeBanner: false,
+      theme: buildTheme(),
+      routerConfig: _router,
+    );
+  }
+}
