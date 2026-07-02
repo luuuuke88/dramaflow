@@ -378,6 +378,75 @@ class Job {
       );
 }
 
+class DirectorState {
+  final String mode; // auto | off
+  final String scope; // all
+  final String pausedReason;
+  final String currentStage;
+  final bool finished;
+  final String? finishedAt;
+
+  const DirectorState({
+    required this.mode,
+    required this.scope,
+    required this.pausedReason,
+    required this.currentStage,
+    required this.finished,
+    required this.finishedAt,
+  });
+
+  static const off = DirectorState(
+    mode: 'off',
+    scope: 'all',
+    pausedReason: '',
+    currentStage: '',
+    finished: false,
+    finishedAt: null,
+  );
+
+  bool get isAuto => mode == 'auto';
+  bool get isPaused => mode == 'auto' && pausedReason.isNotEmpty;
+  bool get isRunning => mode == 'auto' && pausedReason.isEmpty;
+
+  factory DirectorState.fromJson(Map<String, dynamic> j) {
+    final mode = j['mode'] == 'auto' ? 'auto' : 'off';
+    return DirectorState(
+      mode: mode,
+      scope: j['scope'] as String? ?? 'all',
+      pausedReason: j['pausedReason'] as String? ?? '',
+      currentStage: j['currentStage'] as String? ?? '',
+      finished: _jsonBool(j['finished'], defaultValue: false),
+      finishedAt: j['finishedAt'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'mode': mode,
+        'scope': scope,
+        'pausedReason': pausedReason,
+        'currentStage': currentStage,
+        'finished': finished,
+        if (finishedAt != null) 'finishedAt': finishedAt,
+      };
+
+  DirectorState copyWith({
+    String? mode,
+    String? scope,
+    String? pausedReason,
+    String? currentStage,
+    bool? finished,
+    String? finishedAt,
+  }) =>
+      DirectorState(
+        mode: mode ?? this.mode,
+        scope: scope ?? this.scope,
+        pausedReason: pausedReason ?? this.pausedReason,
+        currentStage: currentStage ?? this.currentStage,
+        finished: finished ?? this.finished,
+        finishedAt: finishedAt ?? this.finishedAt,
+      );
+}
+
 class AppSettings {
   final String textBaseUrl;
   final String textModel;

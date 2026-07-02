@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
@@ -6,6 +7,7 @@ import '../api/models.dart';
 import 'compose.dart';
 import 'config.dart';
 import 'db.dart';
+import 'director.dart';
 import 'media.dart';
 import 'providers/gateway.dart';
 import 'providers/resolve.dart';
@@ -25,6 +27,7 @@ class Engine {
   final EngineConfig config;
   late final ComposeService compose;
   late final JobQueue queue;
+  late final Director director;
 
   Engine({
     required this.db,
@@ -32,12 +35,17 @@ class Engine {
     required this.gateway,
     required this.config,
     FfmpegRunner? ffmpegRunner,
+    Duration queueTick = const Duration(milliseconds: 500),
   }) {
     _migrateLegacyVideoPaths(db);
     final runner = ffmpegRunner ?? const ProcessFfmpegRunner();
     compose = ComposeService(db: db, media: media, runner: runner);
     final runners = Runners(db, gateway, media, ffmpegRunner: runner);
-    queue = JobQueue(db, run: runners.run);
+    queue = JobQueue(db, run: runners.run, tick: queueTick);
+    director = Director(this);
+    queue.onJobFinished = (jobId, kind, state) {
+      unawaited(director.onJobFinished(jobId, kind, state));
+    };
   }
 
   /// 生产入口：开库、建媒体仓库、恢复中断任务、启动队列。
@@ -469,7 +477,7 @@ ORDER BY vt.createdAt ASC
     return _asset(db.select('SELECT * FROM assets WHERE id=?', [id]).first);
   }
 
-  String? _enqueueAssetImage(String assetId) {
+  String? _enqueueAssetImage(String assetId, {int attempt = 1}) {
     final rows = db
         .select('SELECT id, projectId, name FROM assets WHERE id=?', [assetId]);
     if (rows.isEmpty) return null;
@@ -481,7 +489,8 @@ ORDER BY vt.createdAt ASC
         projectId: a['projectId'] as String,
         kind: 'asset_image',
         targetId: assetId,
-        targetLabel: '素材图·${a['name']}');
+        targetLabel: '素材图·${a['name']}',
+        attempt: attempt);
   }
 
   Future<String?> generateAssetImage(String assetId) async {
@@ -494,13 +503,37 @@ ORDER BY vt.createdAt ASC
     return _enqueueAssetImage(assetId);
   }
 
-  Future<List<String>> generateAllAssetImages(String projectId) async => db
-      .select(
-          "SELECT id FROM assets WHERE projectId=? AND status NOT IN ('done','queued','running')",
-          [projectId])
-      .map((r) => _enqueueAssetImage(r['id'] as String))
-      .whereType<String>()
-      .toList();
+  Future<List<String>> generateAllAssetImages(String projectId,
+      {bool retryFailedOnce = false}) async {
+    final rows = retryFailedOnce
+        ? db.select('''
+SELECT a.id, a.status,
+  COALESCE((
+    SELECT MAX(j.attempt)
+    FROM jobs j
+    WHERE j.kind='asset_image' AND j.targetId=a.id
+  ), 0) maxAttempt
+FROM assets a
+WHERE a.projectId=?
+  AND a.status NOT IN ('done','queued','running')
+''', [projectId])
+        : db.select(
+            "SELECT id, status, 0 maxAttempt FROM assets WHERE projectId=? AND status NOT IN ('done','queued','running')",
+            [projectId]);
+    return rows
+        .map((r) {
+          final status = r['status'] as String;
+          var attempt = 1;
+          if (retryFailedOnce && status == 'failed') {
+            final maxAttempt = r['maxAttempt'] as int;
+            if (maxAttempt >= 2) return null;
+            attempt = maxAttempt <= 0 ? 2 : maxAttempt + 1;
+          }
+          return _enqueueAssetImage(r['id'] as String, attempt: attempt);
+        })
+        .whereType<String>()
+        .toList();
+  }
 
   // ---------- storyboard & shots ----------
 
@@ -859,6 +892,14 @@ ORDER BY s.idx
   }
 
   Future<void> cancelJob(String jobId) async => queue.cancel(jobId);
+
+  // ---------- director / auto mode ----------
+
+  Future<void> startAuto(String projectId) => director.startAuto(projectId);
+
+  Future<void> stopAuto(String projectId) => director.stopAuto(projectId);
+
+  DirectorState directorState(String projectId) => director.state(projectId);
 
   // ---------- providers / models / bindings / prompts ----------
 

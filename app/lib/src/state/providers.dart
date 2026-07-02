@@ -83,9 +83,9 @@ class ActiveJobsNotifier extends Notifier<List<Job>> {
       final jobs = await ref.read(engineProvider).activeJobs();
       final oldKey = state.map((j) => '${j.id}:${j.state}').join(',');
       final newKey = jobs.map((j) => '${j.id}:${j.state}').join(',');
+      ref.read(jobsGenerationProvider.notifier).bump();
       if (oldKey != newKey) {
         state = jobs;
-        ref.read(jobsGenerationProvider.notifier).bump();
         _updateWakelock(jobs.isNotEmpty);
       }
     } catch (_) {
@@ -174,6 +174,12 @@ final projectJobsProvider =
     FutureProvider.autoDispose.family<List<Job>, String>((ref, projectId) {
   ref.watch(jobsGenerationProvider);
   return ref.watch(engineProvider).projectJobs(projectId);
+});
+
+final directorStateProvider =
+    FutureProvider.autoDispose.family<DirectorState, String>((ref, projectId) {
+  ref.watch(jobsGenerationProvider);
+  return ref.watch(engineProvider).directorState(projectId);
 });
 
 final settingsProvider = FutureProvider.autoDispose<AppSettings>(

@@ -37,6 +37,8 @@ class ProjectScreen extends ConsumerWidget {
         .toList();
     final recentJobs =
         ref.watch(projectJobsProvider(projectId)).value ?? const <Job>[];
+    final directorState =
+        ref.watch(directorStateProvider(projectId)).value ?? DirectorState.off;
     final project = projectAsync.value;
 
     return Scaffold(
@@ -86,8 +88,8 @@ class ProjectScreen extends ConsumerWidget {
         child: AsyncView<Project>(
           value: projectAsync,
           onRetry: () => ref.invalidate(projectProvider(projectId)),
-          builder: (p) =>
-              _pipeline(context, ref, p, episodes, activeJobs, recentJobs),
+          builder: (p) => _pipeline(
+              context, ref, p, episodes, activeJobs, recentJobs, directorState),
         ),
       ),
     );
@@ -102,6 +104,7 @@ class ProjectScreen extends ConsumerWidget {
     List<EpisodeSummary> episodes,
     List<Job> activeJobs,
     List<Job> recentJobs,
+    DirectorState directorState,
   ) {
     final s = p.stats;
 
@@ -134,6 +137,19 @@ class ProjectScreen extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 20),
       children: [
+        _DirectorModeBar(
+          state: directorState,
+          activeJobs: activeJobs,
+          onModeSelected: (mode) {
+            if (mode == 'auto') {
+              _showStartAutoDialog(context, ref);
+            } else {
+              _stopAuto(context, ref);
+            }
+          },
+          onContinue: () => _continueAuto(context, ref),
+        ),
+        const SizedBox(height: 16),
         // 1. 小说
         _StageCard(
           index: 1,
@@ -307,6 +323,61 @@ class ProjectScreen extends ConsumerWidget {
         successMessage: '已重新排队',
       );
 
+  Future<void> _showStartAutoDialog(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('开启自动模式'),
+        content: const Text('将自动执行剧本→素材→图→视频→合成，费用较高，确认？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认开启'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    await runAction(
+      context,
+      ref,
+      () async {
+        await ref.read(engineProvider).startAuto(projectId);
+      },
+      successMessage: '自动模式已开启',
+    );
+    ref.invalidate(directorStateProvider(projectId));
+  }
+
+  Future<void> _continueAuto(BuildContext context, WidgetRef ref) async {
+    await runAction(
+      context,
+      ref,
+      () async {
+        await ref.read(engineProvider).startAuto(projectId);
+      },
+      successMessage: '自动模式继续',
+    );
+    ref.invalidate(directorStateProvider(projectId));
+  }
+
+  Future<void> _stopAuto(BuildContext context, WidgetRef ref) async {
+    await runAction(
+      context,
+      ref,
+      () async {
+        await ref.read(engineProvider).stopAuto(projectId);
+      },
+      successMessage: '已切换分步模式',
+    );
+    ref.invalidate(directorStateProvider(projectId));
+  }
+
   Future<void> _showGenerateScriptDialog(
       BuildContext context, WidgetRef ref) async {
     var count = 3;
@@ -460,6 +531,178 @@ class _StageState {
   final Job? failedJob;
 
   const _StageState(this.status, {this.failedJob});
+}
+
+String _jobStageLabel(String kind) => switch (kind) {
+      'script_gen' => '剧本',
+      'asset_extract' => '素材提取',
+      'asset_image' => '素材图',
+      'storyboard_gen' => '分镜',
+      'shot_image' => '镜头图',
+      'shot_video' => '视频',
+      'compose' => '合成',
+      _ => '任务',
+    };
+
+String _directorStageLabel(DirectorState state, List<Job> activeJobs) {
+  Job? picked;
+  for (final job in activeJobs) {
+    if (job.state == 'running') {
+      picked = job;
+      break;
+    }
+    picked ??= job;
+  }
+  if (picked != null) return _jobStageLabel(picked.kind);
+  return state.currentStage.isNotEmpty ? state.currentStage : '评估中';
+}
+
+class _DirectorModeBar extends StatelessWidget {
+  final DirectorState state;
+  final List<Job> activeJobs;
+  final ValueChanged<String> onModeSelected;
+  final VoidCallback onContinue;
+
+  const _DirectorModeBar({
+    required this.state,
+    required this.activeJobs,
+    required this.onModeSelected,
+    required this.onContinue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedMode = state.mode == 'auto' ? 'auto' : 'manual';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.df.card,
+        borderRadius: BorderRadius.circular(DF.radius),
+        border: Border.all(color: context.df.stroke),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final segmented = SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'manual',
+                icon: Icon(Icons.tune_rounded),
+                label: Text('分步'),
+              ),
+              ButtonSegment(
+                value: 'auto',
+                icon: Icon(Icons.auto_mode_rounded),
+                label: Text('自动'),
+              ),
+            ],
+            selected: {selectedMode},
+            onSelectionChanged: (selection) {
+              final next = selection.first;
+              if (next == selectedMode) return;
+              onModeSelected(next);
+            },
+          );
+          final status = _status(context);
+          if (constraints.maxWidth < 640) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(alignment: Alignment.centerLeft, child: segmented),
+                const SizedBox(height: 12),
+                status,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              segmented,
+              const SizedBox(width: 12),
+              Expanded(child: status),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _status(BuildContext context) {
+    if (state.finished) {
+      return _notice(
+        context,
+        color: context.df.green,
+        chip: const StatusChip('done', dense: true),
+        text: '自动连跑已完成：全部剧集已合成。',
+      );
+    }
+    if (state.isPaused) {
+      return _notice(
+        context,
+        color: context.df.red,
+        chip:
+            StatusChip('failed', dense: true, errorTooltip: state.pausedReason),
+        text: '自动模式已暂停：${state.pausedReason}',
+        trailing: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: context.df.red,
+            side: BorderSide(color: context.df.red.withValues(alpha: 0.5)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          onPressed: onContinue,
+          icon: const Icon(Icons.play_arrow_rounded, size: 16),
+          label: const Text('继续', style: TextStyle(fontSize: 12)),
+        ),
+      );
+    }
+    if (state.isRunning) {
+      return _notice(
+        context,
+        color: context.df.primary,
+        chip: const StatusChip('running', dense: true),
+        text: '自动运行中 · 当前环节：${_directorStageLabel(state, activeJobs)}',
+      );
+    }
+    return Text(
+      '分步模式：按阶段手动触发生成任务。',
+      style: TextStyle(fontSize: 13, color: context.df.textMid),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _notice(
+    BuildContext context, {
+    required Color color,
+    required Widget chip,
+    required String text,
+    Widget? trailing,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          chip,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 13, color: context.df.textHi),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 10),
+            trailing,
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 /// 单个阶段卡片：左侧序号徽标 + 竖向连接线，右侧内容卡。

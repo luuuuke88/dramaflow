@@ -41,6 +41,8 @@ class JobQueue {
 
   Stream<void> get events => _events.stream;
 
+  void notifyChanged() => _events.add(null);
+
   void start() {
     if (_started) return;
     _started = true;
