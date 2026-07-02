@@ -132,6 +132,40 @@ void main() {
       expect(() => g.generateImage('x', 'p', stage: 'asset_image'),
           throwsA(isA<EngineException>()));
     });
+
+    test('带参考图时走 edits multipart 并拼接修改意见', () async {
+      final ref = File('${tmp.path}/ref.png')..writeAsBytesSync([1, 2, 3]);
+      final adapter = FakeAdapter((o) => jsonBody({
+            'data': [
+              {
+                'b64_json': base64Encode([9, 8, 7])
+              }
+            ]
+          }));
+      bindModel('asset_image', 'image');
+
+      final rel = await gw(adapter).generateImage(
+        '青衣少女',
+        'projX',
+        stage: 'asset_image',
+        refImageAbsPath: ref.path,
+        editInstruction: '把衣服改成红色',
+      );
+
+      expect(rel, startsWith('projX/img_'));
+      final request = adapter.requests.single;
+      expect(request.path, endsWith('/images/edits'));
+      expect(request.data, isA<FormData>());
+      final form = request.data as FormData;
+      final fields = {for (final field in form.fields) field.key: field.value};
+      expect(fields['model'], 'm1');
+      expect(fields['response_format'], 'b64_json');
+      final prompt = fields['prompt']!;
+      expect(prompt, contains('青衣少女'));
+      expect(prompt, contains('把衣服改成红色'));
+      expect(prompt, contains('SQUARE 1:1'));
+      expect(form.files.single.key, 'image');
+    });
   });
 
   group('generateVideo', () {

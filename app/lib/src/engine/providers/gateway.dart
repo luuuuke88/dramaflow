@@ -21,8 +21,14 @@ abstract class ProviderGateway {
       {required String stage, CancelToken? cancelToken});
 
   /// 返回 rel 媒体路径（如 `proj1/img_xxx.png`）
-  Future<String> generateImage(String prompt, String projectId,
-      {required String stage, CancelToken? cancelToken});
+  Future<String> generateImage(
+    String prompt,
+    String projectId, {
+    required String stage,
+    CancelToken? cancelToken,
+    String? refImageAbsPath,
+    String? editInstruction,
+  });
 
   /// 返回 rel 媒体路径（如 `proj1/vid_xxx.mp4`）
   Future<String> generateVideo(
@@ -53,8 +59,14 @@ class HttpProviderGateway implements ProviderGateway {
   }
 
   @override
-  Future<String> generateImage(String prompt, String projectId,
-      {required String stage, CancelToken? cancelToken}) {
+  Future<String> generateImage(
+    String prompt,
+    String projectId, {
+    required String stage,
+    CancelToken? cancelToken,
+    String? refImageAbsPath,
+    String? editInstruction,
+  }) {
     final model = resolveStage(db, stage);
     final directiveRows = db.select(
         'SELECT content FROM prompts WHERE key=?', ['image_size_directive']);
@@ -62,7 +74,10 @@ class HttpProviderGateway implements ProviderGateway {
         ? config.str('imageSizeDirective')
         : directiveRows.first['content'] as String;
     return openaiGenerateImage(dio, model, media, prompt, projectId,
-        imageSizeDirective: directive, cancelToken: cancelToken);
+        imageSizeDirective: directive,
+        cancelToken: cancelToken,
+        refImageAbsPath: refImageAbsPath,
+        editInstruction: editInstruction);
   }
 
   @override

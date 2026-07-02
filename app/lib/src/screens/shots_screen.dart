@@ -922,6 +922,12 @@ class _ShotMediaColumn extends StatelessWidget {
           children: [
             image,
             const SizedBox(height: 12),
+            _ShotImageTakesStrip(
+              shot: shot,
+              episodeId: episodeId,
+              onChanged: onChanged,
+            ),
+            const SizedBox(height: 12),
             _VideoTakesStrip(
               shot: shot,
               episodeId: episodeId,
@@ -936,6 +942,12 @@ class _ShotMediaColumn extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _HeroImage(shot: shot),
+        const SizedBox(height: 12),
+        _ShotImageTakesStrip(
+          shot: shot,
+          episodeId: episodeId,
+          onChanged: onChanged,
+        ),
         const SizedBox(height: 12),
         _VideoTakesStrip(
           shot: shot,
@@ -967,6 +979,32 @@ class _HeroImage extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 1,
       child: MediaImage(shot.imageUrl, radius: 12),
+    );
+  }
+}
+
+class _ShotImageTakesStrip extends ConsumerWidget {
+  final Shot shot;
+  final String episodeId;
+  final VoidCallback onChanged;
+
+  const _ShotImageTakesStrip({
+    required this.shot,
+    required this.episodeId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final takesAsync = ref.watch(shotImageTakesProvider(shot.id));
+    return ImageTakesStrip(
+      value: takesAsync,
+      onSelect: (take) => runAction(context, ref, () async {
+        await ref.read(engineProvider).selectImageTake(take.id);
+        ref.invalidate(shotImageTakesProvider(shot.id));
+        ref.invalidate(shotsProvider(episodeId));
+        onChanged();
+      }, successMessage: '已切换图片版本'),
     );
   }
 }
@@ -1315,6 +1353,17 @@ class _ShotActions extends ConsumerWidget {
       videoButton = Tooltip(message: videoTooltip, child: videoButton);
     }
 
+    Future<void> repaintImage() async {
+      final instruction = await showRepaintInstructionDialog(context);
+      if (instruction == null || !context.mounted) return;
+      await runAction(context, ref, () async {
+        await ref.read(engineProvider).repaintShot(shot.id, instruction);
+        ref.invalidate(shotImageTakesProvider(shot.id));
+        ref.invalidate(shotsProvider(episodeId));
+        onChanged();
+      }, successMessage: '重绘任务已排队');
+    }
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -1332,6 +1381,12 @@ class _ShotActions extends ConsumerWidget {
                   : Icons.image_outlined,
               size: 16),
           label: Text(imageDone ? '重新生成' : (imageFailed ? '重试' : '生成镜头图')),
+          style: _compactOutlined,
+        ),
+        OutlinedButton.icon(
+          onPressed: imageBusy ? null : repaintImage,
+          icon: const Icon(Icons.brush_outlined, size: 16),
+          label: const Text('重绘'),
           style: _compactOutlined,
         ),
         videoButton,

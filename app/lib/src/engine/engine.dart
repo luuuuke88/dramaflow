@@ -38,6 +38,7 @@ class Engine {
     Duration queueTick = const Duration(milliseconds: 500),
   }) {
     _migrateLegacyVideoPaths(db);
+    _migrateLegacyImagePaths(db);
     final videoComposer = composer ?? const UnsupportedComposer();
     compose = ComposeService(db: db, media: media, composer: videoComposer);
     final runners = Runners(db, gateway, media, composer: videoComposer);
@@ -74,6 +75,8 @@ class Engine {
   Map<String, dynamic> _row(Row r) => Map<String, dynamic>.from(r);
 
   VideoTake _take(Row r) => VideoTake.fromJson(_row(r));
+
+  ImageTake _imageTake(Row r) => ImageTake.fromJson(_row(r));
 
   static void _migrateLegacyVideoPaths(Database db) {
     final legacy = db.select('''
@@ -118,6 +121,63 @@ ORDER BY vt.createdAt ASC
       db.execute(
           "UPDATE shots SET selectedTakeId=?, videoPath=?, videoStatus='done' WHERE id=?",
           [row['takeId'] as String, row['videoPath'] as String, shotId]);
+    }
+  }
+
+  static void _migrateLegacyImagePaths(Database db) {
+    final assetLegacy = db.select('''
+SELECT a.id assetId, a.imagePath
+FROM assets a
+WHERE a.imagePath IS NOT NULL
+  AND a.imagePath != ''
+  AND NOT EXISTS (
+    SELECT 1 FROM image_takes it WHERE it.assetId=a.id
+  )
+''');
+    final shotLegacy = db.select('''
+SELECT s.id shotId, s.imagePath
+FROM shots s
+WHERE s.imagePath IS NOT NULL
+  AND s.imagePath != ''
+  AND NOT EXISTS (
+    SELECT 1 FROM image_takes it WHERE it.shotId=s.id
+  )
+''');
+    if (assetLegacy.isEmpty && shotLegacy.isEmpty) return;
+
+    db.execute('BEGIN');
+    try {
+      final assetStmt = db.prepare(
+          'INSERT INTO image_takes (id,assetId,imagePath,selected,createdAt) VALUES (?,?,?,?,?)');
+      final shotStmt = db.prepare(
+          'INSERT INTO image_takes (id,shotId,imagePath,selected,createdAt) VALUES (?,?,?,?,?)');
+      try {
+        for (final row in assetLegacy) {
+          assetStmt.execute([
+            newId(),
+            row['assetId'] as String,
+            row['imagePath'] as String,
+            1,
+            nowIso(),
+          ]);
+        }
+        for (final row in shotLegacy) {
+          shotStmt.execute([
+            newId(),
+            row['shotId'] as String,
+            row['imagePath'] as String,
+            1,
+            nowIso(),
+          ]);
+        }
+      } finally {
+        assetStmt.close();
+        shotStmt.close();
+      }
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
     }
   }
 
@@ -477,7 +537,8 @@ ORDER BY vt.createdAt ASC
     return _asset(db.select('SELECT * FROM assets WHERE id=?', [id]).first);
   }
 
-  String? _enqueueAssetImage(String assetId, {int attempt = 1}) {
+  String? _enqueueAssetImage(String assetId,
+      {int attempt = 1, Map<String, dynamic> payload = const {}}) {
     final rows = db
         .select('SELECT id, projectId, name FROM assets WHERE id=?', [assetId]);
     if (rows.isEmpty) return null;
@@ -490,6 +551,7 @@ ORDER BY vt.createdAt ASC
         kind: 'asset_image',
         targetId: assetId,
         targetLabel: '素材图·${a['name']}',
+        payload: payload,
         attempt: attempt);
   }
 
@@ -501,6 +563,83 @@ ORDER BY vt.createdAt ASC
       throw EngineException('该资产已有生成任务进行中');
     }
     return _enqueueAssetImage(assetId);
+  }
+
+  Future<List<ImageTake>> listImageTakes(
+      {String? assetId, String? shotId}) async {
+    if ((assetId == null) == (shotId == null)) {
+      throw EngineException('必须指定一个图片归属');
+    }
+    if (assetId != null) {
+      if (db.select('SELECT id FROM assets WHERE id=?', [assetId]).isEmpty) {
+        throw EngineException('资产不存在');
+      }
+      return db
+          .select(
+              'SELECT * FROM image_takes WHERE assetId=? ORDER BY createdAt DESC, id DESC',
+              [assetId])
+          .map(_imageTake)
+          .toList();
+    }
+    if (db.select('SELECT id FROM shots WHERE id=?', [shotId]).isEmpty) {
+      throw EngineException('镜头不存在');
+    }
+    return db
+        .select(
+            'SELECT * FROM image_takes WHERE shotId=? ORDER BY createdAt DESC, id DESC',
+            [shotId])
+        .map(_imageTake)
+        .toList();
+  }
+
+  Future<void> selectImageTake(String takeId) async {
+    final rows = db.select('SELECT * FROM image_takes WHERE id=?', [takeId]);
+    if (rows.isEmpty) throw EngineException('图片版本不存在');
+    final take = rows.first;
+    final assetId = take['assetId'] as String?;
+    final shotId = take['shotId'] as String?;
+    final imagePath = take['imagePath'] as String;
+    db.execute('BEGIN');
+    try {
+      if (assetId != null) {
+        db.execute(
+            'UPDATE image_takes SET selected=0 WHERE assetId=?', [assetId]);
+        db.execute('UPDATE image_takes SET selected=1 WHERE id=?', [takeId]);
+        db.execute(
+            "UPDATE assets SET imagePath=?, status='done', error=NULL WHERE id=?",
+            [imagePath, assetId]);
+      } else if (shotId != null) {
+        db.execute(
+            'UPDATE image_takes SET selected=0 WHERE shotId=?', [shotId]);
+        db.execute('UPDATE image_takes SET selected=1 WHERE id=?', [takeId]);
+        db.execute(
+            "UPDATE shots SET imagePath=?, imageStatus='done', imageError=NULL WHERE id=?",
+            [imagePath, shotId]);
+      }
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  Future<String> repaintAsset(String assetId, String editInstruction) async {
+    final rows = db.select('SELECT id FROM assets WHERE id=?', [assetId]);
+    if (rows.isEmpty) throw EngineException('资产不存在');
+    if (queue.hasActiveJob('asset_image', assetId)) {
+      throw EngineException('该资产已有生成任务进行中');
+    }
+    final instruction = editInstruction.trim();
+    if (instruction.isEmpty) throw EngineException('请输入修改意见');
+    final takes = db.select(
+        'SELECT id FROM image_takes WHERE assetId=? AND selected=1 LIMIT 1',
+        [assetId]);
+    if (takes.isEmpty) throw EngineException('请先生成图片');
+    return _enqueueAssetImage(assetId, payload: {
+          'refTakeId': takes.first['id'] as String,
+          'editInstruction': instruction,
+        }) ??
+        (throw EngineException('资产不存在'));
   }
 
   Future<List<String>> generateAllAssetImages(String projectId,
@@ -740,7 +879,8 @@ WHERE vt.id=?
     return _shot(db.select('SELECT * FROM shots WHERE id=?', [id]).first);
   }
 
-  String? _enqueueShotImage(String shotId) {
+  String? _enqueueShotImage(String shotId,
+      {Map<String, dynamic> payload = const {}}) {
     final rows =
         db.select('SELECT id, projectId, idx FROM shots WHERE id=?', [shotId]);
     if (rows.isEmpty) return null;
@@ -753,7 +893,8 @@ WHERE vt.id=?
         projectId: s['projectId'] as String,
         kind: 'shot_image',
         targetId: shotId,
-        targetLabel: '镜头图·#${s['idx']}');
+        targetLabel: '镜头图·#${s['idx']}',
+        payload: payload);
   }
 
   Future<String?> generateShotImage(String shotId) async {
@@ -764,6 +905,26 @@ WHERE vt.id=?
       throw EngineException('该镜头已有生成任务进行中');
     }
     return _enqueueShotImage(shotId);
+  }
+
+  Future<String> repaintShot(String shotId, String editInstruction) async {
+    if (db.select('SELECT id FROM shots WHERE id=?', [shotId]).isEmpty) {
+      throw EngineException('镜头不存在');
+    }
+    if (queue.hasActiveJob('shot_image', shotId)) {
+      throw EngineException('该镜头已有生成任务进行中');
+    }
+    final instruction = editInstruction.trim();
+    if (instruction.isEmpty) throw EngineException('请输入修改意见');
+    final takes = db.select(
+        'SELECT id FROM image_takes WHERE shotId=? AND selected=1 LIMIT 1',
+        [shotId]);
+    if (takes.isEmpty) throw EngineException('请先生成图片');
+    return _enqueueShotImage(shotId, payload: {
+          'refTakeId': takes.first['id'] as String,
+          'editInstruction': instruction,
+        }) ??
+        (throw EngineException('镜头不存在'));
   }
 
   Future<List<String>> generateAllShotImages(String episodeId) async => db

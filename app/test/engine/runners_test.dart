@@ -36,7 +36,10 @@ class FakeGateway implements ProviderGateway {
 
   @override
   Future<String> generateImage(String prompt, String projectId,
-      {required String stage, CancelToken? cancelToken}) async {
+      {required String stage,
+      CancelToken? cancelToken,
+      String? refImageAbsPath,
+      String? editInstruction}) async {
     imageStages.add(stage);
     if (imageError != null) throw imageError!;
     return '$projectId/img_fake.png';

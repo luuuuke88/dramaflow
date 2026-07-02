@@ -15,7 +15,10 @@ class StubGateway implements ProviderGateway {
       const TextResult('{}');
   @override
   Future<String> generateImage(String prompt, String projectId,
-          {required String stage, CancelToken? cancelToken}) async =>
+          {required String stage,
+          CancelToken? cancelToken,
+          String? refImageAbsPath,
+          String? editInstruction}) async =>
       '$projectId/img_stub.png';
   @override
   Future<String> generateVideo(

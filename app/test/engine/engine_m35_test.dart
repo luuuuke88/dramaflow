@@ -102,7 +102,10 @@ class M35Gateway implements ProviderGateway {
 
   @override
   Future<String> generateImage(String prompt, String projectId,
-      {required String stage, CancelToken? cancelToken}) async {
+      {required String stage,
+      CancelToken? cancelToken,
+      String? refImageAbsPath,
+      String? editInstruction}) async {
     final n = _count(stage);
     if (stage == 'shot_image' && failNextShotImage) {
       failNextShotImage = false;

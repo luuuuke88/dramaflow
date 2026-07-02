@@ -21,7 +21,10 @@ class _StubGateway implements ProviderGateway {
       const TextResult('{}');
   @override
   Future<String> generateImage(String prompt, String projectId,
-          {String stage = 'asset_image', CancelToken? cancelToken}) async =>
+          {String stage = 'asset_image',
+          CancelToken? cancelToken,
+          String? refImageAbsPath,
+          String? editInstruction}) async =>
       '';
   @override
   Future<String> generateVideo(

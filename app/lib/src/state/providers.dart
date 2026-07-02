@@ -170,6 +170,18 @@ final takesProvider =
   return ref.watch(engineProvider).listTakes(shotId);
 });
 
+final assetImageTakesProvider =
+    FutureProvider.autoDispose.family<List<ImageTake>, String>((ref, assetId) {
+  ref.watch(jobsGenerationProvider);
+  return ref.watch(engineProvider).listImageTakes(assetId: assetId);
+});
+
+final shotImageTakesProvider =
+    FutureProvider.autoDispose.family<List<ImageTake>, String>((ref, shotId) {
+  ref.watch(jobsGenerationProvider);
+  return ref.watch(engineProvider).listImageTakes(shotId: shotId);
+});
+
 final projectJobsProvider =
     FutureProvider.autoDispose.family<List<Job>, String>((ref, projectId) {
   ref.watch(jobsGenerationProvider);
