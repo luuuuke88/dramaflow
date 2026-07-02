@@ -1,6 +1,25 @@
 /// DramaFlow API 数据模型（对应 docs/API.md）。手写 fromJson，不依赖代码生成。
 library;
 
+import 'dart:convert';
+
+Map<String, dynamic> _jsonMap(Object? value) {
+  if (value == null) return const {};
+  if (value is Map) return Map<String, dynamic>.from(value);
+  if (value is String && value.trim().isNotEmpty) {
+    return Map<String, dynamic>.from(jsonDecode(value) as Map);
+  }
+  return const {};
+}
+
+bool _jsonBool(Object? value, {bool defaultValue = true}) {
+  if (value == null) return defaultValue;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final s = value.toString().toLowerCase();
+  return s != '0' && s != 'false';
+}
+
 class ProjectStats {
   final int episodes;
   final int assets;
@@ -356,5 +375,66 @@ class AppSettings {
         videoModel: j['videoModel'] as String? ?? '',
         videoResolution: j['videoResolution'] as String? ?? '',
         videoDuration: (j['videoDuration'] as num?)?.toInt() ?? 5,
+      );
+}
+
+class ProviderInfo {
+  final String id;
+  final String name;
+  final String protocol;
+  final String baseUrl;
+  final String apiKey;
+  final bool enabled;
+  final String createdAt;
+
+  const ProviderInfo({
+    required this.id,
+    required this.name,
+    required this.protocol,
+    required this.baseUrl,
+    required this.apiKey,
+    required this.enabled,
+    required this.createdAt,
+  });
+
+  factory ProviderInfo.fromJson(Map<String, dynamic> j) => ProviderInfo(
+        id: j['id'] as String,
+        name: j['name'] as String? ?? '',
+        protocol: j['protocol'] as String? ?? '',
+        baseUrl: j['baseUrl'] as String? ?? '',
+        apiKey: j['apiKey'] as String? ?? '',
+        enabled: _jsonBool(j['enabled']),
+        createdAt: j['createdAt'] as String? ?? '',
+      );
+}
+
+class ProviderModelInfo {
+  final String id;
+  final String providerId;
+  final String modelId;
+  final String label;
+  final String kind;
+  final Map<String, dynamic> capabilities;
+  final bool enabled;
+
+  const ProviderModelInfo({
+    required this.id,
+    required this.providerId,
+    required this.modelId,
+    required this.label,
+    required this.kind,
+    required this.capabilities,
+    required this.enabled,
+  });
+
+  factory ProviderModelInfo.fromJson(Map<String, dynamic> j) =>
+      ProviderModelInfo(
+        id: j['id'] as String,
+        providerId: j['providerId'] as String? ?? '',
+        modelId: j['modelId'] as String? ?? '',
+        label: j['label'] as String? ?? '',
+        kind: j['kind'] as String? ?? '',
+        capabilities: _jsonMap(j['capabilities']),
+        enabled: _jsonBool(j['enabled']),
       );
 }

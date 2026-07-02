@@ -7,6 +7,8 @@ import 'config.dart';
 import 'db.dart';
 import 'media.dart';
 import 'providers/gateway.dart';
+import 'providers/resolve.dart';
+import 'pipeline/prompts.dart' as prompt_defs;
 import 'pipeline/runners.dart';
 import 'queue.dart';
 import 'util.dart';
@@ -38,11 +40,12 @@ class Engine {
     Directory(dataDir).createSync(recursive: true);
     final db = openEngineDb(path.join(dataDir, 'dramaflow.sqlite'));
     final config = EngineConfig(db, isMobile: isMobile);
+    _seedM2Defaults(db, config, isMobile: isMobile);
     final media = MediaStore(path.join(dataDir, 'media'));
     final engine = Engine(
         db: db,
         media: media,
-        gateway: HttpProviderGateway(config, media),
+        gateway: HttpProviderGateway(db, config, media),
         config: config);
     engine.queue.recoverOnColdStart();
     engine.queue.start();
@@ -52,6 +55,102 @@ class Engine {
   String mediaAbsPath(String rel) => media.absPath(rel);
 
   Map<String, dynamic> _row(Row r) => Map<String, dynamic>.from(r);
+
+  static void _seedM2Defaults(Database db, EngineConfig config,
+      {required bool isMobile}) {
+    if ((db.select('SELECT COUNT(*) n FROM providers').first['n'] as int) ==
+        0) {
+      final now = nowIso();
+      void provider(String id, String name, String protocol, String baseUrl,
+          String apiKey) {
+        db.execute(
+            'INSERT INTO providers (id,name,protocol,baseUrl,apiKey,createdAt) VALUES (?,?,?,?,?,?)',
+            [id, name, protocol, baseUrl, apiKey, now]);
+      }
+
+      void model(String providerId, String modelId, String label, String kind,
+          [Map<String, dynamic> capabilities = const {}]) {
+        db.execute(
+            'INSERT INTO provider_models (id,providerId,modelId,label,kind,capabilities,enabled) VALUES (?,?,?,?,?,?,1)',
+            [
+              '$providerId:$modelId',
+              providerId,
+              modelId,
+              label,
+              kind,
+              jsonEncode(capabilities)
+            ]);
+      }
+
+      if (!isMobile) {
+        provider('azt', 'azt', 'openai_compatible', 'http://127.0.0.1:8787/v1',
+            'local');
+        for (final modelId in ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini']) {
+          model('azt', modelId, modelId, 'text');
+        }
+        model('azt', 'gpt-image-2', 'gpt-image-2', 'image');
+      }
+
+      provider(
+          'volcengine',
+          'volcengine',
+          'volcengine',
+          'https://ark.cn-beijing.volces.com/api/v3',
+          isMobile ? '' : config.str('videoApiKey'));
+      model('volcengine', 'doubao-seed-1-6-250615', 'doubao-seed-1-6-250615',
+          'text');
+      model('volcengine', 'doubao-seedream-4-0-250828',
+          'doubao-seedream-4-0-250828', 'image');
+      model('volcengine', 'doubao-seedance-2-0-mini-260615',
+          'doubao-seedance-2-0-mini-260615', 'video', {
+        'durations': [for (var i = 4; i <= 15; i++) i],
+        'resolutions': ['480p', '720p']
+      });
+    }
+
+    void binding(String stage, String value) {
+      final key = 'binding.$stage';
+      final rows = db.select('SELECT value FROM settings WHERE key=?', [key]);
+      if (rows.isEmpty || (rows.first['value'] as String).trim().isEmpty) {
+        db.execute('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)',
+            [key, value]);
+      }
+    }
+
+    if (isMobile) {
+      binding('script_gen', 'volcengine:doubao-seed-1-6-250615');
+      binding('asset_extract', 'volcengine:doubao-seed-1-6-250615');
+      binding('storyboard_gen', 'volcengine:doubao-seed-1-6-250615');
+      binding('asset_image', 'volcengine:doubao-seedream-4-0-250828');
+      binding('shot_image', 'volcengine:doubao-seedream-4-0-250828');
+      binding('shot_video', 'volcengine:doubao-seedance-2-0-mini-260615');
+    } else {
+      binding('script_gen', 'azt:gpt-5.5');
+      binding('asset_extract', 'azt:gpt-5.5');
+      binding('storyboard_gen', 'azt:gpt-5.5');
+      binding('asset_image', 'azt:gpt-image-2');
+      binding('shot_image', 'azt:gpt-image-2');
+      binding('shot_video', 'volcengine:doubao-seedance-2-0-mini-260615');
+    }
+
+    if ((db.select('SELECT COUNT(*) n FROM prompts').first['n'] as int) == 0) {
+      final now = nowIso();
+      final prompts = {
+        ...prompt_defs.defaultSystemPrompts,
+        prompt_defs.promptKeyImageSizeDirective:
+            config.str('imageSizeDirective'),
+      };
+      final stmt = db.prepare(
+          'INSERT INTO prompts (key,content,updatedAt) VALUES (?,?,?)');
+      try {
+        for (final entry in prompts.entries) {
+          stmt.execute([entry.key, entry.value, now]);
+        }
+      } finally {
+        stmt.close();
+      }
+    }
+  }
 
   // ---------- health ----------
 
@@ -607,6 +706,379 @@ class Engine {
   }
 
   Future<void> cancelJob(String jobId) async => queue.cancel(jobId);
+
+  // ---------- providers / models / bindings / prompts ----------
+
+  String _maskSecret(String v) =>
+      v.isEmpty ? '' : '****${v.substring(v.length < 4 ? 0 : v.length - 4)}';
+
+  bool _enabled(Object? v, {bool defaultValue = true}) {
+    if (v == null) return defaultValue;
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    return v.toString() != '0' && v.toString().toLowerCase() != 'false';
+  }
+
+  String _capabilitiesJson(Object? value) {
+    if (value == null) return '{}';
+    if (value is String) {
+      if (value.trim().isEmpty) return '{}';
+      jsonDecode(value);
+      return value;
+    }
+    return jsonEncode(value);
+  }
+
+  ProviderInfo _provider(Row r, {bool maskKey = true}) {
+    final m = _row(r);
+    if (maskKey) m['apiKey'] = _maskSecret(m['apiKey'] as String? ?? '');
+    return ProviderInfo.fromJson(m);
+  }
+
+  ProviderModelInfo _providerModel(Row r) =>
+      ProviderModelInfo.fromJson(_row(r));
+
+  Future<List<ProviderInfo>> listProviders() async => db
+      .select('SELECT * FROM providers ORDER BY name, id')
+      .map(_provider)
+      .toList();
+
+  Future<ProviderInfo> createProvider({
+    required String name,
+    required String protocol,
+    required String baseUrl,
+    required String apiKey,
+  }) async {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) throw EngineException('供应商名称不能为空');
+    if (!const {'openai_compatible', 'volcengine'}.contains(protocol)) {
+      throw EngineException('供应商协议无效');
+    }
+    final id = newId();
+    db.execute(
+        'INSERT INTO providers (id,name,protocol,baseUrl,apiKey,createdAt) VALUES (?,?,?,?,?,?)',
+        [id, trimmedName, protocol, baseUrl.trim(), apiKey, nowIso()]);
+    return _provider(
+        db.select('SELECT * FROM providers WHERE id=?', [id]).first);
+  }
+
+  Future<ProviderInfo> updateProvider(String id,
+      {String? name, String? baseUrl, String? apiKey}) async {
+    if (db.select('SELECT id FROM providers WHERE id=?', [id]).isEmpty) {
+      throw EngineException('供应商不存在');
+    }
+    final assignments = <String>[];
+    final args = <Object?>[];
+    if (name != null) {
+      final trimmed = name.trim();
+      if (trimmed.isEmpty) throw EngineException('供应商名称不能为空');
+      assignments.add('name=?');
+      args.add(trimmed);
+    }
+    if (baseUrl != null) {
+      assignments.add('baseUrl=?');
+      args.add(baseUrl.trim());
+    }
+    if (apiKey != null && apiKey.isNotEmpty && !apiKey.startsWith('****')) {
+      assignments.add('apiKey=?');
+      args.add(apiKey);
+    }
+    if (assignments.isNotEmpty) {
+      args.add(id);
+      db.execute(
+          'UPDATE providers SET ${assignments.join(', ')} WHERE id=?', args);
+    }
+    return _provider(
+        db.select('SELECT * FROM providers WHERE id=?', [id]).first);
+  }
+
+  Future<void> deleteProvider(String id) async {
+    final bindings =
+        db.select("SELECT value FROM settings WHERE key LIKE 'binding.%'");
+    for (final row in bindings) {
+      final value = row['value'] as String;
+      final sep = value.indexOf(':');
+      if (sep > 0 && value.substring(0, sep) == id) {
+        throw EngineException('该供应商正被环节绑定使用，请先解绑');
+      }
+    }
+    db.execute('DELETE FROM providers WHERE id=?', [id]);
+  }
+
+  Future<List<ProviderModelInfo>> listProviderModels(String providerId) async {
+    return db
+        .select(
+            'SELECT * FROM provider_models WHERE providerId=? ORDER BY kind, modelId, id',
+            [providerId])
+        .map(_providerModel)
+        .toList();
+  }
+
+  Future<List<ProviderModelInfo>> saveProviderModels(
+      String providerId, List<Map<String, dynamic>> models) async {
+    if (db
+        .select('SELECT id FROM providers WHERE id=?', [providerId]).isEmpty) {
+      throw EngineException('供应商不存在');
+    }
+    db.execute('BEGIN');
+    try {
+      db.execute(
+          'DELETE FROM provider_models WHERE providerId=?', [providerId]);
+      final stmt = db.prepare(
+          'INSERT INTO provider_models (id,providerId,modelId,label,kind,capabilities,enabled) VALUES (?,?,?,?,?,?,?)');
+      try {
+        for (final model in models) {
+          final modelId = (model['modelId'] ?? '').toString().trim();
+          if (modelId.isEmpty) throw EngineException('模型 ID 不能为空');
+          final kind = (model['kind'] ?? '').toString();
+          if (!const {'text', 'image', 'video', 'tts'}.contains(kind)) {
+            throw EngineException('模型类型无效');
+          }
+          stmt.execute([
+            model['id']?.toString() ?? newId(),
+            providerId,
+            modelId,
+            (model['label'] ?? modelId).toString(),
+            kind,
+            _capabilitiesJson(model['capabilities']),
+            _enabled(model['enabled']) ? 1 : 0,
+          ]);
+        }
+      } finally {
+        stmt.close();
+      }
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+    return listProviderModels(providerId);
+  }
+
+  Future<int> testProvider(String id, String modelId) async {
+    final rows = db.select('''
+SELECT p.id providerId, p.protocol, p.baseUrl, p.apiKey, pm.modelId, pm.kind
+FROM providers p
+JOIN provider_models pm ON pm.providerId=p.id
+WHERE p.id=? AND pm.modelId=?
+LIMIT 1
+''', [id, modelId]);
+    if (rows.isEmpty) throw EngineException('模型不存在');
+    final row = rows.first;
+    if (row['kind'] != 'text') throw EngineException('暂只支持文本模型连通测试');
+    final http = gateway;
+    if (http is! HttpProviderGateway) {
+      throw EngineException('当前网关不支持供应商连通测试');
+    }
+    return http.testTextModel(ResolvedModel(
+      providerId: row['providerId'] as String,
+      protocol: row['protocol'] as String,
+      baseUrl: row['baseUrl'] as String,
+      apiKey: row['apiKey'] as String,
+      modelId: row['modelId'] as String,
+    ));
+  }
+
+  Future<Map<String, String>> getBindings() async => {
+        for (final row in db.select(
+            "SELECT key,value FROM settings WHERE key LIKE 'binding.%' ORDER BY key"))
+          (row['key'] as String).substring('binding.'.length):
+              row['value'] as String
+      };
+
+  void _setBinding(String stage, String providerId, String modelId) {
+    final requiredKind = requiredKindForStage(stage);
+    final rows = db.select('''
+SELECT pm.kind
+FROM providers p
+JOIN provider_models pm ON pm.providerId=p.id
+WHERE p.id=? AND pm.modelId=?
+LIMIT 1
+''', [providerId, modelId]);
+    if (rows.isEmpty) throw EngineException('模型不存在，请先保存模型');
+    final actualKind = rows.first['kind'] as String;
+    if (actualKind != requiredKind) {
+      throw EngineException('环节 $stage 需要 $requiredKind 模型，当前是 $actualKind');
+    }
+    db.execute('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)',
+        ['binding.$stage', '$providerId:$modelId']);
+  }
+
+  Future<void> setBinding(
+      String stage, String providerId, String modelId) async {
+    _setBinding(stage, providerId, modelId);
+  }
+
+  String _defaultPromptContent(String key) {
+    if (key == prompt_defs.promptKeyImageSizeDirective) {
+      return config.str('imageSizeDirective');
+    }
+    final content = prompt_defs.defaultSystemPrompts[key];
+    if (content == null) throw EngineException('未知提示词：$key');
+    return content;
+  }
+
+  Future<List<Map<String, dynamic>>> listPrompts() async => db
+      .select('SELECT key,content,updatedAt FROM prompts ORDER BY key')
+      .map(_row)
+      .toList();
+
+  Future<void> updatePrompt(String key, String content) async {
+    _defaultPromptContent(key);
+    db.execute(
+        'INSERT INTO prompts (key,content,updatedAt) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET content=excluded.content, updatedAt=excluded.updatedAt',
+        [key, content, nowIso()]);
+  }
+
+  Future<void> resetPrompt(String key) async {
+    db.execute(
+        'INSERT INTO prompts (key,content,updatedAt) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET content=excluded.content, updatedAt=excluded.updatedAt',
+        [key, _defaultPromptContent(key), nowIso()]);
+  }
+
+  Map<String, dynamic> _providerExport(Row provider) {
+    final providerId = provider['id'] as String;
+    return {
+      ..._row(provider),
+      'enabled': (provider['enabled'] as int) != 0,
+      'models': db.select(
+          'SELECT * FROM provider_models WHERE providerId=? ORDER BY kind, modelId, id',
+          [providerId]).map((model) {
+        final m = _row(model);
+        m['enabled'] = (model['enabled'] as int) != 0;
+        m['capabilities'] = jsonDecode(model['capabilities'] as String);
+        return m;
+      }).toList(),
+    };
+  }
+
+  Future<Map<String, dynamic>> exportConfig() async => {
+        'providers': db
+            .select('SELECT * FROM providers ORDER BY name, id')
+            .map(_providerExport)
+            .toList(),
+        'bindings': await getBindings(),
+        'prompts': await listPrompts(),
+      };
+
+  Map<String, dynamic> _stringMap(Object? value) {
+    if (value is! Map) return const {};
+    return value.map((k, v) => MapEntry(k.toString(), v));
+  }
+
+  Future<void> importConfig(Map<String, dynamic> data) async {
+    final providers = data['providers'] is List
+        ? data['providers'] as List
+        : const <Object?>[];
+    final bindings = _stringMap(data['bindings']);
+    final prompts =
+        data['prompts'] is List ? data['prompts'] as List : const <Object?>[];
+    final providerIdMap = <String, String>{};
+
+    db.execute('BEGIN');
+    try {
+      for (final rawProvider in providers) {
+        final p = _stringMap(rawProvider);
+        final exportedId = (p['id'] ?? newId()).toString();
+        final name = (p['name'] ?? '').toString().trim();
+        if (name.isEmpty) throw EngineException('供应商名称不能为空');
+        final protocol = (p['protocol'] ?? '').toString();
+        if (!const {'openai_compatible', 'volcengine'}.contains(protocol)) {
+          throw EngineException('供应商协议无效');
+        }
+        final existing =
+            db.select('SELECT id FROM providers WHERE name=? LIMIT 1', [name]);
+        var finalId =
+            existing.isNotEmpty ? existing.first['id'] as String : exportedId;
+        if (existing.isEmpty &&
+            db.select(
+                'SELECT id FROM providers WHERE id=?', [finalId]).isNotEmpty) {
+          finalId = newId();
+        }
+        providerIdMap[exportedId] = finalId;
+        final providerArgs = [
+          name,
+          protocol,
+          (p['baseUrl'] ?? '').toString(),
+          (p['apiKey'] ?? '').toString(),
+          _enabled(p['enabled']) ? 1 : 0,
+          (p['createdAt'] ?? nowIso()).toString(),
+        ];
+        if (existing.isNotEmpty) {
+          db.execute(
+              'UPDATE providers SET name=?, protocol=?, baseUrl=?, apiKey=?, enabled=?, createdAt=? WHERE id=?',
+              [...providerArgs, finalId]);
+        } else {
+          db.execute(
+              'INSERT INTO providers (id,name,protocol,baseUrl,apiKey,enabled,createdAt) VALUES (?,?,?,?,?,?,?)',
+              [finalId, ...providerArgs]);
+        }
+
+        db.execute('DELETE FROM provider_models WHERE providerId=?', [finalId]);
+        final rawModels = p['models'] is List ? p['models'] as List : const [];
+        final stmt = db.prepare(
+            'INSERT INTO provider_models (id,providerId,modelId,label,kind,capabilities,enabled) VALUES (?,?,?,?,?,?,?)');
+        try {
+          for (final rawModel in rawModels) {
+            final m = _stringMap(rawModel);
+            final modelId = (m['modelId'] ?? '').toString().trim();
+            if (modelId.isEmpty) throw EngineException('模型 ID 不能为空');
+            final kind = (m['kind'] ?? '').toString();
+            if (!const {'text', 'image', 'video', 'tts'}.contains(kind)) {
+              throw EngineException('模型类型无效');
+            }
+            var rowId = (m['id'] ?? newId()).toString();
+            if (db.select('SELECT id FROM provider_models WHERE id=?',
+                [rowId]).isNotEmpty) {
+              rowId = newId();
+            }
+            stmt.execute([
+              rowId,
+              finalId,
+              modelId,
+              (m['label'] ?? modelId).toString(),
+              kind,
+              _capabilitiesJson(m['capabilities']),
+              _enabled(m['enabled']) ? 1 : 0,
+            ]);
+          }
+        } finally {
+          stmt.close();
+        }
+      }
+
+      db.execute("DELETE FROM settings WHERE key LIKE 'binding.%'");
+      for (final entry in bindings.entries) {
+        final stage = entry.key;
+        final value = entry.value.toString();
+        final sep = value.indexOf(':');
+        if (sep <= 0 || sep == value.length - 1) {
+          throw EngineException('环节 $stage 绑定格式无效');
+        }
+        final oldProviderId = value.substring(0, sep);
+        final providerId = providerIdMap[oldProviderId] ?? oldProviderId;
+        final modelId = value.substring(sep + 1);
+        _setBinding(stage, providerId, modelId);
+      }
+
+      for (final rawPrompt in prompts) {
+        final p = _stringMap(rawPrompt);
+        final key = (p['key'] ?? '').toString();
+        _defaultPromptContent(key);
+        db.execute(
+            'INSERT INTO prompts (key,content,updatedAt) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET content=excluded.content, updatedAt=excluded.updatedAt',
+            [
+              key,
+              (p['content'] ?? '').toString(),
+              (p['updatedAt'] ?? nowIso()).toString()
+            ]);
+      }
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
 
   // ---------- settings ----------
 

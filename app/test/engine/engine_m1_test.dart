@@ -11,18 +11,18 @@ import 'package:dramaflow/src/engine/util.dart';
 class StubGateway implements ProviderGateway {
   @override
   Future<TextResult> generateText(String system, String user,
-          {CancelToken? cancelToken}) async =>
+          {required String stage, CancelToken? cancelToken}) async =>
       const TextResult('{}');
 
   @override
   Future<String> generateImage(String prompt, String projectId,
-          {CancelToken? cancelToken}) async =>
+          {required String stage, CancelToken? cancelToken}) async =>
       '$projectId/img_stub.png';
 
   @override
   Future<String> generateVideo(
           String prompt, String firstFrameAbsPath, String projectId,
-          {CancelToken? cancelToken}) async =>
+          {required String stage, CancelToken? cancelToken}) async =>
       '$projectId/vid_stub.mp4';
 }
 

@@ -175,3 +175,14 @@ final settingsProvider = FutureProvider.autoDispose<AppSettings>(
 
 final healthProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
     (ref) => ref.watch(engineProvider).health());
+
+// ---------- 配置后台 Providers（手动 invalidate，不跟随 jobsGeneration） ----------
+
+final providersProvider = FutureProvider.autoDispose<List<ProviderInfo>>(
+    (ref) => ref.watch(engineProvider).listProviders());
+
+final bindingsProvider = FutureProvider.autoDispose<Map<String, String>>(
+    (ref) => ref.watch(engineProvider).getBindings());
+
+final promptsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+    (ref) => ref.watch(engineProvider).listPrompts());

@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter_test/flutter_test.dart';
+// ignore_for_file: depend_on_referenced_packages
+
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
+import 'package:test/test.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/util.dart';
@@ -13,14 +15,20 @@ import 'package:dramaflow/src/engine/pipeline/runners.dart';
 class FakeGateway implements ProviderGateway {
   final List<String> textResponses;
   final List<String> textUsers = [];
+  final List<String> textSystems = [];
+  final List<String> textStages = [];
+  final List<String> imageStages = [];
+  final List<String> videoStages = [];
   int textCalls = 0;
   Object? imageError;
   FakeGateway({this.textResponses = const []});
 
   @override
   Future<TextResult> generateText(String system, String user,
-      {CancelToken? cancelToken}) async {
+      {required String stage, CancelToken? cancelToken}) async {
+    textSystems.add(system);
     textUsers.add(user);
+    textStages.add(stage);
     final r = textResponses[textCalls.clamp(0, textResponses.length - 1)];
     textCalls++;
     return TextResult(r);
@@ -28,16 +36,19 @@ class FakeGateway implements ProviderGateway {
 
   @override
   Future<String> generateImage(String prompt, String projectId,
-      {CancelToken? cancelToken}) async {
+      {required String stage, CancelToken? cancelToken}) async {
+    imageStages.add(stage);
     if (imageError != null) throw imageError!;
     return '$projectId/img_fake.png';
   }
 
   @override
   Future<String> generateVideo(
-          String prompt, String firstFrameAbsPath, String projectId,
-          {CancelToken? cancelToken}) async =>
-      '$projectId/vid_fake.mp4';
+      String prompt, String firstFrameAbsPath, String projectId,
+      {required String stage, CancelToken? cancelToken}) async {
+    videoStages.add(stage);
+    return '$projectId/vid_fake.mp4';
+  }
 }
 
 void main() {
@@ -66,10 +77,12 @@ void main() {
   test('scriptGen 正常：3 集入库 idx 1..3', () async {
     db.execute(
         "INSERT INTO novels (id,projectId,title,content,updatedAt) VALUES ('n1','p1','书','正文','x')");
-    final r = Runners(db, FakeGateway(textResponses: [goodScript]), media);
-    final msg = await r.run(
-        const JobRow('j1', 'p1', 'script_gen', 'p1', '{}'), token);
+    final gw = FakeGateway(textResponses: [goodScript]);
+    final r = Runners(db, gw, media);
+    final msg =
+        await r.run(const JobRow('j1', 'p1', 'script_gen', 'p1', '{}'), token);
     expect(msg, contains('3 集'));
+    expect(gw.textStages.single, 'script_gen');
     final rows = db.select('SELECT idx,title FROM episodes ORDER BY idx');
     expect(rows.length, 3);
     expect(rows.first['title'], '雪夜');
@@ -78,8 +91,7 @@ void main() {
   test('scriptGen 无小说 → 请先导入小说', () async {
     final r = Runners(db, FakeGateway(textResponses: [goodScript]), media);
     expect(
-        () =>
-            r.run(const JobRow('j', 'p1', 'script_gen', 'p1', '{}'), token),
+        () => r.run(const JobRow('j', 'p1', 'script_gen', 'p1', '{}'), token),
         throwsA(predicate(
             (e) => e is EngineException && e.message.contains('请先导入小说'))));
   });
@@ -109,11 +121,13 @@ void main() {
   test('assetImage 成功：done + imagePath', () async {
     db.execute(
         "INSERT INTO assets (id,projectId,kind,name,imagePrompt,status,createdAt) VALUES ('a1','p1','character','某人','a hero','queued','x')");
-    await Runners(db, FakeGateway(), media)
+    final gw = FakeGateway();
+    await Runners(db, gw, media)
         .run(const JobRow('j', 'p1', 'asset_image', 'a1', '{}'), token);
     final row = db.select('SELECT status,imagePath FROM assets').first;
     expect(row['status'], 'done');
     expect(row['imagePath'], 'p1/img_fake.png');
+    expect(gw.imageStages.single, 'asset_image');
   });
 
   test('shotVideo 缺首帧：videoStatus failed 带原因', () async {
@@ -144,7 +158,8 @@ void main() {
     expect(msg, contains('更新 1 个'));
     expect(db.select('SELECT COUNT(*) n FROM assets').first['n'], 2);
     expect(
-        db.select("SELECT description FROM assets WHERE name='陈默'")
+        db
+            .select("SELECT description FROM assets WHERE name='陈默'")
             .first['description'],
         '新设定');
   });
@@ -163,5 +178,19 @@ void main() {
     expect(gw.textUsers.single, contains('[道具] 霜纹玉'));
     final shot = db.select('SELECT * FROM shots').first;
     expect(jsonDecode(shot['assetNames'] as String), ['霜纹玉']);
+  });
+
+  test('storyboardGen 使用 prompts 表覆盖系统提示词', () async {
+    db.execute(
+        "INSERT INTO episodes (id,projectId,idx,title,scriptJson,createdAt) VALUES ('e1','p1',1,'雪夜','[]','x')");
+    db.execute(
+        "INSERT INTO prompts (key,content,updatedAt) VALUES ('storyboard_gen_system','自定义分镜系统提示','x')");
+    const out =
+        '{"shots":[{"description":"开场","camera":"远景","dialogue":"","assetNames":[],"imagePrompt":"snow gate","videoPrompt":"推近"}]}';
+    final gw = FakeGateway(textResponses: [out]);
+    await Runners(db, gw, media)
+        .run(const JobRow('j', 'p1', 'storyboard_gen', 'e1', '{}'), token);
+    expect(gw.textSystems.single, '自定义分镜系统提示');
+    expect(gw.textStages.single, 'storyboard_gen');
   });
 }
