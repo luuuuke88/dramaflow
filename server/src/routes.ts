@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { Context } from "hono";
 import fs from "node:fs";
 import path from "node:path";
@@ -22,6 +23,10 @@ const fail = (c: Context, status: 400 | 401 | 404 | 409 | 500, error: string) =>
 function mediaUrl(rel: string | null): string | null {
   return rel ? `/media/${rel.split(path.sep).join("/")}` : null;
 }
+
+// Flutter Web 跨源访问需要 CORS（桌面/移动端不受影响；本地单用户场景放开）
+app.use("/api/*", cors());
+app.use("/media/*", cors());
 
 // ---------- auth（/api/health 与 /media 之外的 /api/* 全部要求 token）----------
 
