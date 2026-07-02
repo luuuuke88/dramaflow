@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'screens/projects_screen.dart';
@@ -11,8 +12,17 @@ import 'screens/settings_screen.dart';
 import 'theme.dart';
 import 'widgets/shell.dart';
 
+/// Web 端从浏览器地址深链启动（刷新/分享链接保持位置）；桌面/移动端从首页启动。
+String _initialLocation() {
+  if (kIsWeb) {
+    final path = Uri.base.path;
+    if (path.isNotEmpty && path != '/') return path;
+  }
+  return '/';
+}
+
 final _router = GoRouter(
-  initialLocation: '/',
+  initialLocation: _initialLocation(),
   routes: [
     ShellRoute(
       builder: (context, state, child) => AppShell(child: child),
