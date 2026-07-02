@@ -252,13 +252,65 @@ class Engine {
       .map(_asset)
       .toList();
 
+  Future<Asset> createAsset(String projectId,
+      {required String kind,
+      required String name,
+      String description = '',
+      String imagePrompt = '',
+      String note = ''}) async {
+    if (!const {'character', 'scene', 'prop'}.contains(kind)) {
+      throw EngineException('资产类型无效');
+    }
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) throw EngineException('名称不能为空');
+    _mustProject(projectId);
+    final existing = db.select(
+        'SELECT id FROM assets WHERE projectId=? AND kind=? AND name=? LIMIT 1',
+        [projectId, kind, trimmedName]);
+    if (existing.isNotEmpty) throw EngineException('同名资产已存在');
+
+    final id = newId();
+    db.execute(
+        "INSERT INTO assets (id, projectId, kind, name, description, imagePrompt, note, status, createdAt) VALUES (?,?,?,?,?,?,?,'draft',?)",
+        [
+          id,
+          projectId,
+          kind,
+          trimmedName,
+          description,
+          imagePrompt,
+          note,
+          nowIso()
+        ]);
+    return _asset(db.select('SELECT * FROM assets WHERE id=?', [id]).first);
+  }
+
+  Future<void> deleteAssets(List<String> ids) async {
+    for (final id in ids) {
+      if (queue.hasActiveJob('asset_image', id)) {
+        throw EngineException('有资产正在生成图片，请先取消或等待完成');
+      }
+    }
+    final del = db.prepare('DELETE FROM assets WHERE id=?');
+    try {
+      for (final id in ids) {
+        del.execute([id]);
+      }
+    } finally {
+      del.close();
+    }
+  }
+
   Future<Asset> updateAsset(String id,
-      {String? name, String? description, String? imagePrompt}) async {
+      {String? name,
+      String? description,
+      String? imagePrompt,
+      String? note}) async {
     final rows = db.select('SELECT id FROM assets WHERE id=?', [id]);
     if (rows.isEmpty) throw EngineException('资产不存在');
     db.execute(
-        'UPDATE assets SET name=COALESCE(?,name), description=COALESCE(?,description), imagePrompt=COALESCE(?,imagePrompt) WHERE id=?',
-        [name, description, imagePrompt, id]);
+        'UPDATE assets SET name=COALESCE(?,name), description=COALESCE(?,description), imagePrompt=COALESCE(?,imagePrompt), note=COALESCE(?,note) WHERE id=?',
+        [name, description, imagePrompt, note, id]);
     return _asset(db.select('SELECT * FROM assets WHERE id=?', [id]).first);
   }
 
@@ -331,6 +383,97 @@ class Engine {
           'SELECT * FROM shots WHERE episodeId=? ORDER BY idx', [episodeId])
       .map(_shot)
       .toList();
+
+  Future<void> reorderShots(String episodeId, List<String> orderedIds) async {
+    final currentIds = db
+        .select(
+            'SELECT id FROM shots WHERE episodeId=? ORDER BY idx', [episodeId])
+        .map((r) => r['id'] as String)
+        .toList();
+    final currentSet = currentIds.toSet();
+    final orderedSet = orderedIds.toSet();
+    if (currentIds.length != orderedIds.length ||
+        currentSet.length != orderedSet.length ||
+        !orderedSet.containsAll(currentSet)) {
+      throw EngineException('镜头列表与当前不一致，请刷新后重试');
+    }
+
+    db.execute('BEGIN');
+    try {
+      final upd = db.prepare('UPDATE shots SET idx=? WHERE id=?');
+      try {
+        for (final (i, id) in orderedIds.indexed) {
+          upd.execute([i + 1, id]);
+        }
+      } finally {
+        upd.close();
+      }
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  Future<Shot> insertShot(String episodeId, {int? afterIdx}) async {
+    final episodes =
+        db.select('SELECT projectId FROM episodes WHERE id=?', [episodeId]);
+    if (episodes.isEmpty) throw EngineException('剧集不存在');
+    final maxIdx = db.select(
+        'SELECT COALESCE(MAX(idx), 0) n FROM shots WHERE episodeId=?',
+        [episodeId]).first['n'] as int;
+    if (afterIdx != null && (afterIdx < 0 || afterIdx > maxIdx)) {
+      throw EngineException('插入位置不存在，请刷新后重试');
+    }
+    final insertIdx = (afterIdx ?? maxIdx) + 1;
+    final id = newId();
+
+    db.execute('BEGIN');
+    try {
+      db.execute('UPDATE shots SET idx=idx+1 WHERE episodeId=? AND idx>=?',
+          [episodeId, insertIdx]);
+      db.execute(
+          "INSERT INTO shots (id, episodeId, projectId, idx, description, dialogue, camera, assetNames, imagePrompt, videoPrompt, imageStatus, videoStatus, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,'none','none',?)",
+          [
+            id,
+            episodeId,
+            episodes.first['projectId'] as String,
+            insertIdx,
+            '',
+            '',
+            '',
+            '[]',
+            '',
+            '',
+            nowIso()
+          ]);
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+    return _shot(db.select('SELECT * FROM shots WHERE id=?', [id]).first);
+  }
+
+  Future<void> deleteShot(String id) async {
+    final rows = db.select('SELECT episodeId, idx FROM shots WHERE id=?', [id]);
+    if (rows.isEmpty) throw EngineException('镜头不存在');
+    if (queue.hasActiveJob('shot_image', id) ||
+        queue.hasActiveJob('shot_video', id)) {
+      throw EngineException('该镜头有任务进行中，请先取消');
+    }
+    final shot = rows.first;
+    db.execute('BEGIN');
+    try {
+      db.execute('DELETE FROM shots WHERE id=?', [id]);
+      db.execute('UPDATE shots SET idx=idx-1 WHERE episodeId=? AND idx>?',
+          [shot['episodeId'] as String, shot['idx'] as int]);
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
 
   Future<Shot> updateShot(String id, Map<String, String> patch) async {
     if (db.select('SELECT id FROM shots WHERE id=?', [id]).isEmpty) {
