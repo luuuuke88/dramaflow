@@ -28,10 +28,14 @@ class ApiClient {
     this.token = token;
   }
 
+  /// 规范化：去掉尾部斜杠和误填的 /api 后缀（路径统一由客户端拼 /api/...）
+  String get _root => baseUrl
+      .replaceAll(RegExp(r'/+$'), '')
+      .replaceFirst(RegExp(r'/api$'), '');
+
   /// 给媒体相对路径加上主机与 token（Image.network 可直接使用）
   String mediaUrl(String relativeUrl) {
-    final base = baseUrl.replaceAll(RegExp(r'/+$'), '');
-    return '$base$relativeUrl?token=$token';
+    return '$_root$relativeUrl?token=$token';
   }
 
   Future<dynamic> _request(
@@ -42,7 +46,7 @@ class ApiClient {
   }) async {
     try {
       final res = await _dio.request(
-        '${baseUrl.replaceAll(RegExp(r'/+$'), '')}$path',
+        '$_root$path',
         data: body,
         queryParameters: query,
         options: Options(

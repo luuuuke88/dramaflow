@@ -1,7 +1,7 @@
 import { z } from "zod";
 import path from "node:path";
 import { db, nowIso, MEDIA_DIR } from "../db.js";
-import { newId, extractJson } from "../util.js";
+import { newId, extractJson, errMessage } from "../util.js";
 import { generateText } from "../providers/text.js";
 import { generateImage } from "../providers/image.js";
 import { generateVideo } from "../providers/video.js";
@@ -219,17 +219,17 @@ export async function runAssetImage(job: JobRow): Promise<string> {
     | { id: string; name: string; imagePrompt: string; description: string }
     | undefined;
   if (!asset) throw new Error("资产不存在");
-  const prompt = asset.imagePrompt.trim() || asset.description.trim();
-  if (!prompt) throw new Error("该资产没有图片提示词，请先填写");
 
+  // 先置 running 再做预检：任何失败（含预检）都必须把实体状态落到 failed+原因，不能卡在 queued
   db.prepare("UPDATE assets SET status='running', error=NULL WHERE id=?").run(asset.id);
   try {
+    const prompt = asset.imagePrompt.trim() || asset.description.trim();
+    if (!prompt) throw new Error("该资产没有图片提示词，请先填写");
     const rel = await generateImage(prompt, job.projectId);
     db.prepare("UPDATE assets SET status='done', imagePath=?, error=NULL WHERE id=?").run(rel, asset.id);
     return rel;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    db.prepare("UPDATE assets SET status='failed', error=? WHERE id=?").run(msg, asset.id);
+    db.prepare("UPDATE assets SET status='failed', error=? WHERE id=?").run(errMessage(e).slice(0, 2000), asset.id);
     throw e;
   }
 }
@@ -240,16 +240,15 @@ export async function runShotImage(job: JobRow): Promise<string> {
     | { id: string; imagePrompt: string }
     | undefined;
   if (!shot) throw new Error("镜头不存在");
-  if (!shot.imagePrompt.trim()) throw new Error("该镜头没有图片提示词");
 
   db.prepare("UPDATE shots SET imageStatus='running', imageError=NULL WHERE id=?").run(shot.id);
   try {
+    if (!shot.imagePrompt.trim()) throw new Error("该镜头没有图片提示词");
     const rel = await generateImage(shot.imagePrompt, job.projectId);
     db.prepare("UPDATE shots SET imageStatus='done', imagePath=?, imageError=NULL WHERE id=?").run(rel, shot.id);
     return rel;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    db.prepare("UPDATE shots SET imageStatus='failed', imageError=? WHERE id=?").run(msg, shot.id);
+    db.prepare("UPDATE shots SET imageStatus='failed', imageError=? WHERE id=?").run(errMessage(e).slice(0, 2000), shot.id);
     throw e;
   }
 }
@@ -260,19 +259,18 @@ export async function runShotVideo(job: JobRow): Promise<string> {
     | { id: string; imagePath: string | null; videoPrompt: string; description: string }
     | undefined;
   if (!shot) throw new Error("镜头不存在");
-  if (!shot.imagePath) throw new Error("请先生成镜头图（视频需要首帧）");
-  const prompt = shot.videoPrompt.trim() || shot.description.trim();
-  if (!prompt) throw new Error("该镜头没有视频提示词");
 
   db.prepare("UPDATE shots SET videoStatus='running', videoError=NULL WHERE id=?").run(shot.id);
   try {
+    if (!shot.imagePath) throw new Error("请先生成镜头图（视频需要首帧）");
+    const prompt = shot.videoPrompt.trim() || shot.description.trim();
+    if (!prompt) throw new Error("该镜头没有视频提示词");
     const abs = path.join(MEDIA_DIR, shot.imagePath);
     const rel = await generateVideo(prompt, abs, job.projectId);
     db.prepare("UPDATE shots SET videoStatus='done', videoPath=?, videoError=NULL WHERE id=?").run(rel, shot.id);
     return rel;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    db.prepare("UPDATE shots SET videoStatus='failed', videoError=? WHERE id=?").run(msg, shot.id);
+    db.prepare("UPDATE shots SET videoStatus='failed', videoError=? WHERE id=?").run(errMessage(e).slice(0, 2000), shot.id);
     throw e;
   }
 }

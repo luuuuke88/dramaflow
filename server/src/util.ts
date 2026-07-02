@@ -1,3 +1,4 @@
+import axios from "axios";
 import { customAlphabet } from "nanoid";
 
 export const newId = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 14);
@@ -27,7 +28,21 @@ export function extractJson(raw: string): unknown {
   throw new Error("输出中未找到有效 JSON");
 }
 
+/** 错误 → 人类可读消息。axios 错误附带上游响应体（生成失败必须能看到具体原因）。 */
 export function errMessage(e: unknown): string {
+  if (axios.isAxiosError(e)) {
+    const status = e.response?.status;
+    const data = e.response?.data;
+    let detail = "";
+    if (data != null) {
+      try {
+        detail = typeof data === "string" ? data : JSON.stringify(data);
+      } catch {
+        detail = String(data);
+      }
+    }
+    return `HTTP ${status ?? "网络错误"} ${e.message}${detail ? `：${detail.slice(0, 500)}` : ""}`;
+  }
   if (e instanceof Error) return e.message;
   return String(e);
 }

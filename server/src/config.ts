@@ -59,9 +59,13 @@ export function updateSettings(patch: Partial<Settings>): Settings {
   return getSettings();
 }
 
+/** 需要打码的密钥字段（GET 打码返回；PUT 时空串或 **** 开头视为"不修改"） */
+export const MASKED_KEYS = ["textApiKey", "imageApiKey", "videoApiKey", "apiToken"] as const;
+
 /** 打码返回给客户端（密钥只显示尾部4位） */
 export function maskedSettings(): Record<string, unknown> {
-  const s = getSettings();
+  const s = getSettings() as unknown as Record<string, unknown>;
   const mask = (v: string) => (v ? `****${v.slice(-4)}` : "");
-  return { ...s, videoApiKey: mask(s.videoApiKey), apiToken: s.apiToken };
+  for (const key of MASKED_KEYS) s[key] = mask(String(s[key] ?? ""));
+  return s;
 }

@@ -1,6 +1,6 @@
 # DramaFlow API 契约 v1
 
-Base: `http://127.0.0.1:8620/api`（端口 8620，避开 azt/ima2/ToonFlow 常用端口）
+Base: `http://127.0.0.1:8620`（端口 8620，避开 azt/ima2/ToonFlow 常用端口）。下文所有路径均以 `/api/...` 书写；客户端配置 baseUrl 时填主机地址即可（误填 `/api` 后缀客户端会自动剥离）。
 认证: `Authorization: Bearer <token>`（默认 `local-dev`）；媒体文件支持 `?token=`。
 
 所有响应统一信封：
@@ -12,7 +12,7 @@ Base: `http://127.0.0.1:8620/api`（端口 8620，避开 azt/ima2/ToonFlow 常�
 时间一律 ISO8601 字符串。id 一律字符串（nanoid）。
 
 ## 健康
-- `GET /health` → `{ ok, data: { version, uptime, providers: { text: "ok"|"error:...", image: "ok"|..., video: "unconfigured"|"configured" } } }`（providers 状态来自最近一次实际调用缓存，不主动探测）
+- `GET /health` → `{ ok, data: { version, uptimeSec, providers: { text, image, video } } }`（providers 为当前配置描述字符串；video 未配置 key 时为 `"unconfigured"`）
 
 ## 项目
 - `GET /projects` → `[{ id, name, artStyle, createdAt, updatedAt, stats: { episodes, assets, assetsDone, shots, shotsImageDone, shotsVideoDone, hasNovel } }]`
@@ -28,8 +28,8 @@ Base: `http://127.0.0.1:8620/api`（端口 8620，避开 azt/ima2/ToonFlow 常�
 ## 剧本（分集）
 - `POST /projects/:id/generate-script` body `{ episodeCount?: number }`（默认 3）→ `{ jobId }`
   - 前置：必须已有 novel，否则 400 "请先导入小说"
-- `GET /projects/:id/episodes` → `[{ id, idx, title, synopsis, status, error, sceneCount }]`
-- `GET /episodes/:id` → `{ id, idx, title, synopsis, status, error, scenes: [{ idx, location, timeOfDay, action, dialogues: [{ speaker, line }] }] }`
+- `GET /projects/:id/episodes` → `[{ id, idx, title, synopsis, sceneCount, shotCount }]`
+- `GET /episodes/:id` → `{ id, projectId, idx, title, synopsis, createdAt, scenes: [{ location, timeOfDay, action, dialogues: [{ speaker, line }] }] }`（scenes 按数组顺序排列；剧本生成进度/失败经 jobs 端点的 `script_gen` 任务查询，不在剧集行上）
 - `PUT /episodes/:id` body `{ title?, synopsis?, scenes? }` → episode（人工修订）
 
 ## 素材（角色/场景）
@@ -52,11 +52,11 @@ Base: `http://127.0.0.1:8620/api`（端口 8620，避开 azt/ima2/ToonFlow 常�
 - `GET /jobs/active` → `[{ id, projectId, kind, targetId, targetLabel, state, attempt, createdAt, startedAt }]`（queued+running，全项目）
 - `GET /projects/:id/jobs?limit=50` → 最近任务（含 done/failed，desc）`[{ ..., error, finishedAt, durationMs }]`
 - `POST /jobs/:id/retry` → `{ jobId }`（新 job，沿用原 payload；仅 failed 可重试）
-- `POST /jobs/:id/cancel` → `{}`（queued 直接取消；running 标记取消并尽力中断）
+- `POST /jobs/:id/cancel` → `{}`（仅 queued 可取消；running 返回 400，任务将自然结束。取消"重新生成"时，已有产物的实体状态恢复为 done）
 
 ## 设置
-- `GET /settings` → `{ textBaseUrl, textApiKey, textModel, imageBaseUrl, imageApiKey, imageModel, videoProvider, videoApiKey(打码), videoModel, apiToken(打码), concurrency: {...} }`
-- `PUT /settings` body 同上任意子集 → 更新后的 settings（打码字段传空字符串=不修改）
+- `GET /settings` → `{ apiToken*, textBaseUrl, textApiKey*, textModel, imageBaseUrl, imageApiKey*, imageModel, imageSizeDirective, videoProvider, videoBaseUrl, videoApiKey*, videoModel, videoResolution, videoDuration }`（`*` 字段打码返回，形如 `****尾4位`）
+- `PUT /settings` body 同上任意子集 → 更新后的 settings（打码字段传空字符串或 `****` 开头的值 = 不修改）
 
 ## 媒体
 - `GET /media/<path>?token=` → 图片/视频文件（Content-Type 自动）

@@ -3,10 +3,11 @@ import { cors } from "hono/cors";
 import type { Context } from "hono";
 import fs from "node:fs";
 import path from "node:path";
+import { Readable } from "node:stream";
 import { z } from "zod";
 import { db, nowIso, MEDIA_DIR } from "./db.js";
-import { newId } from "./util.js";
-import { getSettings, updateSettings, maskedSettings, type Settings } from "./config.js";
+import { newId, errMessage } from "./util.js";
+import { getSettings, updateSettings, maskedSettings, MASKED_KEYS, type Settings } from "./config.js";
 import { enqueueJob, hasActiveJob, type JobKind } from "./queue.js";
 
 export const app = new Hono();
@@ -17,8 +18,26 @@ const startedAt = Date.now();
 // ---------- helpers ----------
 
 const ok = (c: Context, data: unknown) => c.json({ ok: true, data });
-const fail = (c: Context, status: 400 | 401 | 404 | 409 | 500, error: string) =>
+const fail = (c: Context, status: 400 | 401 | 404 | 409 | 416 | 500, error: string) =>
   c.json({ ok: false, error }, status);
+
+// 未匹配路由与未捕获异常也保持 { ok:false } 信封
+app.notFound((c) => c.json({ ok: false, error: "接口不存在" }, 404));
+app.onError((err, c) => {
+  console.error("[dramaflow] unhandled:", err);
+  return c.json({ ok: false, error: `服务器内部错误：${errMessage(err).slice(0, 500)}` }, 500);
+});
+
+/** 解析并校验请求体；校验失败抛出带中文信息的 400（由调用方捕获返回） */
+async function parseBody<T>(c: Context, schema: z.ZodType<T>): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return { ok: false, error: `参数错误 ${issue.path.join(".")}: ${issue.message}` };
+  }
+  return { ok: true, data: parsed.data };
+}
 
 function mediaUrl(rel: string | null): string | null {
   return rel ? `/media/${rel.split(path.sep).join("/")}` : null;
@@ -102,13 +121,19 @@ app.get("/api/projects/:id", (c) => {
   return ok(c, { ...(p as Record<string, unknown>), stats: projectStats(c.req.param("id")) });
 });
 
+const ProjectPatchBody = z.object({
+  name: z.string().min(1, "项目名不能为空").optional(),
+  artStyle: z.string().optional(),
+});
+
 app.patch("/api/projects/:id", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { name?: string; artStyle?: string };
+  const body = await parseBody(c, ProjectPatchBody);
+  if (!body.ok) return fail(c, 400, body.error);
   const p = db.prepare("SELECT * FROM projects WHERE id=?").get(c.req.param("id"));
   if (!p) return fail(c, 404, "项目不存在");
   db.prepare("UPDATE projects SET name=COALESCE(?,name), artStyle=COALESCE(?,artStyle), updatedAt=? WHERE id=?").run(
-    body.name ?? null,
-    body.artStyle ?? null,
+    body.data.name ?? null,
+    body.data.artStyle ?? null,
     nowIso(),
     c.req.param("id"),
   );
@@ -127,11 +152,18 @@ app.get("/api/projects/:id/novel", (c) => {
   return ok(c, n ?? null);
 });
 
+const NovelPutBody = z.object({
+  title: z.string().optional(),
+  content: z.string().min(1, "小说内容不能为空"),
+});
+
 app.put("/api/projects/:id/novel", async (c) => {
   const projectId = c.req.param("id");
   if (!db.prepare("SELECT id FROM projects WHERE id=?").get(projectId)) return fail(c, 404, "项目不存在");
-  const body = (await c.req.json().catch(() => ({}))) as { title?: string; content?: string };
-  if (!body.content?.trim()) return fail(c, 400, "小说内容不能为空");
+  const parsed = await parseBody(c, NovelPutBody);
+  if (!parsed.ok) return fail(c, 400, parsed.error);
+  const body = parsed.data;
+  if (!body.content.trim()) return fail(c, 400, "小说内容不能为空");
   const existing = db.prepare("SELECT id FROM novels WHERE projectId=?").get(projectId) as { id: string } | undefined;
   if (existing) {
     db.prepare("UPDATE novels SET title=?, content=?, updatedAt=? WHERE id=?").run(
@@ -163,13 +195,21 @@ app.post("/api/projects/:id/generate-script", async (c) => {
     | undefined;
   if (!novel?.content.trim()) return fail(c, 400, "请先导入小说");
   if (hasActiveJob("script_gen", projectId)) return fail(c, 409, "剧本生成任务已在进行中");
-  const body = (await c.req.json().catch(() => ({}))) as { episodeCount?: number };
+  // 重写剧本会删除全部剧集与分镜，下游任务运行时禁止
+  const downstream = db
+    .prepare(
+      "SELECT COUNT(*) n FROM jobs WHERE projectId=? AND state IN ('queued','running') AND kind IN ('storyboard_gen','shot_image','shot_video')",
+    )
+    .get(projectId) as { n: number };
+  if (downstream.n > 0) return fail(c, 409, "有分镜/镜头图/视频任务进行中，请等待完成或取消后再重新生成剧本");
+  const body = await parseBody(c, z.object({ episodeCount: z.number().int().min(1).max(12).optional() }));
+  if (!body.ok) return fail(c, 400, body.error);
   const jobId = enqueueJob({
     projectId,
     kind: "script_gen",
     targetId: projectId,
     targetLabel: "剧本生成",
-    payload: { episodeCount: body.episodeCount },
+    payload: { episodeCount: body.data.episodeCount },
   });
   return ok(c, { jobId });
 });
@@ -199,14 +239,18 @@ app.get("/api/episodes/:id", (c) => {
   return ok(c, { ...r, scenes: JSON.parse(r.scriptJson as string), scriptJson: undefined });
 });
 
+const EpisodePutBody = z.object({
+  title: z.string().optional(),
+  synopsis: z.string().optional(),
+  scenes: z.array(z.record(z.string(), z.unknown())).optional(),
+});
+
 app.put("/api/episodes/:id", async (c) => {
   const r = db.prepare("SELECT id FROM episodes WHERE id=?").get(c.req.param("id"));
   if (!r) return fail(c, 404, "剧集不存在");
-  const body = (await c.req.json().catch(() => ({}))) as {
-    title?: string;
-    synopsis?: string;
-    scenes?: unknown[];
-  };
+  const parsed = await parseBody(c, EpisodePutBody);
+  if (!parsed.ok) return fail(c, 400, parsed.error);
+  const body = parsed.data;
   db.prepare(
     "UPDATE episodes SET title=COALESCE(?,title), synopsis=COALESCE(?,synopsis), scriptJson=COALESCE(?,scriptJson) WHERE id=?",
   ).run(body.title ?? null, body.synopsis ?? null, body.scenes ? JSON.stringify(body.scenes) : null, c.req.param("id"));
@@ -236,14 +280,18 @@ app.get("/api/projects/:id/assets", (c) => {
   return ok(c, rows.map(assetView));
 });
 
+const AssetPatchBody = z.object({
+  name: z.string().min(1, "名称不能为空").optional(),
+  description: z.string().optional(),
+  imagePrompt: z.string().optional(),
+});
+
 app.patch("/api/assets/:id", async (c) => {
   const a = db.prepare("SELECT id FROM assets WHERE id=?").get(c.req.param("id"));
   if (!a) return fail(c, 404, "资产不存在");
-  const body = (await c.req.json().catch(() => ({}))) as {
-    name?: string;
-    description?: string;
-    imagePrompt?: string;
-  };
+  const parsed = await parseBody(c, AssetPatchBody);
+  if (!parsed.ok) return fail(c, 400, parsed.error);
+  const body = parsed.data;
   db.prepare(
     "UPDATE assets SET name=COALESCE(?,name), description=COALESCE(?,description), imagePrompt=COALESCE(?,imagePrompt) WHERE id=?",
   ).run(body.name ?? null, body.description ?? null, body.imagePrompt ?? null, c.req.param("id"));
@@ -284,6 +332,14 @@ app.post("/api/episodes/:id/generate-storyboard", (c) => {
     | undefined;
   if (!ep) return fail(c, 404, "剧集不存在");
   if (hasActiveJob("storyboard_gen", ep.id)) return fail(c, 409, "分镜生成任务已在进行中");
+  // 重新生成分镜会删除本集全部镜头，本集镜头图/视频任务运行时禁止
+  const downstream = db
+    .prepare(
+      `SELECT COUNT(*) n FROM jobs WHERE state IN ('queued','running') AND kind IN ('shot_image','shot_video')
+       AND targetId IN (SELECT id FROM shots WHERE episodeId=?)`,
+    )
+    .get(ep.id) as { n: number };
+  if (downstream.n > 0) return fail(c, 409, "本集有镜头图/视频任务进行中，请等待完成或取消后再重新生成分镜");
   const jobId = enqueueJob({
     projectId: ep.projectId,
     kind: "storyboard_gen",
@@ -311,10 +367,20 @@ app.get("/api/episodes/:id/shots", (c) => {
   return ok(c, rows.map(shotView));
 });
 
+const ShotPatchBody = z.object({
+  description: z.string().optional(),
+  dialogue: z.string().optional(),
+  camera: z.string().optional(),
+  imagePrompt: z.string().optional(),
+  videoPrompt: z.string().optional(),
+});
+
 app.patch("/api/shots/:id", async (c) => {
   const s = db.prepare("SELECT id FROM shots WHERE id=?").get(c.req.param("id"));
   if (!s) return fail(c, 404, "镜头不存在");
-  const body = (await c.req.json().catch(() => ({}))) as Record<string, string | undefined>;
+  const parsed = await parseBody(c, ShotPatchBody);
+  if (!parsed.ok) return fail(c, 400, parsed.error);
+  const body = parsed.data;
   db.prepare(
     `UPDATE shots SET description=COALESCE(?,description), dialogue=COALESCE(?,dialogue), camera=COALESCE(?,camera),
      imagePrompt=COALESCE(?,imagePrompt), videoPrompt=COALESCE(?,videoPrompt) WHERE id=?`,
@@ -425,11 +491,19 @@ app.post("/api/jobs/:id/cancel", (c) => {
   if (!j) return fail(c, 404, "任务不存在");
   if (j.state !== "queued") return fail(c, 400, "只有排队中的任务可以取消（运行中的任务将自然结束）");
   db.prepare("UPDATE jobs SET state='canceled', finishedAt=? WHERE id=? AND state='queued'").run(nowIso(), j.id);
-  if (j.kind === "asset_image") db.prepare("UPDATE assets SET status='draft' WHERE id=? AND status='queued'").run(j.targetId);
+  // 恢复实体状态：已有产物则回到 done（取消"重新生成"不应把已完成的降级）
+  if (j.kind === "asset_image")
+    db.prepare(
+      "UPDATE assets SET status = CASE WHEN imagePath IS NOT NULL THEN 'done' ELSE 'draft' END WHERE id=? AND status='queued'",
+    ).run(j.targetId);
   if (j.kind === "shot_image")
-    db.prepare("UPDATE shots SET imageStatus='none' WHERE id=? AND imageStatus='queued'").run(j.targetId);
+    db.prepare(
+      "UPDATE shots SET imageStatus = CASE WHEN imagePath IS NOT NULL THEN 'done' ELSE 'none' END WHERE id=? AND imageStatus='queued'",
+    ).run(j.targetId);
   if (j.kind === "shot_video")
-    db.prepare("UPDATE shots SET videoStatus='none' WHERE id=? AND videoStatus='queued'").run(j.targetId);
+    db.prepare(
+      "UPDATE shots SET videoStatus = CASE WHEN videoPath IS NOT NULL THEN 'done' ELSE 'none' END WHERE id=? AND videoStatus='queued'",
+    ).run(j.targetId);
   return ok(c, {});
 });
 
@@ -437,11 +511,31 @@ app.post("/api/jobs/:id/cancel", (c) => {
 
 app.get("/api/settings", (c) => ok(c, maskedSettings()));
 
+const SettingsPutBody = z.object({
+  apiToken: z.string().optional(),
+  textBaseUrl: z.string().optional(),
+  textApiKey: z.string().optional(),
+  textModel: z.string().optional(),
+  imageBaseUrl: z.string().optional(),
+  imageApiKey: z.string().optional(),
+  imageModel: z.string().optional(),
+  imageSizeDirective: z.string().optional(),
+  videoProvider: z.string().optional(),
+  videoBaseUrl: z.string().optional(),
+  videoApiKey: z.string().optional(),
+  videoModel: z.string().optional(),
+  videoResolution: z.enum(["480p", "720p", "1080p"]).optional(),
+  videoDuration: z.coerce.number().int().min(4).max(15).optional(),
+});
+
 app.put("/api/settings", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as Partial<Settings>;
-  // 打码字段传空或打码值 = 不修改
-  if (typeof body.videoApiKey === "string" && (body.videoApiKey === "" || body.videoApiKey.startsWith("****"))) {
-    delete body.videoApiKey;
+  const parsed = await parseBody(c, SettingsPutBody);
+  if (!parsed.ok) return fail(c, 400, parsed.error);
+  const body = parsed.data as Partial<Settings>;
+  // 全部打码字段：传空或打码值 = 不修改（防止客户端把打码值回写成真密钥）
+  for (const key of MASKED_KEYS) {
+    const v = body[key];
+    if (typeof v === "string" && (v === "" || v.startsWith("****"))) delete body[key];
   }
   updateSettings(body);
   return ok(c, maskedSettings());
@@ -455,7 +549,12 @@ app.get("/media/*", (c) => {
   const given = auth?.replace(/^Bearer\s+/i, "") ?? c.req.query("token");
   if (given !== token) return fail(c, 401, "无效的 API Token");
 
-  const rel = decodeURIComponent(c.req.path.replace(/^\/media\//, ""));
+  let rel: string;
+  try {
+    rel = decodeURIComponent(c.req.path.replace(/^\/media\//, ""));
+  } catch {
+    return fail(c, 400, "非法路径");
+  }
   const abs = path.resolve(MEDIA_DIR, rel);
   if (!abs.startsWith(path.resolve(MEDIA_DIR) + path.sep)) return fail(c, 400, "非法路径");
   if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return fail(c, 404, "文件不存在");
@@ -463,9 +562,31 @@ app.get("/media/*", (c) => {
   const ext = path.extname(abs).toLowerCase();
   const mime =
     ext === ".png" ? "image/png" : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : ext === ".mp4" ? "video/mp4" : "application/octet-stream";
-  const buf = fs.readFileSync(abs);
-  return c.body(new Uint8Array(buf), 200, {
+  const size = fs.statSync(abs).size;
+  const baseHeaders = {
     "Content-Type": mime,
     "Cache-Control": "private, max-age=31536000, immutable",
-  });
+    "Accept-Ranges": "bytes",
+  };
+
+  // Range 支持：视频拖动播放必需
+  const range = c.req.header("Range");
+  if (range) {
+    const m = range.match(/^bytes=(\d*)-(\d*)$/);
+    if (!m || (m[1] === "" && m[2] === "")) return fail(c, 416, "无效的 Range");
+    const start = m[1] === "" ? Math.max(size - Number(m[2]), 0) : Number(m[1]);
+    const end = m[1] !== "" && m[2] !== "" ? Math.min(Number(m[2]), size - 1) : size - 1;
+    if (start >= size || start > end) {
+      return c.body(null, 416, { "Content-Range": `bytes */${size}` });
+    }
+    const stream = Readable.toWeb(fs.createReadStream(abs, { start, end })) as ReadableStream;
+    return c.body(stream, 206, {
+      ...baseHeaders,
+      "Content-Range": `bytes ${start}-${end}/${size}`,
+      "Content-Length": String(end - start + 1),
+    });
+  }
+
+  const stream = Readable.toWeb(fs.createReadStream(abs)) as ReadableStream;
+  return c.body(stream, 200, { ...baseHeaders, "Content-Length": String(size) });
 });
