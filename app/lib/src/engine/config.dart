@@ -12,12 +12,14 @@ class EngineConfig {
       'You MUST generate this image at exactly 1024x1024 resolution as a SQUARE 1:1 canvas. Do not add any text, watermark or border.';
 
   late final Map<String, String> _defaults = {
-    'textBaseUrl':
-        isMobile ? 'https://ark.cn-beijing.volces.com/api/v3' : 'http://127.0.0.1:8787/v1',
+    'textBaseUrl': isMobile
+        ? 'https://ark.cn-beijing.volces.com/api/v3'
+        : 'http://127.0.0.1:8787/v1',
     'textApiKey': isMobile ? '' : 'local',
     'textModel': isMobile ? 'doubao-seed-1-6-250615' : 'gpt-5.5',
-    'imageBaseUrl':
-        isMobile ? 'https://ark.cn-beijing.volces.com/api/v3' : 'http://127.0.0.1:8787/v1',
+    'imageBaseUrl': isMobile
+        ? 'https://ark.cn-beijing.volces.com/api/v3'
+        : 'http://127.0.0.1:8787/v1',
     'imageApiKey': isMobile ? '' : 'local',
     'imageModel': isMobile ? 'doubao-seedream-4-0-250828' : 'gpt-image-2',
     'imageSizeDirective': _sizeDirective,
@@ -27,25 +29,28 @@ class EngineConfig {
     'videoModel': 'doubao-seedance-2-0-mini-260615',
     'videoResolution': '720p',
     'videoDuration': '5',
+    'themeMode': 'light',
   };
 
   EngineConfig(this._db, {required this.isMobile});
 
   String str(String key) {
-    final row =
-        _db.select('SELECT value FROM settings WHERE key = ?', [key]);
+    final row = _db.select('SELECT value FROM settings WHERE key = ?', [key]);
     if (row.isNotEmpty) return row.first['value'] as String;
     return _defaults[key] ?? '';
   }
 
   int intOf(String key) => int.tryParse(str(key)) ?? 0;
 
-  Map<String, dynamic> getAll() =>
-      {for (final k in _defaults.keys) k: k == 'videoDuration' ? intOf(k) : str(k)};
+  Map<String, dynamic> getAll() => {
+        for (final k in _defaults.keys)
+          k: k == 'videoDuration' ? intOf(k) : str(k)
+      };
 
   Map<String, dynamic> getAllMasked() {
     final all = getAll();
-    String mask(String v) => v.isEmpty ? '' : '****${v.substring(v.length < 4 ? 0 : v.length - 4)}';
+    String mask(String v) =>
+        v.isEmpty ? '' : '****${v.substring(v.length < 4 ? 0 : v.length - 4)}';
     for (final k in maskedKeys) {
       all[k] = mask(all[k] as String);
     }

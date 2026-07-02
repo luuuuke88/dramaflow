@@ -106,12 +106,12 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
             expands: true,
             textAlignVertical: TextAlignVertical.top,
             onChanged: (_) => setState(() {}),
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'monospace',
               fontFamilyFallback: ['Menlo', 'Consolas', 'PingFang SC'],
               fontSize: 14,
               height: 1.8,
-              color: DF.textHi,
+              color: context.df.textHi,
             ),
             decoration: const InputDecoration(
               hintText: '粘贴小说正文……',
@@ -126,7 +126,7 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: DF.textLo),
+                ?.copyWith(color: context.df.textLo),
           ),
         ),
         const SizedBox(height: 16),

@@ -73,7 +73,7 @@ class TasksScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('任务中心')),
       body: RefreshIndicator(
-        color: DF.amber,
+        color: context.df.primary,
         onRefresh: () async {
           ref.read(activeJobsProvider.notifier).poke();
           ref.invalidate(projectsProvider);
@@ -93,11 +93,12 @@ class TasksScreen extends ConsumerWidget {
                 ),
               ),
               if (active.isEmpty)
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Text('当前没有进行中的任务',
-                        style: TextStyle(color: DF.textLo, fontSize: 13)),
+                        style:
+                            TextStyle(color: context.df.textLo, fontSize: 13)),
                   ),
                 )
               else
@@ -116,7 +117,7 @@ class TasksScreen extends ConsumerWidget {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
-              ..._historySlivers(ref, projectsAsync, effectiveId),
+              ..._historySlivers(context, ref, projectsAsync, effectiveId),
               const SliverToBoxAdapter(child: SizedBox(height: 40)),
             ],
           ),
@@ -126,17 +127,18 @@ class TasksScreen extends ConsumerWidget {
   }
 
   List<Widget> _historySlivers(
+    BuildContext context,
     WidgetRef ref,
     AsyncValue<List<Project>> projectsAsync,
     String? effectiveId,
   ) {
     if (projectsAsync.isLoading && !projectsAsync.hasValue) {
-      return const [
+      return [
         SliverToBoxAdapter(
           child: Center(
             child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: DF.amber),
+              padding: const EdgeInsets.all(32),
+              child: CircularProgressIndicator(color: context.df.primary),
             ),
           ),
         ),
@@ -166,12 +168,12 @@ class TasksScreen extends ConsumerWidget {
 
     final jobsAsync = ref.watch(projectJobsProvider(effectiveId));
     if (jobsAsync.isLoading && !jobsAsync.hasValue) {
-      return const [
+      return [
         SliverToBoxAdapter(
           child: Center(
             child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: DF.amber),
+              padding: const EdgeInsets.all(32),
+              child: CircularProgressIndicator(color: context.df.primary),
             ),
           ),
         ),
@@ -189,12 +191,12 @@ class TasksScreen extends ConsumerWidget {
     }
     final jobs = (jobsAsync.value ?? const <Job>[]).take(50).toList();
     if (jobs.isEmpty) {
-      return const [
+      return [
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
+            padding: const EdgeInsets.symmetric(vertical: 20),
             child: Text('该项目暂无历史任务',
-                style: TextStyle(color: DF.textLo, fontSize: 13)),
+                style: TextStyle(color: context.df.textLo, fontSize: 13)),
           ),
         ),
       ];
@@ -227,7 +229,7 @@ class _SectionHeader extends StatelessWidget {
           if (trailing != null) ...[
             const SizedBox(width: 10),
             Text(trailing!,
-                style: const TextStyle(color: DF.textLo, fontSize: 12)),
+                style: TextStyle(color: context.df.textLo, fontSize: 12)),
           ],
         ],
       ),
@@ -255,21 +257,21 @@ class _HistoryHeader extends ConsumerWidget {
             width: 220,
             requestFocusOnTap: false,
             leadingIcon:
-                const Icon(Icons.movie_outlined, size: 18, color: DF.textLo),
-            textStyle: const TextStyle(fontSize: 13, color: DF.textHi),
-            inputDecorationTheme: const InputDecorationTheme(
+                Icon(Icons.movie_outlined, size: 18, color: context.df.textLo),
+            textStyle: TextStyle(fontSize: 13, color: context.df.textHi),
+            inputDecorationTheme: InputDecorationTheme(
               isDense: true,
               filled: true,
-              fillColor: DF.bg,
+              fillColor: context.df.bg,
               contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(10)),
-                borderSide: BorderSide(color: DF.stroke),
+                borderRadius: const BorderRadius.all(Radius.circular(10)),
+                borderSide: BorderSide(color: context.df.stroke),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(10)),
-                borderSide: BorderSide(color: DF.stroke),
+                borderRadius: const BorderRadius.all(Radius.circular(10)),
+                borderSide: BorderSide(color: context.df.stroke),
               ),
             ),
             dropdownMenuEntries: [
@@ -304,11 +306,12 @@ class _ActiveJobCard extends ConsumerWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: DF.bg,
+                color: context.df.bg,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: DF.stroke),
+                border: Border.all(color: context.df.stroke),
               ),
-              child: Icon(_kindIcon(job.kind), size: 19, color: DF.textMid),
+              child: Icon(_kindIcon(job.kind),
+                  size: 19, color: context.df.textMid),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -326,7 +329,7 @@ class _ActiveJobCard extends ConsumerWidget {
                   Text(
                     '创建于 ${_hms(job.createdAt)}'
                     '${job.attempt > 1 ? ' · 第 ${job.attempt} 次尝试' : ''}',
-                    style: const TextStyle(color: DF.textLo, fontSize: 12),
+                    style: TextStyle(color: context.df.textLo, fontSize: 12),
                   ),
                 ],
               ),
@@ -337,8 +340,8 @@ class _ActiveJobCard extends ConsumerWidget {
               IconButton(
                 tooltip: '取消任务',
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.close_rounded,
-                    size: 18, color: DF.textLo),
+                icon: Icon(Icons.close_rounded,
+                    size: 18, color: context.df.textLo),
                 onPressed: () => runAction(context, ref, () async {
                   await ref.read(engineProvider).cancelJob(job.id);
                   ref.invalidate(projectJobsProvider(job.projectId));
@@ -376,15 +379,15 @@ class _HistoryTile extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _titleRow(),
+            _titleRow(context),
             if (job.state == 'done' && result.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 result,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    color: DF.textLo, fontSize: 12, height: 1.5),
+                style: TextStyle(
+                    color: context.df.textLo, fontSize: 12, height: 1.5),
               ),
             ],
           ],
@@ -393,7 +396,7 @@ class _HistoryTile extends ConsumerWidget {
     );
   }
 
-  Widget _titleRow() {
+  Widget _titleRow(BuildContext context) {
     return Row(
       children: [
         StatusChip(job.state, dense: true, errorTooltip: job.error),
@@ -407,7 +410,7 @@ class _HistoryTile extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(_meta, style: const TextStyle(color: DF.textLo, fontSize: 11.5)),
+        Text(_meta, style: TextStyle(color: context.df.textLo, fontSize: 11.5)),
       ],
     );
   }
@@ -422,16 +425,16 @@ class _HistoryTile extends ConsumerWidget {
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
-          iconColor: DF.textMid,
-          collapsedIconColor: DF.textLo,
-          title: _titleRow(),
+          iconColor: context.df.textMid,
+          collapsedIconColor: context.df.textLo,
+          title: _titleRow(context),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               error,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: DF.red, fontSize: 12),
+              style: TextStyle(color: context.df.red, fontSize: 12),
             ),
           ),
           children: [
@@ -439,14 +442,15 @@ class _HistoryTile extends ConsumerWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: DF.red.withValues(alpha: 0.08),
+                color: context.df.red.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: DF.red.withValues(alpha: 0.35)),
+                border:
+                    Border.all(color: context.df.red.withValues(alpha: 0.35)),
               ),
               child: SelectableText(
                 error,
-                style:
-                    const TextStyle(color: DF.red, fontSize: 12.5, height: 1.6),
+                style: TextStyle(
+                    color: context.df.red, fontSize: 12.5, height: 1.6),
               ),
             ),
             const SizedBox(height: 10),

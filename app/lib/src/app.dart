@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'screens/projects_screen.dart';
 import 'screens/project_screen.dart';
@@ -9,6 +10,7 @@ import 'screens/assets_screen.dart';
 import 'screens/shots_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/settings_screen.dart';
+import 'state/providers.dart';
 import 'theme.dart';
 import 'widgets/shell.dart';
 
@@ -61,15 +63,18 @@ final _router = GoRouter(
   ],
 );
 
-class DramaFlowApp extends StatelessWidget {
+class DramaFlowApp extends ConsumerWidget {
   const DramaFlowApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'DramaFlow',
       debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
+      themeMode: themeMode,
+      theme: buildTheme(Brightness.light),
+      darkTheme: buildTheme(Brightness.dark),
       routerConfig: _router,
     );
   }

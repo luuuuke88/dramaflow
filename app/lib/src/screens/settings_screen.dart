@@ -15,7 +15,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(settingsProvider);
@@ -40,12 +39,60 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           children: [
             const SizedBox(height: 12),
+            _appearanceCard(),
+            const SizedBox(height: 16),
             _connectionCard(),
             const SizedBox(height: 16),
             _modelServicesCard(settingsAsync),
             const SizedBox(height: 16),
             _videoServiceCard(settingsAsync),
             const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------- 0. 外观 ----------
+
+  Widget _appearanceCard() {
+    final themeMode = ref.watch(themeModeProvider);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('外观', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 14),
+            SegmentedButton<ThemeMode>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  icon: Icon(Icons.light_mode_outlined, size: 18),
+                  label: Text('浅色'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  icon: Icon(Icons.dark_mode_outlined, size: 18),
+                  label: Text('深色'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.system,
+                  icon: Icon(Icons.brightness_auto_outlined, size: 18),
+                  label: Text('跟随系统'),
+                ),
+              ],
+              selected: {themeMode},
+              onSelectionChanged: (selected) {
+                final next = selected.single;
+                if (next == themeMode) return;
+                runAction(context, ref, () async {
+                  await ref.read(themeModeProvider.notifier).setThemeMode(next);
+                }, successMessage: '外观已更新');
+              },
+            ),
           ],
         ),
       ),
@@ -66,25 +113,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.folder_outlined, size: 18, color: DF.textLo),
+                Icon(Icons.folder_outlined, size: 18, color: context.df.textLo),
                 const SizedBox(width: 8),
                 Expanded(
                   child: SelectableText(
                     engine.mediaAbsPath(''),
-                    style: const TextStyle(color: DF.textMid, fontSize: 12),
+                    style: TextStyle(color: context.df.textMid, fontSize: 12),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               '引擎内嵌运行，数据与媒体全部保存在本机，无需任何后台服务',
-              style: TextStyle(color: DF.textLo, fontSize: 12),
+              style: TextStyle(color: context.df.textLo, fontSize: 12),
             ),
             const Divider(height: 28),
-            const Text('引擎状态',
+            Text('引擎状态',
                 style: TextStyle(
-                    color: DF.textMid,
+                    color: context.df.textMid,
                     fontSize: 13,
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 10),
@@ -99,16 +146,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final health = ref.watch(healthProvider);
     return health.when(
       skipLoadingOnRefresh: false,
-      loading: () => const Row(
+      loading: () => Row(
         children: [
           SizedBox(
             width: 14,
             height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2, color: DF.amber),
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: context.df.primary),
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Text('正在检查引擎…',
-              style: TextStyle(color: DF.textLo, fontSize: 13)),
+              style: TextStyle(color: context.df.textLo, fontSize: 13)),
         ],
       ),
       error: (e, _) => Column(
@@ -116,13 +164,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           Row(
             children: [
-              const _Dot(color: DF.red),
+              _Dot(color: context.df.red),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   e.toString(),
-                  style: const TextStyle(
-                      color: DF.red, fontSize: 13, height: 1.5),
+                  style: TextStyle(
+                      color: context.df.red, fontSize: 13, height: 1.5),
                 ),
               ),
             ],
@@ -148,12 +196,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           children: [
             Row(
               children: [
-                const _Dot(color: DF.green),
+                _Dot(color: context.df.green),
                 const SizedBox(width: 8),
                 Text(
                   '引擎正常 · v${d['version'] ?? '?'}',
-                  style: const TextStyle(
-                      color: DF.green,
+                  style: TextStyle(
+                      color: context.df.green,
                       fontSize: 13,
                       fontWeight: FontWeight.w600),
                 ),
@@ -169,14 +217,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     SizedBox(
                       width: 48,
                       child: Text(label,
-                          style: const TextStyle(
-                              color: DF.textLo, fontSize: 12)),
+                          style: TextStyle(
+                              color: context.df.textLo, fontSize: 12)),
                     ),
                     Expanded(
                       child: Text(
                         '${providers[key] ?? '未知'}',
-                        style: const TextStyle(
-                            color: DF.textMid, fontSize: 12, height: 1.4),
+                        style: TextStyle(
+                            color: context.df.textMid,
+                            fontSize: 12,
+                            height: 1.4),
                       ),
                     ),
                   ],
@@ -268,7 +318,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               TextField(
                 controller: baseCtrl,
-                decoration: const InputDecoration(labelText: 'Base URL', hintText: '留空不修改'),
+                decoration: const InputDecoration(
+                    labelText: 'Base URL', hintText: '留空不修改'),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -282,7 +333,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: modelCtrl,
-                decoration: const InputDecoration(labelText: '模型', hintText: '留空不修改'),
+                decoration:
+                    const InputDecoration(labelText: '模型', hintText: '留空不修改'),
               ),
             ],
           ),
@@ -329,21 +381,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text('视频服务',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text('视频服务', style: Theme.of(context).textTheme.titleMedium),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: DF.amber.withValues(alpha: 0.12),
+                    color: context.df.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
-                    border:
-                        Border.all(color: DF.amber.withValues(alpha: 0.5)),
+                    border: Border.all(
+                        color: context.df.primary.withValues(alpha: 0.5)),
                   ),
-                  child: const Text(
+                  child: Text(
                     '通道已接好 · 待实测',
                     style: TextStyle(
-                        color: DF.amber,
+                        color: context.df.primary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600),
                   ),
@@ -393,7 +444,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 children: [
                   TextField(
                     controller: modelCtrl,
-                    decoration: const InputDecoration(labelText: '模型', hintText: '留空不修改'),
+                    decoration: const InputDecoration(
+                        labelText: '模型', hintText: '留空不修改'),
                   ),
                   const SizedBox(height: 12),
                   DropdownMenu<String>(
@@ -412,14 +464,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 16),
                   Text('时长：${duration.round()} 秒',
                       style:
-                          const TextStyle(color: DF.textMid, fontSize: 13)),
+                          TextStyle(color: context.df.textMid, fontSize: 13)),
                   Slider(
                     value: duration,
                     min: 4,
                     max: 15,
                     divisions: 11,
                     label: '${duration.round()}s',
-                    activeColor: DF.amber,
+                    activeColor: context.df.primary,
                     onChanged: (v) => setDialogState(() => duration = v),
                   ),
                   const SizedBox(height: 4),
@@ -451,8 +503,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (ok != true || !mounted) return;
 
     final patch = <String, dynamic>{
-      if (modelCtrl.text.trim().isNotEmpty)
-        'videoModel': modelCtrl.text.trim(),
+      if (modelCtrl.text.trim().isNotEmpty) 'videoModel': modelCtrl.text.trim(),
       'videoResolution': resolution,
       'videoDuration': duration.round(),
       if (keyCtrl.text.trim().isNotEmpty) 'videoApiKey': keyCtrl.text.trim(),
@@ -488,8 +539,8 @@ class _SettingsGroup extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
-                    color: DF.textHi,
+                style: TextStyle(
+                    color: context.df.textHi,
                     fontSize: 14,
                     fontWeight: FontWeight.w600),
               ),
@@ -511,8 +562,7 @@ class _SettingsGroup extends StatelessWidget {
                 SizedBox(
                   width: 88,
                   child: Text(label,
-                      style:
-                          const TextStyle(color: DF.textLo, fontSize: 13)),
+                      style: TextStyle(color: context.df.textLo, fontSize: 13)),
                 ),
                 Expanded(
                   child: Text(
@@ -520,7 +570,9 @@ class _SettingsGroup extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: value.isEmpty ? DF.textLo : DF.textMid,
+                      color: value.isEmpty
+                          ? context.df.textLo
+                          : context.df.textMid,
                       fontSize: 13,
                     ),
                   ),

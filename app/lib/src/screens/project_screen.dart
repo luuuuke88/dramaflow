@@ -17,8 +17,7 @@ class ProjectScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectAsync = ref.watch(projectProvider(projectId));
-    final episodes =
-        ref.watch(episodesProvider(projectId)).value ?? const [];
+    final episodes = ref.watch(episodesProvider(projectId)).value ?? const [];
     final activeJobs = ref
         .watch(activeJobsProvider)
         .where((j) => j.projectId == projectId)
@@ -40,16 +39,17 @@ class ProjectScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(project.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(project.name,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   if (project.artStyle.isNotEmpty)
                     Text(
                       project.artStyle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: DF.textLo,
+                        color: context.df.textLo,
                       ),
                     ),
                 ],
@@ -162,19 +162,19 @@ class ProjectScreen extends ConsumerWidget {
                   children: [
                     for (final e in episodes)
                       ActionChip(
-                        avatar: const Icon(Icons.description_outlined,
-                            size: 16, color: DF.textMid),
+                        avatar: Icon(Icons.description_outlined,
+                            size: 16, color: context.df.textMid),
                         label: Text(
                           '第${e.idx}集 ${e.title}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style:
-                              const TextStyle(fontSize: 12, color: DF.textHi),
+                              TextStyle(fontSize: 12, color: context.df.textHi),
                         ),
-                        backgroundColor: DF.surface,
-                        side: const BorderSide(color: DF.stroke),
-                        onPressed: () => context
-                            .go('/projects/$projectId/episodes/${e.id}'),
+                        backgroundColor: context.df.surface,
+                        side: BorderSide(color: context.df.stroke),
+                        onPressed: () =>
+                            context.go('/projects/$projectId/episodes/${e.id}'),
                       ),
                   ],
                 ),
@@ -198,7 +198,9 @@ class ProjectScreen extends ConsumerWidget {
                         context,
                         ref,
                         () async {
-                          await ref.read(engineProvider).extractAssets(projectId);
+                          await ref
+                              .read(engineProvider)
+                              .extractAssets(projectId);
                         },
                         successMessage: '素材提取任务已提交',
                       ),
@@ -299,8 +301,8 @@ class ProjectScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('将小说改编为分集短剧剧本，选择集数：',
-                    style: TextStyle(color: DF.textMid)),
+                Text('将小说改编为分集短剧剧本，选择集数：',
+                    style: TextStyle(color: context.df.textMid)),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -310,7 +312,7 @@ class ProjectScreen extends ConsumerWidget {
                         min: 1,
                         max: 12,
                         divisions: 11,
-                        activeColor: DF.amber,
+                        activeColor: context.df.primary,
                         label: '$count 集',
                         onChanged: (v) => setState(() => count = v.round()),
                       ),
@@ -320,15 +322,16 @@ class ProjectScreen extends ConsumerWidget {
                       child: Text(
                         '$count 集',
                         textAlign: TextAlign.right,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, color: DF.amber),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: context.df.primary),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text('已有剧本会被覆盖，生成过程约需数分钟。',
-                    style: TextStyle(fontSize: 12, color: DF.textLo)),
+                Text('已有剧本会被覆盖，生成过程约需数分钟。',
+                    style: TextStyle(fontSize: 12, color: context.df.textLo)),
               ],
             ),
           ),
@@ -467,6 +470,8 @@ class _StageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -481,20 +486,21 @@ class _StageCard extends StatelessWidget {
                   height: 32,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: completed ? DF.amber : DF.card,
+                    color: completed ? context.df.primary : context.df.card,
                     shape: BoxShape.circle,
                     border: Border.all(
-                        color: completed ? DF.amber : DF.stroke, width: 1.5),
+                        color:
+                            completed ? context.df.primary : context.df.stroke,
+                        width: 1.5),
                   ),
                   child: completed
-                      ? const Icon(Icons.check_rounded,
-                          size: 18, color: Color(0xFF1A1200))
+                      ? Icon(Icons.check_rounded, size: 18, color: onPrimary)
                       : Text(
                           '$index',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: DF.textMid,
+                            color: context.df.textMid,
                           ),
                         ),
                 ),
@@ -504,7 +510,9 @@ class _StageCard extends StatelessWidget {
                       width: 2,
                       margin: const EdgeInsets.symmetric(vertical: 4),
                       decoration: BoxDecoration(
-                        color: completed ? DF.amberDim : DF.stroke,
+                        color: completed
+                            ? context.df.primaryDim
+                            : context.df.stroke,
                         borderRadius: BorderRadius.circular(1),
                       ),
                     ),
@@ -542,8 +550,10 @@ class _StageCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         subtitle,
-                        style: const TextStyle(
-                            fontSize: 13, color: DF.textMid, height: 1.5),
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: context.df.textMid,
+                            height: 1.5),
                       ),
                       if (failedJob != null &&
                           (failedJob!.error ?? '').isNotEmpty) ...[
@@ -551,25 +561,28 @@ class _StageCard extends StatelessWidget {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            const Icon(Icons.error_outline_rounded,
-                                size: 16, color: DF.red),
+                            Icon(Icons.error_outline_rounded,
+                                size: 16, color: context.df.red),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 failedJob!.error!,
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontSize: 12, color: DF.red, height: 1.4),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: context.df.red,
+                                    height: 1.4),
                               ),
                             ),
                             if (onRetry != null) ...[
                               const SizedBox(width: 10),
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: DF.red,
+                                  foregroundColor: context.df.red,
                                   side: BorderSide(
-                                      color: DF.red.withValues(alpha: 0.5)),
+                                      color: context.df.red
+                                          .withValues(alpha: 0.5)),
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 8),
                                 ),

@@ -75,16 +75,16 @@ class Engine {
     return {
       'episodes': one('SELECT COUNT(*) FROM episodes WHERE projectId=?'),
       'assets': one('SELECT COUNT(*) FROM assets WHERE projectId=?'),
-      'assetsDone':
-          one("SELECT COUNT(*) FROM assets WHERE projectId=? AND status='done'"),
+      'assetsDone': one(
+          "SELECT COUNT(*) FROM assets WHERE projectId=? AND status='done'"),
       'shots': one('SELECT COUNT(*) FROM shots WHERE projectId=?'),
       'shotsImageDone': one(
           "SELECT COUNT(*) FROM shots WHERE projectId=? AND imageStatus='done'"),
       'shotsVideoDone': one(
           "SELECT COUNT(*) FROM shots WHERE projectId=? AND videoStatus='done'"),
-      'hasNovel': one(
-              "SELECT COUNT(*) FROM novels WHERE projectId=? AND content != ''") >
-          0,
+      'hasNovel':
+          one("SELECT COUNT(*) FROM novels WHERE projectId=? AND content != ''") >
+              0,
     };
   }
 
@@ -136,8 +136,7 @@ class Engine {
 
   Future<Novel?> getNovel(String projectId) async {
     final rows = db.select(
-        'SELECT id, title, content FROM novels WHERE projectId=?',
-        [projectId]);
+        'SELECT id, title, content FROM novels WHERE projectId=?', [projectId]);
     return rows.isEmpty ? null : Novel.fromJson(_row(rows.first));
   }
 
@@ -164,8 +163,8 @@ class Engine {
 
   Future<String> generateScript(String projectId, {int? episodeCount}) async {
     _mustProject(projectId);
-    final novel = db.select(
-        'SELECT content FROM novels WHERE projectId=?', [projectId]);
+    final novel =
+        db.select('SELECT content FROM novels WHERE projectId=?', [projectId]);
     if (novel.isEmpty || (novel.first['content'] as String).trim().isEmpty) {
       throw EngineException('请先导入小说');
     }
@@ -315,8 +314,8 @@ class Engine {
   }
 
   String? _enqueueAssetImage(String assetId) {
-    final rows = db.select(
-        'SELECT id, projectId, name FROM assets WHERE id=?', [assetId]);
+    final rows = db
+        .select('SELECT id, projectId, name FROM assets WHERE id=?', [assetId]);
     if (rows.isEmpty) return null;
     final a = rows.first;
     if (queue.hasActiveJob('asset_image', assetId)) return null;
@@ -379,8 +378,7 @@ class Engine {
   }
 
   Future<List<Shot>> listShots(String episodeId) async => db
-      .select(
-          'SELECT * FROM shots WHERE episodeId=? ORDER BY idx', [episodeId])
+      .select('SELECT * FROM shots WHERE episodeId=? ORDER BY idx', [episodeId])
       .map(_shot)
       .toList();
 
@@ -493,8 +491,8 @@ class Engine {
   }
 
   String? _enqueueShotImage(String shotId) {
-    final rows = db.select(
-        'SELECT id, projectId, idx FROM shots WHERE id=?', [shotId]);
+    final rows =
+        db.select('SELECT id, projectId, idx FROM shots WHERE id=?', [shotId]);
     if (rows.isEmpty) return null;
     final s = rows.first;
     if (queue.hasActiveJob('shot_image', shotId)) return null;
@@ -568,13 +566,12 @@ class Engine {
       .map(_job)
       .toList();
 
-  Future<List<Job>> projectJobs(String projectId, {int limit = 50}) async =>
-      db
-          .select(
-              'SELECT * FROM jobs WHERE projectId=? ORDER BY createdAt DESC LIMIT ?',
-              [projectId, limit.clamp(1, 200)])
-          .map(_job)
-          .toList();
+  Future<List<Job>> projectJobs(String projectId, {int limit = 50}) async => db
+      .select(
+          'SELECT * FROM jobs WHERE projectId=? ORDER BY createdAt DESC LIMIT ?',
+          [projectId, limit.clamp(1, 200)])
+      .map(_job)
+      .toList();
 
   Future<String> retryJob(String jobId) async {
     final rows = db.select('SELECT * FROM jobs WHERE id=?', [jobId]);
@@ -588,8 +585,7 @@ class Engine {
     }
     switch (kind) {
       case 'asset_image':
-        db.execute(
-            "UPDATE assets SET status='queued', error=NULL WHERE id=?",
+        db.execute("UPDATE assets SET status='queued', error=NULL WHERE id=?",
             [targetId]);
       case 'shot_image':
         db.execute(
@@ -605,8 +601,8 @@ class Engine {
         kind: kind,
         targetId: targetId,
         targetLabel: j['targetLabel'] as String,
-        payload: (jsonDecode(j['payload'] as String) as Map)
-            .cast<String, dynamic>(),
+        payload:
+            (jsonDecode(j['payload'] as String) as Map).cast<String, dynamic>(),
         attempt: (j['attempt'] as int) + 1);
   }
 
@@ -620,6 +616,15 @@ class Engine {
   Future<AppSettings> updateSettings(Map<String, dynamic> patch) async {
     config.update(patch);
     return getSettings();
+  }
+
+  Future<String> getThemeMode() async => config.str('themeMode');
+
+  Future<void> setThemeMode(String themeMode) async {
+    if (!{'light', 'dark', 'system'}.contains(themeMode)) {
+      throw EngineException('主题模式无效：$themeMode');
+    }
+    config.update({'themeMode': themeMode});
   }
 
   void dispose() {

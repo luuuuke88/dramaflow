@@ -29,9 +29,8 @@ class ShotsScreen extends ConsumerWidget {
     });
     if (queued != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(queued == 0
-            ? '没有需要生成的镜头图（已完成或进行中的会被跳过）'
-            : '已排队 $queued 个镜头图生成任务'),
+        content: Text(
+            queued == 0 ? '没有需要生成的镜头图（已完成或进行中的会被跳过）' : '已排队 $queued 个镜头图生成任务'),
         duration: const Duration(seconds: 2),
       ));
     }
@@ -87,8 +86,8 @@ class ShotsScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 itemCount: shots.length,
                 itemBuilder: (context, i) => Padding(
-                  padding: EdgeInsets.only(
-                      bottom: i == shots.length - 1 ? 12 : 16),
+                  padding:
+                      EdgeInsets.only(bottom: i == shots.length - 1 ? 12 : 16),
                   child: _ShotCard(
                     shot: shots[i],
                     episodeId: episodeId,
@@ -174,15 +173,15 @@ class _ShotCard extends ConsumerWidget {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _idxBadge(),
-            if (shot.camera.isNotEmpty) _cameraChip(),
+            _idxBadge(context),
+            if (shot.camera.isNotEmpty) _cameraChip(context),
             StatusChip(shot.imageStatus,
                 dense: true, errorTooltip: shot.imageError),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('视频',
-                    style: TextStyle(fontSize: 11, color: DF.textLo)),
+                Text('视频',
+                    style: TextStyle(fontSize: 11, color: context.df.textLo)),
                 const SizedBox(width: 4),
                 StatusChip(shot.videoStatus,
                     dense: true, errorTooltip: shot.videoError),
@@ -196,18 +195,17 @@ class _ShotCard extends ConsumerWidget {
           const SizedBox(height: 10),
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: DF.bg,
+              color: context.df.bg,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: DF.stroke),
+              border: Border.all(color: context.df.stroke),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.format_quote_rounded,
-                    size: 16, color: DF.textLo),
+                Icon(Icons.format_quote_rounded,
+                    size: 16, color: context.df.textLo),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(shot.dialogue,
@@ -225,27 +223,27 @@ class _ShotCard extends ConsumerWidget {
             children: [
               for (final name in shot.assetNames)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: DF.surface,
+                    color: context.df.surface,
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: DF.stroke),
+                    border: Border.all(color: context.df.stroke),
                   ),
                   child: Text(name,
-                      style: const TextStyle(
-                          fontSize: 11, color: DF.textMid)),
+                      style:
+                          TextStyle(fontSize: 11, color: context.df.textMid)),
                 ),
             ],
           ),
         ],
         if (imageFailed) ...[
           const SizedBox(height: 8),
-          _errorText('图片：$imageError'),
+          _errorText(context, '图片：$imageError'),
         ],
         if (videoFailed) ...[
           const SizedBox(height: 8),
-          _errorText('视频：$videoError'),
+          _errorText(context, '视频：$videoError'),
         ],
         const SizedBox(height: 12),
         _actions(context, ref),
@@ -253,41 +251,42 @@ class _ShotCard extends ConsumerWidget {
     );
   }
 
-  Widget _errorText(String text) => Tooltip(
+  Widget _errorText(BuildContext context, String text) => Tooltip(
         message: text,
         child: Text(text,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                fontSize: 12, color: DF.red, height: 1.4)),
+            style: TextStyle(fontSize: 12, color: context.df.red, height: 1.4)),
       );
 
-  Widget _idxBadge() => Container(
+  Widget _idxBadge(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
         decoration: BoxDecoration(
-          color: DF.amber.withValues(alpha: 0.14),
+          color: context.df.primary.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: DF.amber.withValues(alpha: 0.4)),
+          border: Border.all(color: context.df.primary.withValues(alpha: 0.4)),
         ),
         child: Text('镜头 ${shot.idx}',
-            style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w700, color: DF.amber)),
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: context.df.primary)),
       );
 
-  Widget _cameraChip() => Container(
+  Widget _cameraChip(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: DF.surface,
+          color: context.df.surface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: DF.stroke),
+          border: Border.all(color: context.df.stroke),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.videocam_outlined, size: 13, color: DF.textLo),
+            Icon(Icons.videocam_outlined, size: 13, color: context.df.textLo),
             const SizedBox(width: 4),
             Text(shot.camera,
-                style: const TextStyle(fontSize: 11.5, color: DF.textMid)),
+                style: TextStyle(fontSize: 11.5, color: context.df.textMid)),
           ],
         ),
       );
@@ -297,8 +296,7 @@ class _ShotCard extends ConsumerWidget {
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
-        textStyle:
-            const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
       );
 
   ButtonStyle get _compactText => TextButton.styleFrom(
@@ -306,8 +304,7 @@ class _ShotCard extends ConsumerWidget {
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
-        textStyle:
-            const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
       );
 
   Widget _actions(BuildContext context, WidgetRef ref) {
@@ -319,9 +316,8 @@ class _ShotCard extends ConsumerWidget {
     final imageFailed = shot.imageStatus == 'failed';
 
     final videoEnabled = imageDone && !videoBusy;
-    final videoTooltip = !imageDone
-        ? '需要先生成镜头图，完成后才能生成视频'
-        : (videoBusy ? '视频任务进行中' : null);
+    final videoTooltip =
+        !imageDone ? '需要先生成镜头图，完成后才能生成视频' : (videoBusy ? '视频任务进行中' : null);
 
     Widget videoButton = OutlinedButton.icon(
       onPressed: videoEnabled
@@ -353,16 +349,14 @@ class _ShotCard extends ConsumerWidget {
                   ? Icons.refresh_rounded
                   : Icons.image_outlined,
               size: 16),
-          label: Text(
-              imageDone ? '重新生成' : (imageFailed ? '重试' : '生成镜头图')),
+          label: Text(imageDone ? '重新生成' : (imageFailed ? '重试' : '生成镜头图')),
           style: _compactOutlined,
         ),
         videoButton,
         TextButton.icon(
           onPressed: () => showDialog<void>(
             context: context,
-            builder: (_) =>
-                _ShotEditDialog(shot: shot, episodeId: episodeId),
+            builder: (_) => _ShotEditDialog(shot: shot, episodeId: episodeId),
           ),
           icon: const Icon(Icons.edit_outlined, size: 16),
           label: const Text('编辑'),
@@ -371,8 +365,7 @@ class _ShotCard extends ConsumerWidget {
         if (shot.videoUrl != null && shot.videoUrl!.isNotEmpty)
           TextButton.icon(
             onPressed: () async {
-              final abs =
-                  ref.read(engineProvider).mediaAbsPath(shot.videoUrl!);
+              final abs = ref.read(engineProvider).mediaAbsPath(shot.videoUrl!);
               await Clipboard.setData(ClipboardData(text: abs));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -423,8 +416,7 @@ class _ShotEditDialogState extends ConsumerState<_ShotEditDialog> {
 
   Future<void> _save() async {
     final patch = <String, String>{};
-    void addIfChanged(
-        String key, String original, TextEditingController c) {
+    void addIfChanged(String key, String original, TextEditingController c) {
       final v = c.text.trim();
       if (v != original) patch[key] = v;
     }

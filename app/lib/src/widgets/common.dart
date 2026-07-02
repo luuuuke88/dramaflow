@@ -12,21 +12,23 @@ class StatusChip extends StatelessWidget {
   final String? errorTooltip;
   final bool dense;
 
-  const StatusChip(this.status, {super.key, this.errorTooltip, this.dense = false});
+  const StatusChip(this.status,
+      {super.key, this.errorTooltip, this.dense = false});
 
   @override
   Widget build(BuildContext context) {
     final (label, color, icon) = switch (status) {
-      'queued' => ('排队中', DF.blue, Icons.schedule_rounded),
-      'running' => ('生成中', DF.amber, Icons.autorenew_rounded),
-      'done' => ('已完成', DF.green, Icons.check_circle_rounded),
-      'failed' => ('失败', DF.red, Icons.error_rounded),
-      'canceled' => ('已取消', DF.grey, Icons.block_rounded),
-      'draft' => ('待生成', DF.grey, Icons.edit_note_rounded),
-      _ => ('未生成', DF.grey, Icons.circle_outlined),
+      'queued' => ('排队中', context.df.blue, Icons.schedule_rounded),
+      'running' => ('生成中', context.df.primary, Icons.autorenew_rounded),
+      'done' => ('已完成', context.df.green, Icons.check_circle_rounded),
+      'failed' => ('失败', context.df.red, Icons.error_rounded),
+      'canceled' => ('已取消', context.df.grey, Icons.block_rounded),
+      'draft' => ('待生成', context.df.grey, Icons.edit_note_rounded),
+      _ => ('未生成', context.df.grey, Icons.circle_outlined),
     };
     final chip = Container(
-      padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 10, vertical: dense ? 3 : 5),
+      padding: EdgeInsets.symmetric(
+          horizontal: dense ? 8 : 10, vertical: dense ? 3 : 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
@@ -52,7 +54,9 @@ class StatusChip extends StatelessWidget {
         ],
       ),
     );
-    if (status == 'failed' && errorTooltip != null && errorTooltip!.isNotEmpty) {
+    if (status == 'failed' &&
+        errorTooltip != null &&
+        errorTooltip!.isNotEmpty) {
       return Tooltip(
         message: errorTooltip!,
         waitDuration: const Duration(milliseconds: 300),
@@ -69,7 +73,8 @@ class AsyncView<T> extends StatelessWidget {
   final Widget Function(T data) builder;
   final VoidCallback? onRetry;
 
-  const AsyncView({super.key, required this.value, required this.builder, this.onRetry});
+  const AsyncView(
+      {super.key, required this.value, required this.builder, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -79,10 +84,10 @@ class AsyncView<T> extends StatelessWidget {
       // 已有数据时后台刷新失败不清屏（任务活跃期数据 Provider 会频繁重取）
       skipError: true,
       data: builder,
-      loading: () => const Center(
+      loading: () => Center(
         child: Padding(
-          padding: EdgeInsets.all(48),
-          child: CircularProgressIndicator(color: DF.amber),
+          padding: const EdgeInsets.all(48),
+          child: CircularProgressIndicator(color: context.df.primary),
         ),
       ),
       error: (e, _) => ErrorCard(message: e.toString(), onRetry: onRetry),
@@ -107,11 +112,11 @@ class ErrorCard extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.cloud_off_rounded, size: 40, color: DF.red),
+                Icon(Icons.cloud_off_rounded, size: 40, color: context.df.red),
                 const SizedBox(height: 12),
                 Text(message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: DF.textMid, height: 1.5)),
+                    style: TextStyle(color: context.df.textMid, height: 1.5)),
                 if (onRetry != null) ...[
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
@@ -155,21 +160,23 @@ class EmptyHint extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: DF.card,
+                color: context.df.card,
                 shape: BoxShape.circle,
-                border: Border.all(color: DF.stroke),
+                border: Border.all(color: context.df.stroke),
               ),
-              child: Icon(icon, size: 32, color: DF.textLo),
+              child: Icon(icon, size: 32, color: context.df.textLo),
             ),
             const SizedBox(height: 16),
             Text(title,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600, color: DF.textHi)),
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: context.df.textHi)),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
               Text(subtitle!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: DF.textLo, height: 1.5)),
+                  style: TextStyle(color: context.df.textLo, height: 1.5)),
             ],
             if (action != null) ...[const SizedBox(height: 20), action!],
           ],
@@ -194,14 +201,16 @@ Future<void> runAction(
     jobsNotifier.poke();
     if (successMessage != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(successMessage), duration: const Duration(seconds: 2)),
+        SnackBar(
+            content: Text(successMessage),
+            duration: const Duration(seconds: 2)),
       );
     }
   } on EngineException catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.message),
-        backgroundColor: const Color(0xFF3D1F1D),
+        content: Text(e.message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: context.df.red,
         duration: const Duration(seconds: 4),
       ));
     }
@@ -228,12 +237,18 @@ class MediaImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (relativeUrl == null || relativeUrl!.isEmpty) {
-      return _placeholder(const Icon(Icons.image_outlined, color: DF.textLo, size: 28));
+      return _placeholder(
+        context,
+        Icon(Icons.image_outlined, color: context.df.textLo, size: 28),
+      );
     }
     // Web 构建无本地文件能力（spec：Web 降级为 UI 预览）
     if (kIsWeb) {
       return _placeholder(
-          const Icon(Icons.image_not_supported_outlined, color: DF.textLo, size: 28));
+        context,
+        Icon(Icons.image_not_supported_outlined,
+            color: context.df.textLo, size: 28),
+      );
     }
     return Consumer(builder: (context, ref, _) {
       final abs = ref.watch(engineProvider).mediaAbsPath(relativeUrl!);
@@ -253,19 +268,22 @@ class MediaImage extends StatelessWidget {
                   child: child,
                 ),
           errorBuilder: (context, e, _) => _placeholder(
-              const Icon(Icons.broken_image_outlined, color: DF.textLo, size: 28)),
+            context,
+            Icon(Icons.broken_image_outlined,
+                color: context.df.textLo, size: 28),
+          ),
         ),
       );
     });
   }
 
-  Widget _placeholder(Widget child) => Container(
+  Widget _placeholder(BuildContext context, Widget child) => Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: DF.bg,
+          color: context.df.bg,
           borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: DF.stroke),
+          border: Border.all(color: context.df.stroke),
         ),
         child: Center(child: child),
       );

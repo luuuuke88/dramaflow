@@ -22,14 +22,14 @@ class AssetsScreen extends ConsumerWidget {
   Future<void> _generateAll(BuildContext context, WidgetRef ref) async {
     int? queued;
     await runAction(context, ref, () async {
-      final ids = await ref.read(engineProvider).generateAllAssetImages(projectId);
+      final ids =
+          await ref.read(engineProvider).generateAllAssetImages(projectId);
       queued = ids.length;
     });
     if (queued != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(queued == 0
-            ? '没有需要生成的素材图片（已完成或进行中的会被跳过）'
-            : '已排队 $queued 个图片生成任务'),
+        content: Text(
+            queued == 0 ? '没有需要生成的素材图片（已完成或进行中的会被跳过）' : '已排队 $queued 个图片生成任务'),
         duration: const Duration(seconds: 2),
       ));
     }
@@ -58,7 +58,7 @@ class AssetsScreen extends ConsumerWidget {
             IconButton(
               tooltip: '批量生成图片',
               icon: const Icon(Icons.burst_mode_rounded),
-              color: DF.amber,
+              color: context.df.primary,
               onPressed: () => _generateAll(context, ref),
             ),
           ] else ...[
@@ -96,11 +96,10 @@ class AssetsScreen extends ConsumerWidget {
               slivers: [
                 const SliverToBoxAdapter(child: SizedBox(height: 20)),
                 if (characters.isNotEmpty)
-                  ..._section(context, '角色', Icons.person_outline_rounded,
-                      characters),
-                if (scenes.isNotEmpty)
                   ..._section(
-                      context, '场景', Icons.landscape_outlined, scenes),
+                      context, '角色', Icons.person_outline_rounded, characters),
+                if (scenes.isNotEmpty)
+                  ..._section(context, '场景', Icons.landscape_outlined, scenes),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
               ],
             );
@@ -118,20 +117,19 @@ class AssetsScreen extends ConsumerWidget {
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: DF.amber),
+              Icon(icon, size: 18, color: context.df.primary),
               const SizedBox(width: 8),
               Text(title, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: DF.card,
+                  color: context.df.card,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: DF.stroke),
+                  border: Border.all(color: context.df.stroke),
                 ),
                 child: Text('${items.length}',
-                    style: const TextStyle(fontSize: 12, color: DF.textMid)),
+                    style: TextStyle(fontSize: 12, color: context.df.textMid)),
               ),
             ],
           ),
@@ -147,8 +145,7 @@ class AssetsScreen extends ConsumerWidget {
             crossAxisSpacing: 16,
           ),
           delegate: SliverChildBuilderDelegate(
-            (context, i) =>
-                _AssetCard(asset: items[i], projectId: projectId),
+            (context, i) => _AssetCard(asset: items[i], projectId: projectId),
             childCount: items.length,
           ),
         ),
@@ -219,8 +216,10 @@ class _AssetCard extends ConsumerWidget {
                       child: Text(error,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 12, color: DF.red, height: 1.35)),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: context.df.red,
+                              height: 1.35)),
                     ),
                   ],
                   const SizedBox(height: 4),
@@ -235,7 +234,7 @@ class _AssetCard extends ConsumerWidget {
                               ? Icons.refresh_rounded
                               : Icons.image_rounded,
                           label: failed ? '重试' : (done ? '重新生成' : '生成图片'),
-                          color: DF.amber,
+                          color: context.df.primary,
                           onPressed: busy
                               ? null
                               : () => runAction(context, ref, () async {
@@ -248,7 +247,7 @@ class _AssetCard extends ConsumerWidget {
                         _MiniButton(
                           icon: Icons.edit_outlined,
                           label: '编辑',
-                          color: DF.textMid,
+                          color: context.df.textMid,
                           onPressed: () => showDialog<void>(
                             context: context,
                             builder: (_) => _AssetEditDialog(
@@ -292,8 +291,7 @@ class _MiniButton extends StatelessWidget {
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
-        textStyle:
-            const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
       ),
       icon: Icon(icon, size: 16),
       label: Text(label),
@@ -345,33 +343,33 @@ void _showAssetDetail(BuildContext context, Asset asset) {
                     error.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   SelectableText(error,
-                      style: const TextStyle(
-                          fontSize: 13, color: DF.red, height: 1.4)),
+                      style: TextStyle(
+                          fontSize: 13, color: context.df.red, height: 1.4)),
                 ],
                 const SizedBox(height: 20),
-                const Text('描述',
+                Text('描述',
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: DF.textLo)),
+                        color: context.df.textLo)),
                 const SizedBox(height: 6),
                 SelectableText(
                     asset.description.isEmpty ? '—' : asset.description,
                     style: theme.bodyMedium),
                 const SizedBox(height: 16),
-                const Text('图片提示词',
+                Text('图片提示词',
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: DF.textLo)),
+                        color: context.df.textLo)),
                 const SizedBox(height: 6),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: DF.bg,
+                    color: context.df.bg,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: DF.stroke),
+                    border: Border.all(color: context.df.stroke),
                   ),
                   child: SelectableText(
                       asset.imagePrompt.isEmpty ? '—' : asset.imagePrompt,
