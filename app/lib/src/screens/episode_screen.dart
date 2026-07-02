@@ -10,6 +10,19 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 
+Color? _lightAppBarBackground(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.light
+        ? context.df.surface
+        : null;
+
+PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
+  if (Theme.of(context).brightness != Brightness.light) return null;
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(1),
+    child: Container(height: 1, color: context.df.stroke),
+  );
+}
+
 /// 单集剧本页：梗概 + 场次卡片（只读），可发起分镜生成 / 跳转分镜列表。
 class EpisodeScreen extends ConsumerWidget {
   final String projectId;
@@ -21,8 +34,7 @@ class EpisodeScreen extends ConsumerWidget {
     required this.episodeId,
   });
 
-  Future<void> _copyScenesJson(
-      BuildContext context, Episode episode) async {
+  Future<void> _copyScenesJson(BuildContext context, Episode episode) async {
     final json = jsonEncode(episode.scenes.map((s) => s.toJson()).toList());
     await Clipboard.setData(ClipboardData(text: json));
     if (context.mounted) {
@@ -82,12 +94,16 @@ class EpisodeScreen extends ConsumerWidget {
     final int? shotCountMaybe =
         ref.watch(shotsProvider(episodeId)).value?.length;
     final shotCount = shotCountMaybe ?? 0;
-    final storyboardRunning = ref.watch(activeJobsProvider).any(
-        (j) => j.kind == 'storyboard_gen' && j.targetId == episodeId);
+    final storyboardRunning = ref
+        .watch(activeJobsProvider)
+        .any((j) => j.kind == 'storyboard_gen' && j.targetId == episodeId);
     final narrow = MediaQuery.sizeOf(context).width < 640;
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: _lightAppBarBackground(context),
+        bottom: _lightAppBarBottom(context),
         leading: IconButton(
           tooltip: '返回项目',
           icon: const Icon(Icons.arrow_back_rounded),
@@ -130,25 +146,25 @@ class EpisodeScreen extends ConsumerWidget {
               icon: Badge(
                 isLabelVisible: shotCount > 0,
                 label: Text('$shotCount'),
-                backgroundColor: const Color(0xFF1A1200),
-                textColor: DF.amber,
+                backgroundColor: onPrimary,
+                textColor: context.df.primary,
                 child: const Icon(Icons.grid_view_rounded, size: 20),
               ),
-              onPressed: () => context
-                  .go('/projects/$projectId/episodes/$episodeId/shots'),
+              onPressed: () =>
+                  context.go('/projects/$projectId/episodes/$episodeId/shots'),
             )
           else
             FilledButton.icon(
               icon: Badge(
                 isLabelVisible: shotCount > 0,
                 label: Text('$shotCount'),
-                backgroundColor: const Color(0xFF1A1200),
-                textColor: DF.amber,
+                backgroundColor: onPrimary,
+                textColor: context.df.primary,
                 child: const Icon(Icons.grid_view_rounded, size: 18),
               ),
               label: const Text('查看分镜'),
-              onPressed: () => context
-                  .go('/projects/$projectId/episodes/$episodeId/shots'),
+              onPressed: () =>
+                  context.go('/projects/$projectId/episodes/$episodeId/shots'),
             ),
           const SizedBox(width: 16),
         ],
@@ -204,27 +220,28 @@ class _StoryboardBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: DF.amber.withValues(alpha: 0.08),
-        border: const Border(bottom: BorderSide(color: DF.stroke)),
+        color: context.df.primary.withValues(alpha: 0.08),
+        border: Border(bottom: BorderSide(color: context.df.stroke)),
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           LinearProgressIndicator(
             minHeight: 2,
-            color: DF.amber,
+            color: context.df.primary,
             backgroundColor: Colors.transparent,
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
               children: [
-                Icon(Icons.autorenew_rounded, size: 15, color: DF.amber),
-                SizedBox(width: 8),
+                Icon(Icons.autorenew_rounded,
+                    size: 15, color: context.df.primary),
+                const SizedBox(width: 8),
                 Text(
                   '分镜生成中…',
                   style: TextStyle(
-                    color: DF.amber,
+                    color: context.df.primary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -252,16 +269,16 @@ class _SynopsisCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.notes_rounded, size: 16, color: DF.amber),
-                SizedBox(width: 6),
+                Icon(Icons.notes_rounded, size: 16, color: context.df.primary),
+                const SizedBox(width: 6),
                 Text(
                   '本集梗概',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: DF.textMid,
+                    color: context.df.textMid,
                   ),
                 ),
               ],
@@ -269,10 +286,8 @@ class _SynopsisCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               synopsis.isEmpty ? '（暂无梗概）' : synopsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(height: 1.6),
+              style:
+                  Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.6),
             ),
           ],
         ),
@@ -302,15 +317,15 @@ class _SceneCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                   decoration: BoxDecoration(
-                    color: DF.amber.withValues(alpha: 0.14),
+                    color: context.df.primary.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: DF.amber.withValues(alpha: 0.45)),
+                        color: context.df.primary.withValues(alpha: 0.45)),
                   ),
                   child: Text(
                     '第 $idx 场',
-                    style: const TextStyle(
-                      color: DF.amber,
+                    style: TextStyle(
+                      color: context.df.primary,
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
                     ),
@@ -328,18 +343,18 @@ class _SceneCard extends StatelessWidget {
                 if (scene.timeOfDay.isNotEmpty) ...[
                   const SizedBox(width: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 9, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                     decoration: BoxDecoration(
-                      color: DF.blue.withValues(alpha: 0.12),
+                      color: context.df.blue.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                          color: DF.blue.withValues(alpha: 0.4)),
+                          color: context.df.blue.withValues(alpha: 0.4)),
                     ),
                     child: Text(
                       scene.timeOfDay,
-                      style: const TextStyle(
-                        color: DF.blue,
+                      style: TextStyle(
+                        color: context.df.blue,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                       ),
@@ -364,9 +379,9 @@ class _SceneCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: DF.bg,
+                  color: context.df.bg,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: DF.stroke),
+                  border: Border.all(color: context.df.stroke),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,8 +394,8 @@ class _SceneCard extends StatelessWidget {
                           children: [
                             Text(
                               d.speaker,
-                              style: const TextStyle(
-                                color: DF.amber,
+                              style: TextStyle(
+                                color: context.df.primary,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
                                 height: 1.5,
@@ -390,8 +405,8 @@ class _SceneCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 d.line,
-                                style: const TextStyle(
-                                  color: DF.textHi,
+                                style: TextStyle(
+                                  color: context.df.textHi,
                                   fontSize: 13.5,
                                   height: 1.5,
                                 ),

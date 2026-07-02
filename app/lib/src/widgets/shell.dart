@@ -13,9 +13,24 @@ class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.child});
 
   static const _tabs = [
-    (path: '/', icon: Icons.movie_outlined, activeIcon: Icons.movie_rounded, label: '项目'),
-    (path: '/tasks', icon: Icons.bolt_outlined, activeIcon: Icons.bolt_rounded, label: '任务'),
-    (path: '/settings', icon: Icons.tune_outlined, activeIcon: Icons.tune_rounded, label: '设置'),
+    (
+      path: '/',
+      icon: Icons.movie_outlined,
+      activeIcon: Icons.movie_rounded,
+      label: '项目'
+    ),
+    (
+      path: '/tasks',
+      icon: Icons.bolt_outlined,
+      activeIcon: Icons.bolt_rounded,
+      label: '任务'
+    ),
+    (
+      path: '/settings',
+      icon: Icons.tune_outlined,
+      activeIcon: Icons.tune_rounded,
+      label: '设置'
+    ),
   ];
 
   int _currentIndex(BuildContext context) {
@@ -29,12 +44,13 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final activeCount = ref.watch(activeJobsProvider).length;
     final index = _currentIndex(context);
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
 
     Widget taskIcon(bool active) => Badge(
           isLabelVisible: activeCount > 0,
           label: Text('$activeCount'),
-          backgroundColor: DF.amber,
-          textColor: const Color(0xFF1A1200),
+          backgroundColor: context.df.primary,
+          textColor: onPrimary,
           child: Icon(active ? Icons.bolt_rounded : Icons.bolt_outlined),
         );
 
@@ -110,18 +126,23 @@ class _Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final endColor =
+        isLight ? const Color(0xFF1D4ED8) : const Color(0xFFE07A1F);
+    final iconColor = Theme.of(context).colorScheme.onPrimary;
+
     return Container(
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [DF.amber, Color(0xFFE07A1F)],
+          colors: [context.df.primary, endColor],
         ),
         borderRadius: BorderRadius.circular(9),
       ),
-      child: const Icon(Icons.play_arrow_rounded, color: Color(0xFF1A1200), size: 24),
+      child: Icon(Icons.play_arrow_rounded, color: iconColor, size: 24),
     );
   }
 }

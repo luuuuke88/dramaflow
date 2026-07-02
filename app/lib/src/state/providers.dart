@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../api/models.dart';
@@ -8,6 +9,49 @@ import '../engine/engine.dart';
 /// 引擎不挂在可重建的 Provider 上，这里只持引用）。
 final engineProvider = Provider<Engine>(
     (_) => throw UnimplementedError('engineProvider 由 main() 注入'));
+
+ThemeMode _themeModeFromString(String value) => switch (value) {
+      'dark' => ThemeMode.dark,
+      'system' => ThemeMode.system,
+      _ => ThemeMode.light,
+    };
+
+String _themeModeToString(ThemeMode mode) => switch (mode) {
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+      ThemeMode.light => 'light',
+    };
+
+class ThemeModeNotifier extends Notifier<ThemeMode> {
+  @override
+  ThemeMode build() {
+    Future.microtask(_load);
+    return ThemeMode.light;
+  }
+
+  Future<void> _load() async {
+    try {
+      final value = await ref.read(engineProvider).getThemeMode();
+      state = _themeModeFromString(value);
+    } catch (_) {
+      state = ThemeMode.light;
+    }
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    final previous = state;
+    state = mode;
+    try {
+      await ref.read(engineProvider).setThemeMode(_themeModeToString(mode));
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
+  }
+}
+
+final themeModeProvider =
+    NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
 
 /// 活跃任务监听：订阅引擎队列事件流（取代 v0.1 的 HTTP 轮询）。
 /// 事件到达即拉取活跃任务并 bump jobsGeneration；活跃任务存在时保持屏幕常亮

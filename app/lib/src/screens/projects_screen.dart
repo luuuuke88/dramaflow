@@ -129,8 +129,9 @@ class ProjectsScreen extends ConsumerWidget {
       context,
       ref,
       () async {
-        created =
-            await ref.read(engineProvider).createProject(name, artStyle: artStyle);
+        created = await ref
+            .read(engineProvider)
+            .createProject(name, artStyle: artStyle);
       },
       successMessage: '项目已创建',
     );
@@ -152,7 +153,7 @@ class _ProjectCard extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => context.go('/projects/${project.id}'),
-        hoverColor: DF.cardHover,
+        hoverColor: context.df.cardHover,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 8, 14),
           child: Column(
@@ -173,21 +174,21 @@ class _ProjectCard extends ConsumerWidget {
                     ),
                   ),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded,
-                        color: DF.textLo, size: 20),
-                    color: DF.card,
+                    icon: Icon(Icons.more_vert_rounded,
+                        color: context.df.textLo, size: 20),
+                    color: context.df.card,
                     onSelected: (v) {
                       if (v == 'delete') _confirmDelete(context, ref);
                     },
-                    itemBuilder: (context) => const [
+                    itemBuilder: (context) => [
                       PopupMenuItem(
                         value: 'delete',
                         child: Row(
                           children: [
                             Icon(Icons.delete_outline_rounded,
-                                size: 18, color: DF.red),
+                                size: 18, color: context.df.red),
                             SizedBox(width: 8),
-                            Text('删除', style: TextStyle(color: DF.red)),
+                            Text('删除', style: TextStyle(color: context.df.red)),
                           ],
                         ),
                       ),
@@ -201,16 +202,16 @@ class _ProjectCard extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: DF.amber.withValues(alpha: 0.10),
+                    color: context.df.primary.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(6),
-                    border:
-                        Border.all(color: DF.amber.withValues(alpha: 0.35)),
+                    border: Border.all(
+                        color: context.df.primary.withValues(alpha: 0.35)),
                   ),
                   child: Text(
                     project.artStyle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, color: DF.amber),
+                    style: TextStyle(fontSize: 11, color: context.df.primary),
                   ),
                 ),
               ],
@@ -276,7 +277,7 @@ class _ProjectCard extends ConsumerWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: DF.red, foregroundColor: Colors.white),
+                backgroundColor: context.df.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('删除'),
           ),
@@ -313,9 +314,10 @@ class _StatLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: done ? DF.green : DF.textLo),
+        Icon(icon,
+            size: 14, color: done ? context.df.green : context.df.textLo),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12, color: DF.textLo)),
+        Text(label, style: TextStyle(fontSize: 12, color: context.df.textLo)),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
@@ -325,7 +327,7 @@ class _StatLine extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: done ? DF.green : DF.textMid,
+              color: done ? context.df.green : context.df.textMid,
             ),
           ),
         ),

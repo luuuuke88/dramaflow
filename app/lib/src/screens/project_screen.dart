@@ -8,6 +8,19 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 
+Color? _lightAppBarBackground(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.light
+        ? context.df.surface
+        : null;
+
+PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
+  if (Theme.of(context).brightness != Brightness.light) return null;
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(1),
+    child: Container(height: 1, color: context.df.stroke),
+  );
+}
+
 /// 项目主页：显式流水线枢纽（小说 → 剧本 → 素材 → 分镜/镜头图 → 视频）。
 class ProjectScreen extends ConsumerWidget {
   final String projectId;
@@ -17,8 +30,7 @@ class ProjectScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectAsync = ref.watch(projectProvider(projectId));
-    final episodes =
-        ref.watch(episodesProvider(projectId)).value ?? const [];
+    final episodes = ref.watch(episodesProvider(projectId)).value ?? const [];
     final activeJobs = ref
         .watch(activeJobsProvider)
         .where((j) => j.projectId == projectId)
@@ -29,6 +41,8 @@ class ProjectScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: _lightAppBarBackground(context),
+        bottom: _lightAppBarBottom(context),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: '返回项目列表',
@@ -40,16 +54,17 @@ class ProjectScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(project.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(project.name,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   if (project.artStyle.isNotEmpty)
                     Text(
                       project.artStyle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: DF.textLo,
+                        color: context.df.textLo,
                       ),
                     ),
                 ],
@@ -123,6 +138,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 1,
           title: '小说',
+          summary: novelDone ? '1 篇' : '0 篇',
           status: novelDone ? 'done' : 'none',
           completed: novelDone,
           subtitle: novelDone ? '已导入' : '未导入，先把原著小说粘贴进来',
@@ -138,6 +154,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 2,
           title: '剧本',
+          summary: '${s.episodes} 集',
           status: scriptState.status,
           completed: s.episodes > 0,
           failedJob: scriptState.failedJob,
@@ -162,19 +179,19 @@ class ProjectScreen extends ConsumerWidget {
                   children: [
                     for (final e in episodes)
                       ActionChip(
-                        avatar: const Icon(Icons.description_outlined,
-                            size: 16, color: DF.textMid),
+                        avatar: Icon(Icons.description_outlined,
+                            size: 16, color: context.df.textMid),
                         label: Text(
                           '第${e.idx}集 ${e.title}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style:
-                              const TextStyle(fontSize: 12, color: DF.textHi),
+                              TextStyle(fontSize: 12, color: context.df.textHi),
                         ),
-                        backgroundColor: DF.surface,
-                        side: const BorderSide(color: DF.stroke),
-                        onPressed: () => context
-                            .go('/projects/$projectId/episodes/${e.id}'),
+                        backgroundColor: context.df.surface,
+                        side: BorderSide(color: context.df.stroke),
+                        onPressed: () =>
+                            context.go('/projects/$projectId/episodes/${e.id}'),
                       ),
                   ],
                 ),
@@ -183,6 +200,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 3,
           title: '素材',
+          summary: '${s.assetsDone}/${s.assets}',
           status: assetState.status,
           completed: s.assets > 0 && s.assetsDone == s.assets,
           failedJob: assetState.failedJob,
@@ -198,7 +216,9 @@ class ProjectScreen extends ConsumerWidget {
                         context,
                         ref,
                         () async {
-                          await ref.read(engineProvider).extractAssets(projectId);
+                          await ref
+                              .read(engineProvider)
+                              .extractAssets(projectId);
                         },
                         successMessage: '素材提取任务已提交',
                       ),
@@ -216,6 +236,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 4,
           title: '分镜与镜头图',
+          summary: '${s.shotsImageDone}/${s.shots}',
           status: shotImageState.status,
           completed: s.shots > 0 && s.shotsImageDone == s.shots,
           failedJob: shotImageState.failedJob,
@@ -226,6 +247,7 @@ class ProjectScreen extends ConsumerWidget {
         _StageCard(
           index: 5,
           title: '视频',
+          summary: '${s.shotsVideoDone}/${s.shots}',
           status: videoState.status,
           completed: s.shots > 0 && s.shotsVideoDone == s.shots,
           failedJob: videoState.failedJob,
@@ -299,8 +321,8 @@ class ProjectScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('将小说改编为分集短剧剧本，选择集数：',
-                    style: TextStyle(color: DF.textMid)),
+                Text('将小说改编为分集短剧剧本，选择集数：',
+                    style: TextStyle(color: context.df.textMid)),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -310,7 +332,7 @@ class ProjectScreen extends ConsumerWidget {
                         min: 1,
                         max: 12,
                         divisions: 11,
-                        activeColor: DF.amber,
+                        activeColor: context.df.primary,
                         label: '$count 集',
                         onChanged: (v) => setState(() => count = v.round()),
                       ),
@@ -320,15 +342,16 @@ class ProjectScreen extends ConsumerWidget {
                       child: Text(
                         '$count 集',
                         textAlign: TextAlign.right,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, color: DF.amber),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: context.df.primary),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text('已有剧本会被覆盖，生成过程约需数分钟。',
-                    style: TextStyle(fontSize: 12, color: DF.textLo)),
+                Text('已有剧本会被覆盖，生成过程约需数分钟。',
+                    style: TextStyle(fontSize: 12, color: context.df.textLo)),
               ],
             ),
           ),
@@ -443,6 +466,7 @@ class _StageState {
 class _StageCard extends StatelessWidget {
   final int index;
   final String title;
+  final String? summary;
   final String status;
   final bool completed;
   final String subtitle;
@@ -455,6 +479,7 @@ class _StageCard extends StatelessWidget {
   const _StageCard({
     required this.index,
     required this.title,
+    this.summary,
     required this.status,
     required this.completed,
     required this.subtitle,
@@ -467,44 +492,49 @@ class _StageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 左侧：序号徽标 + 连接线
           SizedBox(
-            width: 36,
+            width: 32,
             child: Column(
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 28,
+                  height: 28,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: completed ? DF.amber : DF.card,
+                    color: completed ? context.df.primary : context.df.card,
                     shape: BoxShape.circle,
                     border: Border.all(
-                        color: completed ? DF.amber : DF.stroke, width: 1.5),
+                        color:
+                            completed ? context.df.primary : context.df.stroke,
+                        width: 1),
                   ),
                   child: completed
-                      ? const Icon(Icons.check_rounded,
-                          size: 18, color: Color(0xFF1A1200))
+                      ? Icon(Icons.check_rounded, size: 16, color: onPrimary)
                       : Text(
                           '$index',
-                          style: const TextStyle(
-                            fontSize: 14,
+                          style: TextStyle(
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: DF.textMid,
+                            color: context.df.textMid,
                           ),
                         ),
                 ),
                 if (!isLast)
                   Expanded(
                     child: Container(
-                      width: 2,
-                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      width: 1,
+                      margin: const EdgeInsets.symmetric(vertical: 3),
                       decoration: BoxDecoration(
-                        color: completed ? DF.amberDim : DF.stroke,
+                        color: completed
+                            ? context.df.primaryDim
+                            : context.df.stroke,
                         borderRadius: BorderRadius.circular(1),
                       ),
                     ),
@@ -512,26 +542,46 @@ class _StageCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           // 右侧：内容卡
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
               child: Card(
+                elevation: 0,
+                color: context.df.card,
+                surfaceTintColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(DF.radius),
+                  side: BorderSide(color: context.df.stroke),
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Flexible(
+                          Expanded(
                             child: Text(
                               title,
                               style: Theme.of(context).textTheme.titleMedium,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          if (summary != null) ...[
+                            const SizedBox(width: 10),
+                            Text(
+                              summary!,
+                              style: TextStyle(
+                                color: context.df.textLo,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: 8),
                           StatusChip(
                             status,
                             errorTooltip: failedJob?.error,
@@ -542,8 +592,10 @@ class _StageCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         subtitle,
-                        style: const TextStyle(
-                            fontSize: 13, color: DF.textMid, height: 1.5),
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            color: context.df.textMid,
+                            height: 1.5),
                       ),
                       if (failedJob != null &&
                           (failedJob!.error ?? '').isNotEmpty) ...[
@@ -551,25 +603,28 @@ class _StageCard extends StatelessWidget {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            const Icon(Icons.error_outline_rounded,
-                                size: 16, color: DF.red),
+                            Icon(Icons.error_outline_rounded,
+                                size: 16, color: context.df.red),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 failedJob!.error!,
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontSize: 12, color: DF.red, height: 1.4),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: context.df.red,
+                                    height: 1.4),
                               ),
                             ),
                             if (onRetry != null) ...[
                               const SizedBox(width: 10),
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: DF.red,
+                                  foregroundColor: context.df.red,
                                   side: BorderSide(
-                                      color: DF.red.withValues(alpha: 0.5)),
+                                      color: context.df.red
+                                          .withValues(alpha: 0.5)),
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 8),
                                 ),
@@ -584,11 +639,11 @@ class _StageCard extends StatelessWidget {
                         ),
                       ],
                       if (actions.isNotEmpty) ...[
-                        const SizedBox(height: 14),
-                        Wrap(spacing: 10, runSpacing: 10, children: actions),
+                        const SizedBox(height: 12),
+                        Wrap(spacing: 8, runSpacing: 8, children: actions),
                       ],
                       if (extra != null) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 12),
                         extra!,
                       ],
                     ],

@@ -29,6 +29,14 @@ void main() {
     expect(c.intOf('videoDuration'), 8);
   });
 
+  test('themeMode 默认浅色且持久化', () {
+    final db = openEngineDb(':memory:');
+    final c = EngineConfig(db, isMobile: false);
+    expect(c.str('themeMode'), 'light');
+    c.update({'themeMode': 'dark'});
+    expect(EngineConfig(db, isMobile: false).str('themeMode'), 'dark');
+  });
+
   test('未知键忽略，已知键持久化', () {
     final db = openEngineDb(':memory:');
     final c = EngineConfig(db, isMobile: false);

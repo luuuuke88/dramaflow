@@ -59,24 +59,27 @@ void main() {
 
     test('saveNovel 空内容抛错', () async {
       final p = await e.createProject('x');
-      expect(() => e.saveNovel(p.id, title: '', content: '  '),
-          throwsA(predicate((x) =>
-              x is EngineException && x.message.contains('小说内容不能为空'))));
+      expect(
+          () => e.saveNovel(p.id, title: '', content: '  '),
+          throwsA(predicate(
+              (x) => x is EngineException && x.message.contains('小说内容不能为空'))));
     });
   });
 
   group('generateScript 守卫', () {
     test('无小说抛错；入队后重复触发抛已在进行中', () async {
       final p = await e.createProject('x');
-      expect(() => e.generateScript(p.id),
-          throwsA(predicate((x) =>
-              x is EngineException && x.message.contains('请先导入小说'))));
+      expect(
+          () => e.generateScript(p.id),
+          throwsA(predicate(
+              (x) => x is EngineException && x.message.contains('请先导入小说'))));
       await e.saveNovel(p.id, title: 't', content: 'c');
       final jobId = await e.generateScript(p.id, episodeCount: 2);
       expect(jobId, isNotEmpty);
-      expect(() => e.generateScript(p.id),
-          throwsA(predicate((x) =>
-              x is EngineException && x.message.contains('已在进行中'))));
+      expect(
+          () => e.generateScript(p.id),
+          throwsA(predicate(
+              (x) => x is EngineException && x.message.contains('已在进行中'))));
     });
 
     test('下游任务活跃时禁止重写剧本', () async {
@@ -84,7 +87,8 @@ void main() {
       await e.saveNovel(p.id, title: 't', content: 'c');
       e.db.execute(
           "INSERT INTO jobs (id,projectId,kind,state,createdAt) VALUES ('jd','${p.id}','shot_image','queued','x')");
-      expect(() => e.generateScript(p.id),
+      expect(
+          () => e.generateScript(p.id),
           throwsA(predicate((x) =>
               x is EngineException && x.message.contains('镜头图/视频任务进行中'))));
     });
@@ -107,8 +111,7 @@ void main() {
       expect(jobId, isNotNull);
       final a = (await e.listAssets(pid)).single;
       expect(a.status, 'queued');
-      expect(() => e.generateAssetImage('a1'),
-          throwsA(isA<EngineException>()));
+      expect(() => e.generateAssetImage('a1'), throwsA(isA<EngineException>()));
     });
 
     test('generateAll 跳过 done/queued/running', () async {
@@ -120,9 +123,10 @@ void main() {
     });
 
     test('generateShotVideo 前置校验镜头图', () async {
-      expect(() => e.generateShotVideo('s1'),
-          throwsA(predicate((x) =>
-              x is EngineException && x.message.contains('请先生成镜头图'))));
+      expect(
+          () => e.generateShotVideo('s1'),
+          throwsA(predicate(
+              (x) => x is EngineException && x.message.contains('请先生成镜头图'))));
       e.db.execute(
           "UPDATE shots SET imageStatus='done', imagePath='p/i.png' WHERE id='s1'");
       final id = await e.generateShotVideo('s1');
@@ -134,7 +138,8 @@ void main() {
     test('generateStoryboard 本集下游活跃时抛错', () async {
       e.db.execute(
           "INSERT INTO jobs (id,projectId,kind,targetId,state,createdAt) VALUES ('jj','$pid','shot_image','s1','running','x')");
-      expect(() => e.generateStoryboard('e1'),
+      expect(
+          () => e.generateStoryboard('e1'),
           throwsA(predicate((x) =>
               x is EngineException && x.message.contains('镜头图/视频任务进行中'))));
     });
@@ -165,6 +170,18 @@ void main() {
       final s = await e.getSettings();
       expect(s.videoApiKey, '****9999');
       expect(s.textModel, 'gpt-5.5'); // 桌面默认
+    });
+
+    test('themeMode 读写且拒绝非法值', () async {
+      expect(await e.getThemeMode(), 'light');
+      await e.setThemeMode('system');
+      expect(await e.getThemeMode(), 'system');
+      await e.setThemeMode('dark');
+      expect(await e.getThemeMode(), 'dark');
+      expect(
+          () => e.setThemeMode('sepia'),
+          throwsA(predicate(
+              (x) => x is EngineException && x.message.contains('主题模式无效'))));
     });
   });
 }
