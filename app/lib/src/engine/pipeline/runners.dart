@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
 import '../compose.dart';
@@ -80,6 +81,83 @@ class Runners {
     final rows = db.select('SELECT * FROM projects WHERE id=?', [projectId]);
     if (rows.isEmpty) throw EngineException('项目不存在（可能已被删除）');
     return rows.first;
+  }
+
+  Map<String, dynamic> _jobPayload(JobRow job) =>
+      (jsonDecode(job.payload) as Map).cast<String, dynamic>();
+
+  String? _editInstruction(Map<String, dynamic> payload) {
+    final instruction = (payload['editInstruction'] as String?)?.trim();
+    return instruction == null || instruction.isEmpty ? null : instruction;
+  }
+
+  String? _assetRefImageAbsPath(String assetId, Map<String, dynamic> payload) {
+    if (_editInstruction(payload) == null) return null;
+    final refTakeId = (payload['refTakeId'] as String?)?.trim();
+    if (refTakeId == null || refTakeId.isEmpty) {
+      throw EngineException('请先生成图片');
+    }
+    final rows = db.select(
+        'SELECT imagePath FROM image_takes WHERE id=? AND assetId=?',
+        [refTakeId, assetId]);
+    if (rows.isEmpty) throw EngineException('参考图片版本不存在，请重新发起重绘');
+    final absPath = media.absPath(rows.first['imagePath'] as String);
+    if (!File(absPath).existsSync()) {
+      throw EngineException('参考图片文件不存在，请重新生成图片');
+    }
+    return absPath;
+  }
+
+  String? _shotRefImageAbsPath(String shotId, Map<String, dynamic> payload) {
+    if (_editInstruction(payload) == null) return null;
+    final refTakeId = (payload['refTakeId'] as String?)?.trim();
+    if (refTakeId == null || refTakeId.isEmpty) {
+      throw EngineException('请先生成图片');
+    }
+    final rows = db.select(
+        'SELECT imagePath FROM image_takes WHERE id=? AND shotId=?',
+        [refTakeId, shotId]);
+    if (rows.isEmpty) throw EngineException('参考图片版本不存在，请重新发起重绘');
+    final absPath = media.absPath(rows.first['imagePath'] as String);
+    if (!File(absPath).existsSync()) {
+      throw EngineException('参考图片文件不存在，请重新生成图片');
+    }
+    return absPath;
+  }
+
+  void _addAssetImageTake(String assetId, String imagePath) {
+    db.execute('BEGIN');
+    try {
+      db.execute(
+          'UPDATE image_takes SET selected=0 WHERE assetId=?', [assetId]);
+      db.execute(
+          'INSERT INTO image_takes (id,assetId,imagePath,selected,createdAt) VALUES (?,?,?,?,?)',
+          [newId(), assetId, imagePath, 1, nowIso()]);
+      db.execute(
+          "UPDATE assets SET status='done', imagePath=?, error=NULL WHERE id=?",
+          [imagePath, assetId]);
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  void _addShotImageTake(String shotId, String imagePath) {
+    db.execute('BEGIN');
+    try {
+      db.execute('UPDATE image_takes SET selected=0 WHERE shotId=?', [shotId]);
+      db.execute(
+          'INSERT INTO image_takes (id,shotId,imagePath,selected,createdAt) VALUES (?,?,?,?,?)',
+          [newId(), shotId, imagePath, 1, nowIso()]);
+      db.execute(
+          "UPDATE shots SET imageStatus='done', imagePath=?, imageError=NULL WHERE id=?",
+          [imagePath, shotId]);
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
   }
 
   // ---------- 小说 → 分集剧本 ----------
@@ -254,6 +332,8 @@ class Runners {
     final rows = db.select('SELECT * FROM assets WHERE id=?', [job.targetId]);
     if (rows.isEmpty) throw EngineException('资产不存在');
     final asset = rows.first;
+    final payload = _jobPayload(job);
+    final editInstruction = _editInstruction(payload);
 
     // 先置 running 再预检：任何失败（含预检）实体必落 failed+原因，不能卡 queued
     db.execute("UPDATE assets SET status='running', error=NULL WHERE id=?",
@@ -263,11 +343,14 @@ class Runners {
           ? (asset['imagePrompt'] as String).trim()
           : (asset['description'] as String).trim();
       if (prompt.isEmpty) throw EngineException('该资产没有图片提示词，请先填写');
+      final refImageAbsPath =
+          _assetRefImageAbsPath(asset['id'] as String, payload);
       final rel = await gateway.generateImage(prompt, job.projectId,
-          stage: 'asset_image', cancelToken: token);
-      db.execute(
-          "UPDATE assets SET status='done', imagePath=?, error=NULL WHERE id=?",
-          [rel, asset['id']]);
+          stage: 'asset_image',
+          cancelToken: token,
+          refImageAbsPath: refImageAbsPath,
+          editInstruction: editInstruction);
+      _addAssetImageTake(asset['id'] as String, rel);
       return rel;
     } catch (e) {
       final msg = errMessage(e);
@@ -283,6 +366,8 @@ class Runners {
     final rows = db.select('SELECT * FROM shots WHERE id=?', [job.targetId]);
     if (rows.isEmpty) throw EngineException('镜头不存在');
     final shot = rows.first;
+    final payload = _jobPayload(job);
+    final editInstruction = _editInstruction(payload);
 
     db.execute(
         "UPDATE shots SET imageStatus='running', imageError=NULL WHERE id=?",
@@ -290,11 +375,14 @@ class Runners {
     try {
       final prompt = (shot['imagePrompt'] as String).trim();
       if (prompt.isEmpty) throw EngineException('该镜头没有图片提示词');
+      final refImageAbsPath =
+          _shotRefImageAbsPath(shot['id'] as String, payload);
       final rel = await gateway.generateImage(prompt, job.projectId,
-          stage: 'shot_image', cancelToken: token);
-      db.execute(
-          "UPDATE shots SET imageStatus='done', imagePath=?, imageError=NULL WHERE id=?",
-          [rel, shot['id']]);
+          stage: 'shot_image',
+          cancelToken: token,
+          refImageAbsPath: refImageAbsPath,
+          editInstruction: editInstruction);
+      _addShotImageTake(shot['id'] as String, rel);
       return rel;
     } catch (e) {
       final msg = errMessage(e);

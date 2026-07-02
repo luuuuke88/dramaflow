@@ -15,9 +15,38 @@ Future<String> openaiGenerateImage(
   String projectId, {
   required String imageSizeDirective,
   CancelToken? cancelToken,
+  String? refImageAbsPath,
+  String? editInstruction,
 }) async {
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
   final fullPrompt = '${prompt.trim()}\n\n$imageSizeDirective';
+  final hasRef = refImageAbsPath != null && refImageAbsPath.trim().isNotEmpty;
+  final requestOptions = Options(
+    headers: model.apiKey.isEmpty
+        ? const <String, String>{}
+        : {'Authorization': 'Bearer ${model.apiKey}'},
+    sendTimeout: const Duration(seconds: 60),
+    receiveTimeout: const Duration(seconds: 960),
+    validateStatus: (s) => s != null && s < 400,
+  );
+  if (hasRef) {
+    final instruction = (editInstruction ?? '').trim();
+    final editPrompt =
+        instruction.isEmpty ? fullPrompt : '$fullPrompt\n\n修改意见：$instruction';
+    final res = await dio.post(
+      '$base/images/edits',
+      data: FormData.fromMap({
+        'model': model.modelId,
+        'prompt': editPrompt,
+        'response_format': 'b64_json',
+        'image': await MultipartFile.fromFile(refImageAbsPath.trim()),
+      }),
+      options: requestOptions,
+      cancelToken: cancelToken,
+    );
+    return _saveImageResponse(dio, media, projectId, res,
+        cancelToken: cancelToken);
+  }
   final res = await dio.post(
     '$base/images/generations',
     data: {
@@ -27,16 +56,20 @@ Future<String> openaiGenerateImage(
       'quality': 'low',
       'response_format': 'b64_json',
     },
-    options: Options(
-      headers: model.apiKey.isEmpty
-          ? const <String, String>{}
-          : {'Authorization': 'Bearer ${model.apiKey}'},
-      sendTimeout: const Duration(seconds: 60),
-      receiveTimeout: const Duration(seconds: 960),
-      validateStatus: (s) => s != null && s < 400,
-    ),
+    options: requestOptions,
     cancelToken: cancelToken,
   );
+  return _saveImageResponse(dio, media, projectId, res,
+      cancelToken: cancelToken);
+}
+
+Future<String> _saveImageResponse(
+  Dio dio,
+  MediaStore media,
+  String projectId,
+  Response<dynamic> res, {
+  CancelToken? cancelToken,
+}) async {
   final first = ((res.data as Map?)?['data'] as List?)?.firstOrNull as Map?;
   final b64 = first?['b64_json'] as String?;
   if (b64 != null && b64.isNotEmpty) {

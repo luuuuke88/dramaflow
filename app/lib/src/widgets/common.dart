@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../api/models.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
 import '../theme.dart';
@@ -287,4 +288,232 @@ class MediaImage extends StatelessWidget {
         ),
         child: Center(child: child),
       );
+}
+
+class ImageTakesStrip extends StatelessWidget {
+  final AsyncValue<List<ImageTake>> value;
+  final ValueChanged<ImageTake> onSelect;
+
+  const ImageTakesStrip({
+    super.key,
+    required this.value,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: context.df.bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.df.stroke),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.photo_library_outlined,
+                  size: 15, color: context.df.textLo),
+              const SizedBox(width: 6),
+              Text(
+                '图片版本',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: context.df.textMid,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          value.when(
+            skipLoadingOnRefresh: true,
+            skipLoadingOnReload: true,
+            data: (takes) {
+              if (takes.isEmpty) {
+                return SizedBox(
+                  height: 74,
+                  child: Center(
+                    child: Text(
+                      '暂无图片版本',
+                      style: TextStyle(fontSize: 12, color: context.df.textLo),
+                    ),
+                  ),
+                );
+              }
+              return SizedBox(
+                height: 82,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: takes.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final take = takes[index];
+                    return _ImageTakeTile(
+                      take: take,
+                      label: '版本 ${takes.length - index}',
+                      onTap: take.selected ? null : () => onSelect(take),
+                    );
+                  },
+                ),
+              );
+            },
+            loading: () => SizedBox(
+              height: 74,
+              child: Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: context.df.primary,
+                  ),
+                ),
+              ),
+            ),
+            error: (e, _) => SizedBox(
+              height: 74,
+              child: Center(
+                child: Text(
+                  e.toString(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: context.df.red),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageTakeTile extends StatelessWidget {
+  final ImageTake take;
+  final String label;
+  final VoidCallback? onTap;
+
+  const _ImageTakeTile({
+    required this.take,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 74,
+      child: Material(
+        color: take.selected
+            ? context.df.primary.withValues(alpha: 0.1)
+            : context.df.surface,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: take.selected ? context.df.primary : context.df.stroke,
+                width: take.selected ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: MediaImage(take.imagePath, radius: 6),
+                      ),
+                      if (take.selected)
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: Icon(Icons.check_circle_rounded,
+                              size: 16, color: context.df.primary),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color:
+                        take.selected ? context.df.primary : context.df.textMid,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<String?> showRepaintInstructionDialog(BuildContext context) async {
+  final controller = TextEditingController();
+  try {
+    String? errorText;
+    return await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('重绘图片'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            minLines: 3,
+            maxLines: 5,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              hintText: '如：把衣服改成红色',
+              errorText: errorText,
+            ),
+            onSubmitted: (_) {
+              final value = controller.text.trim();
+              if (value.isEmpty) {
+                setState(() => errorText = '请输入修改意见');
+                return;
+              }
+              Navigator.of(context).pop(value);
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                final value = controller.text.trim();
+                if (value.isEmpty) {
+                  setState(() => errorText = '请输入修改意见');
+                  return;
+                }
+                Navigator.of(context).pop(value);
+              },
+              icon: const Icon(Icons.brush_outlined, size: 18),
+              label: const Text('重绘'),
+            ),
+          ],
+        ),
+      ),
+    );
+  } finally {
+    controller.dispose();
+  }
 }

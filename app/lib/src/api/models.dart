@@ -214,6 +214,7 @@ class Episode {
 
 class Asset {
   final String id;
+  final String projectId;
   final String kind; // character | scene | prop
   final String name;
   final String description;
@@ -225,6 +226,7 @@ class Asset {
 
   const Asset({
     required this.id,
+    required this.projectId,
     required this.kind,
     required this.name,
     required this.description,
@@ -237,6 +239,7 @@ class Asset {
 
   factory Asset.fromJson(Map<String, dynamic> j) => Asset(
         id: j['id'] as String,
+        projectId: j['projectId'] as String? ?? '',
         kind: j['kind'] as String? ?? 'character',
         name: j['name'] as String? ?? '',
         description: j['description'] as String? ?? '',
@@ -326,6 +329,33 @@ class VideoTake {
         shotId: j['shotId'] as String? ?? '',
         videoPath: j['videoPath'] as String? ?? '',
         durationSec: (j['durationSec'] as num?)?.toDouble(),
+        createdAt: j['createdAt'] as String? ?? '',
+      );
+}
+
+class ImageTake {
+  final String id;
+  final String? assetId;
+  final String? shotId;
+  final String imagePath;
+  final bool selected;
+  final String createdAt;
+
+  const ImageTake({
+    required this.id,
+    required this.assetId,
+    required this.shotId,
+    required this.imagePath,
+    required this.selected,
+    required this.createdAt,
+  });
+
+  factory ImageTake.fromJson(Map<String, dynamic> j) => ImageTake(
+        id: j['id'] as String,
+        assetId: j['assetId'] as String?,
+        shotId: j['shotId'] as String?,
+        imagePath: j['imagePath'] as String? ?? '',
+        selected: _jsonBool(j['selected'], defaultValue: false),
         createdAt: j['createdAt'] as String? ?? '',
       );
 }

@@ -1418,11 +1418,21 @@ class _AssetEmptyState extends StatelessWidget {
 
 /// 详情弹窗：大图 + 描述 / 图片提示词 / 备注（可选中复制）。
 void _showAssetDetail(BuildContext context, Asset asset) {
-  final error = asset.error;
   showDialog<void>(
     context: context,
-    builder: (context) {
+    builder: (context) => Consumer(builder: (context, ref, _) {
+      final latest = _findAsset(
+              asset.projectId.isEmpty
+                  ? null
+                  : ref.watch(assetsProvider(asset.projectId)).value,
+              asset.id) ??
+          asset;
+      final error = latest.error;
       final theme = Theme.of(context).textTheme;
+      final takesAsync = ref.watch(assetImageTakesProvider(latest.id));
+      final selectedImagePath =
+          _selectedImagePath(latest.imageUrl, takesAsync.value);
+      final imageBusy = latest.status == 'queued' || latest.status == 'running';
       return Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -1436,14 +1446,14 @@ void _showAssetDetail(BuildContext context, Asset asset) {
                   children: [
                     Expanded(
                       child: Text(
-                        asset.name,
+                        latest.name,
                         style: theme.titleLarge,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    StatusChip(asset.status, errorTooltip: error),
+                    StatusChip(latest.status, errorTooltip: error),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -1453,11 +1463,22 @@ void _showAssetDetail(BuildContext context, Asset asset) {
                         const BoxConstraints(maxWidth: 480, maxHeight: 480),
                     child: AspectRatio(
                       aspectRatio: 1,
-                      child: MediaImage(asset.imageUrl, radius: 12),
+                      child: MediaImage(selectedImagePath, radius: 12),
                     ),
                   ),
                 ),
-                if (asset.status == 'failed' &&
+                const SizedBox(height: 12),
+                ImageTakesStrip(
+                  value: takesAsync,
+                  onSelect: (take) => runAction(context, ref, () async {
+                    await ref.read(engineProvider).selectImageTake(take.id);
+                    ref.invalidate(assetImageTakesProvider(latest.id));
+                    if (latest.projectId.isNotEmpty) {
+                      ref.invalidate(assetsProvider(latest.projectId));
+                    }
+                  }, successMessage: '已切换图片版本'),
+                ),
+                if (latest.status == 'failed' &&
                     error != null &&
                     error.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -1471,17 +1492,47 @@ void _showAssetDetail(BuildContext context, Asset asset) {
                   ),
                 ],
                 const SizedBox(height: 20),
-                _DialogTextBlock(label: '描述', text: asset.description),
+                _DialogTextBlock(label: '描述', text: latest.description),
                 const SizedBox(height: 16),
-                _DialogTextBlock(label: '图片提示词', text: asset.imagePrompt),
+                _DialogTextBlock(label: '图片提示词', text: latest.imagePrompt),
                 const SizedBox(height: 16),
-                _DialogTextBlock(label: '备注', text: asset.note),
+                _DialogTextBlock(label: '备注', text: latest.note),
                 const SizedBox(height: 20),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('关闭'),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: imageBusy
+                            ? null
+                            : () async {
+                                final instruction =
+                                    await showRepaintInstructionDialog(context);
+                                if (instruction == null || !context.mounted) {
+                                  return;
+                                }
+                                await runAction(context, ref, () async {
+                                  await ref
+                                      .read(engineProvider)
+                                      .repaintAsset(latest.id, instruction);
+                                  ref.invalidate(
+                                      assetImageTakesProvider(latest.id));
+                                  if (latest.projectId.isNotEmpty) {
+                                    ref.invalidate(
+                                        assetsProvider(latest.projectId));
+                                  }
+                                }, successMessage: '重绘任务已排队');
+                              },
+                        icon: const Icon(Icons.brush_outlined, size: 18),
+                        label: const Text('重绘'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('关闭'),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1489,8 +1540,24 @@ void _showAssetDetail(BuildContext context, Asset asset) {
           ),
         ),
       );
-    },
+    }),
   );
+}
+
+Asset? _findAsset(List<Asset>? assets, String id) {
+  if (assets == null) return null;
+  for (final asset in assets) {
+    if (asset.id == id) return asset;
+  }
+  return null;
+}
+
+String? _selectedImagePath(String? fallback, List<ImageTake>? takes) {
+  if (takes == null) return fallback;
+  for (final take in takes) {
+    if (take.selected) return take.imagePath;
+  }
+  return fallback;
 }
 
 class _DialogTextBlock extends StatelessWidget {
