@@ -33,7 +33,7 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
 
   Future<void> _save() async {
     await runAction(context, ref, () async {
-      await ref.read(apiProvider).saveNovel(
+      await ref.read(engineProvider).saveNovel(
             widget.projectId,
             title: _titleCtrl.text.trim(),
             content: _contentCtrl.text,

@@ -340,7 +340,7 @@ class _ActiveJobCard extends ConsumerWidget {
                 icon: const Icon(Icons.close_rounded,
                     size: 18, color: DF.textLo),
                 onPressed: () => runAction(context, ref, () async {
-                  await ref.read(apiProvider).cancelJob(job.id);
+                  await ref.read(engineProvider).cancelJob(job.id);
                   ref.invalidate(projectJobsProvider(job.projectId));
                 }, successMessage: '任务已取消'),
               ),
@@ -456,7 +456,7 @@ class _HistoryTile extends ConsumerWidget {
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 label: const Text('重试'),
                 onPressed: () => runAction(context, ref, () async {
-                  await ref.read(apiProvider).retryJob(job.id);
+                  await ref.read(engineProvider).retryJob(job.id);
                   ref.invalidate(projectJobsProvider(job.projectId));
                 }, successMessage: '已重新排队'),
               ),

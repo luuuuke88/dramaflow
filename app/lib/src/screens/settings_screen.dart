@@ -15,23 +15,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  late final TextEditingController _baseUrlCtrl;
-  late final TextEditingController _tokenCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    final conn = ref.read(connectionProvider);
-    _baseUrlCtrl = TextEditingController(text: conn.baseUrl);
-    _tokenCtrl = TextEditingController(text: conn.token);
-  }
-
-  @override
-  void dispose() {
-    _baseUrlCtrl.dispose();
-    _tokenCtrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,49 +52,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  // ---------- 1. 连接 ----------
+  // ---------- 1. 存储与引擎 ----------
 
   Widget _connectionCard() {
+    final engine = ref.read(engineProvider);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('连接', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _baseUrlCtrl,
-              decoration: const InputDecoration(
-                labelText: '后端地址',
-                hintText: 'http://127.0.0.1:8620',
-                prefixIcon: Icon(Icons.dns_outlined, size: 20),
-              ),
-            ),
+            Text('存储与引擎', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
-            TextField(
-              controller: _tokenCtrl,
-              decoration: const InputDecoration(
-                labelText: '访问令牌 Token',
-                prefixIcon: Icon(Icons.key_outlined, size: 20),
-              ),
+            Row(
+              children: [
+                const Icon(Icons.folder_outlined, size: 18, color: DF.textLo),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SelectableText(
+                    engine.mediaAbsPath(''),
+                    style: const TextStyle(color: DF.textMid, fontSize: 12),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Text(
-              '默认连接本机 127.0.0.1:8620',
+              '引擎内嵌运行，数据与媒体全部保存在本机，无需任何后台服务',
               style: TextStyle(color: DF.textLo, fontSize: 12),
             ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                icon: const Icon(Icons.save_outlined, size: 18),
-                label: const Text('保存'),
-                onPressed: _saveConnection,
-              ),
-            ),
             const Divider(height: 28),
-            const Text('健康状态',
+            const Text('引擎状态',
                 style: TextStyle(
                     color: DF.textMid,
                     fontSize: 13,
@@ -123,14 +94,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
-
-  Future<void> _saveConnection() => runAction(context, ref, () async {
-        ref.read(connectionProvider.notifier).update(
-              baseUrl: _baseUrlCtrl.text.trim(),
-              token: _tokenCtrl.text.trim(),
-            );
-        ref.invalidate(healthProvider);
-      }, successMessage: '连接设置已保存');
 
   Widget _healthStatus() {
     final health = ref.watch(healthProvider);
@@ -144,7 +107,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: CircularProgressIndicator(strokeWidth: 2, color: DF.amber),
           ),
           SizedBox(width: 10),
-          Text('正在检查后端服务…',
+          Text('正在检查引擎…',
               style: TextStyle(color: DF.textLo, fontSize: 13)),
         ],
       ),
@@ -188,7 +151,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const _Dot(color: DF.green),
                 const SizedBox(width: 8),
                 Text(
-                  '服务正常 · v${d['version'] ?? '?'}',
+                  '引擎正常 · v${d['version'] ?? '?'}',
                   style: const TextStyle(
                       color: DF.green,
                       fontSize: 13,
@@ -346,7 +309,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (patch.isEmpty) return;
 
     await runAction(context, ref, () async {
-      await ref.read(apiProvider).updateSettings(patch);
+      await ref.read(engineProvider).updateSettings(patch);
     }, successMessage: '模型设置已更新');
     if (!mounted) return;
     ref.invalidate(settingsProvider);
@@ -496,7 +459,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     };
 
     await runAction(context, ref, () async {
-      await ref.read(apiProvider).updateSettings(patch);
+      await ref.read(engineProvider).updateSettings(patch);
     }, successMessage: '视频设置已更新');
     if (!mounted) return;
     ref.invalidate(settingsProvider);

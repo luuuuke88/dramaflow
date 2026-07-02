@@ -186,10 +186,11 @@ class Episode {
 
 class Asset {
   final String id;
-  final String kind; // character | scene
+  final String kind; // character | scene | prop
   final String name;
   final String description;
   final String imagePrompt;
+  final String note;
   final String? imageUrl;
   final String status; // draft | queued | running | done | failed
   final String? error;
@@ -200,6 +201,7 @@ class Asset {
     required this.name,
     required this.description,
     required this.imagePrompt,
+    required this.note,
     required this.imageUrl,
     required this.status,
     required this.error,
@@ -211,6 +213,7 @@ class Asset {
         name: j['name'] as String? ?? '',
         description: j['description'] as String? ?? '',
         imagePrompt: j['imagePrompt'] as String? ?? '',
+        note: j['note'] as String? ?? '',
         imageUrl: j['imageUrl'] as String?,
         status: j['status'] as String? ?? 'draft',
         error: j['error'] as String?,

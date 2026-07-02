@@ -16,13 +16,13 @@ class AssetsScreen extends ConsumerWidget {
 
   Future<void> _extract(BuildContext context, WidgetRef ref) =>
       runAction(context, ref, () async {
-        await ref.read(apiProvider).extractAssets(projectId);
+        await ref.read(engineProvider).extractAssets(projectId);
       }, successMessage: '素材提取任务已排队');
 
   Future<void> _generateAll(BuildContext context, WidgetRef ref) async {
     int? queued;
     await runAction(context, ref, () async {
-      final ids = await ref.read(apiProvider).generateAllAssetImages(projectId);
+      final ids = await ref.read(engineProvider).generateAllAssetImages(projectId);
       queued = ids.length;
     });
     if (queued != null && context.mounted) {
@@ -240,7 +240,7 @@ class _AssetCard extends ConsumerWidget {
                               ? null
                               : () => runAction(context, ref, () async {
                                     await ref
-                                        .read(apiProvider)
+                                        .read(engineProvider)
                                         .generateAssetImage(asset.id);
                                   }, successMessage: '图片生成任务已排队'),
                         ),
@@ -423,7 +423,7 @@ class _AssetEditDialogState extends ConsumerState<_AssetEditDialog> {
     setState(() => _saving = true);
     var ok = false;
     await runAction(context, ref, () async {
-      await ref.read(apiProvider).updateAsset(
+      await ref.read(engineProvider).updateAsset(
             widget.asset.id,
             name: _name.text.trim(),
             description: _desc.text.trim(),

@@ -41,7 +41,7 @@ class EpisodeScreen extends ConsumerWidget {
     if (shotCount == null) {
       try {
         shotCount =
-            (await ref.read(apiProvider).listShots(episodeId)).length;
+            (await ref.read(engineProvider).listShots(episodeId)).length;
       } on Exception {
         shotCount = 0;
       }
@@ -69,7 +69,7 @@ class EpisodeScreen extends ConsumerWidget {
     }
     if (!context.mounted) return;
     await runAction(context, ref, () async {
-      await ref.read(apiProvider).generateStoryboard(episodeId);
+      await ref.read(engineProvider).generateStoryboard(episodeId);
     }, successMessage: '分镜生成任务已提交');
     if (!context.mounted) return;
     ref.invalidate(shotsProvider(episodeId));
