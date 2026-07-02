@@ -1,0 +1,11 @@
+node_modules/
+dist/
+server/data/
+*.log
+.DS_Store
+.env
+app/build/
+app/.dart_tool/
+app/.idea/
+app/ios/Pods/
+app/macos/Pods/
