@@ -37,6 +37,7 @@ final apiProvider = Provider<ApiClient>((ref) {
 class ActiveJobsNotifier extends Notifier<List<Job>> {
   Timer? _timer;
   bool _fetching = false;
+  bool _pokePending = false;
 
   @override
   List<Job> build() {
@@ -51,8 +52,10 @@ class ActiveJobsNotifier extends Notifier<List<Job>> {
   }
 
   Future<void> _tick() async {
+    // 正在请求时到点：保留 poke 意图，由在途请求的 finally 统一重排
     if (_fetching) return;
     _fetching = true;
+    _pokePending = false;
     try {
       final jobs = await ref.read(apiProvider).activeJobs();
       final oldIds = state.map((j) => '${j.id}:${j.state}').join(',');
@@ -65,12 +68,20 @@ class ActiveJobsNotifier extends Notifier<List<Job>> {
       // 后端暂时不可达：保持现状，下一拍重试
     } finally {
       _fetching = false;
-      _schedule(Duration(seconds: state.isEmpty ? 6 : 2));
+      // 请求期间来过 poke → 立刻补一拍，不能退化成 6s 空闲节奏
+      final d = _pokePending
+          ? const Duration(milliseconds: 200)
+          : Duration(seconds: state.isEmpty ? 6 : 2);
+      _pokePending = false;
+      _schedule(d);
     }
   }
 
   /// 发起生成动作后立即触发一次轮询（让"排队中"立刻可见）
-  void poke() => _schedule(const Duration(milliseconds: 200));
+  void poke() {
+    _pokePending = true;
+    if (!_fetching) _schedule(const Duration(milliseconds: 200));
+  }
 }
 
 final activeJobsProvider =

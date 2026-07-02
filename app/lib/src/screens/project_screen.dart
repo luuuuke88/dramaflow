@@ -425,6 +425,7 @@ class ProjectScreen extends ConsumerWidget {
       },
       successMessage: '项目已更新',
     );
+    if (!context.mounted) return;
     ref.invalidate(projectProvider(projectId));
     ref.invalidate(projectsProvider);
   }

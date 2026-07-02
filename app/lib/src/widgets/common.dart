@@ -74,6 +74,8 @@ class AsyncView<T> extends StatelessWidget {
     return value.when(
       skipLoadingOnRefresh: true,
       skipLoadingOnReload: true,
+      // 已有数据时后台刷新失败不清屏（任务活跃期数据 Provider 会频繁重取）
+      skipError: true,
       data: builder,
       loading: () => const Center(
         child: Padding(
@@ -182,9 +184,12 @@ Future<void> runAction(
   Future<void> Function() action, {
   String? successMessage,
 }) async {
+  // 在 await 之前取全局 notifier：请求期间 widget 可能被卸载（关对话框/切页），
+  // 卸载后再用 widget 的 ref 会被 Riverpod 3 直接抛 StateError
+  final jobsNotifier = ref.read(activeJobsProvider.notifier);
   try {
     await action();
-    ref.read(activeJobsProvider.notifier).poke();
+    jobsNotifier.poke();
     if (successMessage != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(successMessage), duration: const Duration(seconds: 2)),

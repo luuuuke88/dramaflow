@@ -34,7 +34,19 @@ class EpisodeScreen extends ConsumerWidget {
   }
 
   Future<void> _generateStoryboard(
-      BuildContext context, WidgetRef ref, int shotCount) async {
+      BuildContext context, WidgetRef ref, int? shotCountMaybe) async {
+    // shotsProvider 尚未加载完成时数量不可信（会误判为 0 而跳过覆盖确认），
+    // 此时直接向后端拿权威数量
+    var shotCount = shotCountMaybe;
+    if (shotCount == null) {
+      try {
+        shotCount =
+            (await ref.read(apiProvider).listShots(episodeId)).length;
+      } on Exception {
+        shotCount = 0;
+      }
+      if (!context.mounted) return;
+    }
     if (shotCount > 0) {
       final ok = await showDialog<bool>(
         context: context,
@@ -58,16 +70,18 @@ class EpisodeScreen extends ConsumerWidget {
     if (!context.mounted) return;
     await runAction(context, ref, () async {
       await ref.read(apiProvider).generateStoryboard(episodeId);
-      ref.invalidate(shotsProvider(episodeId));
     }, successMessage: '分镜生成任务已提交');
+    if (!context.mounted) return;
+    ref.invalidate(shotsProvider(episodeId));
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final episodeAsync = ref.watch(episodeProvider(episodeId));
     final episode = episodeAsync.value;
-    final shotCount =
-        ref.watch(shotsProvider(episodeId)).value?.length ?? 0;
+    final int? shotCountMaybe =
+        ref.watch(shotsProvider(episodeId)).value?.length;
+    final shotCount = shotCountMaybe ?? 0;
     final storyboardRunning = ref.watch(activeJobsProvider).any(
         (j) => j.kind == 'storyboard_gen' && j.targetId == episodeId);
     final narrow = MediaQuery.sizeOf(context).width < 640;
@@ -99,7 +113,7 @@ class EpisodeScreen extends ConsumerWidget {
               icon: const Icon(Icons.auto_awesome_motion_rounded, size: 20),
               onPressed: storyboardRunning
                   ? null
-                  : () => _generateStoryboard(context, ref, shotCount),
+                  : () => _generateStoryboard(context, ref, shotCountMaybe),
             )
           else
             OutlinedButton.icon(
@@ -107,7 +121,7 @@ class EpisodeScreen extends ConsumerWidget {
               label: Text(storyboardRunning ? '生成中…' : '生成分镜'),
               onPressed: storyboardRunning
                   ? null
-                  : () => _generateStoryboard(context, ref, shotCount),
+                  : () => _generateStoryboard(context, ref, shotCountMaybe),
             ),
           const SizedBox(width: 8),
           if (narrow)

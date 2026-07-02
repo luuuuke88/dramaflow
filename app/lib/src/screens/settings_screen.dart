@@ -305,7 +305,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               TextField(
                 controller: baseCtrl,
-                decoration: const InputDecoration(labelText: 'Base URL'),
+                decoration: const InputDecoration(labelText: 'Base URL', hintText: '留空不修改'),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -319,7 +319,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: modelCtrl,
-                decoration: const InputDecoration(labelText: '模型'),
+                decoration: const InputDecoration(labelText: '模型', hintText: '留空不修改'),
               ),
             ],
           ),
@@ -347,8 +347,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     await runAction(context, ref, () async {
       await ref.read(apiProvider).updateSettings(patch);
-      ref.invalidate(settingsProvider);
     }, successMessage: '模型设置已更新');
+    if (!mounted) return;
+    ref.invalidate(settingsProvider);
   }
 
   // ---------- 3. 视频服务 ----------
@@ -429,7 +430,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 children: [
                   TextField(
                     controller: modelCtrl,
-                    decoration: const InputDecoration(labelText: '模型'),
+                    decoration: const InputDecoration(labelText: '模型', hintText: '留空不修改'),
                   ),
                   const SizedBox(height: 12),
                   DropdownMenu<String>(
@@ -496,8 +497,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     await runAction(context, ref, () async {
       await ref.read(apiProvider).updateSettings(patch);
-      ref.invalidate(settingsProvider);
     }, successMessage: '视频设置已更新');
+    if (!mounted) return;
+    ref.invalidate(settingsProvider);
   }
 }
 

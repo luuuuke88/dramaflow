@@ -134,9 +134,9 @@ class ProjectsScreen extends ConsumerWidget {
       },
       successMessage: '项目已创建',
     );
-    if (created == null) return;
+    if (created == null || !context.mounted) return;
     ref.invalidate(projectsProvider);
-    if (context.mounted) context.go('/projects/${created!.id}');
+    context.go('/projects/${created!.id}');
   }
 }
 
@@ -291,6 +291,7 @@ class _ProjectCard extends ConsumerWidget {
       () => ref.read(apiProvider).deleteProject(project.id),
       successMessage: '项目已删除',
     );
+    if (!context.mounted) return;
     ref.invalidate(projectsProvider);
   }
 }
