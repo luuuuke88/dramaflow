@@ -27,8 +27,8 @@ class Runners {
   final MediaStore media;
   late final ComposeService compose;
 
-  Runners(this.db, this.gateway, this.media, {FfmpegRunner? ffmpegRunner}) {
-    compose = ComposeService(db: db, media: media, runner: ffmpegRunner);
+  Runners(this.db, this.gateway, this.media, {VideoComposer? composer}) {
+    compose = ComposeService(db: db, media: media, composer: composer);
   }
 
   Future<String> run(JobRow job, CancelToken token) => switch (job.kind) {

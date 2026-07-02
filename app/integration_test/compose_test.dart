@@ -1,15 +1,17 @@
-// M3 验收：真实 FFmpegKit 合成集成测试（需要真实设备运行时：flutter test integration_test -d macos）
-// 流程：FfmpegKit 合成两个 2s 测试片源 → 写入引擎 takes → composeEpisode → 断言 mp4 产出与时长。
+// M3 验收：真实 AVFoundation 合成集成测试（需要真实设备运行时：flutter test integration_test -d macos）
+// 流程：读取两个 2s 测试片源 → 写入引擎 takes → composeEpisode → 断言 mp4 产出与时长。
+// 夹具生成参考：用 macOS AVAssetWriter 生成 720p/30fps/H.264/AAC 纯色 2s mp4。
 import 'dart:io';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:dramaflow/src/engine/compose.dart';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/platform/avfoundation_composer.dart';
 import 'package:dramaflow/src/engine/util.dart';
 
 class _StubGateway implements ProviderGateway {
@@ -28,35 +30,22 @@ class _StubGateway implements ProviderGateway {
       '';
 }
 
-Future<void> _makeClip(String path, String color, double seconds) async {
-  // 桌面运行时与引擎同款 Process 运行器（PATH ffmpeg）
-  const runner = ProcessFfmpegRunner();
-  final result = await runner.run([
-    '-y',
-    '-f', 'lavfi', '-i', 'color=c=$color:s=640x640:d=$seconds:r=30',
-    '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
-    '-shortest', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac',
-    path,
-  ]);
-  if (!result.success) {
-    fail('测试片源生成失败: ${result.stderr}');
-  }
-}
-
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('真实 FFmpegKit 合成两镜为一集 mp4', (tester) async {
+  testWidgets('真实 AVFoundation 合成两镜为一集 mp4', (tester) async {
     final tmp = Directory.systemTemp.createTempSync('compose_it');
     addTearDown(() => tmp.deleteSync(recursive: true));
 
     final db = openEngineDb('${tmp.path}/t.sqlite');
     final media = MediaStore('${tmp.path}/media');
+    const composer = AVFoundationComposer();
     final engine = Engine(
         db: db,
         media: media,
         gateway: _StubGateway(),
-        config: EngineConfig(db, isMobile: false));
+        config: EngineConfig(db, isMobile: false),
+        composer: composer);
     engine.queue.start();
 
     // 预置项目/集/两镜
@@ -69,12 +58,15 @@ void main() {
           "INSERT INTO shots (id,episodeId,projectId,idx,createdAt) VALUES ('$id','e','p',${i + 1},'x')");
     }
 
-    // 真实生成两个 2s 片源并登记为选中 take
-    for (final (i, spec) in [('s1', 'red'), ('s2', 'blue')].indexed) {
+    // 读取仓库内置两个 2s 片源并登记为选中 take。
+    for (final (i, spec)
+        in [('s1', 'clip_red_2s.mp4'), ('s2', 'clip_blue_2s.mp4')].indexed) {
+      final bytes =
+          await rootBundle.load('integration_test/fixtures/${spec.$2}');
       final rel = 'p/vid_take$i.mp4';
       final abs = media.absPath(rel);
       File(abs).parent.createSync(recursive: true);
-      await _makeClip(abs, spec.$2, 2);
+      File(abs).writeAsBytesSync(bytes.buffer.asUint8List());
       final takeId = newId();
       db.execute(
           "INSERT INTO video_takes (id,shotId,videoPath,durationSec,createdAt) VALUES ('$takeId','${spec.$1}','$rel',2.0,'x')");
@@ -87,21 +79,27 @@ void main() {
     final deadline = DateTime.now().add(const Duration(minutes: 3));
     String status = '';
     while (DateTime.now().isBefore(deadline)) {
-      status = db.select("SELECT composeStatus FROM episodes WHERE id='e'")
+      status = db
+          .select("SELECT composeStatus FROM episodes WHERE id='e'")
           .first['composeStatus'] as String;
       if (status == 'done' || status == 'failed') break;
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
-    final err = db.select("SELECT composeError FROM episodes WHERE id='e'")
+    final err = db
+        .select("SELECT composeError FROM episodes WHERE id='e'")
         .first['composeError'];
     expect(status, 'done', reason: '合成失败: $err');
 
-    final rel = db.select("SELECT composedPath FROM episodes WHERE id='e'")
+    final rel = db
+        .select("SELECT composedPath FROM episodes WHERE id='e'")
         .first['composedPath'] as String;
     final out = File(media.absPath(rel));
     expect(out.existsSync(), isTrue);
     expect(out.lengthSync(), greaterThan(10 * 1024),
         reason: '产出 mp4 过小: ${out.lengthSync()}B');
+    final duration = await composer.probeDurationSec(out.path);
+    expect(duration, isNotNull);
+    expect(duration!, closeTo(4, 0.35));
     engine.dispose();
   }, timeout: const Timeout(Duration(minutes: 5)));
 }

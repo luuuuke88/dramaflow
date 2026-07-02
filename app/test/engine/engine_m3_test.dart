@@ -44,33 +44,32 @@ class StubGateway implements ProviderGateway {
   }
 }
 
-class FakeFfmpegRunner implements FfmpegRunner {
-  final List<List<String>> commands = [];
+class FakeComposer implements VideoComposer {
   final List<String> probed = [];
-  final Map<String, MediaProbe> probes;
-  int failAtCommand;
-  String failureStderr;
+  final List<({List<String> segments, String output})> concatCalls = [];
+  final Map<String, double?> durations;
+  String? concatFailure;
 
-  FakeFfmpegRunner({
-    this.probes = const {},
-    this.failAtCommand = -1,
-    this.failureStderr = 'ffmpeg failed',
+  FakeComposer({
+    this.durations = const {},
+    this.concatFailure,
   });
 
   @override
-  Future<MediaProbe> probe(String inputPath) async {
+  Future<double?> probeDurationSec(String inputPath) async {
     probed.add(inputPath);
-    return probes[inputPath] ??
-        const MediaProbe(durationSec: 4.2, hasAudio: false);
+    return durations[inputPath] ?? 4.2;
   }
 
   @override
-  Future<FfmpegRunResult> run(List<String> args) async {
-    commands.add(List<String>.from(args));
-    if (commands.length - 1 == failAtCommand) {
-      return FfmpegRunResult(success: false, stderr: failureStderr);
+  Future<void> concat(
+      List<String> segmentAbsPaths, String outputAbsPath) async {
+    concatCalls.add(
+        (segments: List<String>.from(segmentAbsPaths), output: outputAbsPath));
+    final failure = concatFailure;
+    if (failure != null) {
+      throw EngineException(failure);
     }
-    return const FfmpegRunResult(success: true);
   }
 }
 
@@ -95,13 +94,13 @@ void main() {
     tmp = Directory.systemTemp.createTempSync('engine_m3');
     db = openEngineDb(':memory:');
     media = MediaStore(tmp.path);
-    final ffmpeg = FakeFfmpegRunner();
+    final composer = FakeComposer();
     engine = Engine(
       db: db,
       media: media,
       gateway: StubGateway(),
       config: EngineConfig(db, isMobile: false),
-      ffmpegRunner: ffmpeg,
+      composer: composer,
     );
   });
 
@@ -113,12 +112,12 @@ void main() {
   group('video takes', () {
     test('shot_video 成功后新增 take 并自动选中，同步 shots.videoPath', () async {
       seedEpisode(shotCount: 1);
-      final fake = FakeFfmpegRunner();
+      final fake = FakeComposer();
       final runners = Runners(
         db,
         StubGateway(videos: const ['p1/vid_take_1.mp4']),
         media,
-        ffmpegRunner: fake,
+        composer: fake,
       );
 
       await runners.run(
@@ -198,13 +197,11 @@ void main() {
 
     test('compose job 编排转码与 concat 命令并写入 done 状态', () async {
       seedEpisode();
-      final fake = FakeFfmpegRunner(probes: {
-        media.absPath('p1/1.mp4'):
-            const MediaProbe(durationSec: 1.2, hasAudio: true),
-        media.absPath('p1/2.mp4'):
-            const MediaProbe(durationSec: 2.3, hasAudio: false),
+      final fake = FakeComposer(durations: {
+        media.absPath('p1/1.mp4'): 1.2,
+        media.absPath('p1/2.mp4'): 2.3,
       });
-      final compose = ComposeService(db: db, media: media, runner: fake);
+      final compose = ComposeService(db: db, media: media, composer: fake);
       await compose.addTake(shotId: 's1', videoPath: 'p1/1.mp4');
       await compose.addTake(shotId: 's2', videoPath: 'p1/2.mp4');
 
@@ -212,18 +209,18 @@ void main() {
         db,
         StubGateway(),
         media,
-        ffmpegRunner: fake,
+        composer: fake,
       );
       final result = await runners.run(
           const JobRow('j1', 'p1', 'compose', 'e1', '{}'), CancelToken());
 
       expect(result, startsWith('p1/ep_e1_'));
-      expect(fake.commands, hasLength(3));
-      expect(fake.commands[0], containsAll(['-vf', '-c:v', 'libx264']));
-      expect(fake.commands[0], containsAll(['-map', '0:a:0']));
-      expect(fake.commands[1],
-          contains('anullsrc=channel_layout=stereo:sample_rate=48000'));
-      expect(fake.commands[2], containsAll(['-f', 'concat', '-c', 'copy']));
+      expect(fake.concatCalls, hasLength(1));
+      expect(fake.concatCalls.single.segments, [
+        media.absPath('p1/1.mp4'),
+        media.absPath('p1/2.mp4'),
+      ]);
+      expect(fake.concatCalls.single.output, media.absPath(result));
       final episode = db.select(
           'SELECT composedPath, composeStatus, composeError FROM episodes WHERE id=?',
           ['e1']).first;
@@ -235,16 +232,15 @@ void main() {
     test('compose job 失败时落 failed 并保留 stderr 尾部', () async {
       seedEpisode();
       final longStderr = '${List.filled(520, 'x').join()}最后的错误';
-      final fake =
-          FakeFfmpegRunner(failAtCommand: 2, failureStderr: longStderr);
-      final compose = ComposeService(db: db, media: media, runner: fake);
+      final fake = FakeComposer(concatFailure: longStderr);
+      final compose = ComposeService(db: db, media: media, composer: fake);
       await compose.addTake(shotId: 's1', videoPath: 'p1/1.mp4');
       await compose.addTake(shotId: 's2', videoPath: 'p1/2.mp4');
       final runners = Runners(
         db,
         StubGateway(),
         media,
-        ffmpegRunner: fake,
+        composer: fake,
       );
 
       await expectLater(

@@ -120,14 +120,13 @@ class M35Gateway implements ProviderGateway {
   }
 }
 
-class M35FfmpegRunner implements FfmpegRunner {
+class M35Composer implements VideoComposer {
   @override
-  Future<MediaProbe> probe(String inputPath) async =>
-      const MediaProbe(durationSec: 1.5, hasAudio: false);
+  Future<double?> probeDurationSec(String inputAbsPath) async => 1.5;
 
   @override
-  Future<FfmpegRunResult> run(List<String> args) async =>
-      const FfmpegRunResult(success: true);
+  Future<void> concat(
+      List<String> segmentAbsPaths, String outputAbsPath) async {}
 }
 
 void main() {
@@ -151,7 +150,7 @@ void main() {
       media: MediaStore(tmp.path),
       gateway: gateway,
       config: EngineConfig(db, isMobile: false),
-      ffmpegRunner: M35FfmpegRunner(),
+      composer: M35Composer(),
       queueTick: const Duration(milliseconds: 5),
     );
   });

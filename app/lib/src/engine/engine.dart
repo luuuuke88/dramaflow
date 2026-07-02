@@ -34,13 +34,13 @@ class Engine {
     required this.media,
     required this.gateway,
     required this.config,
-    FfmpegRunner? ffmpegRunner,
+    VideoComposer? composer,
     Duration queueTick = const Duration(milliseconds: 500),
   }) {
     _migrateLegacyVideoPaths(db);
-    final runner = ffmpegRunner ?? const ProcessFfmpegRunner();
-    compose = ComposeService(db: db, media: media, runner: runner);
-    final runners = Runners(db, gateway, media, ffmpegRunner: runner);
+    final videoComposer = composer ?? const UnsupportedComposer();
+    compose = ComposeService(db: db, media: media, composer: videoComposer);
+    final runners = Runners(db, gateway, media, composer: videoComposer);
     queue = JobQueue(db, run: runners.run, tick: queueTick);
     director = Director(this);
     queue.onJobFinished = (jobId, kind, state) {
@@ -52,7 +52,7 @@ class Engine {
   static Future<Engine> boot(
       {required String dataDir,
       required bool isMobile,
-      FfmpegRunner? ffmpegRunner}) async {
+      VideoComposer? composer}) async {
     Directory(dataDir).createSync(recursive: true);
     final db = openEngineDb(path.join(dataDir, 'dramaflow.sqlite'));
     final config = EngineConfig(db, isMobile: isMobile);
@@ -63,7 +63,7 @@ class Engine {
         media: media,
         gateway: HttpProviderGateway(db, config, media),
         config: config,
-        ffmpegRunner: ffmpegRunner);
+        composer: composer);
     engine.queue.recoverOnColdStart();
     engine.queue.start();
     return engine;
