@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
+import '../compose.dart';
 import '../db.dart';
 import '../media.dart';
 import '../util.dart';
@@ -24,7 +25,11 @@ class Runners {
   final Database db;
   final ProviderGateway gateway;
   final MediaStore media;
-  Runners(this.db, this.gateway, this.media);
+  late final ComposeService compose;
+
+  Runners(this.db, this.gateway, this.media, {FfmpegRunner? ffmpegRunner}) {
+    compose = ComposeService(db: db, media: media, runner: ffmpegRunner);
+  }
 
   Future<String> run(JobRow job, CancelToken token) => switch (job.kind) {
         'script_gen' => _runScriptGen(job, token),
@@ -33,6 +38,7 @@ class Runners {
         'asset_image' => _runAssetImage(job, token),
         'shot_image' => _runShotImage(job, token),
         'shot_video' => _runShotVideo(job, token),
+        'compose' => _runCompose(job, token),
         _ => throw EngineException('未知任务类型 ${job.kind}'),
       };
 
@@ -321,15 +327,39 @@ class Runners {
       final rel = await gateway.generateVideo(
           prompt, media.absPath(imagePath), job.projectId,
           stage: 'shot_video', cancelToken: token);
+      final take =
+          await compose.addTake(shotId: shot['id'] as String, videoPath: rel);
       db.execute(
-          "UPDATE shots SET videoStatus='done', videoPath=?, videoError=NULL WHERE id=?",
-          [rel, shot['id']]);
-      return rel;
+          "UPDATE shots SET videoStatus='done', videoError=NULL WHERE id=?",
+          [shot['id']]);
+      return take.videoPath;
     } catch (e) {
       final msg = errMessage(e);
       db.execute(
           "UPDATE shots SET videoStatus='failed', videoError=? WHERE id=?",
           [msg.length > 2000 ? msg.substring(0, 2000) : msg, shot['id']]);
+      rethrow;
+    }
+  }
+
+  Future<String> _runCompose(JobRow job, CancelToken token) async {
+    final rows =
+        db.select('SELECT id FROM episodes WHERE id=?', [job.targetId]);
+    if (rows.isEmpty) throw EngineException('剧集不存在');
+    db.execute(
+        "UPDATE episodes SET composeStatus='running', composeError=NULL WHERE id=?",
+        [job.targetId]);
+    try {
+      final rel = await compose.composeEpisode(job.targetId);
+      db.execute(
+          "UPDATE episodes SET composeStatus='done', composedPath=?, composeError=NULL WHERE id=?",
+          [rel, job.targetId]);
+      return rel;
+    } catch (e) {
+      final msg = errMessage(e);
+      db.execute(
+          "UPDATE episodes SET composeStatus='failed', composeError=? WHERE id=?",
+          [msg.length > 2000 ? msg.substring(0, 2000) : msg, job.targetId]);
       rethrow;
     }
   }
