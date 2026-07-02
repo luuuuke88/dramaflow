@@ -38,9 +38,15 @@ class Runners {
 
   // ---------- 结构化文本调用（解析失败带错误反馈自愈重试一次） ----------
 
-  Future<T> _structuredText<T>(String system, String user,
+  String _prompt(String key, String fallback) {
+    final rows = db.select('SELECT content FROM prompts WHERE key=?', [key]);
+    return rows.isEmpty ? fallback : rows.first['content'] as String;
+  }
+
+  Future<T> _structuredText<T>(String stage, String system, String user,
       T Function(dynamic) parse, CancelToken token) async {
-    final first = await gateway.generateText(system, user, cancelToken: token);
+    final first = await gateway.generateText(system, user,
+        stage: stage, cancelToken: token);
     try {
       return parse(extractJson(first.content));
     } catch (e1) {
@@ -49,6 +55,7 @@ class Runners {
           system,
           p.repairUser(user, first.content,
               err1.length > 300 ? err1.substring(0, 300) : err1),
+          stage: stage,
           cancelToken: token);
       try {
         return parse(extractJson(second.content));
@@ -64,8 +71,7 @@ class Runners {
   }
 
   Row _mustGetProject(String projectId) {
-    final rows =
-        db.select('SELECT * FROM projects WHERE id=?', [projectId]);
+    final rows = db.select('SELECT * FROM projects WHERE id=?', [projectId]);
     if (rows.isEmpty) throw EngineException('项目不存在（可能已被删除）');
     return rows.first;
   }
@@ -76,10 +82,8 @@ class Runners {
     final project = _mustGetProject(job.projectId);
     final payload = jsonDecode(job.payload) as Map<String, dynamic>;
     final novels = db.select(
-        'SELECT title, content FROM novels WHERE projectId=?',
-        [job.projectId]);
-    if (novels.isEmpty ||
-        (novels.first['content'] as String).trim().isEmpty) {
+        'SELECT title, content FROM novels WHERE projectId=?', [job.projectId]);
+    if (novels.isEmpty || (novels.first['content'] as String).trim().isEmpty) {
       throw EngineException('请先导入小说');
     }
     final novel = novels.first;
@@ -87,7 +91,8 @@ class Runners {
         ((payload['episodeCount'] as num?)?.toInt() ?? 3).clamp(1, 12);
 
     final out = await _structuredText(
-        p.scriptGenSystem,
+        'script_gen',
+        _prompt(p.promptKeyScriptGenSystem, p.scriptGenSystem),
         p.scriptGenUser(
             (novel['title'] as String).isNotEmpty
                 ? novel['title'] as String
@@ -136,7 +141,8 @@ class Runners {
             '第${e.$1 + 1}集《${e.$2['title']}》：${e.$2['synopsis']}\n${e.$2['scriptJson']}')
         .join('\n\n');
     final assets = await _structuredText(
-        p.assetExtractSystem,
+        'asset_extract',
+        _prompt(p.promptKeyAssetExtractSystem, p.assetExtractSystem),
         p.assetExtractUser(summary, project['artStyle'] as String),
         parseAssetsOut,
         token);
@@ -197,9 +203,12 @@ class Runners {
         : '（尚未提取资产，请根据剧本自行保持角色外观一致）';
 
     final shots = await _structuredText(
-        p.storyboardGenSystem,
-        p.storyboardGenUser(episode['title'] as String,
-            episode['scriptJson'] as String, assetsContext,
+        'storyboard_gen',
+        _prompt(p.promptKeyStoryboardGenSystem, p.storyboardGenSystem),
+        p.storyboardGenUser(
+            episode['title'] as String,
+            episode['scriptJson'] as String,
+            assetsContext,
             project['artStyle'] as String),
         parseShotsOut,
         token);
@@ -249,7 +258,7 @@ class Runners {
           : (asset['description'] as String).trim();
       if (prompt.isEmpty) throw EngineException('该资产没有图片提示词，请先填写');
       final rel = await gateway.generateImage(prompt, job.projectId,
-          cancelToken: token);
+          stage: 'asset_image', cancelToken: token);
       db.execute(
           "UPDATE assets SET status='done', imagePath=?, error=NULL WHERE id=?",
           [rel, asset['id']]);
@@ -276,7 +285,7 @@ class Runners {
       final prompt = (shot['imagePrompt'] as String).trim();
       if (prompt.isEmpty) throw EngineException('该镜头没有图片提示词');
       final rel = await gateway.generateImage(prompt, job.projectId,
-          cancelToken: token);
+          stage: 'shot_image', cancelToken: token);
       db.execute(
           "UPDATE shots SET imageStatus='done', imagePath=?, imageError=NULL WHERE id=?",
           [rel, shot['id']]);
@@ -311,7 +320,7 @@ class Runners {
       if (prompt.isEmpty) throw EngineException('该镜头没有视频提示词');
       final rel = await gateway.generateVideo(
           prompt, media.absPath(imagePath), job.projectId,
-          cancelToken: token);
+          stage: 'shot_video', cancelToken: token);
       db.execute(
           "UPDATE shots SET videoStatus='done', videoPath=?, videoError=NULL WHERE id=?",
           [rel, shot['id']]);

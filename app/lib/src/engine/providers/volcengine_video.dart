@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import '../config.dart';
 import '../media.dart';
 import '../util.dart';
+import 'resolve.dart';
 
 /// Volcengine Seedance 视频生成（移植 server/src/providers/video.ts，
 /// 其源头为 ToonFlow volcengine vendor v2.4）。
@@ -13,6 +14,7 @@ Future<String> volcengineGenerateVideo(
   Dio dio,
   EngineConfig config,
   MediaStore media,
+  ResolvedModel model,
   String prompt,
   String firstFrameAbsPath,
   String projectId, {
@@ -20,11 +22,11 @@ Future<String> volcengineGenerateVideo(
   Duration pollInterval = const Duration(seconds: 10),
   Duration pollTimeout = const Duration(minutes: 30),
 }) async {
-  final apiKey = config.str('videoApiKey');
+  final apiKey = model.apiKey;
   if (apiKey.isEmpty) {
-    throw EngineException('未配置视频 API Key（设置 → 视频服务）');
+    throw EngineException('未配置视频 API Key（供应商 ${model.providerId}）');
   }
-  final base = config.str('videoBaseUrl').replaceAll(RegExp(r'/+$'), '');
+  final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
   final headers = {
     'Authorization': 'Bearer ${apiKey.replaceAll(RegExp(r'^Bearer\s+'), '')}'
   };
@@ -33,7 +35,7 @@ Future<String> volcengineGenerateVideo(
   final createRes = await dio.post(
     '$base/contents/generations/tasks',
     data: {
-      'model': config.str('videoModel'),
+      'model': model.modelId,
       'content': [
         {'type': 'text', 'text': prompt},
         {

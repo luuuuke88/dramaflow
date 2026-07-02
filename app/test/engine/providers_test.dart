@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter_test/flutter_test.dart';
+// ignore_for_file: depend_on_referenced_packages
+
 import 'package:dio/dio.dart';
+import 'package:sqlite3/sqlite3.dart';
+import 'package:test/test.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/media.dart';
@@ -33,17 +36,44 @@ void main() {
   late Directory tmp;
   late MediaStore media;
   late EngineConfig config;
+  late Database db;
 
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('prov');
     media = MediaStore(tmp.path);
-    config = EngineConfig(openEngineDb(':memory:'), isMobile: false);
+    db = openEngineDb(':memory:');
+    config = EngineConfig(db, isMobile: false);
   });
-  tearDown(() => tmp.deleteSync(recursive: true));
+  tearDown(() {
+    db.close();
+    tmp.deleteSync(recursive: true);
+  });
+
+  void bindModel(String stage, String kind,
+      {String providerId = 'p1',
+      String modelId = 'm1',
+      String protocol = 'openai_compatible',
+      String apiKey = 'sk-test'}) {
+    db.execute(
+        'INSERT OR REPLACE INTO providers (id,name,protocol,baseUrl,apiKey,createdAt) VALUES (?,?,?,?,?,?)',
+        [providerId, providerId, protocol, 'https://api.test/v1', apiKey, 'x']);
+    db.execute(
+        'INSERT INTO provider_models (id,providerId,modelId,label,kind,capabilities,enabled) VALUES (?,?,?,?,?,?,1)',
+        [
+          '$providerId-$modelId-$kind',
+          providerId,
+          modelId,
+          modelId,
+          kind,
+          '{}'
+        ]);
+    db.execute('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)',
+        ['binding.$stage', '$providerId:$modelId']);
+  }
 
   HttpProviderGateway gw(FakeAdapter adapter) {
     final dio = Dio()..httpClientAdapter = adapter;
-    return HttpProviderGateway(config, media,
+    return HttpProviderGateway(db, config, media,
         dio: dio, pollInterval: Duration.zero);
   }
 
@@ -57,16 +87,18 @@ void main() {
             ],
             'usage': {'prompt_tokens': 3, 'completion_tokens': 5},
           })));
-      final r = await g.generateText('sys', 'user');
+      bindModel('script_gen', 'text');
+      final r = await g.generateText('sys', 'user', stage: 'script_gen');
       expect(r.content, 'OK啦');
       expect(r.completionTokens, 5);
     });
 
     test('上游 500 → DioException 且 errMessage 带响应体', () async {
-      final g = gw(FakeAdapter(
-          (o) => jsonBody({'error': '配额没了'}, status: 500)));
+      final g =
+          gw(FakeAdapter((o) => jsonBody({'error': '配额没了'}, status: 500)));
+      bindModel('script_gen', 'text');
       try {
-        await g.generateText('s', 'u');
+        await g.generateText('s', 'u', stage: 'script_gen');
         fail('应当抛出');
       } on DioException catch (e) {
         expect(errMessage(e), contains('HTTP 500'));
@@ -79,10 +111,14 @@ void main() {
     test('b64 落盘且 prompt 注入尺寸指令', () async {
       final adapter = FakeAdapter((o) => jsonBody({
             'data': [
-              {'b64_json': base64Encode([7, 8, 9])}
+              {
+                'b64_json': base64Encode([7, 8, 9])
+              }
             ]
           }));
-      final rel = await gw(adapter).generateImage('一只猫', 'projX');
+      bindModel('asset_image', 'image');
+      final rel =
+          await gw(adapter).generateImage('一只猫', 'projX', stage: 'asset_image');
       expect(rel, startsWith('projX/img_'));
       expect(File(media.absPath(rel)).readAsBytesSync(), [7, 8, 9]);
       final body = adapter.requests.single.data as Map;
@@ -92,7 +128,8 @@ void main() {
 
     test('无图像数据抛 EngineException', () async {
       final g = gw(FakeAdapter((o) => jsonBody({'data': []})));
-      expect(() => g.generateImage('x', 'p'),
+      bindModel('asset_image', 'image');
+      expect(() => g.generateImage('x', 'p', stage: 'asset_image'),
           throwsA(isA<EngineException>()));
     });
   });
@@ -102,7 +139,11 @@ void main() {
     setUp(() {
       frame = '${tmp.path}/frame.png';
       File(frame).writeAsBytesSync([1]);
-      config.update({'videoApiKey': 'vk-test'});
+      bindModel('shot_video', 'video',
+          providerId: 'volc',
+          modelId: 'seedance',
+          protocol: 'volcengine',
+          apiKey: 'vk-test');
     });
 
     test('succeeded 全流程：创建→轮询→下载落盘', () async {
@@ -120,24 +161,25 @@ void main() {
                   'content': {'video_url': 'https://cdn/v.mp4'}
                 });
         }
-        return ResponseBody.fromBytes(
-            Uint8List.fromList([4, 5]), 200, headers: {});
+        return ResponseBody.fromBytes(Uint8List.fromList([4, 5]), 200,
+            headers: {});
       });
-      final rel = await gw(adapter).generateVideo('动起来', frame, 'projV');
+      final rel = await gw(adapter)
+          .generateVideo('动起来', frame, 'projV', stage: 'shot_video');
       expect(rel, startsWith('projV/vid_'));
       expect(File(media.absPath(rel)).readAsBytesSync(), [4, 5]);
     });
 
     test('failed 带上游原因', () async {
-      final adapter = FakeAdapter((o) =>
-          o.method == 'POST' && o.path.endsWith('/tasks')
+      final adapter =
+          FakeAdapter((o) => o.method == 'POST' && o.path.endsWith('/tasks')
               ? jsonBody({'id': 't2'})
               : jsonBody({
                   'status': 'failed',
                   'error': {'message': '内容违规'}
                 }));
       expect(
-          () => gw(adapter).generateVideo('x', frame, 'p'),
+          () => gw(adapter).generateVideo('x', frame, 'p', stage: 'shot_video'),
           throwsA(predicate(
               (e) => e is EngineException && e.message.contains('内容违规'))));
     });
@@ -148,7 +190,8 @@ void main() {
         if (o.method == 'POST') return jsonBody({'id': 't3'});
         return jsonBody({'status': 'running'});
       });
-      final fut = gw(adapter).generateVideo('x', frame, 'p', cancelToken: token);
+      final fut = gw(adapter).generateVideo('x', frame, 'p',
+          stage: 'shot_video', cancelToken: token);
       token.cancel();
       expect(
           fut,
@@ -157,14 +200,22 @@ void main() {
     });
 
     test('无 key 抛配置错误', () async {
-      final freshConfig =
-          EngineConfig(openEngineDb(':memory:'), isMobile: false);
-      final g = HttpProviderGateway(freshConfig, media,
+      final freshDb = openEngineDb(':memory:');
+      final freshConfig = EngineConfig(freshDb, isMobile: false);
+      freshDb.execute(
+          "INSERT INTO providers (id,name,protocol,baseUrl,apiKey,createdAt) VALUES ('volc','火山','volcengine','https://api.test/v1','','x')");
+      freshDb.execute(
+          "INSERT INTO provider_models (id,providerId,modelId,label,kind,capabilities,enabled) VALUES ('vm','volc','seedance','seedance','video','{}',1)");
+      freshDb.execute(
+          "INSERT INTO settings (key,value) VALUES ('binding.shot_video','volc:seedance')");
+      final g = HttpProviderGateway(freshDb, freshConfig, media,
           dio: Dio()..httpClientAdapter = FakeAdapter((o) => jsonBody({})),
           pollInterval: Duration.zero);
-      expect(() => g.generateVideo('x', frame, 'p'),
+      expect(
+          () => g.generateVideo('x', frame, 'p', stage: 'shot_video'),
           throwsA(predicate((e) =>
               e is EngineException && e.message.contains('未配置视频 API Key'))));
+      freshDb.close();
     });
   });
 }
