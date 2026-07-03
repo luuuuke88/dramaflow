@@ -579,3 +579,9 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - ✅ TTS 补缺验证已跑：`flutter analyze` 零 issue；`flutter test` 245/245 通过；
   `flutter build web` 通过；`flutter build macos --debug` 通过；
   `flutter build apk --debug` 通过；`flutter build ios --simulator --debug` 通过。
+- ✅ 分镜配音绑定地基已补齐（schema v4）：`o_storyboard` 增加
+  `audioAssetId/audioText/audioPath/audioState/audioError`，`StoryboardRow` 可回读；
+  新增 `StoryboardAudioApi.bindStoryboardAudio` 与 `orderedStoryboardAudioPaths`，先把
+  “每个镜头绑定哪段配音”这层数据打通，为后续合成混音做准备。
+- ⚠️ 合成混音仍未完成：当前 `composeEpisode` 仍只按分镜顺序拼接选中视频，尚未把
+  `orderedStoryboardAudioPaths` 的音频混入视频；下一步应扩展 `VideoComposer` 原生通道。

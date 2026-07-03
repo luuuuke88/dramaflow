@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 3;
+const schemaVersion = 4;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
@@ -213,6 +213,11 @@ CREATE TABLE IF NOT EXISTS o_skillList (
   updateTime INTEGER
 );
 CREATE TABLE IF NOT EXISTS o_storyboard (
+  audioAssetId INTEGER,
+  audioError TEXT,
+  audioPath TEXT,
+  audioState TEXT,
+  audioText TEXT,
   createTime INTEGER,
   duration TEXT,
   filePath TEXT,

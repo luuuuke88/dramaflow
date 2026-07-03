@@ -25,6 +25,11 @@ class StoryboardRow {
   final String? prompt;
   final String? videoDesc;
   final String? filePath;
+  final int? audioAssetId;
+  final String? audioText;
+  final String? audioPath;
+  final String? audioState;
+  final String? audioError;
   final String? state;
   final String? reason;
   final int shouldGenerateImage;
@@ -42,6 +47,11 @@ class StoryboardRow {
     required this.prompt,
     required this.videoDesc,
     required this.filePath,
+    required this.audioAssetId,
+    required this.audioText,
+    required this.audioPath,
+    required this.audioState,
+    required this.audioError,
     required this.state,
     required this.reason,
     required this.shouldGenerateImage,
@@ -97,6 +107,11 @@ extension StoryboardApi on Engine {
         prompt: r['prompt'] as String?,
         videoDesc: r['videoDesc'] as String?,
         filePath: r['filePath'] as String?,
+        audioAssetId: r['audioAssetId'] as int?,
+        audioText: r['audioText'] as String?,
+        audioPath: r['audioPath'] as String?,
+        audioState: r['audioState'] as String?,
+        audioError: r['audioError'] as String?,
         state: r['state'] as String?,
         reason: r['reason'] as String?,
         shouldGenerateImage: (r['shouldGenerateImage'] as int?) ?? 1,
@@ -153,12 +168,12 @@ extension StoryboardApi on Engine {
     int? insertAfterIndex,
     List<int> assetIds = const [],
   }) {
-    final maxIndex = (db
-            .select('SELECT MAX("index") m FROM o_storyboard WHERE scriptId=?',
-                [scriptId])
-            .first['m'] as int?) ??
+    final maxIndex = (db.select(
+            'SELECT MAX("index") m FROM o_storyboard WHERE scriptId=?',
+            [scriptId]).first['m'] as int?) ??
         0;
-    final index = insertAfterIndex == null ? maxIndex + 1 : insertAfterIndex + 1;
+    final index =
+        insertAfterIndex == null ? maxIndex + 1 : insertAfterIndex + 1;
     if (insertAfterIndex != null) {
       db.execute(
         'UPDATE o_storyboard SET "index"="index"+1 '
@@ -200,7 +215,8 @@ extension StoryboardApi on Engine {
     );
   }
 
-  void editStoryboard(int id, {String? prompt, String? videoDesc, String? duration}) {
+  void editStoryboard(int id,
+      {String? prompt, String? videoDesc, String? duration}) {
     final sets = <String>[];
     final args = <Object?>[];
     void set(String col, Object? v) {
@@ -222,7 +238,8 @@ extension StoryboardApi on Engine {
     if (ids.isEmpty) return;
     final ph = _ph(ids);
     final scriptIds = db
-        .select('SELECT DISTINCT scriptId FROM o_storyboard WHERE id IN ($ph)', ids)
+        .select(
+            'SELECT DISTINCT scriptId FROM o_storyboard WHERE id IN ($ph)', ids)
         .map((r) => r['scriptId'] as int)
         .toList();
     for (final row in db.select(
@@ -232,7 +249,8 @@ extension StoryboardApi on Engine {
       final f = File(media.absPath(row['filePath'] as String));
       if (f.existsSync()) f.deleteSync();
     }
-    db.execute('DELETE FROM o_assets2Storyboard WHERE storyboardId IN ($ph)', ids);
+    db.execute(
+        'DELETE FROM o_assets2Storyboard WHERE storyboardId IN ($ph)', ids);
     db.execute('DELETE FROM o_storyboard WHERE id IN ($ph)', ids);
     for (final scriptId in scriptIds) {
       final remaining = db.select(
@@ -241,7 +259,8 @@ extension StoryboardApi on Engine {
       );
       var i = 1;
       for (final r in remaining) {
-        db.execute('UPDATE o_storyboard SET "index"=? WHERE id=?', [i++, r['id']]);
+        db.execute(
+            'UPDATE o_storyboard SET "index"=? WHERE id=?', [i++, r['id']]);
       }
     }
   }
@@ -258,10 +277,10 @@ extension StoryboardApi on Engine {
   }
 
   Future<void> _runStoryboardGenerate(TasksRow task, CancelToken token) async {
-    final scriptId = ((task.relatedObjectsJson['scriptId'] as num?) ?? 0).toInt();
-    final script = db
-        .select('SELECT * FROM o_script WHERE id=?', [scriptId])
-        .firstOrNull;
+    final scriptId =
+        ((task.relatedObjectsJson['scriptId'] as num?) ?? 0).toInt();
+    final script =
+        db.select('SELECT * FROM o_script WHERE id=?', [scriptId]).firstOrNull;
     if (script == null) {
       throw EngineException(errPromptMissing, {'type': 'script'});
     }
@@ -385,8 +404,8 @@ extension StoryboardApi on Engine {
         final i = cursor++;
         if (i >= ids.length) return;
         final id = ids[i];
-        final row =
-            db.select('SELECT * FROM o_storyboard WHERE id=?', [id]).firstOrNull;
+        final row = db
+            .select('SELECT * FROM o_storyboard WHERE id=?', [id]).firstOrNull;
         if (row == null) continue;
         try {
           final assetIds = db
@@ -401,13 +420,11 @@ extension StoryboardApi on Engine {
           // 的多参考信息，导致多资产分镜生成偏离）。
           final refPaths = <String>[];
           for (final assetId in assetIds) {
-            final assetImage = db
-                .select(
-                  'SELECT i.filePath filePath FROM o_assets a '
-                  'JOIN o_image i ON i.id=a.imageId WHERE a.id=?',
-                  [assetId],
-                )
-                .firstOrNull;
+            final assetImage = db.select(
+              'SELECT i.filePath filePath FROM o_assets a '
+              'JOIN o_image i ON i.id=a.imageId WHERE a.id=?',
+              [assetId],
+            ).firstOrNull;
             final rel = assetImage?['filePath'] as String?;
             if (rel != null && rel.isNotEmpty) {
               refPaths.add(media.absPath(rel));

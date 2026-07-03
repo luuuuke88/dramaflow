@@ -35,8 +35,8 @@ const toonflowTables = [
 ];
 
 void main() {
-  group('schema v3', () {
-    test('新库 user_version==3 且 ToonFlow 表齐全', () {
+  group('schema v4', () {
+    test('新库 user_version==4 且 ToonFlow 表齐全', () {
       final db = openEngineDb(':memory:');
       addTearDown(db.close);
 
@@ -46,7 +46,7 @@ void main() {
           .map((row) => row['name'] as String)
           .toSet();
 
-      expect(version, 3);
+      expect(version, 4);
       expect(tables, containsAll(toonflowTables));
       expect(tables.length, greaterThanOrEqualTo(toonflowTables.length));
     });
@@ -82,6 +82,17 @@ void main() {
             'projectId',
             'describe',
           ]));
+
+      final storyboardColumns = _columns(db, 'o_storyboard');
+      expect(
+          storyboardColumns.keys,
+          containsAll([
+            'audioAssetId',
+            'audioText',
+            'audioPath',
+            'audioState',
+            'audioError',
+          ]));
     });
 
     test('计划指定索引存在', () {
@@ -105,7 +116,7 @@ void main() {
     });
 
     test('打开旧版本磁盘库会删库重建但不碰 media 目录', () {
-      final dir = Directory.systemTemp.createTempSync('dramaflow-db-v3-');
+      final dir = Directory.systemTemp.createTempSync('dramaflow-db-v4-');
       addTearDown(() {
         if (dir.existsSync()) dir.deleteSync(recursive: true);
       });
@@ -125,7 +136,7 @@ void main() {
       final db = openEngineDb(dbPath);
       addTearDown(db.close);
 
-      expect(db.select('PRAGMA user_version').first.values.first, 3);
+      expect(db.select('PRAGMA user_version').first.values.first, 4);
       expect(
         db.select(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='legacy_data'",
