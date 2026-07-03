@@ -29,6 +29,8 @@ void main() {
     expect(activitySource, contains('audioTrackCount'));
     expect(activitySource, contains('concat'));
     expect(activitySource, contains('compose'));
+    expect(activitySource, contains('transition'));
+    expect(activitySource, contains('filterPreset'));
     expect(
       activitySource,
       contains('copyExternalAudioTrack'),

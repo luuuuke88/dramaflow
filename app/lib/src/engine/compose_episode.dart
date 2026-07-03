@@ -88,7 +88,9 @@ extension ComposeEpisodeApi on Engine {
         '${DateTime.now().millisecondsSinceEpoch}.mp4';
     final outputAbs = media.absPath(outputRel);
     File(outputAbs).parent.createSync(recursive: true);
-    if (composeSegments.any((s) => s.hasAudio)) {
+    final hasNleMetadata =
+        composeSegments.any((s) => s.transition != null || s.filter != null);
+    if (composeSegments.any((s) => s.hasAudio) || hasNleMetadata) {
       await composer.compose(composeSegments, outputAbs);
     } else {
       await composer.concat(

@@ -159,6 +159,24 @@ void main() {
     expect(segment.audioAbsPath, engine.audioAssetAbsPath(audioId));
   });
 
+  test('composeEpisode：存在转场或滤镜时走 compose 以保留 NLE 元数据', () async {
+    final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final track1 = engine.ensureTrackForStoryboard(sb1);
+    db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [track1, 'p/vid_1.mp4', vtDone]);
+    engine.selectVideo(track1, db.lastInsertRowId);
+    engine.updateVideoTransition(track1, 'fade');
+    engine.updateVideoFilter(track1, 'cinematic');
+
+    await engine.composeEpisode(projectId, scriptId);
+
+    expect(composer.concatCalls, isEmpty, reason: 'concat 只有路径列表，会丢失转场/滤镜元数据');
+    final segment = composer.composeCalls.single.single;
+    expect(segment.transition, 'fade');
+    expect(segment.filter, 'cinematic');
+  });
+
   test('orderedComposeSegments 传递每镜转场与滤镜元数据', () {
     final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     final track1 = engine.ensureTrackForStoryboard(sb1);

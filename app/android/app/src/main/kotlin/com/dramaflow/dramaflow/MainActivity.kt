@@ -60,9 +60,11 @@ class MainActivity : FlutterActivity() {
             ComposeSegmentInput(
                 videoPath = it["videoPath"] ?: throw ComposerException("视频路径不能为空"),
                 audioPath = it["audioPath"]?.takeIf { path -> path.isNotBlank() },
+                transition = it["transition"]?.takeIf { value -> value.isNotBlank() },
+                filterPreset = it["filterPreset"]?.takeIf { value -> value.isNotBlank() },
             )
         }
-        if (inputs.none { it.audioPath != null }) {
+        if (inputs.none { it.audioPath != null || it.hasNleMetadata }) {
             concat(inputs.map { it.videoPath }, output)
             return
         }
@@ -374,7 +376,12 @@ private data class AudioInspection(
 private data class ComposeSegmentInput(
     val videoPath: String,
     val audioPath: String?,
-)
+    val transition: String?,
+    val filterPreset: String?,
+) {
+    val hasNleMetadata: Boolean
+        get() = transition != null || filterPreset != null
+}
 
 private data class ComposeInspection(
     val segment: ComposeSegmentInput,

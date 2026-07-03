@@ -42,6 +42,8 @@ private final class ExportSessionBox: @unchecked Sendable {
 private struct ComposeSegment {
   let videoPath: String
   let audioPath: String?
+  let transition: String?
+  let filterPreset: String?
 }
 
 final class ComposerPlugin {
@@ -131,7 +133,13 @@ final class ComposerPlugin {
 
   private func concat(paths: [String], output: String) async throws {
     try await compose(
-      segments: paths.map { ComposeSegment(videoPath: $0, audioPath: nil) },
+      segments: paths.map {
+        ComposeSegment(
+          videoPath: $0,
+          audioPath: nil,
+          transition: nil,
+          filterPreset: nil)
+      },
       output: output)
   }
 
@@ -297,7 +305,15 @@ final class ComposerPlugin {
       }
       let rawAudioPath = value["audioPath"] as? String
       let audioPath = rawAudioPath?.isEmpty == true ? nil : rawAudioPath
-      return ComposeSegment(videoPath: videoPath, audioPath: audioPath)
+      let rawTransition = value["transition"] as? String
+      let transition = rawTransition?.isEmpty == true ? nil : rawTransition
+      let rawFilterPreset = value["filterPreset"] as? String
+      let filterPreset = rawFilterPreset?.isEmpty == true ? nil : rawFilterPreset
+      return ComposeSegment(
+        videoPath: videoPath,
+        audioPath: audioPath,
+        transition: transition,
+        filterPreset: filterPreset)
     }
   }
 

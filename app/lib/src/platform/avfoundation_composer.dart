@@ -69,6 +69,8 @@ class AVFoundationComposer implements VideoComposer {
             {
               'videoPath': segment.videoAbsPath,
               'audioPath': segment.audioAbsPath,
+              'transition': segment.transition,
+              'filterPreset': segment.filter,
             },
         ],
         'output': outputAbsPath,
