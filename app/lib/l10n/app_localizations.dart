@@ -4107,6 +4107,708 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已取消'**
   String get taskStateCanceled;
+
+  /// No description provided for @commonClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除'**
+  String get commonClear;
+
+  /// No description provided for @commonClose.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get commonClose;
+
+  /// No description provided for @commonRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get commonRetry;
+
+  /// No description provided for @commonTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试'**
+  String get commonTest;
+
+  /// No description provided for @commonRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新'**
+  String get commonRefresh;
+
+  /// No description provided for @commonEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用'**
+  String get commonEnabled;
+
+  /// No description provided for @commonActions.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作'**
+  String get commonActions;
+
+  /// No description provided for @commonName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get commonName;
+
+  /// No description provided for @commonType.
+  ///
+  /// In zh, this message translates to:
+  /// **'类型'**
+  String get commonType;
+
+  /// No description provided for @commonModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型'**
+  String get commonModel;
+
+  /// No description provided for @commonUnset.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置'**
+  String get commonUnset;
+
+  /// No description provided for @statusQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'排队中'**
+  String get statusQueued;
+
+  /// No description provided for @statusPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待中'**
+  String get statusPending;
+
+  /// No description provided for @statusRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成中'**
+  String get statusRunning;
+
+  /// No description provided for @statusDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get statusDone;
+
+  /// No description provided for @statusFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get statusFailed;
+
+  /// No description provided for @statusCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消'**
+  String get statusCanceled;
+
+  /// No description provided for @statusDraft.
+  ///
+  /// In zh, this message translates to:
+  /// **'待生成'**
+  String get statusDraft;
+
+  /// No description provided for @statusNotGenerated.
+  ///
+  /// In zh, this message translates to:
+  /// **'未生成'**
+  String get statusNotGenerated;
+
+  /// No description provided for @statusSuccessShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'成功'**
+  String get statusSuccessShort;
+
+  /// No description provided for @statusPendingShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'待处理'**
+  String get statusPendingShort;
+
+  /// No description provided for @dataTableTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {total} 条'**
+  String dataTableTotal(int total);
+
+  /// No description provided for @dataTablePrevPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一页'**
+  String get dataTablePrevPage;
+
+  /// No description provided for @dataTableNextPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一页'**
+  String get dataTableNextPage;
+
+  /// No description provided for @imageVersionsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片版本'**
+  String get imageVersionsTitle;
+
+  /// No description provided for @imageVersionsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无图片版本'**
+  String get imageVersionsEmpty;
+
+  /// No description provided for @imageVersionLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本 {index}'**
+  String imageVersionLabel(int index);
+
+  /// No description provided for @repaintImageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'重绘图片'**
+  String get repaintImageTitle;
+
+  /// No description provided for @repaintImageHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'如：把衣服改成红色'**
+  String get repaintImageHint;
+
+  /// No description provided for @repaintInstructionRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入修改意见'**
+  String get repaintInstructionRequired;
+
+  /// No description provided for @repaintAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'重绘'**
+  String get repaintAction;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsAppearanceSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'外观'**
+  String get settingsAppearanceSection;
+
+  /// No description provided for @settingsProvidersSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'供应商'**
+  String get settingsProvidersSection;
+
+  /// No description provided for @settingsBindingsSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型绑定'**
+  String get settingsBindingsSection;
+
+  /// No description provided for @settingsPromptsSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get settingsPromptsSection;
+
+  /// No description provided for @settingsStorageSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储与引擎'**
+  String get settingsStorageSection;
+
+  /// No description provided for @settingsThemeLight.
+  ///
+  /// In zh, this message translates to:
+  /// **'浅色'**
+  String get settingsThemeLight;
+
+  /// No description provided for @settingsThemeDark.
+  ///
+  /// In zh, this message translates to:
+  /// **'深色'**
+  String get settingsThemeDark;
+
+  /// No description provided for @settingsThemeSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统'**
+  String get settingsThemeSystem;
+
+  /// No description provided for @settingsThemeUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'外观已更新'**
+  String get settingsThemeUpdated;
+
+  /// No description provided for @localeChinese.
+  ///
+  /// In zh, this message translates to:
+  /// **'中文'**
+  String get localeChinese;
+
+  /// No description provided for @localeJapanese.
+  ///
+  /// In zh, this message translates to:
+  /// **'日本語'**
+  String get localeJapanese;
+
+  /// No description provided for @modelKindText.
+  ///
+  /// In zh, this message translates to:
+  /// **'文本'**
+  String get modelKindText;
+
+  /// No description provided for @modelKindImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片'**
+  String get modelKindImage;
+
+  /// No description provided for @modelKindVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频'**
+  String get modelKindVideo;
+
+  /// No description provided for @modelKindTts.
+  ///
+  /// In zh, this message translates to:
+  /// **'配音'**
+  String get modelKindTts;
+
+  /// No description provided for @providerProtocolVolcengine.
+  ///
+  /// In zh, this message translates to:
+  /// **'火山引擎'**
+  String get providerProtocolVolcengine;
+
+  /// No description provided for @providerProtocolOpenAiCompatible.
+  ///
+  /// In zh, this message translates to:
+  /// **'OpenAI兼容'**
+  String get providerProtocolOpenAiCompatible;
+
+  /// No description provided for @settingsAddProvider.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加供应商'**
+  String get settingsAddProvider;
+
+  /// No description provided for @settingsProviderEmptyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有供应商'**
+  String get settingsProviderEmptyTitle;
+
+  /// No description provided for @settingsProviderEmptySubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加 OpenAI 兼容或火山引擎供应商后，再配置模型和环节绑定'**
+  String get settingsProviderEmptySubtitle;
+
+  /// No description provided for @settingsProviderAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'供应商已添加'**
+  String get settingsProviderAdded;
+
+  /// No description provided for @settingsProviderUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'供应商已更新'**
+  String get settingsProviderUpdated;
+
+  /// No description provided for @settingsProviderConfigMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置数据缺少供应商列表'**
+  String get settingsProviderConfigMissing;
+
+  /// No description provided for @settingsProviderMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'供应商不存在'**
+  String get settingsProviderMissing;
+
+  /// No description provided for @settingsProviderEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'供应商已启用'**
+  String get settingsProviderEnabled;
+
+  /// No description provided for @settingsProviderDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'供应商已停用'**
+  String get settingsProviderDisabled;
+
+  /// No description provided for @settingsProviderTestSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'连通成功：{elapsedMs} ms'**
+  String settingsProviderTestSuccess(int elapsedMs);
+
+  /// No description provided for @settingsProviderTestTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试连通 · {name}'**
+  String settingsProviderTestTitle(String name);
+
+  /// No description provided for @settingsDeleteProviderTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除供应商'**
+  String get settingsDeleteProviderTitle;
+
+  /// No description provided for @settingsDeleteProviderMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除“{name}”吗？如果供应商已被环节绑定，引擎会拒绝删除。'**
+  String settingsDeleteProviderMessage(String name);
+
+  /// No description provided for @settingsProviderDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'供应商已删除'**
+  String get settingsProviderDeleted;
+
+  /// No description provided for @settingsModelCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型数'**
+  String get settingsModelCount;
+
+  /// No description provided for @settingsManageModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型管理'**
+  String get settingsManageModels;
+
+  /// No description provided for @settingsTestConnection.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试连通'**
+  String get settingsTestConnection;
+
+  /// No description provided for @settingsEditProvider.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑供应商'**
+  String get settingsEditProvider;
+
+  /// No description provided for @settingsProviderName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get settingsProviderName;
+
+  /// No description provided for @settingsProviderNameHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：azt'**
+  String get settingsProviderNameHint;
+
+  /// No description provided for @settingsKeepEmptyUnchanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空不修改'**
+  String get settingsKeepEmptyUnchanged;
+
+  /// No description provided for @settingsExportConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出配置'**
+  String get settingsExportConfig;
+
+  /// No description provided for @settingsImportConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入配置'**
+  String get settingsImportConfig;
+
+  /// No description provided for @settingsConfigPlaintextWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置 JSON 包含明文密钥，请妥善保管。'**
+  String get settingsConfigPlaintextWarning;
+
+  /// No description provided for @settingsEmbeddedEngineNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'引擎内嵌运行，数据与媒体全部保存在本机，无需任何后台服务'**
+  String get settingsEmbeddedEngineNote;
+
+  /// No description provided for @settingsEngineStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'引擎状态'**
+  String get settingsEngineStatus;
+
+  /// No description provided for @settingsExportPanelFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开保存面板：{reason}'**
+  String settingsExportPanelFailed(String reason);
+
+  /// No description provided for @settingsExportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出配置失败：{reason}'**
+  String settingsExportFailed(String reason);
+
+  /// No description provided for @settingsConfigExported.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置已导出'**
+  String get settingsConfigExported;
+
+  /// No description provided for @settingsOpenFileFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开文件选择器：{reason}'**
+  String settingsOpenFileFailed(String reason);
+
+  /// No description provided for @settingsImportConfigTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入配置'**
+  String get settingsImportConfigTitle;
+
+  /// No description provided for @settingsImportConfigMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入会覆盖同名供应商、模型、绑定和提示词。确定继续吗？'**
+  String get settingsImportConfigMessage;
+
+  /// No description provided for @settingsConfigInvalidFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置文件格式无效'**
+  String get settingsConfigInvalidFormat;
+
+  /// No description provided for @settingsConfigInvalidJson.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置文件不是有效 JSON'**
+  String get settingsConfigInvalidJson;
+
+  /// No description provided for @settingsImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入配置失败：{reason}'**
+  String settingsImportFailed(String reason);
+
+  /// No description provided for @settingsConfigImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置已导入'**
+  String get settingsConfigImported;
+
+  /// No description provided for @settingsEngineChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在检查引擎…'**
+  String get settingsEngineChecking;
+
+  /// No description provided for @settingsEngineOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'引擎正常 · v{version}'**
+  String settingsEngineOk(String version);
+
+  /// No description provided for @settingsEngineUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知'**
+  String get settingsEngineUnknown;
+
+  /// No description provided for @settingsProviderColumnProtocol.
+  ///
+  /// In zh, this message translates to:
+  /// **'协议'**
+  String get settingsProviderColumnProtocol;
+
+  /// No description provided for @settingsProviderColumnBaseUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'Base URL'**
+  String get settingsProviderColumnBaseUrl;
+
+  /// No description provided for @settingsModelManagementTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型管理 · {name}'**
+  String settingsModelManagementTitle(String name);
+
+  /// No description provided for @settingsAddModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加模型'**
+  String get settingsAddModel;
+
+  /// No description provided for @settingsSaveModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get settingsSaveModels;
+
+  /// No description provided for @settingsModelsEmptyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有模型'**
+  String get settingsModelsEmptyTitle;
+
+  /// No description provided for @settingsModelsEmptySubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加至少一个文本、图片、视频或配音模型'**
+  String get settingsModelsEmptySubtitle;
+
+  /// No description provided for @settingsModelIdRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型 ID 不能为空'**
+  String get settingsModelIdRequired;
+
+  /// No description provided for @settingsModelsSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型已保存'**
+  String get settingsModelsSaved;
+
+  /// No description provided for @settingsDeleteModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除模型'**
+  String get settingsDeleteModel;
+
+  /// No description provided for @settingsBindingModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'绑定模型'**
+  String get settingsBindingModel;
+
+  /// No description provided for @settingsSelectEnabledModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择启用模型'**
+  String get settingsSelectEnabledModel;
+
+  /// No description provided for @settingsSelectModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择模型'**
+  String get settingsSelectModel;
+
+  /// No description provided for @settingsPromptContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词内容'**
+  String get settingsPromptContent;
+
+  /// No description provided for @taskCenterTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务中心'**
+  String get taskCenterTitle;
+
+  /// No description provided for @taskActiveTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'进行中'**
+  String get taskActiveTitle;
+
+  /// No description provided for @taskActiveEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前没有进行中的任务'**
+  String get taskActiveEmpty;
+
+  /// No description provided for @taskHistoryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'历史'**
+  String get taskHistoryTitle;
+
+  /// No description provided for @taskNoProjects.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无项目'**
+  String get taskNoProjects;
+
+  /// No description provided for @taskHistoryEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'该项目暂无历史任务'**
+  String get taskHistoryEmpty;
+
+  /// No description provided for @taskFilterEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有符合筛选条件的任务'**
+  String get taskFilterEmpty;
+
+  /// No description provided for @taskEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无任务'**
+  String get taskEmpty;
+
+  /// No description provided for @taskProjectLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目 #{id}'**
+  String taskProjectLabel(int id);
+
+  /// No description provided for @taskCancelTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消任务'**
+  String get taskCancelTooltip;
+
+  /// No description provided for @taskCanceledMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务已取消'**
+  String get taskCanceledMessage;
+
+  /// No description provided for @taskRetryQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'已重新排队'**
+  String get taskRetryQueued;
+
+  /// No description provided for @taskClassEventGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件生成'**
+  String get taskClassEventGeneration;
+
+  /// No description provided for @taskClassAssetExtraction.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材提取'**
+  String get taskClassAssetExtraction;
+
+  /// No description provided for @taskClassGeneric.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务'**
+  String get taskClassGeneric;
 }
 
 class _AppLocalizationsDelegate

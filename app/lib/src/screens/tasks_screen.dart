@@ -23,6 +23,7 @@ class TasksScreen extends ConsumerWidget {
     final active = ref.watch(activeJobsProvider);
     final projectsAsync = ref.watch(projectsProvider);
     final selectedId = ref.watch(_selectedProjectProvider);
+    final l10n = AppLocalizations.of(context);
     final projects = projectsAsync.value ?? const [];
     final effectiveId = selectedId != null &&
             projects.any((project) => project.id == selectedId)
@@ -30,7 +31,7 @@ class TasksScreen extends ConsumerWidget {
         : (projects.isEmpty ? null : projects.first.id);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('任务中心')),
+      appBar: AppBar(title: Text(l10n.taskCenterTitle)),
       body: RefreshIndicator(
         color: context.df.primary,
         onRefresh: () async {
@@ -46,9 +47,9 @@ class TasksScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 16),
             children: [
               _TaskSection(
-                title: '进行中',
+                title: l10n.taskActiveTitle,
                 tasks: active,
-                emptyText: '当前没有进行中的任务',
+                emptyText: l10n.taskActiveEmpty,
               ),
               const SizedBox(height: 16),
               _HistorySection(
@@ -88,12 +89,13 @@ class _HistorySectionState extends ConsumerState<_HistorySection> {
     final projectsAsync = widget.projectsAsync;
     final effectiveId = widget.effectiveId;
     final projects = projectsAsync.value ?? const [];
+    final l10n = AppLocalizations.of(context);
     if (projectsAsync.isLoading && !projectsAsync.hasValue) {
-      return const _TaskSection(title: '历史', body: _CenteredLoader());
+      return _TaskSection(title: l10n.taskHistoryTitle, body: const _CenteredLoader());
     }
     if (projectsAsync.hasError && !projectsAsync.hasValue) {
       return _TaskSection(
-        title: '历史',
+        title: l10n.taskHistoryTitle,
         body: ErrorCard(
           message: projectsAsync.error.toString(),
           onRetry: () => ref.invalidate(projectsProvider),
@@ -101,9 +103,9 @@ class _HistorySectionState extends ConsumerState<_HistorySection> {
       );
     }
     if (effectiveId == null) {
-      return const _TaskSection(
-        title: '历史',
-        emptyText: '暂无项目',
+      return _TaskSection(
+        title: l10n.taskHistoryTitle,
+        emptyText: l10n.taskNoProjects,
       );
     }
 
@@ -126,11 +128,13 @@ class _HistorySectionState extends ConsumerState<_HistorySection> {
 
     if (tasksAsync.isLoading && !tasksAsync.hasValue) {
       return _TaskSection(
-          title: '历史', trailing: projectPicker, body: const _CenteredLoader());
+          title: l10n.taskHistoryTitle,
+          trailing: projectPicker,
+          body: const _CenteredLoader());
     }
     if (tasksAsync.hasError && !tasksAsync.hasValue) {
       return _TaskSection(
-        title: '历史',
+        title: l10n.taskHistoryTitle,
         trailing: projectPicker,
         body: ErrorCard(
           message: tasksAsync.error.toString(),
@@ -162,7 +166,7 @@ class _HistorySectionState extends ConsumerState<_HistorySection> {
     ];
 
     return _TaskSection(
-      title: '历史',
+      title: l10n.taskHistoryTitle,
       trailing: projectPicker,
       filters: allTasks.isEmpty
           ? null
@@ -175,7 +179,7 @@ class _HistorySectionState extends ConsumerState<_HistorySection> {
               onStateChanged: (v) => setState(() => _stateFilter = v),
             ),
       tasks: filtered,
-      emptyText: allTasks.isEmpty ? '该项目暂无历史任务' : '没有符合筛选条件的任务',
+      emptyText: allTasks.isEmpty ? l10n.taskHistoryEmpty : l10n.taskFilterEmpty,
     );
   }
 }
@@ -217,7 +221,7 @@ class _TaskFilters extends StatelessWidget {
               for (final cls in classes)
                 DropdownMenuItem(
                   value: cls,
-                  child: Text('${l10n.taskFilterClass}: ${_taskClassLabel(cls)}'),
+                  child: Text('${l10n.taskFilterClass}: ${_taskClassLabel(l10n, cls)}'),
                 ),
             ],
             onChanged: (v) {
@@ -260,7 +264,7 @@ class _TaskSection extends StatelessWidget {
   const _TaskSection({
     required this.title,
     this.tasks = const [],
-    this.emptyText = '暂无任务',
+    this.emptyText = '',
     this.trailing,
     this.body,
     this.filters,
@@ -268,6 +272,8 @@ class _TaskSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedEmptyText =
+        emptyText.isEmpty ? AppLocalizations.of(context).taskEmpty : emptyText;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -291,7 +297,7 @@ class _TaskSection extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  emptyText,
+                  resolvedEmptyText,
                   style: TextStyle(color: context.df.textLo),
                 ),
               )
@@ -317,10 +323,10 @@ class _TaskTile extends ConsumerWidget {
       contentPadding: EdgeInsets.zero,
       onTap: () => _showTaskDetail(context, task, reason),
       leading: Icon(_taskIcon(task.taskClass), color: context.df.textLo),
-      title: Text(_taskClassLabel(task.taskClass)),
+      title: Text(_taskClassLabel(l10n, task.taskClass)),
       subtitle: Text([
         if (task.describe?.isNotEmpty == true) task.describe!,
-        if (task.projectId != null) '项目 #${task.projectId}',
+        if (task.projectId != null) l10n.taskProjectLabel(task.projectId!),
         if (task.startTime != null) _formatTime(task.startTime!),
         if (reason != null) reason,
       ].join(' · ')),
@@ -331,25 +337,25 @@ class _TaskTile extends ConsumerWidget {
           StatusChip(task.state, dense: true, errorTooltip: reason),
           if (task.state == 'pending' || task.state == 'processing')
             IconButton(
-              tooltip: '取消任务',
+              tooltip: l10n.taskCancelTooltip,
               icon: const Icon(Icons.close_rounded),
               onPressed: () => runAction(context, ref, () async {
                 await ref.read(engineProvider).cancelJob(task.id);
                 if (task.projectId != null) {
                   ref.invalidate(projectJobsProvider(task.projectId!));
                 }
-              }, successMessage: '任务已取消'),
+              }, successMessage: l10n.taskCanceledMessage),
             ),
           if (task.state == 'failed')
             IconButton(
-              tooltip: '重试',
+              tooltip: l10n.commonRetry,
               icon: const Icon(Icons.refresh_rounded),
               onPressed: () => runAction(context, ref, () async {
                 await ref.read(engineProvider).retryJob(task.id);
                 if (task.projectId != null) {
                   ref.invalidate(projectJobsProvider(task.projectId!));
                 }
-              }, successMessage: '已重新排队'),
+              }, successMessage: l10n.taskRetryQueued),
             ),
         ],
       ),
@@ -369,10 +375,10 @@ class _CenteredLoader extends StatelessWidget {
   }
 }
 
-String _taskClassLabel(String taskClass) => switch (taskClass) {
-      'event_generation' => '事件生成',
-      'asset_extraction' => '素材提取',
-      _ => taskClass.isEmpty ? '任务' : taskClass,
+String _taskClassLabel(AppLocalizations l10n, String taskClass) => switch (taskClass) {
+      'event_generation' => l10n.taskClassEventGeneration,
+      'asset_extraction' => l10n.taskClassAssetExtraction,
+      _ => taskClass.isEmpty ? l10n.taskClassGeneric : taskClass,
     };
 
 IconData _taskIcon(String taskClass) => switch (taskClass) {
@@ -401,7 +407,7 @@ Future<void> _showTaskDetail(
     related = task.relatedObjects ?? '';
   }
   final rows = <(String, String?)>[
-    (l10n.taskDetailClass, _taskClassLabel(task.taskClass)),
+    (l10n.taskDetailClass, _taskClassLabel(l10n, task.taskClass)),
     (l10n.taskDetailState, _taskStateLabel(l10n, task.state)),
     (l10n.taskDetailDescribe, task.describe),
     (l10n.taskDetailModel, task.model),

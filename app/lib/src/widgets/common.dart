@@ -19,17 +19,23 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final (label, color, icon) = switch (status) {
-      'queued' => ('排队中', context.df.blue, Icons.schedule_rounded),
-      'pending' => ('等待中', context.df.blue, Icons.schedule_rounded),
-      'running' => ('生成中', context.df.primary, Icons.autorenew_rounded),
-      'processing' => ('生成中', context.df.primary, Icons.autorenew_rounded),
-      'done' => ('已完成', context.df.green, Icons.check_circle_rounded),
-      'success' => ('已完成', context.df.green, Icons.check_circle_rounded),
-      'failed' => ('失败', context.df.red, Icons.error_rounded),
-      'canceled' => ('已取消', context.df.grey, Icons.block_rounded),
-      'draft' => ('待生成', context.df.grey, Icons.edit_note_rounded),
-      _ => ('未生成', context.df.grey, Icons.circle_outlined),
+      'queued' => (l10n.statusQueued, context.df.blue, Icons.schedule_rounded),
+      'pending' =>
+        (l10n.statusPending, context.df.blue, Icons.schedule_rounded),
+      'running' =>
+        (l10n.statusRunning, context.df.primary, Icons.autorenew_rounded),
+      'processing' =>
+        (l10n.statusRunning, context.df.primary, Icons.autorenew_rounded),
+      'done' =>
+        (l10n.statusDone, context.df.green, Icons.check_circle_rounded),
+      'success' =>
+        (l10n.statusDone, context.df.green, Icons.check_circle_rounded),
+      'failed' => (l10n.statusFailed, context.df.red, Icons.error_rounded),
+      'canceled' => (l10n.statusCanceled, context.df.grey, Icons.block_rounded),
+      'draft' => (l10n.statusDraft, context.df.grey, Icons.edit_note_rounded),
+      _ => (l10n.statusNotGenerated, context.df.grey, Icons.circle_outlined),
     };
     final chip = Container(
       padding: EdgeInsets.symmetric(
@@ -127,7 +133,7 @@ class ErrorCard extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: onRetry,
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('重试'),
+                    label: Text(AppLocalizations.of(context).commonRetry),
                   ),
                 ],
               ],
@@ -324,6 +330,7 @@ class ImageTakesStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -340,7 +347,7 @@ class ImageTakesStrip extends StatelessWidget {
                   size: 15, color: context.df.textLo),
               const SizedBox(width: 6),
               Text(
-                '图片版本',
+                l10n.imageVersionsTitle,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -359,7 +366,7 @@ class ImageTakesStrip extends StatelessWidget {
                   height: 74,
                   child: Center(
                     child: Text(
-                      '暂无图片版本',
+                      l10n.imageVersionsEmpty,
                       style: TextStyle(fontSize: 12, color: context.df.textLo),
                     ),
                   ),
@@ -376,7 +383,7 @@ class ImageTakesStrip extends StatelessWidget {
                     final take = takes[index];
                     return _ImageTakeTile(
                       take: take,
-                      label: '版本 ${takes.length - index}',
+                      label: l10n.imageVersionLabel(takes.length - index),
                       onTap: take.selected ? null : () => onSelect(take),
                     );
                   },
@@ -490,11 +497,12 @@ Future<String?> showRepaintInstructionDialog(BuildContext context) async {
   final controller = TextEditingController();
   try {
     String? errorText;
+    final l10n = AppLocalizations.of(context);
     return await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('重绘图片'),
+          title: Text(l10n.repaintImageTitle),
           content: TextField(
             controller: controller,
             autofocus: true,
@@ -502,13 +510,13 @@ Future<String?> showRepaintInstructionDialog(BuildContext context) async {
             maxLines: 5,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
-              hintText: '如：把衣服改成红色',
+              hintText: l10n.repaintImageHint,
               errorText: errorText,
             ),
             onSubmitted: (_) {
               final value = controller.text.trim();
               if (value.isEmpty) {
-                setState(() => errorText = '请输入修改意见');
+                setState(() => errorText = l10n.repaintInstructionRequired);
                 return;
               }
               Navigator.of(context).pop(value);
@@ -517,19 +525,19 @@ Future<String?> showRepaintInstructionDialog(BuildContext context) async {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
+              child: Text(l10n.commonCancel),
             ),
             FilledButton.icon(
               onPressed: () {
                 final value = controller.text.trim();
                 if (value.isEmpty) {
-                  setState(() => errorText = '请输入修改意见');
+                  setState(() => errorText = l10n.repaintInstructionRequired);
                   return;
                 }
                 Navigator.of(context).pop(value);
               },
               icon: const Icon(Icons.brush_outlined, size: 18),
-              label: const Text('重绘'),
+              label: Text(l10n.repaintAction),
             ),
           ],
         ),

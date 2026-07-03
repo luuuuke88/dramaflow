@@ -2149,4 +2149,385 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get taskStateCanceled => 'Canceled';
+
+  @override
+  String get commonClear => 'Clear';
+
+  @override
+  String get commonClose => 'Close';
+
+  @override
+  String get commonRetry => 'Retry';
+
+  @override
+  String get commonTest => 'Test';
+
+  @override
+  String get commonRefresh => 'Refresh';
+
+  @override
+  String get commonEnabled => 'Enabled';
+
+  @override
+  String get commonActions => 'Actions';
+
+  @override
+  String get commonName => 'Name';
+
+  @override
+  String get commonType => 'Type';
+
+  @override
+  String get commonModel => 'Model';
+
+  @override
+  String get commonUnset => 'Not set';
+
+  @override
+  String get statusQueued => 'Queued';
+
+  @override
+  String get statusPending => 'Pending';
+
+  @override
+  String get statusRunning => 'Generating';
+
+  @override
+  String get statusDone => 'Completed';
+
+  @override
+  String get statusFailed => 'Failed';
+
+  @override
+  String get statusCanceled => 'Canceled';
+
+  @override
+  String get statusDraft => 'Draft';
+
+  @override
+  String get statusNotGenerated => 'Not generated';
+
+  @override
+  String get statusSuccessShort => 'Success';
+
+  @override
+  String get statusPendingShort => 'Pending';
+
+  @override
+  String dataTableTotal(int total) {
+    return '$total total';
+  }
+
+  @override
+  String get dataTablePrevPage => 'Previous page';
+
+  @override
+  String get dataTableNextPage => 'Next page';
+
+  @override
+  String get imageVersionsTitle => 'Image versions';
+
+  @override
+  String get imageVersionsEmpty => 'No image versions yet';
+
+  @override
+  String imageVersionLabel(int index) {
+    return 'Version $index';
+  }
+
+  @override
+  String get repaintImageTitle => 'Repaint image';
+
+  @override
+  String get repaintImageHint => 'e.g. change the outfit to red';
+
+  @override
+  String get repaintInstructionRequired => 'Enter repaint instructions';
+
+  @override
+  String get repaintAction => 'Repaint';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsAppearanceSection => 'Appearance';
+
+  @override
+  String get settingsProvidersSection => 'Providers';
+
+  @override
+  String get settingsBindingsSection => 'Model bindings';
+
+  @override
+  String get settingsPromptsSection => 'Prompts';
+
+  @override
+  String get settingsStorageSection => 'Storage & engine';
+
+  @override
+  String get settingsThemeLight => 'Light';
+
+  @override
+  String get settingsThemeDark => 'Dark';
+
+  @override
+  String get settingsThemeSystem => 'System';
+
+  @override
+  String get settingsThemeUpdated => 'Appearance updated';
+
+  @override
+  String get localeChinese => '中文';
+
+  @override
+  String get localeJapanese => '日本語';
+
+  @override
+  String get modelKindText => 'Text';
+
+  @override
+  String get modelKindImage => 'Image';
+
+  @override
+  String get modelKindVideo => 'Video';
+
+  @override
+  String get modelKindTts => 'Voice';
+
+  @override
+  String get providerProtocolVolcengine => 'Volcengine';
+
+  @override
+  String get providerProtocolOpenAiCompatible => 'OpenAI-compatible';
+
+  @override
+  String get settingsAddProvider => 'Add provider';
+
+  @override
+  String get settingsProviderEmptyTitle => 'No providers yet';
+
+  @override
+  String get settingsProviderEmptySubtitle =>
+      'Add an OpenAI-compatible or Volcengine provider, then configure models and stage bindings.';
+
+  @override
+  String get settingsProviderAdded => 'Provider added';
+
+  @override
+  String get settingsProviderUpdated => 'Provider updated';
+
+  @override
+  String get settingsProviderConfigMissing =>
+      'Provider list missing from configuration data';
+
+  @override
+  String get settingsProviderMissing => 'Provider not found';
+
+  @override
+  String get settingsProviderEnabled => 'Provider enabled';
+
+  @override
+  String get settingsProviderDisabled => 'Provider disabled';
+
+  @override
+  String settingsProviderTestSuccess(int elapsedMs) {
+    return 'Connection OK: $elapsedMs ms';
+  }
+
+  @override
+  String settingsProviderTestTitle(String name) {
+    return 'Test connection · $name';
+  }
+
+  @override
+  String get settingsDeleteProviderTitle => 'Delete provider';
+
+  @override
+  String settingsDeleteProviderMessage(String name) {
+    return 'Delete “$name”? If it is bound to any stage, the engine will reject the deletion.';
+  }
+
+  @override
+  String get settingsProviderDeleted => 'Provider deleted';
+
+  @override
+  String get settingsModelCount => 'Models';
+
+  @override
+  String get settingsManageModels => 'Manage models';
+
+  @override
+  String get settingsTestConnection => 'Test connection';
+
+  @override
+  String get settingsEditProvider => 'Edit provider';
+
+  @override
+  String get settingsProviderName => 'Name';
+
+  @override
+  String get settingsProviderNameHint => 'e.g. azt';
+
+  @override
+  String get settingsKeepEmptyUnchanged => 'Leave empty to keep unchanged';
+
+  @override
+  String get settingsExportConfig => 'Export config';
+
+  @override
+  String get settingsImportConfig => 'Import config';
+
+  @override
+  String get settingsConfigPlaintextWarning =>
+      'The JSON config contains plaintext keys. Store it carefully.';
+
+  @override
+  String get settingsEmbeddedEngineNote =>
+      'The engine runs inside the app. Data and media stay on this device; no background service is required.';
+
+  @override
+  String get settingsEngineStatus => 'Engine status';
+
+  @override
+  String settingsExportPanelFailed(String reason) {
+    return 'Could not open the save panel: $reason';
+  }
+
+  @override
+  String settingsExportFailed(String reason) {
+    return 'Config export failed: $reason';
+  }
+
+  @override
+  String get settingsConfigExported => 'Config exported';
+
+  @override
+  String settingsOpenFileFailed(String reason) {
+    return 'Could not open the file picker: $reason';
+  }
+
+  @override
+  String get settingsImportConfigTitle => 'Import config';
+
+  @override
+  String get settingsImportConfigMessage =>
+      'Importing will overwrite providers, models, bindings and prompts with the same names. Continue?';
+
+  @override
+  String get settingsConfigInvalidFormat => 'Invalid config file format';
+
+  @override
+  String get settingsConfigInvalidJson => 'Config file is not valid JSON';
+
+  @override
+  String settingsImportFailed(String reason) {
+    return 'Config import failed: $reason';
+  }
+
+  @override
+  String get settingsConfigImported => 'Config imported';
+
+  @override
+  String get settingsEngineChecking => 'Checking engine…';
+
+  @override
+  String settingsEngineOk(String version) {
+    return 'Engine OK · v$version';
+  }
+
+  @override
+  String get settingsEngineUnknown => 'Unknown';
+
+  @override
+  String get settingsProviderColumnProtocol => 'Protocol';
+
+  @override
+  String get settingsProviderColumnBaseUrl => 'Base URL';
+
+  @override
+  String settingsModelManagementTitle(String name) {
+    return 'Model management · $name';
+  }
+
+  @override
+  String get settingsAddModel => 'Add model';
+
+  @override
+  String get settingsSaveModels => 'Save';
+
+  @override
+  String get settingsModelsEmptyTitle => 'No models yet';
+
+  @override
+  String get settingsModelsEmptySubtitle =>
+      'Add at least one text, image, video or voice model.';
+
+  @override
+  String get settingsModelIdRequired => 'Model ID cannot be empty';
+
+  @override
+  String get settingsModelsSaved => 'Models saved';
+
+  @override
+  String get settingsDeleteModel => 'Delete model';
+
+  @override
+  String get settingsBindingModel => 'Bound model';
+
+  @override
+  String get settingsSelectEnabledModel => 'Choose an enabled model';
+
+  @override
+  String get settingsSelectModel => 'Select model';
+
+  @override
+  String get settingsPromptContent => 'Prompt content';
+
+  @override
+  String get taskCenterTitle => 'Task Center';
+
+  @override
+  String get taskActiveTitle => 'Active';
+
+  @override
+  String get taskActiveEmpty => 'No active tasks';
+
+  @override
+  String get taskHistoryTitle => 'History';
+
+  @override
+  String get taskNoProjects => 'No projects';
+
+  @override
+  String get taskHistoryEmpty => 'No task history for this project';
+
+  @override
+  String get taskFilterEmpty => 'No tasks match the filters';
+
+  @override
+  String get taskEmpty => 'No tasks';
+
+  @override
+  String taskProjectLabel(int id) {
+    return 'Project #$id';
+  }
+
+  @override
+  String get taskCancelTooltip => 'Cancel task';
+
+  @override
+  String get taskCanceledMessage => 'Task canceled';
+
+  @override
+  String get taskRetryQueued => 'Queued again';
+
+  @override
+  String get taskClassEventGeneration => 'Event generation';
+
+  @override
+  String get taskClassAssetExtraction => 'Asset extraction';
+
+  @override
+  String get taskClassGeneric => 'Task';
 }

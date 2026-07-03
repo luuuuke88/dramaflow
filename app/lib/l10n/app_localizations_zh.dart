@@ -2079,4 +2079,380 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get taskStateCanceled => '已取消';
+
+  @override
+  String get commonClear => '清除';
+
+  @override
+  String get commonClose => '关闭';
+
+  @override
+  String get commonRetry => '重试';
+
+  @override
+  String get commonTest => '测试';
+
+  @override
+  String get commonRefresh => '刷新';
+
+  @override
+  String get commonEnabled => '启用';
+
+  @override
+  String get commonActions => '操作';
+
+  @override
+  String get commonName => '名称';
+
+  @override
+  String get commonType => '类型';
+
+  @override
+  String get commonModel => '模型';
+
+  @override
+  String get commonUnset => '未设置';
+
+  @override
+  String get statusQueued => '排队中';
+
+  @override
+  String get statusPending => '等待中';
+
+  @override
+  String get statusRunning => '生成中';
+
+  @override
+  String get statusDone => '已完成';
+
+  @override
+  String get statusFailed => '失败';
+
+  @override
+  String get statusCanceled => '已取消';
+
+  @override
+  String get statusDraft => '待生成';
+
+  @override
+  String get statusNotGenerated => '未生成';
+
+  @override
+  String get statusSuccessShort => '成功';
+
+  @override
+  String get statusPendingShort => '待处理';
+
+  @override
+  String dataTableTotal(int total) {
+    return '共 $total 条';
+  }
+
+  @override
+  String get dataTablePrevPage => '上一页';
+
+  @override
+  String get dataTableNextPage => '下一页';
+
+  @override
+  String get imageVersionsTitle => '图片版本';
+
+  @override
+  String get imageVersionsEmpty => '暂无图片版本';
+
+  @override
+  String imageVersionLabel(int index) {
+    return '版本 $index';
+  }
+
+  @override
+  String get repaintImageTitle => '重绘图片';
+
+  @override
+  String get repaintImageHint => '如：把衣服改成红色';
+
+  @override
+  String get repaintInstructionRequired => '请输入修改意见';
+
+  @override
+  String get repaintAction => '重绘';
+
+  @override
+  String get settingsTitle => '设置';
+
+  @override
+  String get settingsAppearanceSection => '外观';
+
+  @override
+  String get settingsProvidersSection => '供应商';
+
+  @override
+  String get settingsBindingsSection => '模型绑定';
+
+  @override
+  String get settingsPromptsSection => '提示词';
+
+  @override
+  String get settingsStorageSection => '存储与引擎';
+
+  @override
+  String get settingsThemeLight => '浅色';
+
+  @override
+  String get settingsThemeDark => '深色';
+
+  @override
+  String get settingsThemeSystem => '跟随系统';
+
+  @override
+  String get settingsThemeUpdated => '外观已更新';
+
+  @override
+  String get localeChinese => '中文';
+
+  @override
+  String get localeJapanese => '日本語';
+
+  @override
+  String get modelKindText => '文本';
+
+  @override
+  String get modelKindImage => '图片';
+
+  @override
+  String get modelKindVideo => '视频';
+
+  @override
+  String get modelKindTts => '配音';
+
+  @override
+  String get providerProtocolVolcengine => '火山引擎';
+
+  @override
+  String get providerProtocolOpenAiCompatible => 'OpenAI兼容';
+
+  @override
+  String get settingsAddProvider => '添加供应商';
+
+  @override
+  String get settingsProviderEmptyTitle => '还没有供应商';
+
+  @override
+  String get settingsProviderEmptySubtitle =>
+      '添加 OpenAI 兼容或火山引擎供应商后，再配置模型和环节绑定';
+
+  @override
+  String get settingsProviderAdded => '供应商已添加';
+
+  @override
+  String get settingsProviderUpdated => '供应商已更新';
+
+  @override
+  String get settingsProviderConfigMissing => '配置数据缺少供应商列表';
+
+  @override
+  String get settingsProviderMissing => '供应商不存在';
+
+  @override
+  String get settingsProviderEnabled => '供应商已启用';
+
+  @override
+  String get settingsProviderDisabled => '供应商已停用';
+
+  @override
+  String settingsProviderTestSuccess(int elapsedMs) {
+    return '连通成功：$elapsedMs ms';
+  }
+
+  @override
+  String settingsProviderTestTitle(String name) {
+    return '测试连通 · $name';
+  }
+
+  @override
+  String get settingsDeleteProviderTitle => '删除供应商';
+
+  @override
+  String settingsDeleteProviderMessage(String name) {
+    return '确定删除“$name”吗？如果供应商已被环节绑定，引擎会拒绝删除。';
+  }
+
+  @override
+  String get settingsProviderDeleted => '供应商已删除';
+
+  @override
+  String get settingsModelCount => '模型数';
+
+  @override
+  String get settingsManageModels => '模型管理';
+
+  @override
+  String get settingsTestConnection => '测试连通';
+
+  @override
+  String get settingsEditProvider => '编辑供应商';
+
+  @override
+  String get settingsProviderName => '名称';
+
+  @override
+  String get settingsProviderNameHint => '例如：azt';
+
+  @override
+  String get settingsKeepEmptyUnchanged => '留空不修改';
+
+  @override
+  String get settingsExportConfig => '导出配置';
+
+  @override
+  String get settingsImportConfig => '导入配置';
+
+  @override
+  String get settingsConfigPlaintextWarning => '配置 JSON 包含明文密钥，请妥善保管。';
+
+  @override
+  String get settingsEmbeddedEngineNote => '引擎内嵌运行，数据与媒体全部保存在本机，无需任何后台服务';
+
+  @override
+  String get settingsEngineStatus => '引擎状态';
+
+  @override
+  String settingsExportPanelFailed(String reason) {
+    return '无法打开保存面板：$reason';
+  }
+
+  @override
+  String settingsExportFailed(String reason) {
+    return '导出配置失败：$reason';
+  }
+
+  @override
+  String get settingsConfigExported => '配置已导出';
+
+  @override
+  String settingsOpenFileFailed(String reason) {
+    return '无法打开文件选择器：$reason';
+  }
+
+  @override
+  String get settingsImportConfigTitle => '导入配置';
+
+  @override
+  String get settingsImportConfigMessage => '导入会覆盖同名供应商、模型、绑定和提示词。确定继续吗？';
+
+  @override
+  String get settingsConfigInvalidFormat => '配置文件格式无效';
+
+  @override
+  String get settingsConfigInvalidJson => '配置文件不是有效 JSON';
+
+  @override
+  String settingsImportFailed(String reason) {
+    return '导入配置失败：$reason';
+  }
+
+  @override
+  String get settingsConfigImported => '配置已导入';
+
+  @override
+  String get settingsEngineChecking => '正在检查引擎…';
+
+  @override
+  String settingsEngineOk(String version) {
+    return '引擎正常 · v$version';
+  }
+
+  @override
+  String get settingsEngineUnknown => '未知';
+
+  @override
+  String get settingsProviderColumnProtocol => '协议';
+
+  @override
+  String get settingsProviderColumnBaseUrl => 'Base URL';
+
+  @override
+  String settingsModelManagementTitle(String name) {
+    return '模型管理 · $name';
+  }
+
+  @override
+  String get settingsAddModel => '添加模型';
+
+  @override
+  String get settingsSaveModels => '保存';
+
+  @override
+  String get settingsModelsEmptyTitle => '还没有模型';
+
+  @override
+  String get settingsModelsEmptySubtitle => '添加至少一个文本、图片、视频或配音模型';
+
+  @override
+  String get settingsModelIdRequired => '模型 ID 不能为空';
+
+  @override
+  String get settingsModelsSaved => '模型已保存';
+
+  @override
+  String get settingsDeleteModel => '删除模型';
+
+  @override
+  String get settingsBindingModel => '绑定模型';
+
+  @override
+  String get settingsSelectEnabledModel => '请选择启用模型';
+
+  @override
+  String get settingsSelectModel => '选择模型';
+
+  @override
+  String get settingsPromptContent => '提示词内容';
+
+  @override
+  String get taskCenterTitle => '任务中心';
+
+  @override
+  String get taskActiveTitle => '进行中';
+
+  @override
+  String get taskActiveEmpty => '当前没有进行中的任务';
+
+  @override
+  String get taskHistoryTitle => '历史';
+
+  @override
+  String get taskNoProjects => '暂无项目';
+
+  @override
+  String get taskHistoryEmpty => '该项目暂无历史任务';
+
+  @override
+  String get taskFilterEmpty => '没有符合筛选条件的任务';
+
+  @override
+  String get taskEmpty => '暂无任务';
+
+  @override
+  String taskProjectLabel(int id) {
+    return '项目 #$id';
+  }
+
+  @override
+  String get taskCancelTooltip => '取消任务';
+
+  @override
+  String get taskCanceledMessage => '任务已取消';
+
+  @override
+  String get taskRetryQueued => '已重新排队';
+
+  @override
+  String get taskClassEventGeneration => '事件生成';
+
+  @override
+  String get taskClassAssetExtraction => '素材提取';
+
+  @override
+  String get taskClassGeneric => '任务';
 }

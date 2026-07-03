@@ -710,5 +710,206 @@
   "taskStateProcessing": "処理中",
   "taskStateSuccess": "完了",
   "taskStateFailed": "失敗",
-  "taskStateCanceled": "キャンセル済み"
+  "taskStateCanceled": "キャンセル済み",
+  "commonClear": "クリア",
+  "commonClose": "閉じる",
+  "commonRetry": "再試行",
+  "commonTest": "テスト",
+  "commonRefresh": "更新",
+  "commonEnabled": "有効",
+  "commonActions": "操作",
+  "commonName": "名前",
+  "commonType": "種類",
+  "commonModel": "モデル",
+  "commonUnset": "未設定",
+  "statusQueued": "キュー中",
+  "statusPending": "待機中",
+  "statusRunning": "生成中",
+  "statusDone": "完了",
+  "statusFailed": "失敗",
+  "statusCanceled": "キャンセル済み",
+  "statusDraft": "未生成",
+  "statusNotGenerated": "未生成",
+  "statusSuccessShort": "成功",
+  "statusPendingShort": "未処理",
+  "dataTableTotal": "全 {total} 件",
+  "@dataTableTotal": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "dataTablePrevPage": "前のページ",
+  "dataTableNextPage": "次のページ",
+  "imageVersionsTitle": "画像バージョン",
+  "imageVersionsEmpty": "画像バージョンはまだありません",
+  "imageVersionLabel": "バージョン {index}",
+  "@imageVersionLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "repaintImageTitle": "画像を再生成",
+  "repaintImageHint": "例：服を赤色に変更",
+  "repaintInstructionRequired": "修正内容を入力してください",
+  "repaintAction": "再生成",
+  "settingsTitle": "設定",
+  "settingsAppearanceSection": "外観",
+  "settingsProvidersSection": "プロバイダー",
+  "settingsBindingsSection": "モデル割り当て",
+  "settingsPromptsSection": "プロンプト",
+  "settingsStorageSection": "ストレージとエンジン",
+  "settingsThemeLight": "ライト",
+  "settingsThemeDark": "ダーク",
+  "settingsThemeSystem": "システム",
+  "settingsThemeUpdated": "外観を更新しました",
+  "localeChinese": "中文",
+  "localeJapanese": "日本語",
+  "modelKindText": "テキスト",
+  "modelKindImage": "画像",
+  "modelKindVideo": "動画",
+  "modelKindTts": "音声",
+  "providerProtocolVolcengine": "Volcengine",
+  "providerProtocolOpenAiCompatible": "OpenAI 互換",
+  "settingsAddProvider": "プロバイダーを追加",
+  "settingsProviderEmptyTitle": "プロバイダーはまだありません",
+  "settingsProviderEmptySubtitle": "OpenAI 互換または Volcengine プロバイダーを追加してから、モデルとステージ割り当てを設定してください。",
+  "settingsProviderAdded": "プロバイダーを追加しました",
+  "settingsProviderUpdated": "プロバイダーを更新しました",
+  "settingsProviderConfigMissing": "設定データにプロバイダー一覧がありません",
+  "settingsProviderMissing": "プロバイダーが見つかりません",
+  "settingsProviderEnabled": "プロバイダーを有効にしました",
+  "settingsProviderDisabled": "プロバイダーを無効にしました",
+  "settingsProviderTestSuccess": "接続成功：{elapsedMs} ms",
+  "@settingsProviderTestSuccess": {
+    "placeholders": {
+      "elapsedMs": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsProviderTestTitle": "接続テスト · {name}",
+  "@settingsProviderTestTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsDeleteProviderTitle": "プロバイダーを削除",
+  "settingsDeleteProviderMessage": "“{name}”を削除しますか？ステージに割り当てられている場合、エンジンは削除を拒否します。",
+  "@settingsDeleteProviderMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsProviderDeleted": "プロバイダーを削除しました",
+  "settingsModelCount": "モデル数",
+  "settingsManageModels": "モデル管理",
+  "settingsTestConnection": "接続テスト",
+  "settingsEditProvider": "プロバイダーを編集",
+  "settingsProviderName": "名前",
+  "settingsProviderNameHint": "例：azt",
+  "settingsKeepEmptyUnchanged": "空欄なら変更しません",
+  "settingsExportConfig": "設定をエクスポート",
+  "settingsImportConfig": "設定をインポート",
+  "settingsConfigPlaintextWarning": "設定 JSON には平文のキーが含まれます。安全に保管してください。",
+  "settingsEmbeddedEngineNote": "エンジンはアプリ内で動作し、データとメディアはすべてこの端末に保存されます。バックグラウンドサービスは不要です。",
+  "settingsEngineStatus": "エンジン状態",
+  "settingsExportPanelFailed": "保存パネルを開けませんでした：{reason}",
+  "@settingsExportPanelFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsExportFailed": "設定のエクスポートに失敗しました：{reason}",
+  "@settingsExportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsConfigExported": "設定をエクスポートしました",
+  "settingsOpenFileFailed": "ファイル選択を開けませんでした：{reason}",
+  "@settingsOpenFileFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsImportConfigTitle": "設定をインポート",
+  "settingsImportConfigMessage": "同名のプロバイダー・モデル・割り当て・プロンプトが上書きされます。続行しますか？",
+  "settingsConfigInvalidFormat": "設定ファイル形式が無効です",
+  "settingsConfigInvalidJson": "設定ファイルは有効な JSON ではありません",
+  "settingsImportFailed": "設定のインポートに失敗しました：{reason}",
+  "@settingsImportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsConfigImported": "設定をインポートしました",
+  "settingsEngineChecking": "エンジンを確認中…",
+  "settingsEngineOk": "エンジン正常 · v{version}",
+  "@settingsEngineOk": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsEngineUnknown": "不明",
+  "settingsProviderColumnProtocol": "プロトコル",
+  "settingsProviderColumnBaseUrl": "Base URL",
+  "settingsModelManagementTitle": "モデル管理 · {name}",
+  "@settingsModelManagementTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAddModel": "モデルを追加",
+  "settingsSaveModels": "保存",
+  "settingsModelsEmptyTitle": "モデルはまだありません",
+  "settingsModelsEmptySubtitle": "テキスト・画像・動画・音声モデルを少なくとも 1 つ追加してください。",
+  "settingsModelIdRequired": "モデル ID は空にできません",
+  "settingsModelsSaved": "モデルを保存しました",
+  "settingsDeleteModel": "モデルを削除",
+  "settingsBindingModel": "割り当てモデル",
+  "settingsSelectEnabledModel": "有効なモデルを選択してください",
+  "settingsSelectModel": "モデルを選択",
+  "settingsPromptContent": "プロンプト内容",
+  "taskCenterTitle": "タスクセンター",
+  "taskActiveTitle": "進行中",
+  "taskActiveEmpty": "進行中のタスクはありません",
+  "taskHistoryTitle": "履歴",
+  "taskNoProjects": "プロジェクトはまだありません",
+  "taskHistoryEmpty": "このプロジェクトに履歴タスクはありません",
+  "taskFilterEmpty": "条件に一致するタスクはありません",
+  "taskEmpty": "タスクはありません",
+  "taskProjectLabel": "プロジェクト #{id}",
+  "@taskProjectLabel": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "taskCancelTooltip": "タスクをキャンセル",
+  "taskCanceledMessage": "タスクをキャンセルしました",
+  "taskRetryQueued": "再度キューに追加しました",
+  "taskClassEventGeneration": "イベント生成",
+  "taskClassAssetExtraction": "アセット抽出",
+  "taskClassGeneric": "タスク"
 }

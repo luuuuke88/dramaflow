@@ -2091,4 +2091,384 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get taskStateCanceled => 'キャンセル済み';
+
+  @override
+  String get commonClear => 'クリア';
+
+  @override
+  String get commonClose => '閉じる';
+
+  @override
+  String get commonRetry => '再試行';
+
+  @override
+  String get commonTest => 'テスト';
+
+  @override
+  String get commonRefresh => '更新';
+
+  @override
+  String get commonEnabled => '有効';
+
+  @override
+  String get commonActions => '操作';
+
+  @override
+  String get commonName => '名前';
+
+  @override
+  String get commonType => '種類';
+
+  @override
+  String get commonModel => 'モデル';
+
+  @override
+  String get commonUnset => '未設定';
+
+  @override
+  String get statusQueued => 'キュー中';
+
+  @override
+  String get statusPending => '待機中';
+
+  @override
+  String get statusRunning => '生成中';
+
+  @override
+  String get statusDone => '完了';
+
+  @override
+  String get statusFailed => '失敗';
+
+  @override
+  String get statusCanceled => 'キャンセル済み';
+
+  @override
+  String get statusDraft => '未生成';
+
+  @override
+  String get statusNotGenerated => '未生成';
+
+  @override
+  String get statusSuccessShort => '成功';
+
+  @override
+  String get statusPendingShort => '未処理';
+
+  @override
+  String dataTableTotal(int total) {
+    return '全 $total 件';
+  }
+
+  @override
+  String get dataTablePrevPage => '前のページ';
+
+  @override
+  String get dataTableNextPage => '次のページ';
+
+  @override
+  String get imageVersionsTitle => '画像バージョン';
+
+  @override
+  String get imageVersionsEmpty => '画像バージョンはまだありません';
+
+  @override
+  String imageVersionLabel(int index) {
+    return 'バージョン $index';
+  }
+
+  @override
+  String get repaintImageTitle => '画像を再生成';
+
+  @override
+  String get repaintImageHint => '例：服を赤色に変更';
+
+  @override
+  String get repaintInstructionRequired => '修正内容を入力してください';
+
+  @override
+  String get repaintAction => '再生成';
+
+  @override
+  String get settingsTitle => '設定';
+
+  @override
+  String get settingsAppearanceSection => '外観';
+
+  @override
+  String get settingsProvidersSection => 'プロバイダー';
+
+  @override
+  String get settingsBindingsSection => 'モデル割り当て';
+
+  @override
+  String get settingsPromptsSection => 'プロンプト';
+
+  @override
+  String get settingsStorageSection => 'ストレージとエンジン';
+
+  @override
+  String get settingsThemeLight => 'ライト';
+
+  @override
+  String get settingsThemeDark => 'ダーク';
+
+  @override
+  String get settingsThemeSystem => 'システム';
+
+  @override
+  String get settingsThemeUpdated => '外観を更新しました';
+
+  @override
+  String get localeChinese => '中文';
+
+  @override
+  String get localeJapanese => '日本語';
+
+  @override
+  String get modelKindText => 'テキスト';
+
+  @override
+  String get modelKindImage => '画像';
+
+  @override
+  String get modelKindVideo => '動画';
+
+  @override
+  String get modelKindTts => '音声';
+
+  @override
+  String get providerProtocolVolcengine => 'Volcengine';
+
+  @override
+  String get providerProtocolOpenAiCompatible => 'OpenAI 互換';
+
+  @override
+  String get settingsAddProvider => 'プロバイダーを追加';
+
+  @override
+  String get settingsProviderEmptyTitle => 'プロバイダーはまだありません';
+
+  @override
+  String get settingsProviderEmptySubtitle =>
+      'OpenAI 互換または Volcengine プロバイダーを追加してから、モデルとステージ割り当てを設定してください。';
+
+  @override
+  String get settingsProviderAdded => 'プロバイダーを追加しました';
+
+  @override
+  String get settingsProviderUpdated => 'プロバイダーを更新しました';
+
+  @override
+  String get settingsProviderConfigMissing => '設定データにプロバイダー一覧がありません';
+
+  @override
+  String get settingsProviderMissing => 'プロバイダーが見つかりません';
+
+  @override
+  String get settingsProviderEnabled => 'プロバイダーを有効にしました';
+
+  @override
+  String get settingsProviderDisabled => 'プロバイダーを無効にしました';
+
+  @override
+  String settingsProviderTestSuccess(int elapsedMs) {
+    return '接続成功：$elapsedMs ms';
+  }
+
+  @override
+  String settingsProviderTestTitle(String name) {
+    return '接続テスト · $name';
+  }
+
+  @override
+  String get settingsDeleteProviderTitle => 'プロバイダーを削除';
+
+  @override
+  String settingsDeleteProviderMessage(String name) {
+    return '“$name”を削除しますか？ステージに割り当てられている場合、エンジンは削除を拒否します。';
+  }
+
+  @override
+  String get settingsProviderDeleted => 'プロバイダーを削除しました';
+
+  @override
+  String get settingsModelCount => 'モデル数';
+
+  @override
+  String get settingsManageModels => 'モデル管理';
+
+  @override
+  String get settingsTestConnection => '接続テスト';
+
+  @override
+  String get settingsEditProvider => 'プロバイダーを編集';
+
+  @override
+  String get settingsProviderName => '名前';
+
+  @override
+  String get settingsProviderNameHint => '例：azt';
+
+  @override
+  String get settingsKeepEmptyUnchanged => '空欄なら変更しません';
+
+  @override
+  String get settingsExportConfig => '設定をエクスポート';
+
+  @override
+  String get settingsImportConfig => '設定をインポート';
+
+  @override
+  String get settingsConfigPlaintextWarning =>
+      '設定 JSON には平文のキーが含まれます。安全に保管してください。';
+
+  @override
+  String get settingsEmbeddedEngineNote =>
+      'エンジンはアプリ内で動作し、データとメディアはすべてこの端末に保存されます。バックグラウンドサービスは不要です。';
+
+  @override
+  String get settingsEngineStatus => 'エンジン状態';
+
+  @override
+  String settingsExportPanelFailed(String reason) {
+    return '保存パネルを開けませんでした：$reason';
+  }
+
+  @override
+  String settingsExportFailed(String reason) {
+    return '設定のエクスポートに失敗しました：$reason';
+  }
+
+  @override
+  String get settingsConfigExported => '設定をエクスポートしました';
+
+  @override
+  String settingsOpenFileFailed(String reason) {
+    return 'ファイル選択を開けませんでした：$reason';
+  }
+
+  @override
+  String get settingsImportConfigTitle => '設定をインポート';
+
+  @override
+  String get settingsImportConfigMessage =>
+      '同名のプロバイダー・モデル・割り当て・プロンプトが上書きされます。続行しますか？';
+
+  @override
+  String get settingsConfigInvalidFormat => '設定ファイル形式が無効です';
+
+  @override
+  String get settingsConfigInvalidJson => '設定ファイルは有効な JSON ではありません';
+
+  @override
+  String settingsImportFailed(String reason) {
+    return '設定のインポートに失敗しました：$reason';
+  }
+
+  @override
+  String get settingsConfigImported => '設定をインポートしました';
+
+  @override
+  String get settingsEngineChecking => 'エンジンを確認中…';
+
+  @override
+  String settingsEngineOk(String version) {
+    return 'エンジン正常 · v$version';
+  }
+
+  @override
+  String get settingsEngineUnknown => '不明';
+
+  @override
+  String get settingsProviderColumnProtocol => 'プロトコル';
+
+  @override
+  String get settingsProviderColumnBaseUrl => 'Base URL';
+
+  @override
+  String settingsModelManagementTitle(String name) {
+    return 'モデル管理 · $name';
+  }
+
+  @override
+  String get settingsAddModel => 'モデルを追加';
+
+  @override
+  String get settingsSaveModels => '保存';
+
+  @override
+  String get settingsModelsEmptyTitle => 'モデルはまだありません';
+
+  @override
+  String get settingsModelsEmptySubtitle =>
+      'テキスト・画像・動画・音声モデルを少なくとも 1 つ追加してください。';
+
+  @override
+  String get settingsModelIdRequired => 'モデル ID は空にできません';
+
+  @override
+  String get settingsModelsSaved => 'モデルを保存しました';
+
+  @override
+  String get settingsDeleteModel => 'モデルを削除';
+
+  @override
+  String get settingsBindingModel => '割り当てモデル';
+
+  @override
+  String get settingsSelectEnabledModel => '有効なモデルを選択してください';
+
+  @override
+  String get settingsSelectModel => 'モデルを選択';
+
+  @override
+  String get settingsPromptContent => 'プロンプト内容';
+
+  @override
+  String get taskCenterTitle => 'タスクセンター';
+
+  @override
+  String get taskActiveTitle => '進行中';
+
+  @override
+  String get taskActiveEmpty => '進行中のタスクはありません';
+
+  @override
+  String get taskHistoryTitle => '履歴';
+
+  @override
+  String get taskNoProjects => 'プロジェクトはまだありません';
+
+  @override
+  String get taskHistoryEmpty => 'このプロジェクトに履歴タスクはありません';
+
+  @override
+  String get taskFilterEmpty => '条件に一致するタスクはありません';
+
+  @override
+  String get taskEmpty => 'タスクはありません';
+
+  @override
+  String taskProjectLabel(int id) {
+    return 'プロジェクト #$id';
+  }
+
+  @override
+  String get taskCancelTooltip => 'タスクをキャンセル';
+
+  @override
+  String get taskCanceledMessage => 'タスクをキャンセルしました';
+
+  @override
+  String get taskRetryQueued => '再度キューに追加しました';
+
+  @override
+  String get taskClassEventGeneration => 'イベント生成';
+
+  @override
+  String get taskClassAssetExtraction => 'アセット抽出';
+
+  @override
+  String get taskClassGeneric => 'タスク';
 }

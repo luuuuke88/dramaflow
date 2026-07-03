@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
+import '../util/l10n_ext.dart';
 
 class DFDataColumn {
   final String label;
@@ -352,12 +353,12 @@ class _PaginationBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
-            '共 ${pagination.total} 条',
+            context.l10n.dataTableTotal(pagination.total),
             style: DFTokens.caption12.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(width: DFTokens.s16),
           IconButton(
-            tooltip: '上一页',
+            tooltip: context.l10n.dataTablePrevPage,
             onPressed: page > 1 ? () => onPageChange?.call(page - 1) : null,
             icon: const Icon(Icons.chevron_left_rounded),
           ),
@@ -369,7 +370,7 @@ class _PaginationBar extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: '下一页',
+            tooltip: context.l10n.dataTableNextPage,
             onPressed: page < pagination.pageCount
                 ? () => onPageChange?.call(page + 1)
                 : null,

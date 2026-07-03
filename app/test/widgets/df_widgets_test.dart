@@ -1,3 +1,4 @@
+import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/theme/theme.dart';
 import 'package:dramaflow/src/theme/tokens.dart';
 import 'package:dramaflow/src/widgets/df_adaptive_dialog.dart';
@@ -17,7 +18,12 @@ void main() {
   }
 
   Widget themed(Widget child) {
-    return MaterialApp(theme: buildTheme(Brightness.light), home: child);
+    return MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+      theme: buildTheme(Brightness.light),
+      home: child,
+    );
   }
 
   testWidgets('DFDataTable renders desktop table at 900px', (tester) async {

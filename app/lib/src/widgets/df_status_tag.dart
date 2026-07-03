@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
+import '../util/l10n_ext.dart';
 
 enum DFStatusKind { processing, success, failed, pending }
 
@@ -34,10 +35,10 @@ class DFStatusTag extends StatelessWidget {
     };
     final label = text ??
         switch (kind) {
-          DFStatusKind.processing => '生成中',
-          DFStatusKind.success => '成功',
-          DFStatusKind.failed => '失败',
-          DFStatusKind.pending => '待处理',
+          DFStatusKind.processing => context.l10n.statusRunning,
+          DFStatusKind.success => context.l10n.statusSuccessShort,
+          DFStatusKind.failed => context.l10n.statusFailed,
+          DFStatusKind.pending => context.l10n.statusPendingShort,
         };
 
     final tag = AnimatedContainer(

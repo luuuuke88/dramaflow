@@ -45,12 +45,12 @@ enum _SettingsSection {
 
 String _sectionLabel(AppLocalizations l10n, _SettingsSection section) =>
     switch (section) {
-      _SettingsSection.appearance => '外观',
-      _SettingsSection.providers => '供应商',
-      _SettingsSection.bindings => '模型绑定',
-      _SettingsSection.prompts => '提示词',
+      _SettingsSection.appearance => l10n.settingsAppearanceSection,
+      _SettingsSection.providers => l10n.settingsProvidersSection,
+      _SettingsSection.bindings => l10n.settingsBindingsSection,
+      _SettingsSection.prompts => l10n.settingsPromptsSection,
       _SettingsSection.other => l10n.settingsOtherSection,
-      _SettingsSection.storage => '存储与引擎',
+      _SettingsSection.storage => l10n.settingsStorageSection,
       _SettingsSection.about => l10n.settingsAboutSection,
     };
 
@@ -87,10 +87,10 @@ const _promptMetas = [
 ];
 
 const _modelKinds = [
-  _KindMeta('text', '文本'),
-  _KindMeta('image', '图片'),
-  _KindMeta('video', '视频'),
-  _KindMeta('tts', '配音'),
+  _KindMeta('text'),
+  _KindMeta('image'),
+  _KindMeta('video'),
+  _KindMeta('tts'),
 ];
 
 class _StageMeta {
@@ -156,9 +156,16 @@ class _PromptMeta {
 
 class _KindMeta {
   final String value;
-  final String label;
 
-  const _KindMeta(this.value, this.label);
+  const _KindMeta(this.value);
+
+  String label(AppLocalizations l10n) => switch (value) {
+        'text' => l10n.modelKindText,
+        'image' => l10n.modelKindImage,
+        'video' => l10n.modelKindVideo,
+        'tts' => l10n.modelKindTts,
+        _ => value,
+      };
 }
 
 /// 设置页：M2 配置后台（供应商 / 模型绑定 / 提示词）+ 外观与本机存储。
@@ -220,15 +227,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 900;
+    final l10n = context.l10n;
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: _lightAppBarBackground(context),
         bottom: _lightAppBarBottom(context),
-        title: const Text('设置'),
+        title: Text(l10n.settingsTitle),
         actions: [
           IconButton(
-            tooltip: '刷新',
+            tooltip: l10n.commonRefresh,
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _invalidateConfig,
           ),
@@ -293,8 +301,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _appearanceCard() {
     final themeMode = ref.watch(themeModeProvider);
+    final l10n = context.l10n;
     return _SettingsCard(
-      title: '外观',
+      title: l10n.settingsAppearanceSection,
       child: SegmentedButton<ThemeMode>(
         showSelectedIcon: false,
         style: ButtonStyle(
@@ -310,21 +319,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           side: WidgetStateProperty.all(BorderSide(color: context.df.stroke)),
         ),
-        segments: const [
+        segments: [
           ButtonSegment(
             value: ThemeMode.light,
-            icon: Icon(Icons.light_mode_outlined, size: 18),
-            label: Text('浅色'),
+            icon: const Icon(Icons.light_mode_outlined, size: 18),
+            label: Text(l10n.settingsThemeLight),
           ),
           ButtonSegment(
             value: ThemeMode.dark,
-            icon: Icon(Icons.dark_mode_outlined, size: 18),
-            label: Text('深色'),
+            icon: const Icon(Icons.dark_mode_outlined, size: 18),
+            label: Text(l10n.settingsThemeDark),
           ),
           ButtonSegment(
             value: ThemeMode.system,
-            icon: Icon(Icons.brightness_auto_outlined, size: 18),
-            label: Text('跟随系统'),
+            icon: const Icon(Icons.brightness_auto_outlined, size: 18),
+            label: Text(l10n.settingsThemeSystem),
           ),
         ],
         selected: {themeMode},
@@ -333,7 +342,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (next == themeMode) return;
           runAction(context, ref, () async {
             await ref.read(themeModeProvider.notifier).setThemeMode(next);
-          }, successMessage: '外观已更新');
+          }, successMessage: l10n.settingsThemeUpdated);
         },
       ),
     );
@@ -349,9 +358,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         showSelectedIcon: false,
         segments: [
           ButtonSegment(value: '', label: Text(l10n.localeSystem)),
-          const ButtonSegment(value: 'zh', label: Text('中文')),
+          ButtonSegment(value: 'zh', label: Text(l10n.localeChinese)),
           const ButtonSegment(value: 'en', label: Text('English')),
-          const ButtonSegment(value: 'ja', label: Text('日本語')),
+          ButtonSegment(value: 'ja', label: Text(l10n.localeJapanese)),
         ],
         selected: {current},
         onSelectionChanged: (selected) {
@@ -371,12 +380,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _providersPanel() {
     final providersAsync = ref.watch(providersProvider);
+    final l10n = context.l10n;
     return _SettingsCard(
-      title: '供应商',
+      title: l10n.settingsProvidersSection,
       trailing: FilledButton.icon(
         onPressed: _openCreateProviderDialog,
         icon: const Icon(Icons.add_rounded, size: 18),
-        label: const Text('添加供应商'),
+        label: Text(l10n.settingsAddProvider),
       ),
       child: AsyncView<List<ProviderInfo>>(
         value: providersAsync,
@@ -385,12 +395,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (providers.isEmpty) {
             return EmptyHint(
               icon: Icons.cloud_off_outlined,
-              title: '还没有供应商',
-              subtitle: '添加 OpenAI 兼容或火山引擎供应商后，再配置模型和环节绑定',
+              title: l10n.settingsProviderEmptyTitle,
+              subtitle: l10n.settingsProviderEmptySubtitle,
               action: FilledButton.icon(
                 onPressed: _openCreateProviderDialog,
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('添加供应商'),
+                label: Text(l10n.settingsAddProvider),
               ),
             );
           }
@@ -443,6 +453,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (_) => const _ProviderFormDialog(),
     );
     if (result == null || !mounted) return;
+    final l10n = context.l10n;
 
     await runAction(context, ref, () async {
       await ref.read(engineProvider).createProvider(
@@ -451,7 +462,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             baseUrl: result.baseUrl,
             apiKey: result.apiKey,
           );
-    }, successMessage: '供应商已添加');
+    }, successMessage: l10n.settingsProviderAdded);
     if (!mounted) return;
     _invalidateProvidersAndBindings();
   }
@@ -462,6 +473,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (_) => _ProviderFormDialog(provider: provider),
     );
     if (result == null || !mounted) return;
+    final l10n = context.l10n;
 
     await runAction(context, ref, () async {
       await ref.read(engineProvider).updateProvider(
@@ -470,17 +482,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             baseUrl: result.baseUrl.isEmpty ? null : result.baseUrl,
             apiKey: result.apiKey.isEmpty ? null : result.apiKey,
           );
-    }, successMessage: '供应商已更新');
+    }, successMessage: l10n.settingsProviderUpdated);
     if (!mounted) return;
     _invalidateProvidersAndBindings();
   }
 
   Future<void> _setProviderEnabled(ProviderInfo provider, bool enabled) async {
+    final l10n = context.l10n;
     await runAction(context, ref, () async {
       final data = await ref.read(engineProvider).exportConfig();
       final providers = data['providers'];
       if (providers is! List) {
-        throw EngineException('配置数据缺少供应商列表');
+        throw EngineException(l10n.settingsProviderConfigMissing);
       }
 
       var changed = false;
@@ -494,9 +507,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         changed = true;
         break;
       }
-      if (!changed) throw EngineException('供应商不存在');
+      if (!changed) throw EngineException(l10n.settingsProviderMissing);
       await ref.read(engineProvider).importConfig(data);
-    }, successMessage: enabled ? '供应商已启用' : '供应商已停用');
+    }, successMessage: enabled ? l10n.settingsProviderEnabled : l10n.settingsProviderDisabled);
     if (!mounted) return;
     _invalidateProvidersAndBindings();
   }
@@ -553,11 +566,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!mounted || selected == null) return;
 
     var elapsedMs = 0;
+    final l10n = context.l10n;
     await runAction(context, ref, () async {
       elapsedMs = await ref
           .read(engineProvider)
           .testProvider(provider.id, selected.modelId);
-    }, successMessage: '连通成功：$elapsedMs ms');
+    }, successMessage: l10n.settingsProviderTestSuccess(elapsedMs));
   }
 
   Future<ProviderModelInfo?> _chooseTestModel(
@@ -566,13 +580,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     var selected = models.first;
     String kindLabel(String kind) => _modelKinds
         .firstWhere((item) => item.value == kind,
-            orElse: () => const _KindMeta('text', '文本'))
-        .label;
+            orElse: () => const _KindMeta('text'))
+        .label(l10n);
     return showDialog<ProviderModelInfo>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text('测试连通 · ${provider.name}'),
+          title: Text(l10n.settingsProviderTestTitle(provider.name)),
           content: SizedBox(
             width: 420,
             child: DropdownButtonFormField<ProviderModelInfo>(
@@ -597,11 +611,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('取消'),
+              child: Text(l10n.commonCancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(selected),
-              child: const Text('测试'),
+              child: Text(l10n.commonTest),
             ),
           ],
         ),
@@ -610,17 +624,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _deleteProvider(ProviderInfo provider) async {
+    final l10n = context.l10n;
     final confirmed = await _confirm(
-      title: '删除供应商',
-      message: '确定删除“${provider.name}”吗？如果供应商已被环节绑定，引擎会拒绝删除。',
-      confirmText: '删除',
+      title: l10n.settingsDeleteProviderTitle,
+      message: l10n.settingsDeleteProviderMessage(provider.name),
+      confirmText: l10n.commonDelete,
       destructive: true,
     );
     if (!mounted || !confirmed) return;
 
     await runAction(context, ref, () async {
       await ref.read(engineProvider).deleteProvider(provider.id);
-    }, successMessage: '供应商已删除');
+    }, successMessage: l10n.settingsProviderDeleted);
     if (!mounted) return;
     _invalidateProvidersAndBindings();
   }
@@ -631,7 +646,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final providersAsync = ref.watch(providersProvider);
     final bindingsAsync = ref.watch(bindingsProvider);
     return _SettingsCard(
-      title: '模型绑定',
+      title: context.l10n.settingsBindingsSection,
       child: AsyncView<List<ProviderInfo>>(
         value: providersAsync,
         onRetry: () => ref.invalidate(providersProvider),
@@ -830,8 +845,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _storageCard() {
     final engine = ref.read(engineProvider);
+    final l10n = context.l10n;
     return _SettingsCard(
-      title: '存储与引擎',
+      title: l10n.settingsStorageSection,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -842,18 +858,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               OutlinedButton.icon(
                 onPressed: _exportConfig,
                 icon: const Icon(Icons.file_download_outlined, size: 18),
-                label: const Text('导出配置'),
+                label: Text(l10n.settingsExportConfig),
               ),
               OutlinedButton.icon(
                 onPressed: _importConfig,
                 icon: const Icon(Icons.file_upload_outlined, size: 18),
-                label: const Text('导入配置'),
+                label: Text(l10n.settingsImportConfig),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
-            '配置 JSON 包含明文密钥，请妥善保管。',
+            l10n.settingsConfigPlaintextWarning,
             style: TextStyle(color: context.df.textLo, fontSize: 12),
           ),
           const Divider(height: 28),
@@ -871,7 +887,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '引擎内嵌运行，数据与媒体全部保存在本机，无需任何后台服务',
+            l10n.settingsEmbeddedEngineNote,
             style: TextStyle(color: context.df.textLo, fontSize: 12),
           ),
           const SizedBox(height: 12),
@@ -901,7 +917,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           const Divider(height: 28),
-          Text('引擎状态',
+          Text(l10n.settingsEngineStatus,
               style: TextStyle(
                   color: context.df.textMid,
                   fontSize: 13,
@@ -923,12 +939,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      final l10n = context.l10n;
       await runAction(context, ref, () async {
-        throw EngineException('无法打开保存面板：$e');
+        throw EngineException(l10n.settingsExportPanelFailed('$e'));
       });
       return;
     }
     if (!mounted || location == null) return;
+    final l10n = context.l10n;
 
     await runAction(context, ref, () async {
       try {
@@ -943,9 +961,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       } on EngineException {
         rethrow;
       } catch (e) {
-        throw EngineException('导出配置失败：$e');
+        throw EngineException(l10n.settingsExportFailed('$e'));
       }
-    }, successMessage: '配置已导出');
+    }, successMessage: l10n.settingsConfigExported);
   }
 
   Future<void> _importConfig() async {
@@ -963,17 +981,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      final l10n = context.l10n;
       await runAction(context, ref, () async {
-        throw EngineException('无法打开文件选择器：$e');
+        throw EngineException(l10n.settingsOpenFileFailed('$e'));
       });
       return;
     }
     if (!mounted || file == null) return;
+    final l10n = context.l10n;
 
     final confirmed = await _confirm(
-      title: '导入配置',
-      message: '导入会覆盖同名供应商、模型、绑定和提示词。确定继续吗？',
-      confirmText: '导入',
+      title: l10n.settingsImportConfigTitle,
+      message: l10n.settingsImportConfigMessage,
+      confirmText: l10n.settingsImportConfig,
     );
     if (!mounted || !confirmed) return;
 
@@ -982,19 +1002,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         final raw = await file!.readAsString();
         final decoded = jsonDecode(raw);
         if (decoded is! Map) {
-          throw EngineException('配置文件格式无效');
+          throw EngineException(l10n.settingsConfigInvalidFormat);
         }
         await ref
             .read(engineProvider)
             .importConfig(Map<String, dynamic>.from(decoded));
       } on FormatException {
-        throw EngineException('配置文件不是有效 JSON');
+        throw EngineException(l10n.settingsConfigInvalidJson);
       } on EngineException {
         rethrow;
       } catch (e) {
-        throw EngineException('导入配置失败：$e');
+        throw EngineException(l10n.settingsImportFailed('$e'));
       }
-    }, successMessage: '配置已导入');
+    }, successMessage: l10n.settingsConfigImported);
     if (!mounted) return;
     _invalidateConfig();
   }
@@ -1148,7 +1168,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 strokeWidth: 2, color: context.df.primary),
           ),
           const SizedBox(width: 10),
-          Text('正在检查引擎…',
+          Text(context.l10n.settingsEngineChecking,
               style: TextStyle(color: context.df.textLo, fontSize: 13)),
         ],
       ),
@@ -1171,7 +1191,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 10),
           OutlinedButton.icon(
             icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: const Text('重试'),
+            label: Text(context.l10n.commonRetry),
             onPressed: () => ref.invalidate(healthProvider),
           ),
         ],
@@ -1179,10 +1199,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       data: (d) {
         final providers =
             (d['providers'] as Map?)?.cast<String, dynamic>() ?? const {};
-        const labels = [
-          ('text', '文本'),
-          ('image', '图片'),
-          ('video', '视频'),
+        final labels = [
+          ('text', context.l10n.modelKindText),
+          ('image', context.l10n.modelKindImage),
+          ('video', context.l10n.modelKindVideo),
         ];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1192,7 +1212,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _Dot(color: context.df.green),
                 const SizedBox(width: 8),
                 Text(
-                  '引擎正常 · v${d['version'] ?? '?'}',
+                  context.l10n.settingsEngineOk('${d['version'] ?? '?'}'),
                   style: TextStyle(
                       color: context.df.green,
                       fontSize: 13,
@@ -1215,7 +1235,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     Expanded(
                       child: Text(
-                        '${providers[key] ?? '未知'}',
+                        '${providers[key] ?? context.l10n.settingsEngineUnknown}',
                         style: TextStyle(
                             color: context.df.textMid,
                             fontSize: 12,
@@ -1245,7 +1265,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('取消'),
+            child: Text(context.l10n.commonCancel),
           ),
           FilledButton(
             style: destructive
@@ -1474,6 +1494,7 @@ class _ProviderTable extends StatelessWidget {
 class _ProviderTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       height: 44,
       decoration: BoxDecoration(
@@ -1481,14 +1502,14 @@ class _ProviderTableHeader extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
         border: Border(bottom: BorderSide(color: context.df.stroke)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          _HeaderFlexCell(flex: 14, label: '名称'),
-          _HeaderCell(width: 118, label: '协议'),
-          _HeaderFlexCell(flex: 24, label: 'Base URL'),
-          _HeaderCell(width: 92, label: '启用'),
-          _HeaderCell(width: 72, label: '模型'),
-          _HeaderCell(width: 184, label: '操作'),
+          _HeaderFlexCell(flex: 14, label: l10n.commonName),
+          _HeaderCell(width: 118, label: l10n.settingsProviderColumnProtocol),
+          _HeaderFlexCell(flex: 24, label: l10n.settingsProviderColumnBaseUrl),
+          _HeaderCell(width: 92, label: l10n.commonEnabled),
+          _HeaderCell(width: 72, label: l10n.commonModel),
+          _HeaderCell(width: 184, label: l10n.commonActions),
         ],
       ),
     );
@@ -1542,7 +1563,7 @@ class _ProviderTableRow extends StatelessWidget {
           _TextFlexCell(
             flex: 24,
             text: provider.baseUrl,
-            emptyText: '未设置',
+            emptyText: context.l10n.commonUnset,
             tooltip: provider.baseUrl,
           ),
           _FixedCell(
@@ -1637,7 +1658,7 @@ class _ProviderCard extends StatelessWidget {
           FutureBuilder<List<ProviderModelInfo>>(
             future: loadModels(),
             builder: (context, snapshot) => _KeyValueLine(
-              label: '模型数',
+              label: context.l10n.settingsModelCount,
               value: snapshot.data == null ? '…' : '${snapshot.data!.length}',
             ),
           ),
@@ -1647,22 +1668,22 @@ class _ProviderCard extends StatelessWidget {
             runSpacing: 4,
             children: [
               _SmallIconButton(
-                tooltip: '编辑',
+                tooltip: context.l10n.commonEdit,
                 icon: Icons.edit_outlined,
                 onPressed: onEdit,
               ),
               _SmallIconButton(
-                tooltip: '模型管理',
+                tooltip: context.l10n.settingsManageModels,
                 icon: Icons.view_list_outlined,
                 onPressed: onManageModels,
               ),
               _SmallIconButton(
-                tooltip: '测试连通',
+                tooltip: context.l10n.settingsTestConnection,
                 icon: Icons.network_check_rounded,
                 onPressed: onTest,
               ),
               _SmallIconButton(
-                tooltip: '删除',
+                tooltip: context.l10n.commonDelete,
                 icon: Icons.delete_outline_rounded,
                 color: context.df.red,
                 onPressed: onDelete,
@@ -1693,22 +1714,22 @@ class _ProviderActions extends StatelessWidget {
     return Row(
       children: [
         _SmallIconButton(
-          tooltip: '编辑',
+          tooltip: context.l10n.commonEdit,
           icon: Icons.edit_outlined,
           onPressed: onEdit,
         ),
         _SmallIconButton(
-          tooltip: '模型管理',
+          tooltip: context.l10n.settingsManageModels,
           icon: Icons.view_list_outlined,
           onPressed: onManageModels,
         ),
         _SmallIconButton(
-          tooltip: '测试连通',
+          tooltip: context.l10n.settingsTestConnection,
           icon: Icons.network_check_rounded,
           onPressed: onTest,
         ),
         _SmallIconButton(
-          tooltip: '删除',
+          tooltip: context.l10n.commonDelete,
           icon: Icons.delete_outline_rounded,
           color: context.df.red,
           onPressed: onDelete,
@@ -1750,8 +1771,8 @@ class _ProtocolBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (protocol) {
-      'volcengine' => ('火山引擎', context.df.red),
-      _ => ('OpenAI兼容', context.df.primary),
+      'volcengine' => (context.l10n.providerProtocolVolcengine, context.df.red),
+      _ => (context.l10n.providerProtocolOpenAiCompatible, context.df.primary),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1823,8 +1844,9 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
-      title: Text(_editing ? '编辑供应商' : '添加供应商'),
+      title: Text(_editing ? l10n.settingsEditProvider : l10n.settingsAddProvider),
       content: SizedBox(
         width: 460,
         child: SingleChildScrollView(
@@ -1834,14 +1856,14 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
               SegmentedButton<String>(
                 showSelectedIcon: false,
                 selected: {_protocol},
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: 'openai_compatible',
-                    label: Text('OpenAI兼容'),
+                    label: Text(l10n.providerProtocolOpenAiCompatible),
                   ),
                   ButtonSegment(
                     value: 'volcengine',
-                    label: Text('火山引擎'),
+                    label: Text(l10n.providerProtocolVolcengine),
                   ),
                 ],
                 onSelectionChanged: _editing
@@ -1852,24 +1874,27 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
               TextField(
                 controller: _name,
                 decoration: InputDecoration(
-                  labelText: '名称',
-                  hintText: _editing ? '留空不修改' : '例如：azt',
+                  labelText: l10n.settingsProviderName,
+                  hintText: _editing
+                      ? l10n.settingsKeepEmptyUnchanged
+                      : l10n.settingsProviderNameHint,
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _baseUrl,
                 decoration: InputDecoration(
-                  labelText: 'Base URL',
-                  hintText: _editing ? '留空不修改' : 'https://...',
+                  labelText: l10n.settingsProviderColumnBaseUrl,
+                  hintText:
+                      _editing ? l10n.settingsKeepEmptyUnchanged : 'https://...',
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _apiKey,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'API Key',
-                  hintText: '留空不修改',
+                  hintText: l10n.settingsKeepEmptyUnchanged,
                 ),
               ),
             ],
@@ -1879,7 +1904,7 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: () {
@@ -1892,7 +1917,7 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
               apiKey: _apiKey.text,
             ));
           },
-          child: const Text('保存'),
+          child: Text(l10n.commonSave),
         ),
       ],
     );
@@ -1942,10 +1967,11 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
   }
 
   Future<void> _save() async {
+    final l10n = context.l10n;
     for (final draft in _drafts) {
       if (draft.modelId.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('模型 ID 不能为空')),
+          SnackBar(content: Text(l10n.settingsModelIdRequired)),
         );
         return;
       }
@@ -1969,27 +1995,28 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
       await ref
           .read(engineProvider)
           .saveProviderModels(widget.provider.id, payload);
-    }, successMessage: '模型已保存');
+    }, successMessage: l10n.settingsModelsSaved);
     if (mounted) Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final wide = MediaQuery.sizeOf(context).width >= 820;
     return Scaffold(
       appBar: AppBar(
-        title: Text('模型管理 · ${widget.provider.name}'),
+        title: Text(l10n.settingsModelManagementTitle(widget.provider.name)),
         actions: [
           TextButton.icon(
             onPressed: _addModel,
             icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('添加模型'),
+            label: Text(l10n.settingsAddModel),
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: _save,
             icon: const Icon(Icons.save_outlined, size: 18),
-            label: const Text('保存'),
+            label: Text(l10n.settingsSaveModels),
           ),
           const SizedBox(width: 16),
         ],
@@ -2002,12 +2029,12 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
             if (_drafts.isEmpty)
               EmptyHint(
                 icon: Icons.view_list_outlined,
-                title: '还没有模型',
-                subtitle: '添加至少一个文本、图片、视频或配音模型',
+                title: l10n.settingsModelsEmptyTitle,
+                subtitle: l10n.settingsModelsEmptySubtitle,
                 action: FilledButton.icon(
                   onPressed: _addModel,
                   icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('添加模型'),
+                  label: Text(l10n.settingsAddModel),
                 ),
               )
             else if (wide)
@@ -2089,6 +2116,7 @@ class _ModelsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: context.df.surface,
@@ -2105,13 +2133,13 @@ class _ModelsTable extends StatelessWidget {
                   const BorderRadius.vertical(top: Radius.circular(8)),
               border: Border(bottom: BorderSide(color: context.df.stroke)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                _HeaderFlexCell(flex: 18, label: 'Model ID'),
+                const _HeaderFlexCell(flex: 18, label: 'Model ID'),
                 _HeaderFlexCell(flex: 18, label: 'Label'),
-                _HeaderCell(width: 132, label: '类型'),
-                _HeaderCell(width: 92, label: '启用'),
-                _HeaderCell(width: 64, label: ''),
+                _HeaderCell(width: 132, label: l10n.commonType),
+                _HeaderCell(width: 92, label: l10n.commonEnabled),
+                const _HeaderCell(width: 64, label: ''),
               ],
             ),
           ),
@@ -2141,12 +2169,12 @@ class _ModelsTable extends StatelessWidget {
                     width: 132,
                     child: DropdownButtonFormField<String>(
                       initialValue: _validKind(draft.kind),
-                      decoration: const InputDecoration(labelText: '类型'),
+                      decoration: InputDecoration(labelText: l10n.commonType),
                       items: [
                         for (final kind in _modelKinds)
                           DropdownMenuItem(
                             value: kind.value,
-                            child: Text(kind.label),
+                            child: Text(kind.label(context.l10n)),
                           ),
                       ],
                       onChanged: (value) {
@@ -2169,7 +2197,7 @@ class _ModelsTable extends StatelessWidget {
                   _FixedCell(
                     width: 64,
                     child: IconButton(
-                      tooltip: '删除模型',
+                      tooltip: l10n.settingsDeleteModel,
                       icon: Icon(Icons.delete_outline_rounded,
                           color: context.df.red),
                       onPressed: () => onRemove(draft),
@@ -2197,6 +2225,7 @@ class _ModelDraftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -2222,12 +2251,12 @@ class _ModelDraftCard extends StatelessWidget {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: _validKind(draft.kind),
-                  decoration: const InputDecoration(labelText: '类型'),
+                  decoration: InputDecoration(labelText: l10n.commonType),
                   items: [
                     for (final kind in _modelKinds)
                       DropdownMenuItem(
                         value: kind.value,
-                        child: Text(kind.label),
+                        child: Text(kind.label(l10n)),
                       ),
                   ],
                   onChanged: (value) {
@@ -2246,7 +2275,7 @@ class _ModelDraftCard extends StatelessWidget {
                 },
               ),
               IconButton(
-                tooltip: '删除模型',
+                tooltip: l10n.settingsDeleteModel,
                 icon: Icon(Icons.delete_outline_rounded, color: context.df.red),
                 onPressed: onRemove,
               ),
@@ -2393,14 +2422,15 @@ class _BindingPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return DropdownButtonFormField<String>(
       initialValue: current,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: '绑定模型',
-        errorText: missing ? '请选择启用模型' : null,
+        labelText: l10n.settingsBindingModel,
+        errorText: missing ? l10n.settingsSelectEnabledModel : null,
       ),
-      hint: const Text('选择模型'),
+      hint: Text(l10n.settingsSelectModel),
       items: [
         for (final option in options)
           DropdownMenuItem(
@@ -2427,9 +2457,9 @@ class _KindBadge extends StatelessWidget {
     final label = _modelKinds
         .firstWhere(
           (item) => item.value == kind,
-          orElse: () => const _KindMeta('text', '文本'),
+          orElse: () => const _KindMeta('text'),
         )
-        .label;
+        .label(context.l10n);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -2667,9 +2697,9 @@ class _PromptEditorPageState extends ConsumerState<_PromptEditorPage> {
                   color: context.df.textHi,
                   height: 1.45,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   alignLabelWithHint: true,
-                  labelText: '提示词内容',
+                  labelText: l10n.settingsPromptContent,
                 ),
               ),
             ),
@@ -2679,7 +2709,7 @@ class _PromptEditorPageState extends ConsumerState<_PromptEditorPage> {
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (context, _) => Text(
-                  '${_controller.text.length} 字符',
+                  l10n.promptCharacterCount(_controller.text.length),
                   style: TextStyle(color: context.df.textLo, fontSize: 12),
                 ),
               ),
@@ -2837,7 +2867,7 @@ class _KeyValueLine extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              value.isEmpty ? '未设置' : value,
+              value.isEmpty ? context.l10n.commonUnset : value,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

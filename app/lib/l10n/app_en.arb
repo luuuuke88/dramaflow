@@ -710,5 +710,206 @@
   "taskStateProcessing": "Processing",
   "taskStateSuccess": "Completed",
   "taskStateFailed": "Failed",
-  "taskStateCanceled": "Canceled"
+  "taskStateCanceled": "Canceled",
+  "commonClear": "Clear",
+  "commonClose": "Close",
+  "commonRetry": "Retry",
+  "commonTest": "Test",
+  "commonRefresh": "Refresh",
+  "commonEnabled": "Enabled",
+  "commonActions": "Actions",
+  "commonName": "Name",
+  "commonType": "Type",
+  "commonModel": "Model",
+  "commonUnset": "Not set",
+  "statusQueued": "Queued",
+  "statusPending": "Pending",
+  "statusRunning": "Generating",
+  "statusDone": "Completed",
+  "statusFailed": "Failed",
+  "statusCanceled": "Canceled",
+  "statusDraft": "Draft",
+  "statusNotGenerated": "Not generated",
+  "statusSuccessShort": "Success",
+  "statusPendingShort": "Pending",
+  "dataTableTotal": "{total} total",
+  "@dataTableTotal": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "dataTablePrevPage": "Previous page",
+  "dataTableNextPage": "Next page",
+  "imageVersionsTitle": "Image versions",
+  "imageVersionsEmpty": "No image versions yet",
+  "imageVersionLabel": "Version {index}",
+  "@imageVersionLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "repaintImageTitle": "Repaint image",
+  "repaintImageHint": "e.g. change the outfit to red",
+  "repaintInstructionRequired": "Enter repaint instructions",
+  "repaintAction": "Repaint",
+  "settingsTitle": "Settings",
+  "settingsAppearanceSection": "Appearance",
+  "settingsProvidersSection": "Providers",
+  "settingsBindingsSection": "Model bindings",
+  "settingsPromptsSection": "Prompts",
+  "settingsStorageSection": "Storage & engine",
+  "settingsThemeLight": "Light",
+  "settingsThemeDark": "Dark",
+  "settingsThemeSystem": "System",
+  "settingsThemeUpdated": "Appearance updated",
+  "localeChinese": "中文",
+  "localeJapanese": "日本語",
+  "modelKindText": "Text",
+  "modelKindImage": "Image",
+  "modelKindVideo": "Video",
+  "modelKindTts": "Voice",
+  "providerProtocolVolcengine": "Volcengine",
+  "providerProtocolOpenAiCompatible": "OpenAI-compatible",
+  "settingsAddProvider": "Add provider",
+  "settingsProviderEmptyTitle": "No providers yet",
+  "settingsProviderEmptySubtitle": "Add an OpenAI-compatible or Volcengine provider, then configure models and stage bindings.",
+  "settingsProviderAdded": "Provider added",
+  "settingsProviderUpdated": "Provider updated",
+  "settingsProviderConfigMissing": "Provider list missing from configuration data",
+  "settingsProviderMissing": "Provider not found",
+  "settingsProviderEnabled": "Provider enabled",
+  "settingsProviderDisabled": "Provider disabled",
+  "settingsProviderTestSuccess": "Connection OK: {elapsedMs} ms",
+  "@settingsProviderTestSuccess": {
+    "placeholders": {
+      "elapsedMs": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsProviderTestTitle": "Test connection · {name}",
+  "@settingsProviderTestTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsDeleteProviderTitle": "Delete provider",
+  "settingsDeleteProviderMessage": "Delete “{name}”? If it is bound to any stage, the engine will reject the deletion.",
+  "@settingsDeleteProviderMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsProviderDeleted": "Provider deleted",
+  "settingsModelCount": "Models",
+  "settingsManageModels": "Manage models",
+  "settingsTestConnection": "Test connection",
+  "settingsEditProvider": "Edit provider",
+  "settingsProviderName": "Name",
+  "settingsProviderNameHint": "e.g. azt",
+  "settingsKeepEmptyUnchanged": "Leave empty to keep unchanged",
+  "settingsExportConfig": "Export config",
+  "settingsImportConfig": "Import config",
+  "settingsConfigPlaintextWarning": "The JSON config contains plaintext keys. Store it carefully.",
+  "settingsEmbeddedEngineNote": "The engine runs inside the app. Data and media stay on this device; no background service is required.",
+  "settingsEngineStatus": "Engine status",
+  "settingsExportPanelFailed": "Could not open the save panel: {reason}",
+  "@settingsExportPanelFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsExportFailed": "Config export failed: {reason}",
+  "@settingsExportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsConfigExported": "Config exported",
+  "settingsOpenFileFailed": "Could not open the file picker: {reason}",
+  "@settingsOpenFileFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsImportConfigTitle": "Import config",
+  "settingsImportConfigMessage": "Importing will overwrite providers, models, bindings and prompts with the same names. Continue?",
+  "settingsConfigInvalidFormat": "Invalid config file format",
+  "settingsConfigInvalidJson": "Config file is not valid JSON",
+  "settingsImportFailed": "Config import failed: {reason}",
+  "@settingsImportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsConfigImported": "Config imported",
+  "settingsEngineChecking": "Checking engine…",
+  "settingsEngineOk": "Engine OK · v{version}",
+  "@settingsEngineOk": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsEngineUnknown": "Unknown",
+  "settingsProviderColumnProtocol": "Protocol",
+  "settingsProviderColumnBaseUrl": "Base URL",
+  "settingsModelManagementTitle": "Model management · {name}",
+  "@settingsModelManagementTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAddModel": "Add model",
+  "settingsSaveModels": "Save",
+  "settingsModelsEmptyTitle": "No models yet",
+  "settingsModelsEmptySubtitle": "Add at least one text, image, video or voice model.",
+  "settingsModelIdRequired": "Model ID cannot be empty",
+  "settingsModelsSaved": "Models saved",
+  "settingsDeleteModel": "Delete model",
+  "settingsBindingModel": "Bound model",
+  "settingsSelectEnabledModel": "Choose an enabled model",
+  "settingsSelectModel": "Select model",
+  "settingsPromptContent": "Prompt content",
+  "taskCenterTitle": "Task Center",
+  "taskActiveTitle": "Active",
+  "taskActiveEmpty": "No active tasks",
+  "taskHistoryTitle": "History",
+  "taskNoProjects": "No projects",
+  "taskHistoryEmpty": "No task history for this project",
+  "taskFilterEmpty": "No tasks match the filters",
+  "taskEmpty": "No tasks",
+  "taskProjectLabel": "Project #{id}",
+  "@taskProjectLabel": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "taskCancelTooltip": "Cancel task",
+  "taskCanceledMessage": "Task canceled",
+  "taskRetryQueued": "Queued again",
+  "taskClassEventGeneration": "Event generation",
+  "taskClassAssetExtraction": "Asset extraction",
+  "taskClassGeneric": "Task"
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
+import '../util/l10n_ext.dart';
 
 Future<T?> showDFAdaptiveDialog<T>(
   BuildContext c, {
@@ -21,7 +22,7 @@ Future<T?> showDFAdaptiveDialog<T>(
             appBar: AppBar(
               title: Text(title),
               leading: IconButton(
-                tooltip: '关闭',
+                tooltip: context.l10n.commonClose,
                 onPressed: () => Navigator.of(context).maybePop(),
                 icon: const Icon(Icons.close_rounded),
               ),
@@ -94,7 +95,7 @@ Future<T?> showDFAdaptiveDialog<T>(
                             ),
                           ),
                           IconButton(
-                            tooltip: '关闭',
+                            tooltip: context.l10n.commonClose,
                             onPressed: () => Navigator.of(context).maybePop(),
                             icon: const Icon(Icons.close_rounded),
                           ),

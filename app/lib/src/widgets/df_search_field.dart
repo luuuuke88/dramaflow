@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
+import '../util/l10n_ext.dart';
 
 class DFSearchField extends StatefulWidget {
   final String hint;
@@ -49,7 +50,7 @@ class _DFSearchFieldState extends State<DFSearchField> {
             builder: (context, value, _) {
               if (value.text.isEmpty) return const SizedBox.shrink();
               return IconButton(
-                tooltip: '清除',
+                tooltip: context.l10n.commonClear,
                 onPressed: () {
                   _controller.clear();
                   widget.onSearch('');
