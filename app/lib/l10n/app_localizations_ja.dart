@@ -833,4 +833,207 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelAnalysisAnalyzing => 'イベント分析中';
+
+  @override
+  String get scriptSearchPlaceholder => 'シナリオ名を検索...';
+
+  @override
+  String get scriptSearch => '検索';
+
+  @override
+  String get scriptAddScript => 'シナリオを新規作成';
+
+  @override
+  String get scriptCancelSelectAll => '全選択を解除';
+
+  @override
+  String get scriptSelectAll => 'すべて選択';
+
+  @override
+  String get scriptExportScript => 'シナリオをエクスポート';
+
+  @override
+  String get scriptMsgExtracting => '资产提取中';
+
+  @override
+  String get scriptMsgExtractFailed => '资产提取失败';
+
+  @override
+  String get scriptMsgExtractingInProgress => '抽出中';
+
+  @override
+  String get scriptMsgProjectNotFound => 'アイテムが見つかりません';
+
+  @override
+  String get scriptMsgSelectExport => '先にエクスポートするシナリオを選択してください';
+
+  @override
+  String get scriptMsgDeleteHeader => '削除の確認';
+
+  @override
+  String get scriptMsgDeleteBody => 'このシナリオを削除してもよろしいですか？この操作は取り消せません。';
+
+  @override
+  String get scriptMsgDeleteConfirm => '削除';
+
+  @override
+  String get scriptMsgCancel => 'キャンセル';
+
+  @override
+  String get scriptMsgDeleteSuccess => '削除に成功しました';
+
+  @override
+  String get scriptMsgDeleteFailed => '削除に失敗しました';
+
+  @override
+  String get scriptMsgSelectDelScript => 'スクリプトを削除することを選択してください';
+
+  @override
+  String get scriptMsgBatchDeleteHeader => '一括削除';
+
+  @override
+  String scriptMsgBatchDeleteBody(String count) {
+    return '選択した $count 件のシナリオを削除してもよろしいですか？この操作は取り消せません。';
+  }
+
+  @override
+  String get scriptMsgBatchDeleteSuccess => '一括削除に成功しました';
+
+  @override
+  String get scriptMsgSearchFailed => 'シナリオの検索に失敗しました';
+
+  @override
+  String get scriptMsgSelectsExport => 'スクリプトをエクスポートすることを選択してください';
+
+  @override
+  String get scriptAddTitle => 'シナリオの追加';
+
+  @override
+  String get scriptAddScriptName => 'シナリオ名';
+
+  @override
+  String get scriptAddScriptNamePh => 'シナリオ名を入力してください';
+
+  @override
+  String get scriptAddUploadFile => 'ファイルをアップロード';
+
+  @override
+  String get scriptAddDragUpload => 'ここにシナリオファイルをドラッグ＆ドロップするか、クリックしてアップロード';
+
+  @override
+  String get scriptAddUploadHint => '対応形式: .txt, .docx。ファイルサイズは10MB以下を推奨します';
+
+  @override
+  String get scriptAddScriptContent => 'シナリオ内容';
+
+  @override
+  String get scriptAddScriptContentPh => 'シナリオ内容をアップロードまたは入力してください...';
+
+  @override
+  String get scriptAddRelatedAssets => '関連アセット';
+
+  @override
+  String get scriptAddSelectAssets => 'アセットを選択';
+
+  @override
+  String get scriptAddNoAssets => '関連アセットがありません';
+
+  @override
+  String get scriptAddCancel => 'キャンセル';
+
+  @override
+  String get scriptAddConfirm => '確定';
+
+  @override
+  String get scriptAddMsgFileReadFailed => 'ファイルの読み取りに失敗しました';
+
+  @override
+  String get scriptAddMsgDocNotSupported =>
+      '.docファイルの解析は未対応です。.txtまたは.docx形式に変換してください';
+
+  @override
+  String get scriptAddMsgUnsupportedType => '未対応のファイル形式です';
+
+  @override
+  String get scriptAddMsgFileTooLarge =>
+      'ファイルサイズが10MBを超えています。より小さなファイルをアップロードしてください';
+
+  @override
+  String get scriptAddMsgParsing => 'ファイルを解析中...';
+
+  @override
+  String get scriptAddMsgParseFailed => 'ファイルの解析に失敗しました。再アップロードしてください';
+
+  @override
+  String get scriptAddMsgSelectAssetsTitle => '関連アセットの選択';
+
+  @override
+  String get scriptAddMsgEnterContent => 'シナリオ内容をアップロードまたは入力してください';
+
+  @override
+  String get scriptAddMsgEnterName => 'シナリオ名を入力してください';
+
+  @override
+  String get scriptAddMsgAddSuccess => 'シナリオを追加しました';
+
+  @override
+  String get scriptAddMsgAddFailed => 'シナリオの追加に失敗しました。後で再試行してください';
+
+  @override
+  String get scriptEditTitle => 'シナリオ詳細';
+
+  @override
+  String get scriptEditScriptName => 'シナリオ名';
+
+  @override
+  String get scriptEditScriptNamePh => 'シナリオ名を入力してください';
+
+  @override
+  String get scriptEditScriptContent => 'シナリオ内容';
+
+  @override
+  String get scriptEditScriptContentPh => 'シナリオ内容を入力してください...';
+
+  @override
+  String get scriptEditRelatedAssets => '関連アセット';
+
+  @override
+  String get scriptEditSelectAssets => 'アセットを選択';
+
+  @override
+  String get scriptEditNoAssets => '関連アセットがありません';
+
+  @override
+  String get scriptEditMsgSelectAssetsTitle => '関連アセットの選択';
+
+  @override
+  String get scriptEditMsgUpdateSuccess => 'シナリオの更新に成功しました';
+
+  @override
+  String get scriptEditMsgUpdateFailed => 'シナリオの更新に失敗しました。後で再試行してください';
+
+  @override
+  String get scriptDeleteScript => 'スクリプトを一括で削除する';
+
+  @override
+  String get scriptExtractAssets => '';
+
+  @override
+  String get scriptImportGetAiRegex => 'AI解析正则';
+
+  @override
+  String get scriptImportEpisodeRegexPh =>
+      'スクリプト分割ルールをカスタマイズします。デフォルトの分割ルールを使用するには空白のままにしてください (デフォルトはエピソード X 形式に従って分割されます)。';
+
+  @override
+  String get scriptBatchAdd => '一括追加';
+
+  @override
+  String get scriptStateWaiting => '待機中...';
+
+  @override
+  String get scriptStateExtracting => '抽出中...';
+
+  @override
+  String get scriptStateFailed => '抽出失敗';
 }

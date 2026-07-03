@@ -851,4 +851,215 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get novelAnalysisAnalyzing => 'Analyzing events';
+
+  @override
+  String get scriptSearchPlaceholder => 'Search script names...';
+
+  @override
+  String get scriptSearch => 'Search';
+
+  @override
+  String get scriptAddScript => 'New Script';
+
+  @override
+  String get scriptCancelSelectAll => 'Deselect All';
+
+  @override
+  String get scriptSelectAll => 'Select All';
+
+  @override
+  String get scriptExportScript => 'Export Script';
+
+  @override
+  String get scriptMsgExtracting => '资产提取中';
+
+  @override
+  String get scriptMsgExtractFailed => '资产提取失败';
+
+  @override
+  String get scriptMsgExtractingInProgress => 'Extracting';
+
+  @override
+  String get scriptMsgProjectNotFound => 'Item not found';
+
+  @override
+  String get scriptMsgSelectExport => 'Please select a script to export';
+
+  @override
+  String get scriptMsgDeleteHeader => 'Confirm Deletion';
+
+  @override
+  String get scriptMsgDeleteBody =>
+      'Are you sure you want to delete this script? This cannot be undone.';
+
+  @override
+  String get scriptMsgDeleteConfirm => 'Delete';
+
+  @override
+  String get scriptMsgCancel => 'Cancel';
+
+  @override
+  String get scriptMsgDeleteSuccess => 'Deleted successfully';
+
+  @override
+  String get scriptMsgDeleteFailed => 'Deletion failed';
+
+  @override
+  String get scriptMsgSelectDelScript => 'Please choose to delete the script';
+
+  @override
+  String get scriptMsgBatchDeleteHeader => 'Batch Delete';
+
+  @override
+  String scriptMsgBatchDeleteBody(String count) {
+    return 'Are you sure you want to delete the selected $count scripts? This cannot be undone.';
+  }
+
+  @override
+  String get scriptMsgBatchDeleteSuccess => 'Batch deletion successful';
+
+  @override
+  String get scriptMsgSearchFailed => 'Failed to search scripts';
+
+  @override
+  String get scriptMsgSelectsExport => 'Please choose to export the script';
+
+  @override
+  String get scriptAddTitle => 'Add Script';
+
+  @override
+  String get scriptAddScriptName => 'Script Name';
+
+  @override
+  String get scriptAddScriptNamePh => 'Please enter script name';
+
+  @override
+  String get scriptAddUploadFile => 'Upload File';
+
+  @override
+  String get scriptAddDragUpload =>
+      'Drag and drop your script file here or click to upload';
+
+  @override
+  String get scriptAddUploadHint =>
+      'Supports .txt, .docx. Recommended file size under 10MB';
+
+  @override
+  String get scriptAddScriptContent => 'Script Content';
+
+  @override
+  String get scriptAddScriptContentPh =>
+      'Please upload or enter script content...';
+
+  @override
+  String get scriptAddRelatedAssets => 'Related Assets';
+
+  @override
+  String get scriptAddSelectAssets => 'Select Assets';
+
+  @override
+  String get scriptAddNoAssets => 'No related assets';
+
+  @override
+  String get scriptAddCancel => 'Cancel';
+
+  @override
+  String get scriptAddConfirm => 'Confirm';
+
+  @override
+  String get scriptAddMsgFileReadFailed => 'Failed to read file';
+
+  @override
+  String get scriptAddMsgDocNotSupported =>
+      '.doc parsing is not supported. Please convert to .txt or .docx';
+
+  @override
+  String get scriptAddMsgUnsupportedType => 'Unsupported file type';
+
+  @override
+  String get scriptAddMsgFileTooLarge =>
+      'File exceeds 10MB. Please upload a smaller file';
+
+  @override
+  String get scriptAddMsgParsing => 'Parsing file...';
+
+  @override
+  String get scriptAddMsgParseFailed =>
+      'Failed to parse file, please re-upload';
+
+  @override
+  String get scriptAddMsgSelectAssetsTitle => 'Select Related Assets';
+
+  @override
+  String get scriptAddMsgEnterContent =>
+      'Please upload or enter script content';
+
+  @override
+  String get scriptAddMsgEnterName => 'Please enter script name';
+
+  @override
+  String get scriptAddMsgAddSuccess => 'Script added successfully';
+
+  @override
+  String get scriptAddMsgAddFailed =>
+      'Failed to add script, please try again later';
+
+  @override
+  String get scriptEditTitle => 'Script Details';
+
+  @override
+  String get scriptEditScriptName => 'Script Name';
+
+  @override
+  String get scriptEditScriptNamePh => 'Please enter script name';
+
+  @override
+  String get scriptEditScriptContent => 'Script Content';
+
+  @override
+  String get scriptEditScriptContentPh => 'Please enter script content...';
+
+  @override
+  String get scriptEditRelatedAssets => 'Related Assets';
+
+  @override
+  String get scriptEditSelectAssets => 'Select Assets';
+
+  @override
+  String get scriptEditNoAssets => 'No related assets';
+
+  @override
+  String get scriptEditMsgSelectAssetsTitle => 'Select Related Assets';
+
+  @override
+  String get scriptEditMsgUpdateSuccess => 'Script updated successfully';
+
+  @override
+  String get scriptEditMsgUpdateFailed =>
+      'Failed to update script, please try again later';
+
+  @override
+  String get scriptDeleteScript => 'Delete scripts in batches';
+
+  @override
+  String get scriptExtractAssets => '';
+
+  @override
+  String get scriptImportGetAiRegex => 'AI解析正则';
+
+  @override
+  String get scriptImportEpisodeRegexPh =>
+      'Customize the script splitting rule, leave it blank to use the default splitting rule (the default is to split according to the Episode X format)';
+
+  @override
+  String get scriptBatchAdd => 'Batch Add';
+
+  @override
+  String get scriptStateWaiting => 'Waiting...';
+
+  @override
+  String get scriptStateExtracting => 'Extracting...';
+
+  @override
+  String get scriptStateFailed => 'Extraction failed';
 }

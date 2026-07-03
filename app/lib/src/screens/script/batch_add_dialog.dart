@@ -1,0 +1,352 @@
+// 批量添加剧本对话框（照抄 batchAddScript.vue 两步）：
+// 第一步＝分集正则（支持 /pattern/flags，实时校验）+ AI解析正则 + 上传/粘贴；
+// 第二步＝选择表 + 已选字数 + 保存（batchAddScripts）。
+import 'dart:convert';
+
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../engine/errors.dart';
+import '../../engine/novel_parse.dart';
+import '../../engine/scripts.dart';
+import '../../state/providers.dart';
+import '../../theme/theme.dart';
+import '../../theme/tokens.dart';
+import '../../util/error_l10n.dart';
+import '../../util/l10n_ext.dart';
+import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/df_data_table.dart';
+
+const _maxFileBytes = 10 * 1024 * 1024;
+
+Future<bool?> showBatchAddDialog(BuildContext context, WidgetRef ref,
+    {required int projectId}) {
+  return showDFAdaptiveDialog<bool>(
+    context,
+    title: context.l10n.scriptBatchAdd,
+    desktopWidthFactor: 0.56,
+    builder: (c) => _BatchAddBody(projectId: projectId, ref: ref),
+  );
+}
+
+class _BatchAddBody extends StatefulWidget {
+  final int projectId;
+  final WidgetRef ref;
+  const _BatchAddBody({required this.projectId, required this.ref});
+
+  @override
+  State<_BatchAddBody> createState() => _BatchAddBodyState();
+}
+
+class _BatchAddBodyState extends State<_BatchAddBody> {
+  int _step = 0;
+  final TextEditingController _regex = TextEditingController();
+  final TextEditingController _content = TextEditingController();
+  String? _regexError;
+  bool _aiLoading = false;
+  bool _saving = false;
+  List<({String scriptName, String scriptData})> _parsed = const [];
+  final Set<String> _selected = {};
+
+  @override
+  void dispose() {
+    _regex.dispose();
+    _content.dispose();
+    super.dispose();
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  void _validateRegex() {
+    final raw = _regex.text.trim();
+    if (raw.isEmpty) {
+      setState(() => _regexError = null);
+      return;
+    }
+    try {
+      final m = RegExp(r'^/(.*)/([igmuy]*)$').firstMatch(raw);
+      RegExp(m != null ? m.group(1)! : raw);
+      setState(() => _regexError = null);
+    } catch (_) {
+      setState(() => _regexError = context.l10n.errRegexInvalid);
+    }
+  }
+
+  void _reparse() {
+    // 用与引擎一致的 parseNovel（自定义正则语义相同）拆集
+    try {
+      final reels =
+          parseNovel(_content.text, chapterReg: _regex.text.trim().isEmpty
+              ? null
+              : _regex.text.trim());
+      _parsed = [
+        for (final item in flattenParsedNovel(reels))
+          (
+            scriptName: item.chapter.isEmpty
+                ? '${item.index}'
+                : item.chapter,
+            scriptData: item.chapterData,
+          ),
+      ];
+    } catch (_) {
+      _parsed = const [];
+    }
+    setState(() {});
+  }
+
+  Future<void> _aiRegex() async {
+    if (_content.text.trim().isEmpty) {
+      _toast(context.l10n.scriptAddMsgEnterContent);
+      return;
+    }
+    setState(() => _aiLoading = true);
+    try {
+      final regex =
+          await widget.ref.read(engineProvider).aiEpisodeRegex(_content.text);
+      _regex.text = regex;
+      _validateRegex();
+      _reparse();
+    } catch (e) {
+      if (mounted) _toast(localizeError(context, e));
+    } finally {
+      if (mounted) setState(() => _aiLoading = false);
+    }
+  }
+
+  Future<void> _pickFile() async {
+    final l10n = context.l10n;
+    final file = await openFile(acceptedTypeGroups: [
+      const XTypeGroup(label: 'script', extensions: ['txt', 'docx'])
+    ]);
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    if (bytes.length > _maxFileBytes) {
+      if (mounted) _toast(l10n.scriptAddMsgFileTooLarge);
+      return;
+    }
+    try {
+      final name = file.name.toLowerCase();
+      if (name.endsWith('.docx')) {
+        _content.text = extractDocxText(bytes);
+      } else if (name.endsWith('.txt')) {
+        _content.text = utf8.decode(bytes, allowMalformed: true);
+      } else {
+        if (mounted) _toast(l10n.scriptAddMsgUnsupportedType);
+        return;
+      }
+      _reparse();
+    } on EngineException catch (e) {
+      if (mounted) _toast(localizeError(context, e));
+    } catch (_) {
+      if (mounted) _toast(l10n.scriptAddMsgParseFailed);
+    }
+  }
+
+  Future<void> _save() async {
+    final l10n = context.l10n;
+    final rows = [
+      for (final item in _parsed)
+        if (_selected.contains(item.scriptName)) item,
+    ];
+    if (rows.isEmpty) {
+      _toast(l10n.novelImportMsgSelectChapters);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      widget.ref
+          .read(engineProvider)
+          .batchAddScripts(widget.projectId, rows);
+      _toast(l10n.scriptAddMsgAddSuccess);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) _toast(localizeError(context, e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _step1() {
+    final l10n = context.l10n;
+    final df = context.df;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        Expanded(
+          child: TextField(
+            controller: _regex,
+            onChanged: (_) {
+              _validateRegex();
+              _reparse();
+            },
+            decoration: InputDecoration(
+              hintText: l10n.scriptImportEpisodeRegexPh,
+              errorText: _regexError,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton(
+          onPressed: _aiLoading ? null : _aiRegex,
+          child: _aiLoading
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(l10n.scriptImportGetAiRegex),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      InkWell(
+        onTap: _pickFile,
+        child: Container(
+          height: 84,
+          decoration: BoxDecoration(
+            border: Border.all(color: df.stroke, width: 1.4),
+            borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+            color: df.surfaceMuted,
+          ),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.upload_file_outlined, size: 26, color: df.primary),
+            const SizedBox(height: 4),
+            Text(l10n.scriptAddDragUpload, style: const TextStyle(fontSize: 12)),
+            Text(l10n.scriptAddUploadHint,
+                style: TextStyle(fontSize: 10, color: df.textTertiary)),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 12),
+      TextField(
+        controller: _content,
+        minLines: 9,
+        maxLines: 9,
+        onChanged: (_) => _reparse(),
+        decoration: InputDecoration(
+          hintText: l10n.novelImportPastePlaceholder,
+        ),
+      ),
+      const SizedBox(height: 6),
+      Align(
+        alignment: Alignment.centerRight,
+        child: Text(l10n.novelImportParsedChapters('${_parsed.length}'),
+            style: TextStyle(fontSize: 12, color: df.textSecondary)),
+      ),
+    ]);
+  }
+
+  Widget _step2() {
+    final l10n = context.l10n;
+    final df = context.df;
+    final selectedChars = _parsed
+        .where((s) => _selected.contains(s.scriptName))
+        .fold<int>(0, (sum, s) => sum + s.scriptData.length);
+    return Column(children: [
+      Expanded(
+        child: DFDataTable(
+          columns: [
+            DFDataColumn(label: l10n.novelColId),
+            DFDataColumn(label: l10n.scriptAddScriptName),
+            DFDataColumn(label: l10n.scriptAddScriptContent),
+          ],
+          selectable: true,
+          selectedIds: _selected,
+          onSelectionChanged: (ids) => setState(() => _selected
+            ..clear()
+            ..addAll(ids)),
+          rows: [
+            for (final (i, s) in _parsed.indexed)
+              DFDataRow(
+                id: s.scriptName,
+                cells: [
+                  Text('${i + 1}'),
+                  Text(s.scriptName,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(
+                    s.scriptData.length > 60
+                        ? s.scriptData.substring(0, 60)
+                        : s.scriptData,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+          ],
+          mobileCardBuilder: (c, row) {
+            final s = _parsed.firstWhere((x) => x.scriptName == row.id);
+            return ListTile(
+              title: Text(s.scriptName),
+              subtitle: Text(
+                s.scriptData.length > 40
+                    ? s.scriptData.substring(0, 40)
+                    : s.scriptData,
+                style: const TextStyle(fontSize: 12),
+              ),
+            );
+          },
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Text(l10n.novelImportSelectedInfo('$selectedChars'),
+              style: TextStyle(fontSize: 12, color: df.textSecondary)),
+        ),
+      ),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Flexible(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: SizedBox(
+            height: 430,
+            child: _step == 0
+                ? SingleChildScrollView(child: _step1())
+                : _step2(),
+          ),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          if (_step == 1)
+            TextButton(
+              onPressed: () => setState(() => _step = 0),
+              child: Text(l10n.novelImportPrevStep),
+            ),
+          const SizedBox(width: 8),
+          if (_step == 0)
+            FilledButton(
+              onPressed: _parsed.isEmpty || _regexError != null
+                  ? null
+                  : () => setState(() {
+                        _step = 1;
+                        _selected
+                          ..clear()
+                          ..addAll([for (final s in _parsed) s.scriptName]);
+                      }),
+              child: Text(l10n.novelImportNextStep),
+            )
+          else
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(l10n.commonSave),
+            ),
+        ]),
+      ),
+    ]);
+  }
+}

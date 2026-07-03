@@ -454,3 +454,19 @@ extension ScriptsApi on Engine {
     return ZipEncoder().encode(archive);
   }
 }
+
+/// 资产选择器数据源（P2 素材库前的最小只读查询）。
+extension ScriptAssetOptions on Engine {
+  List<({int id, String name, String type})> assetOptions(int projectId) => db
+      .select(
+        "SELECT id,name,type FROM o_assets WHERE projectId=? "
+        "AND type IN ('role','tool','scene') ORDER BY id",
+        [projectId],
+      )
+      .map((r) => (
+            id: r['id'] as int,
+            name: (r['name'] as String?) ?? '',
+            type: (r['type'] as String?) ?? '',
+          ))
+      .toList();
+}

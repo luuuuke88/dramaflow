@@ -827,4 +827,204 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelAnalysisAnalyzing => '事件分析中';
+
+  @override
+  String get scriptSearchPlaceholder => '搜索剧本名称...';
+
+  @override
+  String get scriptSearch => '搜索';
+
+  @override
+  String get scriptAddScript => '新建剧本';
+
+  @override
+  String get scriptCancelSelectAll => '取消全选';
+
+  @override
+  String get scriptSelectAll => '全选';
+
+  @override
+  String get scriptExportScript => '导出剧本';
+
+  @override
+  String get scriptMsgExtracting => '资产提取中';
+
+  @override
+  String get scriptMsgExtractFailed => '资产提取失败';
+
+  @override
+  String get scriptMsgExtractingInProgress => '正在提取中';
+
+  @override
+  String get scriptMsgProjectNotFound => '项目未找到';
+
+  @override
+  String get scriptMsgSelectExport => '请选择导出剧本';
+
+  @override
+  String get scriptMsgDeleteHeader => '确认删除';
+
+  @override
+  String get scriptMsgDeleteBody => '确认要删除这个剧本吗？次操作无法复原';
+
+  @override
+  String get scriptMsgDeleteConfirm => '删除';
+
+  @override
+  String get scriptMsgCancel => '取消';
+
+  @override
+  String get scriptMsgDeleteSuccess => '删除成功';
+
+  @override
+  String get scriptMsgDeleteFailed => '删除失败';
+
+  @override
+  String get scriptMsgSelectDelScript => '请选择删除剧本';
+
+  @override
+  String get scriptMsgBatchDeleteHeader => '批量删除';
+
+  @override
+  String scriptMsgBatchDeleteBody(String count) {
+    return '确定要删除选中的$count个剧本吗？此操作无法复原';
+  }
+
+  @override
+  String get scriptMsgBatchDeleteSuccess => '批量删除成功';
+
+  @override
+  String get scriptMsgSearchFailed => '搜索剧本失败';
+
+  @override
+  String get scriptMsgSelectsExport => '请选择导出剧本';
+
+  @override
+  String get scriptAddTitle => '新增剧本';
+
+  @override
+  String get scriptAddScriptName => '剧本名称';
+
+  @override
+  String get scriptAddScriptNamePh => '请输入剧本名称';
+
+  @override
+  String get scriptAddUploadFile => '上传文件';
+
+  @override
+  String get scriptAddDragUpload => '拖拽剧本文件到此处或点击上传';
+
+  @override
+  String get scriptAddUploadHint => '支持 .txt, .docx 格式，建议文件大小不超过 10MB';
+
+  @override
+  String get scriptAddScriptContent => '剧本内容';
+
+  @override
+  String get scriptAddScriptContentPh => '请上传或输入剧本内容...';
+
+  @override
+  String get scriptAddRelatedAssets => '关联资产';
+
+  @override
+  String get scriptAddSelectAssets => '选择资产';
+
+  @override
+  String get scriptAddNoAssets => '暂未关联资产';
+
+  @override
+  String get scriptAddCancel => '取消';
+
+  @override
+  String get scriptAddConfirm => '确认';
+
+  @override
+  String get scriptAddMsgFileReadFailed => '文件读取失败';
+
+  @override
+  String get scriptAddMsgDocNotSupported => '.doc文件不支持解析,请转换为.txt或.docx文件';
+
+  @override
+  String get scriptAddMsgUnsupportedType => '不支持的文件类型';
+
+  @override
+  String get scriptAddMsgFileTooLarge => '文件大小超过10MB，请上传更小的文件';
+
+  @override
+  String get scriptAddMsgParsing => '文件解析中...';
+
+  @override
+  String get scriptAddMsgParseFailed => '文件解析失败，请重新上传';
+
+  @override
+  String get scriptAddMsgSelectAssetsTitle => '选择关联资产';
+
+  @override
+  String get scriptAddMsgEnterContent => '请上传或输入剧本内容';
+
+  @override
+  String get scriptAddMsgEnterName => '请输入剧本名称';
+
+  @override
+  String get scriptAddMsgAddSuccess => '剧本添加成功';
+
+  @override
+  String get scriptAddMsgAddFailed => '添加剧本失败，请稍后再试';
+
+  @override
+  String get scriptEditTitle => '剧本详情';
+
+  @override
+  String get scriptEditScriptName => '剧本名称';
+
+  @override
+  String get scriptEditScriptNamePh => '请输入剧本名称';
+
+  @override
+  String get scriptEditScriptContent => '剧本内容';
+
+  @override
+  String get scriptEditScriptContentPh => '请输入剧本内容...';
+
+  @override
+  String get scriptEditRelatedAssets => '关联资产';
+
+  @override
+  String get scriptEditSelectAssets => '选择资产';
+
+  @override
+  String get scriptEditNoAssets => '暂未关联资产';
+
+  @override
+  String get scriptEditMsgSelectAssetsTitle => '选择关联资产';
+
+  @override
+  String get scriptEditMsgUpdateSuccess => '剧本更新成功';
+
+  @override
+  String get scriptEditMsgUpdateFailed => '更新剧本失败，请稍后再试';
+
+  @override
+  String get scriptDeleteScript => '批量删除剧本';
+
+  @override
+  String get scriptExtractAssets => '提取资产';
+
+  @override
+  String get scriptImportGetAiRegex => 'AI解析正则';
+
+  @override
+  String get scriptImportEpisodeRegexPh => '自定义剧本拆分正则';
+
+  @override
+  String get scriptBatchAdd => '批量添加';
+
+  @override
+  String get scriptStateWaiting => '等待提取...';
+
+  @override
+  String get scriptStateExtracting => '提取中...';
+
+  @override
+  String get scriptStateFailed => '提取失败';
 }

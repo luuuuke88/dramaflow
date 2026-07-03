@@ -1683,6 +1683,402 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'事件分析中'**
   String get novelAnalysisAnalyzing;
+
+  /// No description provided for @scriptSearchPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索剧本名称...'**
+  String get scriptSearchPlaceholder;
+
+  /// No description provided for @scriptSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索'**
+  String get scriptSearch;
+
+  /// No description provided for @scriptAddScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建剧本'**
+  String get scriptAddScript;
+
+  /// No description provided for @scriptCancelSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消全选'**
+  String get scriptCancelSelectAll;
+
+  /// No description provided for @scriptSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get scriptSelectAll;
+
+  /// No description provided for @scriptExportScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出剧本'**
+  String get scriptExportScript;
+
+  /// No description provided for @scriptMsgExtracting.
+  ///
+  /// In zh, this message translates to:
+  /// **'资产提取中'**
+  String get scriptMsgExtracting;
+
+  /// No description provided for @scriptMsgExtractFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'资产提取失败'**
+  String get scriptMsgExtractFailed;
+
+  /// No description provided for @scriptMsgExtractingInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在提取中'**
+  String get scriptMsgExtractingInProgress;
+
+  /// No description provided for @scriptMsgProjectNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目未找到'**
+  String get scriptMsgProjectNotFound;
+
+  /// No description provided for @scriptMsgSelectExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择导出剧本'**
+  String get scriptMsgSelectExport;
+
+  /// No description provided for @scriptMsgDeleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除'**
+  String get scriptMsgDeleteHeader;
+
+  /// No description provided for @scriptMsgDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认要删除这个剧本吗？次操作无法复原'**
+  String get scriptMsgDeleteBody;
+
+  /// No description provided for @scriptMsgDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get scriptMsgDeleteConfirm;
+
+  /// No description provided for @scriptMsgCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get scriptMsgCancel;
+
+  /// No description provided for @scriptMsgDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除成功'**
+  String get scriptMsgDeleteSuccess;
+
+  /// No description provided for @scriptMsgDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除失败'**
+  String get scriptMsgDeleteFailed;
+
+  /// No description provided for @scriptMsgSelectDelScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择删除剧本'**
+  String get scriptMsgSelectDelScript;
+
+  /// No description provided for @scriptMsgBatchDeleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除'**
+  String get scriptMsgBatchDeleteHeader;
+
+  /// No description provided for @scriptMsgBatchDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除选中的{count}个剧本吗？此操作无法复原'**
+  String scriptMsgBatchDeleteBody(String count);
+
+  /// No description provided for @scriptMsgBatchDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除成功'**
+  String get scriptMsgBatchDeleteSuccess;
+
+  /// No description provided for @scriptMsgSearchFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索剧本失败'**
+  String get scriptMsgSearchFailed;
+
+  /// No description provided for @scriptMsgSelectsExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择导出剧本'**
+  String get scriptMsgSelectsExport;
+
+  /// No description provided for @scriptAddTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增剧本'**
+  String get scriptAddTitle;
+
+  /// No description provided for @scriptAddScriptName.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本名称'**
+  String get scriptAddScriptName;
+
+  /// No description provided for @scriptAddScriptNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入剧本名称'**
+  String get scriptAddScriptNamePh;
+
+  /// No description provided for @scriptAddUploadFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传文件'**
+  String get scriptAddUploadFile;
+
+  /// No description provided for @scriptAddDragUpload.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖拽剧本文件到此处或点击上传'**
+  String get scriptAddDragUpload;
+
+  /// No description provided for @scriptAddUploadHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持 .txt, .docx 格式，建议文件大小不超过 10MB'**
+  String get scriptAddUploadHint;
+
+  /// No description provided for @scriptAddScriptContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本内容'**
+  String get scriptAddScriptContent;
+
+  /// No description provided for @scriptAddScriptContentPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请上传或输入剧本内容...'**
+  String get scriptAddScriptContentPh;
+
+  /// No description provided for @scriptAddRelatedAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'关联资产'**
+  String get scriptAddRelatedAssets;
+
+  /// No description provided for @scriptAddSelectAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择资产'**
+  String get scriptAddSelectAssets;
+
+  /// No description provided for @scriptAddNoAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂未关联资产'**
+  String get scriptAddNoAssets;
+
+  /// No description provided for @scriptAddCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get scriptAddCancel;
+
+  /// No description provided for @scriptAddConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认'**
+  String get scriptAddConfirm;
+
+  /// No description provided for @scriptAddMsgFileReadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件读取失败'**
+  String get scriptAddMsgFileReadFailed;
+
+  /// No description provided for @scriptAddMsgDocNotSupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'.doc文件不支持解析,请转换为.txt或.docx文件'**
+  String get scriptAddMsgDocNotSupported;
+
+  /// No description provided for @scriptAddMsgUnsupportedType.
+  ///
+  /// In zh, this message translates to:
+  /// **'不支持的文件类型'**
+  String get scriptAddMsgUnsupportedType;
+
+  /// No description provided for @scriptAddMsgFileTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件大小超过10MB，请上传更小的文件'**
+  String get scriptAddMsgFileTooLarge;
+
+  /// No description provided for @scriptAddMsgParsing.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件解析中...'**
+  String get scriptAddMsgParsing;
+
+  /// No description provided for @scriptAddMsgParseFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件解析失败，请重新上传'**
+  String get scriptAddMsgParseFailed;
+
+  /// No description provided for @scriptAddMsgSelectAssetsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择关联资产'**
+  String get scriptAddMsgSelectAssetsTitle;
+
+  /// No description provided for @scriptAddMsgEnterContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'请上传或输入剧本内容'**
+  String get scriptAddMsgEnterContent;
+
+  /// No description provided for @scriptAddMsgEnterName.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入剧本名称'**
+  String get scriptAddMsgEnterName;
+
+  /// No description provided for @scriptAddMsgAddSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本添加成功'**
+  String get scriptAddMsgAddSuccess;
+
+  /// No description provided for @scriptAddMsgAddFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加剧本失败，请稍后再试'**
+  String get scriptAddMsgAddFailed;
+
+  /// No description provided for @scriptEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本详情'**
+  String get scriptEditTitle;
+
+  /// No description provided for @scriptEditScriptName.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本名称'**
+  String get scriptEditScriptName;
+
+  /// No description provided for @scriptEditScriptNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入剧本名称'**
+  String get scriptEditScriptNamePh;
+
+  /// No description provided for @scriptEditScriptContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本内容'**
+  String get scriptEditScriptContent;
+
+  /// No description provided for @scriptEditScriptContentPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入剧本内容...'**
+  String get scriptEditScriptContentPh;
+
+  /// No description provided for @scriptEditRelatedAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'关联资产'**
+  String get scriptEditRelatedAssets;
+
+  /// No description provided for @scriptEditSelectAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择资产'**
+  String get scriptEditSelectAssets;
+
+  /// No description provided for @scriptEditNoAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂未关联资产'**
+  String get scriptEditNoAssets;
+
+  /// No description provided for @scriptEditMsgSelectAssetsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择关联资产'**
+  String get scriptEditMsgSelectAssetsTitle;
+
+  /// No description provided for @scriptEditMsgUpdateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本更新成功'**
+  String get scriptEditMsgUpdateSuccess;
+
+  /// No description provided for @scriptEditMsgUpdateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新剧本失败，请稍后再试'**
+  String get scriptEditMsgUpdateFailed;
+
+  /// No description provided for @scriptDeleteScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除剧本'**
+  String get scriptDeleteScript;
+
+  /// No description provided for @scriptExtractAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'提取资产'**
+  String get scriptExtractAssets;
+
+  /// No description provided for @scriptImportGetAiRegex.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI解析正则'**
+  String get scriptImportGetAiRegex;
+
+  /// No description provided for @scriptImportEpisodeRegexPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义剧本拆分正则'**
+  String get scriptImportEpisodeRegexPh;
+
+  /// No description provided for @scriptBatchAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量添加'**
+  String get scriptBatchAdd;
+
+  /// No description provided for @scriptStateWaiting.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待提取...'**
+  String get scriptStateWaiting;
+
+  /// No description provided for @scriptStateExtracting.
+  ///
+  /// In zh, this message translates to:
+  /// **'提取中...'**
+  String get scriptStateExtracting;
+
+  /// No description provided for @scriptStateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'提取失败'**
+  String get scriptStateFailed;
 }
 
 class _AppLocalizationsDelegate
