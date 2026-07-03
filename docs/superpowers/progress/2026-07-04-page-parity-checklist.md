@@ -10,11 +10,11 @@ Status: Partial
 
 Desktop Evidence: `app/test/widgets/project_page_test.dart` covers the empty state and new-project entry; `app/test/engine/projects_test.dart` covers project CRUD fields.
 
-Mobile Evidence: Existing shell and responsive layout tests cover mobile navigation indirectly; no dedicated mobile project wizard smoke is recorded yet.
+Mobile Evidence: `app/test/widgets/project_page_test.dart` covers a 390px full-screen new-project wizard: project type, name, novel type, intro, image model, image quality, video model, video mode, video ratio, visual manual, and director manual are saved into `o_project`.
 
-Known Gaps: Need a mobile test for the full new-project wizard, including art style, image model, image quality, video model, video ratio, and director manual fields.
+Known Gaps: Desktop edit/delete/stat card parity and mobile project card action coverage still need stronger proof.
 
-Next Verification: Add a 390px widget smoke that creates a project through the dialog and verifies persisted project settings.
+Next Verification: Add desktop/mobile project card action tests for edit, delete, and project statistics display.
 
 ## 章节管理 + 事件
 

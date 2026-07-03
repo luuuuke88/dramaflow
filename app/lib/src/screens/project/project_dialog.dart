@@ -184,6 +184,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
       _label(l10n.projectDialogProjectType),
       DropdownButtonFormField<String>(
         initialValue: _projectType,
+        isExpanded: true,
         items: [
           DropdownMenuItem(
               value: 'novel', child: Text(l10n.projectDialogBasedOnNovel)),
@@ -196,8 +197,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
       _label(l10n.projectDialogProjectName),
       TextField(
         controller: _name,
-        decoration:
-            InputDecoration(hintText: l10n.projectDialogProjectNamePh),
+        decoration: InputDecoration(hintText: l10n.projectDialogProjectNamePh),
       ),
       _label(l10n.projectDialogNovelType),
       TextField(
@@ -220,6 +220,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
           flex: 1,
           child: DropdownButtonFormField<String>(
             initialValue: _imageQuality,
+            isExpanded: true,
             items: const [
               DropdownMenuItem(value: '1K', child: Text('1K')),
               DropdownMenuItem(value: '2K', child: Text('2K')),
@@ -240,9 +241,8 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
             onChanged: (o) => setState(() {
               _videoModel = o?.value;
               final modes = o?.capabilities['modes'];
-              _videoModes = modes is List
-                  ? modes.map((e) => '$e').toList()
-                  : const [];
+              _videoModes =
+                  modes is List ? modes.map((e) => '$e').toList() : const [];
               if (!_videoModes.contains(_mode)) _mode = null;
             }),
           ),
@@ -253,6 +253,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
             flex: 1,
             child: DropdownButtonFormField<String>(
               initialValue: _mode,
+              isExpanded: true,
               hint: Text(l10n.projectMsgSelectMode,
                   style: TextStyle(fontSize: 12, color: df.textTertiary)),
               items: [
@@ -267,6 +268,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
       _label(l10n.projectDialogVideoRatio),
       DropdownButtonFormField<String>(
         initialValue: _videoRatio,
+        isExpanded: true,
         items: const [
           DropdownMenuItem(value: '16:9', child: Text('16:9')),
           DropdownMenuItem(value: '9:16', child: Text('9:16')),
@@ -300,8 +302,8 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
             if (changed == true) _reloadManuals();
           },
           icon: const Icon(Icons.tune, size: 16),
-          label: Text(l10n.artStyleManage,
-              style: const TextStyle(fontSize: 12)),
+          label:
+              Text(l10n.artStyleManage, style: const TextStyle(fontSize: 12)),
           style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               visualDensity: VisualDensity.compact),
@@ -327,8 +329,8 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
               style: style,
               absPath: engine.mediaAbsPath,
               selected: _artStyle == style.prompt && style.prompt.isNotEmpty,
-              onTap: () => setState(() => _artStyle =
-                  _artStyle == style.prompt ? null : style.prompt),
+              onTap: () => setState(() =>
+                  _artStyle = _artStyle == style.prompt ? null : style.prompt),
             ),
         ]),
     ]);
@@ -346,13 +348,12 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
         selectedName: _artStyle,
         onSelect: (p) => setState(() => _artStyle = p?.name),
         onCreate: () async {
-          final saved =
-              await showManualEditor(context, ref, kind: 'visual');
+          final saved = await showManualEditor(context, ref, kind: 'visual');
           if (saved == true) _reloadManuals();
         },
         onEdit: (p) async {
-          final saved = await showManualEditor(context, ref,
-              kind: 'visual', existing: p);
+          final saved =
+              await showManualEditor(context, ref, kind: 'visual', existing: p);
           if (saved == true) _reloadManuals();
         },
         onDelete: (p) => _deleteManual('visual', p),
@@ -365,8 +366,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
         selectedName: _directorManual,
         onSelect: (p) => setState(() => _directorManual = p?.name),
         onCreate: () async {
-          final saved =
-              await showManualEditor(context, ref, kind: 'director');
+          final saved = await showManualEditor(context, ref, kind: 'director');
           if (saved == true) _reloadManuals();
         },
         onEdit: (p) async {
@@ -472,8 +472,8 @@ class _ArtStyleChip extends StatelessWidget {
                 : Image.file(
                     File(absPath(rel)),
                     fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => Icon(
-                        Icons.broken_image_outlined, color: df.textTertiary),
+                    errorBuilder: (c, e, s) => Icon(Icons.broken_image_outlined,
+                        color: df.textTertiary),
                   ),
           ),
           Container(
