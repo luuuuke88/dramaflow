@@ -195,4 +195,359 @@ class AppLocalizationsJa extends AppLocalizations {
   String shellComingSoonBadge(String batch) {
     return '$batch';
   }
+
+  @override
+  String get projectTitle => 'マイプロジェクト';
+
+  @override
+  String get projectSubtitle => 'すべてのショートドラマプロジェクトを管理します';
+
+  @override
+  String get projectNewProject => '新規プロジェクト';
+
+  @override
+  String get projectDialogEditTitle => 'プロジェクトの編集';
+
+  @override
+  String get projectDialogAddTitle => '新規プロジェクト';
+
+  @override
+  String get projectDialogSave => '保存';
+
+  @override
+  String get projectDialogOk => '確定';
+
+  @override
+  String get projectDialogCancel => 'キャンセル';
+
+  @override
+  String get projectDialogProjectType => 'プロジェクトタイプ';
+
+  @override
+  String get projectDialogSelectType => 'プロジェクトタイプを選択';
+
+  @override
+  String get projectDialogBasedOnNovel => '小説の原文に基づく';
+
+  @override
+  String get projectDialogProjectName => 'プロジェクト名';
+
+  @override
+  String get projectDialogProjectNamePh => 'プロジェクト名を入力してください';
+
+  @override
+  String get projectDialogNovelType => '小説のジャンル';
+
+  @override
+  String get projectDialogNovelTypePh => '例：ファンタジー、SF、恋愛';
+
+  @override
+  String get projectDialogArtStyle => 'ビジュアルマニュアル';
+
+  @override
+  String get projectDialogSelected => '選択済み：';
+
+  @override
+  String get projectDialogSelectArtStyle => 'ビジュアルマニュアルを選択してください';
+
+  @override
+  String get projectDialogNewArtStyle => '新しいビジュアルマニュアル';
+
+  @override
+  String get projectDialogLoading => '読み込み中...';
+
+  @override
+  String get projectDialogVideoRatio => '画面アスペクト比';
+
+  @override
+  String get projectDialogNovelIntro => '小説のあらすじ';
+
+  @override
+  String get projectDialogNovelIntroPh => 'あらすじを入力してください';
+
+  @override
+  String get projectDialogEditArtStyleTitle => 'ビジュアルマニュアルの編集';
+
+  @override
+  String get projectDialogNewArtStyleTitle => '新しいビジュアルマニュアル';
+
+  @override
+  String get projectDialogArtStyleName => 'ビジュアルマニュアル名';
+
+  @override
+  String get projectDialogArtStyleNamePh => 'ビジュアルマニュアル名を入力してください';
+
+  @override
+  String get projectDialogArtStyleImage => 'ビジュアルマニュアルカバー';
+
+  @override
+  String get projectDialogRemove => '削除';
+
+  @override
+  String get projectDialogUploadCover => 'カバーをアップロード';
+
+  @override
+  String get projectDialogArtStylePrompt => 'ビジュアルマニュアルのプロンプトワード';
+
+  @override
+  String get projectDialogAiExtract => 'AI プロンプト抽出';
+
+  @override
+  String get projectDialogPromptPlaceholder =>
+      '画像生成時にビジュアルマニュアルを指定するために使用されるビジュアルマニュアルプロンプトワードについて説明します。';
+
+  @override
+  String get projectDialogVisualManual => 'ビジュアルマニュアル';
+
+  @override
+  String get projectDialogNewVisualManual => '新しいビジュアルマニュアル';
+
+  @override
+  String get projectDialogEditVisualManualTitle => 'ビジュアルマニュアルの編集';
+
+  @override
+  String get projectDialogNewVisualManualTitle => '新しいビジュアルマニュアル';
+
+  @override
+  String get projectDialogVisualManualName => 'ビジュアルマニュアル名';
+
+  @override
+  String get projectDialogVisualManualNamePh => 'ビジュアルマニュアル名を入力してください';
+
+  @override
+  String get projectDialogVisualManualCover => 'ビジュアルマニュアルカバー';
+
+  @override
+  String get projectDialogVisualManualPrompt => 'ビジュアルマニュアルのプロンプト';
+
+  @override
+  String get projectDialogModelData => '画像モデルの選択';
+
+  @override
+  String get projectDialogVideoModelData => 'ビデオモデルを選択してください';
+
+  @override
+  String get projectDialogPromptSaveSuccess => '更新に成功しました';
+
+  @override
+  String get projectDialogPromptTitle => '即効性のある言葉';
+
+  @override
+  String get projectDialogBasedOnScript => '脚本に基づいて';
+
+  @override
+  String get projectDialogMdFile => 'ビジュアルマニュアルファイル';
+
+  @override
+  String get projectDialogDirectorManual => 'ディレクターズハンドブック';
+
+  @override
+  String get projectDialogAddDirectorManual => '新しいディレクターマニュアル';
+
+  @override
+  String get projectDialogEditingDirectorManual => 'ディレクターズマニュアルを編集する';
+
+  @override
+  String get projectDialogNewDirecorManualTitle => '新しいディレクターマニュアル';
+
+  @override
+  String get projectDialogDirectorManualPrompt => 'ディレクターズマニュアル プロンプトワード';
+
+  @override
+  String get projectDialogDirectorManualName => 'ディレクターズマニュアル名';
+
+  @override
+  String get projectDialogDirectorManualNamePh => 'ディレクターズマニュアル名を入力してください';
+
+  @override
+  String get projectDialogDirectorFile => 'ディレクターズマニュアル文書';
+
+  @override
+  String get projectDialogDirectorManualCover => 'ディレクターズマニュアルの表紙';
+
+  @override
+  String get projectMsgFetchFailed => 'プロジェクトリストの取得に失敗しました';
+
+  @override
+  String get projectMsgNotFound => 'プロジェクトが見つかりません！';
+
+  @override
+  String get projectMsgEditSuccess => 'プロジェクトを編集しました';
+
+  @override
+  String get projectMsgEditFailed => 'プロジェクトの編集に失敗しました';
+
+  @override
+  String get projectMsgAddSuccess => 'プロジェクトを新規作成しました';
+
+  @override
+  String get projectMsgAddFailed => 'プロジェクトの作成に失敗しました';
+
+  @override
+  String get projectMsgDeleteHeader => 'プロジェクトの削除';
+
+  @override
+  String get projectMsgDeleteBody => '本当にこのプロジェクトを削除しますか？';
+
+  @override
+  String get projectMsgDeleteConfirm => '削除';
+
+  @override
+  String get projectMsgDeleteCancel => 'キャンセル';
+
+  @override
+  String get projectMsgDeleteSuccess => 'プロジェクトを削除しました';
+
+  @override
+  String get projectMsgDeleteFailed => 'プロジェクトの削除に失敗しました';
+
+  @override
+  String get projectMsgExtractSuccess => 'プロンプトの抽出に成功しました';
+
+  @override
+  String get projectMsgExtractFailed => '抽出に失敗しました';
+
+  @override
+  String get projectMsgEnterArtStyleName => 'ビジュアルマニュアル名を入力してください';
+
+  @override
+  String get projectMsgArtStyleUpdated => 'ビジュアルマニュアルを更新しました';
+
+  @override
+  String get projectMsgArtStyleAdded => 'ビジュアルマニュアルを追加しました';
+
+  @override
+  String get projectMsgOperationFailed => '操作に失敗しました';
+
+  @override
+  String get projectMsgEnterVisualManualName => 'ビジュアルマニュアル名を入力してください';
+
+  @override
+  String get projectMsgEnterVisualManualImage =>
+      'ビジュアルマニュアルのカバー画像をアップロードしてください';
+
+  @override
+  String get projectMsgEnterVisualManualTabData => 'プロンプトは空にできません';
+
+  @override
+  String get projectMsgVisualManualUpdated => 'ビジュアルマニュアルを更新しました';
+
+  @override
+  String get projectMsgVisualManualAdded => 'ビジュアルマニュアルを追加しました';
+
+  @override
+  String get projectMsgDeleteVisualManualHeader => 'ビジュアルマニュアルを削除';
+
+  @override
+  String projectMsgDeleteVisualManualBody(String name) {
+    return 'ビジュアルマニュアル「$name」を削除してよろしいですか？';
+  }
+
+  @override
+  String get projectMsgDeleteVisualManualConfirm => '削除';
+
+  @override
+  String get projectMsgDeleteVisualManualCancel => 'キャンセル';
+
+  @override
+  String get projectMsgEnterProjectName => 'プロジェクト名を入力してください';
+
+  @override
+  String get projectMsgEnterProjectIntro => '小説の紹介文を入力してください';
+
+  @override
+  String get projectMsgEnterProjectType => 'プロジェクトのタイプを入力してください';
+
+  @override
+  String get projectMsgEnterArtStyle => 'プロジェクトのビジュアルパンフレットを選択してください';
+
+  @override
+  String get projectMsgEnterVideoRatio => 'ビデオ比率を選択してください';
+
+  @override
+  String get projectMsgEnterImageModel => '画像モデルを選択してください';
+
+  @override
+  String get projectMsgEnterVideoModel => 'ビデオモデルを選択してください';
+
+  @override
+  String get projectMsgVisualManualDeleted => '正常に削除されました';
+
+  @override
+  String get projectMsgSelectMode => 'モードを選択してください';
+
+  @override
+  String get projectMsgDeleteDirectorManualHeader => 'ディレクターズマニュアルの削除';
+
+  @override
+  String projectMsgDeleteDirectorManualBody(String name) {
+    return 'ディレクターズマニュアル「$name」を削除してもよろしいですか?';
+  }
+
+  @override
+  String get projectMsgDirectorManualUpdated => 'ディレクターズマニュアルを更新しました';
+
+  @override
+  String get projectMsgDirectorManualAdded => 'ディレクターズマニュアルを追加しました';
+
+  @override
+  String get projectMsgDirectorManual => 'プロジェクトディレクターズマニュアルを選択してください';
+
+  @override
+  String get projectMsgModelProviderDisabled =>
+      'ビデオ モデルまたは画像モデルのサプライヤーが有効になっていない、またはモデル サプライヤーがありません。最初に設定してください。';
+
+  @override
+  String get projectTypeNovel => '原作小説に基づいて';
+
+  @override
+  String get projectTypeScript => '小説の脚本に基づく';
+
+  @override
+  String get commonEdit => '編集';
+
+  @override
+  String get manualTabReadme => 'README';
+
+  @override
+  String get manualTabPrefix => 'プレフィックス';
+
+  @override
+  String get manualTabCharacter => 'キャラクター';
+
+  @override
+  String get manualTabCharacterDerivative => 'キャラクター派生';
+
+  @override
+  String get manualTabProp => '小道具';
+
+  @override
+  String get manualTabPropDerivative => '小道具派生';
+
+  @override
+  String get manualTabScene => 'シーン';
+
+  @override
+  String get manualTabSceneDerivative => 'シーン派生';
+
+  @override
+  String get manualTabStoryboard => '絵コンテ';
+
+  @override
+  String get manualTabStoryboardVideo => '絵コンテ動画';
+
+  @override
+  String get manualTabDirectorPlanning => '技法・監督プランニング';
+
+  @override
+  String get manualTabStoryboardTable => '技法・絵コンテ表';
+
+  @override
+  String get manualTabNarrativePlanning => '監督プランニング';
+
+  @override
+  String get manualTabNarrativeTable => '絵コンテ表';
+
+  @override
+  String get errManualInvalid => 'マニュアルデータが無効です';
 }

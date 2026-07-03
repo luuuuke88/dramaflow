@@ -453,6 +453,702 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{batch}'**
   String shellComingSoonBadge(String batch);
+
+  /// No description provided for @projectTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的项目'**
+  String get projectTitle;
+
+  /// No description provided for @projectSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理您的所有短剧项目'**
+  String get projectSubtitle;
+
+  /// No description provided for @projectNewProject.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建项目'**
+  String get projectNewProject;
+
+  /// No description provided for @projectDialogEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑项目'**
+  String get projectDialogEditTitle;
+
+  /// No description provided for @projectDialogAddTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建项目'**
+  String get projectDialogAddTitle;
+
+  /// No description provided for @projectDialogSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get projectDialogSave;
+
+  /// No description provided for @projectDialogOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定'**
+  String get projectDialogOk;
+
+  /// No description provided for @projectDialogCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get projectDialogCancel;
+
+  /// No description provided for @projectDialogProjectType.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目类型'**
+  String get projectDialogProjectType;
+
+  /// No description provided for @projectDialogSelectType.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择项目类型'**
+  String get projectDialogSelectType;
+
+  /// No description provided for @projectDialogBasedOnNovel.
+  ///
+  /// In zh, this message translates to:
+  /// **'基于小说原文'**
+  String get projectDialogBasedOnNovel;
+
+  /// No description provided for @projectDialogProjectName.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目名称'**
+  String get projectDialogProjectName;
+
+  /// No description provided for @projectDialogProjectNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入项目名称'**
+  String get projectDialogProjectNamePh;
+
+  /// No description provided for @projectDialogNovelType.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说类型'**
+  String get projectDialogNovelType;
+
+  /// No description provided for @projectDialogNovelTypePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如:玄幻、科幻、言情'**
+  String get projectDialogNovelTypePh;
+
+  /// No description provided for @projectDialogArtStyle.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风'**
+  String get projectDialogArtStyle;
+
+  /// No description provided for @projectDialogSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选：'**
+  String get projectDialogSelected;
+
+  /// No description provided for @projectDialogSelectArtStyle.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择画风'**
+  String get projectDialogSelectArtStyle;
+
+  /// No description provided for @projectDialogNewArtStyle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建画风'**
+  String get projectDialogNewArtStyle;
+
+  /// No description provided for @projectDialogLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载中...'**
+  String get projectDialogLoading;
+
+  /// No description provided for @projectDialogVideoRatio.
+  ///
+  /// In zh, this message translates to:
+  /// **'影片比例'**
+  String get projectDialogVideoRatio;
+
+  /// No description provided for @projectDialogNovelIntro.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说简介'**
+  String get projectDialogNovelIntro;
+
+  /// No description provided for @projectDialogNovelIntroPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入小说简介'**
+  String get projectDialogNovelIntroPh;
+
+  /// No description provided for @projectDialogEditArtStyleTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑画风'**
+  String get projectDialogEditArtStyleTitle;
+
+  /// No description provided for @projectDialogNewArtStyleTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建画风'**
+  String get projectDialogNewArtStyleTitle;
+
+  /// No description provided for @projectDialogArtStyleName.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风名称'**
+  String get projectDialogArtStyleName;
+
+  /// No description provided for @projectDialogArtStyleNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入画风名称'**
+  String get projectDialogArtStyleNamePh;
+
+  /// No description provided for @projectDialogArtStyleImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风图片'**
+  String get projectDialogArtStyleImage;
+
+  /// No description provided for @projectDialogRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get projectDialogRemove;
+
+  /// No description provided for @projectDialogUploadCover.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传封面'**
+  String get projectDialogUploadCover;
+
+  /// No description provided for @projectDialogArtStylePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get projectDialogArtStylePrompt;
+
+  /// No description provided for @projectDialogAiExtract.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI提取提示词'**
+  String get projectDialogAiExtract;
+
+  /// No description provided for @projectDialogPromptPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述提示词'**
+  String get projectDialogPromptPlaceholder;
+
+  /// No description provided for @projectDialogVisualManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'视觉手册'**
+  String get projectDialogVisualManual;
+
+  /// No description provided for @projectDialogNewVisualManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建视觉手册'**
+  String get projectDialogNewVisualManual;
+
+  /// No description provided for @projectDialogEditVisualManualTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑视觉手册'**
+  String get projectDialogEditVisualManualTitle;
+
+  /// No description provided for @projectDialogNewVisualManualTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建视觉手册'**
+  String get projectDialogNewVisualManualTitle;
+
+  /// No description provided for @projectDialogVisualManualName.
+  ///
+  /// In zh, this message translates to:
+  /// **'视觉手册名称'**
+  String get projectDialogVisualManualName;
+
+  /// No description provided for @projectDialogVisualManualNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入视觉手册名称'**
+  String get projectDialogVisualManualNamePh;
+
+  /// No description provided for @projectDialogVisualManualCover.
+  ///
+  /// In zh, this message translates to:
+  /// **'视觉手册封面'**
+  String get projectDialogVisualManualCover;
+
+  /// No description provided for @projectDialogVisualManualPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'视觉手册提示词'**
+  String get projectDialogVisualManualPrompt;
+
+  /// No description provided for @projectDialogModelData.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择图片模型'**
+  String get projectDialogModelData;
+
+  /// No description provided for @projectDialogVideoModelData.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择视频模型'**
+  String get projectDialogVideoModelData;
+
+  /// No description provided for @projectDialogPromptSaveSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新成功'**
+  String get projectDialogPromptSaveSuccess;
+
+  /// No description provided for @projectDialogPromptTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get projectDialogPromptTitle;
+
+  /// No description provided for @projectDialogBasedOnScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'基于剧本'**
+  String get projectDialogBasedOnScript;
+
+  /// No description provided for @projectDialogMdFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'视觉手册文件'**
+  String get projectDialogMdFile;
+
+  /// No description provided for @projectDialogDirectorManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演手册'**
+  String get projectDialogDirectorManual;
+
+  /// No description provided for @projectDialogAddDirectorManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建导演手册'**
+  String get projectDialogAddDirectorManual;
+
+  /// No description provided for @projectDialogEditingDirectorManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑导演手册'**
+  String get projectDialogEditingDirectorManual;
+
+  /// No description provided for @projectDialogNewDirecorManualTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建导演手册'**
+  String get projectDialogNewDirecorManualTitle;
+
+  /// No description provided for @projectDialogDirectorManualPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演手册提示词'**
+  String get projectDialogDirectorManualPrompt;
+
+  /// No description provided for @projectDialogDirectorManualName.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演手册名称'**
+  String get projectDialogDirectorManualName;
+
+  /// No description provided for @projectDialogDirectorManualNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入导演手册名称'**
+  String get projectDialogDirectorManualNamePh;
+
+  /// No description provided for @projectDialogDirectorFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演手册文件'**
+  String get projectDialogDirectorFile;
+
+  /// No description provided for @projectDialogDirectorManualCover.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演手册封面'**
+  String get projectDialogDirectorManualCover;
+
+  /// No description provided for @projectMsgFetchFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取项目列表失败'**
+  String get projectMsgFetchFailed;
+
+  /// No description provided for @projectMsgNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到该项目!'**
+  String get projectMsgNotFound;
+
+  /// No description provided for @projectMsgEditSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑项目成功'**
+  String get projectMsgEditSuccess;
+
+  /// No description provided for @projectMsgEditFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑项目失败'**
+  String get projectMsgEditFailed;
+
+  /// No description provided for @projectMsgAddSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增项目成功'**
+  String get projectMsgAddSuccess;
+
+  /// No description provided for @projectMsgAddFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增项目失败'**
+  String get projectMsgAddFailed;
+
+  /// No description provided for @projectMsgDeleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除项目'**
+  String get projectMsgDeleteHeader;
+
+  /// No description provided for @projectMsgDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除该项目吗？'**
+  String get projectMsgDeleteBody;
+
+  /// No description provided for @projectMsgDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get projectMsgDeleteConfirm;
+
+  /// No description provided for @projectMsgDeleteCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get projectMsgDeleteCancel;
+
+  /// No description provided for @projectMsgDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除项目成功'**
+  String get projectMsgDeleteSuccess;
+
+  /// No description provided for @projectMsgDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除项目失败'**
+  String get projectMsgDeleteFailed;
+
+  /// No description provided for @projectMsgExtractSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词提取成功'**
+  String get projectMsgExtractSuccess;
+
+  /// No description provided for @projectMsgExtractFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'提取失败'**
+  String get projectMsgExtractFailed;
+
+  /// No description provided for @projectMsgEnterArtStyleName.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入画风名称'**
+  String get projectMsgEnterArtStyleName;
+
+  /// No description provided for @projectMsgArtStyleUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风已更新'**
+  String get projectMsgArtStyleUpdated;
+
+  /// No description provided for @projectMsgArtStyleAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风已添加'**
+  String get projectMsgArtStyleAdded;
+
+  /// No description provided for @projectMsgOperationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作失败'**
+  String get projectMsgOperationFailed;
+
+  /// No description provided for @projectMsgEnterVisualManualName.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入视觉手册名称'**
+  String get projectMsgEnterVisualManualName;
+
+  /// No description provided for @projectMsgEnterVisualManualImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请上传视觉手册封面图片'**
+  String get projectMsgEnterVisualManualImage;
+
+  /// No description provided for @projectMsgEnterVisualManualTabData.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词不能为空'**
+  String get projectMsgEnterVisualManualTabData;
+
+  /// No description provided for @projectMsgVisualManualUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'视觉手册已更新'**
+  String get projectMsgVisualManualUpdated;
+
+  /// No description provided for @projectMsgVisualManualAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'视觉手册已添加'**
+  String get projectMsgVisualManualAdded;
+
+  /// No description provided for @projectMsgDeleteVisualManualHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除视觉手册'**
+  String get projectMsgDeleteVisualManualHeader;
+
+  /// No description provided for @projectMsgDeleteVisualManualBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除视觉手册「{name}」吗？'**
+  String projectMsgDeleteVisualManualBody(String name);
+
+  /// No description provided for @projectMsgDeleteVisualManualConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get projectMsgDeleteVisualManualConfirm;
+
+  /// No description provided for @projectMsgDeleteVisualManualCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get projectMsgDeleteVisualManualCancel;
+
+  /// No description provided for @projectMsgEnterProjectName.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入项目名称'**
+  String get projectMsgEnterProjectName;
+
+  /// No description provided for @projectMsgEnterProjectIntro.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入小说简介'**
+  String get projectMsgEnterProjectIntro;
+
+  /// No description provided for @projectMsgEnterProjectType.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入小说类型'**
+  String get projectMsgEnterProjectType;
+
+  /// No description provided for @projectMsgEnterArtStyle.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择项目视觉手册'**
+  String get projectMsgEnterArtStyle;
+
+  /// No description provided for @projectMsgEnterVideoRatio.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择影片比例'**
+  String get projectMsgEnterVideoRatio;
+
+  /// No description provided for @projectMsgEnterImageModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择图片模型'**
+  String get projectMsgEnterImageModel;
+
+  /// No description provided for @projectMsgEnterVideoModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择视频模型'**
+  String get projectMsgEnterVideoModel;
+
+  /// No description provided for @projectMsgVisualManualDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除成功'**
+  String get projectMsgVisualManualDeleted;
+
+  /// No description provided for @projectMsgSelectMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择模式'**
+  String get projectMsgSelectMode;
+
+  /// No description provided for @projectMsgDeleteDirectorManualHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除导演手册'**
+  String get projectMsgDeleteDirectorManualHeader;
+
+  /// No description provided for @projectMsgDeleteDirectorManualBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除导演手册「{name}」吗？'**
+  String projectMsgDeleteDirectorManualBody(String name);
+
+  /// No description provided for @projectMsgDirectorManualUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演手册已更新'**
+  String get projectMsgDirectorManualUpdated;
+
+  /// No description provided for @projectMsgDirectorManualAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演手册已添加'**
+  String get projectMsgDirectorManualAdded;
+
+  /// No description provided for @projectMsgDirectorManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择项目导演手册'**
+  String get projectMsgDirectorManual;
+
+  /// No description provided for @projectMsgModelProviderDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频模型或图片模型供应商未启用或无模型供应商，请先配置'**
+  String get projectMsgModelProviderDisabled;
+
+  /// No description provided for @projectTypeNovel.
+  ///
+  /// In zh, this message translates to:
+  /// **'基于小说原文'**
+  String get projectTypeNovel;
+
+  /// No description provided for @projectTypeScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'基于小说剧本'**
+  String get projectTypeScript;
+
+  /// No description provided for @commonEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get commonEdit;
+
+  /// No description provided for @manualTabReadme.
+  ///
+  /// In zh, this message translates to:
+  /// **'README'**
+  String get manualTabReadme;
+
+  /// No description provided for @manualTabPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'前缀'**
+  String get manualTabPrefix;
+
+  /// No description provided for @manualTabCharacter.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色'**
+  String get manualTabCharacter;
+
+  /// No description provided for @manualTabCharacterDerivative.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色衍生'**
+  String get manualTabCharacterDerivative;
+
+  /// No description provided for @manualTabProp.
+  ///
+  /// In zh, this message translates to:
+  /// **'道具'**
+  String get manualTabProp;
+
+  /// No description provided for @manualTabPropDerivative.
+  ///
+  /// In zh, this message translates to:
+  /// **'道具衍生'**
+  String get manualTabPropDerivative;
+
+  /// No description provided for @manualTabScene.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景'**
+  String get manualTabScene;
+
+  /// No description provided for @manualTabSceneDerivative.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景衍生'**
+  String get manualTabSceneDerivative;
+
+  /// No description provided for @manualTabStoryboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜'**
+  String get manualTabStoryboard;
+
+  /// No description provided for @manualTabStoryboardVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜视频'**
+  String get manualTabStoryboardVideo;
+
+  /// No description provided for @manualTabDirectorPlanning.
+  ///
+  /// In zh, this message translates to:
+  /// **'技法-导演规划'**
+  String get manualTabDirectorPlanning;
+
+  /// No description provided for @manualTabStoryboardTable.
+  ///
+  /// In zh, this message translates to:
+  /// **'技法-分镜表设计'**
+  String get manualTabStoryboardTable;
+
+  /// No description provided for @manualTabNarrativePlanning.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演规划'**
+  String get manualTabNarrativePlanning;
+
+  /// No description provided for @manualTabNarrativeTable.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜表'**
+  String get manualTabNarrativeTable;
+
+  /// No description provided for @errManualInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'手册数据无效'**
+  String get errManualInvalid;
 }
 
 class _AppLocalizationsDelegate

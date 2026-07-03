@@ -175,5 +175,21 @@
   "projectMsgDirectorManual": "Please select Project Director's Manual",
   "projectMsgModelProviderDisabled": "The video model or picture model supplier is not enabled or there is no model supplier, please configure it first",
   "projectTypeNovel": "Based on the original novel",
-  "projectTypeScript": "Based on novel script"
+  "projectTypeScript": "Based on novel script",
+  "commonEdit": "Edit",
+  "manualTabReadme": "README",
+  "manualTabPrefix": "Prefix",
+  "manualTabCharacter": "Character",
+  "manualTabCharacterDerivative": "Character Derivative",
+  "manualTabProp": "Prop",
+  "manualTabPropDerivative": "Prop Derivative",
+  "manualTabScene": "Scene",
+  "manualTabSceneDerivative": "Scene Derivative",
+  "manualTabStoryboard": "Storyboard",
+  "manualTabStoryboardVideo": "Storyboard Video",
+  "manualTabDirectorPlanning": "Technique - Director Planning",
+  "manualTabStoryboardTable": "Technique - Storyboard Table",
+  "manualTabNarrativePlanning": "Director Planning",
+  "manualTabNarrativeTable": "Storyboard Table",
+  "errManualInvalid": "Invalid manual data"
 }

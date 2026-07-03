@@ -198,4 +198,367 @@ class AppLocalizationsEn extends AppLocalizations {
   String shellComingSoonBadge(String batch) {
     return '$batch';
   }
+
+  @override
+  String get projectTitle => 'My Projects';
+
+  @override
+  String get projectSubtitle => 'Manage all your short drama projects';
+
+  @override
+  String get projectNewProject => 'New Project';
+
+  @override
+  String get projectDialogEditTitle => 'Edit Project';
+
+  @override
+  String get projectDialogAddTitle => 'New Project';
+
+  @override
+  String get projectDialogSave => 'Save';
+
+  @override
+  String get projectDialogOk => 'OK';
+
+  @override
+  String get projectDialogCancel => 'Cancel';
+
+  @override
+  String get projectDialogProjectType => 'Project Type';
+
+  @override
+  String get projectDialogSelectType => 'Select Project Type';
+
+  @override
+  String get projectDialogBasedOnNovel => 'Based on Novel Text';
+
+  @override
+  String get projectDialogProjectName => 'Project Name';
+
+  @override
+  String get projectDialogProjectNamePh => 'Please enter project name';
+
+  @override
+  String get projectDialogNovelType => 'Novel Genre';
+
+  @override
+  String get projectDialogNovelTypePh => 'e.g., Fantasy, Sci-Fi, Romance';
+
+  @override
+  String get projectDialogArtStyle => 'Art Style';
+
+  @override
+  String get projectDialogSelected => 'Selected:';
+
+  @override
+  String get projectDialogSelectArtStyle => 'Please select an art style';
+
+  @override
+  String get projectDialogNewArtStyle => 'New art style';
+
+  @override
+  String get projectDialogLoading => 'Loading...';
+
+  @override
+  String get projectDialogVideoRatio => 'Video Ratio';
+
+  @override
+  String get projectDialogNovelIntro => 'Novel Synopsis';
+
+  @override
+  String get projectDialogNovelIntroPh => 'Please enter novel synopsis';
+
+  @override
+  String get projectDialogEditArtStyleTitle => 'Edit art style';
+
+  @override
+  String get projectDialogNewArtStyleTitle => 'New art style';
+
+  @override
+  String get projectDialogArtStyleName => 'Art style name';
+
+  @override
+  String get projectDialogArtStyleNamePh => 'Please enter art style name';
+
+  @override
+  String get projectDialogArtStyleImage => 'Art style image';
+
+  @override
+  String get projectDialogRemove => 'Remove';
+
+  @override
+  String get projectDialogUploadCover => 'Upload Cover';
+
+  @override
+  String get projectDialogArtStylePrompt => 'Prompt';
+
+  @override
+  String get projectDialogAiExtract => 'AI Extract Prompt';
+
+  @override
+  String get projectDialogPromptPlaceholder => 'Enter prompt';
+
+  @override
+  String get projectDialogVisualManual => 'Visual Manual';
+
+  @override
+  String get projectDialogNewVisualManual => 'New visual manual';
+
+  @override
+  String get projectDialogEditVisualManualTitle => 'Edit visual manual';
+
+  @override
+  String get projectDialogNewVisualManualTitle => 'New visual manual';
+
+  @override
+  String get projectDialogVisualManualName => 'Visual manual name';
+
+  @override
+  String get projectDialogVisualManualNamePh =>
+      'Please enter visual manual name';
+
+  @override
+  String get projectDialogVisualManualCover => 'Visual manual cover';
+
+  @override
+  String get projectDialogVisualManualPrompt => 'Visual manual prompt';
+
+  @override
+  String get projectDialogModelData => 'Select image model';
+
+  @override
+  String get projectDialogVideoModelData => 'Select video model';
+
+  @override
+  String get projectDialogPromptSaveSuccess => 'Update successful';
+
+  @override
+  String get projectDialogPromptTitle => 'prompt word';
+
+  @override
+  String get projectDialogBasedOnScript => 'based on script';
+
+  @override
+  String get projectDialogMdFile => 'visual manual file';
+
+  @override
+  String get projectDialogDirectorManual => 'Director\'s Handbook';
+
+  @override
+  String get projectDialogAddDirectorManual => 'New director manual';
+
+  @override
+  String get projectDialogEditingDirectorManual => 'Edit Director\'s Manual';
+
+  @override
+  String get projectDialogNewDirecorManualTitle => 'New director manual';
+
+  @override
+  String get projectDialogDirectorManualPrompt =>
+      'Director\'s Manual Prompt Words';
+
+  @override
+  String get projectDialogDirectorManualName => 'Director\'s Manual Name';
+
+  @override
+  String get projectDialogDirectorManualNamePh =>
+      'Enter Director\'s Manual name';
+
+  @override
+  String get projectDialogDirectorFile => 'Director\'s Manual Document';
+
+  @override
+  String get projectDialogDirectorManualCover => 'Director\'s Manual Cover';
+
+  @override
+  String get projectMsgFetchFailed => 'Failed to fetch project list';
+
+  @override
+  String get projectMsgNotFound => 'Project not found!';
+
+  @override
+  String get projectMsgEditSuccess => 'Project edited successfully';
+
+  @override
+  String get projectMsgEditFailed => 'Failed to edit project';
+
+  @override
+  String get projectMsgAddSuccess => 'Project created successfully';
+
+  @override
+  String get projectMsgAddFailed => 'Failed to create project';
+
+  @override
+  String get projectMsgDeleteHeader => 'Delete Project';
+
+  @override
+  String get projectMsgDeleteBody =>
+      'Are you sure you want to delete this project?';
+
+  @override
+  String get projectMsgDeleteConfirm => 'Delete';
+
+  @override
+  String get projectMsgDeleteCancel => 'Cancel';
+
+  @override
+  String get projectMsgDeleteSuccess => 'Project deleted successfully';
+
+  @override
+  String get projectMsgDeleteFailed => 'Failed to delete project';
+
+  @override
+  String get projectMsgExtractSuccess => 'Prompt extracted successfully';
+
+  @override
+  String get projectMsgExtractFailed => 'Extraction failed';
+
+  @override
+  String get projectMsgEnterArtStyleName => 'Please enter art style name';
+
+  @override
+  String get projectMsgArtStyleUpdated => 'Art style updated';
+
+  @override
+  String get projectMsgArtStyleAdded => 'Art style added';
+
+  @override
+  String get projectMsgOperationFailed => 'Operation failed';
+
+  @override
+  String get projectMsgEnterVisualManualName =>
+      'Please enter visual manual name';
+
+  @override
+  String get projectMsgEnterVisualManualImage =>
+      'Please upload a cover image for the visual manual';
+
+  @override
+  String get projectMsgEnterVisualManualTabData => 'prompt cannot be empty';
+
+  @override
+  String get projectMsgVisualManualUpdated => 'Visual manual updated';
+
+  @override
+  String get projectMsgVisualManualAdded => 'Visual manual added';
+
+  @override
+  String get projectMsgDeleteVisualManualHeader => 'Delete Visual Manual';
+
+  @override
+  String projectMsgDeleteVisualManualBody(String name) {
+    return 'Are you sure you want to delete visual manual \"$name\"?';
+  }
+
+  @override
+  String get projectMsgDeleteVisualManualConfirm => 'Delete';
+
+  @override
+  String get projectMsgDeleteVisualManualCancel => 'Cancel';
+
+  @override
+  String get projectMsgEnterProjectName => 'Please enter project name';
+
+  @override
+  String get projectMsgEnterProjectIntro =>
+      'Please enter the novel introduction';
+
+  @override
+  String get projectMsgEnterProjectType => 'Please enter project type';
+
+  @override
+  String get projectMsgEnterArtStyle =>
+      'Please select a project visual brochure';
+
+  @override
+  String get projectMsgEnterVideoRatio => 'Please select video ratio';
+
+  @override
+  String get projectMsgEnterImageModel => 'Please select a picture model';
+
+  @override
+  String get projectMsgEnterVideoModel => 'Please select a video model';
+
+  @override
+  String get projectMsgVisualManualDeleted => 'Delete successfully';
+
+  @override
+  String get projectMsgSelectMode => 'Please select mode';
+
+  @override
+  String get projectMsgDeleteDirectorManualHeader =>
+      'Delete Director\'s Manual';
+
+  @override
+  String projectMsgDeleteDirectorManualBody(String name) {
+    return 'Are you sure you want to delete Director\'s Manual \"$name\"?';
+  }
+
+  @override
+  String get projectMsgDirectorManualUpdated => 'Director\'s Manual updated';
+
+  @override
+  String get projectMsgDirectorManualAdded => 'Director\'s Manual added';
+
+  @override
+  String get projectMsgDirectorManual =>
+      'Please select Project Director\'s Manual';
+
+  @override
+  String get projectMsgModelProviderDisabled =>
+      'The video model or picture model supplier is not enabled or there is no model supplier, please configure it first';
+
+  @override
+  String get projectTypeNovel => 'Based on the original novel';
+
+  @override
+  String get projectTypeScript => 'Based on novel script';
+
+  @override
+  String get commonEdit => 'Edit';
+
+  @override
+  String get manualTabReadme => 'README';
+
+  @override
+  String get manualTabPrefix => 'Prefix';
+
+  @override
+  String get manualTabCharacter => 'Character';
+
+  @override
+  String get manualTabCharacterDerivative => 'Character Derivative';
+
+  @override
+  String get manualTabProp => 'Prop';
+
+  @override
+  String get manualTabPropDerivative => 'Prop Derivative';
+
+  @override
+  String get manualTabScene => 'Scene';
+
+  @override
+  String get manualTabSceneDerivative => 'Scene Derivative';
+
+  @override
+  String get manualTabStoryboard => 'Storyboard';
+
+  @override
+  String get manualTabStoryboardVideo => 'Storyboard Video';
+
+  @override
+  String get manualTabDirectorPlanning => 'Technique - Director Planning';
+
+  @override
+  String get manualTabStoryboardTable => 'Technique - Storyboard Table';
+
+  @override
+  String get manualTabNarrativePlanning => 'Director Planning';
+
+  @override
+  String get manualTabNarrativeTable => 'Storyboard Table';
+
+  @override
+  String get errManualInvalid => 'Invalid manual data';
 }
