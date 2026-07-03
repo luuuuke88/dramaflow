@@ -1,0 +1,21 @@
+{
+  "@@locale": "en",
+  "menuMyProject": "My Projects",
+  "menuTaskCenter": "Task Center",
+  "menuNovel": "Novel Text",
+  "menuScriptAgent": "Script Agent",
+  "menuScriptManage": "Script Management",
+  "menuCornerScape": "Characters & Scenes",
+  "menuProduction": "Video Production",
+  "menuAssetCenter": "Asset Center",
+  "menuSettings": "Settings",
+  "menuJumpGithub": "Jump to Github",
+  "menuFeedbackQuestions": "Feedback question",
+  "commonSave": "Save",
+  "commonCancel": "Cancel",
+  "commonConfirm": "Confirm",
+  "commonDelete": "Delete",
+  "commonSearch": "Search",
+  "commonNextStep": "Next",
+  "commonPrevStep": "Previous"
+}

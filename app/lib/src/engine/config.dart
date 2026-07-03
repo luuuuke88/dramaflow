@@ -30,6 +30,7 @@ class EngineConfig {
     'videoResolution': '720p',
     'videoDuration': '5',
     'themeMode': 'light',
+    'app.locale': '',
   };
 
   EngineConfig(this._db, {required this.isMobile});

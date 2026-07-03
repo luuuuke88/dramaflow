@@ -1,0 +1,21 @@
+{
+  "@@locale": "ja",
+  "menuMyProject": "マイプロジェクト",
+  "menuTaskCenter": "タスクセンター",
+  "menuNovel": "小説の原文",
+  "menuScriptAgent": "シナリオ Agent",
+  "menuScriptManage": "シナリオ管理",
+  "menuCornerScape": "キャラ・背景制作",
+  "menuProduction": "動画制作",
+  "menuAssetCenter": "アセットセンター",
+  "menuSettings": "設定",
+  "menuJumpGithub": "Githubにジャンプ",
+  "menuFeedbackQuestions": "フィードバックの質問",
+  "commonSave": "保存",
+  "commonCancel": "キャンセル",
+  "commonConfirm": "確定",
+  "commonDelete": "削除",
+  "commonSearch": "検索",
+  "commonNextStep": "次へ",
+  "commonPrevStep": "前へ"
+}

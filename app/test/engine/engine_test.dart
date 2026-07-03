@@ -186,5 +186,19 @@ void main() {
           throwsA(predicate(
               (x) => x is EngineException && x.message.contains('主题模式无效'))));
     });
+
+    test('app.locale 读写且拒绝非法值', () async {
+      expect(await e.getAppLocale(), '');
+      await e.setAppLocale('zh');
+      expect(await e.getAppLocale(), 'zh');
+      await e.setAppLocale('en');
+      expect(await e.getAppLocale(), 'en');
+      await e.setAppLocale('');
+      expect(await e.getAppLocale(), '');
+      expect(
+          () => e.setAppLocale('fr'),
+          throwsA(predicate(
+              (x) => x is EngineException && x.message.contains('语言设置无效'))));
+    });
   });
 }

@@ -1,0 +1,21 @@
+{
+  "@@locale": "zh",
+  "menuMyProject": "我的项目",
+  "menuTaskCenter": "任务中心",
+  "menuNovel": "小说原文",
+  "menuScriptAgent": "剧本Agent",
+  "menuScriptManage": "剧本管理",
+  "menuCornerScape": "塑角造景",
+  "menuProduction": "视频生产",
+  "menuAssetCenter": "资产中心",
+  "menuSettings": "设置",
+  "menuJumpGithub": "跳转Github",
+  "menuFeedbackQuestions": "反馈问题",
+  "commonSave": "保存",
+  "commonCancel": "取消",
+  "commonConfirm": "确定",
+  "commonDelete": "删除",
+  "commonSearch": "搜索",
+  "commonNextStep": "下一步",
+  "commonPrevStep": "上一步"
+}

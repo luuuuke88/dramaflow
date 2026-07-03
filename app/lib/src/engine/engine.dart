@@ -1454,6 +1454,15 @@ LIMIT 1
     config.update({'themeMode': themeMode});
   }
 
+  Future<String> getAppLocale() async => config.str('app.locale');
+
+  Future<void> setAppLocale(String locale) async {
+    if (!{'', 'zh', 'en', 'ja'}.contains(locale)) {
+      throw EngineException('语言设置无效：$locale');
+    }
+    config.update({'app.locale': locale});
+  }
+
   void dispose() {
     queue.dispose();
     db.close();

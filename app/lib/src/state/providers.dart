@@ -22,6 +22,18 @@ String _themeModeToString(ThemeMode mode) => switch (mode) {
       ThemeMode.light => 'light',
     };
 
+Locale? _localeFromString(String value) => switch (value) {
+      'zh' => const Locale('zh'),
+      'en' => const Locale('en'),
+      'ja' => const Locale('ja'),
+      _ => null,
+    };
+
+String _localeToString(Locale? locale) {
+  final languageCode = locale?.languageCode ?? '';
+  return {'zh', 'en', 'ja'}.contains(languageCode) ? languageCode : '';
+}
+
 class ThemeModeNotifier extends Notifier<ThemeMode> {
   @override
   ThemeMode build() {
@@ -52,6 +64,37 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 
 final themeModeProvider =
     NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+
+class LocaleNotifier extends Notifier<Locale?> {
+  @override
+  Locale? build() {
+    Future.microtask(_load);
+    return null;
+  }
+
+  Future<void> _load() async {
+    try {
+      final value = await ref.read(engineProvider).getAppLocale();
+      state = _localeFromString(value);
+    } catch (_) {
+      state = null;
+    }
+  }
+
+  Future<void> setLocale(Locale? locale) async {
+    final previous = state;
+    state = _localeFromString(_localeToString(locale));
+    try {
+      await ref.read(engineProvider).setAppLocale(_localeToString(locale));
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
+  }
+}
+
+final localeProvider =
+    NotifierProvider<LocaleNotifier, Locale?>(LocaleNotifier.new);
 
 /// 活跃任务监听：订阅引擎队列事件流（取代 v0.1 的 HTTP 轮询）。
 /// 事件到达即拉取活跃任务并 bump jobsGeneration；活跃任务存在时保持屏幕常亮
