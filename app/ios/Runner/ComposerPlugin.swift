@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import CoreImage
 import Flutter
 import Foundation
 
@@ -42,6 +43,12 @@ private final class ExportSessionBox: @unchecked Sendable {
 private struct ComposeSegment {
   let videoPath: String
   let audioPath: String?
+  let transition: String?
+  let filterPreset: String?
+}
+
+private struct RenderSegment {
+  let timeRange: CMTimeRange
   let transition: String?
   let filterPreset: String?
 }
@@ -157,6 +164,7 @@ final class ComposerPlugin {
     var compositionVoiceTrack: AVMutableCompositionTrack?
 
     var cursor = CMTime.zero
+    var renderSegments: [RenderSegment] = []
     for segment in segments {
       try ensureFileExists(segment.videoPath)
       let asset = AVAsset(url: URL(fileURLWithPath: segment.videoPath))
@@ -169,6 +177,12 @@ final class ComposerPlugin {
       }
 
       let timeRange = CMTimeRange(start: .zero, duration: duration)
+      let compositionRange = CMTimeRange(start: cursor, duration: duration)
+      renderSegments.append(
+        RenderSegment(
+          timeRange: compositionRange,
+          transition: segment.transition,
+          filterPreset: segment.filterPreset))
       try compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: cursor)
       if let audioTrack = asset.tracks(withMediaType: .audio).first {
         if compositionAudioTrack == nil {
@@ -223,7 +237,102 @@ final class ComposerPlugin {
     exportSession.outputURL = outputURL
     exportSession.outputFileType = .mp4
     exportSession.shouldOptimizeForNetworkUse = true
+    if let videoComposition = makeVideoComposition(
+      asset: composition,
+      renderSegments: renderSegments)
+    {
+      exportSession.videoComposition = videoComposition
+    }
     try await export(exportSession)
+  }
+
+  private func makeVideoComposition(
+    asset: AVAsset,
+    renderSegments: [RenderSegment]
+  ) -> AVMutableVideoComposition? {
+    if !renderSegments.contains(where: { $0.transition != nil || $0.filterPreset != nil }) {
+      return nil
+    }
+    return AVMutableVideoComposition(
+      asset: asset,
+      applyingCIFiltersWithHandler: { request in
+        let source = request.sourceImage
+        let segment = self.renderSegment(at: request.compositionTime, in: renderSegments)
+        var image = self.filterImage(source, preset: segment?.filterPreset)
+        let opacity = self.fadeOpacity(at: request.compositionTime, in: segment)
+        if opacity < 0.999 {
+          image = self.opacityImage(image, opacity: opacity)
+        }
+        request.finish(with: image.cropped(to: source.extent), context: nil)
+      })
+  }
+
+  private func renderSegment(at time: CMTime, in segments: [RenderSegment]) -> RenderSegment? {
+    segments.first { CMTimeRangeContainsTime($0.timeRange, time: time) }
+  }
+
+  private func filterImage(_ image: CIImage, preset: String?) -> CIImage {
+    guard let preset = preset, !preset.isEmpty else { return image }
+    switch preset {
+    case "cinematic":
+      return colorControls(image, saturation: 1.12, brightness: -0.02, contrast: 1.18)
+    case "warm":
+      return colorMatrix(image, red: 1.08, green: 1.02, blue: 0.94)
+    case "cool":
+      return colorMatrix(image, red: 0.94, green: 1.02, blue: 1.08)
+    case "vintage":
+      guard let sepia = CIFilter(name: "CISepiaTone") else { return image }
+      sepia.setValue(image, forKey: kCIInputImageKey)
+      sepia.setValue(0.35, forKey: kCIInputIntensityKey)
+      return colorControls(sepia.outputImage ?? image, saturation: 0.9, brightness: 0.0, contrast: 1.05)
+    default:
+      return image
+    }
+  }
+
+  private func colorControls(
+    _ image: CIImage,
+    saturation: Double,
+    brightness: Double,
+    contrast: Double
+  ) -> CIImage {
+    guard let filter = CIFilter(name: "CIColorControls") else { return image }
+    filter.setValue(image, forKey: kCIInputImageKey)
+    filter.setValue(saturation, forKey: kCIInputSaturationKey)
+    filter.setValue(brightness, forKey: kCIInputBrightnessKey)
+    filter.setValue(contrast, forKey: kCIInputContrastKey)
+    return filter.outputImage ?? image
+  }
+
+  private func colorMatrix(_ image: CIImage, red: CGFloat, green: CGFloat, blue: CGFloat) -> CIImage {
+    guard let filter = CIFilter(name: "CIColorMatrix") else { return image }
+    filter.setValue(image, forKey: kCIInputImageKey)
+    filter.setValue(CIVector(x: red, y: 0, z: 0, w: 0), forKey: "inputRVector")
+    filter.setValue(CIVector(x: 0, y: green, z: 0, w: 0), forKey: "inputGVector")
+    filter.setValue(CIVector(x: 0, y: 0, z: blue, w: 0), forKey: "inputBVector")
+    filter.setValue(CIVector(x: 0, y: 0, z: 0, w: 1), forKey: "inputAVector")
+    return filter.outputImage ?? image
+  }
+
+  private func fadeOpacity(at time: CMTime, in segment: RenderSegment?) -> CGFloat {
+    guard let segment = segment, segment.transition == "fade" else { return 1.0 }
+    let local = CMTimeSubtract(time, segment.timeRange.start)
+    let duration = CMTimeGetSeconds(segment.timeRange.duration)
+    let seconds = CMTimeGetSeconds(local)
+    if !duration.isFinite || !seconds.isFinite || duration <= 0 { return 1.0 }
+    let fadeSeconds = min(0.5, duration / 2.0)
+    if fadeSeconds <= 0 { return 1.0 }
+    if seconds < fadeSeconds {
+      return CGFloat(max(0.0, min(1.0, seconds / fadeSeconds)))
+    }
+    if duration - seconds < fadeSeconds {
+      return CGFloat(max(0.0, min(1.0, (duration - seconds) / fadeSeconds)))
+    }
+    return 1.0
+  }
+
+  private func opacityImage(_ image: CIImage, opacity: CGFloat) -> CIImage {
+    colorMatrix(image, red: opacity, green: opacity, blue: opacity)
   }
 
   private func minTime(_ lhs: CMTime, _ rhs: CMTime) -> CMTime {

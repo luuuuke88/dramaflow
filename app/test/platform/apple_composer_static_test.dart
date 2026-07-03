@@ -29,6 +29,23 @@ void main() {
     }
   });
 
+  test('Apple composer renders NLE filters and fade transitions', () {
+    final macosSource =
+        File('macos/Runner/ComposerPlugin.swift').readAsStringSync();
+    final iosSource =
+        File('ios/Runner/ComposerPlugin.swift').readAsStringSync();
+
+    for (final source in [macosSource, iosSource]) {
+      expect(source, contains('AVMutableVideoComposition'));
+      expect(source, contains('applyingCIFiltersWithHandler'));
+      expect(source, contains('filterImage'));
+      expect(source, contains('fadeOpacity'));
+      expect(source, contains('CIColorControls'));
+      expect(source, contains('CISepiaTone'));
+      expect(source, contains('exportSession.videoComposition'));
+    }
+  });
+
   test('Dart composer wrapper uses localized error keys', () {
     final dartSource =
         File('lib/src/platform/avfoundation_composer.dart').readAsStringSync();
