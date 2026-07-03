@@ -87,7 +87,7 @@ void main() {
 
     expect(find.text('P2'), findsNothing); // 资产中心已随 P2 交付解禁
     expect(find.text('P3'), findsNothing); // 制作已随 P3 交付解禁
-    expect(find.text('P4'), findsOneWidget); // 配音
+    expect(find.text('P4'), findsNothing); // 配音已随 P4 交付解禁
     expect(find.text('P5'), findsOneWidget); // 剧本Agent
   });
 }

@@ -2787,6 +2787,162 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'请先选择项目'**
   String get productionEmptyProject;
+
+  /// No description provided for @workbenchTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作台'**
+  String get workbenchTitle;
+
+  /// No description provided for @workbenchOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开工作台'**
+  String get workbenchOpen;
+
+  /// No description provided for @workbenchGenerateVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成视频'**
+  String get workbenchGenerateVideo;
+
+  /// No description provided for @workbenchGenerateAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部生成视频'**
+  String get workbenchGenerateAll;
+
+  /// No description provided for @workbenchCompose.
+  ///
+  /// In zh, this message translates to:
+  /// **'合成本集'**
+  String get workbenchCompose;
+
+  /// No description provided for @workbenchComposing.
+  ///
+  /// In zh, this message translates to:
+  /// **'合成中...'**
+  String get workbenchComposing;
+
+  /// No description provided for @workbenchComposeSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'合成成功'**
+  String get workbenchComposeSuccess;
+
+  /// No description provided for @workbenchComposeMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'还有 {count} 个镜头未选定视频'**
+  String workbenchComposeMissing(String count);
+
+  /// No description provided for @workbenchNoShots.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无分镜，请先在「制作」的分镜节点生成'**
+  String get workbenchNoShots;
+
+  /// No description provided for @workbenchCandidateNotGenerated.
+  ///
+  /// In zh, this message translates to:
+  /// **'未生成'**
+  String get workbenchCandidateNotGenerated;
+
+  /// No description provided for @workbenchSelectCandidate.
+  ///
+  /// In zh, this message translates to:
+  /// **'选为正片'**
+  String get workbenchSelectCandidate;
+
+  /// No description provided for @workbenchSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选'**
+  String get workbenchSelected;
+
+  /// No description provided for @workbenchGeneratePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成运镜提示词'**
+  String get workbenchGeneratePrompt;
+
+  /// No description provided for @workbenchEditPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑运镜提示词'**
+  String get workbenchEditPrompt;
+
+  /// No description provided for @workbenchOutputPath.
+  ///
+  /// In zh, this message translates to:
+  /// **'输出路径'**
+  String get workbenchOutputPath;
+
+  /// No description provided for @workbenchDuration.
+  ///
+  /// In zh, this message translates to:
+  /// **'时长'**
+  String get workbenchDuration;
+
+  /// No description provided for @cornerScapeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配音'**
+  String get cornerScapeTitle;
+
+  /// No description provided for @cornerScapeAutoMatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 自动匹配'**
+  String get cornerScapeAutoMatch;
+
+  /// No description provided for @cornerScapeAutoMatching.
+  ///
+  /// In zh, this message translates to:
+  /// **'匹配中...'**
+  String get cornerScapeAutoMatching;
+
+  /// No description provided for @cornerScapeSelectAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择音频'**
+  String get cornerScapeSelectAudio;
+
+  /// No description provided for @cornerScapeNoAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'未绑定'**
+  String get cornerScapeNoAudio;
+
+  /// No description provided for @cornerScapeNoAudioPool.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无音频素材，请先在「资产中心」上传音频'**
+  String get cornerScapeNoAudioPool;
+
+  /// No description provided for @cornerScapeNoRoles.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无角色资产，请先在「资产中心」创建角色'**
+  String get cornerScapeNoRoles;
+
+  /// No description provided for @cornerScapeSelectAtLeastOne.
+  ///
+  /// In zh, this message translates to:
+  /// **'请至少选择一个角色'**
+  String get cornerScapeSelectAtLeastOne;
+
+  /// No description provided for @cornerScapeBindSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'绑定成功'**
+  String get cornerScapeBindSuccess;
+
+  /// No description provided for @cornerScapeUnbind.
+  ///
+  /// In zh, this message translates to:
+  /// **'解除绑定'**
+  String get cornerScapeUnbind;
 }
 
 class _AppLocalizationsDelegate

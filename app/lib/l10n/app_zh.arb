@@ -593,5 +593,38 @@
   "productionStoryboardInsertHint": "插入分镜",
   "productionStoryboardEditImageEntry": "节点编辑器",
   "productionChatDisabledHint": "Agent 对话在后续批次开放",
-  "productionEmptyProject": "请先选择项目"
+  "productionEmptyProject": "请先选择项目",
+  "workbenchTitle": "工作台",
+  "workbenchOpen": "打开工作台",
+  "workbenchGenerateVideo": "生成视频",
+  "workbenchGenerateAll": "全部生成视频",
+  "workbenchCompose": "合成本集",
+  "workbenchComposing": "合成中...",
+  "workbenchComposeSuccess": "合成成功",
+  "workbenchComposeMissing": "还有 {count} 个镜头未选定视频",
+  "@workbenchComposeMissing": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "workbenchNoShots": "暂无分镜，请先在「制作」的分镜节点生成",
+  "workbenchCandidateNotGenerated": "未生成",
+  "workbenchSelectCandidate": "选为正片",
+  "workbenchSelected": "已选",
+  "workbenchGeneratePrompt": "生成运镜提示词",
+  "workbenchEditPrompt": "编辑运镜提示词",
+  "workbenchOutputPath": "输出路径",
+  "workbenchDuration": "时长",
+  "cornerScapeTitle": "配音",
+  "cornerScapeAutoMatch": "AI 自动匹配",
+  "cornerScapeAutoMatching": "匹配中...",
+  "cornerScapeSelectAudio": "选择音频",
+  "cornerScapeNoAudio": "未绑定",
+  "cornerScapeNoAudioPool": "暂无音频素材，请先在「资产中心」上传音频",
+  "cornerScapeNoRoles": "暂无角色资产，请先在「资产中心」创建角色",
+  "cornerScapeSelectAtLeastOne": "请至少选择一个角色",
+  "cornerScapeBindSuccess": "绑定成功",
+  "cornerScapeUnbind": "解除绑定"
 }

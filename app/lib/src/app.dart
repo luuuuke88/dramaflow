@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'screens/assets/assets_screen.dart';
 import 'screens/coming_soon_screen.dart';
+import 'screens/cornerscape/corner_scape_screen.dart';
 import 'screens/novel/novel_screen.dart';
 import 'screens/production/production_screen.dart';
 import 'screens/project/project_list_screen.dart';
@@ -47,7 +48,8 @@ final _router = GoRouter(
             builder: (c, s) => const ComingSoonScreen(batch: 'P5')),
         GoRoute(
             path: '/p/:pid/cornerScape',
-            builder: (c, s) => const ComingSoonScreen(batch: 'P4')),
+            builder: (c, s) => CornerScapeScreen(
+                projectId: int.parse(s.pathParameters['pid']!))),
         GoRoute(
             path: '/p/:pid/production',
             builder: (c, s) => ProductionScreen(

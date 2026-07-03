@@ -1,6 +1,7 @@
 // 制作画布（照抄 production/index.vue 主链结构，见移植参照 §1）：
 // 剧集选择器 + 无限画布（script→scriptPlan→storyboardTable→storyboard→workbench 主链，
-// assets 挂 script 下方）。scriptPlan/workbench 为 P4/P5 占位卡片（真实功能待后续批次）。
+// assets 挂 script 下方）。scriptPlan 为 P5 占位卡片（Agent 体系待后续批次）；
+// workbench 为紧凑摘要卡+入口按钮，打开全屏工作台（P4，见 workbench_screen.dart）。
 // 移动端 <840：画布不适合窄屏平移操作，改为纵向 Tab 切换各节点内容（同功能不同呈现）。
 import 'dart:io';
 
@@ -9,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../engine/assets.dart';
+import '../../engine/compose_episode.dart';
 import '../../engine/scripts.dart';
 import '../../engine/storyboard.dart';
 import '../../state/providers.dart';
@@ -18,6 +20,7 @@ import '../../util/l10n_ext.dart';
 import '../../widgets/df_canvas.dart';
 import '../../widgets/df_empty.dart';
 import 'image_flow_editor.dart';
+import 'workbench_screen.dart';
 import 'storyboard_canvas_node.dart';
 
 class ProductionScreen extends ConsumerStatefulWidget {
@@ -171,8 +174,7 @@ class _CanvasLayout extends StatelessWidget {
           id: 'workbench',
           position: workbenchPos,
           size: const Size(nodeW, 220),
-          child: _StubNode(
-              title: context.l10n.productionNodeWorkbenchTitle, batch: 'P4'),
+          child: _WorkbenchNode(projectId: projectId, scriptId: script.id),
         ),
       ],
       edges: const [
@@ -198,7 +200,7 @@ class _MobileTabsLayout extends StatefulWidget {
 
 class _MobileTabsLayoutState extends State<_MobileTabsLayout>
     with SingleTickerProviderStateMixin {
-  late final TabController _tab = TabController(length: 4, vsync: this);
+  late final TabController _tab = TabController(length: 5, vsync: this);
 
   @override
   void dispose() {
@@ -218,6 +220,7 @@ class _MobileTabsLayoutState extends State<_MobileTabsLayout>
           Tab(text: l10n.productionNodeAssetsTitle),
           Tab(text: l10n.productionNodeStoryboardTableTitle),
           Tab(text: l10n.productionNodeStoryboardTitle),
+          Tab(text: l10n.workbenchTitle),
         ],
       ),
       Expanded(
@@ -227,6 +230,8 @@ class _MobileTabsLayoutState extends State<_MobileTabsLayout>
           _StoryboardTableNode(
               projectId: widget.projectId, scriptId: widget.script.id),
           StoryboardCanvasNode(
+              projectId: widget.projectId, scriptId: widget.script.id),
+          _WorkbenchNode(
               projectId: widget.projectId, scriptId: widget.script.id),
         ]),
       ),
@@ -411,6 +416,51 @@ class _StoryboardTableNode extends ConsumerWidget {
                     ),
                   ),
                 ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _WorkbenchNode extends ConsumerWidget {
+  final int projectId;
+  final int scriptId;
+  const _WorkbenchNode({required this.projectId, required this.scriptId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final df = context.df;
+    ref.watch(jobsGenerationProvider);
+    final engine = ref.watch(engineProvider);
+    final paths = engine.orderedSelectedVideoPaths(scriptId);
+    final ready = paths.where((p) => p != null && p.isNotEmpty).length;
+    return _NodeFrame(
+      title: l10n.workbenchTitle,
+      child: Column(children: [
+        _NodeHeader(title: l10n.workbenchTitle),
+        Expanded(
+          child: Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.video_library_outlined, size: 28, color: df.primary),
+              const SizedBox(height: 8),
+              Text('$ready / ${paths.length}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(l10n.workbenchSelected,
+                  style: TextStyle(fontSize: 11, color: df.textTertiary)),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: paths.isEmpty
+                    ? null
+                    : () => showWorkbench(context, ref,
+                        projectId: projectId, scriptId: scriptId),
+                icon: const Icon(Icons.open_in_new, size: 14),
+                label: Text(l10n.workbenchOpen,
+                    style: const TextStyle(fontSize: 12)),
+              ),
+            ]),
+          ),
         ),
       ]),
     );

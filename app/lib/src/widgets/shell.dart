@@ -35,9 +35,8 @@ final _projectMenus = <_ProjectMenu>[
       novelOnly: true, comingBatch: 'P5'),
   _ProjectMenu(
       'script', (c) => c.l10n.menuScriptManage, Icons.description_outlined),
-  _ProjectMenu(
-      'cornerScape', (c) => c.l10n.menuCornerScape, Icons.record_voice_over_outlined,
-      comingBatch: 'P4'),
+  _ProjectMenu('cornerScape', (c) => c.l10n.menuCornerScape,
+      Icons.record_voice_over_outlined),
   _ProjectMenu(
       'production', (c) => c.l10n.menuProduction, Icons.movie_filter_outlined),
   _ProjectMenu(

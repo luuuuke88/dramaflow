@@ -1402,4 +1402,84 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get productionEmptyProject => '先にプロジェクトを選択してください';
+
+  @override
+  String get workbenchTitle => 'ワークベンチ';
+
+  @override
+  String get workbenchOpen => 'ワークベンチを開く';
+
+  @override
+  String get workbenchGenerateVideo => '動画を生成';
+
+  @override
+  String get workbenchGenerateAll => 'すべて動画生成';
+
+  @override
+  String get workbenchCompose => '話数を合成';
+
+  @override
+  String get workbenchComposing => '合成中...';
+
+  @override
+  String get workbenchComposeSuccess => '合成に成功しました';
+
+  @override
+  String workbenchComposeMissing(String count) {
+    return '$count 件のカットで動画が未選択です';
+  }
+
+  @override
+  String get workbenchNoShots => 'カットがありません。制作画面で絵コンテを生成してください';
+
+  @override
+  String get workbenchCandidateNotGenerated => '未生成';
+
+  @override
+  String get workbenchSelectCandidate => '採用する';
+
+  @override
+  String get workbenchSelected => '選択中';
+
+  @override
+  String get workbenchGeneratePrompt => 'カメラワークプロンプト生成';
+
+  @override
+  String get workbenchEditPrompt => 'カメラワークプロンプト編集';
+
+  @override
+  String get workbenchOutputPath => '出力パス';
+
+  @override
+  String get workbenchDuration => '再生時間';
+
+  @override
+  String get cornerScapeTitle => '配音';
+
+  @override
+  String get cornerScapeAutoMatch => 'AI自動マッチング';
+
+  @override
+  String get cornerScapeAutoMatching => 'マッチング中...';
+
+  @override
+  String get cornerScapeSelectAudio => '音声を選択';
+
+  @override
+  String get cornerScapeNoAudio => '未割り当て';
+
+  @override
+  String get cornerScapeNoAudioPool => '音声素材がありません。先にアセットでアップロードしてください';
+
+  @override
+  String get cornerScapeNoRoles => 'キャラクター資産がありません。先にアセットで作成してください';
+
+  @override
+  String get cornerScapeSelectAtLeastOne => 'キャラクターを1件以上選択してください';
+
+  @override
+  String get cornerScapeBindSuccess => '割り当てました';
+
+  @override
+  String get cornerScapeUnbind => '割り当て解除';
 }

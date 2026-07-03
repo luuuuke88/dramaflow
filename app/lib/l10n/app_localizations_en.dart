@@ -1433,4 +1433,87 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get productionEmptyProject => 'Select a project first';
+
+  @override
+  String get workbenchTitle => 'Workbench';
+
+  @override
+  String get workbenchOpen => 'Open Workbench';
+
+  @override
+  String get workbenchGenerateVideo => 'Generate Video';
+
+  @override
+  String get workbenchGenerateAll => 'Generate All Videos';
+
+  @override
+  String get workbenchCompose => 'Compose Episode';
+
+  @override
+  String get workbenchComposing => 'Composing...';
+
+  @override
+  String get workbenchComposeSuccess => 'Composed successfully';
+
+  @override
+  String workbenchComposeMissing(String count) {
+    return '$count shots have no selected video';
+  }
+
+  @override
+  String get workbenchNoShots =>
+      'No shots yet — generate storyboard in Production first';
+
+  @override
+  String get workbenchCandidateNotGenerated => 'Not generated';
+
+  @override
+  String get workbenchSelectCandidate => 'Use this take';
+
+  @override
+  String get workbenchSelected => 'Selected';
+
+  @override
+  String get workbenchGeneratePrompt => 'Generate Motion Prompt';
+
+  @override
+  String get workbenchEditPrompt => 'Edit Motion Prompt';
+
+  @override
+  String get workbenchOutputPath => 'Output path';
+
+  @override
+  String get workbenchDuration => 'Duration';
+
+  @override
+  String get cornerScapeTitle => 'Voice';
+
+  @override
+  String get cornerScapeAutoMatch => 'AI Auto-Match';
+
+  @override
+  String get cornerScapeAutoMatching => 'Matching...';
+
+  @override
+  String get cornerScapeSelectAudio => 'Select audio';
+
+  @override
+  String get cornerScapeNoAudio => 'Unbound';
+
+  @override
+  String get cornerScapeNoAudioPool =>
+      'No audio assets yet — upload some in Assets first';
+
+  @override
+  String get cornerScapeNoRoles =>
+      'No role assets yet — create roles in Assets first';
+
+  @override
+  String get cornerScapeSelectAtLeastOne => 'Select at least one role';
+
+  @override
+  String get cornerScapeBindSuccess => 'Bound';
+
+  @override
+  String get cornerScapeUnbind => 'Unbind';
 }

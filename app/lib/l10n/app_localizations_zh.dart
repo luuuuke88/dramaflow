@@ -1393,4 +1393,84 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get productionEmptyProject => '请先选择项目';
+
+  @override
+  String get workbenchTitle => '工作台';
+
+  @override
+  String get workbenchOpen => '打开工作台';
+
+  @override
+  String get workbenchGenerateVideo => '生成视频';
+
+  @override
+  String get workbenchGenerateAll => '全部生成视频';
+
+  @override
+  String get workbenchCompose => '合成本集';
+
+  @override
+  String get workbenchComposing => '合成中...';
+
+  @override
+  String get workbenchComposeSuccess => '合成成功';
+
+  @override
+  String workbenchComposeMissing(String count) {
+    return '还有 $count 个镜头未选定视频';
+  }
+
+  @override
+  String get workbenchNoShots => '暂无分镜，请先在「制作」的分镜节点生成';
+
+  @override
+  String get workbenchCandidateNotGenerated => '未生成';
+
+  @override
+  String get workbenchSelectCandidate => '选为正片';
+
+  @override
+  String get workbenchSelected => '已选';
+
+  @override
+  String get workbenchGeneratePrompt => '生成运镜提示词';
+
+  @override
+  String get workbenchEditPrompt => '编辑运镜提示词';
+
+  @override
+  String get workbenchOutputPath => '输出路径';
+
+  @override
+  String get workbenchDuration => '时长';
+
+  @override
+  String get cornerScapeTitle => '配音';
+
+  @override
+  String get cornerScapeAutoMatch => 'AI 自动匹配';
+
+  @override
+  String get cornerScapeAutoMatching => '匹配中...';
+
+  @override
+  String get cornerScapeSelectAudio => '选择音频';
+
+  @override
+  String get cornerScapeNoAudio => '未绑定';
+
+  @override
+  String get cornerScapeNoAudioPool => '暂无音频素材，请先在「资产中心」上传音频';
+
+  @override
+  String get cornerScapeNoRoles => '暂无角色资产，请先在「资产中心」创建角色';
+
+  @override
+  String get cornerScapeSelectAtLeastOne => '请至少选择一个角色';
+
+  @override
+  String get cornerScapeBindSuccess => '绑定成功';
+
+  @override
+  String get cornerScapeUnbind => '解除绑定';
 }
