@@ -11,6 +11,7 @@ import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/screens/settings_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,6 +46,25 @@ class _RecordingHttpGateway extends HttpProviderGateway {
       {CancelToken? cancelToken}) async {
     calls.add('video:${model.modelId}');
     return 33;
+  }
+}
+
+class _FailingFileSelector extends FileSelectorPlatform {
+  @override
+  Future<FileSaveLocation?> getSaveLocation({
+    List<XTypeGroup>? acceptedTypeGroups,
+    SaveDialogOptions options = const SaveDialogOptions(),
+  }) async {
+    throw StateError('save panel unavailable');
+  }
+
+  @override
+  Future<XFile?> openFile({
+    List<XTypeGroup>? acceptedTypeGroups,
+    String? initialDirectory,
+    String? confirmButtonText,
+  }) async {
+    throw StateError('open panel unavailable');
   }
 }
 
@@ -301,6 +321,29 @@ void main() {
 
     expect(engine.projects(), isEmpty);
     expect((await engine.listProviders()).single.name, 'Keep Provider');
+  });
+
+  testWidgets('移动端设置页：配置导入导出面板错误可见', (tester) async {
+    final originalSelector = FileSelectorPlatform.instance;
+    FileSelectorPlatform.instance = _FailingFileSelector();
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '存储与引擎');
+    await tester.tap(find.text('导出配置'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('无法打开保存面板'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导入配置'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('无法打开文件'), findsOneWidget);
   });
 
   testWidgets('移动端设置页：关于区展示应用与内嵌引擎信息', (tester) async {
