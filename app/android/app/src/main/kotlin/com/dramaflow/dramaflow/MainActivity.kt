@@ -88,6 +88,10 @@ class MainActivity : FlutterActivity() {
             composeWithNleEffects(inputs, output)
             return
         }
+        if (inputs.any { it.hasNleMetadata }) {
+            composeWithNleEffectsAndExternalAudio(inputs, output)
+            return
+        }
         composeWithExternalAudio(inputs, output)
     }
 
@@ -232,9 +236,7 @@ class MainActivity : FlutterActivity() {
     @androidx.annotation.OptIn(UnstableApi::class)
     private fun composeWithNleEffects(segments: List<ComposeSegmentInput>, output: String) {
         segments.forEach { ensureFile(it.videoPath) }
-        segments.firstOrNull { it.transition != null && it.transition != "fade" }?.let {
-            throw ComposerException("Android 当前仅支持淡入淡出与滤镜渲染，暂不支持 ${it.transition}")
-        }
+        ensureRenderableAndroidNle(segments)
 
         val outputFile = File(output)
         outputFile.parentFile?.mkdirs()
@@ -245,6 +247,67 @@ class MainActivity : FlutterActivity() {
         }
         val sequence = EditedMediaItemSequence.withAudioAndVideoFrom(editedItems)
         val composition = Composition.Builder(sequence).build()
+        exportNleComposition(composition, output, "Android NLE 合成")
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun composeWithNleEffectsAndExternalAudio(
+        segments: List<ComposeSegmentInput>,
+        output: String,
+    ) {
+        segments.forEach { ensureFile(it.videoPath) }
+        segments.mapNotNull { it.audioPath }.forEach(::ensureFile)
+        ensureRenderableAndroidNle(segments)
+
+        val nleTempFiles = mutableListOf<File>()
+        try {
+            val renderedSegments = segments.map { segment ->
+                val tempFile = renderNleSegmentToTemp(segment, output)
+                nleTempFiles.add(tempFile)
+                segment.copy(
+                    videoPath = tempFile.absolutePath,
+                    transition = null,
+                    filterPreset = null,
+                )
+            }
+            composeWithExternalAudio(renderedSegments, output)
+        } finally {
+            deleteNleTempFiles(nleTempFiles)
+        }
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun renderNleSegmentToTemp(segment: ComposeSegmentInput, output: String): File {
+        val outputParent = File(output).parentFile ?: cacheDir
+        outputParent.mkdirs()
+        val tempFile = File.createTempFile("dramaflow_nle_", ".mp4", outputParent)
+        if (tempFile.exists()) tempFile.delete()
+
+        val editedItem = buildNleEditedMediaItem(segment, durationUs(segment.videoPath))
+        val sequence = EditedMediaItemSequence.withAudioAndVideoFrom(listOf(editedItem))
+        val composition = Composition.Builder(sequence).build()
+        exportNleComposition(
+            composition,
+            tempFile.absolutePath,
+            "Android NLE 临时片段渲染",
+        )
+        return tempFile
+    }
+
+    private fun deleteNleTempFiles(nleTempFiles: List<File>) {
+        nleTempFiles.forEach { file ->
+            if (file.exists()) file.delete()
+        }
+    }
+
+    private fun ensureRenderableAndroidNle(segments: List<ComposeSegmentInput>) {
+        segments.firstOrNull { it.transition != null && it.transition != "fade" }?.let {
+            throw ComposerException("Android 当前仅支持淡入淡出与滤镜渲染，暂不支持 ${it.transition}")
+        }
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun exportNleComposition(composition: Composition, output: String, label: String) {
         val error = AtomicReference<Exception?>()
         val done = CountDownLatch(1)
         val transformer = Transformer.Builder(this)
@@ -267,10 +330,10 @@ class MainActivity : FlutterActivity() {
         transformer.start(composition, output)
         if (!done.await(30, TimeUnit.MINUTES)) {
             transformer.cancel()
-            throw ComposerException("Android NLE 合成超时")
+            throw ComposerException("$label 超时")
         }
         error.get()?.let {
-            throw ComposerException("Android NLE 合成失败：${it.message ?: it.javaClass.simpleName}")
+            throw ComposerException("$label 失败：${it.message ?: it.javaClass.simpleName}")
         }
     }
 

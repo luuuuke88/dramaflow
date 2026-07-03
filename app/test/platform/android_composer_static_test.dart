@@ -66,4 +66,27 @@ void main() {
       reason: 'Non-NLE mux fallback should remain for external-audio paths.',
     );
   });
+
+  test('Android composer pre-renders NLE clips before muxing external audio',
+      () {
+    final activitySource = File(
+      'android/app/src/main/kotlin/com/dramaflow/dramaflow/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(activitySource, contains('composeWithNleEffectsAndExternalAudio'));
+    expect(activitySource, contains('renderNleSegmentToTemp'));
+    expect(activitySource, contains('nleTempFiles'));
+    expect(activitySource, contains('deleteNleTempFiles'));
+    expect(
+      activitySource,
+      contains('composeWithExternalAudio(renderedSegments, output)'),
+      reason:
+          'Rendered video clips should reuse the proven external-audio mux path.',
+    );
+    expect(
+      activitySource,
+      contains('copyTrack(item.segment.videoPath'),
+      reason: 'Plain external-audio mux fallback should remain for non-NLE shots.',
+    );
+  });
 }
