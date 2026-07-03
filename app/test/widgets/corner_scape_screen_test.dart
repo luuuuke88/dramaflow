@@ -105,4 +105,84 @@ void main() {
     final tasks = await engine.projectJobs(projectId);
     expect(tasks.any((t) => t.taskClass == 'audio_bind'), isTrue);
   });
+
+  testWidgets('状态筛选「未绑定」只展示未绑定角色', (tester) async {
+    final bound = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    engine.addAsset(
+        projectId: projectId, type: 'role', name: '沈砚之', describe: 'x');
+    final audio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
+    engine.bindRoleAudio(bound, audio);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    // 初始「全部」两角色都在。
+    expect(find.text('林朝雪'), findsOneWidget);
+    expect(find.text('沈砚之'), findsOneWidget);
+
+    // 切到「未绑定」：只剩未绑定的沈砚之。
+    await tester.tap(find.text('未绑定'));
+    await tester.pumpAndSettle();
+    expect(find.text('林朝雪'), findsNothing);
+    expect(find.text('沈砚之'), findsOneWidget);
+
+    // 切到「已绑定」：只剩已绑定的林朝雪。
+    await tester.tap(find.text('已绑定'));
+    await tester.pumpAndSettle();
+    expect(find.text('林朝雪'), findsOneWidget);
+    expect(find.text('沈砚之'), findsNothing);
+  });
+
+  testWidgets('搜索按角色名称过滤列表', (tester) async {
+    engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    engine.addAsset(
+        projectId: projectId, type: 'role', name: '沈砚之', describe: 'x');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '林');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(find.text('林朝雪'), findsOneWidget);
+    expect(find.text('沈砚之'), findsNothing);
+  });
+
+  testWidgets('全选未绑定把可见未绑定角色加入 AI 匹配选择', (tester) async {
+    final bound = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    engine.addAsset(
+        projectId: projectId, type: 'role', name: '沈砚之', describe: 'x');
+    engine.addAsset(
+        projectId: projectId, type: 'role', name: '苏晚', describe: 'x');
+    final audio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
+    engine.bindRoleAudio(bound, audio);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    // 三角色一绑定两未绑定：点「全选未绑定」应选中 2 个。
+    await tester.tap(find.text('全选未绑定'));
+    await tester.pumpAndSettle();
+
+    // AI 自动匹配按钮标签带上选择计数 (2)。
+    expect(find.textContaining('(2)'), findsOneWidget);
+
+    // 触发批量匹配，任务的 roleIds 恰为两个未绑定角色。
+    await tester.tap(find.textContaining('AI 自动匹配'));
+    await tester.pump();
+
+    final tasks = await engine.projectJobs(projectId);
+    final task = tasks.firstWhere((t) => t.taskClass == 'audio_bind');
+    final roleIds = (task.relatedObjectsJson['roleIds'] as List)
+        .map((e) => (e as num).toInt())
+        .toSet();
+    expect(roleIds, hasLength(2));
+    expect(roleIds.contains(bound), isFalse);
+  });
 }

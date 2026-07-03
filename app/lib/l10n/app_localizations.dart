@@ -3195,6 +3195,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。'**
   String get agentChatSkillsBody;
+
+  /// No description provided for @cornerScapeSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索角色名称'**
+  String get cornerScapeSearchHint;
+
+  /// No description provided for @cornerScapeFilterAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get cornerScapeFilterAll;
+
+  /// No description provided for @cornerScapeFilterBound.
+  ///
+  /// In zh, this message translates to:
+  /// **'已绑定'**
+  String get cornerScapeFilterBound;
+
+  /// No description provided for @cornerScapeFilterUnbound.
+  ///
+  /// In zh, this message translates to:
+  /// **'未绑定'**
+  String get cornerScapeFilterUnbound;
+
+  /// No description provided for @cornerScapeSelectAllUnbound.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选未绑定'**
+  String get cornerScapeSelectAllUnbound;
+
+  /// No description provided for @cornerScapeBoundSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'已绑定 {bound}/{total}'**
+  String cornerScapeBoundSummary(int bound, int total);
+
+  /// No description provided for @cornerScapeNoMatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有符合筛选条件的角色'**
+  String get cornerScapeNoMatch;
 }
 
 class _AppLocalizationsDelegate
