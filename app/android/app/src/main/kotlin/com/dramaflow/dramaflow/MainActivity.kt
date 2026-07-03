@@ -270,6 +270,11 @@ class MainActivity : FlutterActivity() {
         segments.mapNotNull { it.audioPath }.forEach(::ensureFile)
         ensureRenderableAndroidNle(segments)
 
+        if (segments.any { it.transition == "dissolve" }) {
+            composeWithDissolveTransitionsAndExternalAudio(segments, output)
+            return
+        }
+
         val nleTempFiles = mutableListOf<File>()
         try {
             val renderedSegments = segments.map { segment ->
@@ -337,8 +342,135 @@ class MainActivity : FlutterActivity() {
     }
 
     @androidx.annotation.OptIn(UnstableApi::class)
+    private fun composeWithDissolveTransitionsAndExternalAudio(
+        segments: List<ComposeSegmentInput>,
+        output: String,
+    ) {
+        val tempFile = renderDissolveCompositionToTemp(segments, output)
+        try {
+            muxRenderedVideoWithTimelineAudio(tempFile.absolutePath, segments, output)
+        } finally {
+            if (tempFile.exists()) tempFile.delete()
+        }
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun renderDissolveCompositionToTemp(
+        segments: List<ComposeSegmentInput>,
+        output: String,
+    ): File {
+        val outputParent = File(output).parentFile ?: cacheDir
+        outputParent.mkdirs()
+        val tempFile = File.createTempFile("dramaflow_dissolve_", ".mp4", outputParent)
+        if (tempFile.exists()) tempFile.delete()
+
+        val plan = buildDissolveCompositionPlan(segments, includePrimaryAudio = false)
+        val sequences = mutableListOf(plan.primarySequence)
+        sequences.addAll(plan.overlaySequences)
+        val composition = Composition.Builder(sequences)
+            .setVideoCompositorSettings(DissolveVideoCompositorSettings(plan.overlays))
+            .build()
+        exportNleComposition(composition, tempFile.absolutePath, "Android dissolve 临时片段渲染")
+        return tempFile
+    }
+
+    private fun muxRenderedVideoWithTimelineAudio(
+        renderedVideoPath: String,
+        segments: List<ComposeSegmentInput>,
+        output: String,
+    ) {
+        val renderedTracks = inspectTracks(renderedVideoPath)
+        val audioSegments = buildTimelineAudioSegments(segments)
+        val outputAudioFormat = audioSegments.firstOrNull()?.audioFormat
+
+        val outputFile = File(output)
+        outputFile.parentFile?.mkdirs()
+        if (outputFile.exists()) outputFile.delete()
+
+        val muxer = MediaMuxer(output, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        var started = false
+        try {
+            val videoOutTrack = muxer.addTrack(renderedTracks.videoFormat)
+            val audioOutTrack = outputAudioFormat?.let { muxer.addTrack(it) }
+            renderedTracks.rotationDegrees?.let { muxer.setOrientationHint(it) }
+            muxer.start()
+            started = true
+
+            copyTrack(renderedVideoPath, renderedTracks.videoIndex, muxer, videoOutTrack, 0L)
+            if (audioOutTrack != null) {
+                for (segment in audioSegments) {
+                    ensureCompatible(outputAudioFormat, segment.audioFormat, segment.path)
+                    copyTrack(
+                        segment.path,
+                        segment.trackIndex,
+                        muxer,
+                        audioOutTrack,
+                        segment.outputOffsetUs,
+                        maxInputDurationUs = segment.durationUs,
+                        inputStartUs = segment.sourceStartUs,
+                    )
+                }
+            }
+        } finally {
+            if (started) muxer.stop()
+            muxer.release()
+        }
+    }
+
+    private fun buildTimelineAudioSegments(
+        segments: List<ComposeSegmentInput>,
+    ): List<TimelineAudioSegment> {
+        val durations = segments.map { durationUs(it.videoPath) }
+        val timelineAudioSegments = mutableListOf<TimelineAudioSegment>()
+        var outputCursorUs = 0L
+
+        for ((index, segment) in segments.withIndex()) {
+            val videoDurationUs = durations[index]
+            val incomingDissolveUs = dissolveDurationUs(
+                segment = segment,
+                durationUs = videoDurationUs,
+                previousDurationUs = durations.getOrNull(index - 1),
+            )
+            val segmentAudioDurationUs = videoDurationUs - incomingDissolveUs
+            if (segmentAudioDurationUs > 0L) {
+                if (segment.audioPath != null) {
+                    val audio = inspectAudioTrack(segment.audioPath)
+                    timelineAudioSegments.add(
+                        TimelineAudioSegment(
+                            path = segment.audioPath,
+                            trackIndex = audio.audioIndex,
+                            audioFormat = audio.audioFormat,
+                            outputOffsetUs = outputCursorUs,
+                            sourceStartUs = 0L,
+                            durationUs = segmentAudioDurationUs,
+                        ),
+                    )
+                } else {
+                    val tracks = inspectTracks(segment.videoPath)
+                    if (tracks.audioIndex != null && tracks.audioFormat != null) {
+                        timelineAudioSegments.add(
+                            TimelineAudioSegment(
+                                path = segment.videoPath,
+                                trackIndex = tracks.audioIndex,
+                                audioFormat = tracks.audioFormat,
+                                outputOffsetUs = outputCursorUs,
+                                sourceStartUs = incomingDissolveUs,
+                                durationUs = segmentAudioDurationUs,
+                            ),
+                        )
+                    }
+                }
+            }
+            outputCursorUs += segmentAudioDurationUs
+        }
+
+        return timelineAudioSegments
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
     private fun buildDissolveCompositionPlan(
         segments: List<ComposeSegmentInput>,
+        includePrimaryAudio: Boolean = true,
     ): DissolveCompositionPlan {
         val durations = segments.map { durationUs(it.videoPath) }
         val primaryItems = mutableListOf<EditedMediaItem>()
@@ -386,7 +518,11 @@ class MainActivity : FlutterActivity() {
         }
 
         return DissolveCompositionPlan(
-            primarySequence = EditedMediaItemSequence.withAudioAndVideoFrom(primaryItems),
+            primarySequence = if (includePrimaryAudio) {
+                EditedMediaItemSequence.withAudioAndVideoFrom(primaryItems)
+            } else {
+                EditedMediaItemSequence.withVideoFrom(primaryItems)
+            },
             overlaySequences = overlaySequences,
             overlays = overlays,
         )
@@ -568,6 +704,7 @@ class MainActivity : FlutterActivity() {
         muxerTrackIndex: Int,
         offsetUs: Long,
         maxInputDurationUs: Long? = null,
+        inputStartUs: Long = 0L,
     ) {
         val extractor = MediaExtractor()
         try {
@@ -580,9 +717,13 @@ class MainActivity : FlutterActivity() {
                 val size = extractor.readSampleData(buffer, 0)
                 if (size < 0) break
                 val sampleTime = extractor.sampleTime
-                if (maxInputDurationUs != null && sampleTime >= maxInputDurationUs) break
+                if (sampleTime < inputStartUs) {
+                    extractor.advance()
+                    continue
+                }
+                if (maxInputDurationUs != null && sampleTime >= inputStartUs + maxInputDurationUs) break
                 if (sampleTime >= 0) {
-                    info.set(0, size, sampleTime + offsetUs, extractor.sampleFlags)
+                    info.set(0, size, sampleTime - inputStartUs + offsetUs, extractor.sampleFlags)
                     muxer.writeSampleData(muxerTrackIndex, buffer, info)
                 }
                 extractor.advance()
@@ -683,6 +824,15 @@ private data class ComposeInspection(
     val segment: ComposeSegmentInput,
     val tracks: TrackInspection,
     val externalAudio: AudioInspection?,
+    val durationUs: Long,
+)
+
+private data class TimelineAudioSegment(
+    val path: String,
+    val trackIndex: Int,
+    val audioFormat: MediaFormat,
+    val outputOffsetUs: Long,
+    val sourceStartUs: Long,
     val durationUs: Long,
 )
 

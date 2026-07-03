@@ -124,4 +124,24 @@ void main() {
       reason: 'Plain external-audio mux fallback should remain for non-NLE shots.',
     );
   });
+
+  test('Android composer keeps dissolve when muxing external audio', () {
+    final activitySource = File(
+      'android/app/src/main/kotlin/com/dramaflow/dramaflow/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(activitySource, contains('composeWithDissolveTransitionsAndExternalAudio'));
+    expect(activitySource, contains('renderDissolveCompositionToTemp'));
+    expect(activitySource, contains('muxRenderedVideoWithTimelineAudio'));
+    expect(activitySource, contains('buildTimelineAudioSegments'));
+    expect(activitySource, contains('TimelineAudioSegment'));
+    expect(activitySource, contains('sourceStartUs'));
+    expect(activitySource, contains('inputStartUs'));
+    expect(
+      activitySource,
+      contains('segments.any { it.transition == "dissolve" }'),
+      reason:
+          'External-audio paths must detect cross-shot dissolve before falling back to per-clip rendering.',
+    );
+  });
 }
