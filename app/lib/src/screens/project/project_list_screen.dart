@@ -21,6 +21,11 @@ final projectsProvider = Provider.autoDispose<List<ProjectRow>>((ref) {
   ref.watch(projectsTickProvider);
   return ref.watch(engineProvider).projects();
 });
+final projectStatsProvider =
+    Provider.autoDispose<Map<int, ProjectStats>>((ref) {
+  ref.watch(projectsTickProvider);
+  return ref.watch(engineProvider).projectStats();
+});
 
 class ProjectListScreen extends ConsumerWidget {
   const ProjectListScreen({super.key});
@@ -44,8 +49,7 @@ class ProjectListScreen extends ConsumerWidget {
               onPressed: () => Navigator.pop(c, false),
               child: Text(l10n.projectMsgDeleteCancel)),
           FilledButton(
-              style: FilledButton.styleFrom(
-                  backgroundColor: context.df.danger),
+              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
               onPressed: () => Navigator.pop(c, true),
               child: Text(l10n.projectMsgDeleteConfirm)),
         ],
@@ -83,6 +87,7 @@ class ProjectListScreen extends ConsumerWidget {
     final l10n = context.l10n;
     final df = context.df;
     final projects = ref.watch(projectsProvider);
+    final stats = ref.watch(projectStatsProvider);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
@@ -92,7 +97,8 @@ class ProjectListScreen extends ConsumerWidget {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(l10n.projectTitle,
-                  style: DFTokens.display24w700.copyWith(color: df.textPrimary)),
+                  style:
+                      DFTokens.display24w700.copyWith(color: df.textPrimary)),
               const SizedBox(height: 4),
               Text(l10n.projectSubtitle,
                   style: TextStyle(fontSize: 13, color: df.textSecondary)),
@@ -127,13 +133,14 @@ class ProjectListScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 24),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: cols,
-                      mainAxisExtent: 172,
+                      mainAxisExtent: 208,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
                     itemCount: projects.length,
                     itemBuilder: (c, i) => _ProjectCard(
                       project: projects[i],
+                      stats: stats[projects[i].id] ?? const ProjectStats(),
                       onOpen: () => _openProject(context, ref, projects[i]),
                       onEdit: () => _edit(context, ref, existing: projects[i]),
                       onDelete: () => _delete(context, ref, projects[i]),
@@ -148,11 +155,13 @@ class ProjectListScreen extends ConsumerWidget {
 
 class _ProjectCard extends StatefulWidget {
   final ProjectRow project;
+  final ProjectStats stats;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   const _ProjectCard(
       {required this.project,
+      required this.stats,
       required this.onOpen,
       required this.onEdit,
       required this.onDelete});
@@ -169,6 +178,8 @@ class _ProjectCardState extends State<_ProjectCard> {
     final df = context.df;
     final l10n = context.l10n;
     final p = widget.project;
+    final compact = MediaQuery.sizeOf(context).width < 700;
+    final showActions = _hover || compact;
     final typeLabel = p.projectType == 'script'
         ? l10n.projectDialogBasedOnScript
         : l10n.projectDialogBasedOnNovel;
@@ -217,12 +228,25 @@ class _ProjectCardState extends State<_ProjectCard> {
                 style: TextStyle(fontSize: 13, color: df.textSecondary),
               ),
             ),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                _StatTag(text: l10n.projectStatChapters(widget.stats.chapters)),
+                _StatTag(text: l10n.projectStatScripts(widget.stats.scripts)),
+                _StatTag(text: l10n.projectStatAssets(widget.stats.assets)),
+                _StatTag(
+                    text:
+                        l10n.projectStatStoryboards(widget.stats.storyboards)),
+              ],
+            ),
+            const SizedBox(height: 4),
             Row(children: [
               Expanded(
                 child: Text(created,
                     style: TextStyle(fontSize: 11, color: df.textTertiary)),
               ),
-              if (_hover) ...[
+              if (showActions) ...[
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   tooltip: l10n.commonEdit,
@@ -241,6 +265,30 @@ class _ProjectCardState extends State<_ProjectCard> {
             ]),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+class _StatTag extends StatelessWidget {
+  final String text;
+
+  const _StatTag({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: df.surfaceMuted,
+        borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 11, color: df.textTertiary),
       ),
     );
   }

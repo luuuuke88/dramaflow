@@ -86,6 +86,38 @@
   "projectTitle": "我的项目",
   "projectSubtitle": "管理您的所有短剧项目",
   "projectNewProject": "新建项目",
+  "projectStatChapters": "章节 {count}",
+  "@projectStatChapters": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectStatScripts": "剧本 {count}",
+  "@projectStatScripts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectStatAssets": "素材 {count}",
+  "@projectStatAssets": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectStatStoryboards": "分镜 {count}",
+  "@projectStatStoryboards": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "projectDialogEditTitle": "编辑项目",
   "projectDialogAddTitle": "新建项目",
   "projectDialogSave": "保存",

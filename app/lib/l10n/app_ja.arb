@@ -79,6 +79,38 @@
   "projectTitle": "マイプロジェクト",
   "projectSubtitle": "すべてのショートドラマプロジェクトを管理します",
   "projectNewProject": "新規プロジェクト",
+  "projectStatChapters": "章 {count}",
+  "@projectStatChapters": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectStatScripts": "脚本 {count}",
+  "@projectStatScripts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectStatAssets": "素材 {count}",
+  "@projectStatAssets": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectStatStoryboards": "絵コンテ {count}",
+  "@projectStatStoryboards": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "projectDialogEditTitle": "プロジェクトの編集",
   "projectDialogAddTitle": "新規プロジェクト",
   "projectDialogSave": "保存",

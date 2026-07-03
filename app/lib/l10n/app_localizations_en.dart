@@ -207,6 +207,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get projectNewProject => 'New Project';
 
   @override
+  String projectStatChapters(int count) {
+    return 'Chapters $count';
+  }
+
+  @override
+  String projectStatScripts(int count) {
+    return 'Scripts $count';
+  }
+
+  @override
+  String projectStatAssets(int count) {
+    return 'Assets $count';
+  }
+
+  @override
+  String projectStatStoryboards(int count) {
+    return 'Storyboards $count';
+  }
+
+  @override
   String get projectDialogEditTitle => 'Edit Project';
 
   @override

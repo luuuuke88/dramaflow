@@ -6,15 +6,15 @@ This checklist is evidence tracking, not a completion claim. `Verified` means a 
 
 ## 项目列表 + 新建向导
 
-Status: Partial
+Status: Verified
 
-Desktop Evidence: `app/test/widgets/project_page_test.dart` covers the empty state and new-project entry; `app/test/engine/projects_test.dart` covers project CRUD fields.
+Desktop Evidence: `app/test/widgets/project_page_test.dart` covers the empty state, new-project entry, card navigation, hover edit/delete actions, and card statistics display. `app/test/engine/projects_test.dart` covers project CRUD fields and `projectStats()` aggregation.
 
-Mobile Evidence: `app/test/widgets/project_page_test.dart` covers a 390px full-screen new-project wizard: project type, name, novel type, intro, image model, image quality, video model, video mode, video ratio, visual manual, and director manual are saved into `o_project`.
+Mobile Evidence: `app/test/widgets/project_page_test.dart` covers a 390px full-screen new-project wizard: project type, name, novel type, intro, image model, image quality, video model, video mode, video ratio, visual manual, and director manual are saved into `o_project`. It also covers 390px project-card edit/delete actions without hover.
 
-Known Gaps: Desktop edit/delete/stat card parity and mobile project card action coverage still need stronger proof.
+Known Gaps: None at the current project-list/new-project page scope.
 
-Next Verification: Add desktop/mobile project card action tests for edit, delete, and project statistics display.
+Next Verification: If project cards change, keep desktop hover and 390px no-hover action tests plus the local stats assertions.
 
 ## 章节管理 + 事件
 

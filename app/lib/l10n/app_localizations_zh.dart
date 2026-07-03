@@ -203,6 +203,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get projectNewProject => '新建项目';
 
   @override
+  String projectStatChapters(int count) {
+    return '章节 $count';
+  }
+
+  @override
+  String projectStatScripts(int count) {
+    return '剧本 $count';
+  }
+
+  @override
+  String projectStatAssets(int count) {
+    return '素材 $count';
+  }
+
+  @override
+  String projectStatStoryboards(int count) {
+    return '分镜 $count';
+  }
+
+  @override
   String get projectDialogEditTitle => '编辑项目';
 
   @override

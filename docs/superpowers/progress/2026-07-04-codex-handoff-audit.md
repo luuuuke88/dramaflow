@@ -6,7 +6,7 @@
 - 本轮起点：`c4c3cf6 chore(progress): record handoff audit and localize composer errors`
 - 本轮接手验证：
   - `cd app && flutter analyze`：通过，0 issues
-  - `cd app && flutter test`：通过，264 tests
+  - `cd app && flutter test`：通过，268 tests
   - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`
   - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`
   - `cd app && flutter build apk --debug`：通过，产物 `build/app/outputs/flutter-apk/app-debug.apk`
@@ -30,6 +30,7 @@
 - 新增移动端配音页 smoke：390px 宽度下角色音频下拉可打开、选择音频并写入绑定关系。
 - 新增机器可验证的 11 页 ToonFlow parity checklist：`docs/superpowers/progress/2026-07-04-page-parity-checklist.md` 逐页记录 Status、Desktop Evidence、Mobile Evidence、Known Gaps、Next Verification，并由 `app/test/docs/page_parity_checklist_test.dart` 防止缺页。
 - 新增移动端项目新建向导 smoke：390px 宽度下可选择图片/视频模型、画质、模式、画幅、视觉手册、导演手册并保存到 `o_project`；同时修复项目对话框窄下拉在小屏下的横向溢出。
+- 扩展项目列表页 smoke：桌面卡片 hover 后可编辑/删除，移动端卡片无需 hover 也可编辑/删除；卡片展示章节、剧本、素材、分镜本地统计，并由 engine `projectStats()` 单测锁定聚合逻辑。
 - 新增移动端设置页 smoke：390px 宽度下可修改外观/语言、新增供应商、打开提示词编辑页，补齐全套设置页的首个移动端机器证据。
 - 扩展移动端设置页 smoke：390px 宽度下可进入模型管理新增文本模型、绑定剧本生成模型、打开数据库信息、确认清空数据且保留供应商配置。
 - 新增移动端任务中心 smoke：390px 宽度下可切换项目、打开任务详情、重试失败任务、取消待处理任务，并锁定任务筛选下拉不再横向溢出。
@@ -45,7 +46,7 @@
 - Web/H5 目前只是 buildable preview。`bootstrap_web.dart` 明确不接入 engine，仍缺 Web 数据库、浏览器文件存储、WebCodecs/Mediabunny 合成器与媒体预览适配。
 - ToonFlow 的完整 WebAV 非线性剪辑器没有复刻。当前工作台是顺序分镜、候选选择、时长/运镜提示词编辑、播放预览和合成导出，不包含完整转场、滤镜、多层剪辑特效。
 - Agent 体系是瘦身版单层 AgentRunner，保留可见任务与工具调用；没有复刻 ToonFlow/Claude 风格的多层 Agent + RAG 记忆大系统。
-- “每页每按钮与 ToonFlow 并排验收”已有机器可验证清单骨架；任务中心已补成 Verified，但多数页面仍是 Partial，需要按清单继续补截图/真机/按钮级证据。
+- “每页每按钮与 ToonFlow 并排验收”已有机器可验证清单骨架；项目页和任务中心已补成 Verified，但多数页面仍是 Partial，需要按清单继续补截图/真机/按钮级证据。
 - 移动端已有响应式布局和 Android/iOS 合成入口，但还需要真机或模拟器完整跑一遍：从导入章节到生成分镜、视频候选、配音、合成导出。
 
 ## 接下来优先级
@@ -53,4 +54,4 @@
 1. 继续补“客户端完整流程”的可验证缺口，而不是优先做 Web。Web 完整 H5 是大子项目，应单独拆 M6。
 2. 沿 `docs/superpowers/progress/2026-07-04-page-parity-checklist.md` 逐项补证据，避免只看文件存在就误判完成。
 3. 跑并记录 `flutter build macos --debug`、iOS simulator build、Android APK build 作为多端集成基线。
-4. 继续补每页每按钮 parity checklist，优先补项目页卡片操作、素材移动端 CRUD/批量参数、节点式图片编辑器移动端操作、Agent 体系页配置证据。
+4. 继续补每页每按钮 parity checklist，优先补素材移动端 CRUD/批量参数、节点式图片编辑器移动端操作、Agent 体系页配置证据。

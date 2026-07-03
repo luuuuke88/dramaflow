@@ -72,14 +72,27 @@ class ProjectRow {
       );
 }
 
+class ProjectStats {
+  final int chapters;
+  final int scripts;
+  final int assets;
+  final int storyboards;
+
+  const ProjectStats({
+    this.chapters = 0,
+    this.scripts = 0,
+    this.assets = 0,
+    this.storyboards = 0,
+  });
+}
+
 class Engine {
   static const version = '0.3.0-task3';
   static const _promptKeyEventExtraction = 'eventExtraction';
   static const _promptKeyScriptAssetExtraction = 'scriptAssetExtraction';
   static const _promptKeyImageSizeDirective = 'image_size_directive';
 
-  static const _toonFlowEventExtractionPrompt =
-      r'''# 事件提取指令
+  static const _toonFlowEventExtractionPrompt = r'''# 事件提取指令
 
 你是小说文本分析助手。用户每次提供一个章节的原文，你提取该章的结构化事件信息。
 
@@ -133,8 +146,7 @@ class Engine {
 - 多条平行事件线时，选对主角影响最大的一条，其余简要带过
 - 对话密集章节，关注对话推动了什么结果，而非复述对话内容''';
 
-  static const _toonFlowScriptAssetExtractionPrompt =
-      r'''---
+  static const _toonFlowScriptAssetExtractionPrompt = r'''---
 name: universal_agent
 description: 专注于从剧本内容中提取所使用的资产（角色、场景、道具）并生成结构化资产列表的助手。
 ---
@@ -505,6 +517,62 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
           'SELECT * FROM o_project ORDER BY COALESCE(createTime,0) DESC, id DESC')
       .map(ProjectRow.fromRow)
       .toList();
+
+  Map<int, ProjectStats> projectStats() {
+    final values =
+        <int, ({int chapters, int scripts, int assets, int storyboards})>{};
+    void merge(String table, String field) {
+      final rows = db.select(
+        'SELECT projectId, COUNT(*) n FROM $table WHERE projectId IS NOT NULL GROUP BY projectId',
+      );
+      for (final row in rows) {
+        final projectId = row['projectId'] as int;
+        final count = row['n'] as int;
+        final old = values[projectId] ??
+            (chapters: 0, scripts: 0, assets: 0, storyboards: 0);
+        values[projectId] = switch (field) {
+          'chapters' => (
+              chapters: count,
+              scripts: old.scripts,
+              assets: old.assets,
+              storyboards: old.storyboards,
+            ),
+          'scripts' => (
+              chapters: old.chapters,
+              scripts: count,
+              assets: old.assets,
+              storyboards: old.storyboards,
+            ),
+          'assets' => (
+              chapters: old.chapters,
+              scripts: old.scripts,
+              assets: count,
+              storyboards: old.storyboards,
+            ),
+          _ => (
+              chapters: old.chapters,
+              scripts: old.scripts,
+              assets: old.assets,
+              storyboards: count,
+            ),
+        };
+      }
+    }
+
+    merge('o_novel', 'chapters');
+    merge('o_script', 'scripts');
+    merge('o_assets', 'assets');
+    merge('o_storyboard', 'storyboards');
+    return {
+      for (final entry in values.entries)
+        entry.key: ProjectStats(
+          chapters: entry.value.chapters,
+          scripts: entry.value.scripts,
+          assets: entry.value.assets,
+          storyboards: entry.value.storyboards,
+        ),
+    };
+  }
 
   int addProject({
     required String projectType,

@@ -1,12 +1,18 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/manuals.dart';
-import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/novel.dart';
+import 'package:dramaflow/src/engine/novel_parse.dart';
+import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/scripts.dart';
+import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:dramaflow/src/screens/project/project_list_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
@@ -88,6 +94,48 @@ void main() {
     await tester.tap(find.text('剑出寒山'));
     await tester.pumpAndSettle();
     expect(find.text('novel-page'), findsOneWidget);
+  });
+
+  testWidgets('桌面项目卡片：hover 后可编辑和删除', (tester) async {
+    final projectId = engine.addProject(
+      projectType: 'novel',
+      name: '桌面项目',
+      intro: '旧简介',
+      artStyle: '电影感',
+    );
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer();
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.text('桌面项目')));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('编辑'), findsOneWidget);
+    expect(find.byTooltip('删除'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('编辑'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '桌面项目改名');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final edited = await engine.getProject(projectId);
+    expect(edited.name, '桌面项目改名');
+
+    await mouse.moveTo(tester.getCenter(find.text('桌面项目改名')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('删除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除').last);
+    await tester.pumpAndSettle();
+
+    expect(engine.projects(), isEmpty);
+    expect(find.text('暂无项目'), findsOneWidget);
   });
 
   testWidgets('新建对话框：名称必填校验', (tester) async {
@@ -188,6 +236,100 @@ void main() {
     expect(project.videoModel, 'demo-provider:video-demo');
     expect(project.mode, 'fast');
     expect(project.videoRatio, '9:16');
+  });
+
+  testWidgets('移动端项目卡片：无需 hover 也能编辑和删除', (tester) async {
+    final projectId = engine.addProject(
+      projectType: 'novel',
+      name: '移动端项目',
+      intro: '旧简介',
+      artStyle: '国风水墨',
+    );
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('编辑'), findsOneWidget);
+    expect(find.byTooltip('删除'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('编辑'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '移动端项目改名');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final edited = await engine.getProject(projectId);
+    expect(edited.name, '移动端项目改名');
+    expect(find.text('移动端项目改名'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('删除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除').last);
+    await tester.pumpAndSettle();
+
+    expect(engine.projects(), isEmpty);
+    expect(find.text('暂无项目'), findsOneWidget);
+  });
+
+  testWidgets('项目卡片展示本地统计数量', (tester) async {
+    final projectId = engine.addProject(
+      projectType: 'novel',
+      name: '统计项目',
+      intro: '带数据',
+      artStyle: '赛博',
+    );
+    engine.addNovels(projectId, [
+      const ChapterItem(
+        index: 1,
+        reel: '正文卷',
+        chapter: '第一章',
+        chapterData: '入山',
+      ),
+      const ChapterItem(
+        index: 2,
+        reel: '正文卷',
+        chapter: '第二章',
+        chapterData: '试炼',
+      ),
+    ]);
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第1集', content: '剧本');
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      name: '李禾',
+      type: 'role',
+      describe: '少年',
+      prompt: '少年',
+    );
+    engine.addAsset(
+      projectId: projectId,
+      name: '山门',
+      type: 'scene',
+      describe: '山门',
+      prompt: '石阶',
+    );
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      videoDesc: '少年走向山门',
+      prompt: '山门远景',
+      duration: '3',
+      assetIds: [roleId],
+    );
+
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(find.text('章节 2'), findsOneWidget);
+    expect(find.text('剧本 1'), findsOneWidget);
+    expect(find.text('素材 2'), findsOneWidget);
+    expect(find.text('分镜 1'), findsOneWidget);
   });
 }
 

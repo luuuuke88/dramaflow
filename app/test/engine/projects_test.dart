@@ -89,6 +89,52 @@ void main() {
     expect(project.mode, 'fast');
   });
 
+  test('projectStats 按项目汇总章节/剧本/素材/分镜数量', () {
+    final projectId = engine.addProject(projectType: 'series', name: '统计');
+    final otherId = engine.addProject(projectType: 'series', name: '其他');
+
+    db.execute(
+      'INSERT INTO o_novel (projectId,chapterIndex,chapter) VALUES (?,?,?)',
+      [projectId, 1, '第一章'],
+    );
+    db.execute(
+      'INSERT INTO o_novel (projectId,chapterIndex,chapter) VALUES (?,?,?)',
+      [projectId, 2, '第二章'],
+    );
+    db.execute(
+      'INSERT INTO o_script (projectId,name,content) VALUES (?,?,?)',
+      [projectId, '第一集', 'content'],
+    );
+    final scriptId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_script (projectId,name,content) VALUES (?,?,?)',
+      [otherId, '其他剧本', 'content'],
+    );
+    db.execute(
+      'INSERT INTO o_assets (projectId,name,type) VALUES (?,?,?)',
+      [projectId, '角色', 'role'],
+    );
+    db.execute(
+      'INSERT INTO o_assets (projectId,name,type) VALUES (?,?,?)',
+      [projectId, '场景', 'scene'],
+    );
+    db.execute(
+      'INSERT INTO o_storyboard (projectId,scriptId,prompt) VALUES (?,?,?)',
+      [projectId, scriptId, 'prompt'],
+    );
+
+    final stats = engine.projectStats();
+
+    expect(stats[projectId]!.chapters, 2);
+    expect(stats[projectId]!.scripts, 1);
+    expect(stats[projectId]!.assets, 2);
+    expect(stats[projectId]!.storyboards, 1);
+    expect(stats[otherId]!.chapters, 0);
+    expect(stats[otherId]!.scripts, 1);
+    expect(stats[otherId]!.assets, 0);
+    expect(stats[otherId]!.storyboards, 0);
+  });
+
   test('deleteProject 按计划级联清除项目关联表与媒体目录', () {
     final projectId = engine.addProject(projectType: 'series', name: '待删除');
     final otherId = engine.addProject(projectType: 'series', name: '保留');

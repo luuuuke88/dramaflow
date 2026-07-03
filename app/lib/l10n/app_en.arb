@@ -79,6 +79,38 @@
   "projectTitle": "My Projects",
   "projectSubtitle": "Manage all your short drama projects",
   "projectNewProject": "New Project",
+  "projectStatChapters": "Chapters {count}",
+  "@projectStatChapters": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectStatScripts": "Scripts {count}",
+  "@projectStatScripts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectStatAssets": "Assets {count}",
+  "@projectStatAssets": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectStatStoryboards": "Storyboards {count}",
+  "@projectStatStoryboards": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "projectDialogEditTitle": "Edit Project",
   "projectDialogAddTitle": "New Project",
   "projectDialogSave": "Save",

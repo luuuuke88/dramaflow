@@ -472,6 +472,30 @@ abstract class AppLocalizations {
   /// **'新建项目'**
   String get projectNewProject;
 
+  /// No description provided for @projectStatChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'章节 {count}'**
+  String projectStatChapters(int count);
+
+  /// No description provided for @projectStatScripts.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本 {count}'**
+  String projectStatScripts(int count);
+
+  /// No description provided for @projectStatAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材 {count}'**
+  String projectStatAssets(int count);
+
+  /// No description provided for @projectStatStoryboards.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜 {count}'**
+  String projectStatStoryboards(int count);
+
   /// No description provided for @projectDialogEditTitle.
   ///
   /// In zh, this message translates to:
