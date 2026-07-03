@@ -26,11 +26,12 @@ void main() {
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('dramaflow-projpage-');
+    final db = openEngineDb(':memory:');
     engine = Engine(
-      db: openEngineDb(':memory:'),
+      db: db,
       media: MediaStore(p.join(dir.path, 'media')),
       gateway: _NoopGateway(),
-      config: EngineConfig(openEngineDb(':memory:'), isMobile: false),
+      config: EngineConfig(db, isMobile: false),
     );
   });
 
