@@ -22,11 +22,11 @@ Status: Verified
 
 Desktop Evidence: `app/test/widgets/novel_screen_test.dart` covers selected chapter event-generation enqueue on desktop width; engine tests cover novel CRUD, event generation, event analysis, and docx parsing.
 
-Mobile Evidence: `app/test/widgets/novel_screen_test.dart` covers 390px import of two chapters, event-generation enqueue, and mobile card display.
+Mobile Evidence: `app/test/widgets/novel_screen_test.dart` covers 390px import of two chapters, event-generation enqueue, mobile card display, selected-chapter event analysis confirmation, and analysis result rendering.
 
-Known Gaps: Event analysis has engine coverage, but the mobile event-analysis dialog path still needs a widget smoke.
+Known Gaps: None at the current chapter/event page scope.
 
-Next Verification: Add a mobile event-analysis UI test that selects imported chapters and opens the analysis view with fake event data.
+Next Verification: If chapter/event UI changes, keep selected event generation plus the 390px import and event-analysis smokes together.
 
 ## 剧本
 

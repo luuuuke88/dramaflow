@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
@@ -19,6 +20,14 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 class _NoopGateway implements ProviderGateway {
+  String Function(String system, String user, String stage)? textHandler;
+
+  @override
+  Future<TextResult> generateText(String system, String user,
+      {required String stage, CancelToken? cancelToken}) async {
+    return TextResult(textHandler?.call(system, user, stage) ?? '');
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -27,15 +36,18 @@ void main() {
   late Directory dir;
   late Database db;
   late Engine engine;
+  late _NoopGateway gateway;
   late int projectId;
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('dramaflow-novel-ui-');
     db = openEngineDb(':memory:');
+    _seedPrompts(db);
+    gateway = _NoopGateway();
     engine = Engine(
       db: db,
       media: MediaStore(p.join(dir.path, 'media')),
-      gateway: _NoopGateway(),
+      gateway: gateway,
       config: EngineConfig(db, isMobile: false),
     );
     // 注册事件任务执行器但不设置 onNovelsAdded，避免 addNovels 自动触发事件生成，
@@ -153,4 +165,82 @@ void main() {
     expect(find.textContaining('雪夜'), findsOneWidget);
     expect(find.textContaining('入山'), findsOneWidget);
   });
+
+  testWidgets('移动端小说页：选中章节可打开事件分析并展示分析结果', (tester) async {
+    final ids = seed(2);
+    db.execute(
+      'UPDATE o_novel SET eventState=1, event=CASE id '
+      'WHEN ? THEN ? WHEN ? THEN ? END WHERE id IN (?,?)',
+      [
+        ids[0],
+        '危机降临|黑衣人压境，掌门示警',
+        ids[1],
+        '少年入山|少年进入山门，云海剑光出现',
+        ids[0],
+        ids[1],
+      ],
+    );
+    final seeded = engine.novels(projectId).data;
+    expect(seeded.map((r) => r.event), [
+      '危机降临|黑衣人压境，掌门示警',
+      '少年入山|少年进入山门，云海剑光出现',
+    ]);
+    var seenSystem = '';
+    var seenUser = '';
+    var seenStage = '';
+    gateway.textHandler = (system, user, stage) {
+      seenSystem = system;
+      seenUser = user;
+      seenStage = stage;
+      return '[{"chapterIndex":1,"analysis":"危机强，适合保留为开场钩子"},'
+          '{"chapterIndex":2,"analysis":"视觉信息明确，可衔接主角入门"}]';
+    };
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.textContaining('章1').first);
+    await tester.pump();
+    await tester.tap(find.textContaining('章2').first);
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '事件分析 (2)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    final startButton = find.widgetWithText(FilledButton, '开始分析');
+    expect(startButton, findsOneWidget);
+    await tester.ensureVisible(startButton);
+    await tester.tap(startButton);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, '开始分析'), findsNothing);
+    expect(seenStage, 'event_extract');
+    expect(seenSystem, contains('短剧改编分析助手'));
+    expect(seenUser, contains('危机降临'));
+    expect(seenUser, contains('少年入山'));
+    expect(find.textContaining('第1章'), findsOneWidget);
+    expect(find.text('危机强，适合保留为开场钩子'), findsOneWidget);
+    expect(find.text('视觉信息明确，可衔接主角入门'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+void _seedPrompts(Database db) {
+  for (final entry in {
+    'eventExtraction': '事件提取系统提示词',
+    'eventAnalysis': '你是短剧改编分析助手。',
+  }.entries) {
+    db.execute(
+      'INSERT INTO o_prompt (name,type,data,useData) VALUES (?,?,?,NULL)',
+      [entry.key, entry.key, entry.value],
+    );
+  }
 }
