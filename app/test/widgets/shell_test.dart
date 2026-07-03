@@ -85,7 +85,7 @@ void main() {
     await tester.pumpWidget(_app(1200));
     await tester.pumpAndSettle();
 
-    expect(find.text('P2'), findsOneWidget); // 资产中心
+    expect(find.text('P2'), findsNothing); // 资产中心已随 P2 交付解禁
     expect(find.text('P3'), findsOneWidget); // 制作
     expect(find.text('P4'), findsOneWidget); // 配音
     expect(find.text('P5'), findsOneWidget); // 剧本Agent

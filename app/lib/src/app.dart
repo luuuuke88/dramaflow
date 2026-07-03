@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'screens/assets/assets_screen.dart';
 import 'screens/coming_soon_screen.dart';
 import 'screens/novel/novel_screen.dart';
 import 'screens/project/project_list_screen.dart';
@@ -51,7 +52,8 @@ final _router = GoRouter(
             builder: (c, s) => const ComingSoonScreen(batch: 'P3')),
         GoRoute(
             path: '/p/:pid/assets',
-            builder: (c, s) => const ComingSoonScreen(batch: 'P2')),
+            builder: (c, s) =>
+                AssetsScreen(projectId: int.parse(s.pathParameters['pid']!))),
       ],
     ),
   ],

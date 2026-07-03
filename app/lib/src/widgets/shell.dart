@@ -41,8 +41,8 @@ final _projectMenus = <_ProjectMenu>[
   _ProjectMenu(
       'production', (c) => c.l10n.menuProduction, Icons.movie_filter_outlined,
       comingBatch: 'P3'),
-  _ProjectMenu('assets', (c) => c.l10n.menuAssetCenter, Icons.inventory_2_outlined,
-      comingBatch: 'P2'),
+  _ProjectMenu(
+      'assets', (c) => c.l10n.menuAssetCenter, Icons.inventory_2_outlined),
 ];
 
 class AppShell extends ConsumerWidget {
