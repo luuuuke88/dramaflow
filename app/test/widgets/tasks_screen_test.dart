@@ -38,18 +38,40 @@ void main() {
     );
     projectId = engine.addProject(projectType: 'novel', name: '任务筛选项目');
     // 三条不同 taskClass / state 的历史任务
-    void task(String taskClass, String state, String describe) {
+    void task(
+      String taskClass,
+      String state,
+      String describe, {
+      int? targetProjectId,
+      String? reason,
+      String? relatedObjects,
+    }) {
       db.execute(
-        'INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) '
-        'VALUES (?,?,?,?,?)',
-        [taskClass, state, projectId, describe, 1700000000000],
+        'INSERT INTO o_tasks '
+        '(taskClass,state,projectId,describe,reason,relatedObjects,startTime) '
+        'VALUES (?,?,?,?,?,?,?)',
+        [
+          taskClass,
+          state,
+          targetProjectId ?? projectId,
+          describe,
+          reason,
+          relatedObjects,
+          1700000000000,
+        ],
       );
     }
 
     // 全部用非活动状态（success/failed/canceled），避免落入顶部"进行中"区段，
     // 使断言只针对历史区段的筛选结果。
     task('event_generation', 'success', '事件生成完成');
-    task('asset_extraction', 'failed', '素材提取失败');
+    task(
+      'asset_extraction',
+      'failed',
+      '素材提取失败',
+      reason: '{"errKey":"errModelMissing","errParams":{}}',
+      relatedObjects: '{"scriptIds":[7,8]}',
+    );
     task('event_generation', 'canceled', '事件生成已取消');
   });
 
@@ -110,5 +132,88 @@ void main() {
 
     expect(find.text('任务详情'), findsOneWidget);
     expect(find.text('素材提取失败'), findsWidgets);
+  });
+
+  testWidgets('移动端任务中心：项目筛选和详情弹窗可用', (tester) async {
+    final secondProjectId =
+        engine.addProject(projectType: 'novel', name: '第二项目');
+    db.execute(
+      'UPDATE o_project SET createTime=0 WHERE id=?',
+      [secondProjectId],
+    );
+    db.execute(
+      'INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'storyboard_generate',
+        'failed',
+        secondProjectId,
+        '第二项目分镜失败',
+        1700000000000,
+      ],
+    );
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await settle(tester);
+
+    expect(find.text('素材提取'), findsOneWidget);
+    expect(find.textContaining('第二项目分镜失败'), findsNothing);
+
+    await tester.tap(find.byType(DropdownButton<int>));
+    await settle(tester);
+    await tester.tap(find.text('第二项目').last);
+    await settle(tester);
+
+    expect(find.textContaining('第二项目分镜失败'), findsOneWidget);
+    expect(find.text('素材提取'), findsNothing);
+
+    await tester.tap(find.text('storyboard_generate').first);
+    await settle(tester);
+
+    expect(find.text('任务详情'), findsOneWidget);
+    expect(find.text('第二项目分镜失败'), findsWidgets);
+  });
+
+  testWidgets('移动端任务中心：失败任务可重试，待处理任务可取消', (tester) async {
+    db.execute(
+      "INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) "
+      "VALUES ('event_generation','pending',?,?,?)",
+      [projectId, '等待取消的事件生成', 1700000000001],
+    );
+    final pendingId = db.lastInsertRowId;
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await settle(tester);
+
+    await tester.tap(find.byTooltip('重试').first);
+    await settle(tester);
+
+    final retried = db
+        .select(
+          "SELECT state, reason FROM o_tasks WHERE describe='素材提取失败'",
+        )
+        .single;
+    expect(retried['state'], 'pending');
+    expect(retried['reason'], isNull);
+    expect(find.text('已重新排队'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.tap(find.byTooltip('取消任务').first);
+    await settle(tester);
+
+    final canceled = db.select(
+      'SELECT state, reason FROM o_tasks WHERE id=?',
+      [pendingId],
+    ).single;
+    expect(canceled['state'], 'failed');
+    expect(canceled['reason'] as String, contains('errCanceled'));
   });
 }

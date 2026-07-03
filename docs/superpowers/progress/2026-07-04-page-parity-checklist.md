@@ -102,15 +102,15 @@ Next Verification: Add a 390px AI auto-match smoke and a mobile audition-missing
 
 ## 任务中心
 
-Status: Partial
+Status: Verified
 
-Desktop Evidence: `app/test/widgets/tasks_screen_test.dart` covers task listing, type filter, status filter, and historical task display.
+Desktop Evidence: `app/test/widgets/tasks_screen_test.dart` covers task listing, type filter, status filter, historical task display, and read-only task detail with failure reason/related objects.
 
-Mobile Evidence: No dedicated mobile task-center smoke is recorded.
+Mobile Evidence: `app/test/widgets/tasks_screen_test.dart` covers 390px task-center layout, project switching, detail dialog, failed-task retry, and pending-task cancellation with `errCanceled` persisted.
 
-Known Gaps: Project filter, detail log view, retry, cancel, and mobile layout parity need stronger proof.
+Known Gaps: None at the current task-center page scope. Long-running real queue cancellation is still covered at engine level by `app/test/engine/queue_test.dart`, not by a widget test with a live provider call.
 
-Next Verification: Add desktop and 390px tests for task detail, retry, and cancel actions using seeded `o_tasks` rows.
+Next Verification: If task-center UI changes, keep the 390px smoke and add a real processing-task cancel widget smoke around a fake long-running task runner.
 
 ## Agent 体系页
 

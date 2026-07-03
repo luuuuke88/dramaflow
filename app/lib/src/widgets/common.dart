@@ -207,11 +207,13 @@ Future<void> runAction(
   // 在 await 之前取全局 notifier：请求期间 widget 可能被卸载（关对话框/切页），
   // 卸载后再用 widget 的 ref 会被 Riverpod 3 直接抛 StateError
   final jobsNotifier = ref.read(activeJobsProvider.notifier);
+  final messenger = ScaffoldMessenger.maybeOf(context);
   try {
     await action();
     jobsNotifier.poke();
-    if (successMessage != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    if (successMessage != null && messenger != null) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
             content: Text(successMessage),
             duration: const Duration(seconds: 2)),

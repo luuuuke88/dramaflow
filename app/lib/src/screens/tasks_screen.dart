@@ -91,7 +91,8 @@ class _HistorySectionState extends ConsumerState<_HistorySection> {
     final projects = projectsAsync.value ?? const [];
     final l10n = AppLocalizations.of(context);
     if (projectsAsync.isLoading && !projectsAsync.hasValue) {
-      return _TaskSection(title: l10n.taskHistoryTitle, body: const _CenteredLoader());
+      return _TaskSection(
+          title: l10n.taskHistoryTitle, body: const _CenteredLoader());
     }
     if (projectsAsync.hasError && !projectsAsync.hasValue) {
       return _TaskSection(
@@ -179,7 +180,8 @@ class _HistorySectionState extends ConsumerState<_HistorySection> {
               onStateChanged: (v) => setState(() => _stateFilter = v),
             ),
       tasks: filtered,
-      emptyText: allTasks.isEmpty ? l10n.taskHistoryEmpty : l10n.taskFilterEmpty,
+      emptyText:
+          allTasks.isEmpty ? l10n.taskHistoryEmpty : l10n.taskFilterEmpty,
     );
   }
 }
@@ -204,51 +206,88 @@ class _TaskFilters extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 8,
-        children: [
-          DropdownButton<String>(
-            value: classValue,
-            hint: Text(l10n.taskFilterClass),
-            items: [
-              DropdownMenuItem(
-                value: _kAllFilter,
-                child: Text('${l10n.taskFilterClass}: ${l10n.taskFilterAll}'),
-              ),
-              for (final cls in classes)
-                DropdownMenuItem(
-                  value: cls,
-                  child: Text('${l10n.taskFilterClass}: ${_taskClassLabel(l10n, cls)}'),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compactWidth =
+            constraints.maxWidth.isFinite && constraints.maxWidth < 560;
+        final filterWidth = compactWidth ? constraints.maxWidth : 260.0;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              SizedBox(
+                width: filterWidth,
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: classValue,
+                  hint: Text(l10n.taskFilterClass),
+                  items: [
+                    DropdownMenuItem(
+                      value: _kAllFilter,
+                      child: _FilterLabel(
+                        '${l10n.taskFilterClass}: ${l10n.taskFilterAll}',
+                      ),
+                    ),
+                    for (final cls in classes)
+                      DropdownMenuItem(
+                        value: cls,
+                        child: _FilterLabel(
+                          '${l10n.taskFilterClass}: ${_taskClassLabel(l10n, cls)}',
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) onClassChanged(v);
+                  },
                 ),
-            ],
-            onChanged: (v) {
-              if (v != null) onClassChanged(v);
-            },
-          ),
-          DropdownButton<String>(
-            value: stateValue,
-            hint: Text(l10n.taskFilterState),
-            items: [
-              DropdownMenuItem(
-                value: _kAllFilter,
-                child: Text('${l10n.taskFilterState}: ${l10n.taskFilterAll}'),
               ),
-              for (final state in states)
-                DropdownMenuItem(
-                  value: state,
-                  child:
-                      Text('${l10n.taskFilterState}: ${_taskStateLabel(l10n, state)}'),
+              SizedBox(
+                width: filterWidth,
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: stateValue,
+                  hint: Text(l10n.taskFilterState),
+                  items: [
+                    DropdownMenuItem(
+                      value: _kAllFilter,
+                      child: _FilterLabel(
+                        '${l10n.taskFilterState}: ${l10n.taskFilterAll}',
+                      ),
+                    ),
+                    for (final state in states)
+                      DropdownMenuItem(
+                        value: state,
+                        child: _FilterLabel(
+                          '${l10n.taskFilterState}: ${_taskStateLabel(l10n, state)}',
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) onStateChanged(v);
+                  },
                 ),
+              ),
             ],
-            onChanged: (v) {
-              if (v != null) onStateChanged(v);
-            },
           ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+}
+
+class _FilterLabel extends StatelessWidget {
+  final String text;
+
+  const _FilterLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }
@@ -375,7 +414,8 @@ class _CenteredLoader extends StatelessWidget {
   }
 }
 
-String _taskClassLabel(AppLocalizations l10n, String taskClass) => switch (taskClass) {
+String _taskClassLabel(AppLocalizations l10n, String taskClass) =>
+    switch (taskClass) {
       'event_generation' => l10n.taskClassEventGeneration,
       'asset_extraction' => l10n.taskClassAssetExtraction,
       _ => taskClass.isEmpty ? l10n.taskClassGeneric : taskClass,
@@ -402,7 +442,9 @@ Future<void> _showTaskDetail(
   String related = '';
   try {
     final map = task.relatedObjectsJson;
-    if (map.isNotEmpty) related = const JsonEncoder.withIndent('  ').convert(map);
+    if (map.isNotEmpty) {
+      related = const JsonEncoder.withIndent('  ').convert(map);
+    }
   } catch (_) {
     related = task.relatedObjects ?? '';
   }
@@ -430,7 +472,8 @@ Future<void> _showTaskDetail(
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final (label, value) in rows)
-                _TaskDetailRow(label: label, value: value ?? l10n.taskDetailNone),
+                _TaskDetailRow(
+                    label: label, value: value ?? l10n.taskDetailNone),
             ],
           ),
         ),
