@@ -340,6 +340,48 @@ extension VideoTrackApi on Engine {
     );
   }
 
+  /// 从素材库 clip 复用一个本地视频作为当前轨道候选，并立即选为正片。
+  int attachClipToTrack(int trackId, int clipAssetId) {
+    final trackRow = db
+        .select('SELECT * FROM o_videoTrack WHERE id=?', [trackId]).firstOrNull;
+    if (trackRow == null) {
+      throw EngineException(errPromptMissing, {'type': 'videoTrack'});
+    }
+    final clipRow = db.select(
+      'SELECT a.type type, i.filePath filePath '
+      'FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId '
+      'WHERE a.id=? AND a.projectId=?',
+      [clipAssetId, trackRow['projectId']],
+    ).firstOrNull;
+    final rel = clipRow?['filePath'] as String?;
+    if (clipRow == null ||
+        clipRow['type'] != 'clip' ||
+        rel == null ||
+        rel.isEmpty ||
+        !File(media.absPath(rel)).existsSync()) {
+      throw const EngineException(errFileType, {'type': 'clip'});
+    }
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state,time) '
+      'VALUES (?,?,?,?,?,?)',
+      [
+        trackRow['projectId'],
+        trackRow['scriptId'],
+        trackId,
+        rel,
+        vtDone,
+        DateTime.now().millisecondsSinceEpoch,
+      ],
+    );
+    final videoId = db.lastInsertRowId;
+    db.execute(
+      'UPDATE o_videoTrack SET state=?, reason=NULL, selectVideoId=?, videoId=? '
+      'WHERE id=?',
+      [vtDone, videoId, videoId, trackId],
+    );
+    return videoId;
+  }
+
   void deleteVideo(int videoId) {
     final row = db.select(
         'SELECT videoTrackId,filePath FROM o_video WHERE id=?',
@@ -348,8 +390,12 @@ extension VideoTrackApi on Engine {
     // 先删磁盘文件再删行（此前只删行，泄漏了候选视频 .mp4）。
     final rel = row['filePath'] as String?;
     if (rel != null && rel.isNotEmpty) {
-      final file = File(media.absPath(rel));
-      if (file.existsSync()) file.deleteSync();
+      final stillReferencedByAsset = db.select(
+          'SELECT id FROM o_image WHERE filePath=? LIMIT 1', [rel]).isNotEmpty;
+      if (!stillReferencedByAsset) {
+        final file = File(media.absPath(rel));
+        if (file.existsSync()) file.deleteSync();
+      }
     }
     db.execute(
       'UPDATE o_videoTrack SET selectVideoId=NULL, videoId=NULL '

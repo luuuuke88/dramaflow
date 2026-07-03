@@ -1572,6 +1572,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchGeneratePrompt => 'Generate Motion Prompt';
 
   @override
+  String get workbenchPickClip => 'Assets';
+
+  @override
+  String get workbenchPickClipTitle => 'Choose Clip Asset';
+
+  @override
+  String get workbenchNoClipAssets => 'No video clip assets yet';
+
+  @override
   String get workbenchShotAudioLabel => 'Shot Voice';
 
   @override

@@ -3040,6 +3040,24 @@ abstract class AppLocalizations {
   /// **'生成运镜提示词'**
   String get workbenchGeneratePrompt;
 
+  /// No description provided for @workbenchPickClip.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材库'**
+  String get workbenchPickClip;
+
+  /// No description provided for @workbenchPickClipTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择素材视频'**
+  String get workbenchPickClipTitle;
+
+  /// No description provided for @workbenchNoClipAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材库暂无视频素材'**
+  String get workbenchNoClipAssets;
+
   /// No description provided for @workbenchShotAudioLabel.
   ///
   /// In zh, this message translates to:

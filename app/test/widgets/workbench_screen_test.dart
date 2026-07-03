@@ -176,6 +176,37 @@ void main() {
     expect(find.textContaining('已保存到素材库'), findsOneWidget);
   });
 
+  testWidgets('可从素材库选择 clip 作为本镜候选并自动选为正片', (tester) async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: 'x');
+    const rel = 'p/library_clip.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3, 4]);
+    engine.registerClipAsset(
+      projectId: projectId,
+      name: '素材镜头A',
+      relPath: rel,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('素材库'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('素材镜头A'));
+    await tester.pumpAndSettle();
+
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final track = engine.track(trackId)!;
+    expect(engine.storyboards(scriptId).single.id, sbId);
+    expect(track.candidates.single.filePath, rel);
+    expect(track.selectVideoId, track.candidates.single.id);
+    expect(find.text('已选'), findsOneWidget);
+  });
+
   testWidgets('候选删除按钮：可见删除图标 + 二次确认后调用 deleteVideo', (tester) async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');
@@ -379,7 +410,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.drag(
       find.byKey(ValueKey('workbench-reorder-handle-$s2')),
-      const Offset(0, -180),
+      const Offset(0, -280),
     );
     await tester.pumpAndSettle();
 

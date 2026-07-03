@@ -242,6 +242,34 @@ void main() {
         reason: 'deleteVideo 需删除磁盘文件，不能泄漏');
   });
 
+  test('attachClipToTrack 从素材库 clip 创建候选并保护源素材文件', () {
+    final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    const rel = 'p/library_clip.mp4';
+    final clipFile = File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3, 4]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '素材镜头A',
+      relPath: rel,
+    );
+
+    final videoId = engine.attachClipToTrack(trackId, clipAssetId);
+
+    final track = engine.track(trackId)!;
+    expect(track.state, vtDone);
+    expect(track.selectVideoId, videoId);
+    expect(track.candidates, hasLength(1));
+    expect(track.candidates.single.filePath, rel);
+    expect(track.candidates.single.state, vtDone);
+    expect(clipFile.existsSync(), isTrue, reason: '从素材库复用 clip 时不能移动或删除原素材文件');
+
+    engine.deleteVideo(videoId);
+    expect(engine.track(trackId)!.candidates, isEmpty);
+    expect(clipFile.existsSync(), isTrue, reason: '删除候选不能误删素材库里的 clip 源文件');
+  });
+
   test('deleteScripts 级联清除 o_videoTrack 行与视频磁盘文件（此前泄漏）', () async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');

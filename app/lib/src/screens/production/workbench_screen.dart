@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../engine/assets.dart';
 import '../../engine/audio_bind.dart';
 import '../../engine/compose_episode.dart';
 import '../../engine/storyboard.dart';
@@ -307,6 +308,56 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
     _toast(context.l10n.workbenchGenerateVideo);
   }
 
+  Future<void> _pickClip() async {
+    final l10n = context.l10n;
+    final engine = ref.read(engineProvider);
+    final clips =
+        engine.getAssets(widget.projectId, type: 'clip', limit: 100).data;
+    final clip = await showDialog<AssetRow>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l10n.workbenchPickClipTitle),
+        content: SizedBox(
+          width: 420,
+          child: clips.isEmpty
+              ? DFEmpty(text: l10n.workbenchNoClipAssets)
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: clips.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final row = clips[i];
+                    return ListTile(
+                      leading: const Icon(Icons.video_library_outlined),
+                      title: Text(row.name ?? ''),
+                      subtitle: Text(row.filePath ?? '',
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      enabled: row.filePath?.isNotEmpty == true,
+                      onTap: row.filePath?.isNotEmpty == true
+                          ? () => Navigator.pop(c, row)
+                          : null,
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: Text(l10n.commonCancel),
+          ),
+        ],
+      ),
+    );
+    if (clip == null || !mounted) return;
+    try {
+      final trackId = engine.ensureTrackForStoryboard(widget.shot.id);
+      engine.attachClipToTrack(trackId, clip.id);
+      setState(() => _localTrackId = trackId);
+    } catch (e) {
+      if (mounted) _toast(localizeError(context, e));
+    }
+  }
+
   void _bindAudio(int value) {
     final audioAssetId = value == 0 ? null : value;
     ref.read(engineProvider).bindStoryboardAudio(
@@ -505,6 +556,12 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
                 onPressed: _generateOne,
                 icon: const Icon(Icons.videocam_outlined, size: 14),
                 label: Text(l10n.workbenchGenerateVideo,
+                    style: const TextStyle(fontSize: 12)),
+              ),
+              OutlinedButton.icon(
+                onPressed: _pickClip,
+                icon: const Icon(Icons.video_library_outlined, size: 14),
+                label: Text(l10n.workbenchPickClip,
                     style: const TextStyle(fontSize: 12)),
               ),
             ]),

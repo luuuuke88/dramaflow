@@ -1539,6 +1539,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchGeneratePrompt => 'カメラワークプロンプト生成';
 
   @override
+  String get workbenchPickClip => '素材ライブラリ';
+
+  @override
+  String get workbenchPickClipTitle => '動画素材を選択';
+
+  @override
+  String get workbenchNoClipAssets => '動画素材はまだありません';
+
+  @override
   String get workbenchShotAudioLabel => 'カット音声';
 
   @override
