@@ -1612,4 +1612,25 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get agentChatSkillsBody =>
       '私が呼び出せる機能はすべて既存パイプラインの実際の動作で、呼び出すたびにタスクセンターに確認・再試行可能な記録が残ります：イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像生成、動画生成、配音マッチング、合成書き出し。カスタムスクリプト技能には対応していません。';
+
+  @override
+  String get imageEditorModel => 'モデル';
+
+  @override
+  String get imageEditorRatio => 'アスペクト比';
+
+  @override
+  String get imageEditorQuality => '画質';
+
+  @override
+  String get imageEditorSelectModel => '先にモデルを選択してください';
+
+  @override
+  String get imageEditorSelectQuality => '画質を選択してください';
+
+  @override
+  String get imageEditorSelectRatio => 'アスペクト比を選択してください';
+
+  @override
+  String get imageEditorNoImageModel => '利用可能な画像モデルがありません';
 }

@@ -3195,6 +3195,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。'**
   String get agentChatSkillsBody;
+
+  /// No description provided for @imageEditorModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型'**
+  String get imageEditorModel;
+
+  /// No description provided for @imageEditorRatio.
+  ///
+  /// In zh, this message translates to:
+  /// **'比例'**
+  String get imageEditorRatio;
+
+  /// No description provided for @imageEditorQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'质量'**
+  String get imageEditorQuality;
+
+  /// No description provided for @imageEditorSelectModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先选择模型'**
+  String get imageEditorSelectModel;
+
+  /// No description provided for @imageEditorSelectQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择画质'**
+  String get imageEditorSelectQuality;
+
+  /// No description provided for @imageEditorSelectRatio.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择比例'**
+  String get imageEditorSelectRatio;
+
+  /// No description provided for @imageEditorNoImageModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无可用图片模型'**
+  String get imageEditorNoImageModel;
 }
 
 class _AppLocalizationsDelegate

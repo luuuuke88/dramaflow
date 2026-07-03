@@ -1661,4 +1661,25 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agentChatSkillsBody =>
       'Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported.';
+
+  @override
+  String get imageEditorModel => 'Model';
+
+  @override
+  String get imageEditorRatio => 'Ratio';
+
+  @override
+  String get imageEditorQuality => 'Quality';
+
+  @override
+  String get imageEditorSelectModel => 'Please select a model first';
+
+  @override
+  String get imageEditorSelectQuality => 'Please select a quality';
+
+  @override
+  String get imageEditorSelectRatio => 'Please select a ratio';
+
+  @override
+  String get imageEditorNoImageModel => 'No image model available';
 }
