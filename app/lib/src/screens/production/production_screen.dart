@@ -283,6 +283,107 @@ class _MobileTabsLayoutState extends State<_MobileTabsLayout>
     );
   }
 
+  void _openInspector() {
+    final l10n = context.l10n;
+    final nodes = [
+      (
+        key: 'script',
+        icon: Icons.article_outlined,
+        label: l10n.productionNodeScriptTitle,
+      ),
+      (
+        key: 'script-plan',
+        icon: Icons.route_outlined,
+        label: l10n.productionNodeScriptPlanTitle,
+      ),
+      (
+        key: 'assets',
+        icon: Icons.category_outlined,
+        label: l10n.productionNodeAssetsTitle,
+      ),
+      (
+        key: 'storyboard-table',
+        icon: Icons.table_chart_outlined,
+        label: l10n.productionNodeStoryboardTableTitle,
+      ),
+      (
+        key: 'storyboard',
+        icon: Icons.grid_view_outlined,
+        label: l10n.productionNodeStoryboardTitle,
+      ),
+      (
+        key: 'workbench',
+        icon: Icons.video_library_outlined,
+        label: l10n.workbenchTitle,
+      ),
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) {
+        final df = sheetContext.df;
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.46,
+          minChildSize: 0.28,
+          maxChildSize: 0.82,
+          builder: (context, controller) {
+            return Material(
+              color: df.surface,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(18)),
+              child: ListView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: df.stroke,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    l10n.productionMobileCurrentNode,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: df.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  for (var i = 0; i < nodes.length; i++)
+                    ListTile(
+                      key: ValueKey('mobile-node-inspector-${nodes[i].key}'),
+                      dense: true,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      leading: Icon(nodes[i].icon, size: 20),
+                      title: Text(nodes[i].label),
+                      trailing: _tab.index == i
+                          ? Icon(Icons.check_circle,
+                              size: 18, color: df.primary)
+                          : const Icon(Icons.chevron_right, size: 18),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _tab.animateTo(i);
+                      },
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -302,6 +403,11 @@ class _MobileTabsLayoutState extends State<_MobileTabsLayout>
               Tab(text: l10n.workbenchTitle),
             ],
           ),
+        ),
+        IconButton(
+          tooltip: l10n.productionMobileNodeInspector,
+          icon: const Icon(Icons.account_tree_outlined),
+          onPressed: _openInspector,
         ),
         IconButton(
           tooltip: l10n.canvasChatOpen,

@@ -1450,6 +1450,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get productionNodeWorkbenchTitle => 'Workbench';
 
   @override
+  String get productionMobileNodeInspector => 'Node Inspector';
+
+  @override
+  String get productionMobileCurrentNode => 'Current node';
+
+  @override
   String get productionSelectEpisode => 'Select episode';
 
   @override

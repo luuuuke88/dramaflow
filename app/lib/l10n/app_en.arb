@@ -499,6 +499,8 @@
   "productionNodeStoryboardTableTitle": "Storyboard Table",
   "productionNodeStoryboardTitle": "Storyboard",
   "productionNodeWorkbenchTitle": "Workbench",
+  "productionMobileNodeInspector": "Node Inspector",
+  "productionMobileCurrentNode": "Current node",
   "productionSelectEpisode": "Select episode",
   "productionNoScripts": "No scripts yet — create one in Scripts",
   "productionGoToScripts": "Go create a script",

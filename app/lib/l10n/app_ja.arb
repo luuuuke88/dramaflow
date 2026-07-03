@@ -499,6 +499,8 @@
   "productionNodeStoryboardTableTitle": "絵コンテ表",
   "productionNodeStoryboardTitle": "絵コンテ",
   "productionNodeWorkbenchTitle": "ワークベンチ",
+  "productionMobileNodeInspector": "ノードインスペクター",
+  "productionMobileCurrentNode": "現在のノード",
   "productionSelectEpisode": "話数を選択",
   "productionNoScripts": "脚本がありません。脚本管理で作成してください",
   "productionGoToScripts": "脚本を作成",

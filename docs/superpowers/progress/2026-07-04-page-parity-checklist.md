@@ -58,11 +58,11 @@ Status: Partial
 
 Desktop Evidence: `app/test/widgets/production_screen_test.dart`, `app/test/widgets/script_plan_node_test.dart`, `app/test/widgets/storyboard_canvas_node_test.dart`, `app/test/widgets/canvas_chat_panel_test.dart`, and `app/test/widgets/df_widgets_test.dart` cover canvas entry, nodes, storyboard gallery, insertion, script editing, storyboard table editing, Agent panel basics, and 1000-node viewport culling for the reusable infinite canvas.
 
-Mobile Evidence: `app/test/widgets/production_screen_test.dart` covers 390px Tab-based production navigation, workbench entry, Agent entry, and offline UI chain access.
+Mobile Evidence: `app/test/widgets/production_screen_test.dart` covers 390px Tab-based production navigation, node-inspector bottom sheet switching, workbench entry, Agent entry, and offline UI chain access.
 
-Known Gaps: No side-by-side ToonFlow screenshot checklist, and mobile node inspector parity remains partial.
+Known Gaps: No side-by-side ToonFlow screenshot checklist.
 
-Next Verification: Add a page-level visual parity checklist entry with screenshots, then close the mobile node inspector parity gap.
+Next Verification: Add a page-level visual parity checklist entry with screenshots before claiming the production canvas page fully verified.
 
 ## 节点式图片编辑器
 

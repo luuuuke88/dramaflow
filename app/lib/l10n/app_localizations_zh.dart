@@ -1409,6 +1409,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get productionNodeWorkbenchTitle => '工作台';
 
   @override
+  String get productionMobileNodeInspector => '节点检查器';
+
+  @override
+  String get productionMobileCurrentNode => '当前节点';
+
+  @override
   String get productionSelectEpisode => '选择剧集';
 
   @override

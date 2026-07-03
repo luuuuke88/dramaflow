@@ -177,6 +177,28 @@ void main() {
     expect(find.widgetWithText(Tab, '剧本规划'), findsOneWidget); // 规划 Tab
   });
 
+  testWidgets('移动端：节点检查器底部抽屉可切换到指定节点', (tester) async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    final assetId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    engine.updateScript(scriptId, assets: [assetId]);
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('节点检查器'));
+    await tester.pumpAndSettle();
+    expect(find.text('当前节点'), findsOneWidget);
+
+    await tester
+        .tap(find.byKey(const ValueKey('mobile-node-inspector-assets')));
+    await tester.pumpAndSettle();
+    expect(find.text('林朝雪'), findsOneWidget);
+  });
+
   testWidgets('桌面端离线主链：制作页工作台入口可打开并完成合成', (tester) async {
     final seed = smoke.seedOfflinePipeline(engine);
     projectId = seed.projectId;

@@ -2812,6 +2812,18 @@ abstract class AppLocalizations {
   /// **'工作台'**
   String get productionNodeWorkbenchTitle;
 
+  /// No description provided for @productionMobileNodeInspector.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点检查器'**
+  String get productionMobileNodeInspector;
+
+  /// No description provided for @productionMobileCurrentNode.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前节点'**
+  String get productionMobileCurrentNode;
+
   /// No description provided for @productionSelectEpisode.
   ///
   /// In zh, this message translates to:

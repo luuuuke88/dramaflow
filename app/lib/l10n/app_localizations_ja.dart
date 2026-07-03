@@ -1419,6 +1419,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productionNodeWorkbenchTitle => 'ワークベンチ';
 
   @override
+  String get productionMobileNodeInspector => 'ノードインスペクター';
+
+  @override
+  String get productionMobileCurrentNode => '現在のノード';
+
+  @override
   String get productionSelectEpisode => '話数を選択';
 
   @override
