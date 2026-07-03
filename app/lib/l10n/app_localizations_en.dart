@@ -2530,4 +2530,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get taskClassGeneric => 'Task';
+
+  @override
+  String get webPreviewBuildableTitle => 'The Web preview entry now builds.';
+
+  @override
+  String get webPreviewMessage =>
+      'The full local engine is still being ported: the browser build still needs a Web database, browser file storage, a WebCodecs/Mediabunny composer, and Web media preview adapters. The macOS, iOS, and Android clients remain the complete-function mainline for now.';
+
+  @override
+  String get webPreviewMacClient => 'Full macOS client';
+
+  @override
+  String get webPreviewIosClient => 'Full iOS client';
+
+  @override
+  String get webPreviewAndroidClient => 'Android APK builds';
+
+  @override
+  String get webPreviewEnginePending => 'Web engine pending';
 }

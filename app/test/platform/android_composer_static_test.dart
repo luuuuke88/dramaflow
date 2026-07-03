@@ -5,13 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('Android uses the native video composer channel instead of UnsupportedComposer',
       () {
-    final mainSource = File('lib/main.dart').readAsStringSync();
+    final bootstrapSource =
+        File('lib/src/bootstrap/bootstrap_io.dart').readAsStringSync();
     final activitySource = File(
       'android/app/src/main/kotlin/com/dramaflow/dramaflow/MainActivity.kt',
     ).readAsStringSync();
 
     expect(
-      mainSource,
+      bootstrapSource,
       contains('Platform.isAndroid'),
       reason: 'Android must enter the native composer path for mobile export.',
     );

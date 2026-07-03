@@ -539,10 +539,13 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - ✅ 收尾验证已跑：`flutter analyze` 零 issue；`flutter test` 239/239 通过；
   `flutter build macos --debug` 通过；`flutter build ios --simulator --debug` 通过并已
   安装启动到 iPhone 模拟器（进程可查）。
-- ⚠️ `flutter build web` 已实测失败，根因不是 UI，而是当前内嵌引擎静态依赖
-  `sqlite3` 的 `dart:ffi` 路径；Web/H5 若要成为一等公民，需要单独做数据库
-  条件导入（sqlite3-WASM/OPFS 或浏览器端适配）后，再继续 WebCodecs/Mediabunny
-  合成器。当前不能当 H5 发版。
+- ✅ Web 从“编译直接失败”推进到“可构建开发预览”（待提交）：`main.dart` 拆为
+  条件 bootstrap，IO 端继续启动完整 `DramaFlowApp + Engine`，Web 端进入独立
+  `DramaFlowWebPreviewApp`，避免把 `dart:io`、sqlite FFI、媒体文件系统和原生合成器
+  拉进 Web 编译图；`flutter build web` 通过，Wasm dry run 通过。
+- ⚠️ Web/H5 仍不是完整流程：当前 Web 只是明确标注限制的预览入口。要成为一等公民，
+  仍需要继续移植 Web 数据库（sqlite3-WASM/OPFS 或浏览器端适配）、浏览器文件存储、
+  WebCodecs/Mediabunny 合成器、媒体预览与文件选择的 Web 版本。
 - ✅ Android 移动端合成从“不支持”推进到“可构建的原生通道”（ffc784b）：
   `main.dart` 将 Android 接入 `dramaflow/composer`；`MainActivity.kt` 注册
   `probeDuration`/`concat`，使用 Android 系统 `MediaMetadataRetriever` +
@@ -561,3 +564,6 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - 已知构建警告：macOS/iOS 的 `media_kit_video` 插件暂不支持 Swift Package
   Manager（未来 Flutter 可能变错误）；Android 构建提示 `wakelock_plus` 使用旧式
   Kotlin Gradle Plugin；这些不是当前功能失败，但属于升级风险。
+- ✅ 最新验证补跑：`flutter test` 241/241 通过；`flutter build web` 通过；
+  `flutter build macos --debug` 通过；`flutter build apk --debug` 通过；
+  `flutter build ios --simulator --debug` 通过。

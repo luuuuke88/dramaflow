@@ -2471,4 +2471,23 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get taskClassGeneric => 'タスク';
+
+  @override
+  String get webPreviewBuildableTitle => 'Web プレビュー入口をビルドできるようになりました。';
+
+  @override
+  String get webPreviewMessage =>
+      '完全なローカルエンジンはまだ移植中です。ブラウザ版には Web データベース、ブラウザ内ファイル保存、WebCodecs/Mediabunny 合成器、Web 向けメディアプレビュー対応が必要です。現時点では macOS、iOS、Android クライアントがフル機能の本線です。';
+
+  @override
+  String get webPreviewMacClient => 'macOS フルクライアント';
+
+  @override
+  String get webPreviewIosClient => 'iOS フルクライアント';
+
+  @override
+  String get webPreviewAndroidClient => 'Android APK ビルド可';
+
+  @override
+  String get webPreviewEnginePending => 'Web エンジン移植待ち';
 }

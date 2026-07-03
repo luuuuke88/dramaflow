@@ -4809,6 +4809,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'任务'**
   String get taskClassGeneric;
+
+  /// No description provided for @webPreviewBuildableTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'Web 预览入口已可构建。'**
+  String get webPreviewBuildableTitle;
+
+  /// No description provided for @webPreviewMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'完整本地引擎仍在移植中：浏览器版还需要 Web 数据库、浏览器文件存储、WebCodecs/Mediabunny 合成器，以及媒体预览的 Web 适配。当前 macOS、iOS、Android 客户端仍是完整功能主线。'**
+  String get webPreviewMessage;
+
+  /// No description provided for @webPreviewMacClient.
+  ///
+  /// In zh, this message translates to:
+  /// **'macOS 完整客户端'**
+  String get webPreviewMacClient;
+
+  /// No description provided for @webPreviewIosClient.
+  ///
+  /// In zh, this message translates to:
+  /// **'iOS 完整客户端'**
+  String get webPreviewIosClient;
+
+  /// No description provided for @webPreviewAndroidClient.
+  ///
+  /// In zh, this message translates to:
+  /// **'Android APK 可构建'**
+  String get webPreviewAndroidClient;
+
+  /// No description provided for @webPreviewEnginePending.
+  ///
+  /// In zh, this message translates to:
+  /// **'Web 引擎待移植'**
+  String get webPreviewEnginePending;
 }
 
 class _AppLocalizationsDelegate

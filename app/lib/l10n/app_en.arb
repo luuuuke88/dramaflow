@@ -911,5 +911,11 @@
   "taskRetryQueued": "Queued again",
   "taskClassEventGeneration": "Event generation",
   "taskClassAssetExtraction": "Asset extraction",
-  "taskClassGeneric": "Task"
+  "taskClassGeneric": "Task",
+  "webPreviewBuildableTitle": "The Web preview entry now builds.",
+  "webPreviewMessage": "The full local engine is still being ported: the browser build still needs a Web database, browser file storage, a WebCodecs/Mediabunny composer, and Web media preview adapters. The macOS, iOS, and Android clients remain the complete-function mainline for now.",
+  "webPreviewMacClient": "Full macOS client",
+  "webPreviewIosClient": "Full iOS client",
+  "webPreviewAndroidClient": "Android APK builds",
+  "webPreviewEnginePending": "Web engine pending"
 }

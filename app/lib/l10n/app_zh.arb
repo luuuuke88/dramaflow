@@ -1100,5 +1100,11 @@
   "taskRetryQueued": "已重新排队",
   "taskClassEventGeneration": "事件生成",
   "taskClassAssetExtraction": "素材提取",
-  "taskClassGeneric": "任务"
+  "taskClassGeneric": "任务",
+  "webPreviewBuildableTitle": "Web 预览入口已可构建。",
+  "webPreviewMessage": "完整本地引擎仍在移植中：浏览器版还需要 Web 数据库、浏览器文件存储、WebCodecs/Mediabunny 合成器，以及媒体预览的 Web 适配。当前 macOS、iOS、Android 客户端仍是完整功能主线。",
+  "webPreviewMacClient": "macOS 完整客户端",
+  "webPreviewIosClient": "iOS 完整客户端",
+  "webPreviewAndroidClient": "Android APK 可构建",
+  "webPreviewEnginePending": "Web 引擎待移植"
 }

@@ -911,5 +911,11 @@
   "taskRetryQueued": "再度キューに追加しました",
   "taskClassEventGeneration": "イベント生成",
   "taskClassAssetExtraction": "アセット抽出",
-  "taskClassGeneric": "タスク"
+  "taskClassGeneric": "タスク",
+  "webPreviewBuildableTitle": "Web プレビュー入口をビルドできるようになりました。",
+  "webPreviewMessage": "完全なローカルエンジンはまだ移植中です。ブラウザ版には Web データベース、ブラウザ内ファイル保存、WebCodecs/Mediabunny 合成器、Web 向けメディアプレビュー対応が必要です。現時点では macOS、iOS、Android クライアントがフル機能の本線です。",
+  "webPreviewMacClient": "macOS フルクライアント",
+  "webPreviewIosClient": "iOS フルクライアント",
+  "webPreviewAndroidClient": "Android APK ビルド可",
+  "webPreviewEnginePending": "Web エンジン移植待ち"
 }
