@@ -279,7 +279,9 @@ void main() {
       expect(
           () => g.generateVideo('x', frame, 'p', stage: 'shot_video'),
           throwsA(predicate((e) =>
-              e is EngineException && e.message.contains('未配置视频 API Key'))));
+              e is EngineException &&
+              e.errKey == errProviderMissing &&
+              e.errParams['reason'] == 'apiKey')));
       freshDb.close();
     });
   });

@@ -363,4 +363,12 @@ class _NoopGateway implements ProviderGateway {
   }) {
     throw UnimplementedError();
   }
+  @override
+  Future<Map<String, dynamic>> generateToolJson(String system, String user,
+          {required String stage,
+          required String toolName,
+          required Map<String, dynamic> schema,
+          CancelToken? cancelToken}) async =>
+      const <String, dynamic>{};
+
 }

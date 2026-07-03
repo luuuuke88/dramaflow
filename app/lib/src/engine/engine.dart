@@ -15,6 +15,7 @@ import 'media.dart';
 import 'providers/gateway.dart';
 import 'providers/resolve.dart';
 import 'queue.dart';
+import 'scripts.dart';
 
 class ProjectRow {
   final int id;
@@ -273,6 +274,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       composer: composer,
     );
     engine.installNovelEventPipeline();
+    engine.installScriptPipeline();
     engine.queue.recoverOnColdStart();
     engine.queue.start();
     return engine;

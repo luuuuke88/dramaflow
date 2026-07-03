@@ -34,6 +34,17 @@ abstract class ProviderGateway {
   Future<String> generateVideo(
       String prompt, String firstFrameAbsPath, String projectId,
       {required String stage, CancelToken? cancelToken});
+
+  /// 结构化输出（ToonFlow resultTool 语义）：优先走 tools/tool_choice，
+  /// 后端不支持工具调用时回退解析正文中的 JSON；两路都失败抛 errLlmFormat。
+  Future<Map<String, dynamic>> generateToolJson(
+    String system,
+    String user, {
+    required String stage,
+    required String toolName,
+    required Map<String, dynamic> schema,
+    CancelToken? cancelToken,
+  });
 }
 
 class HttpProviderGateway implements ProviderGateway {
@@ -56,6 +67,20 @@ class HttpProviderGateway implements ProviderGateway {
     final model = resolveStage(db, stage);
     return openaiGenerateText(dio, model, system, user,
         cancelToken: cancelToken);
+  }
+
+  @override
+  Future<Map<String, dynamic>> generateToolJson(
+    String system,
+    String user, {
+    required String stage,
+    required String toolName,
+    required Map<String, dynamic> schema,
+    CancelToken? cancelToken,
+  }) {
+    final model = resolveStage(db, stage);
+    return openaiGenerateToolJson(dio, model, system, user,
+        toolName: toolName, schema: schema, cancelToken: cancelToken);
   }
 
   @override

@@ -24,7 +24,7 @@ Future<String> volcengineGenerateVideo(
 }) async {
   final apiKey = model.apiKey;
   if (apiKey.isEmpty) {
-    throw EngineException('未配置视频 API Key（供应商 ${model.providerId}）');
+    throw EngineException(errProviderMissing, {'providerId': model.providerId, 'reason': 'apiKey'});
   }
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
   final headers = {
@@ -59,7 +59,7 @@ Future<String> volcengineGenerateVideo(
   );
   final taskId = (createRes.data as Map?)?['id'] as String?;
   if (taskId == null || taskId.isEmpty) {
-    throw EngineException('视频任务创建失败：未返回任务ID (${createRes.data})');
+    throw EngineException(errLlmFormat, {'message': '视频任务创建未返回任务ID'});
   }
 
   final deadline = DateTime.now().add(pollTimeout);
@@ -70,7 +70,7 @@ Future<String> volcengineGenerateVideo(
           reason: '用户取消');
     }
     if (DateTime.now().isAfter(deadline)) {
-      throw EngineException('视频生成轮询超时(${pollTimeout.inMinutes}分钟)');
+      throw EngineException(errNetwork, {'message': '轮询超时${pollTimeout.inMinutes}分钟'});
     }
     await Future<void>.delayed(pollInterval);
     final q = await dio.get(
@@ -86,7 +86,7 @@ Future<String> volcengineGenerateVideo(
       case 'succeeded':
         final videoUrl = (task['content'] as Map?)?['video_url'] as String?;
         if (videoUrl == null || videoUrl.isEmpty) {
-          throw EngineException('任务成功但未返回视频URL');
+          throw EngineException(errLlmFormat, {'message': '任务成功但未返回视频URL'});
         }
         final dl = await dio.get<List<int>>(videoUrl,
             options: Options(
@@ -98,9 +98,9 @@ Future<String> volcengineGenerateVideo(
         throw EngineException(
             ((task['error'] as Map?)?['message'] as String?) ?? '视频生成失败');
       case 'expired':
-        throw EngineException('视频生成任务超时(上游)');
+        throw EngineException(errNetwork, {'message': '上游任务超时'});
       case 'cancelled':
-        throw EngineException('视频生成任务已被上游取消');
+        throw EngineException(errCanceled, {'message': '上游取消'});
       default:
         break; // queued / running → 继续轮询
     }

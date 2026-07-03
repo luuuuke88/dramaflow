@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
+
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -252,4 +254,12 @@ class _NoopGateway implements ProviderGateway {
   }) {
     throw UnimplementedError();
   }
+  @override
+  Future<Map<String, dynamic>> generateToolJson(String system, String user,
+          {required String stage,
+          required String toolName,
+          required Map<String, dynamic> schema,
+          CancelToken? cancelToken}) async =>
+      const <String, dynamic>{};
+
 }
