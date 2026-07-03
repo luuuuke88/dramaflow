@@ -9,6 +9,7 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/storyboard_table.dart';
 import 'package:dramaflow/src/screens/production/production_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
@@ -176,5 +177,55 @@ void main() {
     await tester.pump();
     final tasks = await engine.projectJobs(projectId);
     expect(tasks.any((t) => t.taskClass == 'storyboard_generate'), isTrue);
+  });
+
+  testWidgets('剧本节点可编辑：改名+改正文经 updateScript 持久化', (tester) async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '旧正文');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    // 点击剧本节点头部的编辑按钮（工具提示「编辑」）。
+    await tester.tap(find.byTooltip('编辑').first);
+    await tester.pumpAndSettle();
+    expect(find.text('编辑剧本'), findsWidgets); // 对话框标题
+
+    // 改名称与正文。
+    await tester.enterText(find.widgetWithText(TextField, '请输入剧本名称'), '改后集名');
+    await tester.enterText(find.widgetWithText(TextField, '请输入剧本正文'), '新正文内容');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    final row = engine.scripts(projectId).firstWhere((s) => s.id == scriptId);
+    expect(row.name, '改后集名');
+    expect(row.content, '新正文内容');
+  });
+
+  testWidgets('分镜表节点可编辑：撰写 Markdown 经 saveStoryboardTable 持久化',
+      (tester) async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    // 空态展示「撰写分镜表」按钮；点击打开编辑器。
+    expect(find.text('撰写分镜表'), findsOneWidget);
+    await tester.tap(find.text('撰写分镜表'));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑分镜表'), findsWidgets);
+
+    await tester.enterText(find.byType(TextField).last, '# 分镜表\nS01 开场雪景');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(engine.storyboardTable(projectId, scriptId), '# 分镜表\nS01 开场雪景');
+    // 保存后节点预览应显示已写入的 Markdown。
+    expect(find.textContaining('S01 开场雪景'), findsWidgets);
   });
 }

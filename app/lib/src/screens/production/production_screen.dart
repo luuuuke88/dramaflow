@@ -14,11 +14,12 @@ import 'package:go_router/go_router.dart';
 import '../../engine/assets.dart';
 import '../../engine/compose_episode.dart';
 import '../../engine/scripts.dart';
-import '../../engine/storyboard.dart';
+import '../../engine/storyboard_table.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_canvas.dart';
 import '../../widgets/df_empty.dart';
 import 'canvas_chat_panel.dart';
@@ -343,40 +344,168 @@ class _NodeFrame extends StatelessWidget {
 
 class _NodeHeader extends StatelessWidget {
   final String title;
-  const _NodeHeader({required this.title});
+  final VoidCallback? onEdit;
+  const _NodeHeader({required this.title, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
     final df = context.df;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.fromLTRB(12, onEdit == null ? 8 : 4, onEdit == null ? 12 : 4, onEdit == null ? 8 : 4),
       color: df.textPrimary,
-      child: Text(title,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: df.surface)),
+      child: Row(children: [
+        Expanded(
+          child: Text(title,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: df.surface)),
+        ),
+        if (onEdit != null)
+          IconButton(
+            tooltip: context.l10n.commonEdit,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            icon: Icon(Icons.edit_outlined, size: 15, color: df.surface),
+            onPressed: onEdit,
+          ),
+      ]),
     );
   }
 }
 
-class _ScriptNode extends StatelessWidget {
+/// 剧本节点（照抄 ToonFlow production script 节点）：展示剧本正文，头部提供
+/// 编辑入口，弹出对话框改写名称/正文并经 engine.updateScript 持久化。
+/// engine 无响应式，保存后 setState 重读预览。
+class _ScriptNode extends ConsumerStatefulWidget {
   final ScriptRow script;
   const _ScriptNode({required this.script});
 
   @override
+  ConsumerState<_ScriptNode> createState() => _ScriptNodeState();
+}
+
+class _ScriptNodeState extends ConsumerState<_ScriptNode> {
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    // 保存后从引擎重读该剧本最新值（engine 无监听，需手动重查）。
+    final script = ref
+            .read(engineProvider)
+            .scripts(widget.script.projectId)
+            .where((s) => s.id == widget.script.id)
+            .firstOrNull ??
+        widget.script;
     return _NodeFrame(
       title: l10n.productionNodeScriptTitle,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _NodeHeader(title: '${l10n.productionNodeScriptTitle} · ${script.name ?? ''}'),
+        _NodeHeader(
+          title: '${l10n.productionNodeScriptTitle} · ${script.name ?? ''}',
+          onEdit: () => _openEditor(script),
+        ),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: SingleChildScrollView(
-              child: Text(script.content ?? '',
-                  style: const TextStyle(fontSize: 12, height: 1.5)),
+          child: InkWell(
+            onTap: () => _openEditor(script),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: SingleChildScrollView(
+                child: Text(script.content ?? '',
+                    style: const TextStyle(fontSize: 12, height: 1.5)),
+              ),
             ),
           ),
         ),
+      ]),
+    );
+  }
+
+  Future<void> _openEditor(ScriptRow script) async {
+    final saved = await showDFAdaptiveDialog<bool>(
+      context,
+      title: context.l10n.scriptNodeEditTitle,
+      builder: (_) => _ScriptNodeEditor(script: script),
+    );
+    if (saved == true && mounted) setState(() {});
+  }
+}
+
+class _ScriptNodeEditor extends ConsumerStatefulWidget {
+  final ScriptRow script;
+  const _ScriptNodeEditor({required this.script});
+
+  @override
+  ConsumerState<_ScriptNodeEditor> createState() => _ScriptNodeEditorState();
+}
+
+class _ScriptNodeEditorState extends ConsumerState<_ScriptNodeEditor> {
+  late final TextEditingController _name =
+      TextEditingController(text: widget.script.name ?? '');
+  late final TextEditingController _content =
+      TextEditingController(text: widget.script.content ?? '');
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _content.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final l10n = context.l10n;
+    if (_name.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.scriptNodeNameRequired)));
+      return;
+    }
+    ref.read(engineProvider).updateScript(
+          widget.script.id,
+          name: _name.text.trim(),
+          content: _content.text,
+        );
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.scriptNodeSaved)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(
+          controller: _name,
+          decoration: InputDecoration(
+            labelText: l10n.scriptNodeName,
+            hintText: l10n.scriptNodeNamePlaceholder,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: DFTokens.s12),
+        Flexible(
+          child: TextField(
+            controller: _content,
+            minLines: 8,
+            maxLines: 20,
+            textAlignVertical: TextAlignVertical.top,
+            style: const TextStyle(fontSize: 13, height: 1.5),
+            decoration: InputDecoration(
+              labelText: l10n.scriptNodeContent,
+              hintText: l10n.scriptNodeContentPlaceholder,
+              alignLabelWithHint: true,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ),
+        const SizedBox(height: DFTokens.s12),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          TextButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: Text(l10n.commonCancel),
+          ),
+          const SizedBox(width: DFTokens.s8),
+          FilledButton(onPressed: _save, child: Text(l10n.commonSave)),
+        ]),
       ]),
     );
   }
@@ -396,6 +525,7 @@ class _AssetsNode extends ConsumerWidget {
       ref,
       projectId: projectId,
       flowId: asset.flowId,
+      scriptId: script.id,
       seedReferenceRelPaths:
           asset.filePath != null ? [asset.filePath!] : const [],
       onApply: (rel, flowId) {
@@ -464,40 +594,153 @@ class _AssetsNode extends ConsumerWidget {
   }
 }
 
-class _StoryboardTableNode extends ConsumerWidget {
+/// 分镜表节点（照抄 ToonFlow production storyboardTable：可编辑 Markdown 文档，
+/// 剧集级，存 o_agentWorkData(key='storyboardTable')）。头部提供编辑入口，弹出
+/// 对话框改写并持久化（复用 scriptPlan 的持久化+重读模式）。engine 无响应式，
+/// 保存后 setState 重读预览。
+class _StoryboardTableNode extends ConsumerStatefulWidget {
   final int projectId;
   final int scriptId;
   const _StoryboardTableNode({required this.projectId, required this.scriptId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_StoryboardTableNode> createState() =>
+      _StoryboardTableNodeState();
+}
+
+class _StoryboardTableNodeState extends ConsumerState<_StoryboardTableNode> {
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
-    ref.watch(jobsGenerationProvider);
-    final rows = ref.watch(engineProvider).storyboards(scriptId);
+    final markdown = ref
+        .read(engineProvider)
+        .storyboardTable(widget.projectId, widget.scriptId);
+    final hasTable = markdown.trim().isNotEmpty;
     return _NodeFrame(
       title: l10n.productionNodeStoryboardTableTitle,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _NodeHeader(title: l10n.productionNodeStoryboardTableTitle),
-        Expanded(
-          child: rows.isEmpty
-              ? Center(
-                  child: Text(l10n.productionStoryboardNotGenerated,
-                      style: TextStyle(fontSize: 11, color: df.textTertiary)))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(10),
-                  itemCount: rows.length,
-                  itemBuilder: (c, i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      'S${(i + 1).toString().padLeft(2, '0')}  ${rows[i].prompt ?? ''}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                  ),
-                ),
+        _NodeHeader(
+          title: l10n.productionNodeStoryboardTableTitle,
+          onEdit: () => _openEditor(markdown),
         ),
+        Expanded(
+          child: InkWell(
+            onTap: () => _openEditor(markdown),
+            child: hasTable
+                ? Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: SingleChildScrollView(
+                      child: Text(markdown,
+                          style: const TextStyle(fontSize: 12, height: 1.5)),
+                    ),
+                  )
+                : Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.table_rows_outlined,
+                          color: df.textTertiary, size: 22),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(l10n.storyboardTableEmpty,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 12, color: df.textTertiary)),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: () => _openEditor(markdown),
+                        icon: const Icon(Icons.edit_note, size: 16),
+                        label: Text(l10n.storyboardTableWrite,
+                            style: const TextStyle(fontSize: 12)),
+                      ),
+                    ]),
+                  ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _openEditor(String current) async {
+    final saved = await showDFAdaptiveDialog<bool>(
+      context,
+      title: context.l10n.storyboardTableEditTitle,
+      builder: (_) => _StoryboardTableEditor(
+        projectId: widget.projectId,
+        scriptId: widget.scriptId,
+        initial: current,
+      ),
+    );
+    if (saved == true && mounted) setState(() {});
+  }
+}
+
+class _StoryboardTableEditor extends ConsumerStatefulWidget {
+  final int projectId;
+  final int scriptId;
+  final String initial;
+  const _StoryboardTableEditor({
+    required this.projectId,
+    required this.scriptId,
+    required this.initial,
+  });
+
+  @override
+  ConsumerState<_StoryboardTableEditor> createState() =>
+      _StoryboardTableEditorState();
+}
+
+class _StoryboardTableEditorState
+    extends ConsumerState<_StoryboardTableEditor> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    ref.read(engineProvider).saveStoryboardTable(
+        widget.projectId, widget.scriptId, _controller.text);
+    if (!mounted) return;
+    final l10n = context.l10n;
+    Navigator.of(context).pop(true);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.storyboardTableSaved)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Flexible(
+          child: TextField(
+            controller: _controller,
+            minLines: 8,
+            maxLines: 20,
+            textAlignVertical: TextAlignVertical.top,
+            style: const TextStyle(fontSize: 13, height: 1.5),
+            decoration: InputDecoration(
+              hintText: l10n.storyboardTableEditHint,
+              alignLabelWithHint: true,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ),
+        const SizedBox(height: DFTokens.s12),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          TextButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: Text(l10n.commonCancel),
+          ),
+          const SizedBox(width: DFTokens.s8),
+          FilledButton(onPressed: _save, child: Text(l10n.commonSave)),
+        ]),
       ]),
     );
   }

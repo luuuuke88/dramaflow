@@ -1834,4 +1834,72 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get manualImportFailed => 'ファイルの取り込みに失敗しました';
+
+  @override
+  String get storyboardTableEmpty =>
+      '絵コンテ表がまだありません。タップしてカット割り・尺・画面の要点を記入してください。';
+
+  @override
+  String get storyboardTableWrite => '絵コンテ表を書く';
+
+  @override
+  String get storyboardTableEditTitle => '絵コンテ表を編集';
+
+  @override
+  String get storyboardTableEditHint =>
+      'Markdown でこの話数のカット割りを記録：カット番号、画面、カメラワーク、尺……';
+
+  @override
+  String get storyboardTableSaved => '絵コンテ表を保存しました';
+
+  @override
+  String get scriptNodeEditTitle => '脚本を編集';
+
+  @override
+  String get scriptNodeName => '名称';
+
+  @override
+  String get scriptNodeNamePlaceholder => '脚本名を入力してください';
+
+  @override
+  String get scriptNodeContent => '本文';
+
+  @override
+  String get scriptNodeContentPlaceholder => '脚本本文を入力してください';
+
+  @override
+  String get scriptNodeNameRequired => '脚本名を入力してください';
+
+  @override
+  String get scriptNodeSaved => '脚本を保存しました';
+
+  @override
+  String get productionStoryboardInsertBefore => '前に絵コンテを挿入';
+
+  @override
+  String get imageEditorPickFromAssets => '素材ライブラリから選択';
+
+  @override
+  String get imageEditorPickFromStoryboard => '絵コンテから選択';
+
+  @override
+  String get imageEditorPickImageTitle => '参照画像を選択';
+
+  @override
+  String get imageEditorPickImageSource => '画像ソースを選択';
+
+  @override
+  String get imageEditorPickLocalFile => 'ローカルファイル';
+
+  @override
+  String get imageEditorNoAssetsImages => '素材ライブラリに生成済み画像がありません';
+
+  @override
+  String get imageEditorNoStoryboardImages => '絵コンテに生成済みの初期フレームがありません';
+
+  @override
+  String get imageEditorRemoveEdge => 'この接続を削除';
+
+  @override
+  String get imageEditorEdgeRemoved => '接続を削除しました';
 }

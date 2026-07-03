@@ -9,18 +9,22 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/assets.dart';
 import '../../engine/engine.dart';
 import '../../engine/image_flow.dart';
+import '../../engine/storyboard.dart';
 import '../project/model_select.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_canvas.dart';
 
 const _nodeWidth = 260.0;
-const _nodeCollapsedHeight = 220.0;
+// upload 节点含头部(≈32)+图片(160)+手柄行(≈36)约 228，故折叠高留足余量避免溢出。
+const _nodeCollapsedHeight = 236.0;
 // 选中态展开后要容纳：参考图缩略图 + prompt + 三个参数选择器 + 操作按钮，
 // 故较未选中态更高（对齐 ToonFlow generatedNode 展开的 .parameter 面板）。
 const _nodeExpandedHeight = 560.0;
@@ -72,11 +76,13 @@ class _EdgeVM {
 
 /// 打开编辑器；`onApply` 在用户点击某生成节点的"应用"按钮时回调
 /// (生成结果相对路径, 保存后的 flowId)。
+/// `scriptId` 可选：提供时"从分镜选择"图片来源可用（列出该剧集已生成首帧图）。
 Future<void> showImageFlowEditor(
   BuildContext context,
   WidgetRef ref, {
   required int projectId,
   int? flowId,
+  int? scriptId,
   List<String> seedReferenceRelPaths = const [],
   required void Function(String rel, int flowId) onApply,
 }) {
@@ -86,6 +92,7 @@ Future<void> showImageFlowEditor(
       builder: (c) => _ImageFlowEditorPage(
         projectId: projectId,
         flowId: flowId,
+        scriptId: scriptId,
         seedReferenceRelPaths: seedReferenceRelPaths,
         onApply: onApply,
         ref: ref,
@@ -97,12 +104,14 @@ Future<void> showImageFlowEditor(
 class _ImageFlowEditorPage extends StatefulWidget {
   final int projectId;
   final int? flowId;
+  final int? scriptId;
   final List<String> seedReferenceRelPaths;
   final void Function(String rel, int flowId) onApply;
   final WidgetRef ref;
   const _ImageFlowEditorPage({
     required this.projectId,
     required this.flowId,
+    required this.scriptId,
     required this.seedReferenceRelPaths,
     required this.onApply,
     required this.ref,
@@ -276,6 +285,49 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     });
   }
 
+  /// 删除单条连线（点击边中点的 × 触发），并重算连线驱动的参考图。
+  void _removeEdge(String edgeId) {
+    setState(() {
+      _edges.removeWhere((e) => e.id == edgeId);
+      _syncReferences();
+    });
+    _toast(context.l10n.imageEditorEdgeRemoved);
+  }
+
+  /// 节点在画布上的当前尺寸（与 DFCanvasNode.size 一致，供边中点定位）。
+  Size _nodeSize(_NodeVM n) => Size(
+      _nodeWidth,
+      n.type == 'generated' && n.selected
+          ? _nodeExpandedHeight
+          : _nodeCollapsedHeight);
+
+  /// 连线中点坐标（与 df_canvas 边绘制口径一致：源右侧中点→目标左侧中点的
+  /// 三次贝塞尔，取参数 t=0.5 处）。用于放置删除连线的 × 手柄。
+  Offset? _edgeMidpoint(_EdgeVM e) {
+    final source = _nodes.where((n) => n.id == e.source).firstOrNull;
+    final target = _nodes.where((n) => n.id == e.target).firstOrNull;
+    if (source == null || target == null) return null;
+    final sSize = _nodeSize(source);
+    final tSize = _nodeSize(target);
+    final start = Offset(source.position.dx + sSize.width,
+        source.position.dy + sSize.height / 2);
+    final end =
+        Offset(target.position.dx, target.position.dy + tSize.height / 2);
+    final ctrlX = (start.dx + end.dx) / 2;
+    // 三次贝塞尔 t=0.5：控制点 (ctrlX,start.y) 与 (ctrlX,end.y)。
+    const t = 0.5;
+    final mt = 1 - t;
+    final x = mt * mt * mt * start.dx +
+        3 * mt * mt * t * ctrlX +
+        3 * mt * t * t * ctrlX +
+        t * t * t * end.dx;
+    final y = mt * mt * mt * start.dy +
+        3 * mt * mt * t * start.dy +
+        3 * mt * t * t * end.dy +
+        t * t * t * end.dy;
+    return Offset(x, y);
+  }
+
   void _handleHandleTap(_NodeVM node, {required bool isSource}) {
     final l10n = context.l10n;
     if (isSource) {
@@ -303,7 +355,44 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     });
   }
 
+  /// upload 节点选图：先选来源（本地文件 / 素材库 / 分镜），再取对应图片。
+  /// 对齐 ToonFlow editImage 上传节点的多来源选图（本地上传之外还可引用已有资产/分镜图）。
   Future<void> _pickUploadImage(_NodeVM node) async {
+    final l10n = context.l10n;
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      builder: (c) => SafeArea(
+        child: Wrap(children: [
+          ListTile(
+            leading: const Icon(Icons.upload_file_outlined),
+            title: Text(l10n.imageEditorPickLocalFile),
+            onTap: () => Navigator.pop(c, 'local'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.collections_outlined),
+            title: Text(l10n.imageEditorPickFromAssets),
+            onTap: () => Navigator.pop(c, 'assets'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.grid_view_outlined),
+            title: Text(l10n.imageEditorPickFromStoryboard),
+            onTap: () => Navigator.pop(c, 'storyboard'),
+          ),
+        ]),
+      ),
+    );
+    if (!mounted || source == null) return;
+    switch (source) {
+      case 'local':
+        await _pickLocalImage(node);
+      case 'assets':
+        await _pickFromLibrary(node, fromStoryboard: false);
+      case 'storyboard':
+        await _pickFromLibrary(node, fromStoryboard: true);
+    }
+  }
+
+  Future<void> _pickLocalImage(_NodeVM node) async {
     final file = await openFile(acceptedTypeGroups: [
       const XTypeGroup(label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
     ]);
@@ -314,6 +403,59 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
       node.imageRel = saved;
       _syncReferences();
     });
+  }
+
+  /// 从素材库或分镜里挑一张已生成图片作为参考（返回其相对路径）。
+  Future<void> _pickFromLibrary(_NodeVM node,
+      {required bool fromStoryboard}) async {
+    final items = fromStoryboard ? _storyboardImageItems() : _assetImageItems();
+    final rel = await showDFAdaptiveDialog<String>(
+      context,
+      title: context.l10n.imageEditorPickImageTitle,
+      desktopWidthFactor: 0.6,
+      builder: (_) => _LibraryPicker(
+        engine: _engine,
+        items: items,
+        emptyText: fromStoryboard
+            ? context.l10n.imageEditorNoStoryboardImages
+            : context.l10n.imageEditorNoAssetsImages,
+      ),
+    );
+    if (!mounted || rel == null) return;
+    setState(() {
+      node.imageRel = rel;
+      _syncReferences();
+    });
+  }
+
+  /// 素材库已选中图（跨 role/scene/tool；仅返回有 filePath 者）。
+  List<_PickItem> _assetImageItems() {
+    final out = <_PickItem>[];
+    for (final type in const ['role', 'scene', 'tool']) {
+      final res = _engine.getAssets(widget.projectId, type: type, limit: 999);
+      for (final a in res.data) {
+        if (a.filePath != null && a.filePath!.isNotEmpty) {
+          out.add(_PickItem(rel: a.filePath!, label: a.name ?? ''));
+        }
+      }
+    }
+    return out;
+  }
+
+  /// 本剧集已生成首帧图的分镜（按镜头序号编号）。
+  List<_PickItem> _storyboardImageItems() {
+    final scriptId = widget.scriptId;
+    if (scriptId == null) return const [];
+    final rows = _engine.storyboards(scriptId);
+    final out = <_PickItem>[];
+    for (final (i, r) in rows.indexed) {
+      if (r.filePath != null && r.filePath!.isNotEmpty) {
+        out.add(_PickItem(
+            rel: r.filePath!,
+            label: 'S${(i + 1).toString().padLeft(2, '0')}'));
+      }
+    }
+    return out;
   }
 
   /// 生成前置校验：prompt + model + quality + ratio 均必填（对齐 ToonFlow
@@ -737,10 +879,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
             DFCanvasNode(
               id: n.id,
               position: n.position,
-              size: Size(_nodeWidth,
-                  n.type == 'generated' && n.selected
-                      ? _nodeExpandedHeight
-                      : _nodeCollapsedHeight),
+              size: _nodeSize(n),
               child: GestureDetector(
                 onPanUpdate: (d) => setState(() => n.position += d.delta),
                 child: n.type == 'upload'
@@ -748,6 +887,18 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                     : _generatedNodeWidget(n),
               ),
             ),
+          // 每条连线中点放一个 × 手柄，点击删除该连线（对齐 ToonFlow removeLine）。
+          for (final e in _edges)
+            if (_edgeMidpoint(e) case final mid?)
+              DFCanvasNode(
+                id: 'edgeDel_${e.id}',
+                position: mid - const Offset(11, 11),
+                size: const Size(22, 22),
+                child: _EdgeDeleteDot(
+                  tooltip: l10n.imageEditorRemoveEdge,
+                  onTap: () => _removeEdge(e.id),
+                ),
+              ),
         ],
         edges: [
           for (final e in _edges)
@@ -778,6 +929,105 @@ class _HandleDot extends StatelessWidget {
           color: active ? df.accent : df.primary,
           border: Border.all(color: df.surface, width: 2),
         ),
+      ),
+    );
+  }
+}
+
+/// 连线中点的删除手柄（点击删除该连线）。
+class _EdgeDeleteDot extends StatelessWidget {
+  final VoidCallback onTap;
+  final String tooltip;
+  const _EdgeDeleteDot({required this.onTap, required this.tooltip});
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: df.danger,
+            border: Border.all(color: df.surface, width: 2),
+          ),
+          child: Icon(Icons.close, size: 12, color: df.surface),
+        ),
+      ),
+    );
+  }
+}
+
+/// 素材/分镜选图项（相对路径 + 展示名）。
+class _PickItem {
+  final String rel;
+  final String label;
+  const _PickItem({required this.rel, required this.label});
+}
+
+/// 素材库 / 分镜选图网格（点击某项返回其相对路径给调用方）。
+class _LibraryPicker extends StatelessWidget {
+  final Engine engine;
+  final List<_PickItem> items;
+  final String emptyText;
+  const _LibraryPicker({
+    required this.engine,
+    required this.items,
+    required this.emptyText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    if (items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(DFTokens.s24),
+        child: Center(
+          child: Text(emptyText,
+              style: TextStyle(fontSize: 13, color: df.textTertiary)),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s12),
+      child: GridView.builder(
+        shrinkWrap: true,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4, crossAxisSpacing: 8, mainAxisSpacing: 8),
+        itemCount: items.length,
+        itemBuilder: (c, i) {
+          final it = items[i];
+          return InkWell(
+            onTap: () => Navigator.of(context).pop(it.rel),
+            borderRadius: BorderRadius.circular(6),
+            child: Column(children: [
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                      color: df.surfaceMuted,
+                      borderRadius: BorderRadius.circular(6)),
+                  child: Image.file(
+                    File(engine.mediaAbsPath(it.rel)),
+                    fit: BoxFit.cover,
+                    errorBuilder: (c, e, s) => Icon(
+                        Icons.broken_image_outlined, color: df.textTertiary),
+                  ),
+                ),
+              ),
+              Text(it.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10)),
+            ]),
+          );
+        },
       ),
     );
   }

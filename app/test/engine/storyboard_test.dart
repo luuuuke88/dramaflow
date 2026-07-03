@@ -93,6 +93,39 @@ void main() {
     expect(rows.map((r) => r.index), [1, 2], reason: '删除后重排剩余序号');
   });
 
+  test('前插语义：insertAfterIndex=目标index-1 使新镜头排到目标之前', () {
+    final s1 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头1');
+    final s2 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头2');
+    var rows = engine.storyboards(scriptId);
+    expect(rows.map((r) => r.index), [1, 2]);
+
+    // 在第一格（index=1）之前插入 → insertAfterIndex = 1-1 = 0。
+    final beforeFirst = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '前插首格',
+      insertAfterIndex: rows.first.index - 1,
+    );
+    rows = engine.storyboards(scriptId);
+    expect(rows.map((r) => r.id), [beforeFirst, s1, s2],
+        reason: '前插首格应排在最前');
+    expect(rows.map((r) => r.index), [1, 2, 3]);
+
+    // 在原第二格（现 index=3 的 s2）之前插入。
+    final s2Row = rows.firstWhere((r) => r.id == s2);
+    final beforeS2 = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '前插 s2',
+      insertAfterIndex: s2Row.index - 1,
+    );
+    rows = engine.storyboards(scriptId);
+    expect(rows.map((r) => r.id), [beforeFirst, s1, beforeS2, s2]);
+    expect(rows.map((r) => r.index), [1, 2, 3, 4]);
+  });
+
   test('剧本生成分镜：tool-calling 落库+资产名映射为 id', () async {
     db.execute(
         "INSERT INTO o_assets (name,type,projectId) VALUES ('林朝雪','role',?)",

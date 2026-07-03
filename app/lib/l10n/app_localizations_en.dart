@@ -1885,4 +1885,74 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get manualImportFailed => 'File import failed';
+
+  @override
+  String get storyboardTableEmpty =>
+      'No storyboard table yet. Tap to write shot breakdown, durations and key visuals.';
+
+  @override
+  String get storyboardTableWrite => 'Write storyboard table';
+
+  @override
+  String get storyboardTableEditTitle => 'Edit storyboard table';
+
+  @override
+  String get storyboardTableEditHint =>
+      'Use Markdown to record this episode\'s shot breakdown: shot number, visuals, camera moves, duration...';
+
+  @override
+  String get storyboardTableSaved => 'Storyboard table saved';
+
+  @override
+  String get scriptNodeEditTitle => 'Edit script';
+
+  @override
+  String get scriptNodeName => 'Name';
+
+  @override
+  String get scriptNodeNamePlaceholder => 'Enter script name';
+
+  @override
+  String get scriptNodeContent => 'Content';
+
+  @override
+  String get scriptNodeContentPlaceholder => 'Enter script content';
+
+  @override
+  String get scriptNodeNameRequired => 'Please enter a script name';
+
+  @override
+  String get scriptNodeSaved => 'Script saved';
+
+  @override
+  String get productionStoryboardInsertBefore => 'Insert storyboard before';
+
+  @override
+  String get imageEditorPickFromAssets => 'Choose from asset library';
+
+  @override
+  String get imageEditorPickFromStoryboard => 'Choose from storyboard';
+
+  @override
+  String get imageEditorPickImageTitle => 'Choose reference image';
+
+  @override
+  String get imageEditorPickImageSource => 'Choose image source';
+
+  @override
+  String get imageEditorPickLocalFile => 'Local file';
+
+  @override
+  String get imageEditorNoAssetsImages =>
+      'No generated images in the asset library';
+
+  @override
+  String get imageEditorNoStoryboardImages =>
+      'No generated storyboard frames yet';
+
+  @override
+  String get imageEditorRemoveEdge => 'Remove this connection';
+
+  @override
+  String get imageEditorEdgeRemoved => 'Connection removed';
 }

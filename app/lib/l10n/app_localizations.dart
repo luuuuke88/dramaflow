@@ -3609,6 +3609,138 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'文件导入失败'**
   String get manualImportFailed;
+
+  /// No description provided for @storyboardTableEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有分镜表，点此撰写镜头拆解、时长与画面要点。'**
+  String get storyboardTableEmpty;
+
+  /// No description provided for @storyboardTableWrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'撰写分镜表'**
+  String get storyboardTableWrite;
+
+  /// No description provided for @storyboardTableEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑分镜表'**
+  String get storyboardTableEditTitle;
+
+  /// No description provided for @storyboardTableEditHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用 Markdown 记录本集的分镜拆解：镜头序号、画面、运镜、时长……'**
+  String get storyboardTableEditHint;
+
+  /// No description provided for @storyboardTableSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜表已保存'**
+  String get storyboardTableSaved;
+
+  /// No description provided for @scriptNodeEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑剧本'**
+  String get scriptNodeEditTitle;
+
+  /// No description provided for @scriptNodeName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get scriptNodeName;
+
+  /// No description provided for @scriptNodeNamePlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入剧本名称'**
+  String get scriptNodeNamePlaceholder;
+
+  /// No description provided for @scriptNodeContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文'**
+  String get scriptNodeContent;
+
+  /// No description provided for @scriptNodeContentPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入剧本正文'**
+  String get scriptNodeContentPlaceholder;
+
+  /// No description provided for @scriptNodeNameRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入剧本名称'**
+  String get scriptNodeNameRequired;
+
+  /// No description provided for @scriptNodeSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本已保存'**
+  String get scriptNodeSaved;
+
+  /// No description provided for @productionStoryboardInsertBefore.
+  ///
+  /// In zh, this message translates to:
+  /// **'在前面插入分镜'**
+  String get productionStoryboardInsertBefore;
+
+  /// No description provided for @imageEditorPickFromAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'从素材库选择'**
+  String get imageEditorPickFromAssets;
+
+  /// No description provided for @imageEditorPickFromStoryboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'从分镜选择'**
+  String get imageEditorPickFromStoryboard;
+
+  /// No description provided for @imageEditorPickImageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择参考图'**
+  String get imageEditorPickImageTitle;
+
+  /// No description provided for @imageEditorPickImageSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择图片来源'**
+  String get imageEditorPickImageSource;
+
+  /// No description provided for @imageEditorPickLocalFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地文件'**
+  String get imageEditorPickLocalFile;
+
+  /// No description provided for @imageEditorNoAssetsImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材库暂无已生成图片'**
+  String get imageEditorNoAssetsImages;
+
+  /// No description provided for @imageEditorNoStoryboardImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜暂无已生成首帧图'**
+  String get imageEditorNoStoryboardImages;
+
+  /// No description provided for @imageEditorRemoveEdge.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除该连线'**
+  String get imageEditorRemoveEdge;
+
+  /// No description provided for @imageEditorEdgeRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除连线'**
+  String get imageEditorEdgeRemoved;
 }
 
 class _AppLocalizationsDelegate

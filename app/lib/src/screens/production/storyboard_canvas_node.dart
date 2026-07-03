@@ -219,6 +219,7 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
       ref,
       projectId: widget.projectId,
       flowId: flowId,
+      scriptId: widget.scriptId,
       seedReferenceRelPaths: seedRefs,
       onApply: (rel, savedFlowId) {
         ref
@@ -244,6 +245,29 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
     setState(() {});
     if (refs.isNotEmpty) {
       final row = engine.storyboards(widget.scriptId).firstWhere((r) => r.id == newId);
+      _openEditor(row, seedRefs: refs);
+    }
+  }
+
+  /// 在目标分镜前插入（引擎 addStoryboard 以 insertAfterIndex 为锚：
+  /// 前插即 insertAfterIndex = 目标 index-1，随后整体后移）。种子参考图取前一格
+  /// 与目标格的首帧图（对齐 _insertAfter 的相邻参考语义）。
+  void _insertBefore(List<StoryboardRow> rows, int index) {
+    final engine = ref.read(engineProvider);
+    final refs = <String>[
+      if (index - 1 >= 0 && rows[index - 1].filePath != null)
+        rows[index - 1].filePath!,
+      if (rows[index].filePath != null) rows[index].filePath!,
+    ];
+    final newId = engine.addStoryboard(
+      projectId: widget.projectId,
+      scriptId: widget.scriptId,
+      insertAfterIndex: rows[index].index - 1,
+    );
+    setState(() {});
+    if (refs.isNotEmpty) {
+      final row =
+          engine.storyboards(widget.scriptId).firstWhere((r) => r.id == newId);
       _openEditor(row, seedRefs: refs);
     }
   }
@@ -464,6 +488,14 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
       context: context,
       builder: (c) => SafeArea(
         child: Wrap(children: [
+          ListTile(
+            leading: const Icon(Icons.first_page_outlined),
+            title: Text(l10n.productionStoryboardInsertBefore),
+            onTap: () {
+              Navigator.pop(c);
+              _insertBefore(rows, index);
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.add_box_outlined),
             title: Text(l10n.productionStoryboardInsertHint),

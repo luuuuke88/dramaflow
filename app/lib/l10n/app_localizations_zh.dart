@@ -1824,4 +1824,70 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get manualImportFailed => '文件导入失败';
+
+  @override
+  String get storyboardTableEmpty => '还没有分镜表，点此撰写镜头拆解、时长与画面要点。';
+
+  @override
+  String get storyboardTableWrite => '撰写分镜表';
+
+  @override
+  String get storyboardTableEditTitle => '编辑分镜表';
+
+  @override
+  String get storyboardTableEditHint => '用 Markdown 记录本集的分镜拆解：镜头序号、画面、运镜、时长……';
+
+  @override
+  String get storyboardTableSaved => '分镜表已保存';
+
+  @override
+  String get scriptNodeEditTitle => '编辑剧本';
+
+  @override
+  String get scriptNodeName => '名称';
+
+  @override
+  String get scriptNodeNamePlaceholder => '请输入剧本名称';
+
+  @override
+  String get scriptNodeContent => '正文';
+
+  @override
+  String get scriptNodeContentPlaceholder => '请输入剧本正文';
+
+  @override
+  String get scriptNodeNameRequired => '请输入剧本名称';
+
+  @override
+  String get scriptNodeSaved => '剧本已保存';
+
+  @override
+  String get productionStoryboardInsertBefore => '在前面插入分镜';
+
+  @override
+  String get imageEditorPickFromAssets => '从素材库选择';
+
+  @override
+  String get imageEditorPickFromStoryboard => '从分镜选择';
+
+  @override
+  String get imageEditorPickImageTitle => '选择参考图';
+
+  @override
+  String get imageEditorPickImageSource => '选择图片来源';
+
+  @override
+  String get imageEditorPickLocalFile => '本地文件';
+
+  @override
+  String get imageEditorNoAssetsImages => '素材库暂无已生成图片';
+
+  @override
+  String get imageEditorNoStoryboardImages => '分镜暂无已生成首帧图';
+
+  @override
+  String get imageEditorRemoveEdge => '删除该连线';
+
+  @override
+  String get imageEditorEdgeRemoved => '已删除连线';
 }
