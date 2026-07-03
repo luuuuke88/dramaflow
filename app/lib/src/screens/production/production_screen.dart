@@ -2,6 +2,8 @@
 // 剧集选择器 + 无限画布（script→scriptPlan→storyboardTable→storyboard→workbench 主链，
 // assets 挂 script 下方）。scriptPlan/workbench 为 P4/P5 占位卡片（真实功能待后续批次）。
 // 移动端 <840：画布不适合窄屏平移操作，改为纵向 Tab 切换各节点内容（同功能不同呈现）。
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +17,7 @@ import '../../theme/tokens.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_canvas.dart';
 import '../../widgets/df_empty.dart';
+import 'image_flow_editor.dart';
 import 'storyboard_canvas_node.dart';
 
 class ProductionScreen extends ConsumerStatefulWidget {
@@ -298,6 +301,23 @@ class _AssetsNode extends ConsumerWidget {
   final ScriptRow script;
   const _AssetsNode({required this.projectId, required this.script});
 
+  /// 点击资产卡打开节点式编辑器（画布语境下的专属入口，区别于素材管理页的
+  /// 简单生图对话框——照抄 ToonFlow：production 画布的 assets 节点点击资产
+  /// 打开 editImage，assets/index.vue 列表页才用 generateImage 简版）。
+  void _openEditor(BuildContext context, WidgetRef ref, AssetRow asset) {
+    showImageFlowEditor(
+      context,
+      ref,
+      projectId: projectId,
+      flowId: asset.flowId,
+      seedReferenceRelPaths:
+          asset.filePath != null ? [asset.filePath!] : const [],
+      onApply: (rel, flowId) {
+        ref.read(engineProvider).attachAssetImage(asset.id, rel, flowId: flowId);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
@@ -320,22 +340,36 @@ class _AssetsNode extends ConsumerWidget {
                   itemCount: assets.length,
                   itemBuilder: (c, i) {
                     final a = assets[i];
-                    return Column(children: [
-                      Expanded(
-                        child: Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                              color: df.surfaceMuted,
-                              borderRadius: BorderRadius.circular(6)),
-                          child: Icon(Icons.image_outlined,
-                              size: 18, color: df.textTertiary),
+                    return GestureDetector(
+                      onTap: () => _openEditor(context, ref, a),
+                      child: Column(children: [
+                        Expanded(
+                          child: Container(
+                            width: double.infinity,
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                                color: df.surfaceMuted,
+                                borderRadius: BorderRadius.circular(6)),
+                            child: a.filePath != null
+                                ? Image.file(
+                                    File(ref
+                                        .read(engineProvider)
+                                        .mediaAbsPath(a.filePath!)),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, e, s) => Icon(
+                                        Icons.broken_image_outlined,
+                                        size: 18,
+                                        color: df.textTertiary))
+                                : Icon(Icons.image_outlined,
+                                    size: 18, color: df.textTertiary),
+                          ),
                         ),
-                      ),
-                      Text(a.name ?? '',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 10)),
-                    ]);
+                        Text(a.name ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 10)),
+                      ]),
+                    );
                   },
                 ),
         ),

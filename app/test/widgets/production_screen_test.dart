@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -98,6 +99,23 @@ void main() {
     expect(find.text('分镜'), findsWidgets); // 节点标题 + 内部工具栏文案
     expect(find.text('工作台'), findsOneWidget);
     expect(find.text('生成分镜'), findsOneWidget); // 分镜为空时的按钮
+  });
+
+  testWidgets('点击资产节点卡片打开节点式图片编辑器', (tester) async {
+    final scriptId = engine.addScript(
+        projectId: projectId, name: '第一集', content: 'x');
+    final assetId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    engine.updateScript(scriptId, assets: [assetId]);
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('林朝雪'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppBar, '图片生成'), findsOneWidget);
   });
 
   testWidgets('移动端：Tab 切换代替画布', (tester) async {

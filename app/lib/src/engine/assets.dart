@@ -53,6 +53,7 @@ class AssetRow {
   final String? promptErrorReason;
   final String? filePath; // 选中图（o_image via imageId）
   final String? imageState;
+  final int? flowId; // 节点式图片编辑器画布（o_imageFlow.id）
   final List<AssetRow> sonAssets;
 
   const AssetRow({
@@ -70,6 +71,7 @@ class AssetRow {
     required this.promptErrorReason,
     required this.filePath,
     required this.imageState,
+    required this.flowId,
     this.sonAssets = const [],
   });
 
@@ -129,6 +131,7 @@ extension AssetsApi on Engine {
         promptErrorReason: r['promptErrorReason'] as String?,
         filePath: r['filePath'] as String?,
         imageState: r['imageState'] as String?,
+        flowId: r['flowId'] as int?,
         sonAssets: sons,
       );
 

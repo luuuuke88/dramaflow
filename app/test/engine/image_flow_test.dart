@@ -108,10 +108,7 @@ void main() {
     engine.attachAssetImage(assetId, 'p/img_flow.png', flowId: 7);
     final row = engine.getAssets(projectId, type: 'role').data.single;
     expect(row.filePath, 'p/img_flow.png');
-    final assetsFlowId = db
-        .select('SELECT flowId FROM o_assets WHERE id=?', [assetId])
-        .first['flowId'];
-    expect(assetsFlowId, 7);
+    expect(row.flowId, 7, reason: 'AssetRow 模型直接暴露 flowId');
   });
 
   test('setStoryboardImage 直接写入分镜结果', () {
@@ -122,8 +119,6 @@ void main() {
     final row = engine.storyboards(scriptId).single;
     expect(row.filePath, 'p/img_sb.png');
     expect(row.state, sbDone);
-    final flowId =
-        db.select('SELECT flowId FROM o_storyboard WHERE id=?', [sbId]).first['flowId'];
-    expect(flowId, 3);
+    expect(row.flowId, 3, reason: 'StoryboardRow 模型直接暴露 flowId');
   });
 }

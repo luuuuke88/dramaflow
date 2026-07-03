@@ -156,15 +156,18 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
     }
   }
 
-  void _openEditor(StoryboardRow row, {List<String> seedRefs = const []}) {
+  void _openEditor(StoryboardRow row,
+      {List<String> seedRefs = const [], int? flowId}) {
     showImageFlowEditor(
       context,
       ref,
       projectId: widget.projectId,
-      flowId: null,
+      flowId: flowId,
       seedReferenceRelPaths: seedRefs,
-      onApply: (rel, flowId) {
-        ref.read(engineProvider).setStoryboardImage(row.id, rel, flowId: flowId);
+      onApply: (rel, savedFlowId) {
+        ref
+            .read(engineProvider)
+            .setStoryboardImage(row.id, rel, flowId: savedFlowId);
         setState(() {});
       },
     );
@@ -278,8 +281,12 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
                 setState(() {});
               }),
               _miniIcon(Icons.edit_outlined, () => _editRow(row)),
-              _miniIcon(Icons.auto_fix_high_outlined,
-                  () => _openEditor(row, seedRefs: row.filePath != null ? [row.filePath!] : const [])),
+              _miniIcon(
+                  Icons.auto_fix_high_outlined,
+                  () => _openEditor(row,
+                      flowId: row.flowId,
+                      seedRefs:
+                          row.filePath != null ? [row.filePath!] : const [])),
               _miniIcon(Icons.delete_outline, () => _deleteOne(row)),
             ]),
           ),

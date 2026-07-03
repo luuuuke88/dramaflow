@@ -30,6 +30,7 @@ class StoryboardRow {
   final int shouldGenerateImage;
   final String? track;
   final int? trackId;
+  final int? flowId;
   final List<int> assetIds;
 
   const StoryboardRow({
@@ -46,6 +47,7 @@ class StoryboardRow {
     required this.shouldGenerateImage,
     required this.track,
     required this.trackId,
+    required this.flowId,
     required this.assetIds,
   });
 }
@@ -100,6 +102,7 @@ extension StoryboardApi on Engine {
         shouldGenerateImage: (r['shouldGenerateImage'] as int?) ?? 1,
         track: r['track'] as String?,
         trackId: r['trackId'] as int?,
+        flowId: r['flowId'] as int?,
         assetIds: assetIds,
       );
 
