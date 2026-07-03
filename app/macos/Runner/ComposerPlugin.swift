@@ -153,15 +153,26 @@ final class ComposerPlugin {
   }
 
   private func requiresPreRenderedFilterComposition(_ segments: [ComposeSegment]) -> Bool {
-    let hasDissolve = segments.contains { $0.transition == "dissolve" }
     let hasFilter = segments.contains { segment in
       guard let filterPreset = segment.filterPreset else { return false }
       return !filterPreset.isEmpty
     }
-    return hasDissolve && hasFilter
+    return requiresLayeredVideoComposition(segments) && hasFilter
   }
 
-  private func composeWithPreRenderedFiltersForDissolve(
+  private func requiresLayeredVideoComposition(_ segments: [ComposeSegment]) -> Bool {
+    hasDissolveTransition(segments) || hasWhipPanTransition(segments)
+  }
+
+  private func hasDissolveTransition(_ segments: [ComposeSegment]) -> Bool {
+    segments.contains { $0.transition == "dissolve" }
+  }
+
+  private func hasWhipPanTransition(_ segments: [ComposeSegment]) -> Bool {
+    segments.contains { $0.transition == "whip_pan" }
+  }
+
+  private func composeWithPreRenderedFiltersForLayeredComposition(
     segments: [ComposeSegment],
     output: String
   ) async throws {
@@ -250,7 +261,7 @@ final class ComposerPlugin {
   private func compose(segments: [ComposeSegment], output: String) async throws {
     if segments.isEmpty { throw ComposerPluginError.invalidArguments }
     if requiresPreRenderedFilterComposition(segments) {
-      try await composeWithPreRenderedFiltersForDissolve(segments: segments, output: output)
+      try await composeWithPreRenderedFiltersForLayeredComposition(segments: segments, output: output)
       return
     }
 
@@ -375,7 +386,7 @@ final class ComposerPlugin {
     exportSession.outputURL = outputURL
     exportSession.outputFileType = .mp4
     exportSession.shouldOptimizeForNetworkUse = true
-    if hasDissolveTransition(renderSegments),
+    if requiresLayeredVideoComposition(renderSegments),
        let videoComposition = makeLayeredVideoComposition(
         renderSegments: renderSegments,
         renderSize: renderSize)
@@ -394,19 +405,30 @@ final class ComposerPlugin {
     renderSegments.contains { $0.transition == "dissolve" && CMTimeCompare($0.dissolveDuration, .zero) > 0 }
   }
 
+  private func hasWhipPanTransition(_ renderSegments: [RenderSegment]) -> Bool {
+    renderSegments.contains { $0.transition == "whip_pan" }
+  }
+
+  private func requiresLayeredVideoComposition(_ renderSegments: [RenderSegment]) -> Bool {
+    hasDissolveTransition(renderSegments) || hasWhipPanTransition(renderSegments)
+  }
+
   private func makeLayeredVideoComposition(
     renderSegments: [RenderSegment],
     renderSize: CGSize
   ) -> AVMutableVideoComposition? {
-    if !hasDissolveTransition(renderSegments) { return nil }
+    if !requiresLayeredVideoComposition(renderSegments) { return nil }
     let videoComposition = AVMutableVideoComposition()
     videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
     videoComposition.renderSize = renderSize
-    videoComposition.instructions = layeredInstructions(renderSegments)
+    videoComposition.instructions = layeredInstructions(renderSegments, renderSize: renderSize)
     return videoComposition
   }
 
-  private func layeredInstructions(_ renderSegments: [RenderSegment]) -> [AVVideoCompositionInstructionProtocol] {
+  private func layeredInstructions(
+    _ renderSegments: [RenderSegment],
+    renderSize: CGSize
+  ) -> [AVVideoCompositionInstructionProtocol] {
     var instructions: [AVMutableVideoCompositionInstruction] = []
     for (index, segment) in renderSegments.enumerated() {
       if CMTimeCompare(segment.dissolveDuration, .zero) > 0, index > 0 {
@@ -416,8 +438,10 @@ final class ComposerPlugin {
         let previous = renderSegments[index - 1]
         let previousLayer = AVMutableVideoCompositionLayerInstruction(assetTrack: previous.videoTrack)
         previousLayer.setOpacityRamp(fromStartOpacity: 1.0, toEndOpacity: 0.0, timeRange: dissolveRange)
+        applyWhipPanTransformRamps(to: previousLayer, for: previous, within: dissolveRange, renderSize: renderSize)
         let currentLayer = AVMutableVideoCompositionLayerInstruction(assetTrack: segment.videoTrack)
         currentLayer.setOpacityRamp(fromStartOpacity: 0.0, toEndOpacity: 1.0, timeRange: dissolveRange)
+        applyWhipPanTransformRamps(to: currentLayer, for: segment, within: dissolveRange, renderSize: renderSize)
         instruction.layerInstructions = [currentLayer, previousLayer]
         instructions.append(instruction)
       }
@@ -435,6 +459,7 @@ final class ComposerPlugin {
         let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: segment.videoTrack)
         layer.setOpacity(1.0, at: passStart)
         applyFadeOpacityRamps(to: layer, for: segment, within: passRange)
+        applyWhipPanTransformRamps(to: layer, for: segment, within: passRange, renderSize: renderSize)
         instruction.layerInstructions = [layer]
         instructions.append(instruction)
       }
@@ -462,6 +487,55 @@ final class ComposerPlugin {
     if containsRange(instructionRange, fadeOutRange) {
       layer.setOpacityRamp(fromStartOpacity: 1.0, toEndOpacity: 0.0, timeRange: fadeOutRange)
     }
+  }
+
+  private func applyWhipPanTransformRamps(
+    to layer: AVMutableVideoCompositionLayerInstruction,
+    for segment: RenderSegment,
+    within instructionRange: CMTimeRange,
+    renderSize: CGSize
+  ) {
+    guard segment.transition == "whip_pan" else { return }
+    let rampDuration = whipPanRampDuration(for: segment.timeRange.duration)
+    if CMTimeCompare(rampDuration, .zero) <= 0 { return }
+
+    let neutral = whipPanTransform(renderSize: renderSize, offsetRatio: 0.0)
+    layer.setTransform(neutral, at: instructionRange.start)
+
+    let segmentStart = segment.timeRange.start
+    let segmentEnd = CMTimeRangeGetEnd(segment.timeRange)
+    let enterRange = CMTimeRange(start: segmentStart, duration: rampDuration)
+    if containsRange(instructionRange, enterRange) {
+      layer.setTransformRamp(
+        fromStart: whipPanTransform(renderSize: renderSize, offsetRatio: -0.55),
+        toEnd: neutral,
+        timeRange: enterRange)
+    }
+
+    let exitRange = CMTimeRange(start: CMTimeSubtract(segmentEnd, rampDuration), duration: rampDuration)
+    if containsRange(instructionRange, exitRange) {
+      layer.setTransformRamp(
+        fromStart: neutral,
+        toEnd: whipPanTransform(renderSize: renderSize, offsetRatio: 0.55),
+        timeRange: exitRange)
+    }
+  }
+
+  private func whipPanRampDuration(for duration: CMTime) -> CMTime {
+    let seconds = CMTimeGetSeconds(duration)
+    if !seconds.isFinite || seconds <= 0 { return .zero }
+    let rampSeconds = min(0.42, seconds / 2.0)
+    return rampSeconds > 0 ? CMTime(seconds: rampSeconds, preferredTimescale: 600) : .zero
+  }
+
+  private func whipPanTransform(renderSize: CGSize, offsetRatio: CGFloat) -> CGAffineTransform {
+    let scale: CGFloat = 1.12
+    let scaledWidth = renderSize.width * scale
+    let scaledHeight = renderSize.height * scale
+    let centerX = (renderSize.width - scaledWidth) / 2.0
+    let centerY = (renderSize.height - scaledHeight) / 2.0
+    return CGAffineTransform(translationX: centerX + renderSize.width * offsetRatio, y: centerY)
+      .scaledBy(x: scale, y: scale)
   }
 
   private func fadeRampDuration(for duration: CMTime) -> CMTime {

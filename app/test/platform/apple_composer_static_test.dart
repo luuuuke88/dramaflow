@@ -71,7 +71,10 @@ void main() {
 
     for (final source in [macosSource, iosSource]) {
       expect(source, contains('requiresPreRenderedFilterComposition'));
-      expect(source, contains('composeWithPreRenderedFiltersForDissolve'));
+      expect(
+        source,
+        contains('composeWithPreRenderedFiltersForLayeredComposition'),
+      );
       expect(source, contains('renderFilteredSegmentToTemp'));
       expect(source, contains('temporaryFilterFiles'));
       expect(source, contains('deleteTemporaryFilterFiles'));
@@ -85,6 +88,28 @@ void main() {
         source,
         contains('filterPreset: nil'),
         reason: 'Rendered segments must clear filters to avoid recursive pre-rendering.',
+      );
+    }
+  });
+
+  test('Apple composer renders whip-pan with transform ramps', () {
+    final macosSource =
+        File('macos/Runner/ComposerPlugin.swift').readAsStringSync();
+    final iosSource =
+        File('ios/Runner/ComposerPlugin.swift').readAsStringSync();
+
+    for (final source in [macosSource, iosSource]) {
+      expect(source, contains('requiresLayeredVideoComposition'));
+      expect(source, contains('hasWhipPanTransition'));
+      expect(source, contains('applyWhipPanTransformRamps'));
+      expect(source, contains('whipPanTransform'));
+      expect(source, contains('setTransformRamp'));
+      expect(source, contains('transition == "whip_pan"'));
+      expect(
+        source,
+        contains('requiresLayeredVideoComposition(segments)'),
+        reason:
+            'Filter pre-rendering must also cover whip-pan because it uses layered AVFoundation instructions.',
       );
     }
   });
