@@ -14,7 +14,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final docs = await getApplicationDocumentsDirectory();
   final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-  final videoComposer = !kIsWeb && (Platform.isMacOS || Platform.isIOS)
+  final videoComposer =
+      !kIsWeb && (Platform.isMacOS || Platform.isIOS || Platform.isAndroid)
       ? const AVFoundationComposer()
       : const UnsupportedComposer();
   final engine = await Engine.boot(
