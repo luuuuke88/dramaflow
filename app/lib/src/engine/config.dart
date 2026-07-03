@@ -29,6 +29,12 @@ class EngineConfig {
     'videoModel': 'doubao-seedance-2-0-mini-260615',
     'videoResolution': '720p',
     'videoDuration': '5',
+    // 其他设置（对齐 ToonFlow otherConfig）：
+    // chapterReg 空串=用 parseNovel 内置默认章节正则；scriptEpisodeLength 单集字数上限；
+    // assetsBatchGenereateSize 事件/资产提取并发批量大小。
+    'chapterReg': '',
+    'scriptEpisodeLength': '5000',
+    'assetsBatchGenereateSize': '5',
     'themeMode': 'light',
     'app.locale': '',
   };

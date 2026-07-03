@@ -18,7 +18,6 @@ import '../../widgets/df_tag_chip.dart';
 import 'asset_picker.dart';
 
 const _maxFileBytes = 10 * 1024 * 1024;
-const _defaultEpisodeLength = 2000;
 
 Future<bool?> showAddScriptDialog(BuildContext context, WidgetRef ref,
     {required int projectId}) {
@@ -124,7 +123,9 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
-    final overLimit = _content.text.length > _defaultEpisodeLength;
+    final episodeLimit =
+        widget.ref.read(engineProvider).config.intOf('scriptEpisodeLength');
+    final overLimit = _content.text.length > episodeLimit;
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Flexible(
         child: SingleChildScrollView(
@@ -179,7 +180,7 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
               child: Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '${_content.text.length}/$_defaultEpisodeLength',
+                  '${_content.text.length}/$episodeLimit',
                   style: TextStyle(
                       fontSize: 11,
                       color: overLimit ? df.danger : df.textTertiary),

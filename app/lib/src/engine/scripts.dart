@@ -223,8 +223,11 @@ extension ScriptsApi on Engine {
   }
 
   /// 提取资产：目标剧本置 2（待提取）→ 入队 asset_extraction。
-  int extractAssets(List<int> scriptIds, int projectId, {int groupSize = 5}) {
+  int extractAssets(List<int> scriptIds, int projectId, {int? groupSize}) {
     if (scriptIds.isEmpty) return 0;
+    // 分组大小对齐 ToonFlow assetsBatchGenereateSize（未显式指定时取其他设置值）。
+    final g =
+        (groupSize ?? config.intOf('assetsBatchGenereateSize')).clamp(1, 16);
     db.execute(
       'UPDATE o_script SET extractState=2, errorReason=NULL '
       'WHERE id IN (${_ph(scriptIds)})',
@@ -236,7 +239,7 @@ extension ScriptsApi on Engine {
       relatedObjects: {
         'kind': 'script',
         'ids': scriptIds,
-        'groupSize': groupSize,
+        'groupSize': g,
       },
     );
   }

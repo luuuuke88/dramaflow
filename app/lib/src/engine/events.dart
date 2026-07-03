@@ -45,9 +45,12 @@ extension EventsApi on Engine {
   int generateEvents(
     int projectId,
     List<int> novelIds, {
-    int concurrentCount = 5,
+    int? concurrentCount,
   }) {
     if (novelIds.isEmpty) return 0;
+    // 并发批量大小对齐 ToonFlow assetsBatchGenereateSize（未显式指定时取其他设置值）。
+    final c = (concurrentCount ?? config.intOf('assetsBatchGenereateSize'))
+        .clamp(1, 16);
     db.execute(
       'UPDATE o_novel SET eventState=0, event=NULL, errorReason=NULL '
       'WHERE projectId=? AND id IN (${_ph(novelIds)})',
@@ -59,7 +62,7 @@ extension EventsApi on Engine {
       relatedObjects: {
         'kind': 'novel',
         'ids': novelIds,
-        'concurrentCount': concurrentCount,
+        'concurrentCount': c,
       },
     );
   }

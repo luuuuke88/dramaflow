@@ -59,7 +59,11 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
 
   void _reparse() {
     try {
-      _parsed = flattenParsedNovel(parseNovel(_content.text));
+      // 使用用户自定义章节正则（其他设置 chapterReg；空则用内置默认）。
+      final chapterReg =
+          widget.ref.read(engineProvider).config.str('chapterReg');
+      _parsed = flattenParsedNovel(
+          parseNovel(_content.text, chapterReg: chapterReg));
     } catch (_) {
       _parsed = const [];
     }
