@@ -208,7 +208,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
 1. 通读剧本全文，识别所有出现的角色、场景、道具
 2. 对每个资产生成结构化的 `name`、`desc`、`prompt`、`type`
 3. 去重：同一资产不重复提取
-4. **必须通过调用 `resultTool` 工具输出完整资产列表**，不要分多次调用，一次性将所有资产放入 `assetsList` 数组中提交
+4. **必须通过调用 `resultTool` 工具输出完整资产列表**，不要分多次调用：本次新识别的资产放入 `newAssets` 数组，若某资产此前剧本已提取过、本集只是复用，则把它的名称放入 `existingAssetRefs` 数组，一次性提交
 
 ## 提取原则
 
@@ -811,8 +811,12 @@ WHERE id=?
 
   Future<int> testProvider(String providerId, String modelId) async {
     final provider = _providerInfo(_mustProvider(providerId));
-    final model = (await listProviderModels(providerId))
-        .firstWhere((item) => item.modelId == modelId);
+    final model = (await listProviderModels(providerId)).firstWhere(
+      (item) => item.modelId == modelId,
+      // 未找到时抛稳定 errKey 而非裸 StateError（否则绕过全局错误码约定，
+      // UI 层无法本地化）。
+      orElse: () => throw const EngineException(errModelMissing),
+    );
     if (model.kind != 'text') {
       throw const EngineException(errModelMissing, {'reason': '暂只支持文本模型连通测试'});
     }

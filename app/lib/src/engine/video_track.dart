@@ -4,6 +4,7 @@
 // 与 P3 分镜=图片槽位同构）；o_video = 该槽位下的候选生成结果；
 // selectVideoId = 用户选中的候选（videoId 字段保持同步写入，避免死字段）。
 // 状态枚举为 DB 中文字符串（逐字）：未生成/生成中/已完成/生成失败。
+import 'dart:io';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
@@ -292,6 +293,12 @@ extension VideoTrackApi on Engine {
         .select('SELECT videoTrackId,filePath FROM o_video WHERE id=?', [videoId])
         .firstOrNull;
     if (row == null) return;
+    // 先删磁盘文件再删行（此前只删行，泄漏了候选视频 .mp4）。
+    final rel = row['filePath'] as String?;
+    if (rel != null && rel.isNotEmpty) {
+      final file = File(media.absPath(rel));
+      if (file.existsSync()) file.deleteSync();
+    }
     db.execute(
       'UPDATE o_videoTrack SET selectVideoId=NULL, videoId=NULL '
       'WHERE id=? AND (selectVideoId=? OR videoId=?)',

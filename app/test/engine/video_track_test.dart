@@ -121,14 +121,19 @@ void main() {
         errPromptMissing);
   });
 
-  test('selectVideo 手动切换选中候选；deleteVideo 清空被删的选中引用', () async {
+  test('selectVideo 手动切换选中候选；deleteVideo 清空被删的选中引用并删除磁盘文件', () async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');
     db.execute("UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    final mediaRoot = p.join(dir.path, 'media');
     var callCount = 0;
     gateway.videoHandler = (prompt, firstFrame, pid) {
       callCount++;
-      return 'p/vid_$callCount.mp4';
+      final rel = 'p/vid_$callCount.mp4';
+      // 写真实文件，验证 deleteVideo 会连磁盘一起清。
+      final f = File(p.join(mediaRoot, rel))..parent.createSync(recursive: true);
+      f.writeAsBytesSync([0, 1, 2, 3]);
+      return rel;
     };
     final taskId = engine.batchGenerateVideos(projectId, [sbId]);
     await waitTask(taskId);
@@ -147,10 +152,42 @@ void main() {
     engine.selectVideo(trackId, secondVideoId);
     expect(engine.track(trackId)!.selectVideoId, secondVideoId);
 
+    final secondFile = File(p.join(mediaRoot, 'p/vid_2.mp4'));
+    expect(secondFile.existsSync(), isTrue, reason: '前置：候选文件已落盘');
     engine.deleteVideo(secondVideoId);
     expect(engine.track(trackId)!.candidates, hasLength(1));
     expect(engine.track(trackId)!.selectVideoId, isNull,
         reason: '删除的正是当前选中候选，需清空引用');
+    expect(secondFile.existsSync(), isFalse, reason: 'deleteVideo 需删除磁盘文件，不能泄漏');
+  });
+
+  test('deleteScripts 级联清除 o_videoTrack 行与视频磁盘文件（此前泄漏）', () async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: 'x');
+    db.execute("UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    final mediaRoot = p.join(dir.path, 'media');
+    gateway.videoHandler = (prompt, firstFrame, pid) {
+      final rel = 'p/vid_del.mp4';
+      final f = File(p.join(mediaRoot, rel))..parent.createSync(recursive: true);
+      f.writeAsBytesSync([9, 9, 9]);
+      return rel;
+    };
+    final taskId = engine.batchGenerateVideos(projectId, [sbId]);
+    await waitTask(taskId);
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final vidFile = File(p.join(mediaRoot, 'p/vid_del.mp4'));
+    expect(vidFile.existsSync(), isTrue);
+    expect(
+        db.select('SELECT id FROM o_videoTrack WHERE id=?', [trackId]), isNotEmpty);
+
+    engine.deleteScripts([scriptId]);
+
+    expect(db.select('SELECT id FROM o_videoTrack WHERE scriptId=?', [scriptId]),
+        isEmpty,
+        reason: 'o_videoTrack 行必须随剧本级联删除');
+    expect(db.select('SELECT id FROM o_video WHERE scriptId=?', [scriptId]),
+        isEmpty);
+    expect(vidFile.existsSync(), isFalse, reason: '视频磁盘文件必须一并清除');
   });
 
   test('冷启动恢复：processing 任务判失败且滞留轨道/视频置 生成失败', () {

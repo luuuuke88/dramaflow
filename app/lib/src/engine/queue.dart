@@ -208,11 +208,17 @@ class JobQueue {
     var finalState = 'failed';
     try {
       await run(task, token);
-      db.execute(
-        "UPDATE o_tasks SET state='success', reason=NULL WHERE id=? AND state='processing'",
-        [task.id],
-      );
-      finalState = 'success';
+      // run() 正常返回，但取消可能在其同步收尾阶段（最后一次 await 之后）才被请求；
+      // 若不检查会把已请求取消的任务错标为 success。
+      if (token.isCancelled) {
+        _fail(task, const EngineException(errCanceled));
+      } else {
+        db.execute(
+          "UPDATE o_tasks SET state='success', reason=NULL WHERE id=? AND state='processing'",
+          [task.id],
+        );
+        finalState = 'success';
+      }
     } catch (e) {
       if (token.isCancelled) {
         _fail(task, const EngineException(errCanceled));

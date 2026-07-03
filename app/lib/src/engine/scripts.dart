@@ -187,7 +187,7 @@ extension ScriptsApi on Engine {
   }
 
   /// 级联删除照抄 delScript：agentWorkData/assets2Storyboard/scriptAssets/
-  /// storyboard（含首帧图文件）/video → o_script。
+  /// storyboard（含首帧图文件）/videoTrack/video（含视频文件）→ o_script。
   void deleteScripts(List<int> ids) {
     if (ids.isEmpty) return;
     final ph = _ph(ids);
@@ -207,7 +207,18 @@ extension ScriptsApi on Engine {
       if (file.existsSync()) file.deleteSync();
     }
     db.execute('DELETE FROM o_storyboard WHERE scriptId IN ($ph)', ids);
+    // 视频文件与 o_video/o_videoTrack 行一并清理（此前只删 o_video 行，
+    // 泄漏了磁盘上的 .mp4 与整张 o_videoTrack 表，与 deleteProject 不一致）。
+    for (final row in db.select(
+      'SELECT filePath FROM o_video WHERE scriptId IN ($ph) '
+      'AND filePath IS NOT NULL',
+      ids,
+    )) {
+      final file = File(media.absPath(row['filePath'] as String));
+      if (file.existsSync()) file.deleteSync();
+    }
     db.execute('DELETE FROM o_video WHERE scriptId IN ($ph)', ids);
+    db.execute('DELETE FROM o_videoTrack WHERE scriptId IN ($ph)', ids);
     db.execute('DELETE FROM o_script WHERE id IN ($ph)', ids);
   }
 
