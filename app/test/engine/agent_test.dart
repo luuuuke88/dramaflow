@@ -124,6 +124,17 @@ void main() {
     expect(engine.agentMessages(projectId).last.content, contains('2 个章节'));
   });
 
+  test('generate_events 传显式空数组时仍按默认处理未完成章节（真实模型常见写法）', () async {
+    engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),
+    ]);
+    gateway.turns = [
+      AgentTurnResult.tool('generate_events', const {'novelIds': <int>[]}),
+    ];
+    await engine.sendAgentMessage(projectId, '帮我把这一章的事件生成一下', autoMode: false);
+    expect(engine.agentMessages(projectId).last.content, contains('1 个章节'));
+  });
+
   test('工具执行失败时返回中文可见错误摘要而非崩溃', () async {
     gateway.turns = [
       AgentTurnResult.tool('generate_storyboards', const {}), // 缺 scriptId

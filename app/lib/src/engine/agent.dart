@@ -272,9 +272,11 @@ extension AgentApi on Engine {
     }
   }
 
+  /// 模型经常用显式空数组表达"不指定具体 id，按默认全部执行"，
+  /// 与"未传该字段"语义相同：都应回退到调用方给出的默认集合。
   List<int>? _intList(Map<String, dynamic> args, String key) {
     final raw = args[key];
-    if (raw is! List) return null;
+    if (raw is! List || raw.isEmpty) return null;
     return raw.map((e) => (e as num).toInt()).toList();
   }
 
