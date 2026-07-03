@@ -54,8 +54,8 @@ void main() {
       gateway: _Gateway(),
       config: EngineConfig(db, isMobile: false),
     );
-    projectId = engine.addProject(
-        projectType: 'novel', name: '批量测试', artStyle: '国风');
+    projectId =
+        engine.addProject(projectType: 'novel', name: '批量测试', artStyle: '国风');
     // 两个带提示词的角色资产（生图要求 prompt 非空）
     engine.addAsset(
         projectId: projectId,
@@ -77,7 +77,7 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
-  Widget app() => ProviderScope(
+  Widget app({int mode = 2}) => ProviderScope(
         overrides: [engineProvider.overrideWithValue(engine)],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -89,7 +89,7 @@ void main() {
               return Center(
                 child: ElevatedButton(
                   onPressed: () => showBatchGenerationDialog(context, ref,
-                      projectId: projectId, type: 'role', mode: 2),
+                      projectId: projectId, type: 'role', mode: mode),
                   child: const Text('open'),
                 ),
               );
@@ -139,4 +139,102 @@ void main() {
     expect(related['concurrentCount'], 3);
     expect((related['items'] as List).length, 2);
   });
+
+  testWidgets('移动端提示词模式：补充提示词和并发参数带入任务', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(mode: 1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    expect(find.text('补充提示词'), findsOneWidget);
+    await tester.enterText(
+        find.widgetWithText(TextField, '追加到润色系统提示词（可选）'), '统一国风赛璐璐');
+    await tester.enterText(find.widgetWithText(TextField, '1-8'), '4');
+    await tester.tap(find.text('全选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '生成提示词'));
+    await tester.pumpAndSettle();
+
+    final row = db
+        .select(
+            "SELECT relatedObjects FROM o_tasks WHERE taskClass='asset_prompt_polish' ORDER BY id DESC LIMIT 1")
+        .single;
+    final related =
+        jsonDecode(row['relatedObjects'] as String) as Map<String, dynamic>;
+    expect(related['concurrentCount'], 4);
+    expect(related['otherTextPrompt'], '统一国风赛璐璐');
+    expect(related['ids'], hasLength(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('移动端图片模式：模型/分辨率/并发参数带入任务', (tester) async {
+    final provider = await engine.createProvider(
+      name: 'Mobile Provider',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, [
+      {
+        'modelId': 'img-test',
+        'label': '图片模型',
+        'kind': 'image',
+        'enabled': true,
+      },
+    ]);
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await _chooseDropdown(tester, '使用阶段默认', 'Mobile Provider · 图片模型');
+    await tester.tap(find.text('4K'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '1-8'), '5');
+    await tester.tap(find.text('全选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '生成图片'));
+    await tester.pumpAndSettle();
+
+    final row = db
+        .select(
+            "SELECT relatedObjects FROM o_tasks WHERE taskClass='asset_image_generation' ORDER BY id DESC LIMIT 1")
+        .single;
+    final related =
+        jsonDecode(row['relatedObjects'] as String) as Map<String, dynamic>;
+    expect(related['model'], '${provider.id}:img-test');
+    expect(related['resolution'], '4K');
+    expect(related['concurrentCount'], 5);
+    expect((related['items'] as List), hasLength(2));
+    expect(tester.takeException(), isNull);
+  });
+}
+
+Future<void> _chooseDropdown(
+  WidgetTester tester,
+  String closedLabel,
+  String optionLabel,
+) async {
+  await tester.ensureVisible(find.text(closedLabel).first);
+  final field = find.ancestor(
+    of: find.text(closedLabel).first,
+    matching: find.byWidgetPredicate(
+      (widget) => widget is DropdownButtonFormField<String>,
+    ),
+  );
+  await tester.tap(field.first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(optionLabel).last);
+  await tester.pumpAndSettle();
 }

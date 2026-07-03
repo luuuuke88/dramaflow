@@ -52,8 +52,7 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
   // 生成参数（对齐 batchGeneration.vue：模型/分辨率/并发/补充提示词）
   String? _model;
   String _resolution = '1K';
-  final TextEditingController _concurrency =
-      TextEditingController(text: '2');
+  final TextEditingController _concurrency = TextEditingController(text: '2');
   final TextEditingController _otherPrompt = TextEditingController();
 
   int get _concurrentCount =>
@@ -151,69 +150,93 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      child: widget.mode == 1
-          ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                child: TextField(
-                  controller: _otherPrompt,
-                  minLines: 1,
-                  maxLines: 2,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(
-                    labelText: l10n.assetBatchOtherPrompt,
-                    hintText: l10n.assetBatchOtherPromptPh,
-                    isDense: true,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              concurrency,
-            ])
-          : Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.assetBatchModel,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    ModelSelect(
-                      kind: 'image',
-                      value: _model,
-                      hint: l10n.assetBatchPickModel,
-                      onChanged: (o) => setState(() => _model = o?.value),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.assetBatchResolution,
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  SegmentedButton<String>(
-                    showSelectedIcon: false,
-                    style: const ButtonStyle(
-                        visualDensity: VisualDensity.compact),
-                    segments: const [
-                      ButtonSegment(value: '1K', label: Text('1K')),
-                      ButtonSegment(value: '2K', label: Text('2K')),
-                      ButtonSegment(value: '4K', label: Text('4K')),
-                    ],
-                    selected: {_resolution},
-                    onSelectionChanged: (s) =>
-                        setState(() => _resolution = s.single),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 10),
-              concurrency,
-            ]),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 560;
+        final otherPrompt = TextField(
+          controller: _otherPrompt,
+          minLines: 1,
+          maxLines: 2,
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            labelText: l10n.assetBatchOtherPrompt,
+            hintText: l10n.assetBatchOtherPromptPh,
+            isDense: true,
+          ),
+        );
+        final modelPicker = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.assetBatchModel,
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            ModelSelect(
+              kind: 'image',
+              value: _model,
+              hint: l10n.assetBatchPickModel,
+              onChanged: (o) => setState(() => _model = o?.value),
+            ),
+          ],
+        );
+        final resolutionPicker = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.assetBatchResolution,
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              segments: const [
+                ButtonSegment(value: '1K', label: Text('1K')),
+                ButtonSegment(value: '2K', label: Text('2K')),
+                ButtonSegment(value: '4K', label: Text('4K')),
+              ],
+              selected: {_resolution},
+              onSelectionChanged: (s) => setState(() => _resolution = s.single),
+            ),
+          ],
+        );
+
+        if (widget.mode == 1) {
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                otherPrompt,
+                const SizedBox(height: 10),
+                concurrency,
+              ],
+            );
+          }
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: otherPrompt),
+            const SizedBox(width: 10),
+            concurrency,
+          ]);
+        }
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              modelPicker,
+              const SizedBox(height: 10),
+              resolutionPicker,
+              const SizedBox(height: 10),
+              Align(alignment: Alignment.centerLeft, child: concurrency),
+            ],
+          );
+        }
+        return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(flex: 3, child: modelPicker),
+          const SizedBox(width: 10),
+          resolutionPicker,
+          const SizedBox(width: 10),
+          concurrency,
+        ]);
+      }),
     );
   }
 
@@ -232,7 +255,9 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
     Widget preview(AssetRow row) {
       if (row.imageState == stateGenerating) {
         return const SizedBox(
-            width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2));
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2));
       }
       if (row.filePath == null || row.filePath!.isEmpty) {
         return Icon(Icons.image_not_supported_outlined,
@@ -280,47 +305,70 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
       _controls(),
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-        child: Row(children: [
-          Text(l10n.assetsBatchSelected('${_selected.length}'),
-              style: TextStyle(fontSize: 12, color: df.textSecondary)),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: () => setState(() => _selected
-              ..clear()
-              ..addAll(result.data.map((a) => '${a.id}'))),
-            child: Text(l10n.assetsBatchSelectAll,
-                style: const TextStyle(fontSize: 12)),
-          ),
-          TextButton(
-            onPressed: () => setState(() => _selected.clear()),
-            child: Text(l10n.assetsBatchClearSelection,
-                style: const TextStyle(fontSize: 12)),
-          ),
-          const Spacer(),
-          DFSearchField(
+        child: LayoutBuilder(builder: (context, constraints) {
+          final compact = constraints.maxWidth < 640;
+          final selectionActions = Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(l10n.assetsBatchSelected('${_selected.length}'),
+                  style: TextStyle(fontSize: 12, color: df.textSecondary)),
+              TextButton(
+                onPressed: () => setState(() => _selected
+                  ..clear()
+                  ..addAll(result.data.map((a) => '${a.id}'))),
+                child: Text(l10n.assetsBatchSelectAll,
+                    style: const TextStyle(fontSize: 12)),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _selected.clear()),
+                child: Text(l10n.assetsBatchClearSelection,
+                    style: const TextStyle(fontSize: 12)),
+              ),
+            ],
+          );
+          final search = DFSearchField(
             hint: l10n.assetsSearchPlaceholder,
-            width: 180,
+            width: compact ? constraints.maxWidth : 180,
             onSearch: (q) => setState(() {
               _search = q;
               _page = 1;
             }),
-          ),
-          const SizedBox(width: 8),
-          if (widget.mode == 1)
-            FilledButton.icon(
-              onPressed: _batchPrompt,
-              icon: const Icon(Icons.translate_outlined, size: 16),
-              label: Text(l10n.assetsGeneratePrompt,
-                  style: const TextStyle(fontSize: 12)),
-            )
-          else
-            FilledButton.icon(
-              onPressed: _batchImage,
-              icon: const Icon(Icons.image_outlined, size: 16),
-              label: Text(l10n.assetsGenerateImage,
-                  style: const TextStyle(fontSize: 12)),
-            ),
-        ]),
+          );
+          final generateButton = widget.mode == 1
+              ? FilledButton.icon(
+                  onPressed: _batchPrompt,
+                  icon: const Icon(Icons.translate_outlined, size: 16),
+                  label: Text(l10n.assetsGeneratePrompt,
+                      style: const TextStyle(fontSize: 12)),
+                )
+              : FilledButton.icon(
+                  onPressed: _batchImage,
+                  icon: const Icon(Icons.image_outlined, size: 16),
+                  label: Text(l10n.assetsGenerateImage,
+                      style: const TextStyle(fontSize: 12)),
+                );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                selectionActions,
+                const SizedBox(height: 8),
+                search,
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerRight, child: generateButton),
+              ],
+            );
+          }
+          return Row(children: [
+            selectionActions,
+            const Spacer(),
+            search,
+            const SizedBox(width: 8),
+            generateButton,
+          ]);
+        }),
       ),
       Flexible(
         child: SizedBox(

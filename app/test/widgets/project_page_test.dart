@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
+import 'package:dramaflow/src/engine/art_style.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -150,7 +151,7 @@ void main() {
     expect(find.text('项目类型'), findsOneWidget);
     expect(find.text('视觉手册'), findsOneWidget);
 
-    await tester.tap(find.text('确定'));
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(SnackBar, '请输入项目名称'), findsOneWidget);
   });
@@ -222,7 +223,7 @@ void main() {
     await tester.tap(find.text('悬疑导演'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('确定'));
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pumpAndSettle();
 
     final project = engine.projects().single;
@@ -236,6 +237,53 @@ void main() {
     expect(project.videoModel, 'demo-provider:video-demo');
     expect(project.mode, 'fast');
     expect(project.videoRatio, '9:16');
+  });
+
+  testWidgets('移动端新建向导：可进入画风库并选择新增画风', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('新建项目').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '画风库项目');
+
+    await tester.scrollUntilVisible(
+      find.text('管理画风库'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('管理画风库'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('新增画风').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '国风赛璐璐');
+    await tester.enterText(find.byType(TextField).at(1), 'anime ink style');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('国风赛璐璐'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('国风赛璐璐'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    final project = engine.projects().single;
+    expect(project.name, '画风库项目');
+    expect(project.artStyle, 'anime ink style');
+    expect(engine.artStyles().single.name, '国风赛璐璐');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('移动端项目卡片：无需 hover 也能编辑和删除', (tester) async {

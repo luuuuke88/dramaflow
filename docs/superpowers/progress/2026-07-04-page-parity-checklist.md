@@ -42,15 +42,15 @@ Next Verification: Add widget coverage for editing an existing script and a sepa
 
 ## 素材库
 
-Status: Partial
+Status: Verified
 
-Desktop Evidence: `app/test/engine/assets_test.dart`, `app/test/widgets/batch_generation_dialog_test.dart`, and `app/test/widgets/assets_tts_screen_test.dart` cover asset CRUD, child assets, prompt polishing, image generation parameters, and desktop TTS creation.
+Desktop Evidence: `app/test/engine/assets_test.dart`, `app/test/engine/art_style_test.dart`, `app/test/widgets/batch_generation_dialog_test.dart`, and `app/test/widgets/assets_tts_screen_test.dart` cover asset CRUD, child assets, prompt polishing, image generation parameters, art style library persistence, and desktop TTS creation.
 
-Mobile Evidence: `app/test/widgets/assets_tts_screen_test.dart` covers 390px audio tab text-to-speech generation and card-list return.
+Mobile Evidence: `app/test/widgets/assets_tts_screen_test.dart` covers 390px audio tab text-to-speech generation and card-list return. `app/test/widgets/assets_mobile_screen_test.dart` covers 390px role/tool/scene add/edit/delete plus child asset expansion. `app/test/widgets/batch_generation_dialog_test.dart` covers 390px batch prompt and batch image generation parameters. `app/test/widgets/project_page_test.dart` covers 390px art style library entry, new style creation, selection, and project persistence.
 
-Known Gaps: Mobile tests do not yet cover role/tool/scene add/edit, child asset expansion, batch prompt generation, batch image generation, or art style library entry.
+Known Gaps: None at the current v0.3 asset-library scope.
 
-Next Verification: Add mobile role/scene/tool asset CRUD smoke and a mobile batch-generation parameter smoke.
+Next Verification: If asset-library UI changes, keep the 390px CRUD, child expansion, batch-generation parameter, art-style entry, and TTS smokes together.
 
 ## 制作画布
 

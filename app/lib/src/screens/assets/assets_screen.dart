@@ -473,10 +473,37 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
                       }
                     }
                     final row = found!;
+                    final hasChildren = row.sonAssets.isNotEmpty;
+                    final expanded = _expanded.contains(row.id);
                     return ListTile(
                       leading: _preview(row),
-                      title: Text(row.name ?? '',
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      title: Row(children: [
+                        if (hasChildren)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                                width: 32, height: 32),
+                            icon: Icon(
+                              expanded
+                                  ? Icons.expand_more
+                                  : Icons.chevron_right,
+                              size: 20,
+                            ),
+                            onPressed: () => setState(() {
+                              if (!_expanded.remove(row.id)) {
+                                _expanded.add(row.id);
+                                while (_expanded.length > 3) {
+                                  _expanded.remove(_expanded.first);
+                                }
+                              }
+                            }),
+                          ),
+                        Expanded(
+                          child: Text(row.name ?? '',
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                      ]),
                       subtitle: _promptCell(row),
                       trailing: IconButton(
                         icon: const Icon(Icons.more_horiz),
@@ -484,17 +511,19 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
                           context: context,
                           builder: (c) => SafeArea(
                             child: Wrap(children: [
-                              ListTile(
-                                leading: const Icon(Icons.image_outlined),
-                                title: Text(l10n.assetsGenerate),
-                                onTap: () async {
-                                  Navigator.pop(c);
-                                  final saved = await showGenerateImageDialog(
-                                      context, ref,
-                                      projectId: widget.projectId, asset: row);
-                                  if (saved == true) setState(() {});
-                                },
-                              ),
+                              if (row.type != 'clip' && row.type != 'audio')
+                                ListTile(
+                                  leading: const Icon(Icons.image_outlined),
+                                  title: Text(l10n.assetsGenerate),
+                                  onTap: () async {
+                                    Navigator.pop(c);
+                                    final saved = await showGenerateImageDialog(
+                                        context, ref,
+                                        projectId: widget.projectId,
+                                        asset: row);
+                                    if (saved == true) setState(() {});
+                                  },
+                                ),
                               ListTile(
                                 leading: const Icon(Icons.edit_outlined),
                                 title: Text(l10n.assetsEdit),
