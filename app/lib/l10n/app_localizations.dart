@@ -435,6 +435,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'不支持的任务类型'**
   String get errTaskUnsupported;
+
+  /// No description provided for @shellSelectProject.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择项目'**
+  String get shellSelectProject;
+
+  /// No description provided for @shellComingSoon.
+  ///
+  /// In zh, this message translates to:
+  /// **'本区域随 {batch} 批次交付'**
+  String shellComingSoon(String batch);
+
+  /// No description provided for @shellComingSoonBadge.
+  ///
+  /// In zh, this message translates to:
+  /// **'{batch}'**
+  String shellComingSoonBadge(String batch);
 }
 
 class _AppLocalizationsDelegate

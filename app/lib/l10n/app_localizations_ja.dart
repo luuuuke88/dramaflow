@@ -182,4 +182,17 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get errTaskUnsupported => '未対応のタスク種別';
+
+  @override
+  String get shellSelectProject => 'プロジェクトを選択';
+
+  @override
+  String shellComingSoon(String batch) {
+    return 'このエリアは $batch バッチで提供予定';
+  }
+
+  @override
+  String shellComingSoonBadge(String batch) {
+    return '$batch';
+  }
 }

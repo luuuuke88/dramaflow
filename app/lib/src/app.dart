@@ -3,9 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'screens/coming_soon_screen.dart';
+import 'screens/novel/novel_screen.dart';
 import 'screens/project/project_list_screen.dart';
-import 'screens/tasks_screen.dart';
+import 'screens/script/script_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/tasks_screen.dart';
 import 'state/providers.dart';
 import 'theme/theme.dart';
 import 'widgets/shell.dart';
@@ -28,6 +31,27 @@ final _router = GoRouter(
         GoRoute(path: '/', builder: (c, s) => const ProjectListScreen()),
         GoRoute(path: '/tasks', builder: (c, s) => const TasksScreen()),
         GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
+        // 项目内分区（对应 ToonFlow /novel /scriptAgent /script /cornerScape /production /assets）
+        GoRoute(
+            path: '/p/:pid/novel',
+            builder: (c, s) =>
+                NovelScreen(projectId: int.parse(s.pathParameters['pid']!))),
+        GoRoute(
+            path: '/p/:pid/script',
+            builder: (c, s) =>
+                ScriptScreen(projectId: int.parse(s.pathParameters['pid']!))),
+        GoRoute(
+            path: '/p/:pid/scriptAgent',
+            builder: (c, s) => const ComingSoonScreen(batch: 'P5')),
+        GoRoute(
+            path: '/p/:pid/cornerScape',
+            builder: (c, s) => const ComingSoonScreen(batch: 'P4')),
+        GoRoute(
+            path: '/p/:pid/production',
+            builder: (c, s) => const ComingSoonScreen(batch: 'P3')),
+        GoRoute(
+            path: '/p/:pid/assets',
+            builder: (c, s) => const ComingSoonScreen(batch: 'P2')),
       ],
     ),
   ],

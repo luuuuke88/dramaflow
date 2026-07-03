@@ -1,136 +1,481 @@
+// ToonFlow 工作台壳 1:1 移植（Toonflow-web src/pages/workbench/index.vue）：
+// 桌面 ≥840：左侧细图标栏（Logo/我的项目/任务中心 + 底部反馈·设置·GitHub）
+//           + 顶栏 50px（项目名 | 项目内菜单右对齐）+ 圆角内容区。
+// 移动 <840：底部导航（项目/任务/设置），项目内子页由顶部横向 Tab 承接。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../engine/engine.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
+import '../theme/tokens.dart';
+import '../util/l10n_ext.dart';
 
-/// 全局响应式外壳：
-/// - 宽度 ≥ 840：左侧 NavigationRail（≥1200 展开带文字）
-/// - 宽度 < 840：底部 NavigationBar
-/// 顶部注入活跃任务指示器。
+const _githubUrl = 'https://github.com/HBAI-Ltd/Toonflow-app';
+const _feedbackUrl = 'https://github.com/HBAI-Ltd/Toonflow-app/issues';
+
+/// 项目内菜单定义（顺序/禁用批次照抄 + P 批次徽标）。
+class _ProjectMenu {
+  final String path; // 相对项目根：novel/scriptAgent/script/cornerScape/production/assets
+  final String Function(BuildContext) label;
+  final IconData icon;
+  final bool novelOnly;
+  final String? comingBatch; // 非空 = 禁用 + 徽标
+  const _ProjectMenu(this.path, this.label, this.icon,
+      {this.novelOnly = false, this.comingBatch});
+}
+
+final _projectMenus = <_ProjectMenu>[
+  _ProjectMenu('novel', (c) => c.l10n.menuNovel, Icons.menu_book_outlined,
+      novelOnly: true),
+  _ProjectMenu(
+      'scriptAgent', (c) => c.l10n.menuScriptAgent, Icons.auto_awesome_outlined,
+      novelOnly: true, comingBatch: 'P5'),
+  _ProjectMenu(
+      'script', (c) => c.l10n.menuScriptManage, Icons.description_outlined),
+  _ProjectMenu(
+      'cornerScape', (c) => c.l10n.menuCornerScape, Icons.record_voice_over_outlined,
+      comingBatch: 'P4'),
+  _ProjectMenu(
+      'production', (c) => c.l10n.menuProduction, Icons.movie_filter_outlined,
+      comingBatch: 'P3'),
+  _ProjectMenu('assets', (c) => c.l10n.menuAssetCenter, Icons.inventory_2_outlined,
+      comingBatch: 'P2'),
+];
+
 class AppShell extends ConsumerWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
-  static const _tabs = [
-    (
-      path: '/',
-      icon: Icons.movie_outlined,
-      activeIcon: Icons.movie_rounded,
-      label: '项目'
-    ),
-    (
-      path: '/tasks',
-      icon: Icons.bolt_outlined,
-      activeIcon: Icons.bolt_rounded,
-      label: '任务'
-    ),
-    (
-      path: '/settings',
-      icon: Icons.tune_outlined,
-      activeIcon: Icons.tune_rounded,
-      label: '设置'
-    ),
-  ];
+  int? _projectIdFromPath(String path) {
+    final m = RegExp(r'^/p/(\d+)/').firstMatch(path);
+    return m == null ? null : int.tryParse(m.group(1)!);
+  }
 
-  int _currentIndex(BuildContext context) {
-    final loc = GoRouterState.of(context).uri.path;
-    if (loc.startsWith('/tasks')) return 1;
-    if (loc.startsWith('/settings')) return 2;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final path = GoRouterState.of(context).uri.path;
+    final pid = _projectIdFromPath(path);
+    if (pid != null) {
+      // 深链/刷新回填当前项目
+      Future.microtask(
+          () => ref.read(currentProjectProvider.notifier).ensure(pid));
+    }
+    final project = ref.watch(currentProjectProvider);
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final wide = constraints.maxWidth >= 840;
+      return wide
+          ? _DesktopShell(path: path, project: project, child: child)
+          : _MobileShell(path: path, project: project, child: child);
+    });
+  }
+}
+
+// ───────────────────────── 桌面壳 ─────────────────────────
+
+class _DesktopShell extends ConsumerWidget {
+  final String path;
+  final ProjectRow? project;
+  final Widget child;
+  const _DesktopShell(
+      {required this.path, required this.project, required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final df = context.df;
+    return Scaffold(
+      backgroundColor: df.bg,
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(children: [
+          _SideBar(path: path),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(children: [
+              _TopBar(path: path, project: project),
+              const SizedBox(height: 10),
+              Expanded(
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: df.surface,
+                    borderRadius: BorderRadius.circular(DFTokens.radiusShell),
+                    border: Border.all(color: df.stroke),
+                  ),
+                  child: child,
+                ),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _SideBar extends ConsumerWidget {
+  final String path;
+  const _SideBar({required this.path});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final df = context.df;
+    final activeCount = ref.watch(activeJobsProvider).length;
+
+    return Container(
+      width: 76,
+      decoration: BoxDecoration(
+        color: df.surface,
+        borderRadius: BorderRadius.circular(DFTokens.radiusShell),
+        border: Border.all(color: df.stroke),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(children: [
+        const DFLogo(),
+        const SizedBox(height: 20),
+        _SideIcon(
+          tooltip: context.l10n.menuMyProject,
+          icon: Icons.folder_outlined,
+          selected: path == '/' || path.startsWith('/p/'),
+          onTap: () => context.go('/'),
+        ),
+        _SideIcon(
+          tooltip: context.l10n.menuTaskCenter,
+          icon: Icons.view_list_outlined,
+          selected: path.startsWith('/tasks'),
+          badgeCount: activeCount,
+          onTap: () => context.go('/tasks'),
+        ),
+        const Spacer(),
+        _SideIcon(
+          tooltip: context.l10n.menuFeedbackQuestions,
+          icon: Icons.feedback_outlined,
+          onTap: () => launchUrl(Uri.parse(_feedbackUrl)),
+        ),
+        _SideIcon(
+          tooltip: context.l10n.menuSettings,
+          icon: Icons.settings_outlined,
+          selected: path.startsWith('/settings'),
+          onTap: () => context.go('/settings'),
+        ),
+        _SideIcon(
+          tooltip: context.l10n.menuJumpGithub,
+          icon: Icons.code_rounded,
+          onTap: () => launchUrl(Uri.parse(_githubUrl)),
+        ),
+      ]),
+    );
+  }
+}
+
+class _SideIcon extends StatelessWidget {
+  final String tooltip;
+  final IconData icon;
+  final bool selected;
+  final int badgeCount;
+  final VoidCallback? onTap;
+  const _SideIcon(
+      {required this.tooltip,
+      required this.icon,
+      this.selected = false,
+      this.badgeCount = 0,
+      this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final iconWidget = Badge(
+      isLabelVisible: badgeCount > 0,
+      label: Text('$badgeCount'),
+      backgroundColor: df.accent,
+      child: Icon(icon,
+          size: 22, color: selected ? df.primary : df.textSecondary),
+    );
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 300),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Material(
+          color: selected ? df.primarySubtle : Colors.transparent,
+          borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+            onTap: onTap,
+            child: SizedBox(width: 44, height: 44, child: iconWidget),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopBar extends ConsumerWidget {
+  final String path;
+  final ProjectRow? project;
+  const _TopBar({required this.path, required this.project});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final df = context.df;
+    return SizedBox(
+      height: 50,
+      child: Row(children: [
+        Expanded(
+          child: Text(
+            project?.name ?? context.l10n.shellSelectProject,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: project == null ? df.textTertiary : df.textPrimary,
+            ),
+          ),
+        ),
+        for (final menu in _visibleProjectMenus(project)) ...[
+          if (menu.path == 'assets')
+            Container(
+              width: 1,
+              height: 22,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              color: df.stroke,
+            ),
+          _TopMenuButton(menu: menu, path: path, project: project),
+        ],
+      ]),
+    );
+  }
+}
+
+/// projectType=script 的项目隐藏 novelOnly 项（照抄 workbench 逻辑）。
+List<_ProjectMenu> _visibleProjectMenus(ProjectRow? project) => [
+      for (final m in _projectMenus)
+        if (!(m.novelOnly && project?.projectType == 'script')) m,
+    ];
+
+class _TopMenuButton extends ConsumerWidget {
+  final _ProjectMenu menu;
+  final String path;
+  final ProjectRow? project;
+  const _TopMenuButton(
+      {required this.menu, required this.path, required this.project});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final df = context.df;
+    final enabled = project != null && menu.comingBatch == null;
+    final selected =
+        project != null && path.startsWith('/p/${project!.id}/${menu.path}');
+
+    Widget button = Material(
+      color: selected ? df.primarySubtle : Colors.transparent,
+      borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+        onTap: enabled
+            ? () => context.go('/p/${project!.id}/${menu.path}')
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(menu.icon,
+                size: 18,
+                color: !enabled
+                    ? df.textTertiary
+                    : (selected ? df.primary : df.textSecondary)),
+            const SizedBox(width: 6),
+            Text(
+              menu.label(context),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: !enabled
+                    ? df.textTertiary
+                    : (selected ? df.primary : df.textPrimary),
+              ),
+            ),
+            if (menu.comingBatch != null) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: df.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+                ),
+                child: Text(
+                  context.l10n.shellComingSoonBadge(menu.comingBatch!),
+                  style: TextStyle(fontSize: 10, color: df.accent),
+                ),
+              ),
+            ],
+          ]),
+        ),
+      ),
+    );
+    if (menu.comingBatch != null) {
+      button = Tooltip(
+        message: context.l10n.shellComingSoon(menu.comingBatch!),
+        child: button,
+      );
+    }
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2), child: button);
+  }
+}
+
+// ───────────────────────── 移动壳 ─────────────────────────
+
+class _MobileShell extends ConsumerWidget {
+  final String path;
+  final ProjectRow? project;
+  final Widget child;
+  const _MobileShell(
+      {required this.path, required this.project, required this.child});
+
+  int get _tabIndex {
+    if (path.startsWith('/tasks')) return 1;
+    if (path.startsWith('/settings')) return 2;
     return 0;
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final df = context.df;
     final activeCount = ref.watch(activeJobsProvider).length;
-    final index = _currentIndex(context);
-    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    final inProject = project != null && path.startsWith('/p/');
 
     Widget taskIcon(bool active) => Badge(
           isLabelVisible: activeCount > 0,
           label: Text('$activeCount'),
-          backgroundColor: context.df.primary,
-          textColor: onPrimary,
-          child: Icon(active ? Icons.bolt_rounded : Icons.bolt_outlined),
+          backgroundColor: df.accent,
+          child: Icon(active ? Icons.view_list : Icons.view_list_outlined),
         );
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final wide = constraints.maxWidth >= 840;
-      final extended = constraints.maxWidth >= 1200;
-
-      if (!wide) {
-        return Scaffold(
-          body: child,
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: index,
-            height: 64,
-            onDestinationSelected: (i) => context.go(_tabs[i].path),
-            destinations: [
-              for (final (i, t) in _tabs.indexed)
-                NavigationDestination(
-                  icon: i == 1 ? taskIcon(false) : Icon(t.icon),
-                  selectedIcon: i == 1 ? taskIcon(true) : Icon(t.activeIcon),
-                  label: t.label,
-                ),
-            ],
-          ),
-        );
-      }
-
-      return Scaffold(
-        body: Row(
-          children: [
-            NavigationRail(
-              selectedIndex: index,
-              extended: extended,
-              minExtendedWidth: 180,
-              labelType: extended ? null : NavigationRailLabelType.all,
-              leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: extended
-                    ? const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _Logo(),
-                          SizedBox(width: 10),
-                          Text('DramaFlow',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 17,
-                                  letterSpacing: -0.3)),
-                        ],
-                      )
-                    : const _Logo(),
+    return Scaffold(
+      backgroundColor: df.bg,
+      appBar: inProject
+          ? AppBar(
+              title: Text(project!.name ?? '',
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              leading: BackButton(onPressed: () => context.go('/')),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(44),
+                child: _MobileProjectTabs(path: path, project: project!),
               ),
-              onDestinationSelected: (i) => context.go(_tabs[i].path),
-              destinations: [
-                for (final (i, t) in _tabs.indexed)
-                  NavigationRailDestination(
-                    icon: i == 1 ? taskIcon(false) : Icon(t.icon),
-                    selectedIcon: i == 1 ? taskIcon(true) : Icon(t.activeIcon),
-                    label: Text(t.label),
-                  ),
-              ],
-            ),
-            const VerticalDivider(width: 1),
-            Expanded(child: child),
-          ],
-        ),
-      );
-    });
+            )
+          : null,
+      body: child,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tabIndex,
+        height: 64,
+        onDestinationSelected: (i) =>
+            context.go(const ['/', '/tasks', '/settings'][i]),
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.folder_outlined),
+            selectedIcon: const Icon(Icons.folder),
+            label: context.l10n.menuMyProject,
+          ),
+          NavigationDestination(
+            icon: taskIcon(false),
+            selectedIcon: taskIcon(true),
+            label: context.l10n.menuTaskCenter,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: context.l10n.menuSettings,
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _Logo extends StatelessWidget {
-  const _Logo();
+class _MobileProjectTabs extends StatelessWidget {
+  final String path;
+  final ProjectRow project;
+  const _MobileProjectTabs({required this.path, required this.project});
 
   @override
   Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final endColor =
-        isLight ? const Color(0xFF1D4ED8) : const Color(0xFFE07A1F);
-    final iconColor = Theme.of(context).colorScheme.onPrimary;
+    final menus = _visibleProjectMenus(project);
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          for (final menu in menus)
+            Padding(
+              padding: const EdgeInsets.only(right: 8, top: 6, bottom: 6),
+              child: _MobileTabChip(menu: menu, path: path, project: project),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
+class _MobileTabChip extends StatelessWidget {
+  final _ProjectMenu menu;
+  final String path;
+  final ProjectRow project;
+  const _MobileTabChip(
+      {required this.menu, required this.path, required this.project});
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final enabled = menu.comingBatch == null;
+    final selected = path.startsWith('/p/${project.id}/${menu.path}');
+    return Material(
+      color: selected ? df.primarySubtle : df.surfaceMuted,
+      borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+        onTap: enabled
+            ? () => context.go('/p/${project.id}/${menu.path}')
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(children: [
+            Text(
+              menu.label(context),
+              style: TextStyle(
+                fontSize: 13,
+                color: !enabled
+                    ? df.textTertiary
+                    : (selected ? df.primary : df.textPrimary),
+              ),
+            ),
+            if (menu.comingBatch != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  context.l10n.shellComingSoonBadge(menu.comingBatch!),
+                  style: TextStyle(fontSize: 10, color: df.accent),
+                ),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// 品牌 Logo（墨青→琥珀渐变）。
+class DFLogo extends StatelessWidget {
+  const DFLogo({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
     return Container(
       width: 34,
       height: 34,
@@ -138,11 +483,12 @@ class _Logo extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [context.df.primary, endColor],
+          colors: [df.primary, df.accent],
         ),
         borderRadius: BorderRadius.circular(9),
       ),
-      child: Icon(Icons.play_arrow_rounded, color: iconColor, size: 24),
+      child: Icon(Icons.play_arrow_rounded,
+          color: Theme.of(context).colorScheme.onPrimary, size: 24),
     );
   }
 }

@@ -184,3 +184,37 @@ final bindingsProvider = FutureProvider.autoDispose<Map<String, String>>(
 final promptsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
   (ref) => ref.watch(engineProvider).listPrompts(),
 );
+
+/// 当前选中项目（对应 ToonFlow projectStore.currentProject）。
+/// 深链/刷新时可用 ensure(pid) 从引擎按 id 回填。
+class CurrentProjectNotifier extends Notifier<ProjectRow?> {
+  @override
+  ProjectRow? build() => null;
+
+  void select(ProjectRow? project) => state = project;
+
+  void ensure(int projectId) {
+    if (state?.id == projectId) return;
+    try {
+      final rows = ref.read(engineProvider).projects();
+      for (final p in rows) {
+        if (p.id == projectId) {
+          state = p;
+          return;
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// 项目编辑/删除后刷新当前引用。
+  void refresh() {
+    final id = state?.id;
+    if (id == null) return;
+    state = null;
+    ensure(id);
+  }
+}
+
+final currentProjectProvider =
+    NotifierProvider<CurrentProjectNotifier, ProjectRow?>(
+        CurrentProjectNotifier.new);

@@ -72,5 +72,8 @@
   },
   "promptRestoreDefaultConfirm": "Restore",
   "promptRestored": "Prompt restored to default",
-  "errTaskUnsupported": "Unsupported task type"
+  "errTaskUnsupported": "Unsupported task type",
+  "shellSelectProject": "Select a project",
+  "shellComingSoon": "This area ships with batch {batch}",
+  "shellComingSoonBadge": "{batch}"
 }

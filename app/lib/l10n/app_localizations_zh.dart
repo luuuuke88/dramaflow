@@ -181,4 +181,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errTaskUnsupported => '不支持的任务类型';
+
+  @override
+  String get shellSelectProject => '请选择项目';
+
+  @override
+  String shellComingSoon(String batch) {
+    return '本区域随 $batch 批次交付';
+  }
+
+  @override
+  String shellComingSoonBadge(String batch) {
+    return '$batch';
+  }
 }

@@ -72,5 +72,22 @@
   },
   "promptRestoreDefaultConfirm": "恢复",
   "promptRestored": "提示词已恢复默认",
-  "errTaskUnsupported": "不支持的任务类型"
+  "errTaskUnsupported": "不支持的任务类型",
+  "shellSelectProject": "请选择项目",
+  "shellComingSoon": "本区域随 {batch} 批次交付",
+  "shellComingSoonBadge": "{batch}",
+  "@shellComingSoon": {
+    "placeholders": {
+      "batch": {
+        "type": "String"
+      }
+    }
+  },
+  "@shellComingSoonBadge": {
+    "placeholders": {
+      "batch": {
+        "type": "String"
+      }
+    }
+  }
 }

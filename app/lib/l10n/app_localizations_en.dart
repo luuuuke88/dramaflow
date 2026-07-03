@@ -185,4 +185,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errTaskUnsupported => 'Unsupported task type';
+
+  @override
+  String get shellSelectProject => 'Select a project';
+
+  @override
+  String shellComingSoon(String batch) {
+    return 'This area ships with batch $batch';
+  }
+
+  @override
+  String shellComingSoonBadge(String batch) {
+    return '$batch';
+  }
 }

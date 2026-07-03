@@ -72,5 +72,8 @@
   },
   "promptRestoreDefaultConfirm": "戻す",
   "promptRestored": "プロンプトをデフォルトに戻しました",
-  "errTaskUnsupported": "未対応のタスク種別"
+  "errTaskUnsupported": "未対応のタスク種別",
+  "shellSelectProject": "プロジェクトを選択",
+  "shellComingSoon": "このエリアは {batch} バッチで提供予定",
+  "shellComingSoonBadge": "{batch}"
 }
