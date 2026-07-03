@@ -534,5 +534,22 @@
   "agentChatToolExecuted": "Executed: {tool}",
   "agentChatModeHint": "Manual mode runs one step and waits for you; auto mode chains steps automatically (within a safety cap).",
   "agentChatSkillsInfo": "Built-in capabilities",
-  "agentChatSkillsBody": "Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported."
+  "agentChatSkillsBody": "Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported.",
+  "cornerScapeSearchHint": "Search role name",
+  "cornerScapeFilterAll": "All",
+  "cornerScapeFilterBound": "Bound",
+  "cornerScapeFilterUnbound": "Unbound",
+  "cornerScapeSelectAllUnbound": "Select all unbound",
+  "cornerScapeBoundSummary": "Bound {bound}/{total}",
+  "@cornerScapeBoundSummary": {
+    "placeholders": {
+      "bound": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "cornerScapeNoMatch": "No roles match the current filter"
 }

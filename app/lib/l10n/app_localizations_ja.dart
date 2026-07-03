@@ -1612,4 +1612,27 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get agentChatSkillsBody =>
       '私が呼び出せる機能はすべて既存パイプラインの実際の動作で、呼び出すたびにタスクセンターに確認・再試行可能な記録が残ります：イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像生成、動画生成、配音マッチング、合成書き出し。カスタムスクリプト技能には対応していません。';
+
+  @override
+  String get cornerScapeSearchHint => 'キャラクター名を検索';
+
+  @override
+  String get cornerScapeFilterAll => 'すべて';
+
+  @override
+  String get cornerScapeFilterBound => '割り当て済み';
+
+  @override
+  String get cornerScapeFilterUnbound => '未割り当て';
+
+  @override
+  String get cornerScapeSelectAllUnbound => '未割り当てをすべて選択';
+
+  @override
+  String cornerScapeBoundSummary(int bound, int total) {
+    return '割り当て済み $bound/$total';
+  }
+
+  @override
+  String get cornerScapeNoMatch => '条件に一致するキャラクターがありません';
 }

@@ -1661,4 +1661,27 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agentChatSkillsBody =>
       'Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported.';
+
+  @override
+  String get cornerScapeSearchHint => 'Search role name';
+
+  @override
+  String get cornerScapeFilterAll => 'All';
+
+  @override
+  String get cornerScapeFilterBound => 'Bound';
+
+  @override
+  String get cornerScapeFilterUnbound => 'Unbound';
+
+  @override
+  String get cornerScapeSelectAllUnbound => 'Select all unbound';
+
+  @override
+  String cornerScapeBoundSummary(int bound, int total) {
+    return 'Bound $bound/$total';
+  }
+
+  @override
+  String get cornerScapeNoMatch => 'No roles match the current filter';
 }
