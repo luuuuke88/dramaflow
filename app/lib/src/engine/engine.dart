@@ -226,6 +226,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
   final MediaStore media;
   final ProviderGateway gateway;
   final EngineConfig config;
+  final VideoComposer composer;
   late final JobQueue queue;
 
   /// 章节导入完成后的钩子（T6 注入事件自动生成，对应 ToonFlow addNovel 触发 CleanNovel）。
@@ -239,7 +240,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     VideoComposer? composer,
     Duration queueTick = const Duration(milliseconds: 500),
     TaskRunner? taskRunner,
-  }) {
+  }) : composer = composer ?? const UnsupportedComposer() {
     queue = JobQueue(
       db,
       run: taskRunner ?? _dispatchTask,
