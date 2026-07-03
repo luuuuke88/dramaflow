@@ -152,8 +152,107 @@ final class ComposerPlugin {
       output: output)
   }
 
+  private func requiresPreRenderedFilterComposition(_ segments: [ComposeSegment]) -> Bool {
+    let hasDissolve = segments.contains { $0.transition == "dissolve" }
+    let hasFilter = segments.contains { segment in
+      guard let filterPreset = segment.filterPreset else { return false }
+      return !filterPreset.isEmpty
+    }
+    return hasDissolve && hasFilter
+  }
+
+  private func composeWithPreRenderedFiltersForDissolve(
+    segments: [ComposeSegment],
+    output: String
+  ) async throws {
+    let outputURL = URL(fileURLWithPath: output)
+    let tempDirectory = outputURL.deletingLastPathComponent()
+    try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+    var temporaryFilterFiles: [URL] = []
+    defer {
+      deleteTemporaryFilterFiles(temporaryFilterFiles)
+    }
+
+    var renderedSegments: [ComposeSegment] = []
+    for segment in segments {
+      guard let filterPreset = segment.filterPreset, !filterPreset.isEmpty else {
+        renderedSegments.append(segment)
+        continue
+      }
+
+      let tempURL = tempDirectory.appendingPathComponent("dramaflow_filter_\(UUID().uuidString).mp4")
+      temporaryFilterFiles.append(tempURL)
+      try await renderFilteredSegmentToTemp(segment: segment, outputURL: tempURL)
+      renderedSegments.append(
+        ComposeSegment(
+          videoPath: tempURL.path,
+          audioPath: segment.audioPath,
+          transition: segment.transition,
+          filterPreset: nil))
+    }
+
+    try await compose(segments: renderedSegments, output: output)
+  }
+
+  private func renderFilteredSegmentToTemp(
+    segment: ComposeSegment,
+    outputURL: URL
+  ) async throws {
+    try ensureFileExists(segment.videoPath)
+    let asset = AVAsset(url: URL(fileURLWithPath: segment.videoPath))
+    let duration = try await loadDuration(asset)
+    if !CMTimeGetSeconds(duration).isFinite || CMTimeCompare(duration, .zero) <= 0 {
+      throw ComposerPluginError.invalidDuration(segment.videoPath)
+    }
+    guard asset.tracks(withMediaType: .video).first != nil else {
+      throw ComposerPluginError.noVideoTrack(segment.videoPath)
+    }
+    if FileManager.default.fileExists(atPath: outputURL.path) {
+      try FileManager.default.removeItem(at: outputURL)
+    }
+    guard let exportSession = AVAssetExportSession(
+      asset: asset,
+      presetName: AVAssetExportPreset1280x720)
+    else {
+      throw ComposerPluginError.exportSessionUnavailable
+    }
+    exportSession.outputURL = outputURL
+    exportSession.outputFileType = .mp4
+    exportSession.shouldOptimizeForNetworkUse = true
+    exportSession.videoComposition = makeFilteredVideoComposition(
+      asset: asset,
+      filterPreset: segment.filterPreset)
+    try await export(exportSession)
+  }
+
+  private func makeFilteredVideoComposition(
+    asset: AVAsset,
+    filterPreset: String?
+  ) -> AVMutableVideoComposition? {
+    guard let filterPreset = filterPreset, !filterPreset.isEmpty else { return nil }
+    return AVMutableVideoComposition(
+      asset: asset,
+      applyingCIFiltersWithHandler: { request in
+        let source = request.sourceImage
+        let image = self.filterImage(source, preset: filterPreset)
+        request.finish(with: image.cropped(to: source.extent), context: nil)
+      })
+  }
+
+  private func deleteTemporaryFilterFiles(_ temporaryFilterFiles: [URL]) {
+    temporaryFilterFiles.forEach { url in
+      if FileManager.default.fileExists(atPath: url.path) {
+        try? FileManager.default.removeItem(at: url)
+      }
+    }
+  }
+
   private func compose(segments: [ComposeSegment], output: String) async throws {
     if segments.isEmpty { throw ComposerPluginError.invalidArguments }
+    if requiresPreRenderedFilterComposition(segments) {
+      try await composeWithPreRenderedFiltersForDissolve(segments: segments, output: output)
+      return
+    }
 
     let composition = AVMutableComposition()
     guard let compositionVideoTrack = composition.addMutableTrack(

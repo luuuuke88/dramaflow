@@ -63,6 +63,32 @@ void main() {
     }
   });
 
+  test('Apple composer pre-renders filters before layered dissolve export', () {
+    final macosSource =
+        File('macos/Runner/ComposerPlugin.swift').readAsStringSync();
+    final iosSource =
+        File('ios/Runner/ComposerPlugin.swift').readAsStringSync();
+
+    for (final source in [macosSource, iosSource]) {
+      expect(source, contains('requiresPreRenderedFilterComposition'));
+      expect(source, contains('composeWithPreRenderedFiltersForDissolve'));
+      expect(source, contains('renderFilteredSegmentToTemp'));
+      expect(source, contains('temporaryFilterFiles'));
+      expect(source, contains('deleteTemporaryFilterFiles'));
+      expect(
+        source,
+        contains('compose(segments: renderedSegments, output: output)'),
+        reason:
+            'After filter pre-rendering, the proven layered dissolve path should export the final movie.',
+      );
+      expect(
+        source,
+        contains('filterPreset: nil'),
+        reason: 'Rendered segments must clear filters to avoid recursive pre-rendering.',
+      );
+    }
+  });
+
   test('Dart composer wrapper uses localized error keys', () {
     final dartSource =
         File('lib/src/platform/avfoundation_composer.dart').readAsStringSync();
