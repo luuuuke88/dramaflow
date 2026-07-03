@@ -764,6 +764,21 @@
     }
   },
   "agentMemoryEmpty": "暂无记忆。发送消息后会在这里显示可检查的上下文记录。",
+  "agentLongTermMemoryCount": "长期记忆 {count}",
+  "@agentLongTermMemoryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentLongTermMemoryEmpty": "暂无长期记忆。可以把角色设定、禁忌写法、世界观规则保存到这里。",
+  "agentMemoryAdd": "新增记忆",
+  "agentMemoryCreateTitle": "新增长期记忆",
+  "agentMemoryName": "记忆名称",
+  "agentMemoryContent": "记忆内容",
+  "agentMemorySaved": "长期记忆已保存",
+  "agentMemoryDeleted": "长期记忆已删除",
   "cornerScapeSearchHint": "搜索角色名称",
   "cornerScapeFilterAll": "全部",
   "cornerScapeFilterBound": "已绑定",

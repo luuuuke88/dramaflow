@@ -12,6 +12,7 @@ import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/common.dart';
 
 class AgentChatScreen extends ConsumerStatefulWidget {
   final int projectId;
@@ -118,6 +119,8 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     final l10n = context.l10n;
     final df = context.df;
     final messages = ref.watch(engineProvider).agentMessages(widget.projectId);
+    final memories =
+        ref.watch(engineProvider).agentLongTermMemories(widget.projectId);
 
     return DefaultTabController(
       length: 4,
@@ -228,7 +231,13 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
               skills: ref.watch(engineProvider).agentSkills(),
               onUpdated: () => setState(() {}),
             ),
-            _AgentMemoryPane(messages: messages, onClear: _clearMemory),
+            _AgentMemoryPane(
+              projectId: widget.projectId,
+              messages: messages,
+              memories: memories,
+              onClear: _clearMemory,
+              onChanged: () => setState(() {}),
+            ),
           ],
         ),
       ),
@@ -702,18 +711,123 @@ class _AgentSkillDialogState extends State<_AgentSkillDialog> {
   }
 }
 
-class _AgentMemoryPane extends StatelessWidget {
+class _AgentMemoryPane extends ConsumerWidget {
+  final int projectId;
   final List<AgentMessage> messages;
+  final List<AgentMemoryRecord> memories;
   final VoidCallback onClear;
-  const _AgentMemoryPane({required this.messages, required this.onClear});
+  final VoidCallback onChanged;
+  const _AgentMemoryPane({
+    required this.projectId,
+    required this.messages,
+    required this.memories,
+    required this.onClear,
+    required this.onChanged,
+  });
+
+  Future<void> _addMemory(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
+    final draft = await showDialog<_MemoryDraft>(
+      context: context,
+      builder: (_) => const _AgentMemoryDialog(),
+    );
+    if (draft == null || !context.mounted) return;
+    await runAction(
+      context,
+      ref,
+      () async {
+        ref.read(engineProvider).saveAgentMemory(
+              projectId,
+              name: draft.name,
+              content: draft.content,
+            );
+        onChanged();
+      },
+      successMessage: l10n.agentMemorySaved,
+    );
+  }
+
+  Future<void> _deleteMemory(
+    BuildContext context,
+    WidgetRef ref,
+    AgentMemoryRecord memory,
+  ) async {
+    final l10n = context.l10n;
+    await runAction(
+      context,
+      ref,
+      () async {
+        ref.read(engineProvider).deleteAgentMemory(projectId, memory.id);
+        onChanged();
+      },
+      successMessage: l10n.agentMemoryDeleted,
+    );
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final df = context.df;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        Row(children: [
+          Expanded(
+            child: Text(l10n.agentLongTermMemoryCount(memories.length),
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: df.textPrimary)),
+          ),
+          FilledButton.icon(
+            onPressed: () => _addMemory(context, ref),
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(l10n.agentMemoryAdd),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        if (memories.isEmpty)
+          Text(l10n.agentLongTermMemoryEmpty,
+              style: TextStyle(fontSize: 12, color: df.textTertiary))
+        else
+          for (final memory in memories)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: df.surface,
+                border: Border.all(color: df.stroke),
+                borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(memory.name,
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: df.textPrimary)),
+                        const SizedBox(height: 4),
+                        Text(memory.content,
+                            style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.commonDelete,
+                    onPressed: () => _deleteMemory(context, ref, memory),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                  ),
+                ],
+              ),
+            ),
+        const SizedBox(height: 20),
+        Divider(color: df.stroke),
+        const SizedBox(height: 12),
         Row(children: [
           Expanded(
             child: Text(l10n.agentMemoryCount(messages.length),
@@ -755,6 +869,82 @@ class _AgentMemoryPane extends StatelessWidget {
                 ],
               ),
             ),
+      ],
+    );
+  }
+}
+
+class _MemoryDraft {
+  final String name;
+  final String content;
+  const _MemoryDraft({required this.name, required this.content});
+}
+
+class _AgentMemoryDialog extends StatefulWidget {
+  const _AgentMemoryDialog();
+
+  @override
+  State<_AgentMemoryDialog> createState() => _AgentMemoryDialogState();
+}
+
+class _AgentMemoryDialogState extends State<_AgentMemoryDialog> {
+  final TextEditingController _name = TextEditingController();
+  final TextEditingController _content = TextEditingController();
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _content.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final content = _content.text.trim();
+    if (content.isEmpty) return;
+    Navigator.pop(
+      context,
+      _MemoryDraft(name: _name.text.trim(), content: content),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.agentMemoryCreateTitle),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const ValueKey('agent-memory-name-field'),
+              controller: _name,
+              decoration: InputDecoration(labelText: l10n.agentMemoryName),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('agent-memory-content-field'),
+              controller: _content,
+              minLines: 4,
+              maxLines: 8,
+              decoration: InputDecoration(
+                labelText: l10n.agentMemoryContent,
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: _save,
+          child: Text(l10n.commonSave),
+        ),
       ],
     );
   }

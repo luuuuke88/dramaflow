@@ -3514,6 +3514,54 @@ abstract class AppLocalizations {
   /// **'暂无记忆。发送消息后会在这里显示可检查的上下文记录。'**
   String get agentMemoryEmpty;
 
+  /// No description provided for @agentLongTermMemoryCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'长期记忆 {count}'**
+  String agentLongTermMemoryCount(int count);
+
+  /// No description provided for @agentLongTermMemoryEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无长期记忆。可以把角色设定、禁忌写法、世界观规则保存到这里。'**
+  String get agentLongTermMemoryEmpty;
+
+  /// No description provided for @agentMemoryAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增记忆'**
+  String get agentMemoryAdd;
+
+  /// No description provided for @agentMemoryCreateTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增长期记忆'**
+  String get agentMemoryCreateTitle;
+
+  /// No description provided for @agentMemoryName.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆名称'**
+  String get agentMemoryName;
+
+  /// No description provided for @agentMemoryContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆内容'**
+  String get agentMemoryContent;
+
+  /// No description provided for @agentMemorySaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'长期记忆已保存'**
+  String get agentMemorySaved;
+
+  /// No description provided for @agentMemoryDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'长期记忆已删除'**
+  String get agentMemoryDeleted;
+
   /// No description provided for @cornerScapeSearchHint.
   ///
   /// In zh, this message translates to:

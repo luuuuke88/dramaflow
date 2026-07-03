@@ -254,11 +254,36 @@ void main() {
     expect(fallback.modelId, 'gpt-5.5');
     expect(fallback.maxOutputTokens, isNull);
   });
+
+  test('长期记忆：保存到 memories，可检索并注入 Agent system prompt', () async {
+    final id = engine.saveAgentMemory(
+      projectId,
+      name: '主角设定',
+      content: '寒山少主李澈，外冷内热，不能写成反派。',
+    );
+
+    final memories = engine.agentLongTermMemories(projectId);
+    expect(memories, hasLength(1));
+    expect(memories.single.id, id);
+    expect(memories.single.name, '主角设定');
+    expect(memories.single.content, contains('寒山少主李澈'));
+
+    final matched = engine.searchAgentMemories(projectId, '寒山');
+    expect(matched.map((item) => item.id), [id]);
+
+    gateway.turns = [const AgentTurnResult.text('收到')];
+    await engine.sendAgentMessage(projectId, '下一场写寒山少主出场', autoMode: false);
+
+    expect(gateway.lastSystem, contains('长期记忆'));
+    expect(gateway.lastSystem, contains('寒山少主李澈'));
+  });
 }
 
 class _Gateway implements ProviderGateway {
   List<AgentTurnResult> turns = const [];
   List<AgentToolDef> lastTools = const [];
+  String lastSystem = '';
+  List<Map<String, String>> lastMessages = const [];
   int callCount = 0;
   bool shouldThrow = false;
 
@@ -272,6 +297,8 @@ class _Gateway implements ProviderGateway {
   }) async {
     if (shouldThrow) throw Exception('boom');
     lastTools = List<AgentToolDef>.from(tools);
+    lastSystem = system;
+    lastMessages = [for (final message in messages) Map.of(message)];
     final r = turns[callCount];
     callCount++;
     return r;

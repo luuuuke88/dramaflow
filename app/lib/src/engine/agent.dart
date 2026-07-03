@@ -3,9 +3,11 @@
 // "显式流水线可见可恢复"的核心设计相悖。DramaFlow 按 spec 既定决策做单层 AgentRunner：
 // 工具调用 1:1 映射到已有真实流水线动作（事件/资产/分镜/图片/视频/配音），每次调用都走
 // 现有 o_tasks 队列，绝不出现"对话框说做了但任务表查无此事"。
-// 记忆：仅短期消息历史（存 o_agentWorkData.data，key='agentChat'，project 级，非向量 RAG，
-// 已文档化的范围简化）。执行模式对应 ToonFlow 的 auto/manual：manual 每轮只执行一个工具
-// 调用后等待用户确认；auto 在安全轮次上限内连续执行工具链。
+// 记忆：短期消息历史存 o_agentWorkData.data（key='agentChat'，project 级）；
+// 长期记忆以本地 note 形式存 memories 表，并用轻量词面检索注入 Agent 上下文。
+// 这不是 ToonFlow 完整向量 RAG，但保留本地可编辑、可检索、可替换的接口边界。
+// 执行模式对应 ToonFlow 的 auto/manual：manual 每轮只执行一个工具调用后等待用户确认；
+// auto 在安全轮次上限内连续执行工具链。
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -26,6 +28,8 @@ const agentRoleAssistant = 'assistant';
 const agentRoleTool = 'tool';
 
 const _maxAutoTurns = 5;
+const _agentMemoryRole = 'agent';
+const _agentMemoryType = 'note';
 
 class AgentMessage {
   final String role;
@@ -82,6 +86,27 @@ class AgentDeployment {
     required this.temperature,
     required this.disabled,
   });
+}
+
+class AgentMemoryRecord {
+  final String id;
+  final String name;
+  final String content;
+  final int createdAt;
+  const AgentMemoryRecord({
+    required this.id,
+    required this.name,
+    required this.content,
+    required this.createdAt,
+  });
+
+  factory AgentMemoryRecord.fromRow(Map<String, Object?> row) =>
+      AgentMemoryRecord(
+        id: row['id'] as String,
+        name: row['name'] as String? ?? '',
+        content: row['content'] as String? ?? '',
+        createdAt: row['createTime'] as int? ?? 0,
+      );
 }
 
 const _agentSkillType = 'builtin-agent';
@@ -196,6 +221,8 @@ final _tools = <AgentToolDef>[
 ];
 
 extension AgentApi on Engine {
+  String _agentMemoryIsolationKey(int projectId) => 'project:$projectId';
+
   List<AgentToolDef> get agentTools {
     final skills = agentSkills();
     return [
@@ -470,6 +497,132 @@ extension AgentApi on Engine {
     );
   }
 
+  List<AgentMemoryRecord> agentLongTermMemories(int projectId) {
+    final rows = db.select(
+      'SELECT id,name,content,createTime FROM memories '
+      'WHERE isolationKey=? AND role=? AND type=? '
+      'ORDER BY createTime DESC, id DESC',
+      [_agentMemoryIsolationKey(projectId), _agentMemoryRole, _agentMemoryType],
+    );
+    return [for (final row in rows) AgentMemoryRecord.fromRow(row)];
+  }
+
+  String saveAgentMemory(
+    int projectId, {
+    String? id,
+    required String name,
+    required String content,
+  }) {
+    final trimmedContent = content.trim();
+    if (trimmedContent.isEmpty) {
+      throw EngineException(errLlmFormat, {'reason': '记忆内容不能为空'});
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final memoryId = id ?? 'agent_mem_${DateTime.now().microsecondsSinceEpoch}';
+    final existing = db.select(
+      'SELECT createTime FROM memories WHERE id=? AND isolationKey=?',
+      [memoryId, _agentMemoryIsolationKey(projectId)],
+    ).firstOrNull;
+    db.execute(
+      'INSERT OR REPLACE INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        memoryId,
+        name.trim().isEmpty ? '长期记忆' : name.trim(),
+        trimmedContent,
+        existing?['createTime'] as int? ?? now,
+        '',
+        _agentMemoryIsolationKey(projectId),
+        '[]',
+        _agentMemoryRole,
+        0,
+        _agentMemoryType,
+      ],
+    );
+    return memoryId;
+  }
+
+  void deleteAgentMemory(int projectId, String id) {
+    db.execute(
+      'DELETE FROM memories WHERE id=? AND isolationKey=? AND role=? AND type=?',
+      [
+        id,
+        _agentMemoryIsolationKey(projectId),
+        _agentMemoryRole,
+        _agentMemoryType
+      ],
+    );
+  }
+
+  List<AgentMemoryRecord> searchAgentMemories(
+    int projectId,
+    String query, {
+    int limit = 5,
+  }) {
+    final records = agentLongTermMemories(projectId);
+    final normalizedQuery = _normalizeMemoryText(query);
+    final tokens = _memorySearchTokens(normalizedQuery);
+    final scored = <(int, AgentMemoryRecord)>[];
+    for (final record in records) {
+      final score = _memoryScore(record, normalizedQuery, tokens);
+      if (score > 0) scored.add((score, record));
+    }
+    scored.sort((a, b) {
+      final byScore = b.$1.compareTo(a.$1);
+      if (byScore != 0) return byScore;
+      return b.$2.createdAt.compareTo(a.$2.createdAt);
+    });
+    return [for (final item in scored.take(limit)) item.$2];
+  }
+
+  String _normalizeMemoryText(String text) =>
+      text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+  Set<String> _memorySearchTokens(String query) {
+    if (query.isEmpty) return const {};
+    final tokens = <String>{};
+    for (final part in query.split(' ')) {
+      if (part.isNotEmpty) tokens.add(part);
+    }
+    final compact = query.replaceAll(' ', '');
+    if (compact.length <= 12 && compact.isNotEmpty) tokens.add(compact);
+    for (var i = 0; i < compact.length - 1; i++) {
+      tokens.add(compact.substring(i, i + 2));
+    }
+    return tokens;
+  }
+
+  int _memoryScore(
+    AgentMemoryRecord record,
+    String query,
+    Set<String> tokens,
+  ) {
+    if (query.isEmpty) return 1;
+    final haystack = _normalizeMemoryText('${record.name}\n${record.content}');
+    var score = haystack.contains(query) ? 100 : 0;
+    for (final token in tokens) {
+      if (token.length <= 1) continue;
+      if (haystack.contains(token)) score += 10;
+    }
+    return score;
+  }
+
+  String _agentSystemPrompt(List<AgentMemoryRecord> memories) {
+    const base = '你是短剧创作助手。你可以调用工具推进项目的制作流程'
+        '（事件提取→提取资产→生成分镜→生成首帧图→生成视频→配音绑定→合成）。'
+        '每次只做用户明确要求或明显下一步需要的动作，不要臆造不存在的 id。'
+        '如果不确定该做什么，先调用 get_status 查看进度。';
+    if (memories.isEmpty) return base;
+    final lines = [
+      '',
+      '',
+      '长期记忆：',
+      for (final memory in memories) '- ${memory.name}: ${memory.content}',
+    ];
+    return '$base${lines.join('\n')}';
+  }
+
   /// Agent 执行模式（auto/manual）持久化。config 由别处拥有，此处直接写 o_setting
   /// 键 agent.useMode（'auto'/'manual'），与 ToonFlow 的 auto/manual 语义一致。
   bool agentUseMode() {
@@ -499,10 +652,7 @@ extension AgentApi on Engine {
         .add(AgentMessage(role: agentRoleUser, content: text, createdAt: now));
     _saveAgentMessages(projectId, messages);
 
-    const system = '你是短剧创作助手。你可以调用工具推进项目的制作流程'
-        '（事件提取→提取资产→生成分镜→生成首帧图→生成视频→配音绑定→合成）。'
-        '每次只做用户明确要求或明显下一步需要的动作，不要臆造不存在的 id。'
-        '如果不确定该做什么，先调用 get_status 查看进度。';
+    final system = _agentSystemPrompt(searchAgentMemories(projectId, text));
 
     for (var turn = 0; turn < (autoMode ? _maxAutoTurns : 1); turn++) {
       final history = [

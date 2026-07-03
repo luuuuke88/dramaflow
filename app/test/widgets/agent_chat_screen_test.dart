@@ -254,4 +254,32 @@ void main() {
     expect(deployment.temperature, 35);
     expect(deployment.disabled, isFalse);
   });
+
+  testWidgets('记忆页可新增长期记忆并与对话历史分开展示', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+    expect(find.text('长期记忆 0'), findsOneWidget);
+
+    await tester.tap(find.text('新增记忆'));
+    await tester.pumpAndSettle();
+    expect(find.text('新增长期记忆'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-name-field')),
+      '主角设定',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-content-field')),
+      '寒山少主李澈，外冷内热。',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(engine.agentLongTermMemories(projectId), hasLength(1));
+    expect(find.text('长期记忆 1'), findsOneWidget);
+    expect(find.text('主角设定'), findsOneWidget);
+    expect(find.textContaining('寒山少主李澈'), findsOneWidget);
+  });
 }

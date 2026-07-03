@@ -1838,6 +1838,33 @@ class AppLocalizationsEn extends AppLocalizations {
       'No memory yet. Sent messages will appear here as inspectable context records.';
 
   @override
+  String agentLongTermMemoryCount(int count) {
+    return '$count long-term memories';
+  }
+
+  @override
+  String get agentLongTermMemoryEmpty =>
+      'No long-term memories yet. Save character rules, forbidden directions, or worldbuilding notes here.';
+
+  @override
+  String get agentMemoryAdd => 'Add memory';
+
+  @override
+  String get agentMemoryCreateTitle => 'Add long-term memory';
+
+  @override
+  String get agentMemoryName => 'Memory name';
+
+  @override
+  String get agentMemoryContent => 'Memory content';
+
+  @override
+  String get agentMemorySaved => 'Long-term memory saved';
+
+  @override
+  String get agentMemoryDeleted => 'Long-term memory deleted';
+
+  @override
   String get cornerScapeSearchHint => 'Search role name';
 
   @override

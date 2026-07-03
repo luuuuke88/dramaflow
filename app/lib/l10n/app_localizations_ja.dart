@@ -1787,6 +1787,33 @@ class AppLocalizationsJa extends AppLocalizations {
       '記憶はまだありません。送信したメッセージは確認可能なコンテキストとしてここに表示されます。';
 
   @override
+  String agentLongTermMemoryCount(int count) {
+    return '長期記憶 $count';
+  }
+
+  @override
+  String get agentLongTermMemoryEmpty =>
+      '長期記憶はまだありません。キャラクター設定、避けたい方向性、世界観ルールを保存できます。';
+
+  @override
+  String get agentMemoryAdd => '記憶を追加';
+
+  @override
+  String get agentMemoryCreateTitle => '長期記憶を追加';
+
+  @override
+  String get agentMemoryName => '記憶名';
+
+  @override
+  String get agentMemoryContent => '記憶内容';
+
+  @override
+  String get agentMemorySaved => '長期記憶を保存しました';
+
+  @override
+  String get agentMemoryDeleted => '長期記憶を削除しました';
+
+  @override
   String get cornerScapeSearchHint => 'キャラクター名を検索';
 
   @override

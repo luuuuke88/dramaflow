@@ -1775,6 +1775,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentMemoryEmpty => '暂无记忆。发送消息后会在这里显示可检查的上下文记录。';
 
   @override
+  String agentLongTermMemoryCount(int count) {
+    return '长期记忆 $count';
+  }
+
+  @override
+  String get agentLongTermMemoryEmpty => '暂无长期记忆。可以把角色设定、禁忌写法、世界观规则保存到这里。';
+
+  @override
+  String get agentMemoryAdd => '新增记忆';
+
+  @override
+  String get agentMemoryCreateTitle => '新增长期记忆';
+
+  @override
+  String get agentMemoryName => '记忆名称';
+
+  @override
+  String get agentMemoryContent => '记忆内容';
+
+  @override
+  String get agentMemorySaved => '长期记忆已保存';
+
+  @override
+  String get agentMemoryDeleted => '长期记忆已删除';
+
+  @override
   String get cornerScapeSearchHint => '搜索角色名称';
 
   @override
