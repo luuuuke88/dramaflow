@@ -84,6 +84,24 @@ void main() {
     );
   });
 
+  test('Android composer renders cross-shot dissolve with compositor alpha',
+      () {
+    final activitySource = File(
+      'android/app/src/main/kotlin/com/dramaflow/dramaflow/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(activitySource, contains('VideoCompositorSettings'));
+    expect(activitySource, contains('OverlaySettings'));
+    expect(activitySource, contains('composeWithDissolveTransitions'));
+    expect(activitySource, contains('DissolveCompositionPlan'));
+    expect(activitySource, contains('DissolveVideoCompositorSettings'));
+    expect(activitySource, contains('dissolveAlpha'));
+    expect(activitySource, contains('MediaItem.ClippingConfiguration'));
+    expect(activitySource, contains('setVideoCompositorSettings'));
+    expect(activitySource, contains('transition == "dissolve"'));
+    expect(activitySource, contains('it.transition != "dissolve"'));
+  });
+
   test('Android composer pre-renders NLE clips before muxing external audio',
       () {
     final activitySource = File(

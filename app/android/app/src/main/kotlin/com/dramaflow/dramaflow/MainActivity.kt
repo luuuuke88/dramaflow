@@ -6,8 +6,12 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
+import androidx.media3.common.C
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
+import androidx.media3.common.OverlaySettings
+import androidx.media3.common.VideoCompositorSettings
+import androidx.media3.common.util.Size
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.MatrixTransformation
 import androidx.media3.effect.RgbMatrix
@@ -244,6 +248,11 @@ class MainActivity : FlutterActivity() {
         outputFile.parentFile?.mkdirs()
         if (outputFile.exists()) outputFile.delete()
 
+        if (segments.any { it.transition == "dissolve" }) {
+            composeWithDissolveTransitions(segments, output)
+            return
+        }
+
         val editedItems = segments.map { segment ->
             buildNleEditedMediaItem(segment, durationUs(segment.videoPath))
         }
@@ -306,10 +315,81 @@ class MainActivity : FlutterActivity() {
         segments.firstOrNull {
             it.transition != null &&
                 it.transition != "fade" &&
-                it.transition != "whip_pan"
+                it.transition != "whip_pan" &&
+                it.transition != "dissolve"
         }?.let {
             throw ComposerException("Android 当前仅支持淡入淡出与滤镜渲染，暂不支持 ${it.transition}")
         }
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun composeWithDissolveTransitions(
+        segments: List<ComposeSegmentInput>,
+        output: String,
+    ) {
+        val plan = buildDissolveCompositionPlan(segments)
+        val sequences = mutableListOf(plan.primarySequence)
+        sequences.addAll(plan.overlaySequences)
+        val composition = Composition.Builder(sequences)
+            .setVideoCompositorSettings(DissolveVideoCompositorSettings(plan.overlays))
+            .build()
+        exportNleComposition(composition, output, "Android dissolve 合成")
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun buildDissolveCompositionPlan(
+        segments: List<ComposeSegmentInput>,
+    ): DissolveCompositionPlan {
+        val durations = segments.map { durationUs(it.videoPath) }
+        val primaryItems = mutableListOf<EditedMediaItem>()
+        val overlaySequences = mutableListOf<EditedMediaItemSequence>()
+        val overlays = mutableListOf<DissolveOverlay>()
+        var outputCursorUs = 0L
+
+        for ((index, segment) in segments.withIndex()) {
+            val durationUs = durations[index]
+            val incomingDissolveUs = dissolveDurationUs(
+                segment = segment,
+                durationUs = durationUs,
+                previousDurationUs = durations.getOrNull(index - 1),
+            )
+            if (incomingDissolveUs > 0L) {
+                val overlayStartUs = max(0L, outputCursorUs - incomingDissolveUs)
+                val overlayBuilder = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_VIDEO))
+                if (overlayStartUs > 0L) {
+                    overlayBuilder.addGap(overlayStartUs)
+                }
+                overlayBuilder.addItem(
+                    buildNleEditedMediaItem(
+                        segment.copy(transition = null),
+                        incomingDissolveUs,
+                        clipStartUs = 0L,
+                        clipEndUs = incomingDissolveUs,
+                    ),
+                )
+                overlaySequences.add(overlayBuilder.build())
+                overlays.add(DissolveOverlay(startUs = overlayStartUs, durationUs = incomingDissolveUs))
+            }
+
+            val primaryStartUs = incomingDissolveUs
+            if (primaryStartUs < durationUs) {
+                primaryItems.add(
+                    buildNleEditedMediaItem(
+                        segment.copy(transition = if (segment.transition == "dissolve") null else segment.transition),
+                        durationUs - primaryStartUs,
+                        clipStartUs = primaryStartUs,
+                        clipEndUs = durationUs,
+                    ),
+                )
+                outputCursorUs += durationUs - primaryStartUs
+            }
+        }
+
+        return DissolveCompositionPlan(
+            primarySequence = EditedMediaItemSequence.withAudioAndVideoFrom(primaryItems),
+            overlaySequences = overlaySequences,
+            overlays = overlays,
+        )
     }
 
     @androidx.annotation.OptIn(UnstableApi::class)
@@ -347,11 +427,31 @@ class MainActivity : FlutterActivity() {
     private fun buildNleEditedMediaItem(
         segment: ComposeSegmentInput,
         durationUs: Long,
+        clipStartUs: Long = 0L,
+        clipEndUs: Long? = null,
     ): EditedMediaItem {
+        val mediaItem = MediaItem.Builder()
+            .setUri(Uri.fromFile(File(segment.videoPath)))
+            .setClippingConfiguration(
+                MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionUs(clipStartUs)
+                    .setEndPositionUs(clipEndUs ?: durationUs)
+                    .build(),
+            )
+            .build()
         val effects = nleVideoEffects(segment, durationUs)
-        return EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(File(segment.videoPath))))
+        return EditedMediaItem.Builder(mediaItem)
             .setEffects(Effects(emptyList(), effects))
             .build()
+    }
+
+    private fun dissolveDurationUs(
+        segment: ComposeSegmentInput,
+        durationUs: Long,
+        previousDurationUs: Long?,
+    ): Long {
+        if (segment.transition != "dissolve" || previousDurationUs == null) return 0L
+        return min(500_000L, min(durationUs / 2L, previousDurationUs / 2L))
     }
 
     @androidx.annotation.OptIn(UnstableApi::class)
@@ -586,7 +686,47 @@ private data class ComposeInspection(
     val durationUs: Long,
 )
 
+private data class DissolveOverlay(
+    val startUs: Long,
+    val durationUs: Long,
+)
+
+private data class DissolveCompositionPlan(
+    val primarySequence: EditedMediaItemSequence,
+    val overlaySequences: List<EditedMediaItemSequence>,
+    val overlays: List<DissolveOverlay>,
+)
+
 private class ComposerException(message: String) : Exception(message)
+
+private class DissolveVideoCompositorSettings(
+    private val overlays: List<DissolveOverlay>,
+) : VideoCompositorSettings {
+    override fun getOutputSize(inputSizes: MutableList<Size>): Size =
+        inputSizes.firstOrNull { it != Size.UNKNOWN && it != Size.ZERO } ?: Size.UNKNOWN
+
+    override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
+        if (inputId == 0) return AlphaOverlaySettings(1f)
+        val overlay = overlays.getOrNull(inputId - 1) ?: return AlphaOverlaySettings(0f)
+        return AlphaOverlaySettings(
+            dissolveAlpha(
+                presentationTimeUs = presentationTimeUs,
+                startUs = overlay.startUs,
+                durationUs = overlay.durationUs,
+            ),
+        )
+    }
+}
+
+private data class AlphaOverlaySettings(private val alphaScale: Float) : OverlaySettings {
+    override fun getAlphaScale(): Float = alphaScale
+}
+
+private fun dissolveAlpha(presentationTimeUs: Long, startUs: Long, durationUs: Long): Float {
+    if (durationUs <= 0L || presentationTimeUs <= startUs) return 0f
+    if (presentationTimeUs >= startUs + durationUs) return 1f
+    return ((presentationTimeUs - startUs).toFloat() / durationUs.toFloat()).coerceIn(0f, 1f)
+}
 
 private class WhipPanTransformation(private val durationUs: Long) : MatrixTransformation {
     override fun getMatrix(presentationTimeUs: Long): Matrix =
