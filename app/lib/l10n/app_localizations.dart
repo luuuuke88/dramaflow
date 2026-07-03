@@ -392,7 +392,7 @@ abstract class AppLocalizations {
   ///
   /// In zh, this message translates to:
   /// **'编辑提示词 · {title}'**
-  String promptEditTitle(String title);
+  String promptEditTitle(Object title);
 
   /// No description provided for @promptSaved.
   ///
@@ -416,7 +416,7 @@ abstract class AppLocalizations {
   ///
   /// In zh, this message translates to:
   /// **'确定将“{title}”恢复为内置默认内容吗？'**
-  String promptRestoreDefaultMessage(String title);
+  String promptRestoreDefaultMessage(Object title);
 
   /// No description provided for @promptRestoreDefaultConfirm.
   ///

@@ -21,6 +21,7 @@ dependencies:
   wakelock_plus: ^1.6.1
   path: ^1.9.1
   file_selector: ^1.1.0
+  archive: ^4.0.9
 
 dev_dependencies:
   flutter_test:

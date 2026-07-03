@@ -150,10 +150,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get promptOverridden => '已修改';
 
   @override
-  String promptCharacterCount(int count) => '$count 字符';
+  String promptCharacterCount(int count) {
+    return '$count 字符';
+  }
 
   @override
-  String promptEditTitle(String title) => '编辑提示词 · $title';
+  String promptEditTitle(Object title) {
+    return '编辑提示词 · $title';
+  }
 
   @override
   String get promptSaved => '提示词已保存';
@@ -165,7 +169,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get promptRestoreDefaultTitle => '恢复默认';
 
   @override
-  String promptRestoreDefaultMessage(String title) => '确定将“$title”恢复为内置默认内容吗？';
+  String promptRestoreDefaultMessage(Object title) {
+    return '确定将“$title”恢复为内置默认内容吗？';
+  }
 
   @override
   String get promptRestoreDefaultConfirm => '恢复';

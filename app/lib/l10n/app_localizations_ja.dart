@@ -151,10 +151,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get promptOverridden => '変更済み';
 
   @override
-  String promptCharacterCount(int count) => '$count 文字';
+  String promptCharacterCount(int count) {
+    return '$count 文字';
+  }
 
   @override
-  String promptEditTitle(String title) => 'プロンプトを編集 · $title';
+  String promptEditTitle(Object title) {
+    return 'プロンプトを編集 · $title';
+  }
 
   @override
   String get promptSaved => 'プロンプトを保存しました';
@@ -166,8 +170,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get promptRestoreDefaultTitle => 'デフォルトに戻す';
 
   @override
-  String promptRestoreDefaultMessage(String title) =>
-      '「$title」を組み込みのデフォルト内容に戻しますか？';
+  String promptRestoreDefaultMessage(Object title) {
+    return '「$title」を組み込みのデフォルト内容に戻しますか？';
+  }
 
   @override
   String get promptRestoreDefaultConfirm => '戻す';

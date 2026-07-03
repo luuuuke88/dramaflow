@@ -154,10 +154,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get promptOverridden => 'Modified';
 
   @override
-  String promptCharacterCount(int count) => '$count characters';
+  String promptCharacterCount(int count) {
+    return '$count characters';
+  }
 
   @override
-  String promptEditTitle(String title) => 'Edit prompt · $title';
+  String promptEditTitle(Object title) {
+    return 'Edit prompt · $title';
+  }
 
   @override
   String get promptSaved => 'Prompt saved';
@@ -169,8 +173,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get promptRestoreDefaultTitle => 'Restore default';
 
   @override
-  String promptRestoreDefaultMessage(String title) =>
-      'Restore “$title” to the built-in default?';
+  String promptRestoreDefaultMessage(Object title) {
+    return 'Restore “$title” to the built-in default?';
+  }
 
   @override
   String get promptRestoreDefaultConfirm => 'Restore';

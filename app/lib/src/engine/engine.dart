@@ -224,6 +224,9 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
   final EngineConfig config;
   late final JobQueue queue;
 
+  /// 章节导入完成后的钩子（T6 注入事件自动生成，对应 ToonFlow addNovel 触发 CleanNovel）。
+  void Function(int projectId, List<int> novelIds)? onNovelsAdded;
+
   Engine({
     required this.db,
     required this.media,
