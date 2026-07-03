@@ -1047,6 +1047,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scriptBatchAdd => '一括追加';
 
   @override
+  String get scriptGenerateFromEvents => 'イベントからシナリオ生成';
+
+  @override
+  String get scriptGenerateFromEventsTitle => 'シナリオ生成に使うイベントを選択';
+
+  @override
+  String get scriptGenerateFromEventsEmpty =>
+      '利用できるイベントがありません。先に章イベントを生成してください。';
+
+  @override
+  String get scriptGenerateFromEventsConfirm => 'シナリオ生成';
+
+  @override
+  String get scriptGenerateFromEventsSelectHint => 'イベントを少なくとも1件選択してください';
+
+  @override
+  String get scriptGenerateFromEventsSubmitted => 'シナリオ生成を送信しました';
+
+  @override
   String get scriptStateWaiting => '待機中...';
 
   @override
@@ -2515,6 +2534,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get taskClassEventGeneration => 'イベント生成';
+
+  @override
+  String get taskClassScriptGeneration => 'シナリオ生成';
 
   @override
   String get taskClassAssetExtraction => 'アセット抽出';

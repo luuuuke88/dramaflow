@@ -17,6 +17,7 @@ import 'events.dart';
 import 'media.dart';
 import 'providers/gateway.dart';
 import 'providers/resolve.dart';
+import 'prompts.dart' as prompt_defaults;
 import 'queue.dart';
 import 'scripts.dart';
 import 'video_track.dart' show VideoTrackApi;
@@ -89,6 +90,7 @@ class ProjectStats {
 class Engine {
   static const version = '0.3.0-task3';
   static const _promptKeyEventExtraction = 'eventExtraction';
+  static const _promptKeyScriptGen = 'scriptGen';
   static const _promptKeyScriptAssetExtraction = 'scriptAssetExtraction';
   static const _promptKeyImageSizeDirective = 'image_size_directive';
 
@@ -437,6 +439,11 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       name: _promptKeyEventExtraction,
       type: _promptKeyEventExtraction,
       data: _toonFlowEventExtractionPrompt,
+    );
+    prompt(
+      name: _promptKeyScriptGen,
+      type: prompt_defaults.promptKeyScriptGenSystem,
+      data: prompt_defaults.scriptGenSystem,
     );
     prompt(
       name: _promptKeyScriptAssetExtraction,
@@ -1116,12 +1123,16 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
 
   String _promptType(String key) {
     if (key == _promptKeyImageSizeDirective) return 'system';
+    if (key == _promptKeyScriptGen) {
+      return prompt_defaults.promptKeyScriptGenSystem;
+    }
     return key;
   }
 
   String _defaultPromptData(String key) {
     return switch (key) {
       _promptKeyEventExtraction => _toonFlowEventExtractionPrompt,
+      _promptKeyScriptGen => prompt_defaults.scriptGenSystem,
       _promptKeyScriptAssetExtraction => _toonFlowScriptAssetExtractionPrompt,
       _promptKeyImageSizeDirective => config.str('imageSizeDirective'),
       _ => '',

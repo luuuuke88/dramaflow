@@ -1073,6 +1073,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scriptBatchAdd => 'Batch Add';
 
   @override
+  String get scriptGenerateFromEvents => 'Generate from events';
+
+  @override
+  String get scriptGenerateFromEventsTitle =>
+      'Select events to generate scripts';
+
+  @override
+  String get scriptGenerateFromEventsEmpty =>
+      'No events are available. Generate chapter events first.';
+
+  @override
+  String get scriptGenerateFromEventsConfirm => 'Generate scripts';
+
+  @override
+  String get scriptGenerateFromEventsSelectHint => 'Select at least one event';
+
+  @override
+  String get scriptGenerateFromEventsSubmitted => 'Script generation submitted';
+
+  @override
   String get scriptStateWaiting => 'Waiting...';
 
   @override
@@ -2574,6 +2594,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get taskClassEventGeneration => 'Event generation';
+
+  @override
+  String get taskClassScriptGeneration => 'Script generation';
 
   @override
   String get taskClassAssetExtraction => 'Asset extraction';

@@ -2086,6 +2086,42 @@ abstract class AppLocalizations {
   /// **'批量添加'**
   String get scriptBatchAdd;
 
+  /// No description provided for @scriptGenerateFromEvents.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件生成剧本'**
+  String get scriptGenerateFromEvents;
+
+  /// No description provided for @scriptGenerateFromEventsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择事件生成剧本'**
+  String get scriptGenerateFromEventsTitle;
+
+  /// No description provided for @scriptGenerateFromEventsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无可用事件，请先在章节页生成事件'**
+  String get scriptGenerateFromEventsEmpty;
+
+  /// No description provided for @scriptGenerateFromEventsConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成剧本'**
+  String get scriptGenerateFromEventsConfirm;
+
+  /// No description provided for @scriptGenerateFromEventsSelectHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择要生成剧本的事件'**
+  String get scriptGenerateFromEventsSelectHint;
+
+  /// No description provided for @scriptGenerateFromEventsSubmitted.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本生成已提交'**
+  String get scriptGenerateFromEventsSubmitted;
+
   /// No description provided for @scriptStateWaiting.
   ///
   /// In zh, this message translates to:
@@ -4881,6 +4917,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'事件生成'**
   String get taskClassEventGeneration;
+
+  /// No description provided for @taskClassScriptGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本生成'**
+  String get taskClassScriptGeneration;
 
   /// No description provided for @taskClassAssetExtraction.
   ///

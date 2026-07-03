@@ -70,6 +70,7 @@ class JobQueue {
 
   static const laneOf = {
     'event_generation': 'text',
+    'script_generation': 'text',
     'asset_extraction': 'text',
     'asset_prompt_polish': 'text',
     'asset_image_generation': 'image',

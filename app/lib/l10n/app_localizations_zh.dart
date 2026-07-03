@@ -1038,6 +1038,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get scriptBatchAdd => '批量添加';
 
   @override
+  String get scriptGenerateFromEvents => '事件生成剧本';
+
+  @override
+  String get scriptGenerateFromEventsTitle => '选择事件生成剧本';
+
+  @override
+  String get scriptGenerateFromEventsEmpty => '暂无可用事件，请先在章节页生成事件';
+
+  @override
+  String get scriptGenerateFromEventsConfirm => '生成剧本';
+
+  @override
+  String get scriptGenerateFromEventsSelectHint => '请选择要生成剧本的事件';
+
+  @override
+  String get scriptGenerateFromEventsSubmitted => '剧本生成已提交';
+
+  @override
   String get scriptStateWaiting => '等待提取...';
 
   @override
@@ -2499,6 +2517,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get taskClassEventGeneration => '事件生成';
+
+  @override
+  String get taskClassScriptGeneration => '剧本生成';
 
   @override
   String get taskClassAssetExtraction => '素材提取';

@@ -32,13 +32,13 @@ Next Verification: If chapter/event UI changes, keep selected event generation p
 
 Status: Partial
 
-Desktop Evidence: `app/test/engine/scripts_test.dart` covers script CRUD, extraction, export, and failure recovery.
+Desktop Evidence: `app/test/engine/scripts_test.dart` covers script CRUD, extraction, export, failure recovery, and batch script generation from selected events through the `script_gen` task runner.
 
-Mobile Evidence: `app/test/widgets/script_screen_test.dart` covers 390px batch-add parsing and persistence.
+Mobile Evidence: `app/test/widgets/script_screen_test.dart` covers 390px batch-add parsing and persistence, existing script editing with live card refresh, and event-to-script generation from the script page event picker.
 
-Known Gaps: v0.3 asks for a rich-text editor and single/batch event-to-script generation proof. Current coverage verifies text editing and batch add, not rich-text formatting parity.
+Known Gaps: v0.3 asks for a rich-text editor. Current coverage verifies plain text editing and event-to-script generation, not rich-text formatting parity.
 
-Next Verification: Add widget coverage for editing an existing script and a separate plan for rich-text editor parity or a documented scoped substitute.
+Next Verification: Create a separate rich-text editor parity plan or document a scoped plain-text substitute before claiming full script-page parity.
 
 ## 素材库
 

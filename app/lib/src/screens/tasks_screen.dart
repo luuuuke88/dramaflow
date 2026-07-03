@@ -417,12 +417,14 @@ class _CenteredLoader extends StatelessWidget {
 String _taskClassLabel(AppLocalizations l10n, String taskClass) =>
     switch (taskClass) {
       'event_generation' => l10n.taskClassEventGeneration,
+      'script_generation' => l10n.taskClassScriptGeneration,
       'asset_extraction' => l10n.taskClassAssetExtraction,
       _ => taskClass.isEmpty ? l10n.taskClassGeneric : taskClass,
     };
 
 IconData _taskIcon(String taskClass) => switch (taskClass) {
       'event_generation' => Icons.auto_awesome_motion_outlined,
+      'script_generation' => Icons.article_outlined,
       'asset_extraction' => Icons.category_outlined,
       _ => Icons.bolt_outlined,
     };

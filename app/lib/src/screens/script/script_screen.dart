@@ -8,12 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/scripts.dart';
+import '../../engine/events.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_empty.dart';
+import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_search_field.dart';
 import '../../widgets/df_status_tag.dart';
 import '../../widgets/df_tag_chip.dart';
@@ -101,6 +103,25 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
     _toast(l10n.scriptMsgExtracting);
   }
 
+  Future<void> _generateFromEvents() async {
+    final l10n = context.l10n;
+    final picked = await showDFAdaptiveDialog<List<int>>(
+      context,
+      title: l10n.scriptGenerateFromEventsTitle,
+      desktopWidthFactor: 0.56,
+      builder: (_) => _EventScriptPicker(projectId: widget.projectId, ref: ref),
+    );
+    if (!mounted || picked == null) return;
+    if (picked.isEmpty) {
+      _toast(l10n.scriptGenerateFromEventsSelectHint);
+      return;
+    }
+    ref
+        .read(engineProvider)
+        .generateScriptsFromEvents(widget.projectId, picked);
+    _toast(l10n.scriptGenerateFromEventsSubmitted);
+  }
+
   Widget _stateArea(ScriptRow row) {
     final l10n = context.l10n;
     switch (row.extractState) {
@@ -129,6 +150,7 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
+    ref.watch(activeJobsProvider);
     ref.watch(jobsGenerationProvider);
     final scripts = ref
         .watch(engineProvider)
@@ -163,6 +185,11 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
               onPressed: openBatchAdd,
               icon: const Icon(Icons.library_add_outlined, size: 18),
               label: Text(l10n.scriptBatchAdd),
+            ),
+            OutlinedButton.icon(
+              onPressed: _generateFromEvents,
+              icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+              label: Text(l10n.scriptGenerateFromEvents),
             ),
           ];
           final batchActions = scripts.isEmpty
@@ -303,6 +330,79 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
                     ),
                 ]),
               ),
+      ),
+    ]);
+  }
+}
+
+class _EventScriptPicker extends StatefulWidget {
+  final int projectId;
+  final WidgetRef ref;
+  const _EventScriptPicker({required this.projectId, required this.ref});
+
+  @override
+  State<_EventScriptPicker> createState() => _EventScriptPickerState();
+}
+
+class _EventScriptPickerState extends State<_EventScriptPicker> {
+  late final List<EventRow> _events =
+      widget.ref.read(engineProvider).events(widget.projectId, limit: 999).list;
+  final Set<int> _selected = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Flexible(
+        child: _events.isEmpty
+            ? Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Text(l10n.scriptGenerateFromEventsEmpty,
+                      style: TextStyle(fontSize: 13, color: df.textTertiary)),
+                ),
+              )
+            : ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                itemCount: _events.length,
+                separatorBuilder: (_, __) => Divider(color: df.stroke),
+                itemBuilder: (context, index) {
+                  final event = _events[index];
+                  return CheckboxListTile(
+                    value: _selected.contains(event.id),
+                    onChanged: (v) => setState(() {
+                      if (v == true) {
+                        _selected.add(event.id);
+                      } else {
+                        _selected.remove(event.id);
+                      }
+                    }),
+                    title: Text(event.name ?? '',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(event.detail ?? '',
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  );
+                },
+              ),
+      ),
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: _selected.isEmpty
+                ? null
+                : () => Navigator.of(context).pop(_selected.toList()),
+            child: Text(l10n.scriptGenerateFromEventsConfirm),
+          ),
+        ]),
       ),
     ]);
   }

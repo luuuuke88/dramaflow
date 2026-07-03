@@ -34,7 +34,8 @@ void main() {
     );
     db.execute(
       "INSERT INTO o_prompt (name,type,data,useData) VALUES "
-      "('scriptAssetExtraction','scriptAssetExtraction','提取系统词',NULL)",
+      "('scriptAssetExtraction','scriptAssetExtraction','提取系统词',NULL),"
+      "('scriptGen','script_gen_system','剧本生成系统词',NULL)",
     );
     engine.installScriptPipeline();
     engine.queue.start();
@@ -50,9 +51,9 @@ void main() {
   Future<void> waitTask(int taskId, {String expectState = 'success'}) async {
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (DateTime.now().isBefore(deadline)) {
-      final state = db
-          .select('SELECT state FROM o_tasks WHERE id=?', [taskId])
-          .first['state'] as String;
+      final state = db.select(
+              'SELECT state FROM o_tasks WHERE id=?', [taskId]).first['state']
+          as String;
       if (state == 'success' || state == 'failed') {
         expect(state, expectState);
         return;
@@ -142,10 +143,8 @@ void main() {
 
     final rows = engine.scripts(projectId);
     expect(rows.map((s) => s.extractState), everyElement(1));
-    expect(rows.first.relatedAssets.map((a) => a.name).toSet(),
-        {'林逸', '寒山剑'});
-    expect(rows.last.relatedAssets.map((a) => a.name).toSet(),
-        {'林逸', '寒山剑'});
+    expect(rows.first.relatedAssets.map((a) => a.name).toSet(), {'林逸', '寒山剑'});
+    expect(rows.last.relatedAssets.map((a) => a.name).toSet(), {'林逸', '寒山剑'});
   });
 
   test('提取失败：extractState=-1 且 errorReason 为错误码 JSON', () async {
@@ -192,11 +191,56 @@ void main() {
     final regex = await engine.aiEpisodeRegex('第1集 开端\n正文' * 300);
     expect(regex, r'/第(\d+)集\s*(.*)/g');
   });
+
+  test('从事件批量生成剧本：script_gen 任务落库多集剧本', () async {
+    db.execute(
+      "INSERT INTO o_novel (projectId,chapterIndex,reel,chapter,chapterData,eventState,event) "
+      "VALUES (?,1,'正文卷','雪夜','山门雪夜',1,'事件一'),"
+      "(?,2,'正文卷','焦玉','玉佩坠地',1,'事件二')",
+      [projectId, projectId],
+    );
+    final novel1 =
+        db.select('SELECT id FROM o_novel ORDER BY id').first['id'] as int;
+    final novel2 =
+        db.select('SELECT id FROM o_novel ORDER BY id').last['id'] as int;
+    db.execute(
+      "INSERT INTO o_event (name,detail,createTime) VALUES "
+      "('雪夜破门','| 第1章 雪夜 | 林朝雪 | 黑衣人破门 | 强 | 高 | 50秒 | 冲突 |',1),"
+      "('焦玉示警','| 第2章 焦玉 | 林朝雪 | 焦黑玉佩示警 | 强 | 高 | 45秒 | 悬疑 |',2)",
+    );
+    final event1 =
+        db.select('SELECT id FROM o_event ORDER BY id').first['id'] as int;
+    final event2 =
+        db.select('SELECT id FROM o_event ORDER BY id').last['id'] as int;
+    db.execute(
+      'INSERT INTO o_eventChapter (eventId,novelId) VALUES (?,?),(?,?)',
+      [event1, novel1, event2, novel2],
+    );
+
+    gateway.textResult = (system, user, stage) {
+      expect(system, '剧本生成系统词');
+      expect(stage, 'script_gen');
+      expect(user, contains('雪夜破门'));
+      expect(user, contains('焦黑玉佩示警'));
+      return '<think>规划</think>{"episodes":[{"title":"雪夜破门","synopsis":"黑衣人破门","scenes":[{"location":"山门","timeOfDay":"夜","action":"黑衣人撞开山门","dialogues":[{"speaker":"林朝雪","line":"谁敢闯山门？"}]}]},{"title":"焦玉示警","synopsis":"玉佩示警","scenes":[{"location":"祠堂","timeOfDay":"夜","action":"焦黑玉佩亮起红光","dialogues":[]}]}]}';
+    };
+
+    final taskId =
+        engine.generateScriptsFromEvents(projectId, [event1, event2]);
+    await waitTask(taskId);
+
+    final scripts = engine.scripts(projectId);
+    expect(scripts.map((s) => s.name), ['雪夜破门', '焦玉示警']);
+    expect(scripts.first.content, contains('黑衣人撞开山门'));
+    expect(scripts.first.content, contains('林朝雪：谁敢闯山门？'));
+    expect(scripts.last.content, contains('焦黑玉佩亮起红光'));
+  });
 }
 
 class _ToolGateway implements ProviderGateway {
   Map<String, dynamic> Function(String user)? result;
   String text = '';
+  String Function(String system, String user, String stage)? textResult;
 
   @override
   Future<Map<String, dynamic>> generateToolJson(String system, String user,
@@ -212,8 +256,11 @@ class _ToolGateway implements ProviderGateway {
 
   @override
   Future<TextResult> generateText(String system, String user,
-          {required String stage, CancelToken? cancelToken}) async =>
-      TextResult(text);
+      {required String stage, CancelToken? cancelToken}) async {
+    final fn = textResult;
+    if (fn != null) return TextResult(fn(system, user, stage));
+    return TextResult(text);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

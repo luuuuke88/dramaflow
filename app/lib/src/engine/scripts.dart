@@ -13,6 +13,7 @@ import 'engine.dart';
 import 'errors.dart';
 import 'events.dart' show stripThink;
 import 'queue.dart';
+import 'util.dart' show extractJson;
 
 class ScriptRow {
   final int id;
@@ -82,7 +83,9 @@ String _ph(List<int> ids) => List.filled(ids.length, '?').join(',');
 
 extension ScriptsApi on Engine {
   void installScriptPipeline() {
+    taskRunners['script_generation'] = _runScriptGeneration;
     taskRunners['asset_extraction'] = _runAssetExtraction;
+    queue.registerRecover('script_generation', (_) {});
     queue.registerRecover('asset_extraction', _recoverAssetExtraction);
   }
 
@@ -160,7 +163,23 @@ extension ScriptsApi on Engine {
           ),
       ];
 
-  void updateScript(int id, {String? name, String? content, List<int>? assets}) {
+  /// 从已提取事件生成剧本：目标事件一次入队，runner 通过 script_gen 阶段生成
+  /// episodes JSON 并写入 o_script。对应 ToonFlow 剧本页「单个/批量从事件生成」。
+  int generateScriptsFromEvents(int projectId, List<int> eventIds) {
+    if (eventIds.isEmpty) return 0;
+    return queue.enqueue(
+      projectId: projectId,
+      taskClass: 'script_generation',
+      describe: '从事件生成剧本',
+      relatedObjects: {
+        'kind': 'event',
+        'ids': eventIds,
+      },
+    );
+  }
+
+  void updateScript(int id,
+      {String? name, String? content, List<int>? assets}) {
     final sets = <String>[];
     final args = <Object?>[];
     if (name != null) {
@@ -184,6 +203,112 @@ extension ScriptsApi on Engine {
         );
       }
     }
+  }
+
+  Future<void> _runScriptGeneration(TasksRow task, CancelToken token) async {
+    final projectId = task.projectId ?? 0;
+    final ids = (task.relatedObjectsJson['ids'] as List? ?? const [])
+        .map((e) => (e as num).toInt())
+        .toList();
+    if (ids.isEmpty) return;
+    final rows = db.select(
+      '''
+SELECT e.id id,e.name name,e.detail detail,
+       GROUP_CONCAT(n.chapterIndex) chapterIndexes
+FROM o_event e
+JOIN o_eventChapter ec ON ec.eventId=e.id
+JOIN o_novel n ON n.id=ec.novelId
+WHERE n.projectId=? AND e.id IN (${_ph(ids)})
+GROUP BY e.id
+ORDER BY MIN(n.chapterIndex), e.id
+''',
+      [projectId, ...ids],
+    );
+    if (rows.isEmpty) {
+      throw const EngineException(errNoChapters, {'reason': 'no_events'});
+    }
+
+    final system = await getPrompt('script_gen_system');
+    final eventText = rows.map((row) {
+      final chapters = ((row['chapterIndexes'] as String?) ?? '')
+          .split(',')
+          .where((s) => s.isNotEmpty)
+          .join('、');
+      return '事件ID: ${row['id']}\n'
+          '事件名: ${row['name'] ?? ''}\n'
+          '来源章节: $chapters\n'
+          '事件详情: ${row['detail'] ?? ''}';
+    }).join('\n\n---\n\n');
+    final user = '请根据以下已提取事件，批量改编为短剧剧本。'
+        '每个事件通常对应一集；如多个事件更适合合并，也可以合并但不要遗漏关键冲突。'
+        '输出必须遵循系统提示词的 episodes JSON 结构。\n\n$eventText';
+    final res = await gateway.generateText(
+      system,
+      user,
+      stage: 'script_gen',
+      cancelToken: token,
+    );
+    if (token.isCancelled) throw const EngineException(errCanceled);
+    final parsed = extractJson(stripThink(res.content));
+    final episodes =
+        parsed is Map ? (parsed['episodes'] as List? ?? const []) : const [];
+    if (episodes.isEmpty) {
+      throw const EngineException(errLlmFormat, {'reason': 'empty_episodes'});
+    }
+
+    var created = 0;
+    for (final raw in episodes.whereType<Map>()) {
+      final episode = Map<String, dynamic>.from(raw);
+      final title = (episode['title'] ?? '').toString().trim();
+      final content = _formatGeneratedEpisode(episode);
+      if (content.trim().isEmpty) continue;
+      addScript(
+        projectId: projectId,
+        name: title.isEmpty ? '剧本${created + 1}' : title,
+        content: content,
+      );
+      created++;
+    }
+    if (created == 0) {
+      throw const EngineException(errLlmFormat, {'reason': 'empty_scripts'});
+    }
+  }
+
+  String _formatGeneratedEpisode(Map<String, dynamic> episode) {
+    final title = (episode['title'] ?? '').toString().trim();
+    final synopsis = (episode['synopsis'] ?? '').toString().trim();
+    final out = StringBuffer();
+    if (title.isNotEmpty) out.writeln('# $title');
+    if (synopsis.isNotEmpty) {
+      if (out.isNotEmpty) out.writeln();
+      out.writeln('梗概：$synopsis');
+    }
+    final scenes = (episode['scenes'] as List? ?? const []).whereType<Map>();
+    var index = 0;
+    for (final raw in scenes) {
+      index++;
+      final scene = Map<String, dynamic>.from(raw);
+      final location = (scene['location'] ?? '').toString().trim();
+      final timeOfDay = (scene['timeOfDay'] ?? '').toString().trim();
+      final action = (scene['action'] ?? '').toString().trim();
+      if (out.isNotEmpty) out.writeln();
+      final suffix = [
+        if (location.isNotEmpty) location,
+        if (timeOfDay.isNotEmpty) timeOfDay,
+      ].join('｜');
+      out.writeln(suffix.isEmpty ? '## 场景 $index' : '## 场景 $index｜$suffix');
+      if (action.isNotEmpty) out.writeln(action);
+      final dialogues =
+          (scene['dialogues'] as List? ?? const []).whereType<Map>();
+      for (final lineRaw in dialogues) {
+        final line = Map<String, dynamic>.from(lineRaw);
+        final speaker = (line['speaker'] ?? '').toString().trim();
+        final text = (line['line'] ?? '').toString().trim();
+        if (text.isEmpty) continue;
+        out.writeln(speaker.isEmpty ? text : '$speaker：$text');
+      }
+    }
+    return out.toString().trim();
   }
 
   /// 级联删除照抄 delScript：agentWorkData/assets2Storyboard/scriptAssets/
@@ -250,7 +375,8 @@ extension ScriptsApi on Engine {
     final ids = (related['ids'] as List? ?? const [])
         .map((e) => (e as num).toInt())
         .toList();
-    final groupSize = ((related['groupSize'] as num?)?.toInt() ?? 5).clamp(1, 20);
+    final groupSize =
+        ((related['groupSize'] as num?)?.toInt() ?? 5).clamp(1, 20);
     final system = await getPrompt('scriptAssetExtraction');
 
     var successGroups = 0;
@@ -326,9 +452,8 @@ extension ScriptsApi on Engine {
     List<int> groupScriptIds,
     Map<String, dynamic> result,
   ) {
-    final newAssets = (result['newAssets'] as List? ?? const [])
-        .whereType<Map>()
-        .toList();
+    final newAssets =
+        (result['newAssets'] as List? ?? const []).whereType<Map>().toList();
     final existingRefs = (result['existingAssetRefs'] as List? ?? const [])
         .whereType<Map>()
         .toList();

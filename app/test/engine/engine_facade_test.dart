@@ -151,17 +151,25 @@ void main() {
       await seeded.getPrompt('eventExtraction'),
       startsWith(expected.substring(0, 20)),
     );
+    expect(
+      await seeded.getPrompt('script_gen_system'),
+      contains('资深短剧编剧'),
+    );
 
     final rows = seeded.db.select(
-      'SELECT name,type,useData FROM o_prompt WHERE name IN (?,?) ORDER BY name',
-      ['eventExtraction', 'scriptAssetExtraction'],
+      'SELECT name,type,useData FROM o_prompt WHERE name IN (?,?,?) ORDER BY name',
+      ['eventExtraction', 'scriptAssetExtraction', 'scriptGen'],
     );
     expect(rows.map((row) => row['name']), [
       'eventExtraction',
       'scriptAssetExtraction',
+      'scriptGen',
     ]);
     for (final row in rows) {
-      expect(row['type'], row['name']);
+      expect(
+        row['type'],
+        row['name'] == 'scriptGen' ? 'script_gen_system' : row['name'],
+      );
       expect(row['useData'], isNull);
     }
   });

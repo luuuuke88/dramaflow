@@ -77,6 +77,7 @@ const _stages = [
 ];
 
 const _promptMetas = [
+  _PromptMeta('scriptGen'),
   _PromptMeta('eventExtraction'),
   _PromptMeta('scriptAssetExtraction'),
   _PromptMeta('storyboard_gen'),
@@ -132,6 +133,7 @@ class _PromptMeta {
   const _PromptMeta(this.key);
 
   String title(AppLocalizations l10n) => switch (key) {
+        'scriptGen' => l10n.stageScriptGenTitle,
         'eventExtraction' => l10n.promptEventExtractionTitle,
         'scriptAssetExtraction' => l10n.promptScriptAssetExtractionTitle,
         'storyboard_gen' => l10n.promptStoryboardGenTitle,
@@ -143,6 +145,7 @@ class _PromptMeta {
       };
 
   String description(AppLocalizations l10n) => switch (key) {
+        'scriptGen' => l10n.stageScriptGenDescription,
         'eventExtraction' => l10n.promptEventExtractionDescription,
         'scriptAssetExtraction' => l10n.promptScriptAssetExtractionDescription,
         'storyboard_gen' => l10n.promptStoryboardGenDescription,
