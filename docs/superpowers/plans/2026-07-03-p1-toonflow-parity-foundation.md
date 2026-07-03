@@ -415,3 +415,12 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - ✅ T13 部分：语言切换入口+工具 v3（1748bbc）；**真实 E2E 全链通过**（章节→事件 2/2→o_event 落表→剧本→资产提取 2/2→o_assets 8 行，azt gpt-5.5，管道格式与 resultTool 均正常）；macOS debug 构建+启动冒烟通过；109 单测全绿 analyze 零告警
 - ⏳ T13 余项：populate 演示项目（进行中）/ iPhone 模拟器双端验收 / en·ja 三语扫查截图
 - P1 完成后进入 P2（素材库全量：4 tabs/子资产/润色/批量生图 + 画风库），按 spec §6 继续
+
+## P2 进度快照（2026-07-03，审核方维护）
+
+- ✅ P2 引擎层素材模块（f0e5e47）：assets.dart 全量——父子层级 CRUD / 音频资产 / polishAssetPrompt（视觉手册作 system，用户模板逐字）/ 批量润色任务 / generateAssetImages 生图任务 / 中文状态枚举（生成中·已完成·生成失败）/ 冷启动恢复；素材页三语 ARB 79 键补齐（ToonFlow 原语言包缺 70+ 键，全部自补）
+- ✅ P2 UI（9526eeb）：资产中心 5 tabs + 父子展开表 + 生成图片双栏对话框（左表单/右版本网格三态）+ 批量生成对话框（提示词/图片双模式）+ 音频资产对话框；导航「资产中心」解禁
+- ✅ 生图 Null 强转 bug 修复（343f344）：image_size_directive 在 P1 改为 useData=NULL 后，gateway 裸强转崩溃；已回落 data，加回归测试；确认引擎内无其他同类隐患
+- ⏳ P2 真实生图端到端验收进行中（tool/e2e_assets.dart，真 LLM 润色已通过，gpt-image-2 生图验证中）
+- 偏差补充：taskClass 统一英文（asset_prompt_polish/asset_image_generation），生图 aspectRatio 用项目 videoRatio（ToonFlow 写死 16:9）；均记于 assets.dart 头注释
+- 下一步：P2 收尾后按 spec §6 进入 P3（制作画布 + 分镜表 + 节点式图片编辑器）
