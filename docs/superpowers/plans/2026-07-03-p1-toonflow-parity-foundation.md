@@ -529,3 +529,35 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - 238 测全绿、analyze 零告警、macOS 可构建。
 - 收尾中：settings/tasks/组件层遗留硬编码文案的最终 i18n pass（代理进行中）+
   完整 test + macOS 构建 + iOS 启动冒烟。
+
+## Codex 接力收尾与移动端补强（2026-07-04）
+
+- ✅ 最终 i18n pass 已落地并提交（adbfd61）：settings/tasks/shared widgets 的
+  UI 中文硬编码改为 `AppLocalizations`；新增静态测试
+  `test/ui_i18n_static_test.dart` 防止设置页、任务页、共享组件再次出现中文硬编码；
+  `df_widgets_test` 测试壳补齐三语 delegate。
+- ✅ 收尾验证已跑：`flutter analyze` 零 issue；`flutter test` 239/239 通过；
+  `flutter build macos --debug` 通过；`flutter build ios --simulator --debug` 通过并已
+  安装启动到 iPhone 模拟器（进程可查）。
+- ⚠️ `flutter build web` 已实测失败，根因不是 UI，而是当前内嵌引擎静态依赖
+  `sqlite3` 的 `dart:ffi` 路径；Web/H5 若要成为一等公民，需要单独做数据库
+  条件导入（sqlite3-WASM/OPFS 或浏览器端适配）后，再继续 WebCodecs/Mediabunny
+  合成器。当前不能当 H5 发版。
+- ✅ Android 移动端合成从“不支持”推进到“可构建的原生通道”（ffc784b）：
+  `main.dart` 将 Android 接入 `dramaflow/composer`；`MainActivity.kt` 注册
+  `probeDuration`/`concat`，使用 Android 系统 `MediaMetadataRetriever` +
+  `MediaExtractor` + `MediaMuxer` 做零 ffmpeg 的同编码 MP4 顺序拼接；新增
+  `test/platform/android_composer_static_test.dart` 锁定 Android 不再走
+  `UnsupportedComposer`。
+- ✅ Android 验证已跑：先看见静态测试红灯（缺少 MethodChannel），实现后
+  `flutter test test/platform/android_composer_static_test.dart` 通过；
+  `flutter analyze` 零 issue；`flutter test` 240/240 通过；
+  `flutter build apk --debug` 通过，产物：
+  `app/build/app/outputs/flutter-apk/app-debug.apk`。
+- ⚠️ Android 合成器限制：当前是同编码/同分辨率/同音频参数的 remux 快路径，
+  适合 Seedance 统一规格输出；它不是完整 Media3 Transformer 转码器。若后续要
+  支持混合分辨率、不同编码、音频补静音、转场或滤镜，仍需按 spec 升级到
+  Media3 Transformer 或等价原生转码管线。
+- 已知构建警告：macOS/iOS 的 `media_kit_video` 插件暂不支持 Swift Package
+  Manager（未来 Flutter 可能变错误）；Android 构建提示 `wakelock_plus` 使用旧式
+  Kotlin Gradle Plugin；这些不是当前功能失败，但属于升级风险。
