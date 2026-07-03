@@ -98,11 +98,16 @@ void main() {
   });
 
   // 通过一个按钮触发 showImageFlowEditor（需要 WidgetRef + BuildContext）。
-  Widget host({int? flowId, int? scriptId, List<String> seedRefs = const []}) {
+  Widget host({
+    int? flowId,
+    int? scriptId,
+    List<String> seedRefs = const [],
+    Size size = const Size(1400, 1000),
+  }) {
     return ProviderScope(
       overrides: [engineProvider.overrideWithValue(engine)],
       child: MediaQuery(
-        data: const MediaQueryData(size: Size(1400, 1000)),
+        data: MediaQueryData(size: size),
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
@@ -303,6 +308,76 @@ void main() {
     await tester.pumpAndSettle();
     // 对话框关闭（不再有资产名）。
     expect(find.text('林朝雪'), findsNothing);
+  });
+
+  testWidgets('移动端 390px：生成节点首屏可操作，素材参考与生成参数可保存',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final modelValue = await installImageModel();
+    final assetId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    final assetRel = engine.media.saveImage(_pngBytes, '$projectId');
+    engine.attachAssetImage(assetId, assetRel);
+
+    await tester.pumpWidget(host(
+        size: const Size(390, 900), seedRefs: [seedUploadRel()]));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final generatedTitle = find.descendant(
+      of: find.byType(GestureDetector),
+      matching: find.text('图片生成'),
+    );
+    expect(generatedTitle.hitTestable(), findsOneWidget,
+        reason: '390px 宽度下生成节点应在首屏可点击，不能只停留在画布右侧视野外');
+
+    await tester.tap(uploadImageTap().first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('从素材库选择'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('林朝雪'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(generatedTitle.hitTestable());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, '雪地御剑回眸');
+    await tester.pumpAndSettle();
+
+    await tester.tap(modelDrop());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('TestVendor · Seedream X').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(ratioDrop());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('9:16').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(qualityDrop());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2K').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+
+    final rows = engine.db
+        .select('SELECT id FROM o_imageFlow ORDER BY id DESC LIMIT 1');
+    expect(rows, isNotEmpty);
+    final data = engine.getImageFlow(rows.first['id'] as int);
+    final upload = data.nodes.firstWhere((n) => n.type == 'upload');
+    final generated = data.nodes.firstWhere((n) => n.type == 'generated');
+    expect(upload.data['image'], assetRel);
+    expect(generated.data['references'], [
+      {'image': assetRel}
+    ]);
+    expect(generated.data['prompt'], '雪地御剑回眸');
+    expect(generated.data['model'], modelValue);
+    expect(generated.data['ratio'], '9:16');
+    expect(generated.data['quality'], '2K');
   });
 
   testWidgets('从分镜选择：无 scriptId 时提示无图片', (tester) async {

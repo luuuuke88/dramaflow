@@ -70,11 +70,11 @@ Status: Partial
 
 Desktop Evidence: `app/test/widgets/image_flow_editor_test.dart` and `app/test/engine/image_flow_test.dart` cover graph persistence, reference image selection, generated node controls, flow image generation, and line deletion.
 
-Mobile Evidence: Indirectly reachable from production mobile tests, but no dedicated 390px image-flow editor smoke is recorded.
+Mobile Evidence: `app/test/widgets/image_flow_editor_test.dart` covers a dedicated 390px editor flow: the generated node is fit into the first mobile viewport, an upload node can replace its reference from the asset library, and generated-node prompt/model/ratio/quality settings persist into `o_imageFlow`.
 
-Known Gaps: Local remove-line/inpaint UI parity and mobile image-flow manipulation are not fully proven.
+Known Gaps: Local remove-line/inpaint UI parity is not fully proven.
 
-Next Verification: Add a mobile image-flow smoke that opens the editor, selects an asset reference, and verifies generated-node settings remain usable.
+Next Verification: Add a scoped local remove-line/inpaint parity plan before claiming full image-flow editor parity.
 
 ## 多轨工作台
 

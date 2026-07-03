@@ -852,6 +852,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final compact = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.productionEditImageImageGeneration),
@@ -904,7 +905,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
           for (final e in _edges)
             DFCanvasEdge(sourceId: e.source, targetId: e.target),
         ],
-        fitOnInit: false,
+        fitOnInit: compact,
       ),
     );
   }
