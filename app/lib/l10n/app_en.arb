@@ -560,5 +560,13 @@
   "storyboardExportAll": "Export all",
   "storyboardExportNoImages": "No first-frame images to export yet",
   "storyboardExportSuccess": "Exported {count} first-frame images",
-  "storyboardExportFailed": "Export failed: {reason}"
+  "storyboardExportFailed": "Export failed: {reason}",
+  "scriptPlanEmpty": "No script plan yet. Tap to write the overall direction, pacing, and key points.",
+  "scriptPlanWrite": "Write plan",
+  "scriptPlanEditTitle": "Edit script plan",
+  "scriptPlanEditHint": "Use Markdown to capture the project plan: main plot, character arcs, per-episode pacing, tone and style...",
+  "scriptPlanSaved": "Script plan saved",
+  "canvasChatTitle": "Script Agent",
+  "canvasChatOpen": "Agent chat",
+  "canvasChatClose": "Close"
 }

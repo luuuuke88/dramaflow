@@ -1670,4 +1670,29 @@ class AppLocalizationsJa extends AppLocalizations {
   String storyboardExportFailed(String reason) {
     return '書き出しに失敗しました：$reason';
   }
+
+  @override
+  String get scriptPlanEmpty => '脚本プランはまだありません。全体の方向性・テンポ・要点をここに書き込みます。';
+
+  @override
+  String get scriptPlanWrite => 'プランを書く';
+
+  @override
+  String get scriptPlanEditTitle => '脚本プランを編集';
+
+  @override
+  String get scriptPlanEditHint =>
+      'Markdown でプロジェクト全体の計画を記録：メインストーリー、キャラクターの成長、各話のテンポ、トーンとスタイル……';
+
+  @override
+  String get scriptPlanSaved => '脚本プランを保存しました';
+
+  @override
+  String get canvasChatTitle => '脚本エージェント';
+
+  @override
+  String get canvasChatOpen => 'エージェント対話';
+
+  @override
+  String get canvasChatClose => '閉じる';
 }

@@ -1719,4 +1719,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String storyboardExportFailed(String reason) {
     return 'Export failed: $reason';
   }
+
+  @override
+  String get scriptPlanEmpty =>
+      'No script plan yet. Tap to write the overall direction, pacing, and key points.';
+
+  @override
+  String get scriptPlanWrite => 'Write plan';
+
+  @override
+  String get scriptPlanEditTitle => 'Edit script plan';
+
+  @override
+  String get scriptPlanEditHint =>
+      'Use Markdown to capture the project plan: main plot, character arcs, per-episode pacing, tone and style...';
+
+  @override
+  String get scriptPlanSaved => 'Script plan saved';
+
+  @override
+  String get canvasChatTitle => 'Script Agent';
+
+  @override
+  String get canvasChatOpen => 'Agent chat';
+
+  @override
+  String get canvasChatClose => 'Close';
 }

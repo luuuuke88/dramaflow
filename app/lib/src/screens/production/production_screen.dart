@@ -1,7 +1,9 @@
 // 制作画布（照抄 production/index.vue 主链结构，见移植参照 §1）：
 // 剧集选择器 + 无限画布（script→scriptPlan→storyboardTable→storyboard→workbench 主链，
-// assets 挂 script 下方）。scriptPlan 为 P5 占位卡片（Agent 体系待后续批次）；
-// workbench 为紧凑摘要卡+入口按钮，打开全屏工作台（P4，见 workbench_screen.dart）。
+// assets 挂 script 下方）。scriptPlan 为真实 Markdown 规划节点（见 script_plan_node.dart，
+// 存 o_agentWorkData(key='scriptPlan')）；workbench 为紧凑摘要卡+入口按钮，打开全屏
+// 工作台（P4，见 workbench_screen.dart）。右上角提供 Agent 对话入口：桌面右侧滑出面板、
+// 移动端全屏对话（照抄 ToonFlow rightChatBox，见 canvas_chat_panel.dart）。
 // 移动端 <840：画布不适合窄屏平移操作，改为纵向 Tab 切换各节点内容（同功能不同呈现）。
 import 'dart:io';
 
@@ -19,7 +21,9 @@ import '../../theme/tokens.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_canvas.dart';
 import '../../widgets/df_empty.dart';
+import 'canvas_chat_panel.dart';
 import 'image_flow_editor.dart';
+import 'script_plan_node.dart';
 import 'workbench_screen.dart';
 import 'storyboard_canvas_node.dart';
 
@@ -111,13 +115,24 @@ class _EpisodeBar extends StatelessWidget {
 }
 
 /// 桌面画布布局：链式节点 + 贝塞尔边（位置每次构建重算，不落库，与 ToonFlow 主画布行为一致）。
-class _CanvasLayout extends StatelessWidget {
+/// 右上角工具栏含 Agent 对话入口，点击滑出右侧对话面板（照抄 ToonFlow rightChatBox）。
+class _CanvasLayout extends StatefulWidget {
   final int projectId;
   final ScriptRow script;
   const _CanvasLayout({required this.projectId, required this.script});
 
   @override
+  State<_CanvasLayout> createState() => _CanvasLayoutState();
+}
+
+class _CanvasLayoutState extends State<_CanvasLayout> {
+  static const _chatPanelWidth = 380.0;
+  bool _chatOpen = false;
+
+  @override
   Widget build(BuildContext context) {
+    final projectId = widget.projectId;
+    final script = widget.script;
     const gap = 60.0;
     const nodeW = 320.0;
     var x = 0.0;
@@ -133,7 +148,7 @@ class _CanvasLayout extends StatelessWidget {
     final workbenchPos = Offset(x, 0);
     final assetsPos = Offset(scriptPos.dx, 460.0);
 
-    return DFCanvas(
+    final canvas = DFCanvas(
       fitOnInit: true,
       nodes: [
         DFCanvasNode(
@@ -145,9 +160,8 @@ class _CanvasLayout extends StatelessWidget {
         DFCanvasNode(
           id: 'scriptPlan',
           position: planPos,
-          size: const Size(nodeW, 220),
-          child: _StubNode(
-              title: context.l10n.productionNodeScriptPlanTitle, batch: 'P5'),
+          size: const Size(nodeW, 260),
+          child: ScriptPlanNode(projectId: projectId),
         ),
         DFCanvasNode(
           id: 'assets',
@@ -185,6 +199,47 @@ class _CanvasLayout extends StatelessWidget {
         DFCanvasEdge(sourceId: 'storyboard', targetId: 'workbench'),
       ],
     );
+
+    final df = context.df;
+    return Stack(children: [
+      Positioned.fill(child: canvas),
+      // 右上角 Agent 对话入口（面板打开时隐藏，让位于面板头部的关闭按钮）。
+      if (!_chatOpen)
+        Positioned(
+          top: 12,
+          right: 12,
+          child: FloatingActionButton.extended(
+            heroTag: 'canvasChatToggle',
+            onPressed: () => setState(() => _chatOpen = true),
+            icon: const Icon(Icons.smart_toy_outlined),
+            label: Text(context.l10n.canvasChatOpen),
+          ),
+        ),
+      // 右侧滑出对话面板。
+      AnimatedPositioned(
+        duration: DFTokens.standard200,
+        curve: DFTokens.curve,
+        top: 0,
+        bottom: 0,
+        right: _chatOpen ? 0 : -_chatPanelWidth,
+        width: _chatPanelWidth,
+        child: Material(
+          elevation: 8,
+          color: df.surface,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(left: BorderSide(color: df.stroke)),
+            ),
+            child: _chatOpen
+                ? CanvasChatPanel(
+                    projectId: projectId,
+                    onClose: () => setState(() => _chatOpen = false),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    ]);
   }
 }
 
@@ -200,7 +255,7 @@ class _MobileTabsLayout extends StatefulWidget {
 
 class _MobileTabsLayoutState extends State<_MobileTabsLayout>
     with SingleTickerProviderStateMixin {
-  late final TabController _tab = TabController(length: 5, vsync: this);
+  late final TabController _tab = TabController(length: 6, vsync: this);
 
   @override
   void dispose() {
@@ -208,24 +263,50 @@ class _MobileTabsLayoutState extends State<_MobileTabsLayout>
     super.dispose();
   }
 
+  /// 移动端 Agent 对话入口：全屏对话页（照抄 ToonFlow rightChatBox 的移动呈现）。
+  void _openChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (c) => Scaffold(
+          appBar: AppBar(title: Text(context.l10n.canvasChatTitle)),
+          body: CanvasChatPanel(projectId: widget.projectId),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Column(children: [
-      TabBar(
-        controller: _tab,
-        isScrollable: true,
-        tabs: [
-          Tab(text: l10n.productionNodeScriptTitle),
-          Tab(text: l10n.productionNodeAssetsTitle),
-          Tab(text: l10n.productionNodeStoryboardTableTitle),
-          Tab(text: l10n.productionNodeStoryboardTitle),
-          Tab(text: l10n.workbenchTitle),
-        ],
-      ),
+      Row(children: [
+        Expanded(
+          child: TabBar(
+            controller: _tab,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(text: l10n.productionNodeScriptTitle),
+              Tab(text: l10n.productionNodeScriptPlanTitle),
+              Tab(text: l10n.productionNodeAssetsTitle),
+              Tab(text: l10n.productionNodeStoryboardTableTitle),
+              Tab(text: l10n.productionNodeStoryboardTitle),
+              Tab(text: l10n.workbenchTitle),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: l10n.canvasChatOpen,
+          icon: const Icon(Icons.smart_toy_outlined),
+          onPressed: _openChat,
+        ),
+        const SizedBox(width: 4),
+      ]),
       Expanded(
         child: TabBarView(controller: _tab, children: [
           _ScriptNode(script: widget.script),
+          ScriptPlanNode(projectId: widget.projectId),
           _AssetsNode(projectId: widget.projectId, script: widget.script),
           _StoryboardTableNode(
               projectId: widget.projectId, scriptId: widget.script.id),
@@ -467,29 +548,3 @@ class _WorkbenchNode extends ConsumerWidget {
   }
 }
 
-class _StubNode extends StatelessWidget {
-  final String title;
-  final String batch;
-  const _StubNode({required this.title, required this.batch});
-
-  @override
-  Widget build(BuildContext context) {
-    final df = context.df;
-    return _NodeFrame(
-      title: title,
-      child: Column(children: [
-        _NodeHeader(title: title),
-        Expanded(
-          child: Center(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.hourglass_empty, color: df.textTertiary, size: 20),
-              const SizedBox(height: 6),
-              Text(context.l10n.shellComingSoon(batch),
-                  style: TextStyle(fontSize: 11, color: df.textTertiary)),
-            ]),
-          ),
-        ),
-      ]),
-    );
-  }
-}

@@ -735,5 +735,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "scriptPlanEmpty": "还没有剧本规划，点此撰写整体思路、节奏与要点。",
+  "scriptPlanWrite": "撰写规划",
+  "scriptPlanEditTitle": "编辑剧本规划",
+  "scriptPlanEditHint": "用 Markdown 记录本项目的整体规划：主线、人物弧光、分集节奏、风格基调……",
+  "scriptPlanSaved": "剧本规划已保存",
+  "canvasChatTitle": "剧本 Agent",
+  "canvasChatOpen": "Agent 对话",
+  "canvasChatClose": "关闭"
 }

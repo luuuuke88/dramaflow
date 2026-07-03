@@ -3291,6 +3291,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'导出失败：{reason}'**
   String storyboardExportFailed(String reason);
+
+  /// No description provided for @scriptPlanEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有剧本规划，点此撰写整体思路、节奏与要点。'**
+  String get scriptPlanEmpty;
+
+  /// No description provided for @scriptPlanWrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'撰写规划'**
+  String get scriptPlanWrite;
+
+  /// No description provided for @scriptPlanEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑剧本规划'**
+  String get scriptPlanEditTitle;
+
+  /// No description provided for @scriptPlanEditHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用 Markdown 记录本项目的整体规划：主线、人物弧光、分集节奏、风格基调……'**
+  String get scriptPlanEditHint;
+
+  /// No description provided for @scriptPlanSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本规划已保存'**
+  String get scriptPlanSaved;
+
+  /// No description provided for @canvasChatTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本 Agent'**
+  String get canvasChatTitle;
+
+  /// No description provided for @canvasChatOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 对话'**
+  String get canvasChatOpen;
+
+  /// No description provided for @canvasChatClose.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get canvasChatClose;
 }
 
 class _AppLocalizationsDelegate

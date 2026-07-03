@@ -1661,4 +1661,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String storyboardExportFailed(String reason) {
     return '导出失败：$reason';
   }
+
+  @override
+  String get scriptPlanEmpty => '还没有剧本规划，点此撰写整体思路、节奏与要点。';
+
+  @override
+  String get scriptPlanWrite => '撰写规划';
+
+  @override
+  String get scriptPlanEditTitle => '编辑剧本规划';
+
+  @override
+  String get scriptPlanEditHint => '用 Markdown 记录本项目的整体规划：主线、人物弧光、分集节奏、风格基调……';
+
+  @override
+  String get scriptPlanSaved => '剧本规划已保存';
+
+  @override
+  String get canvasChatTitle => '剧本 Agent';
+
+  @override
+  String get canvasChatOpen => 'Agent 对话';
+
+  @override
+  String get canvasChatClose => '关闭';
 }
