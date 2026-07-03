@@ -238,8 +238,11 @@ class _NoopGateway implements ProviderGateway {
     String projectId, {
     required String stage,
     cancelToken,
-    String? refImageAbsPath,
+    List<String> referenceAbsPaths = const [],
     String? editInstruction,
+    String? ratio,
+    String? quality,
+    String? modelOverride,
   }) {
     throw UnimplementedError();
   }

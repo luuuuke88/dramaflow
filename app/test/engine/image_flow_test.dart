@@ -15,16 +15,19 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 class _Gateway implements ProviderGateway {
-  String Function(String prompt, String? refPath)? imageHandler;
+  String Function(String prompt, List<String> refs)? imageHandler;
 
   @override
   Future<String> generateImage(String prompt, String projectId,
       {required String stage,
       CancelToken? cancelToken,
-      String? refImageAbsPath,
-      String? editInstruction}) async {
+      List<String> referenceAbsPaths = const [],
+      String? editInstruction,
+      String? ratio,
+      String? quality,
+      String? modelOverride}) async {
     expect(stage, 'asset_image');
-    return imageHandler!(prompt, refImageAbsPath);
+    return imageHandler!(prompt, referenceAbsPaths);
   }
 
   @override
@@ -86,10 +89,10 @@ void main() {
     expect(engine.getImageFlow(999).nodes, isEmpty);
   });
 
-  test('generateFlowImage 取首张参考图，同步直调网关不入队列', () async {
-    gateway.imageHandler = (prompt, refPath) {
+  test('generateFlowImage 把全部参考图传给网关，同步直调不入队列', () async {
+    gateway.imageHandler = (prompt, refs) {
       expect(prompt, '少年拔剑');
-      expect(refPath, 'ref/first.png');
+      expect(refs, ['ref/first.png', 'ref/second.png']);
       return 'p/generated.png';
     };
     final rel = await engine.generateFlowImage(

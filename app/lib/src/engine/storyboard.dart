@@ -391,22 +391,26 @@ extension StoryboardApi on Engine {
         try {
           final assetIds = db
               .select(
-                  'SELECT assetId FROM o_assets2Storyboard WHERE storyboardId=?',
+                  'SELECT assetId FROM o_assets2Storyboard WHERE storyboardId=? '
+                  'ORDER BY rowid',
                   [id])
               .map((r) => r['assetId'] as int)
               .toList();
-          String? refPath;
-          if (assetIds.isNotEmpty) {
+          // 对齐 ToonFlow batchGenerateImage：把 **全部** 关联资产的首图按顺序
+          // 作为参考列表传给图模型（此前只取 assetIds.first，丢失了角色+场景+道具
+          // 的多参考信息，导致多资产分镜生成偏离）。
+          final refPaths = <String>[];
+          for (final assetId in assetIds) {
             final assetImage = db
                 .select(
                   'SELECT i.filePath filePath FROM o_assets a '
                   'JOIN o_image i ON i.id=a.imageId WHERE a.id=?',
-                  [assetIds.first],
+                  [assetId],
                 )
                 .firstOrNull;
             final rel = assetImage?['filePath'] as String?;
             if (rel != null && rel.isNotEmpty) {
-              refPath = media.absPath(rel);
+              refPaths.add(media.absPath(rel));
             }
           }
           final rel = await gateway.generateImage(
@@ -414,7 +418,7 @@ extension StoryboardApi on Engine {
             '$projectId',
             stage: 'shot_image',
             cancelToken: token,
-            refImageAbsPath: refPath,
+            referenceAbsPaths: refPaths,
           );
           db.execute(
             'UPDATE o_storyboard SET state=?, filePath=?, reason=NULL WHERE id=?',

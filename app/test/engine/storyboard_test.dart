@@ -215,11 +215,15 @@ class _Gateway implements ProviderGateway {
   Future<String> generateImage(String prompt, String projectId,
       {required String stage,
       CancelToken? cancelToken,
-      String? refImageAbsPath,
-      String? editInstruction}) async {
+      List<String> referenceAbsPaths = const [],
+      String? editInstruction,
+      String? ratio,
+      String? quality,
+      String? modelOverride}) async {
     expect(stage, 'shot_image');
     await Future<void>.delayed(const Duration(milliseconds: 5));
-    return imageHandler!(prompt, projectId, refImageAbsPath);
+    return imageHandler!(prompt, projectId,
+        referenceAbsPaths.isEmpty ? null : referenceAbsPaths.first);
   }
 
   @override

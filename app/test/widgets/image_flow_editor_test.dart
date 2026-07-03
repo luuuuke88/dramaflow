@@ -23,8 +23,11 @@ class _Gateway implements ProviderGateway {
   Future<String> generateImage(String prompt, String projectId,
       {required String stage,
       CancelToken? cancelToken,
-      String? refImageAbsPath,
-      String? editInstruction}) async {
+      List<String> referenceAbsPaths = const [],
+      String? editInstruction,
+      String? ratio,
+      String? quality,
+      String? modelOverride}) async {
     imageCalls++;
     return 'p/gen.png';
   }

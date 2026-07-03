@@ -91,6 +91,38 @@ ResolvedModel resolveStage(Database db, String stage) {
   );
 }
 
+/// 按 providerId + modelId 直接解析一个已启用模型（用于逐次生成时覆盖阶段绑定，
+/// 对齐 ToonFlow generateAssets/generateFlowImage 的 model 入参）。kind 不限。
+ResolvedModel resolveModelById(Database db, String providerId, String modelId) {
+  final providers = db.select(
+      'SELECT id, inputValues, models FROM o_vendorConfig WHERE id=? AND COALESCE(enable,1)=1',
+      [providerId]);
+  if (providers.isEmpty) {
+    throw EngineException(errProviderMissing, {'providerId': providerId});
+  }
+  final p = providers.first;
+  final inputValues = _jsonMap(p['inputValues']);
+  final models = _jsonList(p['models']);
+  Map<String, dynamic>? model;
+  for (final item in models.whereType<Map>()) {
+    final c = Map<String, dynamic>.from(item);
+    if (c['modelId'] == modelId && _enabled(c['enabled'])) {
+      model = c;
+      break;
+    }
+  }
+  if (model == null) {
+    throw EngineException(errModelMissing, {'modelId': modelId});
+  }
+  return ResolvedModel(
+    providerId: p['id'] as String,
+    protocol: inputValues['protocol'] as String? ?? 'openai_compatible',
+    baseUrl: inputValues['baseUrl'] as String? ?? '',
+    apiKey: inputValues['apiKey'] as String? ?? '',
+    modelId: modelId,
+  );
+}
+
 Map<String, dynamic> _jsonMap(Object? value) {
   if (value is String && value.trim().isNotEmpty) {
     final decoded = jsonDecode(value);

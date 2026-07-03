@@ -177,7 +177,7 @@ void main() {
         '青衣少女',
         'projX',
         stage: 'asset_image',
-        refImageAbsPath: ref.path,
+        referenceAbsPaths: [ref.path],
         editInstruction: '把衣服改成红色',
       );
 

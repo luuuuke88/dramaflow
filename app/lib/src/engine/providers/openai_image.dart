@@ -15,12 +15,17 @@ Future<String> openaiGenerateImage(
   String projectId, {
   required String imageSizeDirective,
   CancelToken? cancelToken,
-  String? refImageAbsPath,
+  List<String> referenceAbsPaths = const [],
   String? editInstruction,
+  String? size,
+  String? quality,
 }) async {
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
   final fullPrompt = '${prompt.trim()}\n\n$imageSizeDirective';
-  final hasRef = refImageAbsPath != null && refImageAbsPath.trim().isNotEmpty;
+  final refs =
+      referenceAbsPaths.where((p) => p.trim().isNotEmpty).toList();
+  final effSize = size ?? '1024x1024';
+  final effQuality = quality ?? 'low';
   final requestOptions = Options(
     headers: model.apiKey.isEmpty
         ? const <String, String>{}
@@ -29,18 +34,28 @@ Future<String> openaiGenerateImage(
     receiveTimeout: const Duration(seconds: 960),
     validateStatus: (s) => s != null && s < 400,
   );
-  if (hasRef) {
+  if (refs.isNotEmpty) {
     final instruction = (editInstruction ?? '').trim();
     final editPrompt =
         instruction.isEmpty ? fullPrompt : '$fullPrompt\n\n修改意见：$instruction';
+    // gpt-image-1 edits 支持多张参考图（image[]）；单张时用 image 兼容旧行为。
+    final form = <String, dynamic>{
+      'model': model.modelId,
+      'prompt': editPrompt,
+      'response_format': 'b64_json',
+      'size': effSize,
+      'quality': effQuality,
+    };
+    if (refs.length == 1) {
+      form['image'] = await MultipartFile.fromFile(refs.first);
+    } else {
+      form['image[]'] = [
+        for (final r in refs) await MultipartFile.fromFile(r),
+      ];
+    }
     final res = await dio.post(
       '$base/images/edits',
-      data: FormData.fromMap({
-        'model': model.modelId,
-        'prompt': editPrompt,
-        'response_format': 'b64_json',
-        'image': await MultipartFile.fromFile(refImageAbsPath.trim()),
-      }),
+      data: FormData.fromMap(form),
       options: requestOptions,
       cancelToken: cancelToken,
     );
@@ -52,8 +67,8 @@ Future<String> openaiGenerateImage(
     data: {
       'model': model.modelId,
       'prompt': fullPrompt,
-      'size': '1024x1024',
-      'quality': 'low',
+      'size': effSize,
+      'quality': effQuality,
       'response_format': 'b64_json',
     },
     options: requestOptions,

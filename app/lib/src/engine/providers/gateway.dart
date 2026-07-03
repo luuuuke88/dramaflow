@@ -38,14 +38,20 @@ abstract class ProviderGateway {
   Future<TextResult> generateText(String system, String user,
       {required String stage, CancelToken? cancelToken});
 
-  /// 返回 rel 媒体路径（如 `proj1/img_xxx.png`）
+  /// 返回 rel 媒体路径（如 `proj1/img_xxx.png`）。
+  /// referenceAbsPaths：多张参考图（对齐 ToonFlow 的 referenceList，全部传给图模型）。
+  /// ratio/quality：逐次生成的画幅/清晰度（对齐 generatedNode / generateAssets）。
+  /// modelOverride：'providerId:modelId'，覆盖阶段绑定的图模型（为空则用 stage 解析）。
   Future<String> generateImage(
     String prompt,
     String projectId, {
     required String stage,
     CancelToken? cancelToken,
-    String? refImageAbsPath,
+    List<String> referenceAbsPaths = const [],
     String? editInstruction,
+    String? ratio,
+    String? quality,
+    String? modelOverride,
   });
 
   /// 返回 rel 媒体路径（如 `proj1/vid_xxx.mp4`）
@@ -129,10 +135,21 @@ class HttpProviderGateway implements ProviderGateway {
     String projectId, {
     required String stage,
     CancelToken? cancelToken,
-    String? refImageAbsPath,
+    List<String> referenceAbsPaths = const [],
     String? editInstruction,
+    String? ratio,
+    String? quality,
+    String? modelOverride,
   }) {
-    final model = resolveStage(db, stage);
+    // 逐次可覆盖阶段绑定的图模型（'providerId:modelId'）；否则按 stage 解析。
+    ResolvedModel model;
+    if (modelOverride != null && modelOverride.contains(':')) {
+      final i = modelOverride.indexOf(':');
+      model = resolveModelById(
+          db, modelOverride.substring(0, i), modelOverride.substring(i + 1));
+    } else {
+      model = resolveStage(db, stage);
+    }
     final directiveRows = db.select(
         'SELECT useData, data FROM o_prompt WHERE name=?',
         ['image_size_directive']);
@@ -144,8 +161,38 @@ class HttpProviderGateway implements ProviderGateway {
     return openaiGenerateImage(dio, model, media, prompt, projectId,
         imageSizeDirective: directive,
         cancelToken: cancelToken,
-        refImageAbsPath: refImageAbsPath,
-        editInstruction: editInstruction);
+        referenceAbsPaths: referenceAbsPaths,
+        editInstruction: editInstruction,
+        size: _ratioToSize(ratio),
+        quality: _qualityLabelToApi(quality));
+  }
+
+  /// 画幅 → OpenAI gpt-image 尺寸（近似映射；size 对 OAuth 供应商为建议性）。
+  static String? _ratioToSize(String? ratio) {
+    switch (ratio) {
+      case '16:9':
+        return '1536x1024';
+      case '9:16':
+        return '1024x1536';
+      case '1:1':
+        return '1024x1024';
+      default:
+        return null;
+    }
+  }
+
+  /// 清晰度档位（1K/2K/4K）→ OpenAI quality（low/medium/high）。
+  static String? _qualityLabelToApi(String? quality) {
+    switch (quality) {
+      case '1K':
+        return 'low';
+      case '2K':
+        return 'medium';
+      case '4K':
+        return 'high';
+      default:
+        return null;
+    }
   }
 
   @override

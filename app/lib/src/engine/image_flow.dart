@@ -3,10 +3,7 @@
 // o_imageFlow.flowData = JSON {"nodes":[...],"edges":[...]}（剥离 VueFlow 内部字段，
 // 仅保留 id/type/position/data，逐字照抄 cleanNodes/cleanEdges 语义）。
 //
-// 已知偏差（文档化）：ToonFlow generateFlowImage 支持任意数量连线参考图；本引擎的
-// ProviderGateway.generateImage 签名仅支持单张参考图（与 P1/P2 一致的既有能力边界），
-// 故本模块取连线参考图的第一张作为编辑基准图，其余参考图仍在画布可见/可连线，
-// 但不参与本次生成——不是无声阉割，此限制体现在 UI 提示文案中。
+// generateFlowImage 把全部连线参考图作为参考列表传给图模型（对齐 ToonFlow 多参考语义）。
 // 本操作是交互式同步调用（用户点击等待），不入队列（与 ToonFlow 该端点同为同步语义，
 // 不产生 o_tasks 行）。
 import 'dart:convert';
@@ -110,15 +107,11 @@ extension ImageFlowApi on Engine {
     return db.lastInsertRowId;
   }
 
-  /// 生成节点出图：取连线参考图首张为编辑基准（见文件头偏差说明）。
+  /// 生成节点出图：把 **全部** 连线参考图作为参考列表传给图模型
+  /// （对齐 ToonFlow generatedNode 的多参考语义，此前只取首张）。
   /// 同步直调网关，不入队列（对齐 ToonFlow 该端点同步语义）。
-  ///
-  /// model/ratio/quality 对齐 ToonFlow generatedNode 的三个必选参数：由 UI 层随
-  /// 节点 data 持久化并传入。已知偏差（文档化）：本引擎的 ProviderGateway.generateImage
-  /// 按 stage 绑定（asset_image）解析实际出图模型，且尚不接受 ratio/quality 覆写
-  /// （与 P1/P2 既有能力边界一致）；这三个参数在此仅作为编辑器选择的载体透传，
-  /// 保证 UI 校验/持久化行为与 ToonFlow 一致，实际生效模型仍取 stage 绑定——
-  /// 不是无声阉割，此边界在编辑器提示文案与本注释中显式说明。
+  /// model/ratio/quality 对齐 ToonFlow generatedNode 三个必选参数：现真正生效——
+  /// model 覆写阶段绑定图模型，ratio→尺寸、quality→清晰度传入图模型。
   Future<String> generateFlowImage({
     required int projectId,
     required String prompt,
@@ -131,7 +124,10 @@ extension ImageFlowApi on Engine {
       prompt,
       '$projectId',
       stage: 'asset_image',
-      refImageAbsPath: referenceAbsPaths.isEmpty ? null : referenceAbsPaths.first,
+      referenceAbsPaths: referenceAbsPaths,
+      ratio: ratio,
+      quality: quality,
+      modelOverride: model,
     );
   }
 }

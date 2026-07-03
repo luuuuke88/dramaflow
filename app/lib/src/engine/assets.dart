@@ -655,6 +655,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     int projectId,
     List<({int assetsId, String? refImageBase64})> items, {
     String? resolution,
+    String? model,
     int concurrentCount = 1,
   }) {
     if (items.isEmpty) return 0;
@@ -687,12 +688,16 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         'items': payload,
         'ids': [for (final p in payload) p['assetsId']],
         'concurrentCount': concurrentCount,
+        if (resolution != null) 'resolution': resolution,
+        if (model != null) 'model': model,
       },
     );
   }
 
   Future<void> _runImageGeneration(TasksRow task, CancelToken token) async {
     final related = task.relatedObjectsJson;
+    final resolution = related['resolution'] as String?;
+    final modelOverride = related['model'] as String?;
     final items = (related['items'] as List? ?? const [])
         .whereType<Map>()
         .toList();
@@ -741,7 +746,9 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
             '$projectId',
             stage: 'asset_image',
             cancelToken: token,
-            refImageAbsPath: refPath,
+            referenceAbsPaths: refPath == null ? const [] : [refPath],
+            quality: resolution,
+            modelOverride: modelOverride,
           );
           db.execute(
             'UPDATE o_image SET state=?, filePath=?, errorReason=NULL WHERE id=?',
