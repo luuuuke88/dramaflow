@@ -150,6 +150,34 @@ void main() {
     }
   });
 
+  testWidgets('行菜单「在前面插入分镜」把新镜头排到目标之前', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final s1 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头1');
+    final s2 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头2');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    // 长按第二个分镜格（displayIndex=1）打开行菜单。
+    await tester.longPress(find.textContaining('S02'));
+    await tester.pumpAndSettle();
+    expect(find.text('在前面插入分镜'), findsOneWidget);
+
+    await tester.tap(find.text('在前面插入分镜'));
+    await tester.pumpAndSettle();
+
+    // 新镜头应排在 s2 之前：顺序 s1, 新, s2。
+    final rows = engine.storyboards(scriptId);
+    expect(rows.length, 3);
+    expect(rows.first.id, s1);
+    expect(rows.last.id, s2);
+    expect(rows.map((r) => r.index), [1, 2, 3]);
+  });
+
   testWidgets('StoryboardPreviewItem 占位页不崩溃（absPath 为 null）', (tester) async {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;

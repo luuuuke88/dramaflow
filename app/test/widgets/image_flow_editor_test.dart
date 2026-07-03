@@ -1,13 +1,17 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/image_flow.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/scripts.dart';
+import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:dramaflow/src/screens/production/image_flow_editor.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
@@ -15,6 +19,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+
+/// 最小合法 PNG（1x1），供素材/分镜选图缩略图渲染。
+final _pngBytes = Uint8List.fromList(<int>[
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+  0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+  0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
+  0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+  0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+  0x42, 0x60, 0x82,
+]);
 
 class _Gateway implements ProviderGateway {
   int imageCalls = 0;
@@ -81,7 +98,7 @@ void main() {
   });
 
   // 通过一个按钮触发 showImageFlowEditor（需要 WidgetRef + BuildContext）。
-  Widget host({int? flowId}) {
+  Widget host({int? flowId, int? scriptId, List<String> seedRefs = const []}) {
     return ProviderScope(
       overrides: [engineProvider.overrideWithValue(engine)],
       child: MediaQuery(
@@ -100,6 +117,8 @@ void main() {
                     ref,
                     projectId: projectId,
                     flowId: flowId,
+                    scriptId: scriptId,
+                    seedReferenceRelPaths: seedRefs,
                     onApply: (_, __) {},
                   ),
                   child: const Text('open'),
@@ -231,5 +250,117 @@ void main() {
     expect(gen.data['ratio'], '9:16');
     expect(gen.data['quality'], '4K');
     expect(gen.data['model'], modelValue);
+  });
+
+  // upload 节点内包裹图片区、可触发选图的 InkWell（onTap→选图来源表）。
+  Finder uploadImageTap() => find.ancestor(
+        of: find.byType(Image),
+        matching: find.byType(InkWell),
+      );
+
+  // 造一个 upload 节点（其 imageRel 指向真实文件，缩略图正常渲染）。
+  String seedUploadRel() => engine.saveFlowUploadImage(projectId, _pngBytes);
+
+  testWidgets('上传节点选图弹出三来源：本地/素材库/分镜', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host(seedRefs: [seedUploadRel()]));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // 点击 upload 节点缩略图区域触发来源选择表。
+    await tester.tap(uploadImageTap().first);
+    await tester.pumpAndSettle();
+    expect(find.text('本地文件'), findsOneWidget);
+    expect(find.text('从素材库选择'), findsOneWidget);
+    expect(find.text('从分镜选择'), findsOneWidget);
+  });
+
+  testWidgets('从素材库选择：挑一张已生成资产图设为参考', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // 造一个有已选中图片的角色资产。
+    final assetId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    final rel = engine.media.saveImage(_pngBytes, '$projectId');
+    engine.attachAssetImage(assetId, rel);
+
+    await tester.pumpWidget(host(seedRefs: [seedUploadRel()]));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(uploadImageTap().first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('从素材库选择'));
+    await tester.pumpAndSettle();
+
+    // 选图对话框列出资产名，点击选择。
+    expect(find.text('选择参考图'), findsWidgets);
+    expect(find.text('林朝雪'), findsOneWidget);
+    await tester.tap(find.text('林朝雪'));
+    await tester.pumpAndSettle();
+    // 对话框关闭（不再有资产名）。
+    expect(find.text('林朝雪'), findsNothing);
+  });
+
+  testWidgets('从分镜选择：无 scriptId 时提示无图片', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host(seedRefs: [seedUploadRel()]));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(uploadImageTap().first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('从分镜选择'));
+    await tester.pumpAndSettle();
+    expect(find.text('分镜暂无已生成首帧图'), findsOneWidget);
+  });
+
+  testWidgets('从分镜选择：列出本剧集已生成首帧图', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    engine.installStoryboardPipeline();
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: 'p');
+    final rel = engine.media.saveImage(_pngBytes, '$projectId');
+    engine.setStoryboardImage(sbId, rel);
+
+    await tester.pumpWidget(host(scriptId: scriptId, seedRefs: [seedUploadRel()]));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(uploadImageTap().first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('从分镜选择'));
+    await tester.pumpAndSettle();
+    // 首帧图以镜头序号 S01 标注。
+    expect(find.text('S01'), findsOneWidget);
+  });
+
+  testWidgets('连线中点 × 手柄可删除单条连线', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // seedRefs 会造 1 个 upload + 1 个 generated + 1 条连线。
+    await tester.pumpWidget(host(seedRefs: [seedUploadRel()]));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // 删除连线的 × 手柄（Tooltip「删除该连线」）。
+    final delDot = find.byTooltip('删除该连线');
+    expect(delDot, findsOneWidget);
+    await tester.tap(delDot);
+    await tester.pumpAndSettle();
+
+    // 连线被删后 × 手柄消失，并弹出提示。
+    expect(find.byTooltip('删除该连线'), findsNothing);
+    expect(find.text('已删除连线'), findsOneWidget);
   });
 }
