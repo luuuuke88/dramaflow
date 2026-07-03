@@ -350,66 +350,82 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
       ),
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-        child: Row(children: [
-          FilledButton.icon(
-            onPressed: () => _openAdd(),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text('${l10n.assetsAddPrefix}${_tabLabel(_type)}'),
-          ),
-          const SizedBox(width: 8),
-          if (_type == 'audio') ...[
-            OutlinedButton.icon(
-              onPressed: () async {
-                final saved = await showAddTtsAudioDialog(context, ref,
-                    projectId: widget.projectId);
-                if (saved == true) setState(() {});
-              },
-              icon: const Icon(Icons.record_voice_over_outlined, size: 18),
-              label: Text(l10n.assetsGenerateSpeech),
-            ),
-            const SizedBox(width: 8),
-          ],
-          if (canGenerate) ...[
-            OutlinedButton.icon(
-              onPressed: () async {
-                final done = await showBatchGenerationDialog(context, ref,
-                    projectId: widget.projectId, type: _type, mode: 1);
-                if (done == true) setState(() {});
-              },
-              icon: const Icon(Icons.translate_outlined, size: 18),
-              label: Text(l10n.assetsGeneratePrompt),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final done = await showBatchGenerationDialog(context, ref,
-                    projectId: widget.projectId, type: _type, mode: 2);
-                if (done == true) setState(() {});
-              },
-              icon: const Icon(Icons.image_outlined, size: 18),
-              label: Text(l10n.assetsGenerateImage),
-            ),
-            const SizedBox(width: 8),
-          ],
-          FilledButton.icon(
-            onPressed: _selected.isEmpty ? null : _batchDelete,
-            style: FilledButton.styleFrom(
-                backgroundColor: df.danger,
-                disabledBackgroundColor: df.danger.withValues(alpha: 0.35)),
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: Text(_selected.isEmpty
-                ? l10n.assetsBatchDelete
-                : '${l10n.assetsBatchDelete} (${_selected.length})'),
-          ),
-          const Spacer(),
-          DFSearchField(
+        child: LayoutBuilder(builder: (context, constraints) {
+          final compact = constraints.maxWidth < 720;
+
+          Future<void> openTts() async {
+            final saved = await showAddTtsAudioDialog(context, ref,
+                projectId: widget.projectId);
+            if (saved == true) setState(() {});
+          }
+
+          Future<void> openBatch(int mode) async {
+            final done = await showBatchGenerationDialog(context, ref,
+                projectId: widget.projectId, type: _type, mode: mode);
+            if (done == true) setState(() {});
+          }
+
+          final search = DFSearchField(
             hint: l10n.assetsSearchPlaceholder,
+            width: compact ? constraints.maxWidth : 240,
             onSearch: (q) => setState(() {
               _search = q;
               _page = 1;
             }),
-          ),
-        ]),
+          );
+          final actions = <Widget>[
+            FilledButton.icon(
+              onPressed: () => _openAdd(),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('${l10n.assetsAddPrefix}${_tabLabel(_type)}'),
+            ),
+            if (_type == 'audio')
+              OutlinedButton.icon(
+                onPressed: openTts,
+                icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+                label: Text(l10n.assetsGenerateSpeech),
+              ),
+            if (canGenerate) ...[
+              OutlinedButton.icon(
+                onPressed: () => openBatch(1),
+                icon: const Icon(Icons.translate_outlined, size: 18),
+                label: Text(l10n.assetsGeneratePrompt),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => openBatch(2),
+                icon: const Icon(Icons.image_outlined, size: 18),
+                label: Text(l10n.assetsGenerateImage),
+              ),
+            ],
+            FilledButton.icon(
+              onPressed: _selected.isEmpty ? null : _batchDelete,
+              style: FilledButton.styleFrom(
+                  backgroundColor: df.danger,
+                  disabledBackgroundColor: df.danger.withValues(alpha: 0.35)),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: Text(_selected.isEmpty
+                  ? l10n.assetsBatchDelete
+                  : '${l10n.assetsBatchDelete} (${_selected.length})'),
+            ),
+          ];
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 10),
+                Wrap(spacing: 8, runSpacing: 8, children: actions),
+              ],
+            );
+          }
+
+          return Row(children: [
+            ...actions.expand((button) => [button, const SizedBox(width: 8)]),
+            const Spacer(),
+            search,
+          ]);
+        }),
       ),
       Expanded(
         child: result.total == 0 && _search.isEmpty

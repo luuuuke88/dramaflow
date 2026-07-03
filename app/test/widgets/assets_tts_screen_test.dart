@@ -66,14 +66,17 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
-  Widget app() => ProviderScope(
+  Widget app({double width = 1400}) => ProviderScope(
         overrides: [engineProvider.overrideWithValue(engine)],
-        child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
-          locale: const Locale('zh'),
-          theme: buildTheme(Brightness.light),
-          home: Scaffold(body: AssetsScreen(projectId: projectId)),
+        child: MediaQuery(
+          data: MediaQueryData(size: Size(width, 900)),
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+            locale: const Locale('zh'),
+            theme: buildTheme(Brightness.light),
+            home: Scaffold(body: AssetsScreen(projectId: projectId)),
+          ),
         ),
       );
 
@@ -104,5 +107,39 @@ void main() {
     expect(engine.audioAssetAbsPath(audioId), isNotNull);
     expect(
         File(engine.audioAssetAbsPath(audioId)!).readAsBytesSync(), [8, 8, 8]);
+  });
+
+  testWidgets('移动端音频 tab：文本配音创建音频资产', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(width: 390));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('音频'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('文本配音'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.enterText(find.byKey(const Key('tts-audio-name')), 'alloy');
+    await tester.enterText(find.byKey(const Key('tts-audio-sex')), '男');
+    await tester.enterText(find.byKey(const Key('tts-audio-describe')), '低音示例');
+    await tester.enterText(
+        find.byKey(const Key('tts-audio-text')), '吾辈修士，何惧一战。');
+    await tester.enterText(find.byKey(const Key('tts-audio-voice')), 'alloy');
+    await tester.tap(find.widgetWithText(FilledButton, '生成配音'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(engine.audioPool(projectId).single.name, 'alloy');
+    expect(
+      find.descendant(of: find.byType(ListTile), matching: find.text('alloy')),
+      findsOneWidget,
+    );
   });
 }
