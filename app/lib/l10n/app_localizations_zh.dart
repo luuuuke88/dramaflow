@@ -1626,4 +1626,39 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cornerScapeNoMatch => '没有符合筛选条件的角色';
+
+  @override
+  String get storyboardPreviewAll => '预览全部';
+
+  @override
+  String get storyboardPreviewEmpty => '暂无分镜可预览';
+
+  @override
+  String get storyboardPreviewImageMissing => '图片加载失败';
+
+  @override
+  String storyboardPreviewCounter(String shot, String current, String total) {
+    return '$shot（$current/$total）';
+  }
+
+  @override
+  String storyboardPreviewShotPlaceholder(String shot) {
+    return '$shot 尚未生成首帧图';
+  }
+
+  @override
+  String get storyboardExportAll => '导出全部';
+
+  @override
+  String get storyboardExportNoImages => '还没有可导出的首帧图';
+
+  @override
+  String storyboardExportSuccess(String count) {
+    return '已导出 $count 张首帧图';
+  }
+
+  @override
+  String storyboardExportFailed(String reason) {
+    return '导出失败：$reason';
+  }
 }

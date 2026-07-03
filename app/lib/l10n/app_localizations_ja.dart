@@ -1635,4 +1635,39 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cornerScapeNoMatch => '条件に一致するキャラクターがありません';
+
+  @override
+  String get storyboardPreviewAll => 'すべてプレビュー';
+
+  @override
+  String get storyboardPreviewEmpty => 'プレビューできる絵コンテがありません';
+
+  @override
+  String get storyboardPreviewImageMissing => '画像の読み込みに失敗しました';
+
+  @override
+  String storyboardPreviewCounter(String shot, String current, String total) {
+    return '$shot（$current/$total）';
+  }
+
+  @override
+  String storyboardPreviewShotPlaceholder(String shot) {
+    return '$shot は初期フレーム画像が未生成です';
+  }
+
+  @override
+  String get storyboardExportAll => 'すべて書き出し';
+
+  @override
+  String get storyboardExportNoImages => '書き出せる初期フレーム画像がまだありません';
+
+  @override
+  String storyboardExportSuccess(String count) {
+    return '$count 枚の初期フレーム画像を書き出しました';
+  }
+
+  @override
+  String storyboardExportFailed(String reason) {
+    return '書き出しに失敗しました：$reason';
+  }
 }

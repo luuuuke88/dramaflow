@@ -1684,4 +1684,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cornerScapeNoMatch => 'No roles match the current filter';
+
+  @override
+  String get storyboardPreviewAll => 'Preview all';
+
+  @override
+  String get storyboardPreviewEmpty => 'No shots to preview';
+
+  @override
+  String get storyboardPreviewImageMissing => 'Failed to load image';
+
+  @override
+  String storyboardPreviewCounter(String shot, String current, String total) {
+    return '$shot ($current/$total)';
+  }
+
+  @override
+  String storyboardPreviewShotPlaceholder(String shot) {
+    return '$shot has no first-frame image yet';
+  }
+
+  @override
+  String get storyboardExportAll => 'Export all';
+
+  @override
+  String get storyboardExportNoImages => 'No first-frame images to export yet';
+
+  @override
+  String storyboardExportSuccess(String count) {
+    return 'Exported $count first-frame images';
+  }
+
+  @override
+  String storyboardExportFailed(String reason) {
+    return 'Export failed: $reason';
+  }
 }

@@ -551,5 +551,14 @@
       }
     }
   },
-  "cornerScapeNoMatch": "No roles match the current filter"
+  "cornerScapeNoMatch": "No roles match the current filter",
+  "storyboardPreviewAll": "Preview all",
+  "storyboardPreviewEmpty": "No shots to preview",
+  "storyboardPreviewImageMissing": "Failed to load image",
+  "storyboardPreviewCounter": "{shot} ({current}/{total})",
+  "storyboardPreviewShotPlaceholder": "{shot} has no first-frame image yet",
+  "storyboardExportAll": "Export all",
+  "storyboardExportNoImages": "No first-frame images to export yet",
+  "storyboardExportSuccess": "Exported {count} first-frame images",
+  "storyboardExportFailed": "Export failed: {reason}"
 }

@@ -11,7 +11,6 @@ import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/engine/providers/volcengine_video.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:sqlite3/sqlite3.dart';
 
 /// 仅对创建任务的 POST 返回 taskId；记录所有请求路径，用于断言未发生轮询 GET。
 class _FakeAdapter implements HttpClientAdapter {

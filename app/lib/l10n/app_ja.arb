@@ -551,5 +551,14 @@
       }
     }
   },
-  "cornerScapeNoMatch": "条件に一致するキャラクターがありません"
+  "cornerScapeNoMatch": "条件に一致するキャラクターがありません",
+  "storyboardPreviewAll": "すべてプレビュー",
+  "storyboardPreviewEmpty": "プレビューできる絵コンテがありません",
+  "storyboardPreviewImageMissing": "画像の読み込みに失敗しました",
+  "storyboardPreviewCounter": "{shot}（{current}/{total}）",
+  "storyboardPreviewShotPlaceholder": "{shot} は初期フレーム画像が未生成です",
+  "storyboardExportAll": "すべて書き出し",
+  "storyboardExportNoImages": "書き出せる初期フレーム画像がまだありません",
+  "storyboardExportSuccess": "{count} 枚の初期フレーム画像を書き出しました",
+  "storyboardExportFailed": "書き出しに失敗しました：{reason}"
 }

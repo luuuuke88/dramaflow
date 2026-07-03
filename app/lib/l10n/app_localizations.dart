@@ -3237,6 +3237,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'没有符合筛选条件的角色'**
   String get cornerScapeNoMatch;
+
+  /// No description provided for @storyboardPreviewAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览全部'**
+  String get storyboardPreviewAll;
+
+  /// No description provided for @storyboardPreviewEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无分镜可预览'**
+  String get storyboardPreviewEmpty;
+
+  /// No description provided for @storyboardPreviewImageMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片加载失败'**
+  String get storyboardPreviewImageMissing;
+
+  /// No description provided for @storyboardPreviewCounter.
+  ///
+  /// In zh, this message translates to:
+  /// **'{shot}（{current}/{total}）'**
+  String storyboardPreviewCounter(String shot, String current, String total);
+
+  /// No description provided for @storyboardPreviewShotPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'{shot} 尚未生成首帧图'**
+  String storyboardPreviewShotPlaceholder(String shot);
+
+  /// No description provided for @storyboardExportAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出全部'**
+  String get storyboardExportAll;
+
+  /// No description provided for @storyboardExportNoImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有可导出的首帧图'**
+  String get storyboardExportNoImages;
+
+  /// No description provided for @storyboardExportSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导出 {count} 张首帧图'**
+  String storyboardExportSuccess(String count);
+
+  /// No description provided for @storyboardExportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出失败：{reason}'**
+  String storyboardExportFailed(String reason);
 }
 
 class _AppLocalizationsDelegate

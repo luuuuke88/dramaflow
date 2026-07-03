@@ -692,5 +692,48 @@
       }
     }
   },
-  "cornerScapeNoMatch": "没有符合筛选条件的角色"
+  "cornerScapeNoMatch": "没有符合筛选条件的角色",
+  "storyboardPreviewAll": "预览全部",
+  "storyboardPreviewEmpty": "暂无分镜可预览",
+  "storyboardPreviewImageMissing": "图片加载失败",
+  "storyboardPreviewCounter": "{shot}（{current}/{total}）",
+  "@storyboardPreviewCounter": {
+    "placeholders": {
+      "shot": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "storyboardPreviewShotPlaceholder": "{shot} 尚未生成首帧图",
+  "@storyboardPreviewShotPlaceholder": {
+    "placeholders": {
+      "shot": {
+        "type": "String"
+      }
+    }
+  },
+  "storyboardExportAll": "导出全部",
+  "storyboardExportNoImages": "还没有可导出的首帧图",
+  "storyboardExportSuccess": "已导出 {count} 张首帧图",
+  "@storyboardExportSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "storyboardExportFailed": "导出失败：{reason}",
+  "@storyboardExportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  }
 }
