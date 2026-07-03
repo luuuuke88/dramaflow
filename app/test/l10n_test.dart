@@ -1,8 +1,30 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('ARB 文件中不存在空字符串译文（曾出现 key 存在但值为 "" 的半成品翻译，'
+      'gen-l10n 的 untranslated 检查测不出这类问题）', () {
+    for (final lang in ['zh', 'en', 'ja']) {
+      final data = jsonDecode(
+        File('lib/l10n/app_$lang.arb').readAsStringSync(),
+      ) as Map<String, dynamic>;
+      final blanks = [
+        for (final entry in data.entries)
+          if (!entry.key.startsWith('@') &&
+              entry.value is String &&
+              (entry.value as String).trim().isEmpty)
+            entry.key,
+      ];
+      expect(blanks, isEmpty,
+          reason: 'app_$lang.arb 存在空字符串译文：$blanks');
+    }
+  });
+
+
   test('loads supported localizations', () async {
     for (final locale in const [Locale('zh'), Locale('en'), Locale('ja')]) {
       final l10n = await AppLocalizations.delegate.load(locale);

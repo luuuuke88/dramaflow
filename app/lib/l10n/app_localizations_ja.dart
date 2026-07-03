@@ -568,7 +568,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelGenFailed => '生成失敗';
 
   @override
-  String get novelViewDetail => '查看详情';
+  String get novelViewDetail => '詳細を見る';
 
   @override
   String get novelNone => 'なし';
@@ -848,10 +848,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scriptExportScript => 'シナリオをエクスポート';
 
   @override
-  String get scriptMsgExtracting => '资产提取中';
+  String get scriptMsgExtracting => 'アセットを抽出中';
 
   @override
-  String get scriptMsgExtractFailed => '资产提取失败';
+  String get scriptMsgExtractFailed => 'アセットの抽出に失敗しました';
 
   @override
   String get scriptMsgExtractingInProgress => '抽出中';
@@ -1011,10 +1011,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scriptDeleteScript => 'スクリプトを一括で削除する';
 
   @override
-  String get scriptExtractAssets => '';
+  String get scriptExtractAssets => 'アセットを抽出';
 
   @override
-  String get scriptImportGetAiRegex => 'AI解析正则';
+  String get scriptImportGetAiRegex => 'AI生成の正規表現';
 
   @override
   String get scriptImportEpisodeRegexPh =>

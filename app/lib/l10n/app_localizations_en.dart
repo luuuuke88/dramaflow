@@ -866,10 +866,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scriptExportScript => 'Export Script';
 
   @override
-  String get scriptMsgExtracting => '资产提取中';
+  String get scriptMsgExtracting => 'Extracting assets';
 
   @override
-  String get scriptMsgExtractFailed => '资产提取失败';
+  String get scriptMsgExtractFailed => 'Asset extraction failed';
 
   @override
   String get scriptMsgExtractingInProgress => 'Extracting';
@@ -1037,10 +1037,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scriptDeleteScript => 'Delete scripts in batches';
 
   @override
-  String get scriptExtractAssets => '';
+  String get scriptExtractAssets => 'Extract Assets';
 
   @override
-  String get scriptImportGetAiRegex => 'AI解析正则';
+  String get scriptImportGetAiRegex => 'AI-Generated Regex';
 
   @override
   String get scriptImportEpisodeRegexPh =>
