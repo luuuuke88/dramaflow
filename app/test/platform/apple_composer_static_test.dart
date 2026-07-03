@@ -17,6 +17,7 @@ void main() {
 
     for (final source in [macosSource, iosSource]) {
       expect(source, contains('case "compose"'));
+      expect(source, contains('case "inspectMedia"'));
       expect(source, contains('composeSegmentsArgument'));
       expect(source, contains('compositionVoiceTrack'));
       expect(source, contains('noAudioTrack'));

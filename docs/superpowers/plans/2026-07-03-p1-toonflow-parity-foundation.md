@@ -596,3 +596,15 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - ✅ 本轮接力验证已跑：`flutter analyze` 零 issue；`flutter test` 248/248 通过；
   `flutter build macos --debug` 通过；`flutter build ios --simulator` 通过；
   `flutter build apk --debug` 通过。
+- ✅ macOS 真实合成 smoke 已补齐：新增
+  `integration_test/composer_audio_smoke_test.dart` 和极小媒体 fixture（无声 mp4 + m4a
+  配音），在真实 macOS app 沙盒内调用 `AVFoundationComposer.compose`，导出后用新增
+  `inspectMedia` 原生自检确认输出含 1 条视频轨 + 1 条音频轨，并验证时长区间。
+- ✅ smoke 首跑发现并修复一个真实导出 bug：AVFoundation 组合一开始创建了空的“原视频音轨”，
+  当输入视频本身无声但有独立配音时，导出失败（AVFoundationErrorDomain -11800 /
+  OSStatus -12123）。现已改为原视频音轨懒创建，仅在源视频存在音频时插入；配音轨独立懒创建。
+  同时增强 macOS/iOS 原生错误透传，后续导出失败会带 domain/code/underlying error。
+- ✅ smoke 补强验证已跑：`flutter test integration_test/composer_audio_smoke_test.dart -d macos`
+  通过；`flutter analyze` 零 issue；`flutter test` 248/248 通过；
+  `flutter build macos --debug`、`flutter build ios --simulator`、
+  `flutter build apk --debug`、`flutter build web` 均通过。

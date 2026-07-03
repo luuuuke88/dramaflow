@@ -70,6 +70,15 @@ final class ComposerPlugin {
           result(flutterError(error))
         }
       }
+    case "inspectMedia":
+      Task {
+        do {
+          let path = try stringArgument(call.arguments, key: "path")
+          result(try await inspectMedia(path: path))
+        } catch {
+          result(flutterError(error))
+        }
+      }
     case "concat":
       Task {
         do {
@@ -105,6 +114,21 @@ final class ComposerPlugin {
     return seconds.isFinite && seconds > 0 ? seconds : nil
   }
 
+  private func inspectMedia(path: String) async throws -> [String: Any] {
+    try ensureFileExists(path)
+    let asset = AVAsset(url: URL(fileURLWithPath: path))
+    let duration = try await loadDuration(asset)
+    let seconds = CMTimeGetSeconds(duration)
+    var info: [String: Any] = [
+      "videoTrackCount": asset.tracks(withMediaType: .video).count,
+      "audioTrackCount": asset.tracks(withMediaType: .audio).count,
+    ]
+    if seconds.isFinite && seconds > 0 {
+      info["durationSec"] = seconds
+    }
+    return info
+  }
+
   private func concat(paths: [String], output: String) async throws {
     try await compose(
       segments: paths.map { ComposeSegment(videoPath: $0, audioPath: nil) },
@@ -121,9 +145,7 @@ final class ComposerPlugin {
     else {
       throw ComposerPluginError.exportSessionUnavailable
     }
-    let compositionAudioTrack = composition.addMutableTrack(
-      withMediaType: .audio,
-      preferredTrackID: kCMPersistentTrackID_Invalid)
+    var compositionAudioTrack: AVMutableCompositionTrack?
     var compositionVoiceTrack: AVMutableCompositionTrack?
 
     var cursor = CMTime.zero
@@ -141,6 +163,14 @@ final class ComposerPlugin {
       let timeRange = CMTimeRange(start: .zero, duration: duration)
       try compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: cursor)
       if let audioTrack = asset.tracks(withMediaType: .audio).first {
+        if compositionAudioTrack == nil {
+          compositionAudioTrack = composition.addMutableTrack(
+            withMediaType: .audio,
+            preferredTrackID: kCMPersistentTrackID_Invalid)
+          if compositionAudioTrack == nil {
+            throw ComposerPluginError.exportSessionUnavailable
+          }
+        }
         try compositionAudioTrack?.insertTimeRange(timeRange, of: audioTrack, at: cursor)
       }
 
@@ -273,9 +303,16 @@ final class ComposerPlugin {
 
   private func flutterError(_ error: Error) -> FlutterError {
     let nsError = error as NSError
+    var message = nsError.localizedDescription
+    if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+      message += "：\(underlying.localizedDescription)"
+    }
+    if !nsError.domain.isEmpty {
+      message += " [\(nsError.domain) \(nsError.code)]"
+    }
     return FlutterError(
       code: "COMPOSER_ERROR",
-      message: nsError.localizedDescription,
-      details: nil)
+      message: message,
+      details: nsError.userInfo.description)
   }
 }
