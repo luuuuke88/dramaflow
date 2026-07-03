@@ -1031,6 +1031,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scriptEditMsgUpdateFailed => 'シナリオの更新に失敗しました。後で再試行してください';
 
   @override
+  String get scriptMarkdownBold => '太字';
+
+  @override
+  String get scriptMarkdownItalic => '斜体';
+
+  @override
+  String get scriptMarkdownHeading => '見出し';
+
+  @override
+  String get scriptMarkdownDialogue => '台詞';
+
+  @override
+  String get scriptMarkdownEdit => '編集';
+
+  @override
+  String get scriptMarkdownPreview => 'プレビュー';
+
+  @override
+  String get scriptMarkdownPreviewEmpty => '内容はまだありません';
+
+  @override
+  String get scriptMarkdownBoldPlaceholder => '重点';
+
+  @override
+  String get scriptMarkdownItalicPlaceholder => '強調';
+
+  @override
+  String get scriptMarkdownDialogueSnippet => '役名：台詞';
+
+  @override
   String get scriptDeleteScript => 'スクリプトを一括で削除する';
 
   @override

@@ -15,6 +15,7 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_tag_chip.dart';
+import '../../widgets/script_markdown_editor.dart';
 import 'asset_picker.dart';
 
 const _maxFileBytes = 10 * 1024 * 1024;
@@ -130,7 +131,8 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
       Flexible(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             TextField(
               controller: _name,
               decoration: InputDecoration(
@@ -158,22 +160,18 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
                       Text(l10n.scriptAddDragUpload,
                           style: const TextStyle(fontSize: 12)),
                       Text(l10n.scriptAddUploadHint,
-                          style: TextStyle(
-                              fontSize: 10, color: df.textTertiary)),
+                          style:
+                              TextStyle(fontSize: 10, color: df.textTertiary)),
                     ]),
               ),
             ),
             const SizedBox(height: 14),
-            TextField(
+            ScriptMarkdownEditor(
               controller: _content,
               minLines: 10,
               maxLines: 10,
+              hintText: l10n.scriptAddScriptContentPh,
               onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: l10n.scriptAddScriptContent,
-                hintText: l10n.scriptAddScriptContentPh,
-                alignLabelWithHint: true,
-              ),
             ),
             Align(
               alignment: Alignment.centerRight,
@@ -215,9 +213,9 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
                 for (final id in _assets)
                   DFTagChip(
                     label: _assetOptions
-                        .where((o) => o.id == id)
-                        .map((o) => o.name)
-                        .firstOrNull ??
+                            .where((o) => o.id == id)
+                            .map((o) => o.name)
+                            .firstOrNull ??
                         '$id',
                     onClose: () => setState(() => _assets.remove(id)),
                   ),

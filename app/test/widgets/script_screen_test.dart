@@ -197,4 +197,61 @@ void main() {
     expect(find.text('新名'), findsOneWidget);
     expect(find.text('旧名'), findsNothing);
   });
+
+  testWidgets('移动端剧本页：编辑器支持 Markdown 格式工具和预览', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    engine.addScript(projectId: projectId, name: '旧名', content: '旧内容');
+
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('旧名'));
+    await tester.pumpAndSettle();
+    expect(find.text('剧本详情'), findsOneWidget);
+    expect(find.byTooltip('加粗'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, '新内容第一场');
+    await tester.tap(find.byTooltip('加粗'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('预览'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('重点'), findsWidgets);
+
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    final row = engine.scripts(projectId).single;
+    expect(row.content, contains('**重点**'));
+  });
+
+  testWidgets('桌面剧本页：编辑器支持 Markdown 格式工具和预览', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    engine.addScript(projectId: projectId, name: '第一集', content: '# 开场');
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('第一集'));
+    await tester.pumpAndSettle();
+    expect(find.text('剧本详情'), findsOneWidget);
+    expect(find.byTooltip('标题'), findsOneWidget);
+    expect(find.byTooltip('台词'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, '正文');
+    await tester.tap(find.byTooltip('台词'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('预览'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('角色：台词'), findsWidgets);
+
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    final row = engine.scripts(projectId).single;
+    expect(row.content, contains('> 角色：台词'));
+  });
 }

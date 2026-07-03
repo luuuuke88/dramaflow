@@ -8,6 +8,7 @@ import '../../theme/theme.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/script_markdown_editor.dart';
 import '../../widgets/df_tag_chip.dart';
 import 'asset_picker.dart';
 
@@ -37,8 +38,7 @@ class _EditScriptBodyState extends State<_EditScriptBody> {
       TextEditingController(text: widget.row.name ?? '');
   late final TextEditingController _content =
       TextEditingController(text: widget.row.content ?? '');
-  late List<int> _assets =
-      widget.row.relatedAssets.map((a) => a.id).toList();
+  late List<int> _assets = widget.row.relatedAssets.map((a) => a.id).toList();
   late List<({int id, String name, String type})> _assetOptions;
   bool _saving = false;
 
@@ -94,7 +94,8 @@ class _EditScriptBodyState extends State<_EditScriptBody> {
       Flexible(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             TextField(
               controller: _name,
               maxLength: 10,
@@ -104,16 +105,12 @@ class _EditScriptBodyState extends State<_EditScriptBody> {
               ),
             ),
             const SizedBox(height: 8),
-            TextField(
+            ScriptMarkdownEditor(
               controller: _content,
               minLines: 16,
               maxLines: 16,
+              hintText: l10n.scriptEditScriptContentPh,
               onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: l10n.scriptEditScriptContent,
-                hintText: l10n.scriptEditScriptContentPh,
-                alignLabelWithHint: true,
-              ),
             ),
             Align(
               alignment: Alignment.centerRight,
@@ -155,9 +152,9 @@ class _EditScriptBodyState extends State<_EditScriptBody> {
                 for (final id in _assets)
                   DFTagChip(
                     label: _assetOptions
-                        .where((o) => o.id == id)
-                        .map((o) => o.name)
-                        .firstOrNull ??
+                            .where((o) => o.id == id)
+                            .map((o) => o.name)
+                            .firstOrNull ??
                         '$id',
                     onClose: () => setState(() => _assets.remove(id)),
                   ),

@@ -273,6 +273,31 @@ void main() {
     expect(row.content, '新正文内容');
   });
 
+  testWidgets('剧本节点支持 Markdown 编辑工具并渲染预览', (tester) async {
+    final scriptId = engine.addScript(
+        projectId: projectId, name: '第一集', content: '# 开场\n**雪夜**');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    expect(find.text('开场'), findsOneWidget);
+    expect(find.textContaining('**雪夜**'), findsNothing);
+
+    await tester.tap(find.byTooltip('编辑').first);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('加粗'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, '请输入剧本正文'), '正文');
+    await tester.tap(find.byTooltip('加粗'));
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    final row = engine.scripts(projectId).firstWhere((s) => s.id == scriptId);
+    expect(row.content, contains('**重点**'));
+  });
+
   testWidgets('分镜表节点可编辑：撰写 Markdown 经 saveStoryboardTable 持久化', (tester) async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: 'x');

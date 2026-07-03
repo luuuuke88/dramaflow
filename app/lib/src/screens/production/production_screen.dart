@@ -22,6 +22,7 @@ import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_canvas.dart';
 import '../../widgets/df_empty.dart';
+import '../../widgets/script_markdown_editor.dart';
 import 'canvas_chat_panel.dart';
 import 'image_flow_editor.dart';
 import 'script_plan_node.dart';
@@ -80,7 +81,9 @@ class _EpisodeBar extends StatelessWidget {
   final int selectedId;
   final ValueChanged<int> onSelect;
   const _EpisodeBar(
-      {required this.scripts, required this.selectedId, required this.onSelect});
+      {required this.scripts,
+      required this.selectedId,
+      required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +91,8 @@ class _EpisodeBar extends StatelessWidget {
     return Container(
       height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: df.stroke))),
+      decoration:
+          BoxDecoration(border: Border(bottom: BorderSide(color: df.stroke))),
       child: Row(children: [
         Text(context.l10n.productionSelectEpisode,
             style: TextStyle(fontSize: 12, color: df.textSecondary)),
@@ -174,7 +178,8 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
           id: 'storyboardTable',
           position: tablePos,
           size: const Size(nodeW, 400),
-          child: _StoryboardTableNode(projectId: projectId, scriptId: script.id),
+          child:
+              _StoryboardTableNode(projectId: projectId, scriptId: script.id),
         ),
         DFCanvasNode(
           id: 'storyboard',
@@ -182,7 +187,8 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
           size: const Size(storyboardW, 620),
           child: _NodeFrame(
             title: context.l10n.productionNodeStoryboardTitle,
-            child: StoryboardCanvasNode(projectId: projectId, scriptId: script.id),
+            child:
+                StoryboardCanvasNode(projectId: projectId, scriptId: script.id),
           ),
         ),
         DFCanvasNode(
@@ -351,13 +357,16 @@ class _NodeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final df = context.df;
     return Container(
-      padding: EdgeInsets.fromLTRB(12, onEdit == null ? 8 : 4, onEdit == null ? 12 : 4, onEdit == null ? 8 : 4),
+      padding: EdgeInsets.fromLTRB(12, onEdit == null ? 8 : 4,
+          onEdit == null ? 12 : 4, onEdit == null ? 8 : 4),
       color: df.textPrimary,
       child: Row(children: [
         Expanded(
           child: Text(title,
               style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: df.surface)),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: df.surface)),
         ),
         if (onEdit != null)
           IconButton(
@@ -408,8 +417,7 @@ class _ScriptNodeState extends ConsumerState<_ScriptNode> {
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: SingleChildScrollView(
-                child: Text(script.content ?? '',
-                    style: const TextStyle(fontSize: 12, height: 1.5)),
+                child: ScriptMarkdownPreview(markdown: script.content ?? ''),
               ),
             ),
           ),
@@ -483,18 +491,11 @@ class _ScriptNodeEditorState extends ConsumerState<_ScriptNodeEditor> {
         ),
         const SizedBox(height: DFTokens.s12),
         Flexible(
-          child: TextField(
+          child: ScriptMarkdownEditor(
             controller: _content,
             minLines: 8,
             maxLines: 20,
-            textAlignVertical: TextAlignVertical.top,
-            style: const TextStyle(fontSize: 13, height: 1.5),
-            decoration: InputDecoration(
-              labelText: l10n.scriptNodeContent,
-              hintText: l10n.scriptNodeContentPlaceholder,
-              alignLabelWithHint: true,
-              border: const OutlineInputBorder(),
-            ),
+            hintText: l10n.scriptNodeContentPlaceholder,
           ),
         ),
         const SizedBox(height: DFTokens.s12),
@@ -529,7 +530,9 @@ class _AssetsNode extends ConsumerWidget {
       seedReferenceRelPaths:
           asset.filePath != null ? [asset.filePath!] : const [],
       onApply: (rel, flowId) {
-        ref.read(engineProvider).attachAssetImage(asset.id, rel, flowId: flowId);
+        ref
+            .read(engineProvider)
+            .attachAssetImage(asset.id, rel, flowId: flowId);
       },
     );
   }
@@ -552,7 +555,9 @@ class _AssetsNode extends ConsumerWidget {
               : GridView.builder(
                   padding: const EdgeInsets.all(10),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3, crossAxisSpacing: 6, mainAxisSpacing: 6),
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 6,
+                      mainAxisSpacing: 6),
                   itemCount: assets.length,
                   itemBuilder: (c, i) {
                     final a = assets[i];
@@ -769,7 +774,8 @@ class _WorkbenchNode extends ConsumerWidget {
               Icon(Icons.video_library_outlined, size: 28, color: df.primary),
               const SizedBox(height: 8),
               Text('$ready / ${paths.length}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
               Text(l10n.workbenchSelected,
                   style: TextStyle(fontSize: 11, color: df.textTertiary)),
@@ -790,4 +796,3 @@ class _WorkbenchNode extends ConsumerWidget {
     );
   }
 }
-

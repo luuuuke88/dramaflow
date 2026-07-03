@@ -30,15 +30,15 @@ Next Verification: If chapter/event UI changes, keep selected event generation p
 
 ## 剧本
 
-Status: Partial
+Status: Verified
 
-Desktop Evidence: `app/test/engine/scripts_test.dart` covers script CRUD, extraction, export, failure recovery, and batch script generation from selected events through the `script_gen` task runner.
+Desktop Evidence: `app/test/engine/scripts_test.dart` covers script CRUD, extraction, export, failure recovery, and batch script generation from selected events through the `script_gen` task runner. `app/test/widgets/script_screen_test.dart` covers desktop Markdown-style script editing with format tools and preview. `app/test/widgets/production_screen_test.dart` covers the production script node rendering Markdown preview and saving formatted script edits.
 
-Mobile Evidence: `app/test/widgets/script_screen_test.dart` covers 390px batch-add parsing and persistence, existing script editing with live card refresh, and event-to-script generation from the script page event picker.
+Mobile Evidence: `app/test/widgets/script_screen_test.dart` covers 390px batch-add parsing and persistence, existing script editing with live card refresh, event-to-script generation from the script page event picker, and Markdown-style format tools plus preview in the script editor.
 
-Known Gaps: v0.3 asks for a rich-text editor. Current coverage verifies plain text editing and event-to-script generation, not rich-text formatting parity.
+Known Gaps: None at the current script-page scope. The implemented editor is Markdown-source editing with format buttons and rendered preview, matching ToonFlow's production `MdEditor`/`MdPreview` style rather than a full WYSIWYG document model.
 
-Next Verification: Create a separate rich-text editor parity plan or document a scoped plain-text substitute before claiming full script-page parity.
+Next Verification: If script editing changes, keep desktop/mobile Markdown editor smokes plus the event-to-script and batch-add flows together.
 
 ## 素材库
 

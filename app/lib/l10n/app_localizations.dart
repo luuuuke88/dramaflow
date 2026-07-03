@@ -2056,6 +2056,66 @@ abstract class AppLocalizations {
   /// **'更新剧本失败，请稍后再试'**
   String get scriptEditMsgUpdateFailed;
 
+  /// No description provided for @scriptMarkdownBold.
+  ///
+  /// In zh, this message translates to:
+  /// **'加粗'**
+  String get scriptMarkdownBold;
+
+  /// No description provided for @scriptMarkdownItalic.
+  ///
+  /// In zh, this message translates to:
+  /// **'斜体'**
+  String get scriptMarkdownItalic;
+
+  /// No description provided for @scriptMarkdownHeading.
+  ///
+  /// In zh, this message translates to:
+  /// **'标题'**
+  String get scriptMarkdownHeading;
+
+  /// No description provided for @scriptMarkdownDialogue.
+  ///
+  /// In zh, this message translates to:
+  /// **'台词'**
+  String get scriptMarkdownDialogue;
+
+  /// No description provided for @scriptMarkdownEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get scriptMarkdownEdit;
+
+  /// No description provided for @scriptMarkdownPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get scriptMarkdownPreview;
+
+  /// No description provided for @scriptMarkdownPreviewEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无内容'**
+  String get scriptMarkdownPreviewEmpty;
+
+  /// No description provided for @scriptMarkdownBoldPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'重点'**
+  String get scriptMarkdownBoldPlaceholder;
+
+  /// No description provided for @scriptMarkdownItalicPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'强调'**
+  String get scriptMarkdownItalicPlaceholder;
+
+  /// No description provided for @scriptMarkdownDialogueSnippet.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色：台词'**
+  String get scriptMarkdownDialogueSnippet;
+
   /// No description provided for @scriptDeleteScript.
   ///
   /// In zh, this message translates to:

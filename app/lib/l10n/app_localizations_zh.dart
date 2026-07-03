@@ -1023,6 +1023,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get scriptEditMsgUpdateFailed => '更新剧本失败，请稍后再试';
 
   @override
+  String get scriptMarkdownBold => '加粗';
+
+  @override
+  String get scriptMarkdownItalic => '斜体';
+
+  @override
+  String get scriptMarkdownHeading => '标题';
+
+  @override
+  String get scriptMarkdownDialogue => '台词';
+
+  @override
+  String get scriptMarkdownEdit => '编辑';
+
+  @override
+  String get scriptMarkdownPreview => '预览';
+
+  @override
+  String get scriptMarkdownPreviewEmpty => '暂无内容';
+
+  @override
+  String get scriptMarkdownBoldPlaceholder => '重点';
+
+  @override
+  String get scriptMarkdownItalicPlaceholder => '强调';
+
+  @override
+  String get scriptMarkdownDialogueSnippet => '角色：台词';
+
+  @override
   String get scriptDeleteScript => '批量删除剧本';
 
   @override

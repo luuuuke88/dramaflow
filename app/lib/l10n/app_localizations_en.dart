@@ -1057,6 +1057,36 @@ class AppLocalizationsEn extends AppLocalizations {
       'Failed to update script, please try again later';
 
   @override
+  String get scriptMarkdownBold => 'Bold';
+
+  @override
+  String get scriptMarkdownItalic => 'Italic';
+
+  @override
+  String get scriptMarkdownHeading => 'Heading';
+
+  @override
+  String get scriptMarkdownDialogue => 'Dialogue';
+
+  @override
+  String get scriptMarkdownEdit => 'Edit';
+
+  @override
+  String get scriptMarkdownPreview => 'Preview';
+
+  @override
+  String get scriptMarkdownPreviewEmpty => 'No content yet';
+
+  @override
+  String get scriptMarkdownBoldPlaceholder => 'emphasis';
+
+  @override
+  String get scriptMarkdownItalicPlaceholder => 'tone';
+
+  @override
+  String get scriptMarkdownDialogueSnippet => 'Character: line';
+
+  @override
   String get scriptDeleteScript => 'Delete scripts in batches';
 
   @override
