@@ -101,6 +101,79 @@ void main() {
     expect(engine.config.str('app.locale'), 'ja');
     expect(find.text('設定'), findsOneWidget);
   });
+
+  testWidgets('移动端设置页：模型管理、模型绑定与数据库信息可用', (tester) async {
+    final provider = await engine.createProvider(
+      name: 'Local Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('模型管理').first);
+    await tester.pumpAndSettle();
+    expect(find.text('模型管理 · Local Gateway'), findsOneWidget);
+
+    await tester.tap(find.text('添加模型').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'local-text');
+    await tester.enterText(find.byType(TextField).at(1), '本地文本模型');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final models = await engine.listProviderModels(provider.id);
+    expect(models.single.modelId, 'local-text');
+    expect(models.single.kind, 'text');
+
+    await _selectSection(tester, '模型绑定');
+    await _chooseFirstDropdown(tester, 'Local Gateway · 本地文本模型');
+    expect(
+      (await engine.getBindings())['script_gen'],
+      '${provider.id}:local-text',
+    );
+
+    await _selectSection(tester, '存储与引擎');
+    await tester.tap(find.text('数据库信息'));
+    await tester.pumpAndSettle();
+    expect(find.text('数据库信息'), findsWidgets);
+    expect(find.text('o_project'), findsOneWidget);
+  });
+
+  testWidgets('移动端设置页：清空数据确认只清内容保留配置', (tester) async {
+    await engine.createProvider(
+      name: 'Keep Provider',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    engine.addProject(projectType: 'novel', name: '待清理项目');
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(engine.projects(), isNotEmpty);
+
+    await _selectSection(tester, '存储与引擎');
+    await tester.tap(find.text('清空数据'));
+    await tester.pumpAndSettle();
+    expect(find.text('清空所有数据'), findsOneWidget);
+
+    await tester.tap(find.text('清空数据').last);
+    await tester.pumpAndSettle();
+
+    expect(engine.projects(), isEmpty);
+    expect((await engine.listProviders()).single.name, 'Keep Provider');
+  });
 }
 
 Future<void> _selectSection(WidgetTester tester, String label) async {
@@ -110,5 +183,15 @@ Future<void> _selectSection(WidgetTester tester, String label) async {
     const Offset(-160, 0),
   );
   await tester.tap(find.text(label));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _chooseFirstDropdown(
+  WidgetTester tester,
+  String optionLabel,
+) async {
+  await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(optionLabel).last);
   await tester.pumpAndSettle();
 }

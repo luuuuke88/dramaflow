@@ -6,7 +6,7 @@
 - 本轮起点：`c4c3cf6 chore(progress): record handoff audit and localize composer errors`
 - 本轮接手验证：
   - `cd app && flutter analyze`：通过，0 issues
-  - `cd app && flutter test`：通过，260 tests
+  - `cd app && flutter test`：通过，262 tests
   - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`
   - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`
   - `cd app && flutter build apk --debug`：通过，产物 `build/app/outputs/flutter-apk/app-debug.apk`
@@ -31,6 +31,7 @@
 - 新增机器可验证的 11 页 ToonFlow parity checklist：`docs/superpowers/progress/2026-07-04-page-parity-checklist.md` 逐页记录 Status、Desktop Evidence、Mobile Evidence、Known Gaps、Next Verification，并由 `app/test/docs/page_parity_checklist_test.dart` 防止缺页。
 - 新增移动端项目新建向导 smoke：390px 宽度下可选择图片/视频模型、画质、模式、画幅、视觉手册、导演手册并保存到 `o_project`；同时修复项目对话框窄下拉在小屏下的横向溢出。
 - 新增移动端设置页 smoke：390px 宽度下可修改外观/语言、新增供应商、打开提示词编辑页，补齐全套设置页的首个移动端机器证据。
+- 扩展移动端设置页 smoke：390px 宽度下可进入模型管理新增文本模型、绑定剧本生成模型、打开数据库信息、确认清空数据且保留供应商配置。
 - 合成导出：
   - macOS/iOS：`dramaflow/composer` Swift AVFoundation 插件，含音频轨合成。
   - Android：同一 MethodChannel，Kotlin `MediaMuxer` 实现，支持视频拼接与外部 AAC/M4A 音频轨封装。
