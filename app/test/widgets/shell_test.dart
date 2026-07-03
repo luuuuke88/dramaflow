@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-Widget _app(double width, {String initial = '/'}) {
+Widget _app(double width, {String initial = '/', EdgeInsets viewPadding = EdgeInsets.zero}) {
   final router = GoRouter(
     initialLocation: initial,
     routes: [
@@ -27,7 +27,7 @@ Widget _app(double width, {String initial = '/'}) {
       activeJobsProvider.overrideWith(ActiveJobsStub.new),
     ],
     child: MediaQuery(
-      data: MediaQueryData(size: Size(width, 800)),
+      data: MediaQueryData(size: Size(width, 800), padding: viewPadding),
       child: MaterialApp.router(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
@@ -76,6 +76,20 @@ void main() {
     await tester.tap(find.text('任务中心'));
     await tester.pumpAndSettle();
     expect(find.text('tasks'), findsOneWidget);
+  });
+
+  testWidgets('移动壳：无 AppBar 的顶级标签页需避让状态栏/灵动岛（真机截图曾发现标题被遮挡）',
+      (tester) async {
+    tester.view.physicalSize = const Size(380, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // 模拟 iPhone 灵动岛机型的顶部安全区（真实设备约 59px）。
+    await tester.pumpWidget(_app(380, viewPadding: const EdgeInsets.only(top: 59)));
+    await tester.pumpAndSettle();
+
+    final homeTop = tester.getTopLeft(find.text('home')).dy;
+    expect(homeTop, greaterThanOrEqualTo(59),
+        reason: '首页（无 AppBar 的顶级 Tab）内容顶部必须让开状态栏/灵动岛安全区');
   });
 
   testWidgets('全部 6 个项目分区均已交付，无占位批次徽标残留', (tester) async {

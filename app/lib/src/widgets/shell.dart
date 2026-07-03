@@ -346,7 +346,7 @@ class _MobileShell extends ConsumerWidget {
               ),
             )
           : null,
-      body: child,
+      body: inProject ? child : SafeArea(bottom: false, child: child),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tabIndex,
         height: 64,
