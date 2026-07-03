@@ -123,6 +123,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errNoChapters => '未找到章节';
 
   @override
+  String get errPlatformComposer => '平台视频合成失败';
+
+  @override
   String get promptPanelTitle => '提示词';
 
   @override

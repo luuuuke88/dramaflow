@@ -124,6 +124,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errNoChapters => 'No chapters found';
 
   @override
+  String get errPlatformComposer => 'Platform video composing failed';
+
+  @override
   String get promptPanelTitle => 'Prompts';
 
   @override

@@ -496,6 +496,7 @@ String? _reasonText(AppLocalizations l10n, String? reasonJson) {
     errFileType => l10n.errFileType,
     errRegexInvalid => l10n.errRegexInvalid,
     errNoChapters => l10n.errNoChapters,
+    errPlatformComposer => l10n.errPlatformComposer,
     _ => reason.errKey,
   };
 }

@@ -12,6 +12,7 @@ const errFileTooLarge = 'errFileTooLarge';
 const errFileType = 'errFileType';
 const errRegexInvalid = 'errRegexInvalid';
 const errNoChapters = 'errNoChapters';
+const errPlatformComposer = 'errPlatformComposer';
 const errTaskUnsupported = 'errTaskUnsupported';
 const errManualInvalid = 'errManualInvalid';
 

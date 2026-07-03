@@ -242,6 +242,7 @@ String _engineErrorText(BuildContext context, EngineException error) {
     errFileType => l10n.errFileType,
     errRegexInvalid => l10n.errRegexInvalid,
     errNoChapters => l10n.errNoChapters,
+    errPlatformComposer => l10n.errPlatformComposer,
     _ => error.message,
   };
 }

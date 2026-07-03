@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../engine/compose.dart';
-import '../engine/util.dart';
+import '../engine/errors.dart';
 
 class ComposerMediaInfo {
   final int videoTrackCount;
@@ -19,7 +19,10 @@ class ComposerMediaInfo {
     final audioTrackCount = value['audioTrackCount'];
     final durationSec = value['durationSec'];
     if (videoTrackCount is! num || audioTrackCount is! num) {
-      throw EngineException('读取媒体轨道失败：平台返回值无效');
+      throw const EngineException(
+        errPlatformComposer,
+        {'method': 'inspectMedia', 'reason': 'invalid_result'},
+      );
     }
     return ComposerMediaInfo(
       videoTrackCount: videoTrackCount.toInt(),
@@ -40,7 +43,10 @@ class AVFoundationComposer implements VideoComposer {
         await _invoke<Object?>('probeDuration', {'path': inputAbsPath});
     if (value == null) return null;
     if (value is num) return value.toDouble();
-    throw EngineException('读取视频时长失败：平台返回值无效');
+    throw const EngineException(
+      errPlatformComposer,
+      {'method': 'probeDuration', 'reason': 'invalid_result'},
+    );
   }
 
   @override
@@ -76,14 +82,22 @@ class AVFoundationComposer implements VideoComposer {
     if (value is Map<Object?, Object?>) {
       return ComposerMediaInfo.fromMap(value);
     }
-    throw EngineException('读取媒体轨道失败：平台返回值无效');
+    throw const EngineException(
+      errPlatformComposer,
+      {'method': 'inspectMedia', 'reason': 'invalid_result'},
+    );
   }
 
   Future<T?> _invoke<T>(String method, Object? arguments) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
     } on PlatformException catch (e) {
-      throw EngineException(e.message ?? e.details?.toString() ?? e.code);
+      throw EngineException(errPlatformComposer, {
+        'method': method,
+        'code': e.code,
+        if (e.message != null) 'message': e.message,
+        if (e.details != null) 'details': e.details.toString(),
+      });
     }
   }
 }

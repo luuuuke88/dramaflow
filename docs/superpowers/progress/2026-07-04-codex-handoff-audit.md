@@ -1,0 +1,42 @@
+# 2026-07-04 Codex 接手快照：ToonFlow 全量复刻进度
+
+## 当前事实源
+
+- 当前分支：`master`
+- 最新基线：`64e4289 feat(android): inspect composed media tracks`
+- 本轮接手验证：
+  - `cd app && flutter analyze`：通过，0 issues
+  - `cd app && flutter test`：通过，249 tests
+  - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`
+  - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`
+  - `cd app && flutter build apk --debug`：通过，产物 `build/app/outputs/flutter-apk/app-debug.apk`
+  - `cd app && flutter build web`：通过，产物 `build/web`，但仍是预览态，不代表 Web 完整流程已完成
+- 权威目标仍是 `docs/superpowers/specs/2026-07-03-v0.3-toonflow-parity-design.md`。旧 `docs/API.md` 和 `docs/DESIGN.md` 是 v0.1/v0.2 历史口径，不能作为当前实现目标。
+
+## 已落地且有测试覆盖的主链能力
+
+- 单体 Flutter/Dart 架构：`app/lib/src/engine` 内嵌 sqlite3、JobQueue、ProviderGateway、MediaStore，无运行时 JS/Node 后端依赖。
+- ToonFlow v3/v4 数据模型：26 张核心表已建，旧库打开会重建但不删除媒体目录。
+- 项目、小说章节、事件、剧本、素材、画风库、手册、分镜、图片流、视频轨、配音绑定、TTS、Agent 消息、任务中心、设置页均已有 engine/API 与 widget/engine 测试覆盖。
+- 图片生成链已修正：分镜和节点编辑器可传多参考图，并带模型、画幅、清晰度参数。
+- 视频生成链已具备：分镜首帧图 → Seedance 视频候选 → 选择候选 → 按分镜顺序合成本集。
+- 合成导出：
+  - macOS/iOS：`dramaflow/composer` Swift AVFoundation 插件，含音频轨合成。
+  - Android：同一 MethodChannel，Kotlin `MediaMuxer` 实现，支持视频拼接与外部 AAC/M4A 音频轨封装。
+  - macOS 音频合成已有 integration smoke test。
+- i18n：zh/en/ja ARB 已生成，设置、任务、共享组件有静态硬编码检查。本轮新增 `errPlatformComposer`，让 Dart composer 封装不再抛中文裸错误。
+
+## 仍未达到“完全复刻”的边界
+
+- Web/H5 目前只是 buildable preview。`bootstrap_web.dart` 明确不接入 engine，仍缺 Web 数据库、浏览器文件存储、WebCodecs/Mediabunny 合成器与媒体预览适配。
+- ToonFlow 的完整 WebAV 非线性剪辑器没有复刻。当前工作台是顺序分镜、候选选择、时长/运镜提示词编辑、播放预览和合成导出，不包含完整转场、滤镜、多层剪辑特效。
+- Agent 体系是瘦身版单层 AgentRunner，保留可见任务与工具调用；没有复刻 ToonFlow/Claude 风格的多层 Agent + RAG 记忆大系统。
+- “每页每按钮与 ToonFlow 并排验收”还没有形成机器可验证清单，当前主要靠单测/静态测试/构建验证。
+- 移动端已有响应式布局和 Android/iOS 合成入口，但还需要真机或模拟器完整跑一遍：从导入章节到生成分镜、视频候选、配音、合成导出。
+
+## 接下来优先级
+
+1. 继续补“客户端完整流程”的可验证缺口，而不是优先做 Web。Web 完整 H5 是大子项目，应单独拆 M6。
+2. 给每个 ToonFlow 对齐页面建立 parity checklist 测试或文档表，避免只看文件存在就误判完成。
+3. 跑并记录 `flutter build macos --debug`、iOS simulator build、Android APK build 作为多端集成基线。
+4. 做一条无外部网络的本地 E2E smoke：填充演示数据，走到选中视频候选并调用 fake composer 合成，验证 UI 主链入口都能串起来。

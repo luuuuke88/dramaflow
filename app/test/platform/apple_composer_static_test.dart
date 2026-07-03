@@ -23,4 +23,17 @@ void main() {
       expect(source, contains('noAudioTrack'));
     }
   });
+
+  test('Dart composer wrapper uses localized error keys', () {
+    final dartSource =
+        File('lib/src/platform/avfoundation_composer.dart').readAsStringSync();
+
+    expect(dartSource, contains('errPlatformComposer'));
+    expect(
+      RegExp(r"""(['"])(?:(?!\1).)*[\u4e00-\u9fff](?:(?!\1).)*\1""")
+          .hasMatch(dartSource),
+      isFalse,
+      reason: 'Composer Dart wrapper must not throw hardcoded Chinese UI text.',
+    );
+  });
 }

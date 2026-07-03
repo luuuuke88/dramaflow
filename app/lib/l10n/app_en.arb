@@ -38,6 +38,7 @@
   "errFileType": "File type is not supported",
   "errRegexInvalid": "Regular expression is invalid",
   "errNoChapters": "No chapters found",
+  "errPlatformComposer": "Platform video composing failed",
   "promptPanelTitle": "Prompts",
   "promptEventExtractionTitle": "Event extraction",
   "promptEventExtractionDescription": "Prompt for extracting structured events from novel chapters",

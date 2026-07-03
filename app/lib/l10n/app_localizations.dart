@@ -328,6 +328,12 @@ abstract class AppLocalizations {
   /// **'未找到章节'**
   String get errNoChapters;
 
+  /// No description provided for @errPlatformComposer.
+  ///
+  /// In zh, this message translates to:
+  /// **'平台视频合成失败'**
+  String get errPlatformComposer;
+
   /// No description provided for @promptPanelTitle.
   ///
   /// In zh, this message translates to:

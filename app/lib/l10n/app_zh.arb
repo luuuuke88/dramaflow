@@ -38,6 +38,7 @@
   "errFileType": "文件类型不支持",
   "errRegexInvalid": "正则表达式无效",
   "errNoChapters": "未找到章节",
+  "errPlatformComposer": "平台视频合成失败",
   "promptPanelTitle": "提示词",
   "promptEventExtractionTitle": "事件提取",
   "promptEventExtractionDescription": "小说章节结构化事件提取提示词",

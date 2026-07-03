@@ -123,6 +123,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errNoChapters => '章が見つかりません';
 
   @override
+  String get errPlatformComposer => 'プラットフォームの動画合成に失敗しました';
+
+  @override
   String get promptPanelTitle => 'プロンプト';
 
   @override

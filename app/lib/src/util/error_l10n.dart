@@ -19,6 +19,7 @@ String localizeErrKey(AppLocalizations l10n, EngineException e) =>
       errFileType => l10n.errFileType,
       errRegexInvalid => l10n.errRegexInvalid,
       errNoChapters => l10n.errNoChapters,
+      errPlatformComposer => l10n.errPlatformComposer,
       errTaskUnsupported => l10n.errTaskUnsupported,
       errManualInvalid => l10n.errManualInvalid,
       _ => e.errKey,

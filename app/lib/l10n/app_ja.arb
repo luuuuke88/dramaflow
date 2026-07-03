@@ -38,6 +38,7 @@
   "errFileType": "対応していないファイル形式です",
   "errRegexInvalid": "正規表現が無効です",
   "errNoChapters": "章が見つかりません",
+  "errPlatformComposer": "プラットフォームの動画合成に失敗しました",
   "promptPanelTitle": "プロンプト",
   "promptEventExtractionTitle": "イベント抽出",
   "promptEventExtractionDescription": "小説の章から構造化イベントを抽出するプロンプト",
