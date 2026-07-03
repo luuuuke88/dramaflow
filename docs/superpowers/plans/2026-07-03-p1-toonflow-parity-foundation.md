@@ -87,19 +87,39 @@ cp /Users/luke/Documents/aivideo/Toonflow-web/src/locales/language/{zh-CN,en,ja_
 - Test: `app/test/widgets/df_widgets_test.dart`
 
 **Interfaces（Produces，后续所有 UI 任务只准从这里取样式）:**
+
+> 设计定稿（frontend-design 已执行，2026-07-03）：方向「墨青×暖纸×琥珀」——浅色=暖纸底+墨青靛主色+片场琥珀点缀（工作室气质，区别于 TDesign 冷灰企业风）；暗色=放映厅暖黑。下表为最终值，Codex 逐字实现。
+
 ```dart
-// tokens.dart —— 基线值（审核方以 frontend-design 落稿微调色值/阴影，接口与字段名不变）
+// tokens.dart —— 最终定稿值（浅色 / 深色）
 class DFColors extends ThemeExtension<DFColors> {
-  final Color bg;          // 浅 #F6F7FB / 深 #12141C
-  final Color surface;     // #FFFFFF / #1A1D28
-  final Color stroke;      // #E6E8F0 / #2A2E3D
-  final Color primary;     // #3B5BFD / #7C8CFF
-  final Color primaryHover;
-  final Color textPrimary; // #171A23 / #ECEDF2
-  final Color textSecondary;
-  final Color success; final Color danger; final Color warning; final Color running;
-  // radius: shell 16 / card 12 / control 8；间距阶 4/8/12/16/20/32
+  final Color bg;            // #F5F4F0 / #141419   暖纸页底 / 放映厅暖黑
+  final Color surface;       // #FFFFFF / #1C1C24
+  final Color surfaceMuted;  // #FAF9F6 / #22222C   表头/悬浮底/输入底
+  final Color stroke;        // #E7E4DD / #2C2C38
+  final Color strokeStrong;  // #D8D4CA / #3A3A48   选中描边/分隔强调
+  final Color primary;       // #414CB2 / #8B93E8   墨青靛
+  final Color primaryHover;  // #3540A0 / #A0A7F0
+  final Color primarySubtle; // #EEEFFA / #262A45   主色淡底（选中行/激活 tag 底）
+  final Color accent;        // #C97F1B / #E8A33D   片场琥珀（高光/选中节点/徽标）
+  final Color textPrimary;   // #201F1B / #EDECE6
+  final Color textSecondary; // #6B685F / #A5A299
+  final Color textTertiary;  // #97938A / #6E6E7A   占位/时间戳
+  final Color success;       // #2E9E63 / #4CC583
+  final Color danger;        // #D9463E / #E86A62
+  final Color warning;       // #DB8B1F / #D98E2B
+  final Color running;       // = primary（运行态统一主色，转圈+primarySubtle 底）
+  final Color focusRing;     // primary @40% 双端一致
 }
+// 非色 token（同文件常量类 DFTokens）：
+// radius: shell 16 / card 12 / control 8 / chip 999
+// 间距阶: 4 / 8 / 12 / 16 / 20 / 24 / 32
+// 阴影: cardRest = [0,1,2,#201F1B@5%]（配 1px stroke 描边）；cardHover = [0,6,20,#201F1B@8%]；dialog = [0,24,48,#141419@18%]
+// 动效: fast 120ms（hover/按压）/ standard 200ms（对话框/展开）/ emphasized 320ms（页面切换）曲线 easeOutCubic；骨架屏 shimmer 1200ms 循环
+// 字阶: display 24/w700、title 20/w700、section 16/w600、body 14/w400、caption 12/w400；行高 1.5
+// 字体: CJK 用系统栈（PingFang SC/HarmonyOS Sans 回退）；数字与时长用 tabular figures（FontFeature.tabularFigures()），不引入外挂字体（多端体积优先，P5 可再评估品牌字体）
+```
+```dart
 // 组件族关键签名
 class DFPageScaffold extends StatelessWidget { // 页级容器：标题区+工具栏区+内容区，统一 32px 边距
   const DFPageScaffold({required this.title, this.subtitle, this.toolbar, required this.body});
