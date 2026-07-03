@@ -1,7 +1,7 @@
 // 配音绑定（cornerScape）：契约照抄 ToonFlow /api/cornerScape/batchBindAudio
 // （详见 docs/reference/p4-workbench-brief.md §4）。一角色对一音频，写入
-// o_assetsRole2Audio；语音合成不做（音频素材来自 P2 的音频资产上传），本模块
-// 只做"LLM 按名称/描述匹配最合适音色"的绑定动作，复用 P2 的 tool-calling 模式。
+// o_assetsRole2Audio；本模块只做"LLM 按名称/描述匹配最合适音色"的绑定动作，
+// 复用 P2 的 tool-calling 模式。TTS 生成走素材中心的文本配音入口与 tts.dart。
 import 'package:dio/dio.dart';
 
 import 'engine.dart';
