@@ -18,6 +18,7 @@ import '../../widgets/df_search_field.dart';
 import '../../widgets/df_status_tag.dart';
 import 'add_asset_dialog.dart';
 import 'add_audio_asset_dialog.dart';
+import 'add_tts_audio_dialog.dart';
 import 'batch_generation_dialog.dart';
 import 'generate_image_dialog.dart';
 
@@ -86,8 +87,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
               onPressed: () => Navigator.pop(c, false),
               child: Text(l10n.assetsCancelBtn)),
           FilledButton(
-              style:
-                  FilledButton.styleFrom(backgroundColor: context.df.danger),
+              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
               onPressed: () => Navigator.pop(c, true),
               child: Text(l10n.assetsDelete)),
         ],
@@ -111,8 +111,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
               onPressed: () => Navigator.pop(c, false),
               child: Text(l10n.assetsCancelBtn)),
           FilledButton(
-              style:
-                  FilledButton.styleFrom(backgroundColor: context.df.danger),
+              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
               onPressed: () => Navigator.pop(c, true),
               child: Text(l10n.assetsDelete)),
         ],
@@ -145,7 +144,9 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
         ),
         child: const Center(
           child: SizedBox(
-              width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2)),
         ),
       );
     }
@@ -169,7 +170,9 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
       child: Image.file(File(abs),
-          width: 56, height: 56, fit: BoxFit.cover,
+          width: 56,
+          height: 56,
+          fit: BoxFit.cover,
           errorBuilder: (c, e, s) => Container(
               width: 56,
               height: 56,
@@ -202,8 +205,8 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
   Widget _operations(AssetRow row) {
     final l10n = context.l10n;
     final df = context.df;
-    final generating = row.imageState == stateGenerating ||
-        row.promptState == stateGenerating;
+    final generating =
+        row.imageState == stateGenerating || row.promptState == stateGenerating;
     return Row(mainAxisSize: MainAxisSize.min, children: [
       if (row.type != 'clip' && row.type != 'audio')
         TextButton(
@@ -214,7 +217,8 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
                       projectId: widget.projectId, asset: row);
                   if (saved == true) setState(() {});
                 },
-          child: Text(l10n.assetsGenerate, style: const TextStyle(fontSize: 13)),
+          child:
+              Text(l10n.assetsGenerate, style: const TextStyle(fontSize: 13)),
         ),
       TextButton(
         onPressed: () => _openAdd(existing: row),
@@ -353,6 +357,18 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
             label: Text('${l10n.assetsAddPrefix}${_tabLabel(_type)}'),
           ),
           const SizedBox(width: 8),
+          if (_type == 'audio') ...[
+            OutlinedButton.icon(
+              onPressed: () async {
+                final saved = await showAddTtsAudioDialog(context, ref,
+                    projectId: widget.projectId);
+                if (saved == true) setState(() {});
+              },
+              icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+              label: Text(l10n.assetsGenerateSpeech),
+            ),
+            const SizedBox(width: 8),
+          ],
           if (canGenerate) ...[
             OutlinedButton.icon(
               onPressed: () async {
@@ -413,8 +429,9 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
                   columns: [
                     DFDataColumn(label: l10n.assetsColPreview),
                     DFDataColumn(
-                        label:
-                            isAudio ? l10n.assetsAudioName : l10n.assetsColName),
+                        label: isAudio
+                            ? l10n.assetsAudioName
+                            : l10n.assetsColName),
                     DFDataColumn(
                         label: isAudio ? l10n.assetsSex : l10n.assetsColPrompt),
                     DFDataColumn(label: l10n.assetsColDescribe),
@@ -456,11 +473,9 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
                                 title: Text(l10n.assetsGenerate),
                                 onTap: () async {
                                   Navigator.pop(c);
-                                  final saved =
-                                      await showGenerateImageDialog(
-                                          context, ref,
-                                          projectId: widget.projectId,
-                                          asset: row);
+                                  final saved = await showGenerateImageDialog(
+                                      context, ref,
+                                      projectId: widget.projectId, asset: row);
                                   if (saved == true) setState(() {});
                                 },
                               ),

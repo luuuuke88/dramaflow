@@ -7,6 +7,7 @@ import '../config.dart';
 import '../media.dart';
 import 'openai_text.dart';
 import 'openai_image.dart';
+import 'openai_tts.dart';
 import 'resolve.dart';
 import 'volcengine_video.dart';
 
@@ -58,6 +59,16 @@ abstract class ProviderGateway {
   Future<String> generateVideo(
       String prompt, String firstFrameAbsPath, String projectId,
       {required String stage, CancelToken? cancelToken});
+
+  /// 返回 rel 媒体路径（如 `proj1/aud_xxx.mp3`）。
+  Future<String> generateSpeech(
+    String text,
+    String projectId, {
+    required String stage,
+    required String voice,
+    CancelToken? cancelToken,
+    String? format,
+  });
 
   /// 结构化输出（ToonFlow resultTool 语义）：优先走 tools/tool_choice，
   /// 后端不支持工具调用时回退解析正文中的 JSON；两路都失败抛 errLlmFormat。
@@ -207,6 +218,28 @@ class HttpProviderGateway implements ProviderGateway {
         pollTimeout: pollTimeout);
   }
 
+  @override
+  Future<String> generateSpeech(
+    String text,
+    String projectId, {
+    required String stage,
+    required String voice,
+    CancelToken? cancelToken,
+    String? format,
+  }) {
+    final model = resolveStage(db, stage);
+    return openaiGenerateSpeech(
+      dio,
+      model,
+      media,
+      text,
+      projectId,
+      voice: voice,
+      format: format,
+      cancelToken: cancelToken,
+    );
+  }
+
   Future<int> testTextModel(ResolvedModel model,
       {CancelToken? cancelToken}) async {
     final sw = Stopwatch()..start();
@@ -219,9 +252,9 @@ class HttpProviderGateway implements ProviderGateway {
   Future<int> testImageModel(ResolvedModel model,
       {CancelToken? cancelToken}) async {
     final sw = Stopwatch()..start();
-    final rel = await openaiGenerateImage(
-      dio, model, media, 'a small solid circle icon, minimal', '__conn_test__',
-      imageSizeDirective: '', cancelToken: cancelToken);
+    final rel = await openaiGenerateImage(dio, model, media,
+        'a small solid circle icon, minimal', '__conn_test__',
+        imageSizeDirective: '', cancelToken: cancelToken);
     sw.stop();
     final f = File(media.absPath(rel));
     if (f.existsSync()) f.deleteSync();
@@ -237,10 +270,9 @@ class HttpProviderGateway implements ProviderGateway {
       ..parent.createSync(recursive: true)
       ..writeAsBytesSync(_tinyPngBytes);
     try {
-      await volcengineGenerateVideo(
-        dio, config, media, model, 'connectivity test', tmp.path,
-        '__conn_test__',
-        submitOnly: true, cancelToken: cancelToken);
+      await volcengineGenerateVideo(dio, config, media, model,
+          'connectivity test', tmp.path, '__conn_test__',
+          submitOnly: true, cancelToken: cancelToken);
     } finally {
       if (tmp.existsSync()) tmp.deleteSync();
     }

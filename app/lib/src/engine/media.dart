@@ -16,6 +16,9 @@ class MediaStore {
   String saveVideo(List<int> bytes, String projectId) =>
       _save(bytes, projectId, 'vid', 'mp4');
 
+  String saveAudio(List<int> bytes, String projectId, {String ext = 'mp3'}) =>
+      _save(bytes, projectId, 'aud', ext);
+
   String _save(List<int> bytes, String projectId, String prefix, String ext) {
     final rel = '$projectId/${prefix}_${newId()}.$ext';
     final f = File(absPath(rel));

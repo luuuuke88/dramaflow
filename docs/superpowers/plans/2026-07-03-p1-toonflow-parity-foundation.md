@@ -539,7 +539,7 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - ✅ 收尾验证已跑：`flutter analyze` 零 issue；`flutter test` 239/239 通过；
   `flutter build macos --debug` 通过；`flutter build ios --simulator --debug` 通过并已
   安装启动到 iPhone 模拟器（进程可查）。
-- ✅ Web 从“编译直接失败”推进到“可构建开发预览”（待提交）：`main.dart` 拆为
+- ✅ Web 从“编译直接失败”推进到“可构建开发预览”（b8c3e98）：`main.dart` 拆为
   条件 bootstrap，IO 端继续启动完整 `DramaFlowApp + Engine`，Web 端进入独立
   `DramaFlowWebPreviewApp`，避免把 `dart:io`、sqlite FFI、媒体文件系统和原生合成器
   拉进 Web 编译图；`flutter build web` 通过，Wasm dry run 通过。
@@ -567,3 +567,15 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - ✅ 最新验证补跑：`flutter test` 241/241 通过；`flutter build web` 通过；
   `flutter build macos --debug` 通过；`flutter build apk --debug` 通过；
   `flutter build ios --simulator --debug` 通过。
+- ✅ TTS 最小闭环已补齐：新增 `ProviderGateway.generateSpeech` 与
+  OpenAI-compatible `/audio/speech` 适配，`MediaStore.saveAudio` 落盘；
+  `TtsApi.synthesizeAudioAsset` 可把文本生成的音频挂到现有 `o_assets(type=audio)` +
+  `o_image(type=audio)` 结构，`addSynthesizedAudioAsset` 可从文本直接创建可试听音频素材；
+  资产中心「音频」tab 新增「文本配音」入口（音色名/性别/描述/配音文本/Voice ID）。
+  新增 `tts_test`、`providers_test.generateSpeech`、`assets_tts_screen_test` 覆盖引擎、
+  网关和 UI 路径。
+- ⚠️ TTS 仍是素材级最小闭环，不等于完整配音生产线：逐分镜台词批量生成、角色 voice
+  规则化管理、配音与成片合成混音仍待后续任务补齐。
+- ✅ TTS 补缺验证已跑：`flutter analyze` 零 issue；`flutter test` 245/245 通过；
+  `flutter build web` 通过；`flutter build macos --debug` 通过；
+  `flutter build apk --debug` 通过；`flutter build ios --simulator --debug` 通过。

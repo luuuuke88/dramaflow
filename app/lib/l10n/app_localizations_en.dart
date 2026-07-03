@@ -1212,6 +1212,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assetsAddPleaseUploadAudio => 'Please upload an audio file';
 
   @override
+  String get assetsGenerateSpeech => 'Text to Speech';
+
+  @override
+  String get assetsTtsGenerate => 'Generate Speech';
+
+  @override
+  String get assetsTtsText => 'Speech text';
+
+  @override
+  String get assetsTtsTextPh => 'Enter dialogue or narration to synthesize';
+
+  @override
+  String get assetsTtsVoice => 'Voice ID';
+
+  @override
+  String get assetsTtsVoicePh => 'alloy / custom voice id';
+
+  @override
+  String get assetsTtsTextRequired => 'Please enter speech text';
+
+  @override
   String get assetsGenHeader => 'Generate Image';
 
   @override

@@ -1185,6 +1185,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String get assetsAddPleaseUploadAudio => '音声ファイルをアップロードしてください';
 
   @override
+  String get assetsGenerateSpeech => 'テキスト音声';
+
+  @override
+  String get assetsTtsGenerate => '音声を生成';
+
+  @override
+  String get assetsTtsText => '読み上げテキスト';
+
+  @override
+  String get assetsTtsTextPh => '合成する台詞またはナレーションを入力';
+
+  @override
+  String get assetsTtsVoice => 'Voice ID';
+
+  @override
+  String get assetsTtsVoicePh => 'alloy / カスタム voice id';
+
+  @override
+  String get assetsTtsTextRequired => '読み上げテキストを入力してください';
+
+  @override
   String get assetsGenHeader => '画像生成';
 
   @override

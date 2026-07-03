@@ -2374,6 +2374,48 @@ abstract class AppLocalizations {
   /// **'请上传音频文件'**
   String get assetsAddPleaseUploadAudio;
 
+  /// No description provided for @assetsGenerateSpeech.
+  ///
+  /// In zh, this message translates to:
+  /// **'文本配音'**
+  String get assetsGenerateSpeech;
+
+  /// No description provided for @assetsTtsGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成配音'**
+  String get assetsTtsGenerate;
+
+  /// No description provided for @assetsTtsText.
+  ///
+  /// In zh, this message translates to:
+  /// **'配音文本'**
+  String get assetsTtsText;
+
+  /// No description provided for @assetsTtsTextPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入要合成的台词或旁白'**
+  String get assetsTtsTextPh;
+
+  /// No description provided for @assetsTtsVoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'Voice ID'**
+  String get assetsTtsVoice;
+
+  /// No description provided for @assetsTtsVoicePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'alloy / 自定义 voice id'**
+  String get assetsTtsVoicePh;
+
+  /// No description provided for @assetsTtsTextRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入配音文本'**
+  String get assetsTtsTextRequired;
+
   /// No description provided for @assetsGenHeader.
   ///
   /// In zh, this message translates to:

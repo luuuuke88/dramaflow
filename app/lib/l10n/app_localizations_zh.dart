@@ -1176,6 +1176,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assetsAddPleaseUploadAudio => '请上传音频文件';
 
   @override
+  String get assetsGenerateSpeech => '文本配音';
+
+  @override
+  String get assetsTtsGenerate => '生成配音';
+
+  @override
+  String get assetsTtsText => '配音文本';
+
+  @override
+  String get assetsTtsTextPh => '请输入要合成的台词或旁白';
+
+  @override
+  String get assetsTtsVoice => 'Voice ID';
+
+  @override
+  String get assetsTtsVoicePh => 'alloy / 自定义 voice id';
+
+  @override
+  String get assetsTtsTextRequired => '请输入配音文本';
+
+  @override
   String get assetsGenHeader => '生成图片';
 
   @override

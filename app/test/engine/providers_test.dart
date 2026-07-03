@@ -151,7 +151,9 @@ void main() {
           ['image_size_directive', 'system', 'PORTRAIT 9:16 指令']);
       final adapter = FakeAdapter((o) => jsonBody({
             'data': [
-              {'b64_json': base64Encode([1, 2, 3])}
+              {
+                'b64_json': base64Encode([1, 2, 3])
+              }
             ]
           }));
       bindModel('asset_image', 'image');
@@ -301,6 +303,41 @@ void main() {
               e.errKey == errProviderMissing &&
               e.errParams['reason'] == 'apiKey')));
       freshDb.close();
+    });
+  });
+
+  group('generateSpeech', () {
+    test('OpenAI 兼容 /audio/speech 返回音频字节并落盘', () async {
+      final adapter = FakeAdapter(
+        (o) => ResponseBody.fromBytes(
+          Uint8List.fromList([3, 2, 1]),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['audio/mpeg'],
+          },
+        ),
+      );
+      bindModel('tts', 'tts', modelId: 'tts-1');
+
+      final rel = await gw(adapter).generateSpeech(
+        '你好，少侠',
+        'projT',
+        stage: 'tts',
+        voice: 'alloy',
+        format: 'mp3',
+      );
+
+      expect(rel, startsWith('projT/aud_'));
+      expect(rel, endsWith('.mp3'));
+      expect(File(media.absPath(rel)).readAsBytesSync(), [3, 2, 1]);
+      final request = adapter.requests.single;
+      expect(request.path, endsWith('/audio/speech'));
+      expect(request.responseType, ResponseType.bytes);
+      final body = request.data as Map;
+      expect(body['model'], 'tts-1');
+      expect(body['input'], '你好，少侠');
+      expect(body['voice'], 'alloy');
+      expect(body['response_format'], 'mp3');
     });
   });
 }

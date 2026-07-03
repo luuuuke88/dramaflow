@@ -366,6 +366,19 @@ class _NoopGateway implements ProviderGateway {
   }) {
     throw UnimplementedError();
   }
+
+  @override
+  Future<String> generateSpeech(
+    String text,
+    String projectId, {
+    required String stage,
+    required String voice,
+    CancelToken? cancelToken,
+    String? format,
+  }) {
+    throw UnimplementedError();
+  }
+
   @override
   Future<Map<String, dynamic>> generateToolJson(String system, String user,
           {required String stage,
@@ -383,5 +396,4 @@ class _NoopGateway implements ProviderGateway {
     CancelToken? cancelToken,
   }) async =>
       const AgentTurnResult.text('');
-
 }
