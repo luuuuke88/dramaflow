@@ -302,6 +302,28 @@ void main() {
     expect(engine.projects(), isEmpty);
     expect((await engine.listProviders()).single.name, 'Keep Provider');
   });
+
+  testWidgets('移动端设置页：关于区展示应用与内嵌引擎信息', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '关于');
+
+    expect(find.text('关于 DramaFlow'), findsOneWidget);
+    expect(find.text('应用名称'), findsOneWidget);
+    expect(find.text('DramaFlow'), findsOneWidget);
+    expect(find.text('版本'), findsOneWidget);
+    expect(find.text('0.1.0'), findsOneWidget);
+    expect(find.text('引擎版本'), findsOneWidget);
+    expect(find.text(Engine.version), findsOneWidget);
+    expect(
+      find.text('DramaFlow 是本机运行的 AI 短剧创作工作台，数据与媒体全部保存在本机。'),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<void> _selectSection(WidgetTester tester, String label) async {
