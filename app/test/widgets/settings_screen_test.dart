@@ -146,6 +146,42 @@ void main() {
     expect(find.text('o_project'), findsOneWidget);
   });
 
+  testWidgets('移动端设置页：编辑供应商配置并刷新卡片', (tester) async {
+    await engine.createProvider(
+      name: 'Old Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'old-key',
+    );
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('编辑').first);
+    await tester.pumpAndSettle();
+    expect(find.text('编辑供应商'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).at(0), 'AZT Gateway');
+    await tester.enterText(
+      find.byType(TextField).at(1),
+      'http://127.0.0.1:8787/v1',
+    );
+    await tester.enterText(find.byType(TextField).at(2), 'local');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final provider = (await engine.listProviders()).single;
+    expect(provider.name, 'AZT Gateway');
+    expect(provider.baseUrl, 'http://127.0.0.1:8787/v1');
+    expect(provider.apiKey, 'local');
+    expect(find.text('AZT Gateway'), findsOneWidget);
+    expect(find.text('Old Gateway'), findsNothing);
+  });
+
   testWidgets('移动端设置页：清空数据确认只清内容保留配置', (tester) async {
     await engine.createProvider(
       name: 'Keep Provider',

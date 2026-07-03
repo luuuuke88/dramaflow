@@ -130,8 +130,8 @@ Status: Partial
 
 Desktop Evidence: `app/test/engine/engine_facade_test.dart`, `app/test/ui_i18n_static_test.dart`, and settings-related engine tests cover provider CRUD, model binding validation, config import/export, prompt seed/update/reset, theme and locale persistence, storage information, and static i18n checks.
 
-Mobile Evidence: `app/test/widgets/settings_screen_test.dart` covers 390px settings flows: theme change, locale change, provider creation, prompt editor entry, provider model management, model binding, database info, and clear-data confirmation.
+Mobile Evidence: `app/test/widgets/settings_screen_test.dart` covers 390px settings flows: theme change, locale change, provider creation, provider editing with refreshed cards, prompt editor entry, provider model management, model binding, database info, and clear-data confirmation.
 
-Known Gaps: Mobile provider edit flow, per-modality test UI, config import/export, open data folder, and about/storage secondary paths are not all proven by widget tests.
+Known Gaps: Per-modality test UI, config import/export, open data folder, and about/storage secondary paths are not all proven by widget tests.
 
-Next Verification: Add 390px settings tests for provider edit, per-modality provider test selection, config import/export error paths, and about panel.
+Next Verification: Add 390px settings tests for per-modality provider test selection, config import/export error paths, and about panel.
