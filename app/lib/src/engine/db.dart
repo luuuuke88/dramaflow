@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 4;
+const schemaVersion = 5;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
@@ -268,6 +268,7 @@ CREATE TABLE IF NOT EXISTS o_video (
 );
 CREATE TABLE IF NOT EXISTS o_videoTrack (
   duration INTEGER,
+  filterPreset TEXT,
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   projectId INTEGER,
   prompt TEXT,
@@ -275,6 +276,7 @@ CREATE TABLE IF NOT EXISTS o_videoTrack (
   scriptId INTEGER,
   selectVideoId INTEGER,
   state TEXT,
+  transition TEXT,
   videoId INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_o_novel_project_chapter ON o_novel(projectId, chapterIndex);

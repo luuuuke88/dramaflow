@@ -4066,6 +4066,60 @@ abstract class AppLocalizations {
   /// **'暂无运镜提示词，点击生成或编辑'**
   String get workbenchPromptEmpty;
 
+  /// No description provided for @workbenchTransitionNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无转场'**
+  String get workbenchTransitionNone;
+
+  /// No description provided for @workbenchTransitionFade.
+  ///
+  /// In zh, this message translates to:
+  /// **'淡入淡出'**
+  String get workbenchTransitionFade;
+
+  /// No description provided for @workbenchTransitionDissolve.
+  ///
+  /// In zh, this message translates to:
+  /// **'叠化'**
+  String get workbenchTransitionDissolve;
+
+  /// No description provided for @workbenchTransitionWhipPan.
+  ///
+  /// In zh, this message translates to:
+  /// **'甩镜'**
+  String get workbenchTransitionWhipPan;
+
+  /// No description provided for @workbenchFilterNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无滤镜'**
+  String get workbenchFilterNone;
+
+  /// No description provided for @workbenchFilterCinematic.
+  ///
+  /// In zh, this message translates to:
+  /// **'电影感'**
+  String get workbenchFilterCinematic;
+
+  /// No description provided for @workbenchFilterWarm.
+  ///
+  /// In zh, this message translates to:
+  /// **'暖色'**
+  String get workbenchFilterWarm;
+
+  /// No description provided for @workbenchFilterCool.
+  ///
+  /// In zh, this message translates to:
+  /// **'冷色'**
+  String get workbenchFilterCool;
+
+  /// No description provided for @workbenchFilterVintage.
+  ///
+  /// In zh, this message translates to:
+  /// **'复古'**
+  String get workbenchFilterVintage;
+
   /// No description provided for @cornerScapeAudition.
   ///
   /// In zh, this message translates to:

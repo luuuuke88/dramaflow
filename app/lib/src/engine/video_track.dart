@@ -45,6 +45,8 @@ class VideoTrackRow {
   final String? reason;
   final String? state;
   final int? duration;
+  final String? transition;
+  final String? filter;
   final int? selectVideoId;
   final List<VideoRow> candidates;
   const VideoTrackRow({
@@ -55,6 +57,8 @@ class VideoTrackRow {
     required this.reason,
     required this.state,
     required this.duration,
+    required this.transition,
+    required this.filter,
     required this.selectVideoId,
     required this.candidates,
   });
@@ -70,10 +74,9 @@ extension VideoTrackApi on Engine {
 
   /// 懒建分镜对应的视频轨（trackId 未建时新建并回填 o_storyboard.trackId）。
   int ensureTrackForStoryboard(int storyboardId) {
-    final row = db
-        .select('SELECT trackId,projectId,scriptId FROM o_storyboard WHERE id=?',
-            [storyboardId])
-        .firstOrNull;
+    final row = db.select(
+        'SELECT trackId,projectId,scriptId FROM o_storyboard WHERE id=?',
+        [storyboardId]).firstOrNull;
     if (row == null) {
       throw EngineException(errPromptMissing, {'type': 'storyboard'});
     }
@@ -84,14 +87,14 @@ extension VideoTrackApi on Engine {
       [row['projectId'], row['scriptId'], vtNotGenerated],
     );
     final trackId = db.lastInsertRowId;
-    db.execute(
-        'UPDATE o_storyboard SET trackId=? WHERE id=?', [trackId, storyboardId]);
+    db.execute('UPDATE o_storyboard SET trackId=? WHERE id=?',
+        [trackId, storyboardId]);
     return trackId;
   }
 
   VideoTrackRow? track(int trackId) {
-    final row =
-        db.select('SELECT * FROM o_videoTrack WHERE id=?', [trackId]).firstOrNull;
+    final row = db
+        .select('SELECT * FROM o_videoTrack WHERE id=?', [trackId]).firstOrNull;
     if (row == null) return null;
     return _trackFromRow(row);
   }
@@ -117,6 +120,8 @@ extension VideoTrackApi on Engine {
       reason: row['reason'] as String?,
       state: row['state'] as String?,
       duration: row['duration'] as int?,
+      transition: row['transition'] as String?,
+      filter: row['filterPreset'] as String?,
       selectVideoId: row['selectVideoId'] as int?,
       candidates: candidates,
     );
@@ -127,10 +132,9 @@ extension VideoTrackApi on Engine {
   /// （o_assets2Storyboard→o_assets 取名字），让 LLM 知道镜头里有哪些角色/场景/道具、
   /// 该镜多长，产出更贴合的运镜词；不做过度堆料（只带名称，不带长描述与图片）。
   Future<String> generateVideoPrompt(int storyboardId) async {
-    final sb = db
-        .select('SELECT prompt,videoDesc,duration FROM o_storyboard WHERE id=?',
-            [storyboardId])
-        .firstOrNull;
+    final sb = db.select(
+        'SELECT prompt,videoDesc,duration FROM o_storyboard WHERE id=?',
+        [storyboardId]).firstOrNull;
     if (sb == null) {
       throw EngineException(errPromptMissing, {'type': 'storyboard'});
     }
@@ -145,9 +149,9 @@ extension VideoTrackApi on Engine {
         .map((r) => (r['name'] as String?) ?? '')
         .where((n) => n.isNotEmpty)
         .toList();
-    final trackDuration =
-        (db.select('SELECT duration FROM o_videoTrack WHERE id=?', [trackId])
-            .firstOrNull?['duration'] as int?);
+    final trackDuration = (db.select(
+        'SELECT duration FROM o_videoTrack WHERE id=?',
+        [trackId]).firstOrNull?['duration'] as int?);
     // 时长优先取视频轨（用户手动编辑过的更权威），回退分镜时长文本。
     final durationText = trackDuration != null
         ? '$trackDuration'
@@ -178,6 +182,18 @@ extension VideoTrackApi on Engine {
   void updateVideoDuration(int trackId, int? seconds) {
     final v = (seconds != null && seconds > 0) ? seconds : null;
     db.execute('UPDATE o_videoTrack SET duration=? WHERE id=?', [v, trackId]);
+  }
+
+  /// 编辑本镜转场预设。null/空字符串清空，具体渲染由 composer 平台实现解释。
+  void updateVideoTransition(int trackId, String? transition) {
+    db.execute('UPDATE o_videoTrack SET transition=? WHERE id=?',
+        [_nleValue(transition), trackId]);
+  }
+
+  /// 编辑本镜滤镜预设。null/空字符串清空，具体渲染由 composer 平台实现解释。
+  void updateVideoFilter(int trackId, String? filter) {
+    db.execute('UPDATE o_videoTrack SET filterPreset=? WHERE id=?',
+        [_nleValue(filter), trackId]);
   }
 
   /// 批量生成（队列任务，video lane，cap=1；任务内并发由 concurrentCount 控制，
@@ -222,14 +238,12 @@ extension VideoTrackApi on Engine {
         final i = cursor++;
         if (i >= trackIds.length) return;
         final trackId = trackIds[i];
-        final trackRow = db
-            .select('SELECT * FROM o_videoTrack WHERE id=?', [trackId])
-            .firstOrNull;
+        final trackRow = db.select(
+            'SELECT * FROM o_videoTrack WHERE id=?', [trackId]).firstOrNull;
         if (trackRow == null) continue;
-        final storyboard = db
-            .select('SELECT filePath,prompt FROM o_storyboard WHERE trackId=?',
-                [trackId])
-            .firstOrNull;
+        final storyboard = db.select(
+            'SELECT filePath,prompt FROM o_storyboard WHERE trackId=?',
+            [trackId]).firstOrNull;
         final firstFrame = storyboard?['filePath'] as String?;
         if (firstFrame == null || firstFrame.isEmpty) {
           final ex = EngineException(errPromptMissing, {'type': 'firstFrame'});
@@ -266,10 +280,9 @@ extension VideoTrackApi on Engine {
             [vtDone, rel, videoId],
           );
           // 首个候选自动选中（无选择时，减少摩擦；见 P4 参照 §2）
-          final hasSelection = db
-                  .select('SELECT selectVideoId FROM o_videoTrack WHERE id=?',
-                      [trackId])
-                  .first['selectVideoId'] !=
+          final hasSelection = db.select(
+                  'SELECT selectVideoId FROM o_videoTrack WHERE id=?',
+                  [trackId]).first['selectVideoId'] !=
               null;
           db.execute(
             'UPDATE o_videoTrack SET state=?, reason=NULL'
@@ -328,9 +341,9 @@ extension VideoTrackApi on Engine {
   }
 
   void deleteVideo(int videoId) {
-    final row = db
-        .select('SELECT videoTrackId,filePath FROM o_video WHERE id=?', [videoId])
-        .firstOrNull;
+    final row = db.select(
+        'SELECT videoTrackId,filePath FROM o_video WHERE id=?',
+        [videoId]).firstOrNull;
     if (row == null) return;
     // 先删磁盘文件再删行（此前只删行，泄漏了候选视频 .mp4）。
     final rel = row['filePath'] as String?;
@@ -345,4 +358,9 @@ extension VideoTrackApi on Engine {
     );
     db.execute('DELETE FROM o_video WHERE id=?', [videoId]);
   }
+}
+
+String? _nleValue(String? value) {
+  final trimmed = value?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }

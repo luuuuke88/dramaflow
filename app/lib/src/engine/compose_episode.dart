@@ -35,7 +35,8 @@ extension ComposeEpisodeApi on Engine {
   List<ComposeSegment?> orderedComposeSegments(int scriptId) {
     final rows = db.select(
       'SELECT sb."index" idx, v.filePath videoPath, '
-      'sb.audioPath audioPath, sb.audioAssetId audioAssetId '
+      'sb.audioPath audioPath, sb.audioAssetId audioAssetId, '
+      't.transition transition, t.filterPreset filterPreset '
       'FROM o_storyboard sb '
       'LEFT JOIN o_videoTrack t ON t.id=sb.trackId '
       'LEFT JOIN o_video v ON v.id=t.selectVideoId '
@@ -48,12 +49,14 @@ extension ComposeEpisodeApi on Engine {
           r['videoPath'] as String?,
           r['audioPath'] as String?,
           r['audioAssetId'] as int?,
+          r['transition'] as String?,
+          r['filterPreset'] as String?,
         ),
     ];
   }
 
-  ComposeSegment? _composeSegment(
-      String? videoPath, String? audioPath, int? audioAssetId) {
+  ComposeSegment? _composeSegment(String? videoPath, String? audioPath,
+      int? audioAssetId, String? transition, String? filter) {
     if (videoPath == null || videoPath.isEmpty) return null;
     String? audioAbs;
     if (audioPath != null && audioPath.isNotEmpty) {
@@ -62,7 +65,11 @@ extension ComposeEpisodeApi on Engine {
       audioAbs = audioAssetAbsPath(audioAssetId);
     }
     return ComposeSegment(
-        videoAbsPath: media.absPath(videoPath), audioAbsPath: audioAbs);
+      videoAbsPath: media.absPath(videoPath),
+      audioAbsPath: audioAbs,
+      transition: transition,
+      filter: filter,
+    );
   }
 
   /// 合成整集：任一分镜缺选中视频即报错中文可见（不做部分合成）。

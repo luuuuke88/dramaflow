@@ -2066,6 +2066,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchPromptEmpty => '暂无运镜提示词，点击生成或编辑';
 
   @override
+  String get workbenchTransitionNone => '无转场';
+
+  @override
+  String get workbenchTransitionFade => '淡入淡出';
+
+  @override
+  String get workbenchTransitionDissolve => '叠化';
+
+  @override
+  String get workbenchTransitionWhipPan => '甩镜';
+
+  @override
+  String get workbenchFilterNone => '无滤镜';
+
+  @override
+  String get workbenchFilterCinematic => '电影感';
+
+  @override
+  String get workbenchFilterWarm => '暖色';
+
+  @override
+  String get workbenchFilterCool => '冷色';
+
+  @override
+  String get workbenchFilterVintage => '复古';
+
+  @override
   String get cornerScapeAudition => '试听';
 
   @override

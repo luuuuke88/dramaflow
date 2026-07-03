@@ -159,6 +159,22 @@ void main() {
     expect(segment.audioAbsPath, engine.audioAssetAbsPath(audioId));
   });
 
+  test('orderedComposeSegments 传递每镜转场与滤镜元数据', () {
+    final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final track1 = engine.ensureTrackForStoryboard(sb1);
+    db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [track1, 'p/vid_1.mp4', vtDone]);
+    engine.selectVideo(track1, db.lastInsertRowId);
+
+    engine.updateVideoTransition(track1, 'fade');
+    engine.updateVideoFilter(track1, 'cinematic');
+
+    final segment = engine.orderedComposeSegments(scriptId).single!;
+    expect(segment.transition, 'fade');
+    expect(segment.filter, 'cinematic');
+  });
+
   test('composeEpisode：存在未选中分镜时抛 errPromptMissing 且不拼接', () async {
     engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     expect(

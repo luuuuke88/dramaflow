@@ -53,9 +53,9 @@ void main() {
   Future<void> waitTask(int taskId, {String expectState = 'success'}) async {
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (DateTime.now().isBefore(deadline)) {
-      final state = db
-          .select('SELECT state FROM o_tasks WHERE id=?', [taskId])
-          .first['state'] as String;
+      final state = db.select(
+              'SELECT state FROM o_tasks WHERE id=?', [taskId]).first['state']
+          as String;
       if (state == 'success' || state == 'failed') {
         expect(state, expectState);
         return;
@@ -114,16 +114,14 @@ void main() {
   });
 
   test('updateVideoPrompt 手动覆盖运镜提示词', () {
-    final sbId =
-        engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     final trackId = engine.ensureTrackForStoryboard(sbId);
     engine.updateVideoPrompt(trackId, '缓慢推近特写');
     expect(engine.track(trackId)!.prompt, '缓慢推近特写');
   });
 
   test('updateVideoDuration 写入/清空本镜时长；非正值清空', () {
-    final sbId =
-        engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     final trackId = engine.ensureTrackForStoryboard(sbId);
     engine.updateVideoDuration(trackId, 6);
     expect(engine.track(trackId)!.duration, 6);
@@ -132,6 +130,23 @@ void main() {
     engine.updateVideoDuration(trackId, 8);
     engine.updateVideoDuration(trackId, null);
     expect(engine.track(trackId)!.duration, isNull);
+  });
+
+  test('updateVideoTransition/updateVideoFilter 写入/清空每镜 NLE 参数', () {
+    final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+
+    engine.updateVideoTransition(trackId, 'fade');
+    engine.updateVideoFilter(trackId, 'cinematic');
+    var track = engine.track(trackId)!;
+    expect(track.transition, 'fade');
+    expect(track.filter, 'cinematic');
+
+    engine.updateVideoTransition(trackId, '');
+    engine.updateVideoFilter(trackId, null);
+    track = engine.track(trackId)!;
+    expect(track.transition, isNull, reason: '空字符串视为清空');
+    expect(track.filter, isNull);
   });
 
   test('generateVideoPrompt 增强时长优先取视频轨（用户编辑更权威）', () async {
@@ -161,11 +176,11 @@ void main() {
       expect(firstFrame, contains('frame.png'));
       return 'p/vid_out.mp4';
     };
-    final taskId =
-        engine.batchGenerateVideos(projectId, [withImage, noImage]);
+    final taskId = engine.batchGenerateVideos(projectId, [withImage, noImage]);
     await waitTask(taskId);
 
-    final okTrackId = engine.storyboards(scriptId)
+    final okTrackId = engine
+        .storyboards(scriptId)
         .firstWhere((r) => r.id == withImage)
         .trackId!;
     final okTrack = engine.track(okTrackId)!;
@@ -174,7 +189,8 @@ void main() {
     expect(okTrack.selectVideoId, okTrack.candidates.single.id,
         reason: '首个候选自动选中');
 
-    final badTrackId = engine.storyboards(scriptId)
+    final badTrackId = engine
+        .storyboards(scriptId)
         .firstWhere((r) => r.id == noImage)
         .trackId!;
     final badTrack = engine.track(badTrackId)!;
@@ -186,14 +202,16 @@ void main() {
   test('selectVideo 手动切换选中候选；deleteVideo 清空被删的选中引用并删除磁盘文件', () async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');
-    db.execute("UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
     final mediaRoot = p.join(dir.path, 'media');
     var callCount = 0;
     gateway.videoHandler = (prompt, firstFrame, pid) {
       callCount++;
       final rel = 'p/vid_$callCount.mp4';
       // 写真实文件，验证 deleteVideo 会连磁盘一起清。
-      final f = File(p.join(mediaRoot, rel))..parent.createSync(recursive: true);
+      final f = File(p.join(mediaRoot, rel))
+        ..parent.createSync(recursive: true);
       f.writeAsBytesSync([0, 1, 2, 3]);
       return rel;
     };
@@ -220,17 +238,20 @@ void main() {
     expect(engine.track(trackId)!.candidates, hasLength(1));
     expect(engine.track(trackId)!.selectVideoId, isNull,
         reason: '删除的正是当前选中候选，需清空引用');
-    expect(secondFile.existsSync(), isFalse, reason: 'deleteVideo 需删除磁盘文件，不能泄漏');
+    expect(secondFile.existsSync(), isFalse,
+        reason: 'deleteVideo 需删除磁盘文件，不能泄漏');
   });
 
   test('deleteScripts 级联清除 o_videoTrack 行与视频磁盘文件（此前泄漏）', () async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');
-    db.execute("UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
     final mediaRoot = p.join(dir.path, 'media');
     gateway.videoHandler = (prompt, firstFrame, pid) {
       final rel = 'p/vid_del.mp4';
-      final f = File(p.join(mediaRoot, rel))..parent.createSync(recursive: true);
+      final f = File(p.join(mediaRoot, rel))
+        ..parent.createSync(recursive: true);
       f.writeAsBytesSync([9, 9, 9]);
       return rel;
     };
@@ -239,12 +260,13 @@ void main() {
     final trackId = engine.storyboards(scriptId).single.trackId!;
     final vidFile = File(p.join(mediaRoot, 'p/vid_del.mp4'));
     expect(vidFile.existsSync(), isTrue);
-    expect(
-        db.select('SELECT id FROM o_videoTrack WHERE id=?', [trackId]), isNotEmpty);
+    expect(db.select('SELECT id FROM o_videoTrack WHERE id=?', [trackId]),
+        isNotEmpty);
 
     engine.deleteScripts([scriptId]);
 
-    expect(db.select('SELECT id FROM o_videoTrack WHERE scriptId=?', [scriptId]),
+    expect(
+        db.select('SELECT id FROM o_videoTrack WHERE scriptId=?', [scriptId]),
         isEmpty,
         reason: 'o_videoTrack 行必须随剧本级联删除');
     expect(db.select('SELECT id FROM o_video WHERE scriptId=?', [scriptId]),
@@ -255,11 +277,12 @@ void main() {
   test('冷启动恢复：processing 任务判失败且滞留轨道/视频置 生成失败', () {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');
-    db.execute("UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
-    final trackId = engine.ensureTrackForStoryboard(sbId);
-    db.execute('UPDATE o_videoTrack SET state=? WHERE id=?', [vtGenerating, trackId]);
     db.execute(
-        "INSERT INTO o_video (videoTrackId,state) VALUES (?,?)",
+        "UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    db.execute(
+        'UPDATE o_videoTrack SET state=? WHERE id=?', [vtGenerating, trackId]);
+    db.execute("INSERT INTO o_video (videoTrackId,state) VALUES (?,?)",
         [trackId, vtGenerating]);
     engine.batchGenerateVideos(projectId, [sbId]);
     db.execute("UPDATE o_tasks SET state='processing'");

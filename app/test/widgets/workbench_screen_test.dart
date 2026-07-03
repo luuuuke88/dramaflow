@@ -208,6 +208,35 @@ void main() {
     expect(find.text('7 秒'), findsOneWidget);
   });
 
+  testWidgets('每镜转场和滤镜可编辑并写入视频轨', (tester) async {
+    engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('无转场'), findsOneWidget);
+    expect(find.text('无滤镜'), findsOneWidget);
+
+    await tester.tap(find.text('无转场'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('淡入淡出').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('无滤镜'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('电影感').last);
+    await tester.pumpAndSettle();
+
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final track = engine.track(trackId)!;
+    expect(track.transition, 'fade');
+    expect(track.filter, 'cinematic');
+    expect(find.text('淡入淡出'), findsOneWidget);
+    expect(find.text('电影感'), findsOneWidget);
+  });
+
   testWidgets('运镜提示词可手动编辑：点击文字弹出编辑框并写入轨道', (tester) async {
     engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
 

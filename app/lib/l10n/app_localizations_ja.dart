@@ -2080,6 +2080,33 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchPromptEmpty => 'カメラワークのプロンプトがまだありません。生成または編集してください。';
 
   @override
+  String get workbenchTransitionNone => 'トランジションなし';
+
+  @override
+  String get workbenchTransitionFade => 'フェード';
+
+  @override
+  String get workbenchTransitionDissolve => 'ディゾルブ';
+
+  @override
+  String get workbenchTransitionWhipPan => 'ホイップパン';
+
+  @override
+  String get workbenchFilterNone => 'フィルターなし';
+
+  @override
+  String get workbenchFilterCinematic => 'シネマ調';
+
+  @override
+  String get workbenchFilterWarm => '暖色';
+
+  @override
+  String get workbenchFilterCool => '寒色';
+
+  @override
+  String get workbenchFilterVintage => 'レトロ';
+
+  @override
   String get cornerScapeAudition => '試聴';
 
   @override

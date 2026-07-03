@@ -1,5 +1,5 @@
 // 工作台（照抄 production/components/workbench 语义，见 P4 参照 §3）：
-// 只读镜头列表（顺序已由分镜 index 决定，不做拖拽重排/剪辑特效——见执行边界）+
+// 顺序镜头列表（顺序已由分镜 index 决定，不做拖拽重排——见执行边界）+
 // 每镜视频候选网格（生成/挑选/删除，同 P2/P3 多版本模式）+ 顶部"合成本集"。
 import 'dart:io';
 
@@ -278,6 +278,20 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
     setState(() => _localAudioAssetId = audioAssetId);
   }
 
+  void _updateTransition(String value) {
+    final engine = ref.read(engineProvider);
+    final trackId = engine.ensureTrackForStoryboard(widget.shot.id);
+    engine.updateVideoTransition(trackId, value);
+    setState(() => _localTrackId = trackId);
+  }
+
+  void _updateFilter(String value) {
+    final engine = ref.read(engineProvider);
+    final trackId = engine.ensureTrackForStoryboard(widget.shot.id);
+    engine.updateVideoFilter(trackId, value);
+    setState(() => _localTrackId = trackId);
+  }
+
   /// 手动编辑运镜提示词（懒建轨道后写入 o_videoTrack.prompt）。
   Future<void> _editPrompt(String current) async {
     final l10n = context.l10n;
@@ -328,6 +342,19 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
     final audioValue = audioPool.any((audio) => audio.id == selectedAudioId)
         ? selectedAudioId!
         : 0;
+    final transitionOptions = [
+      _NleOption('', l10n.workbenchTransitionNone),
+      _NleOption('fade', l10n.workbenchTransitionFade),
+      _NleOption('dissolve', l10n.workbenchTransitionDissolve),
+      _NleOption('whip_pan', l10n.workbenchTransitionWhipPan),
+    ];
+    final filterOptions = [
+      _NleOption('', l10n.workbenchFilterNone),
+      _NleOption('cinematic', l10n.workbenchFilterCinematic),
+      _NleOption('warm', l10n.workbenchFilterWarm),
+      _NleOption('cool', l10n.workbenchFilterCool),
+      _NleOption('vintage', l10n.workbenchFilterVintage),
+    ];
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -397,6 +424,21 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              _NleOptionChip(
+                icon: Icons.blur_on_outlined,
+                value: track?.transition ?? '',
+                options: transitionOptions,
+                onSelected: _updateTransition,
+              ),
+              _NleOptionChip(
+                icon: Icons.tune_outlined,
+                value: track?.filter ?? '',
+                options: filterOptions,
+                onSelected: _updateFilter,
+              ),
+            ]),
             const SizedBox(height: 8),
             if (audioPool.isNotEmpty || selectedAudioId != null) ...[
               _ShotAudioPicker(
@@ -499,6 +541,66 @@ class _ShotAudioPicker extends StatelessWidget {
         ),
       ),
     ]);
+  }
+}
+
+class _NleOption {
+  final String value;
+  final String label;
+  const _NleOption(this.value, this.label);
+}
+
+class _NleOptionChip extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final List<_NleOption> options;
+  final ValueChanged<String> onSelected;
+
+  const _NleOptionChip({
+    required this.icon,
+    required this.value,
+    required this.options,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final selected = options.firstWhere(
+      (option) => option.value == value,
+      orElse: () => options.first,
+    );
+    return PopupMenuButton<String>(
+      tooltip: selected.label,
+      initialValue: selected.value,
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        for (final option in options)
+          PopupMenuItem<String>(
+            value: option.value,
+            child: Text(option.label),
+          ),
+      ],
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: df.surfaceMuted,
+          borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+          border: Border.all(color: df.stroke),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: df.textTertiary),
+          const SizedBox(width: 5),
+          Text(
+            selected.label,
+            style: TextStyle(fontSize: 11, color: df.textSecondary),
+          ),
+          const SizedBox(width: 2),
+          Icon(Icons.arrow_drop_down_rounded, size: 16, color: df.textTertiary),
+        ]),
+      ),
+    );
   }
 }
 

@@ -2137,6 +2137,33 @@ class AppLocalizationsEn extends AppLocalizations {
       'No camera prompt yet. Tap to generate or edit.';
 
   @override
+  String get workbenchTransitionNone => 'No transition';
+
+  @override
+  String get workbenchTransitionFade => 'Fade';
+
+  @override
+  String get workbenchTransitionDissolve => 'Dissolve';
+
+  @override
+  String get workbenchTransitionWhipPan => 'Whip pan';
+
+  @override
+  String get workbenchFilterNone => 'No filter';
+
+  @override
+  String get workbenchFilterCinematic => 'Cinematic';
+
+  @override
+  String get workbenchFilterWarm => 'Warm';
+
+  @override
+  String get workbenchFilterCool => 'Cool';
+
+  @override
+  String get workbenchFilterVintage => 'Vintage';
+
+  @override
   String get cornerScapeAudition => 'Audition';
 
   @override

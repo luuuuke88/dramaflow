@@ -3,8 +3,15 @@ import 'errors.dart';
 class ComposeSegment {
   final String videoAbsPath;
   final String? audioAbsPath;
+  final String? transition;
+  final String? filter;
 
-  const ComposeSegment({required this.videoAbsPath, this.audioAbsPath});
+  const ComposeSegment({
+    required this.videoAbsPath,
+    this.audioAbsPath,
+    this.transition,
+    this.filter,
+  });
 
   bool get hasAudio => audioAbsPath != null && audioAbsPath!.isNotEmpty;
 }
