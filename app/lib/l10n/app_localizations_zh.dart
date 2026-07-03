@@ -1706,4 +1706,114 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get imageEditorNoImageModel => '暂无可用图片模型';
+
+  @override
+  String get artStyleLibraryTitle => '画风库';
+
+  @override
+  String get artStyleManage => '管理画风库';
+
+  @override
+  String get artStyleAddTitle => '新增画风';
+
+  @override
+  String get artStyleEditTitle => '编辑画风';
+
+  @override
+  String get artStyleName => '画风名称';
+
+  @override
+  String get artStyleNamePh => '如：2D 动漫、照片写实、3D 国创';
+
+  @override
+  String get artStylePrompt => '画风提示词';
+
+  @override
+  String get artStylePromptPh => '如：(画风：2D动漫风格,2d animation style)';
+
+  @override
+  String get artStyleCover => '封面图';
+
+  @override
+  String get artStyleUploadCover => '上传封面';
+
+  @override
+  String get artStyleNameRequired => '请填写画风名称';
+
+  @override
+  String get artStyleAddSuccess => '画风添加成功';
+
+  @override
+  String get artStyleEditSuccess => '画风编辑成功';
+
+  @override
+  String get artStyleDeleted => '画风已删除';
+
+  @override
+  String get artStyleDeleteHeader => '删除画风';
+
+  @override
+  String artStyleDeleteBody(String name) {
+    return '确定删除画风「$name」吗？';
+  }
+
+  @override
+  String get artStyleEmpty => '还没有画风，点击上方新增。';
+
+  @override
+  String get artStyleClose => '关闭';
+
+  @override
+  String get clipUpload => '上传素材';
+
+  @override
+  String get clipUploadTitle => '上传素材文件';
+
+  @override
+  String get clipPickFile => '选择文件';
+
+  @override
+  String get clipNoFile => '尚未选择文件';
+
+  @override
+  String get clipName => '素材名称';
+
+  @override
+  String get clipNamePh => '留空则使用文件名';
+
+  @override
+  String get clipUploadSuccess => '素材上传成功';
+
+  @override
+  String get clipUploadFailed => '素材上传失败';
+
+  @override
+  String get assetBatchModel => '模型';
+
+  @override
+  String get assetBatchResolution => '分辨率';
+
+  @override
+  String get assetBatchConcurrency => '并发数';
+
+  @override
+  String get assetBatchConcurrencyPh => '1-8';
+
+  @override
+  String get assetBatchOtherPrompt => '补充提示词';
+
+  @override
+  String get assetBatchOtherPromptPh => '追加到润色系统提示词（可选）';
+
+  @override
+  String get assetBatchPickModel => '使用阶段默认';
+
+  @override
+  String get manualImportFile => '导入文件';
+
+  @override
+  String get manualImportSuccess => '文件已导入到当前标签';
+
+  @override
+  String get manualImportFailed => '文件导入失败';
 }

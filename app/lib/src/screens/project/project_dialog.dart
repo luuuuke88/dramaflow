@@ -2,16 +2,22 @@
 // 左栏＝项目类型/名称/小说类型/图片模型+画质/视频模型+模式/影片比例/简介；
 // 右栏＝视觉手册画廊（选中→artStyle）+ 导演手册画廊（选中→directorManual）。
 // 校验照抄：名称必填。移动端 <840 全屏单列。
+// 右栏另含画风库选择区：选中某画风把其提示词写入 artStyle（供生图"画风风格"）。
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/art_style.dart';
 import '../../engine/engine.dart';
 import '../../engine/manuals.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
+import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../assets/art_style_library.dart';
 import '../manuals/manual_editor.dart';
 import '../manuals/manual_gallery.dart';
 import 'model_select.dart';
@@ -56,6 +62,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
 
   List<ManualPack> _visuals = const [];
   List<ManualPack> _directors = const [];
+  List<ArtStyleRow> _artStyleLib = const [];
 
   @override
   void initState() {
@@ -68,6 +75,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
     setState(() {
       _visuals = engine.visualManuals();
       _directors = engine.directorManuals();
+      _artStyleLib = engine.artStyles();
     });
   }
 
@@ -275,9 +283,62 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
     ]);
   }
 
+  Widget _artStyleSection() {
+    final l10n = context.l10n;
+    final df = context.df;
+    final engine = ref.read(engineProvider);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(
+          child: Text(l10n.artStyleLibraryTitle,
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        ),
+        OutlinedButton.icon(
+          onPressed: () async {
+            final changed = await showArtStyleLibrary(context, ref);
+            if (changed == true) _reloadManuals();
+          },
+          icon: const Icon(Icons.tune, size: 16),
+          label: Text(l10n.artStyleManage,
+              style: const TextStyle(fontSize: 12)),
+          style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              visualDensity: VisualDensity.compact),
+        ),
+      ]),
+      const SizedBox(height: 8),
+      if (_artStyleLib.isEmpty)
+        Container(
+          height: 60,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: df.surfaceMuted,
+            borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+            border: Border.all(color: df.stroke),
+          ),
+          child: Text(l10n.artStyleEmpty,
+              style: TextStyle(color: df.textTertiary, fontSize: 12)),
+        )
+      else
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final style in _artStyleLib)
+            _ArtStyleChip(
+              style: style,
+              absPath: engine.mediaAbsPath,
+              selected: _artStyle == style.prompt && style.prompt.isNotEmpty,
+              onTap: () => setState(() => _artStyle =
+                  _artStyle == style.prompt ? null : style.prompt),
+            ),
+        ]),
+    ]);
+  }
+
   Widget _rightManuals() {
     final l10n = context.l10n;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _artStyleSection(),
+      const SizedBox(height: 20),
       ManualGallery(
         title: l10n.projectDialogVisualManual,
         addLabel: l10n.projectDialogNewVisualManual,
@@ -370,5 +431,64 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
         ]),
       ),
     ]);
+  }
+}
+
+class _ArtStyleChip extends StatelessWidget {
+  final ArtStyleRow style;
+  final String Function(String rel) absPath;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ArtStyleChip({
+    required this.style,
+    required this.absPath,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final rel = style.fileUrl;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 92,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            width: 2,
+            color: selected ? df.primary : Colors.transparent,
+          ),
+          color: df.surfaceMuted,
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(
+            width: 92,
+            height: 62,
+            child: rel == null || rel.isEmpty
+                ? Icon(Icons.palette_outlined, color: df.textTertiary)
+                : Image.file(
+                    File(absPath(rel)),
+                    fit: BoxFit.cover,
+                    errorBuilder: (c, e, s) => Icon(
+                        Icons.broken_image_outlined, color: df.textTertiary),
+                  ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            child: Text(
+              style.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 10),
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 }

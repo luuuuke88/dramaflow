@@ -102,6 +102,7 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
       widget.projectId,
       [(assetsId: widget.asset.id, refImageBase64: _refBase64)],
       resolution: _resolution,
+      model: _model,
     );
     _toast(l10n.assetsGenAssetGenSuccess);
   }

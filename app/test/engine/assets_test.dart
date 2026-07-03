@@ -116,6 +116,38 @@ void main() {
     expect(db.select('SELECT COUNT(*) n FROM o_assets').first['n'], 0);
   });
 
+  test('uploadClip：真实文件落盘 + o_image 行 + imageId 选中', () {
+    final id = engine.uploadClip(
+      projectId: projectId,
+      name: '片头素材',
+      bytes: const [1, 2, 3, 4, 5],
+      ext: 'mp4',
+    );
+    final page = engine.getAssets(projectId, type: 'clip');
+    final row = page.data.single;
+    expect(row.id, id);
+    expect(row.name, '片头素材');
+    expect(row.type, 'clip');
+    expect(row.imageId, isNotNull, reason: 'uploadClip 应选中新建的图片行');
+    expect(row.filePath, isNotNull);
+    expect(row.filePath, endsWith('.mp4'));
+    expect(row.imageState, stateDone);
+    final abs = engine.mediaAbsPath(row.filePath!);
+    expect(File(abs).existsSync(), isTrue);
+    expect(File(abs).readAsBytesSync(), const [1, 2, 3, 4, 5]);
+  });
+
+  test('uploadClip：空名称回退默认名', () {
+    final id = engine.uploadClip(
+      projectId: projectId,
+      name: '   ',
+      bytes: const [9],
+      ext: 'png',
+    );
+    final row = engine.assetsByIds([id]).single;
+    expect(row.name, '素材');
+  });
+
   test('音频资产：父子结构/性别管道编码/文件落盘', () {
     final parentId = engine.addAudioAssets(
       projectId: projectId,

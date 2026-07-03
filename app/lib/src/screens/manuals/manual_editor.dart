@@ -1,13 +1,16 @@
 // 手册编辑器（照抄视觉/导演手册对话框）：名称 + 封面多图上传 + 多 Tab MD 输入。
 // 校验照抄：名称必填 / 封面必传 / 全 tab 非空。
+// 补充：支持从 .docx/.md 文件导入正文填充当前标签。
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../engine/manuals.dart';
+import '../../engine/novel_parse.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../util/error_l10n.dart';
@@ -91,6 +94,31 @@ class _ManualEditorState extends State<_ManualEditor> {
 
   void _toast(String msg, {bool warning = true}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// 从 .docx / .md / .txt 导入正文，填充当前标签内容。
+  Future<void> _importInto(String key) async {
+    final l10n = context.l10n;
+    final file = await openFile(acceptedTypeGroups: [
+      const XTypeGroup(label: 'doc', extensions: ['docx', 'md', 'markdown', 'txt'])
+    ]);
+    if (file == null) return;
+    try {
+      final ext = p.extension(file.name).replaceFirst('.', '').toLowerCase();
+      final String text;
+      if (ext == 'docx') {
+        text = extractDocxText(await file.readAsBytes());
+      } else {
+        text = utf8.decode(await file.readAsBytes(), allowMalformed: true);
+      }
+      _tabs[key]!.text = text;
+      if (mounted) {
+        setState(() {});
+        _toast(l10n.manualImportSuccess, warning: false);
+      }
+    } catch (e) {
+      if (mounted) _toast(localizeError(context, e));
+    }
   }
 
   Future<void> _save() async {
@@ -256,22 +284,42 @@ class _ManualEditorState extends State<_ManualEditor> {
                 tabs: [for (final k in _keys) Tab(text: _tabLabel(k))],
               ),
               SizedBox(
-                height: 260,
+                height: 280,
                 child: TabBarView(children: [
                   for (final k in _keys)
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
-                      child: TextField(
-                        controller: _tabs[k],
-                        maxLines: null,
-                        expands: true,
-                        textAlignVertical: TextAlignVertical.top,
-                        style: const TextStyle(
-                            fontSize: 13, fontFamily: 'monospace'),
-                        decoration: InputDecoration(
-                          hintText: l10n.projectDialogPromptPlaceholder,
-                          alignLabelWithHint: true,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () => _importInto(k),
+                              icon: const Icon(Icons.upload_file_outlined,
+                                  size: 16),
+                              label: Text(l10n.manualImportFile,
+                                  style: const TextStyle(fontSize: 12)),
+                              style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Expanded(
+                            child: TextField(
+                              controller: _tabs[k],
+                              maxLines: null,
+                              expands: true,
+                              textAlignVertical: TextAlignVertical.top,
+                              style: const TextStyle(
+                                  fontSize: 13, fontFamily: 'monospace'),
+                              decoration: InputDecoration(
+                                hintText: l10n.projectDialogPromptPlaceholder,
+                                alignLabelWithHint: true,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ]),

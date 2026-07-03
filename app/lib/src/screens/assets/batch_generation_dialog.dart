@@ -13,6 +13,7 @@ import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_data_table.dart';
 import '../../widgets/df_search_field.dart';
 import '../../widgets/df_status_tag.dart';
+import '../project/model_select.dart';
 
 Future<bool?> showBatchGenerationDialog(BuildContext context, WidgetRef ref,
     {required int projectId, required String type, required int mode}) {
@@ -48,11 +49,23 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
   final Set<String> _selected = {};
   final Map<int, TextEditingController> _promptEdits = {};
 
+  // 生成参数（对齐 batchGeneration.vue：模型/分辨率/并发/补充提示词）
+  String? _model;
+  String _resolution = '1K';
+  final TextEditingController _concurrency =
+      TextEditingController(text: '2');
+  final TextEditingController _otherPrompt = TextEditingController();
+
+  int get _concurrentCount =>
+      (int.tryParse(_concurrency.text.trim()) ?? 2).clamp(1, 8);
+
   @override
   void dispose() {
     for (final c in _promptEdits.values) {
       c.dispose();
     }
+    _concurrency.dispose();
+    _otherPrompt.dispose();
     super.dispose();
   }
 
@@ -80,8 +93,13 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
       return;
     }
     _savePromptEdits();
+    final other = _otherPrompt.text.trim();
     ref.read(engineProvider).batchPolishAssetPrompts(
-        widget.projectId, _selected.map(int.parse).toList());
+          widget.projectId,
+          _selected.map(int.parse).toList(),
+          concurrentCount: _concurrentCount,
+          otherTextPrompt: other.isEmpty ? null : other,
+        );
     _toast(l10n.assetsBatchPromptDone);
   }
 
@@ -109,9 +127,94 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
     engine.generateAssetImages(
       widget.projectId,
       [for (final id in targets) (assetsId: id, refImageBase64: null)],
-      concurrentCount: 1,
+      concurrentCount: _concurrentCount,
+      resolution: _resolution,
+      model: _model,
     );
     _toast(l10n.assetsBatchImageDone);
+  }
+
+  Widget _controls() {
+    final l10n = context.l10n;
+    final concurrency = SizedBox(
+      width: 96,
+      child: TextField(
+        controller: _concurrency,
+        keyboardType: TextInputType.number,
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          labelText: l10n.assetBatchConcurrency,
+          hintText: l10n.assetBatchConcurrencyPh,
+          isDense: true,
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: widget.mode == 1
+          ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                child: TextField(
+                  controller: _otherPrompt,
+                  minLines: 1,
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: l10n.assetBatchOtherPrompt,
+                    hintText: l10n.assetBatchOtherPromptPh,
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              concurrency,
+            ])
+          : Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.assetBatchModel,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    ModelSelect(
+                      kind: 'image',
+                      value: _model,
+                      hint: l10n.assetBatchPickModel,
+                      onChanged: (o) => setState(() => _model = o?.value),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.assetBatchResolution,
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  SegmentedButton<String>(
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact),
+                    segments: const [
+                      ButtonSegment(value: '1K', label: Text('1K')),
+                      ButtonSegment(value: '2K', label: Text('2K')),
+                      ButtonSegment(value: '4K', label: Text('4K')),
+                    ],
+                    selected: {_resolution},
+                    onSelectionChanged: (s) =>
+                        setState(() => _resolution = s.single),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 10),
+              concurrency,
+            ]),
+    );
   }
 
   @override
@@ -174,6 +277,7 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
     }
 
     return Column(mainAxisSize: MainAxisSize.min, children: [
+      _controls(),
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
         child: Row(children: [
