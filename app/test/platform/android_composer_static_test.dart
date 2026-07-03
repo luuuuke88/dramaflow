@@ -67,6 +67,23 @@ void main() {
     );
   });
 
+  test('Android composer renders whip-pan with a Media3 matrix transform', () {
+    final activitySource = File(
+      'android/app/src/main/kotlin/com/dramaflow/dramaflow/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(activitySource, contains('MatrixTransformation'));
+    expect(activitySource, contains('WhipPanTransformation'));
+    expect(activitySource, contains('whipPanMatrix'));
+    expect(activitySource, contains('segment.transition == "whip_pan"'));
+    expect(activitySource, contains('it.transition != "whip_pan"'));
+    expect(
+      activitySource,
+      contains('postTranslate'),
+      reason: 'Whip-pan should move frames spatially, not just tint or fade.',
+    );
+  });
+
   test('Android composer pre-renders NLE clips before muxing external audio',
       () {
     final activitySource = File(

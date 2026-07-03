@@ -1,5 +1,6 @@
 package com.dramaflow.dramaflow
 
+import android.graphics.Matrix
 import android.net.Uri
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -8,6 +9,7 @@ import android.media.MediaMuxer
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.MatrixTransformation
 import androidx.media3.effect.RgbMatrix
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -301,7 +303,11 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun ensureRenderableAndroidNle(segments: List<ComposeSegmentInput>) {
-        segments.firstOrNull { it.transition != null && it.transition != "fade" }?.let {
+        segments.firstOrNull {
+            it.transition != null &&
+                it.transition != "fade" &&
+                it.transition != "whip_pan"
+        }?.let {
             throw ComposerException("Android 当前仅支持淡入淡出与滤镜渲染，暂不支持 ${it.transition}")
         }
     }
@@ -358,6 +364,9 @@ class MainActivity : FlutterActivity() {
             effects.add(RgbMatrix { presentationTimeUs, _ ->
                 fadeMatrix(presentationTimeUs, durationUs)
             })
+        }
+        if (segment.transition == "whip_pan") {
+            effects.add(WhipPanTransformation(durationUs))
         }
         return effects
     }
@@ -578,6 +587,29 @@ private data class ComposeInspection(
 )
 
 private class ComposerException(message: String) : Exception(message)
+
+private class WhipPanTransformation(private val durationUs: Long) : MatrixTransformation {
+    override fun getMatrix(presentationTimeUs: Long): Matrix =
+        whipPanMatrix(presentationTimeUs, durationUs)
+}
+
+private fun whipPanMatrix(presentationTimeUs: Long, durationUs: Long): Matrix {
+    val sweepUs = min(420_000L, durationUs / 2L)
+    val offset = when {
+        sweepUs <= 0L -> 0f
+        presentationTimeUs < sweepUs -> {
+            -0.55f * (1f - presentationTimeUs.toFloat() / sweepUs.toFloat())
+        }
+        durationUs - presentationTimeUs < sweepUs -> {
+            0.55f * (1f - max(0f, durationUs - presentationTimeUs.toFloat()) / sweepUs.toFloat())
+        }
+        else -> 0f
+    }
+    return Matrix().apply {
+        postScale(1.14f, 1.14f)
+        postTranslate(offset, 0f)
+    }
+}
 
 private fun MediaFormat.intOrNull(key: String): Int? =
     if (containsKey(key)) getInteger(key) else null
