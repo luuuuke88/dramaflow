@@ -178,4 +178,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get promptRestored => '提示词已恢复默认';
+
+  @override
+  String get errTaskUnsupported => '不支持的任务类型';
 }

@@ -10,6 +10,7 @@ import 'compose.dart';
 import 'config.dart';
 import 'db.dart';
 import 'errors.dart';
+import 'events.dart';
 import 'media.dart';
 import 'providers/gateway.dart';
 import 'providers/resolve.dart';
@@ -238,9 +239,20 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
   }) {
     queue = JobQueue(
       db,
-      run: taskRunner ?? _unsupportedTaskRunner,
+      run: taskRunner ?? _dispatchTask,
       tick: queueTick,
     );
+  }
+
+  /// taskClass → 执行器注册表（各业务模块 install 时挂载）。
+  final Map<String, TaskRunner> taskRunners = {};
+
+  Future<void> _dispatchTask(TasksRow task, CancelToken token) {
+    final runner = taskRunners[task.taskClass];
+    if (runner == null) {
+      throw EngineException(errTaskUnsupported, {'taskClass': task.taskClass});
+    }
+    return runner(task, token);
   }
 
   static Future<Engine> boot({
@@ -260,16 +272,10 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       config: config,
       composer: composer,
     );
+    engine.installNovelEventPipeline();
     engine.queue.recoverOnColdStart();
     engine.queue.start();
     return engine;
-  }
-
-  static Future<void> _unsupportedTaskRunner(
-    TasksRow task,
-    CancelToken token,
-  ) {
-    throw EngineException(errLlmFormat, {'taskClass': task.taskClass});
   }
 
   static void _seedDefaults(
@@ -372,6 +378,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
 
     if (isMobile) {
       binding('script_gen', 'volcengine:doubao-seed-1-6-250615');
+      binding('event_extract', 'volcengine:doubao-seed-1-6-250615');
       binding('asset_extract', 'volcengine:doubao-seed-1-6-250615');
       binding('storyboard_gen', 'volcengine:doubao-seed-1-6-250615');
       binding('asset_image', 'volcengine:doubao-seedream-4-0-250828');
@@ -379,6 +386,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       binding('shot_video', 'volcengine:doubao-seedance-2-0-mini-260615');
     } else {
       binding('script_gen', 'azt:gpt-5.5');
+      binding('event_extract', 'azt:gpt-5.5');
       binding('asset_extract', 'azt:gpt-5.5');
       binding('storyboard_gen', 'azt:gpt-5.5');
       binding('asset_image', 'azt:gpt-image-2');
@@ -414,6 +422,15 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       name: _promptKeyImageSizeDirective,
       type: 'system',
       data: config.str('imageSizeDirective'),
+    );
+    // 事件分析（ToonFlow 前端有入口但后端缺失，DramaFlow 补齐为可编辑提示词）
+    prompt(
+      name: 'eventAnalysis',
+      type: 'eventAnalysis',
+      data: '你是短剧改编分析助手。用户提供若干章节的事件摘要（管道分隔格式），'
+          '请逐章分析其改编价值：主线推进、可视化难度、情绪曲线衔接、建议保留或合并。'
+          '严格返回 JSON 数组，每元素形如 {"chapterIndex": 数字, "analysis": "分析文本"}，'
+          '不要输出 JSON 以外的任何内容。',
     );
   }
 

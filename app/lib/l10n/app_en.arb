@@ -71,5 +71,6 @@
     }
   },
   "promptRestoreDefaultConfirm": "Restore",
-  "promptRestored": "Prompt restored to default"
+  "promptRestored": "Prompt restored to default",
+  "errTaskUnsupported": "Unsupported task type"
 }

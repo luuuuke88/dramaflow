@@ -179,4 +179,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get promptRestored => 'プロンプトをデフォルトに戻しました';
+
+  @override
+  String get errTaskUnsupported => '未対応のタスク種別';
 }

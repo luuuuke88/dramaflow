@@ -12,6 +12,7 @@ const errFileTooLarge = 'errFileTooLarge';
 const errFileType = 'errFileType';
 const errRegexInvalid = 'errRegexInvalid';
 const errNoChapters = 'errNoChapters';
+const errTaskUnsupported = 'errTaskUnsupported';
 
 class EngineException implements Exception {
   final String errKey;

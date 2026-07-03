@@ -400,3 +400,9 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - **Spec 覆盖**：P1 范围（schema 全量/设计系统/导航壳/项目/章节/事件/剧本可编辑）逐项有任务；i18n §5B → T1+各页 ARB 步；错误码化 §5B.4 → T3；双形态 §5.3 → 各 UI 任务内建+T13 验收。剧本生成（scriptAgent）明确划归 P5，P1 剧本=管理页语义（与 ToonFlow 页面职责一致）。
 - **占位符扫描**：无 TBD；T2 色值标注「frontend-design 定稿回填、接口不变」为显式流程而非空洞；T4 Step0/T1 Step0 为审核方取材动作，产物路径明确。
 - **类型一致性**：id 全 int；EngineException/errKey 命名 T3 定义、T5-T12 引用一致；ChapterItem 字段 T5 定义、T11 引用一致；分页返回 record 形状统一 `(data|list, total)` 按 ToonFlow 各自命名保留。
+
+## 执行偏差记录（审核方维护）
+
+- **T3**：`database.d.ts` 实为 26 表（计划初稿误记 22），已按 26 表全量落库。
+- **T5 起改为 Claude 亲自开发**（luke 2026-07-03 指示，Codex T5 长时间零产出后弃用）。
+- **T6 对 ToonFlow 半成品的补齐**：① ToonFlow 后端无任何代码写入 o_event/o_eventChapter（事件列表页读空表），DramaFlow 在逐章事件生成成功时解析管道格式落表（name=首字段，detail=整行），重跑同章替换不重复；② 前端调用的 /novel/event/eventAnalysis 在 ToonFlow 后端不存在，DramaFlow 以可编辑提示词（o_prompt type=eventAnalysis）实现真实分析；③ 新增 stage `event_extract`（text 类）与其种子绑定；④ 事件任务粒度：单章失败不失败整任务，全部失败才判任务失败（首个错误上抛）。

@@ -6,6 +6,7 @@ import '../util.dart';
 
 const stageKindByStage = {
   'script_gen': 'text',
+  'event_extract': 'text',
   'asset_extract': 'text',
   'storyboard_gen': 'text',
   'asset_image': 'image',

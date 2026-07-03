@@ -429,6 +429,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'提示词已恢复默认'**
   String get promptRestored;
+
+  /// No description provided for @errTaskUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'不支持的任务类型'**
+  String get errTaskUnsupported;
 }
 
 class _AppLocalizationsDelegate

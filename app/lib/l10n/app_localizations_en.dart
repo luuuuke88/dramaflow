@@ -182,4 +182,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get promptRestored => 'Prompt restored to default';
+
+  @override
+  String get errTaskUnsupported => 'Unsupported task type';
 }

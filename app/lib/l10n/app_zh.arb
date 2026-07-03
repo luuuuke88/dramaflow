@@ -71,5 +71,6 @@
     }
   },
   "promptRestoreDefaultConfirm": "恢复",
-  "promptRestored": "提示词已恢复默认"
+  "promptRestored": "提示词已恢复默认",
+  "errTaskUnsupported": "不支持的任务类型"
 }

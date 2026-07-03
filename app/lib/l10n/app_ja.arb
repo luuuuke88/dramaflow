@@ -71,5 +71,6 @@
     }
   },
   "promptRestoreDefaultConfirm": "戻す",
-  "promptRestored": "プロンプトをデフォルトに戻しました"
+  "promptRestored": "プロンプトをデフォルトに戻しました",
+  "errTaskUnsupported": "未対応のタスク種別"
 }
