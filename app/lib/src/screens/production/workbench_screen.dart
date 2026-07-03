@@ -1,5 +1,5 @@
 // 工作台（照抄 production/components/workbench 语义，见 P4 参照 §3）：
-// 顺序镜头列表（顺序已由分镜 index 决定，不做拖拽重排——见执行边界）+
+// 顺序镜头列表（顺序由分镜 index 决定，支持拖拽重排并回写 index）+
 // 每镜视频候选网格（生成/挑选/删除，同 P2/P3 多版本模式）+ 顶部"合成本集"。
 import 'dart:io';
 
@@ -170,6 +170,16 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     _toast(context.l10n.workbenchGenerateVideo);
   }
 
+  void _reorderShots(List<StoryboardRow> shots, int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+    final targetIndex = newIndex.clamp(0, shots.length - 1);
+    final ids = [for (final shot in shots) shot.id];
+    final moved = ids.removeAt(oldIndex);
+    ids.insert(targetIndex, moved);
+    ref.read(engineProvider).reorderStoryboards(widget.scriptId, ids);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -212,12 +222,34 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       ),
       body: shots.isEmpty
           ? Center(child: DFEmpty(text: l10n.workbenchNoShots))
-          : ListView.separated(
+          : ReorderableListView.builder(
               padding: const EdgeInsets.all(16),
+              buildDefaultDragHandles: false,
+              onReorderItem: (oldIndex, newIndex) =>
+                  _reorderShots(shots, oldIndex, newIndex),
               itemCount: shots.length,
-              separatorBuilder: (c, i) => const SizedBox(height: 12),
-              itemBuilder: (c, i) => _ShotRow(
-                  projectId: widget.projectId, shot: shots[i], index: i),
+              itemBuilder: (c, i) {
+                final shot = shots[i];
+                return Padding(
+                  key: ValueKey('workbench-shot-item-${shot.id}'),
+                  padding:
+                      EdgeInsets.only(bottom: i == shots.length - 1 ? 0 : 12),
+                  child: _ShotRow(
+                    projectId: widget.projectId,
+                    shot: shot,
+                    index: i,
+                    dragHandle: ReorderableDragStartListener(
+                      key: ValueKey('workbench-reorder-handle-${shot.id}'),
+                      index: i,
+                      child: Tooltip(
+                        message: l10n.workbenchReorderShot,
+                        child: Icon(Icons.drag_indicator_rounded,
+                            color: context.df.textTertiary),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
     );
   }
@@ -227,8 +259,12 @@ class _ShotRow extends ConsumerStatefulWidget {
   final int projectId;
   final StoryboardRow shot;
   final int index;
+  final Widget dragHandle;
   const _ShotRow(
-      {required this.projectId, required this.shot, required this.index});
+      {required this.projectId,
+      required this.shot,
+      required this.index,
+      required this.dragHandle});
 
   @override
   ConsumerState<_ShotRow> createState() => _ShotRowState();
@@ -364,6 +400,9 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
         border: Border.all(color: df.stroke),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+            width: 28, height: 100, child: Center(child: widget.dragHandle)),
+        const SizedBox(width: 8),
         Container(
           width: 100,
           height: 100,

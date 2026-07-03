@@ -1544,6 +1544,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchDuration => '时长';
 
   @override
+  String get workbenchReorderShot => '拖拽调整顺序';
+
+  @override
   String get cornerScapeTitle => '配音';
 
   @override

@@ -1554,6 +1554,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchDuration => '再生時間';
 
   @override
+  String get workbenchReorderShot => 'ドラッグして並べ替え';
+
+  @override
   String get cornerScapeTitle => '配音';
 
   @override

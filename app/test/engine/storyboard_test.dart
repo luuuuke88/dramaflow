@@ -125,6 +125,38 @@ void main() {
     expect(rows.map((r) => r.index), [1, 2, 3, 4]);
   });
 
+  test('重排分镜：按新 id 顺序重写连续 index 并驱动后续合成顺序', () {
+    final s1 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头1');
+    final s2 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头2');
+    final s3 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头3');
+
+    engine.reorderStoryboards(scriptId, [s3, s1, s2]);
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows.map((r) => r.id), [s3, s1, s2]);
+    expect(rows.map((r) => r.index), [1, 2, 3]);
+  });
+
+  test('重排分镜：缺少或混入其他 id 时拒绝写入，保留原顺序', () {
+    final s1 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头1');
+    final s2 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头2');
+
+    expect(
+      () => engine.reorderStoryboards(scriptId, [s2, 999]),
+      throwsA(isA<EngineException>()
+          .having((e) => e.errKey, 'errKey', errPromptMissing)),
+    );
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows.map((r) => r.id), [s1, s2]);
+    expect(rows.map((r) => r.index), [1, 2]);
+  });
+
   test('剧本生成分镜：tool-calling 落库+资产名映射为 id', () async {
     db.execute(
         "INSERT INTO o_assets (name,type,projectId) VALUES ('林朝雪','role',?)",

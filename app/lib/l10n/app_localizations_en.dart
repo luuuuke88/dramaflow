@@ -1587,6 +1587,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchDuration => 'Duration';
 
   @override
+  String get workbenchReorderShot => 'Drag to reorder';
+
+  @override
   String get cornerScapeTitle => 'Voice';
 
   @override

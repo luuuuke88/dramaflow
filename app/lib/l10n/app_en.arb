@@ -542,6 +542,7 @@
   "workbenchEditPrompt": "Edit Motion Prompt",
   "workbenchOutputPath": "Output path",
   "workbenchDuration": "Duration",
+  "workbenchReorderShot": "Drag to reorder",
   "cornerScapeTitle": "Voice",
   "cornerScapeAutoMatch": "AI Auto-Match",
   "cornerScapeAutoMatching": "Matching...",

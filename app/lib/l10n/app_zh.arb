@@ -669,6 +669,7 @@
   "workbenchEditPrompt": "编辑运镜提示词",
   "workbenchOutputPath": "输出路径",
   "workbenchDuration": "时长",
+  "workbenchReorderShot": "拖拽调整顺序",
   "cornerScapeTitle": "配音",
   "cornerScapeAutoMatch": "AI 自动匹配",
   "cornerScapeAutoMatching": "匹配中...",

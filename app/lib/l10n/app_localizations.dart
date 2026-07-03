@@ -3070,6 +3070,12 @@ abstract class AppLocalizations {
   /// **'时长'**
   String get workbenchDuration;
 
+  /// No description provided for @workbenchReorderShot.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖拽调整顺序'**
+  String get workbenchReorderShot;
+
   /// No description provided for @cornerScapeTitle.
   ///
   /// In zh, this message translates to:

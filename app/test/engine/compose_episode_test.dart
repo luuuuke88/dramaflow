@@ -107,6 +107,35 @@ void main() {
     expect(paths, ['p/vid_1.mp4', null]);
   });
 
+  test('orderedSelectedVideoPaths 和 composeEpisode 跟随分镜重排后的 index 顺序',
+      () async {
+    final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final sb2 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final track1 = engine.ensureTrackForStoryboard(sb1);
+    final track2 = engine.ensureTrackForStoryboard(sb2);
+    db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [track1, 'p/vid_1.mp4', vtDone]);
+    engine.selectVideo(track1, db.lastInsertRowId);
+    db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [track2, 'p/vid_2.mp4', vtDone]);
+    engine.selectVideo(track2, db.lastInsertRowId);
+
+    engine.reorderStoryboards(scriptId, [sb2, sb1]);
+
+    expect(engine.orderedSelectedVideoPaths(scriptId), [
+      'p/vid_2.mp4',
+      'p/vid_1.mp4',
+    ]);
+
+    await engine.composeEpisode(projectId, scriptId);
+    expect(composer.concatCalls.single.map((p) => p.split('/').last), [
+      'vid_2.mp4',
+      'vid_1.mp4',
+    ]);
+  });
+
   test('composeEpisode：全部已选时拼接成功并返回时长', () async {
     final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     final track1 = engine.ensureTrackForStoryboard(sb1);

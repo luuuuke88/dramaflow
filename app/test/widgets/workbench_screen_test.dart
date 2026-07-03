@@ -291,4 +291,28 @@ void main() {
     expect(engine.storyboards(scriptId).single.audioAssetId, audioId);
     expect(find.text('少年声'), findsOneWidget);
   });
+
+  testWidgets('工作台镜头可拖拽重排并持久化到分镜顺序', (tester) async {
+    final s1 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头一');
+    final s2 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头二');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(engine.storyboards(scriptId).map((r) => r.id), [s1, s2]);
+    expect(find.byTooltip('拖拽调整顺序'), findsNWidgets(2));
+
+    await tester.drag(
+      find.byKey(ValueKey('workbench-reorder-handle-$s2')),
+      const Offset(0, -160),
+    );
+    await tester.pumpAndSettle();
+
+    expect(engine.storyboards(scriptId).map((r) => r.id), [s2, s1]);
+    expect(engine.storyboards(scriptId).map((r) => r.index), [1, 2]);
+  });
 }

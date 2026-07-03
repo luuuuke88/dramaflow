@@ -542,6 +542,7 @@
   "workbenchEditPrompt": "カメラワークプロンプト編集",
   "workbenchOutputPath": "出力パス",
   "workbenchDuration": "再生時間",
+  "workbenchReorderShot": "ドラッグして並べ替え",
   "cornerScapeTitle": "配音",
   "cornerScapeAutoMatch": "AI自動マッチング",
   "cornerScapeAutoMatching": "マッチング中...",

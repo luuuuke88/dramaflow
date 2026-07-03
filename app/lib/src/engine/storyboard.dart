@@ -89,6 +89,14 @@ const storyboardListToolSchema = <String, dynamic>{
 
 String _ph(List<int> ids) => List.filled(ids.length, '?').join(',');
 
+bool _sameOrder(List<int> a, List<int> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
+
 extension StoryboardApi on Engine {
   void installStoryboardPipeline() {
     taskRunners['storyboard_generate'] = _runStoryboardGenerate;
@@ -231,6 +239,42 @@ extension StoryboardApi on Engine {
     if (sets.isEmpty) return;
     args.add(id);
     db.execute('UPDATE o_storyboard SET ${sets.join(',')} WHERE id=?', args);
+  }
+
+  /// 按给定 id 顺序重排同一剧本的分镜，并重写为连续 1 基 index。
+  ///
+  /// 这是工作台拖拽排序的唯一写入口：调用方必须传入当前 script 下的完整 id 列表，
+  /// 避免部分列表或跨剧本 id 把合成顺序写坏。
+  void reorderStoryboards(int scriptId, List<int> orderedIds) {
+    final currentIds = db
+        .select(
+          'SELECT id FROM o_storyboard WHERE scriptId=? ORDER BY "index" ASC',
+          [scriptId],
+        )
+        .map((r) => r['id'] as int)
+        .toList();
+    if (currentIds.length != orderedIds.length ||
+        currentIds.toSet().length != orderedIds.toSet().length ||
+        !currentIds.toSet().containsAll(orderedIds)) {
+      throw const EngineException(
+          errPromptMissing, {'type': 'storyboardOrder'});
+    }
+    if (_sameOrder(currentIds, orderedIds)) return;
+
+    db.execute('SAVEPOINT reorder_storyboards');
+    try {
+      for (final (i, id) in orderedIds.indexed) {
+        db.execute(
+          'UPDATE o_storyboard SET "index"=? WHERE id=? AND scriptId=?',
+          [i + 1, id, scriptId],
+        );
+      }
+      db.execute('RELEASE SAVEPOINT reorder_storyboards');
+    } catch (_) {
+      db.execute('ROLLBACK TO SAVEPOINT reorder_storyboards');
+      db.execute('RELEASE SAVEPOINT reorder_storyboards');
+      rethrow;
+    }
   }
 
   /// 批量删除：清关联+清图片文件+重排剩余 index。
