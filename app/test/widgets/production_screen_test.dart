@@ -94,11 +94,30 @@ void main() {
 
     expect(find.text('第一集'), findsOneWidget); // 剧集选择 chip
     expect(find.textContaining('剧本'), findsWidgets);
+    expect(find.text('剧本规划'), findsOneWidget); // 真实规划节点标题
     expect(find.text('资产'), findsOneWidget);
     expect(find.text('分镜表'), findsOneWidget);
     expect(find.text('分镜'), findsWidgets); // 节点标题 + 内部工具栏文案
     expect(find.text('工作台'), findsOneWidget);
     expect(find.text('生成分镜'), findsOneWidget); // 分镜为空时的按钮
+    // scriptPlan 已落地为真实节点，不再有占位文案。
+    expect(find.textContaining('批次交付'), findsNothing);
+    expect(find.text('还没有剧本规划，点此撰写整体思路、节奏与要点。'), findsOneWidget);
+  });
+
+  testWidgets('桌面画布：Agent 对话入口可打开右侧面板', (tester) async {
+    engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Agent 对话'));
+    await tester.pumpAndSettle();
+    // 面板打开后出现欢迎语与发送按钮。
+    expect(find.textContaining('我是剧本 Agent'), findsOneWidget);
+    expect(find.text('发送'), findsOneWidget);
   });
 
   testWidgets('点击资产节点卡片打开节点式图片编辑器', (tester) async {
@@ -128,6 +147,21 @@ void main() {
 
     expect(find.byType(TabBar), findsOneWidget);
     expect(find.byType(TabBarView), findsOneWidget);
+    expect(find.widgetWithText(Tab, '剧本规划'), findsOneWidget); // 规划 Tab
+  });
+
+  testWidgets('移动端：Agent 入口打开全屏对话', (tester) async {
+    engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.smart_toy_outlined));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppBar, '剧本 Agent'), findsOneWidget);
+    expect(find.text('发送'), findsOneWidget);
   });
 
   testWidgets('点击「生成分镜」触发任务入队', (tester) async {

@@ -1612,4 +1612,29 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get agentChatSkillsBody =>
       '私が呼び出せる機能はすべて既存パイプラインの実際の動作で、呼び出すたびにタスクセンターに確認・再試行可能な記録が残ります：イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像生成、動画生成、配音マッチング、合成書き出し。カスタムスクリプト技能には対応していません。';
+
+  @override
+  String get scriptPlanEmpty => '脚本プランはまだありません。全体の方向性・テンポ・要点をここに書き込みます。';
+
+  @override
+  String get scriptPlanWrite => 'プランを書く';
+
+  @override
+  String get scriptPlanEditTitle => '脚本プランを編集';
+
+  @override
+  String get scriptPlanEditHint =>
+      'Markdown でプロジェクト全体の計画を記録：メインストーリー、キャラクターの成長、各話のテンポ、トーンとスタイル……';
+
+  @override
+  String get scriptPlanSaved => '脚本プランを保存しました';
+
+  @override
+  String get canvasChatTitle => '脚本エージェント';
+
+  @override
+  String get canvasChatOpen => 'エージェント対話';
+
+  @override
+  String get canvasChatClose => '閉じる';
 }

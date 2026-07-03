@@ -1661,4 +1661,30 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agentChatSkillsBody =>
       'Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported.';
+
+  @override
+  String get scriptPlanEmpty =>
+      'No script plan yet. Tap to write the overall direction, pacing, and key points.';
+
+  @override
+  String get scriptPlanWrite => 'Write plan';
+
+  @override
+  String get scriptPlanEditTitle => 'Edit script plan';
+
+  @override
+  String get scriptPlanEditHint =>
+      'Use Markdown to capture the project plan: main plot, character arcs, per-episode pacing, tone and style...';
+
+  @override
+  String get scriptPlanSaved => 'Script plan saved';
+
+  @override
+  String get canvasChatTitle => 'Script Agent';
+
+  @override
+  String get canvasChatOpen => 'Agent chat';
+
+  @override
+  String get canvasChatClose => 'Close';
 }

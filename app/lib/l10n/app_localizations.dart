@@ -3195,6 +3195,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。'**
   String get agentChatSkillsBody;
+
+  /// No description provided for @scriptPlanEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有剧本规划，点此撰写整体思路、节奏与要点。'**
+  String get scriptPlanEmpty;
+
+  /// No description provided for @scriptPlanWrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'撰写规划'**
+  String get scriptPlanWrite;
+
+  /// No description provided for @scriptPlanEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑剧本规划'**
+  String get scriptPlanEditTitle;
+
+  /// No description provided for @scriptPlanEditHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用 Markdown 记录本项目的整体规划：主线、人物弧光、分集节奏、风格基调……'**
+  String get scriptPlanEditHint;
+
+  /// No description provided for @scriptPlanSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本规划已保存'**
+  String get scriptPlanSaved;
+
+  /// No description provided for @canvasChatTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本 Agent'**
+  String get canvasChatTitle;
+
+  /// No description provided for @canvasChatOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 对话'**
+  String get canvasChatOpen;
+
+  /// No description provided for @canvasChatClose.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get canvasChatClose;
 }
 
 class _AppLocalizationsDelegate
