@@ -487,6 +487,8 @@
   "workbenchSelectCandidate": "Use this take",
   "workbenchSelected": "Selected",
   "workbenchGeneratePrompt": "Generate Motion Prompt",
+  "workbenchShotAudioLabel": "Shot Voice",
+  "workbenchShotAudioNone": "No voice",
   "workbenchEditPrompt": "Edit Motion Prompt",
   "workbenchOutputPath": "Output path",
   "workbenchDuration": "Duration",

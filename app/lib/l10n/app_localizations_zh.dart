@@ -1455,6 +1455,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchGeneratePrompt => '生成运镜提示词';
 
   @override
+  String get workbenchShotAudioLabel => '镜头配音';
+
+  @override
+  String get workbenchShotAudioNone => '无配音';
+
+  @override
   String get workbenchEditPrompt => '编辑运镜提示词';
 
   @override

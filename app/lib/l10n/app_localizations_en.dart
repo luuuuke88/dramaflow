@@ -1496,6 +1496,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchGeneratePrompt => 'Generate Motion Prompt';
 
   @override
+  String get workbenchShotAudioLabel => 'Shot Voice';
+
+  @override
+  String get workbenchShotAudioNone => 'No voice';
+
+  @override
   String get workbenchEditPrompt => 'Edit Motion Prompt';
 
   @override

@@ -2908,6 +2908,18 @@ abstract class AppLocalizations {
   /// **'生成运镜提示词'**
   String get workbenchGeneratePrompt;
 
+  /// No description provided for @workbenchShotAudioLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜头配音'**
+  String get workbenchShotAudioLabel;
+
+  /// No description provided for @workbenchShotAudioNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无配音'**
+  String get workbenchShotAudioNone;
+
   /// No description provided for @workbenchEditPrompt.
   ///
   /// In zh, this message translates to:

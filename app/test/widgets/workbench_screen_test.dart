@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/compose.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
@@ -225,5 +227,39 @@ void main() {
     final trackId = engine.storyboards(scriptId).single.trackId!;
     expect(engine.track(trackId)!.prompt, '缓慢推近特写');
     expect(find.text('缓慢推近特写'), findsOneWidget);
+  });
+
+  testWidgets('分镜行可选择镜头配音并写入 storyboard audioAssetId', (tester) async {
+    engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '少年声',
+      sex: '男',
+      describe: '清亮',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '师兄，该出发了。',
+          name: '少年声-样例',
+          describe: '平静',
+          existingImageId: null,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('镜头配音'), findsOneWidget);
+    await tester.tap(find.text('无配音'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('少年声').last);
+    await tester.pumpAndSettle();
+
+    expect(engine.storyboards(scriptId).single.audioAssetId, audioId);
+    expect(find.text('少年声'), findsOneWidget);
   });
 }

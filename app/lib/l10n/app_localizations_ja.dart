@@ -1464,6 +1464,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchGeneratePrompt => 'カメラワークプロンプト生成';
 
   @override
+  String get workbenchShotAudioLabel => 'カット音声';
+
+  @override
+  String get workbenchShotAudioNone => '音声なし';
+
+  @override
   String get workbenchEditPrompt => 'カメラワークプロンプト編集';
 
   @override

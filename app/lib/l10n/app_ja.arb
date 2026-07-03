@@ -487,6 +487,8 @@
   "workbenchSelectCandidate": "採用する",
   "workbenchSelected": "選択中",
   "workbenchGeneratePrompt": "カメラワークプロンプト生成",
+  "workbenchShotAudioLabel": "カット音声",
+  "workbenchShotAudioNone": "音声なし",
   "workbenchEditPrompt": "カメラワークプロンプト編集",
   "workbenchOutputPath": "出力パス",
   "workbenchDuration": "再生時間",

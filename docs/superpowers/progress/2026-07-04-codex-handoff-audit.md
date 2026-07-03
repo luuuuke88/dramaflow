@@ -3,10 +3,10 @@
 ## 当前事实源
 
 - 当前分支：`master`
-- 最新基线：`64e4289 feat(android): inspect composed media tracks`
+- 本轮起点：`c4c3cf6 chore(progress): record handoff audit and localize composer errors`
 - 本轮接手验证：
   - `cd app && flutter analyze`：通过，0 issues
-  - `cd app && flutter test`：通过，249 tests
+  - `cd app && flutter test`：通过，250 tests
   - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`
   - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`
   - `cd app && flutter build apk --debug`：通过，产物 `build/app/outputs/flutter-apk/app-debug.apk`
@@ -20,6 +20,7 @@
 - 项目、小说章节、事件、剧本、素材、画风库、手册、分镜、图片流、视频轨、配音绑定、TTS、Agent 消息、任务中心、设置页均已有 engine/API 与 widget/engine 测试覆盖。
 - 图片生成链已修正：分镜和节点编辑器可传多参考图，并带模型、画幅、清晰度参数。
 - 视频生成链已具备：分镜首帧图 → Seedance 视频候选 → 选择候选 → 按分镜顺序合成本集。
+- 工作台已补齐每镜配音绑定入口：每个分镜行可从 audio 资产池选择/清空音频，写入 `o_storyboard.audioAssetId`，合成时自动进入音频时间线。
 - 合成导出：
   - macOS/iOS：`dramaflow/composer` Swift AVFoundation 插件，含音频轨合成。
   - Android：同一 MethodChannel，Kotlin `MediaMuxer` 实现，支持视频拼接与外部 AAC/M4A 音频轨封装。

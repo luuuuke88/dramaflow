@@ -8,8 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../engine/audio_bind.dart';
 import '../../engine/compose_episode.dart';
 import '../../engine/storyboard.dart';
+import '../../engine/storyboard_audio.dart';
 import '../../engine/video_track.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
@@ -144,11 +146,13 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
           content: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('${l10n.workbenchOutputPath}: ${result.outputRelPath}'),
             if (result.durationSec != null)
-              Text('${l10n.workbenchDuration}: ${result.durationSec!.toStringAsFixed(1)}s'),
+              Text(
+                  '${l10n.workbenchDuration}: ${result.durationSec!.toStringAsFixed(1)}s'),
           ]),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(c), child: Text(l10n.commonConfirm)),
+                onPressed: () => Navigator.pop(c),
+                child: Text(l10n.commonConfirm)),
           ],
         ),
       );
@@ -161,7 +165,8 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
 
   void _generateAll(List<StoryboardRow> shots) {
     final engine = ref.read(engineProvider);
-    engine.batchGenerateVideos(widget.projectId, shots.map((s) => s.id).toList());
+    engine.batchGenerateVideos(
+        widget.projectId, shots.map((s) => s.id).toList());
     _toast(context.l10n.workbenchGenerateVideo);
   }
 
@@ -234,8 +239,11 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
   // 懒建/编辑后回填的 trackId：widget.shot 是父级快照，其 trackId 在本次编辑后可能仍为
   // null（父未重建）。本地缓存保证时长/提示词编辑立即在本行可见。
   int? _localTrackId;
+  int? _localAudioAssetId;
 
   int? get _effectiveTrackId => widget.shot.trackId ?? _localTrackId;
+  int? get _effectiveAudioAssetId =>
+      _localAudioAssetId ?? widget.shot.audioAssetId;
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -259,6 +267,15 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
         .read(engineProvider)
         .batchGenerateVideos(widget.projectId, [widget.shot.id]);
     _toast(context.l10n.workbenchGenerateVideo);
+  }
+
+  void _bindAudio(int value) {
+    final audioAssetId = value == 0 ? null : value;
+    ref.read(engineProvider).bindStoryboardAudio(
+          storyboardId: widget.shot.id,
+          audioAssetId: audioAssetId,
+        );
+    setState(() => _localAudioAssetId = audioAssetId);
   }
 
   /// 手动编辑运镜提示词（懒建轨道后写入 o_videoTrack.prompt）。
@@ -306,6 +323,11 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
     final engine = ref.watch(engineProvider);
     final trackId = _effectiveTrackId;
     final track = trackId != null ? engine.track(trackId) : null;
+    final audioPool = engine.audioPool(widget.projectId);
+    final selectedAudioId = _effectiveAudioAssetId;
+    final audioValue = audioPool.any((audio) => audio.id == selectedAudioId)
+        ? selectedAudioId!
+        : 0;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -328,11 +350,13 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
                   fit: BoxFit.cover,
                   errorBuilder: (c, e, s) =>
                       Icon(Icons.broken_image_outlined, color: df.textTertiary))
-              : Icon(Icons.image_not_supported_outlined, color: df.textTertiary),
+              : Icon(Icons.image_not_supported_outlined,
+                  color: df.textTertiary),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Text('S${widget.index + 1}',
                   style: const TextStyle(
@@ -364,8 +388,7 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
                                 : l10n.workbenchPromptEmpty),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                            TextStyle(fontSize: 12, color: df.textSecondary),
+                        style: TextStyle(fontSize: 12, color: df.textSecondary),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -375,6 +398,14 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
               ),
             ),
             const SizedBox(height: 8),
+            if (audioPool.isNotEmpty || selectedAudioId != null) ...[
+              _ShotAudioPicker(
+                value: audioValue,
+                options: audioPool,
+                onChanged: _bindAudio,
+              ),
+              const SizedBox(height: 8),
+            ],
             Wrap(spacing: 8, runSpacing: 8, children: [
               OutlinedButton.icon(
                 onPressed: _generatingPrompt ? null : _generatePrompt,
@@ -409,6 +440,65 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
         ),
       ]),
     );
+  }
+}
+
+class _ShotAudioPicker extends StatelessWidget {
+  final int value;
+  final List<({int id, String name})> options;
+  final ValueChanged<int> onChanged;
+
+  const _ShotAudioPicker({
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return Row(children: [
+      Icon(Icons.graphic_eq_outlined, size: 14, color: df.textTertiary),
+      const SizedBox(width: 6),
+      Text(
+        l10n.workbenchShotAudioLabel,
+        style: TextStyle(fontSize: 12, color: df.textSecondary),
+      ),
+      const SizedBox(width: 8),
+      Flexible(
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: df.surfaceMuted,
+            borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+            border: Border.all(color: df.stroke),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: value,
+              isDense: true,
+              isExpanded: true,
+              items: [
+                DropdownMenuItem(
+                  value: 0,
+                  child: Text(l10n.workbenchShotAudioNone),
+                ),
+                for (final audio in options)
+                  DropdownMenuItem(
+                    value: audio.id,
+                    child: Text(audio.name),
+                  ),
+              ],
+              onChanged: (v) {
+                if (v != null) onChanged(v);
+              },
+            ),
+          ),
+        ),
+      ),
+    ]);
   }
 }
 
@@ -544,7 +634,9 @@ class _VideoCandidateChip extends ConsumerWidget {
       case vtGenerating:
         label = Row(mainAxisSize: MainAxisSize.min, children: [
           const SizedBox(
-              width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5)),
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(strokeWidth: 1.5)),
           const SizedBox(width: 6),
           Text(l10n.assetsGenerating, style: const TextStyle(fontSize: 11)),
         ]);
@@ -557,11 +649,12 @@ class _VideoCandidateChip extends ConsumerWidget {
         );
         break;
       default:
-        label = Text(selected ? l10n.workbenchSelected : l10n.workbenchSelectCandidate,
+        label = Text(
+            selected ? l10n.workbenchSelected : l10n.workbenchSelectCandidate,
             style: const TextStyle(fontSize: 11));
     }
-    final canPlay = video.state == vtDone &&
-        (video.filePath?.isNotEmpty ?? false);
+    final canPlay =
+        video.state == vtDone && (video.filePath?.isNotEmpty ?? false);
     return Container(
       padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
       decoration: BoxDecoration(
@@ -580,8 +673,7 @@ class _VideoCandidateChip extends ConsumerWidget {
             icon: Icon(Icons.play_circle_outline, size: 18, color: df.primary),
             onPressed: () => showVideoPlayerDialog(
               context,
-              absPath:
-                  ref.read(engineProvider).mediaAbsPath(video.filePath!),
+              absPath: ref.read(engineProvider).mediaAbsPath(video.filePath!),
             ),
           ),
         // 选为正片（原 InkWell 语义保留）

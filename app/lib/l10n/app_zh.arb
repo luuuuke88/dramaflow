@@ -614,6 +614,8 @@
   "workbenchSelectCandidate": "选为正片",
   "workbenchSelected": "已选",
   "workbenchGeneratePrompt": "生成运镜提示词",
+  "workbenchShotAudioLabel": "镜头配音",
+  "workbenchShotAudioNone": "无配音",
   "workbenchEditPrompt": "编辑运镜提示词",
   "workbenchOutputPath": "输出路径",
   "workbenchDuration": "时长",
