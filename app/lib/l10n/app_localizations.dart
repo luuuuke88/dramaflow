@@ -448,12 +448,6 @@ abstract class AppLocalizations {
   /// **'本区域随 {batch} 批次交付'**
   String shellComingSoon(String batch);
 
-  /// No description provided for @shellComingSoonBadge.
-  ///
-  /// In zh, this message translates to:
-  /// **'{batch}'**
-  String shellComingSoonBadge(String batch);
-
   /// No description provided for @projectTitle.
   ///
   /// In zh, this message translates to:
@@ -3111,6 +3105,96 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未绑定可用模型'**
   String get stageBindingMissing;
+
+  /// No description provided for @agentChatTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本 Agent'**
+  String get agentChatTitle;
+
+  /// No description provided for @agentChatInputPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'告诉我你想推进哪一步，或直接问\"现在进度如何\"'**
+  String get agentChatInputPlaceholder;
+
+  /// No description provided for @agentChatSend.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送'**
+  String get agentChatSend;
+
+  /// No description provided for @agentChatThinking.
+  ///
+  /// In zh, this message translates to:
+  /// **'思考中...'**
+  String get agentChatThinking;
+
+  /// No description provided for @agentChatAutoMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动连跑'**
+  String get agentChatAutoMode;
+
+  /// No description provided for @agentChatManualMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动确认'**
+  String get agentChatManualMode;
+
+  /// No description provided for @agentChatClearMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空记忆'**
+  String get agentChatClearMemory;
+
+  /// No description provided for @agentChatConfirmClearTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空记忆'**
+  String get agentChatConfirmClearTitle;
+
+  /// No description provided for @agentChatConfirmClearBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定清空全部对话记录吗？此操作无法撤销。'**
+  String get agentChatConfirmClearBody;
+
+  /// No description provided for @agentChatMemoryCleared.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆已清空'**
+  String get agentChatMemoryCleared;
+
+  /// No description provided for @agentChatWelcome.
+  ///
+  /// In zh, this message translates to:
+  /// **'你好，我是剧本 Agent。我可以帮你推进事件提取、资产提取、分镜生成、首帧图、视频生成、配音绑定和最终合成。直接告诉我你想做什么，或者问我\"现在进度如何\"。'**
+  String get agentChatWelcome;
+
+  /// No description provided for @agentChatToolExecuted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已执行：{tool}'**
+  String agentChatToolExecuted(String tool);
+
+  /// No description provided for @agentChatModeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动模式每次只执行一步并等待你确认；自动模式会连续执行工具链（安全上限内）。'**
+  String get agentChatModeHint;
+
+  /// No description provided for @agentChatSkillsInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'内置能力'**
+  String get agentChatSkillsInfo;
+
+  /// No description provided for @agentChatSkillsBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。'**
+  String get agentChatSkillsBody;
 }
 
 class _AppLocalizationsDelegate

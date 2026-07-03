@@ -16,15 +16,15 @@ import '../util/l10n_ext.dart';
 const _githubUrl = 'https://github.com/HBAI-Ltd/Toonflow-app';
 const _feedbackUrl = 'https://github.com/HBAI-Ltd/Toonflow-app/issues';
 
-/// 项目内菜单定义（顺序/禁用批次照抄 + P 批次徽标）。
+/// 项目内菜单定义（顺序照抄 ToonFlow workbench 顶栏）。P1-P5 全部批次已交付，
+/// 各分区均为真实功能（无占位）。
 class _ProjectMenu {
   final String path; // 相对项目根：novel/scriptAgent/script/cornerScape/production/assets
   final String Function(BuildContext) label;
   final IconData icon;
   final bool novelOnly;
-  final String? comingBatch; // 非空 = 禁用 + 徽标
   const _ProjectMenu(this.path, this.label, this.icon,
-      {this.novelOnly = false, this.comingBatch});
+      {this.novelOnly = false});
 }
 
 final _projectMenus = <_ProjectMenu>[
@@ -32,7 +32,7 @@ final _projectMenus = <_ProjectMenu>[
       novelOnly: true),
   _ProjectMenu(
       'scriptAgent', (c) => c.l10n.menuScriptAgent, Icons.auto_awesome_outlined,
-      novelOnly: true, comingBatch: 'P5'),
+      novelOnly: true),
   _ProjectMenu(
       'script', (c) => c.l10n.menuScriptManage, Icons.description_outlined),
   _ProjectMenu('cornerScape', (c) => c.l10n.menuCornerScape,
@@ -265,11 +265,11 @@ class _TopMenuButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final df = context.df;
-    final enabled = project != null && menu.comingBatch == null;
+    final enabled = project != null;
     final selected =
         project != null && path.startsWith('/p/${project!.id}/${menu.path}');
 
-    Widget button = Material(
+    final button = Material(
       color: selected ? df.primarySubtle : Colors.transparent,
       borderRadius: BorderRadius.circular(DFTokens.radiusControl),
       child: InkWell(
@@ -296,31 +296,10 @@ class _TopMenuButton extends ConsumerWidget {
                     : (selected ? df.primary : df.textPrimary),
               ),
             ),
-            if (menu.comingBatch != null) ...[
-              const SizedBox(width: 5),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: df.accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(DFTokens.radiusChip),
-                ),
-                child: Text(
-                  context.l10n.shellComingSoonBadge(menu.comingBatch!),
-                  style: TextStyle(fontSize: 10, color: df.accent),
-                ),
-              ),
-            ],
           ]),
         ),
       ),
     );
-    if (menu.comingBatch != null) {
-      button = Tooltip(
-        message: context.l10n.shellComingSoon(menu.comingBatch!),
-        child: button,
-      );
-    }
     return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2), child: button);
   }
@@ -430,37 +409,22 @@ class _MobileTabChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final df = context.df;
-    final enabled = menu.comingBatch == null;
     final selected = path.startsWith('/p/${project.id}/${menu.path}');
     return Material(
       color: selected ? df.primarySubtle : df.surfaceMuted,
       borderRadius: BorderRadius.circular(DFTokens.radiusChip),
       child: InkWell(
         borderRadius: BorderRadius.circular(DFTokens.radiusChip),
-        onTap: enabled
-            ? () => context.go('/p/${project.id}/${menu.path}')
-            : null,
+        onTap: () => context.go('/p/${project.id}/${menu.path}'),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(children: [
-            Text(
-              menu.label(context),
-              style: TextStyle(
-                fontSize: 13,
-                color: !enabled
-                    ? df.textTertiary
-                    : (selected ? df.primary : df.textPrimary),
-              ),
+          child: Text(
+            menu.label(context),
+            style: TextStyle(
+              fontSize: 13,
+              color: selected ? df.primary : df.textPrimary,
             ),
-            if (menu.comingBatch != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Text(
-                  context.l10n.shellComingSoonBadge(menu.comingBatch!),
-                  style: TextStyle(fontSize: 10, color: df.accent),
-                ),
-              ),
-          ]),
+          ),
         ),
       ),
     );

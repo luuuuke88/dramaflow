@@ -78,16 +78,18 @@ void main() {
     expect(find.text('tasks'), findsOneWidget);
   });
 
-  testWidgets('禁用分区带批次徽标', (tester) async {
+  testWidgets('全部 6 个项目分区均已交付，无占位批次徽标残留', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(_app(1200));
     await tester.pumpAndSettle();
 
-    expect(find.text('P2'), findsNothing); // 资产中心已随 P2 交付解禁
-    expect(find.text('P3'), findsNothing); // 制作已随 P3 交付解禁
-    expect(find.text('P4'), findsNothing); // 配音已随 P4 交付解禁
-    expect(find.text('P5'), findsOneWidget); // 剧本Agent
+    for (final label in ['小说原文', '剧本Agent', '剧本管理', '塑角造景', '视频生产', '资产中心']) {
+      expect(find.text(label), findsOneWidget, reason: '$label 分区应可见');
+    }
+    for (final batch in ['P2', 'P3', 'P4', 'P5']) {
+      expect(find.text(batch), findsNothing, reason: '不应再有 $batch 占位徽标');
+    }
   });
 }

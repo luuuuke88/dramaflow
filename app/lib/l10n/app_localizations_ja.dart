@@ -192,11 +192,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String shellComingSoonBadge(String batch) {
-    return '$batch';
-  }
-
-  @override
   String get projectTitle => 'マイプロジェクト';
 
   @override
@@ -1568,4 +1563,53 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get stageBindingMissing => 'モデルが未割り当てです';
+
+  @override
+  String get agentChatTitle => '脚本エージェント';
+
+  @override
+  String get agentChatInputPlaceholder => '次に進める作業を教えてください。または「今の進捗は?」と聞いてください';
+
+  @override
+  String get agentChatSend => '送信';
+
+  @override
+  String get agentChatThinking => '考え中...';
+
+  @override
+  String get agentChatAutoMode => '自動連続実行';
+
+  @override
+  String get agentChatManualMode => '手動確認';
+
+  @override
+  String get agentChatClearMemory => '記憶を消去';
+
+  @override
+  String get agentChatConfirmClearTitle => '記憶を消去';
+
+  @override
+  String get agentChatConfirmClearBody => '会話履歴をすべて消去しますか？元に戻せません。';
+
+  @override
+  String get agentChatMemoryCleared => '記憶を消去しました';
+
+  @override
+  String get agentChatWelcome =>
+      'こんにちは、脚本エージェントです。イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像、動画生成、配音の割り当て、最終合成をお手伝いできます。何をしたいか教えてください。または「今の進捗は?」と聞いてください。';
+
+  @override
+  String agentChatToolExecuted(String tool) {
+    return '実行しました：$tool';
+  }
+
+  @override
+  String get agentChatModeHint => '手動モードは1ステップ実行して確認を待ちます。自動モードは安全上限内で連続実行します。';
+
+  @override
+  String get agentChatSkillsInfo => '組み込み機能';
+
+  @override
+  String get agentChatSkillsBody =>
+      '私が呼び出せる機能はすべて既存パイプラインの実際の動作で、呼び出すたびにタスクセンターに確認・再試行可能な記録が残ります：イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像生成、動画生成、配音マッチング、合成書き出し。カスタムスクリプト技能には対応していません。';
 }

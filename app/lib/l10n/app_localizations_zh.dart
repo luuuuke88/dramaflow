@@ -191,11 +191,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String shellComingSoonBadge(String batch) {
-    return '$batch';
-  }
-
-  @override
   String get projectTitle => '我的项目';
 
   @override
@@ -1559,4 +1554,53 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get stageBindingMissing => '未绑定可用模型';
+
+  @override
+  String get agentChatTitle => '剧本 Agent';
+
+  @override
+  String get agentChatInputPlaceholder => '告诉我你想推进哪一步，或直接问\"现在进度如何\"';
+
+  @override
+  String get agentChatSend => '发送';
+
+  @override
+  String get agentChatThinking => '思考中...';
+
+  @override
+  String get agentChatAutoMode => '自动连跑';
+
+  @override
+  String get agentChatManualMode => '手动确认';
+
+  @override
+  String get agentChatClearMemory => '清空记忆';
+
+  @override
+  String get agentChatConfirmClearTitle => '清空记忆';
+
+  @override
+  String get agentChatConfirmClearBody => '确定清空全部对话记录吗？此操作无法撤销。';
+
+  @override
+  String get agentChatMemoryCleared => '记忆已清空';
+
+  @override
+  String get agentChatWelcome =>
+      '你好，我是剧本 Agent。我可以帮你推进事件提取、资产提取、分镜生成、首帧图、视频生成、配音绑定和最终合成。直接告诉我你想做什么，或者问我\"现在进度如何\"。';
+
+  @override
+  String agentChatToolExecuted(String tool) {
+    return '已执行：$tool';
+  }
+
+  @override
+  String get agentChatModeHint => '手动模式每次只执行一步并等待你确认；自动模式会连续执行工具链（安全上限内）。';
+
+  @override
+  String get agentChatSkillsInfo => '内置能力';
+
+  @override
+  String get agentChatSkillsBody =>
+      '我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。';
 }

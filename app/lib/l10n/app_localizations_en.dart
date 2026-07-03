@@ -195,11 +195,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String shellComingSoonBadge(String batch) {
-    return '$batch';
-  }
-
-  @override
   String get projectTitle => 'My Projects';
 
   @override
@@ -1614,4 +1609,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stageBindingMissing => 'No model bound';
+
+  @override
+  String get agentChatTitle => 'Script Agent';
+
+  @override
+  String get agentChatInputPlaceholder =>
+      'Tell me what to work on next, or ask \"what\'s the status\"';
+
+  @override
+  String get agentChatSend => 'Send';
+
+  @override
+  String get agentChatThinking => 'Thinking...';
+
+  @override
+  String get agentChatAutoMode => 'Auto chain';
+
+  @override
+  String get agentChatManualMode => 'Manual confirm';
+
+  @override
+  String get agentChatClearMemory => 'Clear memory';
+
+  @override
+  String get agentChatConfirmClearTitle => 'Clear memory';
+
+  @override
+  String get agentChatConfirmClearBody =>
+      'Clear the entire conversation history? This cannot be undone.';
+
+  @override
+  String get agentChatMemoryCleared => 'Memory cleared';
+
+  @override
+  String get agentChatWelcome =>
+      'Hi, I\'m the Script Agent. I can help with event extraction, asset extraction, storyboard generation, first-frame images, video generation, voice binding, and final compose. Tell me what to do, or ask \"what\'s the status\".';
+
+  @override
+  String agentChatToolExecuted(String tool) {
+    return 'Executed: $tool';
+  }
+
+  @override
+  String get agentChatModeHint =>
+      'Manual mode runs one step and waits for you; auto mode chains steps automatically (within a safety cap).';
+
+  @override
+  String get agentChatSkillsInfo => 'Built-in capabilities';
+
+  @override
+  String get agentChatSkillsBody =>
+      'Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported.';
 }

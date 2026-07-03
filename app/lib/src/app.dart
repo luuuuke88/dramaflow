@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'screens/agent/agent_chat_screen.dart';
 import 'screens/assets/assets_screen.dart';
-import 'screens/coming_soon_screen.dart';
 import 'screens/cornerscape/corner_scape_screen.dart';
 import 'screens/novel/novel_screen.dart';
 import 'screens/production/production_screen.dart';
@@ -45,7 +45,8 @@ final _router = GoRouter(
                 ScriptScreen(projectId: int.parse(s.pathParameters['pid']!))),
         GoRoute(
             path: '/p/:pid/scriptAgent',
-            builder: (c, s) => const ComingSoonScreen(batch: 'P5')),
+            builder: (c, s) => AgentChatScreen(
+                projectId: int.parse(s.pathParameters['pid']!))),
         GoRoute(
             path: '/p/:pid/cornerScape',
             builder: (c, s) => CornerScapeScreen(
