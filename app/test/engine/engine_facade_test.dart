@@ -135,20 +135,84 @@ void main() {
     );
   });
 
-  test('prompt update/reset 使用 o_prompt', () async {
-    await engine.updatePrompt('script_gen_system', '自定义');
+  test('seeded ToonFlow prompt 可通过 getPrompt 读取', () async {
+    final seeded = await Engine.boot(
+      dataDir: p.join(dir.path, 'seeded'),
+      isMobile: false,
+    );
+    addTearDown(() {
+      seeded.dispose();
+      seeded.db.close();
+    });
+
+    final expected = _referencePrompt('eventExtraction');
+
     expect(
-      (await engine.listPrompts()).singleWhere(
-          (prompt) => prompt['key'] == 'script_gen_system')['content'],
-      '自定义',
+      await seeded.getPrompt('eventExtraction'),
+      startsWith(expected.substring(0, 20)),
     );
 
-    await engine.resetPrompt('script_gen_system');
+    final rows = seeded.db.select(
+      'SELECT name,type,useData FROM o_prompt WHERE name IN (?,?) ORDER BY name',
+      ['eventExtraction', 'scriptAssetExtraction'],
+    );
+    expect(rows.map((row) => row['name']), [
+      'eventExtraction',
+      'scriptAssetExtraction',
+    ]);
+    for (final row in rows) {
+      expect(row['type'], row['name']);
+      expect(row['useData'], isNull);
+    }
+  });
 
+  test('prompt update/get/reset 使用 useData 覆写并回落 data', () async {
+    final seeded = await Engine.boot(
+      dataDir: p.join(dir.path, 'prompt-reset'),
+      isMobile: false,
+    );
+    addTearDown(() {
+      seeded.dispose();
+      seeded.db.close();
+    });
+    final fallback = _referencePrompt('eventExtraction');
+
+    await seeded.updatePrompt('eventExtraction', '自定义');
+    expect(await seeded.getPrompt('eventExtraction'), '自定义');
     expect(
-      (await engine.listPrompts()).singleWhere(
-          (prompt) => prompt['key'] == 'script_gen_system')['content'],
-      isNot('自定义'),
+      (await seeded.listPrompts()).singleWhere(
+          (prompt) => prompt['key'] == 'eventExtraction')['content'],
+      '自定义',
+    );
+    expect(
+      (await seeded.listPrompts()).singleWhere(
+          (prompt) => prompt['key'] == 'eventExtraction')['isOverridden'],
+      isTrue,
+    );
+
+    await seeded.resetPrompt('eventExtraction');
+
+    expect(await seeded.getPrompt('eventExtraction'), fallback);
+    expect(
+      (await seeded.listPrompts()).singleWhere(
+          (prompt) => prompt['key'] == 'eventExtraction')['content'],
+      fallback,
+    );
+    expect(
+      (await seeded.listPrompts()).singleWhere(
+          (prompt) => prompt['key'] == 'eventExtraction')['isOverridden'],
+      isFalse,
+    );
+  });
+
+  test('getPrompt 查无提示词时抛 errPromptMissing', () async {
+    await expectLater(
+      engine.getPrompt('missingPrompt'),
+      throwsA(
+        isA<EngineException>()
+            .having((e) => e.errKey, 'errKey', errPromptMissing)
+            .having((e) => e.errParams['type'], 'type', 'missingPrompt'),
+      ),
     );
   });
 
@@ -163,9 +227,10 @@ void main() {
       {'modelId': 'm1', 'kind': 'text', 'enabled': true},
     ]);
     await engine.setBinding('script_gen', provider.id, 'm1');
-    await engine.updatePrompt('script_gen_system', '导出提示词');
+    await engine.updatePrompt('eventExtraction', '导出提示词');
 
     final data = await engine.exportConfig();
+    expect(data['configVersion'], 3);
     final otherDb = openEngineDb(':memory:');
     final other = Engine(
       db: otherDb,
@@ -184,8 +249,54 @@ void main() {
     expect((await other.getBindings())['script_gen'], '${provider.id}:m1');
     expect(
       (await other.listPrompts()).singleWhere(
-          (prompt) => prompt['key'] == 'script_gen_system')['content'],
+          (prompt) => prompt['key'] == 'eventExtraction')['content'],
       '导出提示词',
+    );
+  });
+
+  test('importConfig 版本不符抛 errConfigVersion', () async {
+    await expectLater(
+      engine.importConfig({
+        'configVersion': 2,
+        'providers': const [],
+        'bindings': const {},
+        'prompts': const [],
+      }),
+      throwsA(
+        isA<EngineException>()
+            .having((e) => e.errKey, 'errKey', errConfigVersion)
+            .having((e) => e.errParams['found'], 'found', 2),
+      ),
+    );
+  });
+
+  test('prompt 种子幂等补种缺失单行', () async {
+    final dataDir = p.join(dir.path, 'seed-idempotent');
+    final seeded = await Engine.boot(dataDir: dataDir, isMobile: false);
+    seeded.db.execute(
+      'DELETE FROM o_prompt WHERE name=?',
+      ['eventExtraction'],
+    );
+    expect(
+      seeded.db.select('SELECT COUNT(*) n FROM o_prompt WHERE name=?',
+          ['eventExtraction']).first['n'],
+      0,
+    );
+    seeded.dispose();
+    seeded.db.close();
+
+    final rebooted = await Engine.boot(dataDir: dataDir, isMobile: false);
+    addTearDown(() {
+      rebooted.dispose();
+      rebooted.db.close();
+    });
+
+    final expected = _referencePrompt('eventExtraction');
+    expect(await rebooted.getPrompt('eventExtraction'), expected);
+    expect(
+      rebooted.db.select('SELECT COUNT(*) n FROM o_prompt WHERE name=?',
+          ['scriptAssetExtraction']).first['n'],
+      1,
     );
   });
 
@@ -195,6 +306,28 @@ void main() {
     expect(health['version'], Engine.version);
     expect((health['providers'] as Map), contains('text'));
   });
+}
+
+String _referencePrompt(String type) {
+  final file = File(
+    p.normalize(
+      p.join(
+        Directory.current.path,
+        '..',
+        'docs',
+        'reference',
+        'toonflow-prompts.md',
+      ),
+    ),
+  );
+  final source = file.readAsStringSync();
+  final match = RegExp(
+    '## type: ${RegExp.escape(type)}\\s+````\\n([\\s\\S]*?)\\n````',
+  ).firstMatch(source);
+  if (match == null) {
+    throw StateError('missing prompt reference: $type');
+  }
+  return match.group(1)!;
 }
 
 class _NoopGateway implements ProviderGateway {

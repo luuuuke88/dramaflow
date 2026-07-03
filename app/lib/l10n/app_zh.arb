@@ -28,6 +28,8 @@
   "projectUntitled": "未命名项目",
   "errProviderMissing": "供应商缺失或已停用",
   "errModelMissing": "模型缺失或未绑定",
+  "errPromptMissing": "提示词不存在",
+  "errConfigVersion": "配置文件版本不兼容",
   "errNetwork": "网络请求失败",
   "errLlmFormat": "模型输出格式无效",
   "errCanceled": "任务已取消",
@@ -35,5 +37,39 @@
   "errFileTooLarge": "文件过大",
   "errFileType": "文件类型不支持",
   "errRegexInvalid": "正则表达式无效",
-  "errNoChapters": "未找到章节"
+  "errNoChapters": "未找到章节",
+  "promptPanelTitle": "提示词",
+  "promptEventExtractionTitle": "事件提取",
+  "promptEventExtractionDescription": "小说章节结构化事件提取提示词",
+  "promptScriptAssetExtractionTitle": "剧本资产提取",
+  "promptScriptAssetExtractionDescription": "从剧本提取角色、场景、道具的提示词",
+  "promptImageSizeDirectiveTitle": "图片尺寸指令",
+  "promptImageSizeDirectiveDescription": "注入图片生成请求的尺寸约束",
+  "promptUnset": "未设置",
+  "promptOverridden": "已修改",
+  "promptCharacterCount": "{count} 字符",
+  "@promptCharacterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptEditTitle": "编辑提示词 · {title}",
+  "@promptEditTitle": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "promptSaved": "提示词已保存",
+  "promptRestoreDefault": "恢复默认",
+  "promptRestoreDefaultTitle": "恢复默认",
+  "promptRestoreDefaultMessage": "确定将“{title}”恢复为内置默认内容吗？",
+  "@promptRestoreDefaultMessage": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "promptRestoreDefaultConfirm": "恢复",
+  "promptRestored": "提示词已恢复默认"
 }

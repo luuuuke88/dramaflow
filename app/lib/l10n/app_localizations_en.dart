@@ -94,6 +94,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errModelMissing => 'Model is missing or not bound';
 
   @override
+  String get errPromptMissing => 'Prompt is missing';
+
+  @override
+  String get errConfigVersion => 'Config file version is incompatible';
+
+  @override
   String get errNetwork => 'Network request failed';
 
   @override
@@ -116,4 +122,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errNoChapters => 'No chapters found';
+
+  @override
+  String get promptPanelTitle => 'Prompts';
+
+  @override
+  String get promptEventExtractionTitle => 'Event extraction';
+
+  @override
+  String get promptEventExtractionDescription =>
+      'Prompt for extracting structured events from novel chapters';
+
+  @override
+  String get promptScriptAssetExtractionTitle => 'Script asset extraction';
+
+  @override
+  String get promptScriptAssetExtractionDescription =>
+      'Prompt for extracting characters, scenes, and props from scripts';
+
+  @override
+  String get promptImageSizeDirectiveTitle => 'Image size directive';
+
+  @override
+  String get promptImageSizeDirectiveDescription =>
+      'Size constraint injected into image generation requests';
+
+  @override
+  String get promptUnset => 'Not set';
+
+  @override
+  String get promptOverridden => 'Modified';
+
+  @override
+  String promptCharacterCount(int count) => '$count characters';
+
+  @override
+  String promptEditTitle(String title) => 'Edit prompt · $title';
+
+  @override
+  String get promptSaved => 'Prompt saved';
+
+  @override
+  String get promptRestoreDefault => 'Restore default';
+
+  @override
+  String get promptRestoreDefaultTitle => 'Restore default';
+
+  @override
+  String promptRestoreDefaultMessage(String title) =>
+      'Restore “$title” to the built-in default?';
+
+  @override
+  String get promptRestoreDefaultConfirm => 'Restore';
+
+  @override
+  String get promptRestored => 'Prompt restored to default';
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../api/models.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
+import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 
@@ -46,10 +48,9 @@ const _stages = [
 ];
 
 const _promptMetas = [
-  _PromptMeta('script_gen_system', '剧本生成', '小说改编为短剧剧本的系统提示词'),
-  _PromptMeta('asset_extract_system', '素材提取', '角色、场景、道具提取规则'),
-  _PromptMeta('storyboard_gen_system', '分镜生成', '分镜表拆解与镜头提示词规则'),
-  _PromptMeta('image_size_directive', '图片尺寸指令', '注入图片生成请求的尺寸约束'),
+  _PromptMeta('eventExtraction'),
+  _PromptMeta('scriptAssetExtraction'),
+  _PromptMeta('image_size_directive'),
 ];
 
 const _modelKinds = [
@@ -78,10 +79,22 @@ class _StageMeta {
 
 class _PromptMeta {
   final String key;
-  final String title;
-  final String description;
 
-  const _PromptMeta(this.key, this.title, this.description);
+  const _PromptMeta(this.key);
+
+  String title(AppLocalizations l10n) => switch (key) {
+        'eventExtraction' => l10n.promptEventExtractionTitle,
+        'scriptAssetExtraction' => l10n.promptScriptAssetExtractionTitle,
+        'image_size_directive' => l10n.promptImageSizeDirectiveTitle,
+        _ => key,
+      };
+
+  String description(AppLocalizations l10n) => switch (key) {
+        'eventExtraction' => l10n.promptEventExtractionDescription,
+        'scriptAssetExtraction' => l10n.promptScriptAssetExtractionDescription,
+        'image_size_directive' => l10n.promptImageSizeDirectiveDescription,
+        _ => '',
+      };
 }
 
 class _KindMeta {
@@ -574,7 +587,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _promptsPanel() {
     final promptsAsync = ref.watch(promptsProvider);
     return _SettingsCard(
-      title: '提示词',
+      title: context.l10n.promptPanelTitle,
       child: AsyncView<List<Map<String, dynamic>>>(
         value: promptsAsync,
         onRetry: () => ref.invalidate(promptsProvider),
@@ -2086,9 +2099,11 @@ class _PromptRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final content = (prompt?['content'] ?? '').toString();
     final updatedAt = (prompt?['updatedAt'] ?? '').toString();
-    final preview = content.trim().replaceAll('\n', ' ');
+    final isOverridden = prompt?['isOverridden'] == true;
+    final preview = content.trim().replaceAll(r'\n', ' ').replaceAll('\n', ' ');
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -2105,21 +2120,32 @@ class _PromptRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      meta.title,
-                      style: TextStyle(
-                        color: context.df.textHi,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            meta.title(l10n),
+                            style: TextStyle(
+                              color: context.df.textHi,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (isOverridden) ...[
+                          const SizedBox(width: 8),
+                          _PromptOverrideBadge(label: l10n.promptOverridden),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      meta.description,
+                      meta.description(l10n),
                       style: TextStyle(color: context.df.textLo, fontSize: 12),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      preview.isEmpty ? '未设置' : preview,
+                      preview.isEmpty ? l10n.promptUnset : preview,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -2131,7 +2157,7 @@ class _PromptRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${content.length} 字符${updatedAt.isEmpty ? '' : ' · $updatedAt'}',
+                      '${l10n.promptCharacterCount(content.length)}${updatedAt.isEmpty ? '' : ' · $updatedAt'}',
                       style: TextStyle(color: context.df.textLo, fontSize: 12),
                     ),
                   ],
@@ -2141,6 +2167,32 @@ class _PromptRow extends StatelessWidget {
               Icon(Icons.chevron_right_rounded, color: context.df.textLo),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PromptOverrideBadge extends StatelessWidget {
+  final String label;
+
+  const _PromptOverrideBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: context.df.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: context.df.primary.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: context.df.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -2176,28 +2228,31 @@ class _PromptEditorPageState extends ConsumerState<_PromptEditorPage> {
   }
 
   Future<void> _save() async {
+    final l10n = context.l10n;
     await runAction(context, ref, () async {
       await ref
           .read(engineProvider)
           .updatePrompt(widget.meta.key, _controller.text);
-    }, successMessage: '提示词已保存');
+    }, successMessage: l10n.promptSaved);
     if (mounted) Navigator.of(context).pop(true);
   }
 
   Future<void> _reset() async {
+    final l10n = context.l10n;
+    final title = widget.meta.title(l10n);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('重置为默认'),
-        content: Text('确定将“${widget.meta.title}”恢复为内置默认内容吗？'),
+        title: Text(l10n.promptRestoreDefaultTitle),
+        content: Text(l10n.promptRestoreDefaultMessage(title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('取消'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('重置'),
+            child: Text(l10n.promptRestoreDefaultConfirm),
           ),
         ],
       ),
@@ -2206,26 +2261,27 @@ class _PromptEditorPageState extends ConsumerState<_PromptEditorPage> {
 
     await runAction(context, ref, () async {
       await ref.read(engineProvider).resetPrompt(widget.meta.key);
-    }, successMessage: '提示词已重置');
+    }, successMessage: l10n.promptRestored);
     if (mounted) Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: Text('编辑提示词 · ${widget.meta.title}'),
+        title: Text(l10n.promptEditTitle(widget.meta.title(l10n))),
         actions: [
           TextButton.icon(
             onPressed: _reset,
             icon: const Icon(Icons.restore_rounded, size: 18),
-            label: const Text('重置为默认'),
+            label: Text(l10n.promptRestoreDefault),
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: _save,
             icon: const Icon(Icons.save_outlined, size: 18),
-            label: const Text('保存'),
+            label: Text(l10n.commonSave),
           ),
           const SizedBox(width: 16),
         ],

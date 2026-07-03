@@ -93,6 +93,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errModelMissing => 'モデルが見つからないか未設定です';
 
   @override
+  String get errPromptMissing => 'プロンプトが見つかりません';
+
+  @override
+  String get errConfigVersion => '設定ファイルのバージョンに互換性がありません';
+
+  @override
   String get errNetwork => 'ネットワーク要求に失敗しました';
 
   @override
@@ -115,4 +121,57 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get errNoChapters => '章が見つかりません';
+
+  @override
+  String get promptPanelTitle => 'プロンプト';
+
+  @override
+  String get promptEventExtractionTitle => 'イベント抽出';
+
+  @override
+  String get promptEventExtractionDescription => '小説の章から構造化イベントを抽出するプロンプト';
+
+  @override
+  String get promptScriptAssetExtractionTitle => 'シナリオ素材抽出';
+
+  @override
+  String get promptScriptAssetExtractionDescription =>
+      'シナリオからキャラクター、シーン、小道具を抽出するプロンプト';
+
+  @override
+  String get promptImageSizeDirectiveTitle => '画像サイズ指示';
+
+  @override
+  String get promptImageSizeDirectiveDescription => '画像生成リクエストに挿入するサイズ制約';
+
+  @override
+  String get promptUnset => '未設定';
+
+  @override
+  String get promptOverridden => '変更済み';
+
+  @override
+  String promptCharacterCount(int count) => '$count 文字';
+
+  @override
+  String promptEditTitle(String title) => 'プロンプトを編集 · $title';
+
+  @override
+  String get promptSaved => 'プロンプトを保存しました';
+
+  @override
+  String get promptRestoreDefault => 'デフォルトに戻す';
+
+  @override
+  String get promptRestoreDefaultTitle => 'デフォルトに戻す';
+
+  @override
+  String promptRestoreDefaultMessage(String title) =>
+      '「$title」を組み込みのデフォルト内容に戻しますか？';
+
+  @override
+  String get promptRestoreDefaultConfirm => '戻す';
+
+  @override
+  String get promptRestored => 'プロンプトをデフォルトに戻しました';
 }

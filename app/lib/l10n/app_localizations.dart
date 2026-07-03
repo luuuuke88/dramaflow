@@ -268,6 +268,18 @@ abstract class AppLocalizations {
   /// **'模型缺失或未绑定'**
   String get errModelMissing;
 
+  /// No description provided for @errPromptMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词不存在'**
+  String get errPromptMissing;
+
+  /// No description provided for @errConfigVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置文件版本不兼容'**
+  String get errConfigVersion;
+
   /// No description provided for @errNetwork.
   ///
   /// In zh, this message translates to:
@@ -315,6 +327,108 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未找到章节'**
   String get errNoChapters;
+
+  /// No description provided for @promptPanelTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get promptPanelTitle;
+
+  /// No description provided for @promptEventExtractionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件提取'**
+  String get promptEventExtractionTitle;
+
+  /// No description provided for @promptEventExtractionDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说章节结构化事件提取提示词'**
+  String get promptEventExtractionDescription;
+
+  /// No description provided for @promptScriptAssetExtractionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本资产提取'**
+  String get promptScriptAssetExtractionTitle;
+
+  /// No description provided for @promptScriptAssetExtractionDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'从剧本提取角色、场景、道具的提示词'**
+  String get promptScriptAssetExtractionDescription;
+
+  /// No description provided for @promptImageSizeDirectiveTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片尺寸指令'**
+  String get promptImageSizeDirectiveTitle;
+
+  /// No description provided for @promptImageSizeDirectiveDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'注入图片生成请求的尺寸约束'**
+  String get promptImageSizeDirectiveDescription;
+
+  /// No description provided for @promptUnset.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置'**
+  String get promptUnset;
+
+  /// No description provided for @promptOverridden.
+  ///
+  /// In zh, this message translates to:
+  /// **'已修改'**
+  String get promptOverridden;
+
+  /// No description provided for @promptCharacterCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 字符'**
+  String promptCharacterCount(int count);
+
+  /// No description provided for @promptEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑提示词 · {title}'**
+  String promptEditTitle(String title);
+
+  /// No description provided for @promptSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词已保存'**
+  String get promptSaved;
+
+  /// No description provided for @promptRestoreDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认'**
+  String get promptRestoreDefault;
+
+  /// No description provided for @promptRestoreDefaultTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认'**
+  String get promptRestoreDefaultTitle;
+
+  /// No description provided for @promptRestoreDefaultMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定将“{title}”恢复为内置默认内容吗？'**
+  String promptRestoreDefaultMessage(String title);
+
+  /// No description provided for @promptRestoreDefaultConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复'**
+  String get promptRestoreDefaultConfirm;
+
+  /// No description provided for @promptRestored.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词已恢复默认'**
+  String get promptRestored;
 }
 
 class _AppLocalizationsDelegate

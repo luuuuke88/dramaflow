@@ -28,6 +28,8 @@
   "projectUntitled": "Untitled project",
   "errProviderMissing": "Provider is missing or disabled",
   "errModelMissing": "Model is missing or not bound",
+  "errPromptMissing": "Prompt is missing",
+  "errConfigVersion": "Config file version is incompatible",
   "errNetwork": "Network request failed",
   "errLlmFormat": "Model output format is invalid",
   "errCanceled": "Task canceled",
@@ -35,5 +37,39 @@
   "errFileTooLarge": "File is too large",
   "errFileType": "File type is not supported",
   "errRegexInvalid": "Regular expression is invalid",
-  "errNoChapters": "No chapters found"
+  "errNoChapters": "No chapters found",
+  "promptPanelTitle": "Prompts",
+  "promptEventExtractionTitle": "Event extraction",
+  "promptEventExtractionDescription": "Prompt for extracting structured events from novel chapters",
+  "promptScriptAssetExtractionTitle": "Script asset extraction",
+  "promptScriptAssetExtractionDescription": "Prompt for extracting characters, scenes, and props from scripts",
+  "promptImageSizeDirectiveTitle": "Image size directive",
+  "promptImageSizeDirectiveDescription": "Size constraint injected into image generation requests",
+  "promptUnset": "Not set",
+  "promptOverridden": "Modified",
+  "promptCharacterCount": "{count} characters",
+  "@promptCharacterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptEditTitle": "Edit prompt · {title}",
+  "@promptEditTitle": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "promptSaved": "Prompt saved",
+  "promptRestoreDefault": "Restore default",
+  "promptRestoreDefaultTitle": "Restore default",
+  "promptRestoreDefaultMessage": "Restore “{title}” to the built-in default?",
+  "@promptRestoreDefaultMessage": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "promptRestoreDefaultConfirm": "Restore",
+  "promptRestored": "Prompt restored to default"
 }

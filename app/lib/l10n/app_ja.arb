@@ -28,6 +28,8 @@
   "projectUntitled": "無題のプロジェクト",
   "errProviderMissing": "プロバイダーが見つからないか無効です",
   "errModelMissing": "モデルが見つからないか未設定です",
+  "errPromptMissing": "プロンプトが見つかりません",
+  "errConfigVersion": "設定ファイルのバージョンに互換性がありません",
   "errNetwork": "ネットワーク要求に失敗しました",
   "errLlmFormat": "モデル出力形式が不正です",
   "errCanceled": "タスクはキャンセルされました",
@@ -35,5 +37,39 @@
   "errFileTooLarge": "ファイルが大きすぎます",
   "errFileType": "対応していないファイル形式です",
   "errRegexInvalid": "正規表現が無効です",
-  "errNoChapters": "章が見つかりません"
+  "errNoChapters": "章が見つかりません",
+  "promptPanelTitle": "プロンプト",
+  "promptEventExtractionTitle": "イベント抽出",
+  "promptEventExtractionDescription": "小説の章から構造化イベントを抽出するプロンプト",
+  "promptScriptAssetExtractionTitle": "シナリオ素材抽出",
+  "promptScriptAssetExtractionDescription": "シナリオからキャラクター、シーン、小道具を抽出するプロンプト",
+  "promptImageSizeDirectiveTitle": "画像サイズ指示",
+  "promptImageSizeDirectiveDescription": "画像生成リクエストに挿入するサイズ制約",
+  "promptUnset": "未設定",
+  "promptOverridden": "変更済み",
+  "promptCharacterCount": "{count} 文字",
+  "@promptCharacterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptEditTitle": "プロンプトを編集 · {title}",
+  "@promptEditTitle": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "promptSaved": "プロンプトを保存しました",
+  "promptRestoreDefault": "デフォルトに戻す",
+  "promptRestoreDefaultTitle": "デフォルトに戻す",
+  "promptRestoreDefaultMessage": "「{title}」を組み込みのデフォルト内容に戻しますか？",
+  "@promptRestoreDefaultMessage": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "promptRestoreDefaultConfirm": "戻す",
+  "promptRestored": "プロンプトをデフォルトに戻しました"
 }

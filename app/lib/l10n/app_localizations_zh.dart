@@ -93,6 +93,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errModelMissing => '模型缺失或未绑定';
 
   @override
+  String get errPromptMissing => '提示词不存在';
+
+  @override
+  String get errConfigVersion => '配置文件版本不兼容';
+
+  @override
   String get errNetwork => '网络请求失败';
 
   @override
@@ -115,4 +121,55 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errNoChapters => '未找到章节';
+
+  @override
+  String get promptPanelTitle => '提示词';
+
+  @override
+  String get promptEventExtractionTitle => '事件提取';
+
+  @override
+  String get promptEventExtractionDescription => '小说章节结构化事件提取提示词';
+
+  @override
+  String get promptScriptAssetExtractionTitle => '剧本资产提取';
+
+  @override
+  String get promptScriptAssetExtractionDescription => '从剧本提取角色、场景、道具的提示词';
+
+  @override
+  String get promptImageSizeDirectiveTitle => '图片尺寸指令';
+
+  @override
+  String get promptImageSizeDirectiveDescription => '注入图片生成请求的尺寸约束';
+
+  @override
+  String get promptUnset => '未设置';
+
+  @override
+  String get promptOverridden => '已修改';
+
+  @override
+  String promptCharacterCount(int count) => '$count 字符';
+
+  @override
+  String promptEditTitle(String title) => '编辑提示词 · $title';
+
+  @override
+  String get promptSaved => '提示词已保存';
+
+  @override
+  String get promptRestoreDefault => '恢复默认';
+
+  @override
+  String get promptRestoreDefaultTitle => '恢复默认';
+
+  @override
+  String promptRestoreDefaultMessage(String title) => '确定将“$title”恢复为内置默认内容吗？';
+
+  @override
+  String get promptRestoreDefaultConfirm => '恢复';
+
+  @override
+  String get promptRestored => '提示词已恢复默认';
 }
