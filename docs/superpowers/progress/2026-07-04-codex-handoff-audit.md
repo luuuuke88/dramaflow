@@ -6,11 +6,12 @@
 - 本轮起点：`c4c3cf6 chore(progress): record handoff audit and localize composer errors`
 - 本轮接手验证：
   - `cd app && flutter analyze`：通过，0 issues
-  - `cd app && flutter test`：通过，250 tests
+  - `cd app && flutter test`：通过，251 tests
   - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`
   - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`
   - `cd app && flutter build apk --debug`：通过，产物 `build/app/outputs/flutter-apk/app-debug.apk`
   - `cd app && flutter build web`：通过，产物 `build/web`，但仍是预览态，不代表 Web 完整流程已完成
+  - `cd app && dart run tool/e2e_local_smoke.dart`：通过，纯本地、不调用供应商，串起章节→剧本→资产→分镜→选中视频→镜头配音→合成导出
 - 权威目标仍是 `docs/superpowers/specs/2026-07-03-v0.3-toonflow-parity-design.md`。旧 `docs/API.md` 和 `docs/DESIGN.md` 是 v0.1/v0.2 历史口径，不能作为当前实现目标。
 
 ## 已落地且有测试覆盖的主链能力
@@ -21,6 +22,7 @@
 - 图片生成链已修正：分镜和节点编辑器可传多参考图，并带模型、画幅、清晰度参数。
 - 视频生成链已具备：分镜首帧图 → Seedance 视频候选 → 选择候选 → 按分镜顺序合成本集。
 - 工作台已补齐每镜配音绑定入口：每个分镜行可从 audio 资产池选择/清空音频，写入 `o_storyboard.audioAssetId`，合成时自动进入音频时间线。
+- 新增离线主链 smoke：`app/tool/e2e_local_smoke.dart` 用本地 sqlite/media/fake composer 验证章节、剧本、资产、分镜、视频候选、镜头配音与合成导出全链，不依赖 AZT/ima2/Seedance，也不依赖 JS 后端。
 - 合成导出：
   - macOS/iOS：`dramaflow/composer` Swift AVFoundation 插件，含音频轨合成。
   - Android：同一 MethodChannel，Kotlin `MediaMuxer` 实现，支持视频拼接与外部 AAC/M4A 音频轨封装。
@@ -40,4 +42,4 @@
 1. 继续补“客户端完整流程”的可验证缺口，而不是优先做 Web。Web 完整 H5 是大子项目，应单独拆 M6。
 2. 给每个 ToonFlow 对齐页面建立 parity checklist 测试或文档表，避免只看文件存在就误判完成。
 3. 跑并记录 `flutter build macos --debug`、iOS simulator build、Android APK build 作为多端集成基线。
-4. 做一条无外部网络的本地 E2E smoke：填充演示数据，走到选中视频候选并调用 fake composer 合成，验证 UI 主链入口都能串起来。
+4. 基于离线 smoke 继续补 UI 级主链验收：用同一套 fake 数据进入页面路径，验证移动/桌面入口都能串起来。
