@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
+import 'package:dramaflow/src/engine/compose.dart';
 import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
@@ -19,9 +20,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 
+import '../../tool/e2e_local_smoke.dart' as smoke;
+
 class _NoopGateway implements ProviderGateway {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _UiSmokeComposer implements VideoComposer {
+  @override
+  Future<void> concat(
+      List<String> segmentAbsPaths, String outputAbsPath) async {
+    File(outputAbsPath)
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1]);
+  }
+
+  @override
+  Future<void> compose(
+      List<ComposeSegment> segments, String outputAbsPath) async {
+    File(outputAbsPath)
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync(
+          [for (final segment in segments) segment.hasAudio ? 2 : 1]);
+  }
+
+  @override
+  Future<double?> probeDurationSec(String inputAbsPath) async => 9.0;
 }
 
 void main() {
@@ -37,6 +62,7 @@ void main() {
       media: MediaStore(p.join(dir.path, 'media')),
       gateway: _NoopGateway(),
       config: EngineConfig(db, isMobile: false),
+      composer: _UiSmokeComposer(),
     );
     engine.installStoryboardPipeline();
     projectId = engine.addProject(projectType: 'novel', name: '画布测试');
@@ -51,8 +77,8 @@ void main() {
     final router = GoRouter(initialLocation: '/', routes: [
       GoRoute(
         path: '/',
-        builder: (c, s) => Scaffold(
-            body: ProductionScreen(projectId: projectId)),
+        builder: (c, s) =>
+            Scaffold(body: ProductionScreen(projectId: projectId)),
       ),
       GoRoute(
           path: '/p/:pid/script', builder: (c, s) => const Text('script-page')),
@@ -122,8 +148,8 @@ void main() {
   });
 
   testWidgets('点击资产节点卡片打开节点式图片编辑器', (tester) async {
-    final scriptId = engine.addScript(
-        projectId: projectId, name: '第一集', content: 'x');
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
     final assetId = engine.addAsset(
         projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
     engine.updateScript(scriptId, assets: [assetId]);
@@ -149,6 +175,49 @@ void main() {
     expect(find.byType(TabBar), findsOneWidget);
     expect(find.byType(TabBarView), findsOneWidget);
     expect(find.widgetWithText(Tab, '剧本规划'), findsOneWidget); // 规划 Tab
+  });
+
+  testWidgets('桌面端离线主链：制作页工作台入口可打开并完成合成', (tester) async {
+    final seed = smoke.seedOfflinePipeline(engine);
+    projectId = seed.projectId;
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 / 2'), findsOneWidget);
+    await tester.tap(find.text('打开工作台'));
+    await tester.pumpAndSettle();
+    expect(find.text('S1'), findsOneWidget);
+    expect(find.text('S2'), findsOneWidget);
+    expect(find.text('镜头配音'), findsWidgets);
+
+    await tester.tap(find.text('合成本集'));
+    await tester.pumpAndSettle();
+    expect(find.text('合成成功'), findsOneWidget);
+  });
+
+  testWidgets('移动端离线主链：制作页 Tab 可进入工作台并打开同一条链路', (tester) async {
+    final seed = smoke.seedOfflinePipeline(engine);
+    projectId = seed.projectId;
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(TabBar), const Offset(-280, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(Tab, '工作台'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 2'), findsOneWidget);
+
+    await tester.tap(find.text('打开工作台'));
+    await tester.pumpAndSettle();
+    expect(find.text('S1'), findsOneWidget);
+    expect(find.text('S2'), findsOneWidget);
+    expect(find.textContaining('合成本集'), findsOneWidget);
   });
 
   testWidgets('移动端：Agent 入口打开全屏对话', (tester) async {
@@ -204,8 +273,7 @@ void main() {
     expect(row.content, '新正文内容');
   });
 
-  testWidgets('分镜表节点可编辑：撰写 Markdown 经 saveStoryboardTable 持久化',
-      (tester) async {
+  testWidgets('分镜表节点可编辑：撰写 Markdown 经 saveStoryboardTable 持久化', (tester) async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: 'x');
     tester.view.physicalSize = const Size(1400, 900);

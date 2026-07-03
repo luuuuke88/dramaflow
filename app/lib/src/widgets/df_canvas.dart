@@ -54,6 +54,14 @@ class _DFCanvasState extends State<DFCanvas> {
   bool _fitted = false;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.fitOnInit && widget.nodes.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant DFCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.fitOnInit &&

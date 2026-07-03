@@ -50,6 +50,112 @@ class OfflinePipelineSmokeResult {
   });
 }
 
+class OfflinePipelineSeedResult {
+  final int projectId;
+  final int scriptId;
+  final List<int> chapterIds;
+  final List<int> assetIds;
+  final List<int> storyboardIds;
+  final int voiceId;
+
+  const OfflinePipelineSeedResult({
+    required this.projectId,
+    required this.scriptId,
+    required this.chapterIds,
+    required this.assetIds,
+    required this.storyboardIds,
+    required this.voiceId,
+  });
+}
+
+OfflinePipelineSeedResult seedOfflinePipeline(Engine engine) {
+  final projectId = engine.addProject(
+    projectType: 'novel',
+    name: '离线主链冒烟',
+    intro: '不调用任何线上供应商的端到端数据流验证。',
+    type: '武侠',
+    videoRatio: '16:9',
+    imageQuality: '1K',
+  );
+
+  final chapters = flattenParsedNovel(parseNovel(_demoNovel)).take(2).toList();
+  final chapterIds = engine.addNovels(projectId, chapters);
+  final scriptId = engine.addScript(
+    projectId: projectId,
+    name: '第一集 雪夜来客',
+    content: chapters.map((c) => c.chapterData).join('\n\n'),
+  );
+
+  final roleId = engine.addAsset(
+    projectId: projectId,
+    type: 'role',
+    name: '裴无咎',
+    describe: '男性，披黑斗篷，灰色眼睛，脸上有火烧疤痕。',
+    prompt: 'scarred swordsman, black cloak, gray eyes, wuxia drama style',
+  );
+  final sceneId = engine.addAsset(
+    projectId: projectId,
+    type: 'scene',
+    name: '寒山派山门',
+    describe: '积雪覆盖的山门，冷白月光，远处山道隐入风雪。',
+    prompt: 'snowy sect gate, cold moonlight, wuxia mountain path',
+  );
+  engine.updateScript(scriptId, assets: [roleId, sceneId]);
+
+  final firstShotId = engine.addStoryboard(
+    projectId: projectId,
+    scriptId: scriptId,
+    prompt: '雪夜山门前，黑衣人踏雪而来',
+    videoDesc: '低机位缓慢推近，斗篷边缘被风雪掀起',
+    duration: '4',
+    assetIds: [roleId, sceneId],
+  );
+  final secondShotId = engine.addStoryboard(
+    projectId: projectId,
+    scriptId: scriptId,
+    prompt: '焦黑玉佩落在雪中，守门弟子震惊后退',
+    videoDesc: '特写切到玉佩，再快速拉回弟子表情',
+    duration: '5',
+    assetIds: [sceneId],
+  );
+
+  _attachFirstFrame(engine, projectId, firstShotId);
+  _attachFirstFrame(engine, projectId, secondShotId);
+  _attachSelectedVideo(engine, projectId, scriptId, firstShotId, index: 1);
+  _attachSelectedVideo(engine, projectId, scriptId, secondShotId, index: 2);
+
+  final voiceId = engine.addAudioAssets(
+    projectId: projectId,
+    name: '沙哑复仇者',
+    sex: '男',
+    describe: '低沉沙哑，压抑愤怒',
+    items: [
+      (
+        base64: base64Encode(_tinySilentWav()),
+        ext: 'wav',
+        prompt: '我找沈青崖。',
+        name: '沙哑复仇者-样例',
+        describe: '低声',
+        existingImageId: null,
+      ),
+    ],
+  );
+  engine.bindStoryboardAudio(
+    storyboardId: firstShotId,
+    audioAssetId: voiceId,
+    audioText: '我找沈青崖。',
+  );
+
+  return OfflinePipelineSeedResult(
+    projectId: projectId,
+    scriptId: scriptId,
+    chapterIds: chapterIds,
+    assetIds: [roleId, sceneId],
+    storyboardIds: [firstShotId, secondShotId],
+    voiceId: voiceId,
+  );
+}
+
 Future<OfflinePipelineSmokeResult> runOfflinePipelineSmoke({
   required String dataDir,
 }) async {
@@ -65,98 +171,27 @@ Future<OfflinePipelineSmokeResult> runOfflinePipelineSmoke({
   );
 
   try {
-    final projectId = engine.addProject(
-      projectType: 'novel',
-      name: '离线主链冒烟',
-      intro: '不调用任何线上供应商的端到端数据流验证。',
-      type: '武侠',
-      videoRatio: '16:9',
-      imageQuality: '1K',
-    );
-
-    final chapters =
-        flattenParsedNovel(parseNovel(_demoNovel)).take(2).toList();
-    final chapterIds = engine.addNovels(projectId, chapters);
-    final scriptId = engine.addScript(
-      projectId: projectId,
-      name: '第一集 雪夜来客',
-      content: chapters.map((c) => c.chapterData).join('\n\n'),
-    );
-
-    final roleId = engine.addAsset(
-      projectId: projectId,
-      type: 'role',
-      name: '裴无咎',
-      describe: '男性，披黑斗篷，灰色眼睛，脸上有火烧疤痕。',
-      prompt: 'scarred swordsman, black cloak, gray eyes, wuxia drama style',
-    );
-    final sceneId = engine.addAsset(
-      projectId: projectId,
-      type: 'scene',
-      name: '寒山派山门',
-      describe: '积雪覆盖的山门，冷白月光，远处山道隐入风雪。',
-      prompt: 'snowy sect gate, cold moonlight, wuxia mountain path',
-    );
-
-    final firstShotId = engine.addStoryboard(
-      projectId: projectId,
-      scriptId: scriptId,
-      prompt: '雪夜山门前，黑衣人踏雪而来',
-      videoDesc: '低机位缓慢推近，斗篷边缘被风雪掀起',
-      duration: '4',
-      assetIds: [roleId, sceneId],
-    );
-    final secondShotId = engine.addStoryboard(
-      projectId: projectId,
-      scriptId: scriptId,
-      prompt: '焦黑玉佩落在雪中，守门弟子震惊后退',
-      videoDesc: '特写切到玉佩，再快速拉回弟子表情',
-      duration: '5',
-      assetIds: [sceneId],
-    );
-
-    _attachFirstFrame(engine, projectId, firstShotId);
-    _attachFirstFrame(engine, projectId, secondShotId);
-    _attachSelectedVideo(engine, projectId, scriptId, firstShotId, index: 1);
-    _attachSelectedVideo(engine, projectId, scriptId, secondShotId, index: 2);
-
-    final voiceId = engine.addAudioAssets(
-      projectId: projectId,
-      name: '沙哑复仇者',
-      sex: '男',
-      describe: '低沉沙哑，压抑愤怒',
-      items: [
-        (
-          base64: base64Encode(_tinySilentWav()),
-          ext: 'wav',
-          prompt: '我找沈青崖。',
-          name: '沙哑复仇者-样例',
-          describe: '低声',
-          existingImageId: null,
-        ),
-      ],
-    );
-    engine.bindStoryboardAudio(
-      storyboardId: firstShotId,
-      audioAssetId: voiceId,
-      audioText: '我找沈青崖。',
-    );
-
-    final composeResult = await engine.composeEpisode(projectId, scriptId);
+    final seed = seedOfflinePipeline(engine);
+    final composeResult =
+        await engine.composeEpisode(seed.projectId, seed.scriptId);
     final projectName =
-        engine.projects().firstWhere((p) => p.id == projectId).name!;
-    final scripts = engine.scripts(projectId);
-    final storyboards = engine.storyboards(scriptId);
-    final selectedVideos =
-        engine.orderedSelectedVideoPaths(scriptId).whereType<String>().length;
-    final boundShotAudio =
-        engine.orderedStoryboardAudioPaths(scriptId).whereType<String>().length;
+        engine.projects().firstWhere((p) => p.id == seed.projectId).name!;
+    final scripts = engine.scripts(seed.projectId);
+    final storyboards = engine.storyboards(seed.scriptId);
+    final selectedVideos = engine
+        .orderedSelectedVideoPaths(seed.scriptId)
+        .whereType<String>()
+        .length;
+    final boundShotAudio = engine
+        .orderedStoryboardAudioPaths(seed.scriptId)
+        .whereType<String>()
+        .length;
 
     return OfflinePipelineSmokeResult(
       projectName: projectName,
-      chapterCount: chapterIds.length,
+      chapterCount: seed.chapterIds.length,
       scriptCount: scripts.length,
-      assetCount: engine.assetOptions(projectId).length,
+      assetCount: engine.assetOptions(seed.projectId).length,
       storyboardCount: storyboards.length,
       selectedVideoCount: selectedVideos,
       boundShotAudioCount: boundShotAudio,
