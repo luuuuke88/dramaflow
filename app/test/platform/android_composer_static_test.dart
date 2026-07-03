@@ -24,6 +24,9 @@ void main() {
     );
     expect(activitySource, contains('dramaflow/composer'));
     expect(activitySource, contains('probeDuration'));
+    expect(activitySource, contains('inspectMedia'));
+    expect(activitySource, contains('videoTrackCount'));
+    expect(activitySource, contains('audioTrackCount'));
     expect(activitySource, contains('concat'));
     expect(activitySource, contains('compose'));
     expect(

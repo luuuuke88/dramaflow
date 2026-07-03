@@ -617,3 +617,7 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
   `flutter test test/platform/android_composer_static_test.dart` 观察到缺口红灯，再实现；
   之后该测试通过，`flutter build apk --debug` 通过，`flutter analyze` 零 issue，
   `flutter test` 248/248 通过。
+- ✅ Android 媒体自检通道已补齐：`dramaflow/composer` 现在支持 `inspectMedia`，
+  返回 `videoTrackCount/audioTrackCount/durationSec`，与 macOS/iOS 的
+  `AVFoundationComposer.inspectMedia` 对齐。这样后续 Android 实机 smoke 可以直接验证
+  导出 MP4 是否真的含音频轨，而不依赖外部 ffprobe。

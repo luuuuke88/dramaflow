@@ -25,6 +25,11 @@ class MainActivity : FlutterActivity() {
                             ?: throw ComposerException("视频路径不能为空")
                         result.success(probeDuration(path))
                     }
+                    "inspectMedia" -> {
+                        val path = call.argument<String>("path")
+                            ?: throw ComposerException("媒体路径不能为空")
+                        result.success(inspectMedia(path))
+                    }
                     "concat" -> {
                         val paths = call.argument<List<String>>("paths")
                             ?: throw ComposerException("视频片段不能为空")
@@ -76,6 +81,36 @@ class MainActivity : FlutterActivity() {
             if (durationMs > 0) durationMs / 1000.0 else null
         } finally {
             retriever.release()
+        }
+    }
+
+    private fun inspectMedia(path: String): Map<String, Any> {
+        ensureFile(path)
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(path)
+            var videoTrackCount = 0
+            var audioTrackCount = 0
+            for (i in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
+                if (mime.startsWith("video/")) {
+                    videoTrackCount += 1
+                } else if (mime.startsWith("audio/")) {
+                    audioTrackCount += 1
+                }
+            }
+            val info = mutableMapOf<String, Any>(
+                "videoTrackCount" to videoTrackCount,
+                "audioTrackCount" to audioTrackCount,
+            )
+            val duration = probeDuration(path)
+            if (duration != null) {
+                info["durationSec"] = duration
+            }
+            return info
+        } finally {
+            extractor.release()
         }
     }
 
