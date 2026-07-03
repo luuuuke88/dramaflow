@@ -94,11 +94,11 @@ Status: Verified
 
 Desktop Evidence: `app/test/widgets/corner_scape_screen_test.dart` covers empty state, manual binding, auto-match enqueue, bound/unbound filters, search, select-all-unbound, and audition error handling.
 
-Mobile Evidence: `app/test/widgets/corner_scape_screen_test.dart` covers 390px manual role-audio binding.
+Mobile Evidence: `app/test/widgets/corner_scape_screen_test.dart` covers 390px manual role-audio binding, AI auto-match task enqueue, and missing-file audition feedback.
 
-Known Gaps: Mobile AI auto-match and mobile audition playback are not separately covered, though desktop equivalents exist.
+Known Gaps: None at the current dubbing-page scope.
 
-Next Verification: Add a 390px AI auto-match smoke and a mobile audition-missing-file smoke if this page changes again.
+Next Verification: If dubbing-page layout changes, keep the 390px manual binding, AI auto-match, and audition error smokes together.
 
 ## 任务中心
 

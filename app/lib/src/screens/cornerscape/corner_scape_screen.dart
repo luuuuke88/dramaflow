@@ -122,24 +122,40 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
-        child: Row(children: [
-          Text(l10n.cornerScapeTitle,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(width: 10),
-          Text(
-            l10n.cornerScapeBoundSummary(boundCount, roles.length),
-            style: TextStyle(fontSize: 12, color: df.textTertiary),
-          ),
-          const Spacer(),
-          FilledButton.icon(
+        child: LayoutBuilder(builder: (context, constraints) {
+          final action = FilledButton.icon(
             onPressed: () => _autoMatch(pool),
             icon: const Icon(Icons.auto_awesome, size: 16),
             label: Text(_selected.isEmpty
                 ? l10n.cornerScapeAutoMatch
                 : '${l10n.cornerScapeAutoMatch} (${_selected.length})'),
-          ),
-        ]),
+          );
+          final heading = Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(l10n.cornerScapeTitle,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 10),
+            Text(
+              l10n.cornerScapeBoundSummary(boundCount, roles.length),
+              style: TextStyle(fontSize: 12, color: df.textTertiary),
+            ),
+          ]);
+          if (constraints.maxWidth < 420) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                heading,
+                const SizedBox(height: 10),
+                action,
+              ],
+            );
+          }
+          return Row(children: [
+            heading,
+            const Spacer(),
+            action,
+          ]);
+        }),
       ),
       // 列表管理工具栏：状态筛选 + 搜索 + 全选未绑定。用 Wrap 保证窄屏（移动端）换行。
       Padding(

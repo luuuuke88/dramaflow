@@ -238,4 +238,47 @@ void main() {
     expect(engine.roleAudioBindings(projectId).single.audioName, '低音男声');
     expect(find.text('低音男声'), findsOneWidget);
   });
+
+  testWidgets('移动端配音页：勾选角色后可发起 AI 自动匹配任务', (tester) async {
+    engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(width: 390));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byType(Checkbox));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('AI 自动匹配'));
+    await tester.pump();
+
+    final tasks = await engine.projectJobs(projectId);
+    expect(tasks.any((t) => t.taskClass == 'audio_bind'), isTrue);
+  });
+
+  testWidgets('移动端配音页：试听已绑定但缺失的音频时显示错误', (tester) async {
+    final role = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    final audio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
+    engine.bindRoleAudio(role, audio);
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(width: 390));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byIcon(Icons.play_circle_outline));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('音频文件缺失'), findsOneWidget);
+  });
 }
