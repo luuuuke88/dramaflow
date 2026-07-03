@@ -1068,4 +1068,251 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localeSystem => 'System';
+
+  @override
+  String get assetsTabRole => 'Roles';
+
+  @override
+  String get assetsTabTool => 'Props';
+
+  @override
+  String get assetsTabScene => 'Scenes';
+
+  @override
+  String get assetsTabClip => 'Clips';
+
+  @override
+  String get assetsTabAudio => 'Audio';
+
+  @override
+  String get assetsAddPrefix => 'Add';
+
+  @override
+  String get assetsGeneratePrompt => 'Generate Prompts';
+
+  @override
+  String get assetsGenerateImage => 'Generate Images';
+
+  @override
+  String get assetsBatchDelete => 'Batch Delete';
+
+  @override
+  String get assetsSearchPlaceholder => 'Search asset name...';
+
+  @override
+  String get assetsColPreview => 'Preview';
+
+  @override
+  String get assetsColName => 'Name';
+
+  @override
+  String get assetsColPrompt => 'Prompt';
+
+  @override
+  String get assetsColDescribe => 'Description';
+
+  @override
+  String get assetsColRemark => 'Remark';
+
+  @override
+  String get assetsColCreateTime => 'Created';
+
+  @override
+  String get assetsColOperation => 'Actions';
+
+  @override
+  String get assetsGenerate => 'Generate';
+
+  @override
+  String get assetsEdit => 'Edit';
+
+  @override
+  String get assetsDelete => 'Delete';
+
+  @override
+  String get assetsGenerating => 'Generating...';
+
+  @override
+  String get assetsConfirmDeleteHeader => 'Confirm Delete';
+
+  @override
+  String get assetsConfirmDeleteBody =>
+      'Delete this asset? Its image versions and children will also be removed';
+
+  @override
+  String assetsConfirmBatchDeleteBody(String count) {
+    return 'Delete the selected $count assets?';
+  }
+
+  @override
+  String get assetsDeleteSuccess => 'Deleted';
+
+  @override
+  String get assetsSex => 'Gender';
+
+  @override
+  String get assetsAudioName => 'Voice';
+
+  @override
+  String get assetsAudioText => 'Audio Text';
+
+  @override
+  String get assetsPlay => 'Play';
+
+  @override
+  String get assetsAddName => 'Name';
+
+  @override
+  String get assetsAddNamePh => 'Enter asset name';
+
+  @override
+  String get assetsAddNameRequired => 'Please enter asset name';
+
+  @override
+  String get assetsAddDescribe => 'Description';
+
+  @override
+  String get assetsAddDescribePh => 'Enter asset description';
+
+  @override
+  String get assetsAddDescribeRequired => 'Please enter description';
+
+  @override
+  String get assetsAddRemark => 'Remark';
+
+  @override
+  String get assetsAddRemarkPh => 'Enter remark';
+
+  @override
+  String get assetsAddPrompt => 'Prompt';
+
+  @override
+  String get assetsAddPromptPh => 'Enter generation prompt';
+
+  @override
+  String get assetsAddAddSuccess => 'Asset added';
+
+  @override
+  String get assetsAddUpdateSuccess => 'Asset updated';
+
+  @override
+  String get assetsAddAudioNamePh => 'Enter voice name';
+
+  @override
+  String get assetsAddSexPh => 'Enter gender';
+
+  @override
+  String get assetsAddAudioFile => 'Audio file';
+
+  @override
+  String get assetsAddAudioTextPh => 'Enter the text of this audio';
+
+  @override
+  String get assetsAddAudioDescPh => 'Enter audio description';
+
+  @override
+  String get assetsAddAudioItem => 'Add audio';
+
+  @override
+  String get assetsAddPleaseUploadAudio => 'Please upload an audio file';
+
+  @override
+  String get assetsGenHeader => 'Generate Image';
+
+  @override
+  String get assetsGenUploadRef => 'Reference';
+
+  @override
+  String get assetsGenOptional => 'optional';
+
+  @override
+  String get assetsGenPromptLabel => 'Prompt';
+
+  @override
+  String get assetsGenSmartGenerate => 'Smart Generate';
+
+  @override
+  String get assetsGenSelectModel => 'Model';
+
+  @override
+  String get assetsGenSelectResolution => 'Resolution';
+
+  @override
+  String get assetsGenGenerateBtn => 'Generate';
+
+  @override
+  String get assetsGenFillPrompt => 'Please fill the prompt';
+
+  @override
+  String get assetsGenPickModel => 'Please pick a model';
+
+  @override
+  String assetsGenGeneratedCount(String count) {
+    return '$count generated';
+  }
+
+  @override
+  String get assetsGenGeneratingLabel => 'Generating...';
+
+  @override
+  String get assetsGenGenFailed => 'Failed';
+
+  @override
+  String get assetsGenImageSaved => 'Image saved';
+
+  @override
+  String get assetsGenAssetGenSuccess => 'Generation submitted';
+
+  @override
+  String get assetsGenPromptSuccess => 'Prompt generated';
+
+  @override
+  String get assetsGenConfirmSelect => 'Select an image first';
+
+  @override
+  String get assetsGenResultTitle => 'Results';
+
+  @override
+  String get assetsBatchHeader => 'Batch Generation';
+
+  @override
+  String assetsBatchSelected(String count) {
+    return '$count selected';
+  }
+
+  @override
+  String get assetsBatchSelectAll => 'Select All';
+
+  @override
+  String get assetsBatchClearSelection => 'Clear';
+
+  @override
+  String get assetsBatchColPreviewImg => 'Preview';
+
+  @override
+  String get assetsBatchInputPh => 'Enter prompt';
+
+  @override
+  String assetsBatchSaveSelected(String count) {
+    return 'Save selected ($count)';
+  }
+
+  @override
+  String get assetsBatchMissingPrompts =>
+      'Generate prompts for selection first';
+
+  @override
+  String get assetsBatchPromptDone => 'Batch prompt generation submitted';
+
+  @override
+  String get assetsBatchImageDone => 'Batch image generation submitted';
+
+  @override
+  String get assetsBatchSaveSuccess => 'Saved';
+
+  @override
+  String get assetsCancelBtn => 'Cancel';
+
+  @override
+  String get assetsSelectAtLeastOne => 'Select at least one item';
 }

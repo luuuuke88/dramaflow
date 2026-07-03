@@ -1042,4 +1042,249 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get localeSystem => 'システムに従う';
+
+  @override
+  String get assetsTabRole => 'キャラクター';
+
+  @override
+  String get assetsTabTool => '小道具';
+
+  @override
+  String get assetsTabScene => 'シーン';
+
+  @override
+  String get assetsTabClip => '素材';
+
+  @override
+  String get assetsTabAudio => '音声';
+
+  @override
+  String get assetsAddPrefix => '新規';
+
+  @override
+  String get assetsGeneratePrompt => 'プロンプト生成';
+
+  @override
+  String get assetsGenerateImage => '画像生成';
+
+  @override
+  String get assetsBatchDelete => '一括削除';
+
+  @override
+  String get assetsSearchPlaceholder => 'アセット名を検索...';
+
+  @override
+  String get assetsColPreview => 'プレビュー';
+
+  @override
+  String get assetsColName => '名称';
+
+  @override
+  String get assetsColPrompt => 'プロンプト';
+
+  @override
+  String get assetsColDescribe => '説明';
+
+  @override
+  String get assetsColRemark => '備考';
+
+  @override
+  String get assetsColCreateTime => '作成日時';
+
+  @override
+  String get assetsColOperation => '操作';
+
+  @override
+  String get assetsGenerate => '生成';
+
+  @override
+  String get assetsEdit => '編集';
+
+  @override
+  String get assetsDelete => '削除';
+
+  @override
+  String get assetsGenerating => '生成中...';
+
+  @override
+  String get assetsConfirmDeleteHeader => '削除の確認';
+
+  @override
+  String get assetsConfirmDeleteBody => 'このアセットを削除しますか？画像バージョンと子アセットも削除されます';
+
+  @override
+  String assetsConfirmBatchDeleteBody(String count) {
+    return '選択した $count 件のアセットを削除しますか？';
+  }
+
+  @override
+  String get assetsDeleteSuccess => '削除しました';
+
+  @override
+  String get assetsSex => '性別';
+
+  @override
+  String get assetsAudioName => 'ボイス';
+
+  @override
+  String get assetsAudioText => '音声テキスト';
+
+  @override
+  String get assetsPlay => '再生';
+
+  @override
+  String get assetsAddName => '名称';
+
+  @override
+  String get assetsAddNamePh => 'アセット名を入力';
+
+  @override
+  String get assetsAddNameRequired => 'アセット名を入力してください';
+
+  @override
+  String get assetsAddDescribe => '説明';
+
+  @override
+  String get assetsAddDescribePh => '説明を入力';
+
+  @override
+  String get assetsAddDescribeRequired => '説明を入力してください';
+
+  @override
+  String get assetsAddRemark => '備考';
+
+  @override
+  String get assetsAddRemarkPh => '備考を入力';
+
+  @override
+  String get assetsAddPrompt => 'プロンプト';
+
+  @override
+  String get assetsAddPromptPh => '生成プロンプトを入力';
+
+  @override
+  String get assetsAddAddSuccess => 'アセットを追加しました';
+
+  @override
+  String get assetsAddUpdateSuccess => 'アセットを更新しました';
+
+  @override
+  String get assetsAddAudioNamePh => 'ボイス名を入力';
+
+  @override
+  String get assetsAddSexPh => '性別を入力';
+
+  @override
+  String get assetsAddAudioFile => '音声ファイル';
+
+  @override
+  String get assetsAddAudioTextPh => 'この音声のテキストを入力';
+
+  @override
+  String get assetsAddAudioDescPh => '音声の説明を入力';
+
+  @override
+  String get assetsAddAudioItem => '音声を追加';
+
+  @override
+  String get assetsAddPleaseUploadAudio => '音声ファイルをアップロードしてください';
+
+  @override
+  String get assetsGenHeader => '画像生成';
+
+  @override
+  String get assetsGenUploadRef => '参照画像';
+
+  @override
+  String get assetsGenOptional => '任意';
+
+  @override
+  String get assetsGenPromptLabel => 'プロンプト';
+
+  @override
+  String get assetsGenSmartGenerate => 'スマート生成';
+
+  @override
+  String get assetsGenSelectModel => 'モデル';
+
+  @override
+  String get assetsGenSelectResolution => '解像度';
+
+  @override
+  String get assetsGenGenerateBtn => '生成';
+
+  @override
+  String get assetsGenFillPrompt => 'プロンプトを入力してください';
+
+  @override
+  String get assetsGenPickModel => 'モデルを選択してください';
+
+  @override
+  String assetsGenGeneratedCount(String count) {
+    return '$count 枚生成済み';
+  }
+
+  @override
+  String get assetsGenGeneratingLabel => '生成中...';
+
+  @override
+  String get assetsGenGenFailed => '生成失敗';
+
+  @override
+  String get assetsGenImageSaved => '画像を保存しました';
+
+  @override
+  String get assetsGenAssetGenSuccess => '生成を送信しました';
+
+  @override
+  String get assetsGenPromptSuccess => 'プロンプトを生成しました';
+
+  @override
+  String get assetsGenConfirmSelect => '先に画像を選択してください';
+
+  @override
+  String get assetsGenResultTitle => '生成結果';
+
+  @override
+  String get assetsBatchHeader => '一括生成';
+
+  @override
+  String assetsBatchSelected(String count) {
+    return '$count 件選択中';
+  }
+
+  @override
+  String get assetsBatchSelectAll => 'すべて選択';
+
+  @override
+  String get assetsBatchClearSelection => '選択解除';
+
+  @override
+  String get assetsBatchColPreviewImg => 'プレビュー';
+
+  @override
+  String get assetsBatchInputPh => 'プロンプトを入力';
+
+  @override
+  String assetsBatchSaveSelected(String count) {
+    return '選択を保存($count)';
+  }
+
+  @override
+  String get assetsBatchMissingPrompts => '先に選択アセットのプロンプトを生成してください';
+
+  @override
+  String get assetsBatchPromptDone => '一括プロンプト生成を送信しました';
+
+  @override
+  String get assetsBatchImageDone => '一括画像生成を送信しました';
+
+  @override
+  String get assetsBatchSaveSuccess => '保存しました';
+
+  @override
+  String get assetsCancelBtn => 'キャンセル';
+
+  @override
+  String get assetsSelectAtLeastOne => '1 件以上選択してください';
 }

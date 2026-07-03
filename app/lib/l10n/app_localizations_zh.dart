@@ -1033,4 +1033,249 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localeSystem => '跟随系统';
+
+  @override
+  String get assetsTabRole => '角色';
+
+  @override
+  String get assetsTabTool => '道具';
+
+  @override
+  String get assetsTabScene => '场景';
+
+  @override
+  String get assetsTabClip => '素材';
+
+  @override
+  String get assetsTabAudio => '音频';
+
+  @override
+  String get assetsAddPrefix => '新增';
+
+  @override
+  String get assetsGeneratePrompt => '生成提示词';
+
+  @override
+  String get assetsGenerateImage => '生成图片';
+
+  @override
+  String get assetsBatchDelete => '批量删除';
+
+  @override
+  String get assetsSearchPlaceholder => '搜索资产名称...';
+
+  @override
+  String get assetsColPreview => '预览';
+
+  @override
+  String get assetsColName => '名称';
+
+  @override
+  String get assetsColPrompt => '提示词';
+
+  @override
+  String get assetsColDescribe => '描述';
+
+  @override
+  String get assetsColRemark => '备注';
+
+  @override
+  String get assetsColCreateTime => '创建时间';
+
+  @override
+  String get assetsColOperation => '操作';
+
+  @override
+  String get assetsGenerate => '生成';
+
+  @override
+  String get assetsEdit => '编辑';
+
+  @override
+  String get assetsDelete => '删除';
+
+  @override
+  String get assetsGenerating => '生成中...';
+
+  @override
+  String get assetsConfirmDeleteHeader => '确认删除';
+
+  @override
+  String get assetsConfirmDeleteBody => '确定要删除该资产吗？其图片版本与子资产将一并删除';
+
+  @override
+  String assetsConfirmBatchDeleteBody(String count) {
+    return '确定要删除选中的 $count 个资产吗？';
+  }
+
+  @override
+  String get assetsDeleteSuccess => '删除成功';
+
+  @override
+  String get assetsSex => '性别';
+
+  @override
+  String get assetsAudioName => '音色';
+
+  @override
+  String get assetsAudioText => '音频文本';
+
+  @override
+  String get assetsPlay => '播放';
+
+  @override
+  String get assetsAddName => '名称';
+
+  @override
+  String get assetsAddNamePh => '请输入资产名称';
+
+  @override
+  String get assetsAddNameRequired => '请输入资产名称';
+
+  @override
+  String get assetsAddDescribe => '描述';
+
+  @override
+  String get assetsAddDescribePh => '请输入资产描述';
+
+  @override
+  String get assetsAddDescribeRequired => '请输入资产描述';
+
+  @override
+  String get assetsAddRemark => '备注';
+
+  @override
+  String get assetsAddRemarkPh => '请输入备注';
+
+  @override
+  String get assetsAddPrompt => '提示词';
+
+  @override
+  String get assetsAddPromptPh => '请输入生成提示词';
+
+  @override
+  String get assetsAddAddSuccess => '新增资产成功';
+
+  @override
+  String get assetsAddUpdateSuccess => '更新资产成功';
+
+  @override
+  String get assetsAddAudioNamePh => '请输入音色名称';
+
+  @override
+  String get assetsAddSexPh => '请输入性别';
+
+  @override
+  String get assetsAddAudioFile => '音频文件';
+
+  @override
+  String get assetsAddAudioTextPh => '请输入该音频对应的文本内容';
+
+  @override
+  String get assetsAddAudioDescPh => '请输入该音频的描述';
+
+  @override
+  String get assetsAddAudioItem => '添加音频';
+
+  @override
+  String get assetsAddPleaseUploadAudio => '请上传音频文件';
+
+  @override
+  String get assetsGenHeader => '生成图片';
+
+  @override
+  String get assetsGenUploadRef => '参考图';
+
+  @override
+  String get assetsGenOptional => '可选';
+
+  @override
+  String get assetsGenPromptLabel => '提示词';
+
+  @override
+  String get assetsGenSmartGenerate => '智能生成';
+
+  @override
+  String get assetsGenSelectModel => '选择模型';
+
+  @override
+  String get assetsGenSelectResolution => '选择分辨率';
+
+  @override
+  String get assetsGenGenerateBtn => '生成';
+
+  @override
+  String get assetsGenFillPrompt => '请填写提示词';
+
+  @override
+  String get assetsGenPickModel => '请选择模型';
+
+  @override
+  String assetsGenGeneratedCount(String count) {
+    return '已生成 $count 张';
+  }
+
+  @override
+  String get assetsGenGeneratingLabel => '生成中...';
+
+  @override
+  String get assetsGenGenFailed => '生成失败';
+
+  @override
+  String get assetsGenImageSaved => '图片已保存';
+
+  @override
+  String get assetsGenAssetGenSuccess => '已提交生成';
+
+  @override
+  String get assetsGenPromptSuccess => '提示词生成成功';
+
+  @override
+  String get assetsGenConfirmSelect => '请先选择一张图片';
+
+  @override
+  String get assetsGenResultTitle => '生成结果';
+
+  @override
+  String get assetsBatchHeader => '批量生成';
+
+  @override
+  String assetsBatchSelected(String count) {
+    return '已选 $count 项';
+  }
+
+  @override
+  String get assetsBatchSelectAll => '全选';
+
+  @override
+  String get assetsBatchClearSelection => '清空选择';
+
+  @override
+  String get assetsBatchColPreviewImg => '预览图';
+
+  @override
+  String get assetsBatchInputPh => '请输入提示词';
+
+  @override
+  String assetsBatchSaveSelected(String count) {
+    return '保存已选($count)';
+  }
+
+  @override
+  String get assetsBatchMissingPrompts => '请先为所选资产生成提示词';
+
+  @override
+  String get assetsBatchPromptDone => '提示词批量生成已提交';
+
+  @override
+  String get assetsBatchImageDone => '图片批量生成已提交';
+
+  @override
+  String get assetsBatchSaveSuccess => '保存成功';
+
+  @override
+  String get assetsCancelBtn => '取消';
+
+  @override
+  String get assetsSelectAtLeastOne => '请至少选择一项';
 }

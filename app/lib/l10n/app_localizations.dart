@@ -2091,6 +2091,480 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'跟随系统'**
   String get localeSystem;
+
+  /// No description provided for @assetsTabRole.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色'**
+  String get assetsTabRole;
+
+  /// No description provided for @assetsTabTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'道具'**
+  String get assetsTabTool;
+
+  /// No description provided for @assetsTabScene.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景'**
+  String get assetsTabScene;
+
+  /// No description provided for @assetsTabClip.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材'**
+  String get assetsTabClip;
+
+  /// No description provided for @assetsTabAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频'**
+  String get assetsTabAudio;
+
+  /// No description provided for @assetsAddPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增'**
+  String get assetsAddPrefix;
+
+  /// No description provided for @assetsGeneratePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成提示词'**
+  String get assetsGeneratePrompt;
+
+  /// No description provided for @assetsGenerateImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成图片'**
+  String get assetsGenerateImage;
+
+  /// No description provided for @assetsBatchDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除'**
+  String get assetsBatchDelete;
+
+  /// No description provided for @assetsSearchPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索资产名称...'**
+  String get assetsSearchPlaceholder;
+
+  /// No description provided for @assetsColPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get assetsColPreview;
+
+  /// No description provided for @assetsColName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get assetsColName;
+
+  /// No description provided for @assetsColPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get assetsColPrompt;
+
+  /// No description provided for @assetsColDescribe.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述'**
+  String get assetsColDescribe;
+
+  /// No description provided for @assetsColRemark.
+  ///
+  /// In zh, this message translates to:
+  /// **'备注'**
+  String get assetsColRemark;
+
+  /// No description provided for @assetsColCreateTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建时间'**
+  String get assetsColCreateTime;
+
+  /// No description provided for @assetsColOperation.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作'**
+  String get assetsColOperation;
+
+  /// No description provided for @assetsGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成'**
+  String get assetsGenerate;
+
+  /// No description provided for @assetsEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get assetsEdit;
+
+  /// No description provided for @assetsDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get assetsDelete;
+
+  /// No description provided for @assetsGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成中...'**
+  String get assetsGenerating;
+
+  /// No description provided for @assetsConfirmDeleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除'**
+  String get assetsConfirmDeleteHeader;
+
+  /// No description provided for @assetsConfirmDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除该资产吗？其图片版本与子资产将一并删除'**
+  String get assetsConfirmDeleteBody;
+
+  /// No description provided for @assetsConfirmBatchDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除选中的 {count} 个资产吗？'**
+  String assetsConfirmBatchDeleteBody(String count);
+
+  /// No description provided for @assetsDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除成功'**
+  String get assetsDeleteSuccess;
+
+  /// No description provided for @assetsSex.
+  ///
+  /// In zh, this message translates to:
+  /// **'性别'**
+  String get assetsSex;
+
+  /// No description provided for @assetsAudioName.
+  ///
+  /// In zh, this message translates to:
+  /// **'音色'**
+  String get assetsAudioName;
+
+  /// No description provided for @assetsAudioText.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频文本'**
+  String get assetsAudioText;
+
+  /// No description provided for @assetsPlay.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放'**
+  String get assetsPlay;
+
+  /// No description provided for @assetsAddName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get assetsAddName;
+
+  /// No description provided for @assetsAddNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入资产名称'**
+  String get assetsAddNamePh;
+
+  /// No description provided for @assetsAddNameRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入资产名称'**
+  String get assetsAddNameRequired;
+
+  /// No description provided for @assetsAddDescribe.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述'**
+  String get assetsAddDescribe;
+
+  /// No description provided for @assetsAddDescribePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入资产描述'**
+  String get assetsAddDescribePh;
+
+  /// No description provided for @assetsAddDescribeRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入资产描述'**
+  String get assetsAddDescribeRequired;
+
+  /// No description provided for @assetsAddRemark.
+  ///
+  /// In zh, this message translates to:
+  /// **'备注'**
+  String get assetsAddRemark;
+
+  /// No description provided for @assetsAddRemarkPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入备注'**
+  String get assetsAddRemarkPh;
+
+  /// No description provided for @assetsAddPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get assetsAddPrompt;
+
+  /// No description provided for @assetsAddPromptPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入生成提示词'**
+  String get assetsAddPromptPh;
+
+  /// No description provided for @assetsAddAddSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增资产成功'**
+  String get assetsAddAddSuccess;
+
+  /// No description provided for @assetsAddUpdateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新资产成功'**
+  String get assetsAddUpdateSuccess;
+
+  /// No description provided for @assetsAddAudioNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入音色名称'**
+  String get assetsAddAudioNamePh;
+
+  /// No description provided for @assetsAddSexPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入性别'**
+  String get assetsAddSexPh;
+
+  /// No description provided for @assetsAddAudioFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频文件'**
+  String get assetsAddAudioFile;
+
+  /// No description provided for @assetsAddAudioTextPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入该音频对应的文本内容'**
+  String get assetsAddAudioTextPh;
+
+  /// No description provided for @assetsAddAudioDescPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入该音频的描述'**
+  String get assetsAddAudioDescPh;
+
+  /// No description provided for @assetsAddAudioItem.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加音频'**
+  String get assetsAddAudioItem;
+
+  /// No description provided for @assetsAddPleaseUploadAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'请上传音频文件'**
+  String get assetsAddPleaseUploadAudio;
+
+  /// No description provided for @assetsGenHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成图片'**
+  String get assetsGenHeader;
+
+  /// No description provided for @assetsGenUploadRef.
+  ///
+  /// In zh, this message translates to:
+  /// **'参考图'**
+  String get assetsGenUploadRef;
+
+  /// No description provided for @assetsGenOptional.
+  ///
+  /// In zh, this message translates to:
+  /// **'可选'**
+  String get assetsGenOptional;
+
+  /// No description provided for @assetsGenPromptLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get assetsGenPromptLabel;
+
+  /// No description provided for @assetsGenSmartGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'智能生成'**
+  String get assetsGenSmartGenerate;
+
+  /// No description provided for @assetsGenSelectModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择模型'**
+  String get assetsGenSelectModel;
+
+  /// No description provided for @assetsGenSelectResolution.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择分辨率'**
+  String get assetsGenSelectResolution;
+
+  /// No description provided for @assetsGenGenerateBtn.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成'**
+  String get assetsGenGenerateBtn;
+
+  /// No description provided for @assetsGenFillPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'请填写提示词'**
+  String get assetsGenFillPrompt;
+
+  /// No description provided for @assetsGenPickModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择模型'**
+  String get assetsGenPickModel;
+
+  /// No description provided for @assetsGenGeneratedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已生成 {count} 张'**
+  String assetsGenGeneratedCount(String count);
+
+  /// No description provided for @assetsGenGeneratingLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成中...'**
+  String get assetsGenGeneratingLabel;
+
+  /// No description provided for @assetsGenGenFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成失败'**
+  String get assetsGenGenFailed;
+
+  /// No description provided for @assetsGenImageSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片已保存'**
+  String get assetsGenImageSaved;
+
+  /// No description provided for @assetsGenAssetGenSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已提交生成'**
+  String get assetsGenAssetGenSuccess;
+
+  /// No description provided for @assetsGenPromptSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词生成成功'**
+  String get assetsGenPromptSuccess;
+
+  /// No description provided for @assetsGenConfirmSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先选择一张图片'**
+  String get assetsGenConfirmSelect;
+
+  /// No description provided for @assetsGenResultTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成结果'**
+  String get assetsGenResultTitle;
+
+  /// No description provided for @assetsBatchHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量生成'**
+  String get assetsBatchHeader;
+
+  /// No description provided for @assetsBatchSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {count} 项'**
+  String assetsBatchSelected(String count);
+
+  /// No description provided for @assetsBatchSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get assetsBatchSelectAll;
+
+  /// No description provided for @assetsBatchClearSelection.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空选择'**
+  String get assetsBatchClearSelection;
+
+  /// No description provided for @assetsBatchColPreviewImg.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览图'**
+  String get assetsBatchColPreviewImg;
+
+  /// No description provided for @assetsBatchInputPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入提示词'**
+  String get assetsBatchInputPh;
+
+  /// No description provided for @assetsBatchSaveSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存已选({count})'**
+  String assetsBatchSaveSelected(String count);
+
+  /// No description provided for @assetsBatchMissingPrompts.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先为所选资产生成提示词'**
+  String get assetsBatchMissingPrompts;
+
+  /// No description provided for @assetsBatchPromptDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词批量生成已提交'**
+  String get assetsBatchPromptDone;
+
+  /// No description provided for @assetsBatchImageDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片批量生成已提交'**
+  String get assetsBatchImageDone;
+
+  /// No description provided for @assetsBatchSaveSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存成功'**
+  String get assetsBatchSaveSuccess;
+
+  /// No description provided for @assetsCancelBtn.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get assetsCancelBtn;
+
+  /// No description provided for @assetsSelectAtLeastOne.
+  ///
+  /// In zh, this message translates to:
+  /// **'请至少选择一项'**
+  String get assetsSelectAtLeastOne;
 }
 
 class _AppLocalizationsDelegate

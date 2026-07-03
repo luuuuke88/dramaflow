@@ -435,5 +435,112 @@
   "scriptStateExtracting": "提取中...",
   "scriptStateFailed": "提取失败",
   "settingsLanguage": "语言",
-  "localeSystem": "跟随系统"
+  "localeSystem": "跟随系统",
+  "assetsTabRole": "角色",
+  "assetsTabTool": "道具",
+  "assetsTabScene": "场景",
+  "assetsTabClip": "素材",
+  "assetsTabAudio": "音频",
+  "assetsAddPrefix": "新增",
+  "assetsGeneratePrompt": "生成提示词",
+  "assetsGenerateImage": "生成图片",
+  "assetsBatchDelete": "批量删除",
+  "assetsSearchPlaceholder": "搜索资产名称...",
+  "assetsColPreview": "预览",
+  "assetsColName": "名称",
+  "assetsColPrompt": "提示词",
+  "assetsColDescribe": "描述",
+  "assetsColRemark": "备注",
+  "assetsColCreateTime": "创建时间",
+  "assetsColOperation": "操作",
+  "assetsGenerate": "生成",
+  "assetsEdit": "编辑",
+  "assetsDelete": "删除",
+  "assetsGenerating": "生成中...",
+  "assetsConfirmDeleteHeader": "确认删除",
+  "assetsConfirmDeleteBody": "确定要删除该资产吗？其图片版本与子资产将一并删除",
+  "assetsConfirmBatchDeleteBody": "确定要删除选中的 {count} 个资产吗？",
+  "@assetsConfirmBatchDeleteBody": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "assetsDeleteSuccess": "删除成功",
+  "assetsSex": "性别",
+  "assetsAudioName": "音色",
+  "assetsAudioText": "音频文本",
+  "assetsPlay": "播放",
+  "assetsAddName": "名称",
+  "assetsAddNamePh": "请输入资产名称",
+  "assetsAddNameRequired": "请输入资产名称",
+  "assetsAddDescribe": "描述",
+  "assetsAddDescribePh": "请输入资产描述",
+  "assetsAddDescribeRequired": "请输入资产描述",
+  "assetsAddRemark": "备注",
+  "assetsAddRemarkPh": "请输入备注",
+  "assetsAddPrompt": "提示词",
+  "assetsAddPromptPh": "请输入生成提示词",
+  "assetsAddAddSuccess": "新增资产成功",
+  "assetsAddUpdateSuccess": "更新资产成功",
+  "assetsAddAudioNamePh": "请输入音色名称",
+  "assetsAddSexPh": "请输入性别",
+  "assetsAddAudioFile": "音频文件",
+  "assetsAddAudioTextPh": "请输入该音频对应的文本内容",
+  "assetsAddAudioDescPh": "请输入该音频的描述",
+  "assetsAddAudioItem": "添加音频",
+  "assetsAddPleaseUploadAudio": "请上传音频文件",
+  "assetsGenHeader": "生成图片",
+  "assetsGenUploadRef": "参考图",
+  "assetsGenOptional": "可选",
+  "assetsGenPromptLabel": "提示词",
+  "assetsGenSmartGenerate": "智能生成",
+  "assetsGenSelectModel": "选择模型",
+  "assetsGenSelectResolution": "选择分辨率",
+  "assetsGenGenerateBtn": "生成",
+  "assetsGenFillPrompt": "请填写提示词",
+  "assetsGenPickModel": "请选择模型",
+  "assetsGenGeneratedCount": "已生成 {count} 张",
+  "@assetsGenGeneratedCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "assetsGenGeneratingLabel": "生成中...",
+  "assetsGenGenFailed": "生成失败",
+  "assetsGenImageSaved": "图片已保存",
+  "assetsGenAssetGenSuccess": "已提交生成",
+  "assetsGenPromptSuccess": "提示词生成成功",
+  "assetsGenConfirmSelect": "请先选择一张图片",
+  "assetsGenResultTitle": "生成结果",
+  "assetsBatchHeader": "批量生成",
+  "assetsBatchSelected": "已选 {count} 项",
+  "@assetsBatchSelected": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "assetsBatchSelectAll": "全选",
+  "assetsBatchClearSelection": "清空选择",
+  "assetsBatchColPreviewImg": "预览图",
+  "assetsBatchInputPh": "请输入提示词",
+  "assetsBatchSaveSelected": "保存已选({count})",
+  "@assetsBatchSaveSelected": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "assetsBatchMissingPrompts": "请先为所选资产生成提示词",
+  "assetsBatchPromptDone": "提示词批量生成已提交",
+  "assetsBatchImageDone": "图片批量生成已提交",
+  "assetsBatchSaveSuccess": "保存成功",
+  "assetsCancelBtn": "取消",
+  "assetsSelectAtLeastOne": "请至少选择一项"
 }

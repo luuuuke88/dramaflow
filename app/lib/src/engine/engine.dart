@@ -6,6 +6,7 @@ import 'package:path/path.dart' as path;
 import 'package:sqlite3/sqlite3.dart';
 
 import '../api/models.dart';
+import 'assets.dart';
 import 'compose.dart';
 import 'config.dart';
 import 'db.dart';
@@ -275,6 +276,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     );
     engine.installNovelEventPipeline();
     engine.installScriptPipeline();
+    engine.installAssetPipeline();
     engine.queue.recoverOnColdStart();
     engine.queue.start();
     return engine;
