@@ -642,5 +642,22 @@
   "imageEditorNoAssetsImages": "No generated images in the asset library",
   "imageEditorNoStoryboardImages": "No generated storyboard frames yet",
   "imageEditorRemoveEdge": "Remove this connection",
-  "imageEditorEdgeRemoved": "Connection removed"
+  "imageEditorEdgeRemoved": "Connection removed",
+  "workbenchPlayVideo": "Play",
+  "workbenchVideoLoadFailed": "Failed to load video",
+  "workbenchDeleteCandidate": "Delete candidate",
+  "workbenchDeleteCandidateConfirm": "Delete this candidate video?",
+  "workbenchSelectAsMain": "Use as final",
+  "workbenchDurationSection": "Shot duration",
+  "workbenchDurationUnset": "Not set",
+  "workbenchDurationSeconds": "{seconds}s",
+  "workbenchEditDurationTitle": "Edit shot duration",
+  "workbenchDurationFieldLabel": "Duration (seconds)",
+  "workbenchEditPromptTitle": "Edit camera prompt",
+  "workbenchPromptFieldHint": "Describe the camera movement and action for this shot",
+  "workbenchPromptEmpty": "No camera prompt yet. Tap to generate or edit.",
+  "cornerScapeAudition": "Audition",
+  "cornerScapeStopAudition": "Stop",
+  "cornerScapeAudioMissing": "Audio file missing",
+  "cornerScapeAuditionFailed": "Audio playback failed"
 }

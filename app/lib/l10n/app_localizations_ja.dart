@@ -1902,4 +1902,57 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageEditorEdgeRemoved => '接続を削除しました';
+
+  @override
+  String get workbenchPlayVideo => '再生';
+
+  @override
+  String get workbenchVideoLoadFailed => '動画の読み込みに失敗しました';
+
+  @override
+  String get workbenchDeleteCandidate => '候補を削除';
+
+  @override
+  String get workbenchDeleteCandidateConfirm => 'この候補動画を削除しますか？';
+
+  @override
+  String get workbenchSelectAsMain => '本編に採用';
+
+  @override
+  String get workbenchDurationSection => 'ショットの長さ';
+
+  @override
+  String get workbenchDurationUnset => '未設定';
+
+  @override
+  String workbenchDurationSeconds(int seconds) {
+    return '$seconds秒';
+  }
+
+  @override
+  String get workbenchEditDurationTitle => 'ショットの長さを編集';
+
+  @override
+  String get workbenchDurationFieldLabel => '長さ（秒）';
+
+  @override
+  String get workbenchEditPromptTitle => 'カメラワークのプロンプトを編集';
+
+  @override
+  String get workbenchPromptFieldHint => 'このショットのカメラワークと動きを記述';
+
+  @override
+  String get workbenchPromptEmpty => 'カメラワークのプロンプトがまだありません。生成または編集してください。';
+
+  @override
+  String get cornerScapeAudition => '試聴';
+
+  @override
+  String get cornerScapeStopAudition => '停止';
+
+  @override
+  String get cornerScapeAudioMissing => '音声ファイルがありません';
+
+  @override
+  String get cornerScapeAuditionFailed => '音声の再生に失敗しました';
 }

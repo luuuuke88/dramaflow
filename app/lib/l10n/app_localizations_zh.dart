@@ -1890,4 +1890,57 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get imageEditorEdgeRemoved => '已删除连线';
+
+  @override
+  String get workbenchPlayVideo => '播放';
+
+  @override
+  String get workbenchVideoLoadFailed => '视频加载失败';
+
+  @override
+  String get workbenchDeleteCandidate => '删除候选';
+
+  @override
+  String get workbenchDeleteCandidateConfirm => '确定删除该候选视频？';
+
+  @override
+  String get workbenchSelectAsMain => '选为正片';
+
+  @override
+  String get workbenchDurationSection => '本镜时长';
+
+  @override
+  String get workbenchDurationUnset => '未设置';
+
+  @override
+  String workbenchDurationSeconds(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String get workbenchEditDurationTitle => '编辑本镜时长';
+
+  @override
+  String get workbenchDurationFieldLabel => '时长（秒）';
+
+  @override
+  String get workbenchEditPromptTitle => '编辑运镜提示词';
+
+  @override
+  String get workbenchPromptFieldHint => '描述这一镜的运镜与动作';
+
+  @override
+  String get workbenchPromptEmpty => '暂无运镜提示词，点击生成或编辑';
+
+  @override
+  String get cornerScapeAudition => '试听';
+
+  @override
+  String get cornerScapeStopAudition => '停止';
+
+  @override
+  String get cornerScapeAudioMissing => '音频文件缺失';
+
+  @override
+  String get cornerScapeAuditionFailed => '音频播放失败';
 }

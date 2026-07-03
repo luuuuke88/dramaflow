@@ -123,22 +123,61 @@ extension VideoTrackApi on Engine {
   }
 
   /// 同步生成运镜提示词（text 调用，非队列——与资产提示词润色同步语义一致）。
+  /// 用户消息在画面描述/运镜说明之外，附带本分镜关联资产名称与时长做适度增强
+  /// （o_assets2Storyboard→o_assets 取名字），让 LLM 知道镜头里有哪些角色/场景/道具、
+  /// 该镜多长，产出更贴合的运镜词；不做过度堆料（只带名称，不带长描述与图片）。
   Future<String> generateVideoPrompt(int storyboardId) async {
     final sb = db
-        .select('SELECT prompt,videoDesc FROM o_storyboard WHERE id=?',
+        .select('SELECT prompt,videoDesc,duration FROM o_storyboard WHERE id=?',
             [storyboardId])
         .firstOrNull;
     if (sb == null) {
       throw EngineException(errPromptMissing, {'type': 'storyboard'});
     }
     final trackId = ensureTrackForStoryboard(storyboardId);
+    final assetNames = db
+        .select(
+          'SELECT a.name name FROM o_assets2Storyboard l '
+          'JOIN o_assets a ON a.id=l.assetId '
+          'WHERE l.storyboardId=? ORDER BY l.rowid',
+          [storyboardId],
+        )
+        .map((r) => (r['name'] as String?) ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+    final trackDuration =
+        (db.select('SELECT duration FROM o_videoTrack WHERE id=?', [trackId])
+            .firstOrNull?['duration'] as int?);
+    // 时长优先取视频轨（用户手动编辑过的更权威），回退分镜时长文本。
+    final durationText = trackDuration != null
+        ? '$trackDuration'
+        : (sb['duration'] as String?) ?? '';
     final system = await getPrompt('video_prompt_gen');
-    final user = '画面描述：${sb['prompt'] ?? ''}\n'
-        '运镜/动作说明：${sb['videoDesc'] ?? ''}';
-    final res = await gateway.generateText(system, user, stage: 'video_prompt_gen');
+    final user = StringBuffer()
+      ..writeln('画面描述：${sb['prompt'] ?? ''}')
+      ..writeln('运镜/动作说明：${sb['videoDesc'] ?? ''}');
+    if (assetNames.isNotEmpty) {
+      user.writeln('关联资产：${assetNames.join('、')}');
+    }
+    if (durationText.isNotEmpty) {
+      user.writeln('镜头时长（秒）：$durationText');
+    }
+    final res = await gateway.generateText(system, user.toString().trimRight(),
+        stage: 'video_prompt_gen');
     final text = stripThink(res.content);
     db.execute('UPDATE o_videoTrack SET prompt=? WHERE id=?', [text, trackId]);
     return text;
+  }
+
+  /// 手动编辑运镜提示词（覆盖写入 o_videoTrack.prompt）。
+  void updateVideoPrompt(int trackId, String text) {
+    db.execute('UPDATE o_videoTrack SET prompt=? WHERE id=?', [text, trackId]);
+  }
+
+  /// 编辑本镜时长（秒；写入 o_videoTrack.duration）。null 或非正值视为清空。
+  void updateVideoDuration(int trackId, int? seconds) {
+    final v = (seconds != null && seconds > 0) ? seconds : null;
+    db.execute('UPDATE o_videoTrack SET duration=? WHERE id=?', [v, trackId]);
   }
 
   /// 批量生成（队列任务，video lane，cap=1；任务内并发由 concurrentCount 控制，

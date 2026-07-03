@@ -99,6 +99,39 @@ extension AudioBindApi on Engine {
       .map((r) => (id: r['id'] as int, name: (r['name'] as String?) ?? ''))
       .toList();
 
+  /// 解析可试听的音频文件绝对路径（供 cornerScape 试听）。传入音频**父资产** id
+  /// （audioPool / 绑定关系里的 audioAssetId 都是父资产）。音频文件既可能挂在父资产自身
+  /// 的 imageId 上，也可能挂在其某个子资产上（见 assets.dart _writeAudioItems 的落盘方式），
+  /// 因此按父自身 → 首个可用子资产的顺序回退。找不到文件返回 null（UI 据此禁用试听）。
+  String? audioAssetAbsPath(int audioAssetId) {
+    String? relForAsset(int assetId) {
+      final row = db
+          .select(
+            'SELECT i.filePath filePath FROM o_assets a '
+            'JOIN o_image i ON i.id=a.imageId '
+            "WHERE a.id=? AND i.filePath IS NOT NULL AND i.filePath<>''",
+            [assetId],
+          )
+          .firstOrNull;
+      return row?['filePath'] as String?;
+    }
+
+    final own = relForAsset(audioAssetId);
+    if (own != null) return media.absPath(own);
+    // 回退：父资产的子资产（type=audio）里第一个带文件的。
+    final child = db
+        .select(
+          "SELECT i.filePath filePath FROM o_assets a "
+          'JOIN o_image i ON i.id=a.imageId '
+          "WHERE a.assetsId=? AND i.filePath IS NOT NULL AND i.filePath<>'' "
+          'ORDER BY a.id LIMIT 1',
+          [audioAssetId],
+        )
+        .firstOrNull;
+    final rel = child?['filePath'] as String?;
+    return rel != null ? media.absPath(rel) : null;
+  }
+
   /// 手动绑定/解绑（roleId 对应唯一一条记录，覆盖写入）。
   void bindRoleAudio(int roleId, int? audioAssetId) {
     db.execute('DELETE FROM o_assetsRole2Audio WHERE assetsRoleId=?', [roleId]);

@@ -3741,6 +3741,108 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已删除连线'**
   String get imageEditorEdgeRemoved;
+
+  /// No description provided for @workbenchPlayVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放'**
+  String get workbenchPlayVideo;
+
+  /// No description provided for @workbenchVideoLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频加载失败'**
+  String get workbenchVideoLoadFailed;
+
+  /// No description provided for @workbenchDeleteCandidate.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除候选'**
+  String get workbenchDeleteCandidate;
+
+  /// No description provided for @workbenchDeleteCandidateConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除该候选视频？'**
+  String get workbenchDeleteCandidateConfirm;
+
+  /// No description provided for @workbenchSelectAsMain.
+  ///
+  /// In zh, this message translates to:
+  /// **'选为正片'**
+  String get workbenchSelectAsMain;
+
+  /// No description provided for @workbenchDurationSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'本镜时长'**
+  String get workbenchDurationSection;
+
+  /// No description provided for @workbenchDurationUnset.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置'**
+  String get workbenchDurationUnset;
+
+  /// No description provided for @workbenchDurationSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'{seconds} 秒'**
+  String workbenchDurationSeconds(int seconds);
+
+  /// No description provided for @workbenchEditDurationTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑本镜时长'**
+  String get workbenchEditDurationTitle;
+
+  /// No description provided for @workbenchDurationFieldLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'时长（秒）'**
+  String get workbenchDurationFieldLabel;
+
+  /// No description provided for @workbenchEditPromptTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑运镜提示词'**
+  String get workbenchEditPromptTitle;
+
+  /// No description provided for @workbenchPromptFieldHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述这一镜的运镜与动作'**
+  String get workbenchPromptFieldHint;
+
+  /// No description provided for @workbenchPromptEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无运镜提示词，点击生成或编辑'**
+  String get workbenchPromptEmpty;
+
+  /// No description provided for @cornerScapeAudition.
+  ///
+  /// In zh, this message translates to:
+  /// **'试听'**
+  String get cornerScapeAudition;
+
+  /// No description provided for @cornerScapeStopAudition.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止'**
+  String get cornerScapeStopAudition;
+
+  /// No description provided for @cornerScapeAudioMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频文件缺失'**
+  String get cornerScapeAudioMissing;
+
+  /// No description provided for @cornerScapeAuditionFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频播放失败'**
+  String get cornerScapeAuditionFailed;
 }
 
 class _AppLocalizationsDelegate

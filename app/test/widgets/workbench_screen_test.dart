@@ -143,4 +143,80 @@ void main() {
 
     expect(find.text('合成成功'), findsOneWidget);
   });
+
+  testWidgets('候选删除按钮：可见删除图标 + 二次确认后调用 deleteVideo', (tester) async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: 'x');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    engine.db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [trackId, 'p/vid_1.mp4', vtDone]);
+    final videoId = engine.db.lastInsertRowId;
+    engine.selectVideo(trackId, videoId);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // 可见删除图标（此前只有隐藏 onLongPress）
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    // 弹出确认，取消不删
+    expect(find.text('确定删除该候选视频？'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(engine.track(trackId)!.candidates, hasLength(1));
+
+    // 再次删除并确认
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+    expect(engine.track(trackId)!.candidates, isEmpty);
+  });
+
+  testWidgets('本镜时长可编辑：点药丸输入秒数写入视频轨', (tester) async {
+    engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // 初始未设置
+    expect(find.text('未设置'), findsOneWidget);
+    await tester.tap(find.text('未设置'));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑本镜时长'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '7');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    expect(engine.track(trackId)!.duration, 7);
+    expect(find.text('7 秒'), findsOneWidget);
+  });
+
+  testWidgets('运镜提示词可手动编辑：点击文字弹出编辑框并写入轨道', (tester) async {
+    engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // videoDesc 为空时显示占位，可点
+    await tester.tap(find.text('暂无运镜提示词，点击生成或编辑'));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑运镜提示词'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '缓慢推近特写');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    expect(engine.track(trackId)!.prompt, '缓慢推近特写');
+    expect(find.text('缓慢推近特写'), findsOneWidget);
+  });
 }

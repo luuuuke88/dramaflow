@@ -642,5 +642,22 @@
   "imageEditorNoAssetsImages": "素材ライブラリに生成済み画像がありません",
   "imageEditorNoStoryboardImages": "絵コンテに生成済みの初期フレームがありません",
   "imageEditorRemoveEdge": "この接続を削除",
-  "imageEditorEdgeRemoved": "接続を削除しました"
+  "imageEditorEdgeRemoved": "接続を削除しました",
+  "workbenchPlayVideo": "再生",
+  "workbenchVideoLoadFailed": "動画の読み込みに失敗しました",
+  "workbenchDeleteCandidate": "候補を削除",
+  "workbenchDeleteCandidateConfirm": "この候補動画を削除しますか？",
+  "workbenchSelectAsMain": "本編に採用",
+  "workbenchDurationSection": "ショットの長さ",
+  "workbenchDurationUnset": "未設定",
+  "workbenchDurationSeconds": "{seconds}秒",
+  "workbenchEditDurationTitle": "ショットの長さを編集",
+  "workbenchDurationFieldLabel": "長さ（秒）",
+  "workbenchEditPromptTitle": "カメラワークのプロンプトを編集",
+  "workbenchPromptFieldHint": "このショットのカメラワークと動きを記述",
+  "workbenchPromptEmpty": "カメラワークのプロンプトがまだありません。生成または編集してください。",
+  "cornerScapeAudition": "試聴",
+  "cornerScapeStopAudition": "停止",
+  "cornerScapeAudioMissing": "音声ファイルがありません",
+  "cornerScapeAuditionFailed": "音声の再生に失敗しました"
 }

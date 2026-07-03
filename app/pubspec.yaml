@@ -23,6 +23,12 @@ dependencies:
   file_selector: ^1.1.0
   archive: ^4.0.9
   url_launcher: ^6.3.2
+  # 视频播放 + 音频试听：media_kit 单包覆盖 macOS（主目标，内置 libmpv）/Windows/Linux/
+  # iOS/Android，避开 video_player_avfoundation 在桌面端的历史缺口，且同时支持音频，
+  # 无需再引入 just_audio/audioplayers。见 workbench_screen.dart / corner_scape_screen.dart。
+  media_kit: ^1.1.11
+  media_kit_video: ^1.2.5
+  media_kit_libs_video: ^1.0.5
 
 dev_dependencies:
   flutter_test:

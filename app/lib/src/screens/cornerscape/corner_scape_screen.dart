@@ -10,8 +10,11 @@
 // 但本页的数据源 engine.roleAudioBindings() 只返回角色类资产，且不携带图片字段
 // （roleId/roleName/audioAssetId/audioName），故资产类型筛选与批量图片预览在本页数据上
 // 无对应意义，未实现——改为实现对真实数据有效的"绑定状态"筛选。
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart';
 
 import '../../engine/audio_bind.dart';
 import '../../state/providers.dart';
@@ -21,6 +24,15 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/df_search_field.dart';
+
+/// media_kit 一次性初始化（幂等；见 workbench_screen 同名说明）。配音页只用音频，
+/// 不引入视频纹理，直接用 Player 播放本地音频文件。
+bool _mediaKitReady = false;
+void _ensureMediaKit() {
+  if (_mediaKitReady) return;
+  MediaKit.ensureInitialized();
+  _mediaKitReady = true;
+}
 
 enum _BindFilter { all, bound, unbound }
 
@@ -209,6 +221,9 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.w600)),
                       ),
+                      // 试听已绑定音频（media_kit）。未绑定时禁用。
+                      _AuditionButton(audioAssetId: role.audioAssetId),
+                      const SizedBox(width: 4),
                       SizedBox(
                         width: 220,
                         child: DropdownButtonFormField<int?>(
@@ -245,5 +260,84 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
               ),
       ),
     ]);
+  }
+}
+
+/// 音频试听按钮：解析绑定音频父资产的文件绝对路径（engine.audioAssetAbsPath），
+/// 用 media_kit Player 播放/停止。未绑定或文件缺失时禁用/提示。
+class _AuditionButton extends ConsumerStatefulWidget {
+  final int? audioAssetId;
+  const _AuditionButton({required this.audioAssetId});
+
+  @override
+  ConsumerState<_AuditionButton> createState() => _AuditionButtonState();
+}
+
+class _AuditionButtonState extends ConsumerState<_AuditionButton> {
+  Player? _player;
+  bool _playing = false;
+
+  @override
+  void dispose() {
+    _player?.dispose();
+    super.dispose();
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _toggle() async {
+    final l10n = context.l10n;
+    if (_playing) {
+      await _player?.stop();
+      if (mounted) setState(() => _playing = false);
+      return;
+    }
+    final id = widget.audioAssetId;
+    if (id == null) return;
+    String? abs;
+    try {
+      abs = ref.read(engineProvider).audioAssetAbsPath(id);
+    } catch (e) {
+      if (mounted) _toast(localizeError(context, e));
+      return;
+    }
+    if (abs == null || !File(abs).existsSync()) {
+      _toast(l10n.cornerScapeAudioMissing);
+      return;
+    }
+    try {
+      _ensureMediaKit();
+      final player = _player ??= Player();
+      // 播放结束自动复位按钮状态。
+      player.stream.completed.listen((done) {
+        if (done && mounted) setState(() => _playing = false);
+      });
+      await player.open(Media(abs));
+      if (mounted) setState(() => _playing = true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _playing = false);
+        _toast(l10n.cornerScapeAuditionFailed);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final enabled = widget.audioAssetId != null;
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      tooltip: _playing ? l10n.cornerScapeStopAudition : l10n.cornerScapeAudition,
+      icon: Icon(
+        _playing ? Icons.stop_circle_outlined : Icons.play_circle_outline,
+        size: 20,
+        color: enabled ? df.primary : df.textTertiary,
+      ),
+      onPressed: enabled ? _toggle : null,
+    );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -85,6 +86,67 @@ void main() {
     expect(text, 'slow pan across snowy mountain, hero draws sword');
     final trackId = engine.storyboards(scriptId).single.trackId!;
     expect(engine.track(trackId)!.prompt, text);
+  });
+
+  test('generateVideoPrompt 用户消息带上关联资产名称与时长做增强', () async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '少年拔剑');
+    final roleId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: '');
+    final propId = engine.addAsset(
+        projectId: projectId, type: 'prop', name: '青霜剑', describe: '');
+    db.execute(
+        'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?),(?,?)',
+        [roleId, sbId, propId, sbId]);
+    db.execute("UPDATE o_storyboard SET duration='5' WHERE id=?", [sbId]);
+
+    String? seenUser;
+    gateway.textHandler = (system, user) {
+      seenUser = user;
+      return 'pan';
+    };
+    await engine.generateVideoPrompt(sbId);
+    expect(seenUser, contains('少年拔剑'));
+    expect(seenUser, contains('林朝雪'));
+    expect(seenUser, contains('青霜剑'));
+    expect(seenUser, contains('镜头时长'));
+    expect(seenUser, contains('5'));
+  });
+
+  test('updateVideoPrompt 手动覆盖运镜提示词', () {
+    final sbId =
+        engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    engine.updateVideoPrompt(trackId, '缓慢推近特写');
+    expect(engine.track(trackId)!.prompt, '缓慢推近特写');
+  });
+
+  test('updateVideoDuration 写入/清空本镜时长；非正值清空', () {
+    final sbId =
+        engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    engine.updateVideoDuration(trackId, 6);
+    expect(engine.track(trackId)!.duration, 6);
+    engine.updateVideoDuration(trackId, 0);
+    expect(engine.track(trackId)!.duration, isNull, reason: '非正值视为清空');
+    engine.updateVideoDuration(trackId, 8);
+    engine.updateVideoDuration(trackId, null);
+    expect(engine.track(trackId)!.duration, isNull);
+  });
+
+  test('generateVideoPrompt 增强时长优先取视频轨（用户编辑更权威）', () async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: 'x');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    db.execute("UPDATE o_storyboard SET duration='3' WHERE id=?", [sbId]);
+    engine.updateVideoDuration(trackId, 9);
+    String? seenUser;
+    gateway.textHandler = (system, user) {
+      seenUser = user;
+      return 'pan';
+    };
+    await engine.generateVideoPrompt(sbId);
+    expect(seenUser, contains('9'), reason: '视频轨时长优先于分镜时长文本');
   });
 
   test('批量生成：无首帧图直接失败；有首帧图成功且首个候选自动选中', () async {
