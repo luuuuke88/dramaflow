@@ -502,3 +502,30 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - 下一步：P5（v0.3 spec 最后一批）功能与真实验收均已合入；剩余为收尾项——
   重跑 `tool/populate_demo.dart` 对齐最终 v3 schema 产出完整演示项目、
   iPhone 模拟器移动端双端验收、en/ja 语言视觉扫查
+
+## ToonFlow 全量对齐补缺快照（2026-07-03 深夜，审核方维护）
+
+用户质疑"功能没全迁移"，遂派 5 个深度审计代理逐区对照 ToonFlow 源码，
+得出真实缺口清单（docs 外的 scratchpad/parity_gaps.md），再分批修复：
+
+- **引擎地基（自做，7ce069f/5328383）**：`generateImage` 支持多参考图 +
+  ratio/quality/modelOverride（一次修复 3 处 HIGH：分镜只用首个参考图、
+  节点编辑器 model/画幅/清晰度死控件、素材单图模型死选择）；`resolveModelById`；
+  其他设置 config 键（chapterReg/scriptEpisodeLength/assetsBatchGenereateSize）
+  接入导入/事件/资产调用点；供应商分模态连通测试（文·图·视频，视频 submitOnly）。
+- **5 个特性 worktree 代理并行 → 逐个 ARB 并集合并**：
+  - NOVEL（c6b8d8b）：小说列表「生成选中章节事件」触发 + 批量加剧本字数上限门
+  - ART（f80e291）：画风库 CRUD（o_artStyle 首次接线）+ 素材文件上传 +
+    批量/单图生成参数（模型/分辨率/并发/otherTextPrompt）+ 手册 docx/md 导入
+  - PROD-EDIT（83d5864）：分镜表/剧本画布节点可编辑 + 分镜前插 +
+    节点编辑器多源选图（素材库/分镜/本地）+ 点击删连线
+  - VIDEO（178dc99）：工作台视频播放 + 配音试听（media_kit，macOS 原生验证）+
+    每镜时长/运镜提示词编辑 + 候选删除按钮 + 运镜提示词生成增强上下文
+  - SETTINGS（2ee0b6f）：其他设置面板 + 任务 taskClass/状态筛选 + 任务详情 +
+    存储清理/打开目录/库信息 + 关于面板 + 分模态测试 UI + Agent 模式持久化
+- 明确未做（有据）：ToonFlow 多层子代理编排+向量 RAG（spec 裁剪）、WebAV 视频剪辑器、
+  TTS 语音合成、从参考图反推画风提示词（网关无视觉输入路径）、逐模型 prompt 映射
+  （modelMap，较大子系统，留待后续）。
+- 238 测全绿、analyze 零告警、macOS 可构建。
+- 收尾中：settings/tasks/组件层遗留硬编码文案的最终 i18n pass（代理进行中）+
+  完整 test + macOS 构建 + iOS 启动冒烟。
