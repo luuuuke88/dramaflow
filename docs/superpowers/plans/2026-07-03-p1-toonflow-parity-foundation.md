@@ -463,3 +463,42 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - 156 测全绿，analyze 零告警
 - 下一步：P4 收尾后按 spec §6 进入 P5（Agent 体系+全套设置页+新演示项目填充），
   这是 v0.3 spec 的最后一批
+
+## P5 进度快照（2026-07-03，审核方维护）
+
+- ✅ P5 引擎层（017b2f9）：agent.dart——单层 AgentRunner 瘦身版（spec §4 既定
+  决策，明确不做 ToonFlow 真实的多层 Claude 子代理编排+向量 RAG，理由见文件
+  头注释）；8 个工具（get_status/generate_events/extract_assets/
+  generate_storyboards/generate_shot_images/generate_videos/bind_audio/
+  compose_episode）1:1 映射到已有真实流水线方法，全部经 o_tasks 队列，绝不出现
+  "对话说做了但任务表查无此事"；manual（每轮 1 个工具调用后停等用户）/auto
+  （`_maxAutoTurns=5` 安全上限连续执行）双模式；消息仅短期历史存
+  `o_agentWorkData`（key=`agentChat`，project 级，非向量 RAG）
+- ✅ P5 UI（a43120d）：AgentChatScreen（消息气泡区分 user/assistant/tool、
+  工具执行摘要卡片、manual/auto 模式开关、清空记忆确认弹窗、内置能力说明弹窗）；
+  路由 `/p/:pid/scriptAgent` 接线，「剧本Agent」菜单解禁
+- ✅ Settings 补齐：新增 stage `event_extract`/`video_prompt_gen` 及对应
+  prompt 项的绑定入口（此前完全不可见/不可配置，属于 P1/P4 遗留缺口，本批一并
+  修复）；`_StageMeta` 从硬编码中文改为 l10n 方法（对齐既有 `_PromptMeta` 模式）
+- ✅ YAGNI 清理：`comingBatch` 占位徽标机制随 P2-P5 全部菜单上线而彻底成为死码，
+  删除 `shell.dart` 中的整套机制与 `coming_soon_screen.dart`；`_projectMenus`
+  6 项全部无条件启用
+- ✅ **真实 E2E 发现并修复一个真 bug**：`tool/e2e_agent.dart` 首次真跑时，模型
+  对可选 id 数组参数用了显式 `[]` 而非省略字段（真实模型常见写法），但
+  `_intList` 只把"完全未传字段"识别为可回退默认集合，显式空数组被当成
+  "精确指定零个"，导致 `generate_events` 等工具在明明有待处理项时误报
+  "没有需要处理的"——已修复（空数组与未传字段同等回退）+ 补充回归测试；
+  同时发现并修正 E2E 脚本本身的验收场景缺陷（用"导入章节→令 Agent 生成事件"
+  会与 `addNovels` 的 `onNovelsAdded` 自动触发钩子竞态，真实 LLM 调用在 Agent
+  第二轮前就已跑完，"没有需要处理的章节"其实是完全正确的回答而非工具失效），
+  改用剧本+资产提取（该阶段无自动触发钩子）作验收场景
+- ✅ 真实 E2E 验收（修复后重跑通过）：Agent 正确调用 `get_status` 查看进度、
+  正确调用 `extract_assets` 对剧本发起资产提取，任务表 `asset_extraction` 记录
+  可查；macOS `flutter build macos --debug` + 启动冒烟通过（BOOT OK，日志无异常）
+- 明确不做（P5 是 spec 既定的范围裁剪，非缺陷）：ToonFlow 真实的决策/执行/监督
+  多层子代理编排；向量 RAG 长期记忆；自定义 JS 技能执行——均判定与本项目
+  "显式流水线可见可恢复"的核心设计相悖，规模也与项目整体不成比例
+- 168 测全绿，analyze 零告警
+- 下一步：P5（v0.3 spec 最后一批）功能与真实验收均已合入；剩余为收尾项——
+  重跑 `tool/populate_demo.dart` 对齐最终 v3 schema 产出完整演示项目、
+  iPhone 模拟器移动端双端验收、en/ja 语言视觉扫查
