@@ -424,3 +424,22 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - ⏳ P2 真实生图端到端验收进行中（tool/e2e_assets.dart，真 LLM 润色已通过，gpt-image-2 生图验证中）
 - 偏差补充：taskClass 统一英文（asset_prompt_polish/asset_image_generation），生图 aspectRatio 用项目 videoRatio（ToonFlow 写死 16:9）；均记于 assets.dart 头注释
 - 下一步：P2 收尾后按 spec §6 进入 P3（制作画布 + 分镜表 + 节点式图片编辑器）
+
+## P3 进度快照（2026-07-03，审核方维护）
+
+- ✅ 分镜引擎（9a84cc2）：storyboard.dart 全量——CRUD+插入排序+批量删除重排/剧本→分镜
+  tool-calling 生成（复用 P2 gateway.generateToolJson）/首帧图批量生成（复用资产关联图作参考图）/
+  中文状态枚举（未生成·生成中·已完成·生成失败）/冷启动恢复；6 测全绿
+- ✅ 图片编辑器引擎（d7c821f）：image_flow.dart（o_imageFlow 节点图持久化/生成，连线参考图
+  取首张，同步直调不入队列，偏差已文档化）+ 通用无限画布组件 DFCanvas（InteractiveViewer+
+  CustomPainter 贝塞尔边+网格背景+自动 fitView）；5 测全绿
+- ✅ P3 UI（e00bf44, 2e397f3）：制作画布 6 节点链式布局（script/assets/storyboardTable/
+  storyboard 全交互/workbench 与 scriptPlan 为 P4/P5 占位）+ 分镜网格（生成/编辑/删除/插入/
+  批量选择/批量生图/缩放）+ 节点式图片编辑器（拖拽/连接手柄/连线驱动参考图/生成/应用回填）；
+  移动端画布降级为纵向 Tab；4 个 widget 测试全绿；顺带修了一个既存测试 bug（project_page_test
+  误用两个独立内存库导致 config 与 db 状态不同步）
+- ⏳ P3 真实 E2E（tool/e2e_storyboard.dart）进行中：剧本→分镜 tool-calling 已知可行（复用 P2
+  验证过的 gateway.generateToolJson 链路），首帧图生成中（gpt-image-2，耗时符合历史实测区间）
+- 131 测全绿，analyze 零告警，macOS 启动冒烟通过
+- Agent 对话框（rightChatBox）按 spec 明确归属 P5，P3 不做占位面板（画布内无入口，不构成半成品）
+- 下一步：P3 收尾后按 spec §6 进入 P4（多轨工作台+配音+零 ffmpeg 合成导出）
