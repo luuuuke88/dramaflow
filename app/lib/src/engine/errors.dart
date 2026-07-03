@@ -13,6 +13,7 @@ const errFileType = 'errFileType';
 const errRegexInvalid = 'errRegexInvalid';
 const errNoChapters = 'errNoChapters';
 const errTaskUnsupported = 'errTaskUnsupported';
+const errManualInvalid = 'errManualInvalid';
 
 class EngineException implements Exception {
   final String errKey;
