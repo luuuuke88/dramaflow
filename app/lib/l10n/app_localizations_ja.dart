@@ -1955,4 +1955,140 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cornerScapeAuditionFailed => '音声の再生に失敗しました';
+
+  @override
+  String get settingsOtherSection => 'その他';
+
+  @override
+  String get settingsOtherTitle => 'その他の設定';
+
+  @override
+  String get settingsOtherChapterReg => '章区切り正規表現';
+
+  @override
+  String get settingsOtherChapterRegHint => '空欄の場合は内蔵のデフォルト章正規表現を使用します';
+
+  @override
+  String get settingsOtherChapterRegRestore => 'デフォルトに戻す';
+
+  @override
+  String get settingsOtherEpisodeLength => '1話あたりの最大文字数';
+
+  @override
+  String get settingsOtherBatchSize => '一括生成数';
+
+  @override
+  String get settingsOtherSaved => 'その他の設定を保存しました';
+
+  @override
+  String get settingsOtherInvalidNumber => '0 より大きい整数を入力してください';
+
+  @override
+  String get settingsStorageOpenFolder => 'データフォルダを開く';
+
+  @override
+  String settingsStorageOpenFolderFailed(String reason) {
+    return 'データフォルダを開けませんでした：$reason';
+  }
+
+  @override
+  String get settingsStorageDbInfo => 'データベース情報';
+
+  @override
+  String get settingsStorageDbInfoTitle => 'データベース情報';
+
+  @override
+  String get settingsStorageTableColumn => 'テーブル';
+
+  @override
+  String get settingsStorageRowsColumn => '行数';
+
+  @override
+  String get settingsStorageClear => 'データを消去';
+
+  @override
+  String get settingsStorageClearConfirmTitle => 'すべてのデータを消去';
+
+  @override
+  String get settingsStorageClearConfirmBody =>
+      'この操作はすべてのプロジェクト・章・脚本・アセット・タスク・メディアファイルを削除し、元に戻せません。続行しますか？';
+
+  @override
+  String get settingsStorageClearDone => 'データを消去しました';
+
+  @override
+  String get settingsAboutSection => '情報';
+
+  @override
+  String get settingsAboutTitle => 'DramaFlow について';
+
+  @override
+  String get settingsAboutAppName => 'アプリ名';
+
+  @override
+  String get settingsAboutVersion => 'バージョン';
+
+  @override
+  String get settingsAboutEngine => 'エンジンバージョン';
+
+  @override
+  String get settingsAboutDescription =>
+      'DramaFlow はローカルで動作する AI ショートドラマ制作スタジオです。データとメディアはすべて本機に保存されます。';
+
+  @override
+  String get settingsProviderTestKind => 'モダリティ';
+
+  @override
+  String get settingsProviderTestNoModel => '先にテスト可能なモデルを 1 つ以上有効にしてください';
+
+  @override
+  String get taskFilterClass => 'タスク種別';
+
+  @override
+  String get taskFilterState => '状態';
+
+  @override
+  String get taskFilterAll => 'すべて';
+
+  @override
+  String get taskDetailTitle => 'タスク詳細';
+
+  @override
+  String get taskDetailClass => 'タスク種別';
+
+  @override
+  String get taskDetailState => '状態';
+
+  @override
+  String get taskDetailDescribe => '説明';
+
+  @override
+  String get taskDetailModel => 'モデル';
+
+  @override
+  String get taskDetailRelated => '関連オブジェクト';
+
+  @override
+  String get taskDetailReason => '失敗理由';
+
+  @override
+  String get taskDetailTiming => '開始時刻';
+
+  @override
+  String get taskDetailNone => 'なし';
+
+  @override
+  String get taskStatePending => '待機中';
+
+  @override
+  String get taskStateProcessing => '処理中';
+
+  @override
+  String get taskStateSuccess => '完了';
+
+  @override
+  String get taskStateFailed => '失敗';
+
+  @override
+  String get taskStateCanceled => 'キャンセル済み';
 }

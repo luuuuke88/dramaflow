@@ -148,6 +148,25 @@ void main() {
     await engine.sendAgentMessage(projectId, '你好', autoMode: false);
     expect(engine.agentMessages(projectId).last.content, contains('errLlmFormat'));
   });
+
+  test('Agent 执行模式默认 manual 且持久化到 o_setting', () {
+    // 默认（未写入）为 manual → false
+    expect(engine.agentUseMode(), isFalse);
+    engine.setAgentUseMode(true);
+    expect(engine.agentUseMode(), isTrue);
+    expect(
+      db.select("SELECT value FROM o_setting WHERE key='agent.useMode'").single[
+          'value'],
+      'auto',
+    );
+    engine.setAgentUseMode(false);
+    expect(engine.agentUseMode(), isFalse);
+    expect(
+      db.select("SELECT value FROM o_setting WHERE key='agent.useMode'").single[
+          'value'],
+      'manual',
+    );
+  });
 }
 
 class _Gateway implements ProviderGateway {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,7 +63,10 @@ class TasksScreen extends ConsumerWidget {
   }
 }
 
-class _HistorySection extends ConsumerWidget {
+// 任务筛选（审计补齐）：任务类型 + 状态。客户端筛选，任务类型选项从当前行去重派生。
+const _kAllFilter = '__all__';
+
+class _HistorySection extends ConsumerStatefulWidget {
   final AsyncValue<List<ProjectRow>> projectsAsync;
   final int? effectiveId;
 
@@ -71,7 +76,17 @@ class _HistorySection extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HistorySection> createState() => _HistorySectionState();
+}
+
+class _HistorySectionState extends ConsumerState<_HistorySection> {
+  String _classFilter = _kAllFilter;
+  String _stateFilter = _kAllFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final projectsAsync = widget.projectsAsync;
+    final effectiveId = widget.effectiveId;
     final projects = projectsAsync.value ?? const [];
     if (projectsAsync.isLoading && !projectsAsync.hasValue) {
       return const _TaskSection(title: '历史', body: _CenteredLoader());
@@ -92,8 +107,8 @@ class _HistorySection extends ConsumerWidget {
       );
     }
 
-    final tasksAsync = ref.watch(projectJobsProvider(effectiveId!));
-    final picker = DropdownButton<int>(
+    final tasksAsync = ref.watch(projectJobsProvider(effectiveId));
+    final projectPicker = DropdownButton<int>(
       value: effectiveId,
       items: [
         for (final project in projects)
@@ -111,23 +126,125 @@ class _HistorySection extends ConsumerWidget {
 
     if (tasksAsync.isLoading && !tasksAsync.hasValue) {
       return _TaskSection(
-          title: '历史', trailing: picker, body: const _CenteredLoader());
+          title: '历史', trailing: projectPicker, body: const _CenteredLoader());
     }
     if (tasksAsync.hasError && !tasksAsync.hasValue) {
       return _TaskSection(
         title: '历史',
-        trailing: picker,
+        trailing: projectPicker,
         body: ErrorCard(
           message: tasksAsync.error.toString(),
-          onRetry: () => ref.invalidate(projectJobsProvider(effectiveId!)),
+          onRetry: () => ref.invalidate(projectJobsProvider(effectiveId)),
         ),
       );
     }
+
+    final allTasks = tasksAsync.value ?? const <TasksRow>[];
+    final classes = <String>{
+      for (final task in allTasks)
+        if (task.taskClass.isNotEmpty) task.taskClass,
+    }.toList()
+      ..sort();
+    final states = <String>{
+      for (final task in allTasks) task.state,
+    }.toList()
+      ..sort();
+    // 当前筛选值已不在选项列表中时（如切换项目后），回退到"全部"。
+    final classValue =
+        classes.contains(_classFilter) ? _classFilter : _kAllFilter;
+    final stateValue =
+        states.contains(_stateFilter) ? _stateFilter : _kAllFilter;
+    final filtered = [
+      for (final task in allTasks)
+        if ((classValue == _kAllFilter || task.taskClass == classValue) &&
+            (stateValue == _kAllFilter || task.state == stateValue))
+          task,
+    ];
+
     return _TaskSection(
       title: '历史',
-      trailing: picker,
-      tasks: tasksAsync.value ?? const [],
-      emptyText: '该项目暂无历史任务',
+      trailing: projectPicker,
+      filters: allTasks.isEmpty
+          ? null
+          : _TaskFilters(
+              classes: classes,
+              states: states,
+              classValue: classValue,
+              stateValue: stateValue,
+              onClassChanged: (v) => setState(() => _classFilter = v),
+              onStateChanged: (v) => setState(() => _stateFilter = v),
+            ),
+      tasks: filtered,
+      emptyText: allTasks.isEmpty ? '该项目暂无历史任务' : '没有符合筛选条件的任务',
+    );
+  }
+}
+
+class _TaskFilters extends StatelessWidget {
+  final List<String> classes;
+  final List<String> states;
+  final String classValue;
+  final String stateValue;
+  final ValueChanged<String> onClassChanged;
+  final ValueChanged<String> onStateChanged;
+
+  const _TaskFilters({
+    required this.classes,
+    required this.states,
+    required this.classValue,
+    required this.stateValue,
+    required this.onClassChanged,
+    required this.onStateChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 8,
+        children: [
+          DropdownButton<String>(
+            value: classValue,
+            hint: Text(l10n.taskFilterClass),
+            items: [
+              DropdownMenuItem(
+                value: _kAllFilter,
+                child: Text('${l10n.taskFilterClass}: ${l10n.taskFilterAll}'),
+              ),
+              for (final cls in classes)
+                DropdownMenuItem(
+                  value: cls,
+                  child: Text('${l10n.taskFilterClass}: ${_taskClassLabel(cls)}'),
+                ),
+            ],
+            onChanged: (v) {
+              if (v != null) onClassChanged(v);
+            },
+          ),
+          DropdownButton<String>(
+            value: stateValue,
+            hint: Text(l10n.taskFilterState),
+            items: [
+              DropdownMenuItem(
+                value: _kAllFilter,
+                child: Text('${l10n.taskFilterState}: ${l10n.taskFilterAll}'),
+              ),
+              for (final state in states)
+                DropdownMenuItem(
+                  value: state,
+                  child:
+                      Text('${l10n.taskFilterState}: ${_taskStateLabel(l10n, state)}'),
+                ),
+            ],
+            onChanged: (v) {
+              if (v != null) onStateChanged(v);
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -138,6 +255,7 @@ class _TaskSection extends StatelessWidget {
   final String emptyText;
   final Widget? trailing;
   final Widget? body;
+  final Widget? filters;
 
   const _TaskSection({
     required this.title,
@@ -145,6 +263,7 @@ class _TaskSection extends StatelessWidget {
     this.emptyText = '暂无任务',
     this.trailing,
     this.body,
+    this.filters,
   });
 
   @override
@@ -165,6 +284,7 @@ class _TaskSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
+            if (filters != null) filters!,
             if (body != null)
               body!
             else if (tasks.isEmpty)
@@ -195,6 +315,7 @@ class _TaskTile extends ConsumerWidget {
     final reason = _reasonText(l10n, task.reason);
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      onTap: () => _showTaskDetail(context, task, reason),
       leading: Icon(_taskIcon(task.taskClass), color: context.df.textLo),
       title: Text(_taskClassLabel(task.taskClass)),
       subtitle: Text([
@@ -259,6 +380,101 @@ IconData _taskIcon(String taskClass) => switch (taskClass) {
       'asset_extraction' => Icons.category_outlined,
       _ => Icons.bolt_outlined,
     };
+
+String _taskStateLabel(AppLocalizations l10n, String state) => switch (state) {
+      'pending' => l10n.taskStatePending,
+      'processing' => l10n.taskStateProcessing,
+      'success' => l10n.taskStateSuccess,
+      'failed' => l10n.taskStateFailed,
+      'canceled' => l10n.taskStateCanceled,
+      _ => state,
+    };
+
+Future<void> _showTaskDetail(
+    BuildContext context, TasksRow task, String? reason) {
+  final l10n = AppLocalizations.of(context);
+  String related = '';
+  try {
+    final map = task.relatedObjectsJson;
+    if (map.isNotEmpty) related = const JsonEncoder.withIndent('  ').convert(map);
+  } catch (_) {
+    related = task.relatedObjects ?? '';
+  }
+  final rows = <(String, String?)>[
+    (l10n.taskDetailClass, _taskClassLabel(task.taskClass)),
+    (l10n.taskDetailState, _taskStateLabel(l10n, task.state)),
+    (l10n.taskDetailDescribe, task.describe),
+    (l10n.taskDetailModel, task.model),
+    (l10n.taskDetailRelated, related.isEmpty ? null : related),
+    (l10n.taskDetailReason, reason),
+    (
+      l10n.taskDetailTiming,
+      task.startTime == null ? null : _formatTime(task.startTime!),
+    ),
+  ];
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(l10n.taskDetailTitle),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (label, value) in rows)
+                _TaskDetailRow(label: label, value: value ?? l10n.taskDetailNone),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(l10n.commonConfirm),
+        ),
+      ],
+    ),
+  );
+}
+
+class _TaskDetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _TaskDetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: TextStyle(color: context.df.textLo, fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: TextStyle(
+                color: context.df.textPrimary,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 String? _reasonText(AppLocalizations l10n, String? reasonJson) {
   final reason = EngineException.fromReasonJson(reasonJson);

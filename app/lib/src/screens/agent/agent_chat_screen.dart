@@ -26,10 +26,22 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   bool _sending = false;
 
   @override
+  void initState() {
+    super.initState();
+    // auto/manual 模式持久化：从引擎载入上次选择（默认 manual）。
+    _autoMode = ref.read(engineProvider).agentUseMode();
+  }
+
+  @override
   void dispose() {
     _input.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _setAutoMode(bool value) {
+    setState(() => _autoMode = value);
+    ref.read(engineProvider).setAgentUseMode(value);
   }
 
   void _scrollToBottom() {
@@ -126,7 +138,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                     style: const TextStyle(fontSize: 12)),
                 Switch(
                   value: _autoMode,
-                  onChanged: (v) => setState(() => _autoMode = v),
+                  onChanged: _setAutoMode,
                 ),
               ]),
             ),

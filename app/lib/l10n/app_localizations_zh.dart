@@ -1943,4 +1943,140 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cornerScapeAuditionFailed => '音频播放失败';
+
+  @override
+  String get settingsOtherSection => '其他设置';
+
+  @override
+  String get settingsOtherTitle => '其他设置';
+
+  @override
+  String get settingsOtherChapterReg => '章节切分正则';
+
+  @override
+  String get settingsOtherChapterRegHint => '留空则使用内置默认章节正则';
+
+  @override
+  String get settingsOtherChapterRegRestore => '恢复默认';
+
+  @override
+  String get settingsOtherEpisodeLength => '单集字数上限';
+
+  @override
+  String get settingsOtherBatchSize => '批量生成数量';
+
+  @override
+  String get settingsOtherSaved => '其他设置已保存';
+
+  @override
+  String get settingsOtherInvalidNumber => '请输入大于 0 的整数';
+
+  @override
+  String get settingsStorageOpenFolder => '打开数据目录';
+
+  @override
+  String settingsStorageOpenFolderFailed(String reason) {
+    return '无法打开数据目录：$reason';
+  }
+
+  @override
+  String get settingsStorageDbInfo => '数据库信息';
+
+  @override
+  String get settingsStorageDbInfoTitle => '数据库信息';
+
+  @override
+  String get settingsStorageTableColumn => '数据表';
+
+  @override
+  String get settingsStorageRowsColumn => '行数';
+
+  @override
+  String get settingsStorageClear => '清空数据';
+
+  @override
+  String get settingsStorageClearConfirmTitle => '清空所有数据';
+
+  @override
+  String get settingsStorageClearConfirmBody =>
+      '此操作会删除全部项目、章节、剧本、资产、任务与媒体文件，且不可恢复。确定继续吗？';
+
+  @override
+  String get settingsStorageClearDone => '数据已清空';
+
+  @override
+  String get settingsAboutSection => '关于';
+
+  @override
+  String get settingsAboutTitle => '关于 DramaFlow';
+
+  @override
+  String get settingsAboutAppName => '应用名称';
+
+  @override
+  String get settingsAboutVersion => '版本';
+
+  @override
+  String get settingsAboutEngine => '引擎版本';
+
+  @override
+  String get settingsAboutDescription =>
+      'DramaFlow 是本机运行的 AI 短剧创作工作台，数据与媒体全部保存在本机。';
+
+  @override
+  String get settingsProviderTestKind => '模态';
+
+  @override
+  String get settingsProviderTestNoModel => '请先启用至少一个可测试的模型';
+
+  @override
+  String get taskFilterClass => '任务类型';
+
+  @override
+  String get taskFilterState => '状态';
+
+  @override
+  String get taskFilterAll => '全部';
+
+  @override
+  String get taskDetailTitle => '任务详情';
+
+  @override
+  String get taskDetailClass => '任务类型';
+
+  @override
+  String get taskDetailState => '状态';
+
+  @override
+  String get taskDetailDescribe => '描述';
+
+  @override
+  String get taskDetailModel => '模型';
+
+  @override
+  String get taskDetailRelated => '关联对象';
+
+  @override
+  String get taskDetailReason => '失败原因';
+
+  @override
+  String get taskDetailTiming => '开始时间';
+
+  @override
+  String get taskDetailNone => '无';
+
+  @override
+  String get taskStatePending => '等待中';
+
+  @override
+  String get taskStateProcessing => '进行中';
+
+  @override
+  String get taskStateSuccess => '已完成';
+
+  @override
+  String get taskStateFailed => '失败';
+
+  @override
+  String get taskStateCanceled => '已取消';
 }

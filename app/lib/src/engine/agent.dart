@@ -202,6 +202,22 @@ extension AgentApi on Engine {
     );
   }
 
+  /// Agent 执行模式（auto/manual）持久化。config 由别处拥有，此处直接写 o_setting
+  /// 键 agent.useMode（'auto'/'manual'），与 ToonFlow 的 auto/manual 语义一致。
+  bool agentUseMode() {
+    final row = db
+        .select("SELECT value FROM o_setting WHERE key='agent.useMode'")
+        .firstOrNull;
+    return (row?['value'] as String?) == 'auto';
+  }
+
+  void setAgentUseMode(bool autoMode) {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.useMode', autoMode ? 'auto' : 'manual'],
+    );
+  }
+
   /// 发送一条用户消息并驱动 Agent 执行（工具调用全部落 o_tasks，可见可恢复）。
   /// manual 模式每轮只执行一个工具调用；auto 模式在安全上限内连续执行工具链。
   Future<void> sendAgentMessage(
