@@ -68,13 +68,13 @@ Next Verification: Add a page-level visual parity checklist entry with screensho
 
 Status: Partial
 
-Desktop Evidence: `app/test/widgets/image_flow_editor_test.dart` and `app/test/engine/image_flow_test.dart` cover graph persistence, reference image selection, generated node controls, flow image generation, and line deletion.
+Desktop Evidence: `app/test/widgets/image_flow_editor_test.dart` and `app/test/engine/image_flow_test.dart` cover graph persistence, reference image selection, generated node controls, flow image generation, line deletion, and generated-image repaint/edit requests that pass the current result image plus edit instruction to the image provider.
 
 Mobile Evidence: `app/test/widgets/image_flow_editor_test.dart` covers a dedicated 390px editor flow: the generated node is fit into the first mobile viewport, an upload node can replace its reference from the asset library, and generated-node prompt/model/ratio/quality settings persist into `o_imageFlow`.
 
-Known Gaps: Local remove-line/inpaint UI parity is not fully proven.
+Known Gaps: Mask-brush local inpaint UI parity is not implemented/proven; prompt-based repaint through the image edit endpoint is now covered.
 
-Next Verification: Add a scoped local remove-line/inpaint parity plan before claiming full image-flow editor parity.
+Next Verification: Add a scoped mask-brush inpaint parity plan before claiming full image-flow editor parity.
 
 ## 多轨工作台
 

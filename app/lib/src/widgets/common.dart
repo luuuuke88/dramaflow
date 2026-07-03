@@ -497,56 +497,68 @@ class _ImageTakeTile extends StatelessWidget {
 }
 
 Future<String?> showRepaintInstructionDialog(BuildContext context) async {
-  final controller = TextEditingController();
-  try {
-    String? errorText;
+  return showDialog<String>(
+    context: context,
+    builder: (context) => const _RepaintInstructionDialog(),
+  );
+}
+
+class _RepaintInstructionDialog extends StatefulWidget {
+  const _RepaintInstructionDialog();
+
+  @override
+  State<_RepaintInstructionDialog> createState() =>
+      _RepaintInstructionDialogState();
+}
+
+class _RepaintInstructionDialogState extends State<_RepaintInstructionDialog> {
+  final _controller = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
     final l10n = AppLocalizations.of(context);
-    return await showDialog<String>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text(l10n.repaintImageTitle),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            minLines: 3,
-            maxLines: 5,
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              hintText: l10n.repaintImageHint,
-              errorText: errorText,
-            ),
-            onSubmitted: (_) {
-              final value = controller.text.trim();
-              if (value.isEmpty) {
-                setState(() => errorText = l10n.repaintInstructionRequired);
-                return;
-              }
-              Navigator.of(context).pop(value);
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l10n.commonCancel),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                final value = controller.text.trim();
-                if (value.isEmpty) {
-                  setState(() => errorText = l10n.repaintInstructionRequired);
-                  return;
-                }
-                Navigator.of(context).pop(value);
-              },
-              icon: const Icon(Icons.brush_outlined, size: 18),
-              label: Text(l10n.repaintAction),
-            ),
-          ],
+    final value = _controller.text.trim();
+    if (value.isEmpty) {
+      setState(() => _errorText = l10n.repaintInstructionRequired);
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.repaintImageTitle),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        minLines: 3,
+        maxLines: 5,
+        textInputAction: TextInputAction.done,
+        decoration: InputDecoration(
+          hintText: l10n.repaintImageHint,
+          errorText: _errorText,
         ),
+        onSubmitted: (_) => _submit(),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton.icon(
+          onPressed: _submit,
+          icon: const Icon(Icons.brush_outlined, size: 18),
+          label: Text(l10n.repaintAction),
+        ),
+      ],
     );
-  } finally {
-    controller.dispose();
   }
 }

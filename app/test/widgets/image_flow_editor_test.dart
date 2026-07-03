@@ -35,6 +35,8 @@ final _pngBytes = Uint8List.fromList(<int>[
 
 class _Gateway implements ProviderGateway {
   int imageCalls = 0;
+  String? lastEditInstruction;
+  List<String> lastReferenceAbsPaths = const [];
 
   @override
   Future<String> generateImage(String prompt, String projectId,
@@ -46,6 +48,8 @@ class _Gateway implements ProviderGateway {
       String? quality,
       String? modelOverride}) async {
     imageCalls++;
+    lastEditInstruction = editInstruction;
+    lastReferenceAbsPaths = referenceAbsPaths;
     return 'p/gen.png';
   }
 
@@ -437,5 +441,46 @@ void main() {
     // 连线被删后 × 手柄消失，并弹出提示。
     expect(find.byTooltip('删除该连线'), findsNothing);
     expect(find.text('已删除连线'), findsOneWidget);
+  });
+
+  testWidgets('已生成节点可重绘：当前结果作为参考图并传递修改意见',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await installImageModel();
+    final generatedRel = engine.media.saveImage(_pngBytes, '$projectId');
+    final flowId = engine.saveImageFlow([
+      ImageFlowNode(
+        id: 'g0',
+        type: 'generated',
+        x: 40,
+        y: 40,
+        data: {
+          'prompt': '白衣少年',
+          'generatedImage': generatedRel,
+          'model': null,
+          'ratio': '16:9',
+          'quality': '2K',
+        },
+      ),
+    ], const []);
+
+    await tester.pumpWidget(host(flowId: flowId));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await expandGeneratedNode(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '重绘'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '把衣服改成红色');
+    await tester.tap(find.widgetWithText(FilledButton, '重绘'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.imageCalls, 1);
+    expect(gateway.lastEditInstruction, '把衣服改成红色');
+    expect(gateway.lastReferenceAbsPaths, [
+      engine.mediaAbsPath(generatedRel),
+    ]);
   });
 }

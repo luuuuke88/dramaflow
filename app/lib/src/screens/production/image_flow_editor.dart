@@ -21,6 +21,7 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_canvas.dart';
+import '../../widgets/common.dart';
 
 const _nodeWidth = 260.0;
 // upload 节点含头部(≈32)+图片(160)+手柄行(≈36)约 228，故折叠高留足余量避免溢出。
@@ -514,6 +515,38 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     }
   }
 
+  Future<void> _repaint(_NodeVM node) async {
+    final sourceRel = node.generatedRel;
+    if (sourceRel == null) return;
+    final instruction = await showRepaintInstructionDialog(context);
+    if (!mounted || instruction == null) return;
+    setState(() {
+      node.state = 'generating';
+      node.errorText = null;
+    });
+    try {
+      final rel = await _engine.generateFlowImage(
+        projectId: widget.projectId,
+        prompt: node.promptCtl.text,
+        referenceAbsPaths: [_engine.mediaAbsPath(sourceRel)],
+        editInstruction: instruction,
+        model: node.model,
+        ratio: node.ratio,
+        quality: node.quality,
+      );
+      setState(() {
+        node.generatedRel = rel;
+        node.state = 'done';
+        _syncReferences();
+      });
+    } catch (e) {
+      setState(() {
+        node.state = 'failed';
+        node.errorText = localizeError(context, e);
+      });
+    }
+  }
+
   void _save() {
     final imageNodes = [
       for (final n in _nodes)
@@ -842,6 +875,19 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                     ),
                   ),
                 ]),
+                if (node.generatedRel != null) ...[
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          node.state == 'generating' ? null : () => _repaint(node),
+                      icon: const Icon(Icons.brush_outlined, size: 16),
+                      label: Text(l10n.repaintAction,
+                          style: const TextStyle(fontSize: 12)),
+                    ),
+                  ),
+                ],
               ]),
             ),
         ]),
