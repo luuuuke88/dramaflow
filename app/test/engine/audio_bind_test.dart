@@ -129,6 +129,36 @@ void main() {
     expect(EngineException.fromReasonJson(reason)?.errKey, errPromptMissing);
   });
 
+  test('audioAssetAbsPath 解析父/子资产文件；无文件返回 null', () {
+    final mediaRoot = p.join(dir.path, 'media');
+    // 父资产（audioPool / 绑定关系里用到的就是这个 id）
+    final parent = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
+    // 无文件时返回 null
+    expect(engine.audioAssetAbsPath(parent), isNull);
+
+    // 文件挂在子资产上（对齐 assets.dart _writeAudioItems 落盘方式）
+    final childId = engine.addAsset(
+        projectId: projectId,
+        type: 'audio',
+        name: '低音男声-1',
+        describe: 'x',
+        parentAssetsId: parent);
+    const rel = 'aud/voice.mp3';
+    final f = File(p.join(mediaRoot, rel))..parent.createSync(recursive: true);
+    f.writeAsBytesSync([1, 2, 3]);
+    db.execute(
+        "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,'audio','已完成')",
+        [childId, rel]);
+    db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
+        [db.lastInsertRowId, childId]);
+
+    final abs = engine.audioAssetAbsPath(parent);
+    expect(abs, isNotNull);
+    expect(File(abs!).existsSync(), isTrue);
+    expect(abs, endsWith('voice.mp3'));
+  });
+
   test('LLM 返回越权/无效 id 时安全忽略', () async {
     final role1 = engine.addAsset(
         projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');

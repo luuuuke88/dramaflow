@@ -185,4 +185,32 @@ void main() {
     expect(roleIds, hasLength(2));
     expect(roleIds.contains(bound), isFalse);
   });
+
+  testWidgets('试听按钮：未绑定禁用，已绑定但文件缺失时提示', (tester) async {
+    final role = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    // 未绑定：试听图标存在但按钮禁用（onPressed == null）。
+    final playIcon = find.byIcon(Icons.play_circle_outline);
+    expect(playIcon, findsOneWidget);
+    final btnFinder = find.ancestor(
+        of: playIcon, matching: find.byType(IconButton));
+    expect(tester.widget<IconButton>(btnFinder).onPressed, isNull);
+
+    // 绑定一个无实际文件的音频父资产，按钮启用；点击应提示"音频文件缺失"，不崩溃。
+    final audio = engine.audioPool(projectId).single.id;
+    engine.bindRoleAudio(role, audio);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(tester.widget<IconButton>(btnFinder).onPressed, isNotNull);
+    await tester.tap(find.byIcon(Icons.play_circle_outline));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('音频文件缺失'), findsOneWidget);
+  });
 }

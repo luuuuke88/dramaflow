@@ -1766,4 +1766,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageEditorNoImageModel => 'No image model available';
+
+  @override
+  String get workbenchPlayVideo => 'Play';
+
+  @override
+  String get workbenchVideoLoadFailed => 'Failed to load video';
+
+  @override
+  String get workbenchDeleteCandidate => 'Delete candidate';
+
+  @override
+  String get workbenchDeleteCandidateConfirm => 'Delete this candidate video?';
+
+  @override
+  String get workbenchSelectAsMain => 'Use as final';
+
+  @override
+  String get workbenchDurationSection => 'Shot duration';
+
+  @override
+  String get workbenchDurationUnset => 'Not set';
+
+  @override
+  String workbenchDurationSeconds(int seconds) {
+    return '${seconds}s';
+  }
+
+  @override
+  String get workbenchEditDurationTitle => 'Edit shot duration';
+
+  @override
+  String get workbenchDurationFieldLabel => 'Duration (seconds)';
+
+  @override
+  String get workbenchEditPromptTitle => 'Edit camera prompt';
+
+  @override
+  String get workbenchPromptFieldHint =>
+      'Describe the camera movement and action for this shot';
+
+  @override
+  String get workbenchPromptEmpty =>
+      'No camera prompt yet. Tap to generate or edit.';
+
+  @override
+  String get cornerScapeAudition => 'Audition';
+
+  @override
+  String get cornerScapeStopAudition => 'Stop';
+
+  @override
+  String get cornerScapeAudioMissing => 'Audio file missing';
+
+  @override
+  String get cornerScapeAuditionFailed => 'Audio playback failed';
 }
