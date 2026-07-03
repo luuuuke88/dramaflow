@@ -3070,6 +3070,12 @@ abstract class AppLocalizations {
   /// **'时长'**
   String get workbenchDuration;
 
+  /// No description provided for @workbenchSavedToAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存到素材库（素材 #{assetId}）'**
+  String workbenchSavedToAssets(int assetId);
+
   /// No description provided for @workbenchReorderShot.
   ///
   /// In zh, this message translates to:

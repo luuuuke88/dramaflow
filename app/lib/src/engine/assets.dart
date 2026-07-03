@@ -285,6 +285,34 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     return assetsId;
   }
 
+  /// 将已经落在媒体目录中的文件登记为素材版本。用于合成导出这类先产出文件、
+  /// 后进入素材库管理的路径，避免再次读取/复制大视频。
+  int registerClipAsset({
+    required int projectId,
+    required String name,
+    required String relPath,
+    String type = 'clip',
+  }) {
+    final file = File(media.absPath(relPath));
+    if (!file.existsSync()) {
+      throw EngineException(errFileType, {'reason': 'file missing'});
+    }
+    final assetsId = addAsset(
+      projectId: projectId,
+      type: type,
+      name: name.trim().isEmpty ? '素材' : name.trim(),
+      describe: '',
+    );
+    db.execute(
+      'INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,?,?)',
+      [assetsId, relPath, type, stateDone],
+    );
+    final imageId = db.lastInsertRowId;
+    db.execute(
+        'UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetsId]);
+    return assetsId;
+  }
+
   void updateAsset(int id,
       {String? name, String? describe, String? remark, String? prompt}) {
     final sets = <String>[];

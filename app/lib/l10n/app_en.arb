@@ -542,6 +542,14 @@
   "workbenchEditPrompt": "Edit Motion Prompt",
   "workbenchOutputPath": "Output path",
   "workbenchDuration": "Duration",
+  "workbenchSavedToAssets": "Saved to Assets (asset #{assetId})",
+  "@workbenchSavedToAssets": {
+    "placeholders": {
+      "assetId": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchReorderShot": "Drag to reorder",
   "cornerScapeTitle": "Voice",
   "cornerScapeAutoMatch": "AI Auto-Match",

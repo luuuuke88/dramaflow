@@ -1554,6 +1554,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchDuration => '再生時間';
 
   @override
+  String workbenchSavedToAssets(int assetId) {
+    return '素材ライブラリに保存しました（素材 #$assetId）';
+  }
+
+  @override
   String get workbenchReorderShot => 'ドラッグして並べ替え';
 
   @override

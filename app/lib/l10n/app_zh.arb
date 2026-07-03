@@ -669,6 +669,14 @@
   "workbenchEditPrompt": "编辑运镜提示词",
   "workbenchOutputPath": "输出路径",
   "workbenchDuration": "时长",
+  "workbenchSavedToAssets": "已保存到素材库（素材 #{assetId}）",
+  "@workbenchSavedToAssets": {
+    "placeholders": {
+      "assetId": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchReorderShot": "拖拽调整顺序",
   "cornerScapeTitle": "配音",
   "cornerScapeAutoMatch": "AI 自动匹配",

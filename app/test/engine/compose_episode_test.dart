@@ -153,6 +153,26 @@ void main() {
         File(engine.mediaAbsPath(result.outputRelPath)).existsSync(), isTrue);
   });
 
+  test('composeEpisode：导出成片后登记为 clip 素材，便于重启后管理', () async {
+    final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final track1 = engine.ensureTrackForStoryboard(sb1);
+    db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [track1, 'p/vid_1.mp4', vtDone]);
+    engine.selectVideo(track1, db.lastInsertRowId);
+
+    final result = await engine.composeEpisode(projectId, scriptId);
+
+    expect(result.clipAssetId, isNotNull);
+    final clips = engine.getAssets(projectId, type: 'clip').data;
+    expect(clips, hasLength(1));
+    final clip = clips.single;
+    expect(clip.id, result.clipAssetId);
+    expect(clip.name, contains('一'));
+    expect(clip.filePath, result.outputRelPath);
+    expect(clip.imageState, stateDone);
+  });
+
   test('composeEpisode：存在分镜配音时传递视频+音频时间线给 composer', () async {
     final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     final track1 = engine.ensureTrackForStoryboard(sb1);

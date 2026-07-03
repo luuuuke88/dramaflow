@@ -3,6 +3,7 @@
 // 用既有零 ffmpeg VideoComposer.concat 拼接为整集成片。
 import 'dart:io';
 
+import 'assets.dart';
 import 'audio_bind.dart';
 import 'compose.dart';
 import 'engine.dart';
@@ -12,10 +13,12 @@ class ComposeResult {
   final String outputRelPath;
   final int segmentCount;
   final double? durationSec;
+  final int? clipAssetId;
   const ComposeResult(
       {required this.outputRelPath,
       required this.segmentCount,
-      required this.durationSec});
+      required this.durationSec,
+      this.clipAssetId});
 }
 
 extension ComposeEpisodeApi on Engine {
@@ -98,10 +101,19 @@ extension ComposeEpisodeApi on Engine {
           outputAbs);
     }
     final duration = await composer.probeDurationSec(outputAbs);
+    final scriptName = db.select('SELECT name FROM o_script WHERE id=?',
+            [scriptId]).firstOrNull?['name'] as String? ??
+        '$scriptId';
+    final clipAssetId = registerClipAsset(
+      projectId: projectId,
+      name: '成片：$scriptName',
+      relPath: outputRel,
+    );
     return ComposeResult(
       outputRelPath: outputRel,
       segmentCount: composeSegments.length,
       durationSec: duration,
+      clipAssetId: clipAssetId,
     );
   }
 }

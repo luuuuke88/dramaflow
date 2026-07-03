@@ -43,6 +43,28 @@ class _FakeComposer implements VideoComposer {
   Future<double?> probeDurationSec(String inputAbsPath) async => 4.0;
 }
 
+class _RecordingComposer implements VideoComposer {
+  final List<List<String>> concatCalls = [];
+  final List<List<ComposeSegment>> composeCalls = [];
+
+  @override
+  Future<void> concat(
+      List<String> segmentAbsPaths, String outputAbsPath) async {
+    concatCalls.add(segmentAbsPaths);
+    File(outputAbsPath).writeAsBytesSync([0]);
+  }
+
+  @override
+  Future<void> compose(
+      List<ComposeSegment> segments, String outputAbsPath) async {
+    composeCalls.add(segments);
+    File(outputAbsPath).writeAsBytesSync([0]);
+  }
+
+  @override
+  Future<double?> probeDurationSec(String inputAbsPath) async => 4.0;
+}
+
 void main() {
   late Directory dir;
   late Engine engine;
@@ -151,6 +173,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('合成成功'), findsOneWidget);
+    expect(find.textContaining('已保存到素材库'), findsOneWidget);
   });
 
   testWidgets('候选删除按钮：可见删除图标 + 二次确认后调用 deleteVideo', (tester) async {
@@ -314,5 +337,60 @@ void main() {
 
     expect(engine.storyboards(scriptId).map((r) => r.id), [s2, s1]);
     expect(engine.storyboards(scriptId).map((r) => r.index), [1, 2]);
+  });
+
+  testWidgets('移动端工作台：390px 下可重排镜头且合成顺序跟随', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    final composer = _RecordingComposer();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: composer,
+    );
+    engine.installVideoTrackPipeline();
+
+    final s1 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头一');
+    final s2 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头二');
+    final t1 = engine.ensureTrackForStoryboard(s1);
+    final t2 = engine.ensureTrackForStoryboard(s2);
+    engine.db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [t1, 'p/mobile_1.mp4', vtDone]);
+    engine.selectVideo(t1, engine.db.lastInsertRowId);
+    engine.db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [t2, 'p/mobile_2.mp4', vtDone]);
+    engine.selectVideo(t2, engine.db.lastInsertRowId);
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    await tester.drag(
+      find.byKey(ValueKey('workbench-reorder-handle-$s2')),
+      const Offset(0, -180),
+    );
+    await tester.pumpAndSettle();
+
+    expect(engine.storyboards(scriptId).map((r) => r.id), [s2, s1]);
+
+    await tester.tap(find.textContaining('合成本集'));
+    await tester.pumpAndSettle();
+
+    expect(composer.concatCalls.single.map((p) => p.split('/').last), [
+      'mobile_2.mp4',
+      'mobile_1.mp4',
+    ]);
   });
 }

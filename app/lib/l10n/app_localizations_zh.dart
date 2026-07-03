@@ -1544,6 +1544,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchDuration => '时长';
 
   @override
+  String workbenchSavedToAssets(int assetId) {
+    return '已保存到素材库（素材 #$assetId）';
+  }
+
+  @override
   String get workbenchReorderShot => '拖拽调整顺序';
 
   @override

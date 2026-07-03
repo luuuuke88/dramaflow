@@ -145,6 +145,8 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
           title: Text(l10n.workbenchComposeSuccess),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('${l10n.workbenchOutputPath}: ${result.outputRelPath}'),
+            if (result.clipAssetId != null)
+              Text(l10n.workbenchSavedToAssets(result.clipAssetId!)),
             if (result.durationSec != null)
               Text(
                   '${l10n.workbenchDuration}: ${result.durationSec!.toStringAsFixed(1)}s'),

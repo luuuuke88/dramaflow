@@ -542,6 +542,14 @@
   "workbenchEditPrompt": "カメラワークプロンプト編集",
   "workbenchOutputPath": "出力パス",
   "workbenchDuration": "再生時間",
+  "workbenchSavedToAssets": "素材ライブラリに保存しました（素材 #{assetId}）",
+  "@workbenchSavedToAssets": {
+    "placeholders": {
+      "assetId": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchReorderShot": "ドラッグして並べ替え",
   "cornerScapeTitle": "配音",
   "cornerScapeAutoMatch": "AI自動マッチング",

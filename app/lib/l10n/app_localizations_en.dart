@@ -1587,6 +1587,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchDuration => 'Duration';
 
   @override
+  String workbenchSavedToAssets(int assetId) {
+    return 'Saved to Assets (asset #$assetId)';
+  }
+
+  @override
   String get workbenchReorderShot => 'Drag to reorder';
 
   @override
