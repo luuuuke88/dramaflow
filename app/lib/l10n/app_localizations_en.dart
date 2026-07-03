@@ -1062,4 +1062,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scriptStateFailed => 'Extraction failed';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get localeSystem => 'System';
 }

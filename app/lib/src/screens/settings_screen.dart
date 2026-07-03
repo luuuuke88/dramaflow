@@ -192,7 +192,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         const SizedBox(height: 16),
         switch (_section) {
-          _SettingsSection.appearance => _appearanceCard(),
+          _SettingsSection.appearance => Column(children: [
+              _appearanceCard(),
+              const SizedBox(height: 12),
+              _languageCard(),
+            ]),
           _SettingsSection.providers => _providersPanel(),
           _SettingsSection.bindings => _bindingsPanel(),
           _SettingsSection.prompts => _promptsPanel(),
@@ -248,6 +252,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           runAction(context, ref, () async {
             await ref.read(themeModeProvider.notifier).setThemeMode(next);
           }, successMessage: '外观已更新');
+        },
+      ),
+    );
+  }
+
+  Widget _languageCard() {
+    final locale = ref.watch(localeProvider);
+    final l10n = AppLocalizations.of(context);
+    final current = locale?.languageCode ?? '';
+    return _SettingsCard(
+      title: l10n.settingsLanguage,
+      child: SegmentedButton<String>(
+        showSelectedIcon: false,
+        segments: [
+          ButtonSegment(value: '', label: Text(l10n.localeSystem)),
+          const ButtonSegment(value: 'zh', label: Text('中文')),
+          const ButtonSegment(value: 'en', label: Text('English')),
+          const ButtonSegment(value: 'ja', label: Text('日本語')),
+        ],
+        selected: {current},
+        onSelectionChanged: (selected) {
+          final next = selected.single;
+          if (next == current) return;
+          runAction(context, ref, () async {
+            await ref
+                .read(localeProvider.notifier)
+                .setLocale(next.isEmpty ? null : Locale(next));
+          }, successMessage: l10n.settingsLanguage);
         },
       ),
     );

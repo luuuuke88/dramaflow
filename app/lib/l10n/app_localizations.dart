@@ -2079,6 +2079,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'提取失败'**
   String get scriptStateFailed;
+
+  /// No description provided for @settingsLanguage.
+  ///
+  /// In zh, this message translates to:
+  /// **'语言'**
+  String get settingsLanguage;
+
+  /// No description provided for @localeSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统'**
+  String get localeSystem;
 }
 
 class _AppLocalizationsDelegate

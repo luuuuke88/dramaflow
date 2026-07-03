@@ -1027,4 +1027,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get scriptStateFailed => '提取失败';
+
+  @override
+  String get settingsLanguage => '语言';
+
+  @override
+  String get localeSystem => '跟随系统';
 }

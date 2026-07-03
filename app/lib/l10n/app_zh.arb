@@ -433,5 +433,7 @@
   "scriptBatchAdd": "批量添加",
   "scriptStateWaiting": "等待提取...",
   "scriptStateExtracting": "提取中...",
-  "scriptStateFailed": "提取失败"
+  "scriptStateFailed": "提取失败",
+  "settingsLanguage": "语言",
+  "localeSystem": "跟随系统"
 }

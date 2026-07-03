@@ -344,5 +344,7 @@
   "scriptBatchAdd": "一括追加",
   "scriptStateWaiting": "待機中...",
   "scriptStateExtracting": "抽出中...",
-  "scriptStateFailed": "抽出失敗"
+  "scriptStateFailed": "抽出失敗",
+  "settingsLanguage": "言語",
+  "localeSystem": "システムに従う"
 }

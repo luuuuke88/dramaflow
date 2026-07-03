@@ -345,5 +345,7 @@
   "scriptBatchAdd": "Batch Add",
   "scriptStateWaiting": "Waiting...",
   "scriptStateExtracting": "Extracting...",
-  "scriptStateFailed": "Extraction failed"
+  "scriptStateFailed": "Extraction failed",
+  "settingsLanguage": "Language",
+  "localeSystem": "System"
 }

@@ -1036,4 +1036,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get scriptStateFailed => '抽出失敗';
+
+  @override
+  String get settingsLanguage => '言語';
+
+  @override
+  String get localeSystem => 'システムに従う';
 }
