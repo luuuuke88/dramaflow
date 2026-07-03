@@ -9,6 +9,7 @@ const stageKindByStage = {
   'event_extract': 'text',
   'asset_extract': 'text',
   'storyboard_gen': 'text',
+  'video_prompt_gen': 'text',
   'asset_image': 'image',
   'shot_image': 'image',
   'shot_video': 'video',

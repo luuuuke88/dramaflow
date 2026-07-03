@@ -7,6 +7,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../api/models.dart';
 import 'assets.dart';
+import 'audio_bind.dart' show AudioBindApi;
 import 'compose.dart';
 import 'storyboard.dart' show StoryboardApi;
 import 'config.dart';
@@ -18,6 +19,7 @@ import 'providers/gateway.dart';
 import 'providers/resolve.dart';
 import 'queue.dart';
 import 'scripts.dart';
+import 'video_track.dart' show VideoTrackApi;
 
 class ProjectRow {
   final int id;
@@ -280,6 +282,8 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     engine.installScriptPipeline();
     engine.installAssetPipeline();
     engine.installStoryboardPipeline();
+    engine.installVideoTrackPipeline();
+    engine.installAudioBindPipeline();
     engine.queue.recoverOnColdStart();
     engine.queue.start();
     return engine;
@@ -388,6 +392,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       binding('event_extract', 'volcengine:doubao-seed-1-6-250615');
       binding('asset_extract', 'volcengine:doubao-seed-1-6-250615');
       binding('storyboard_gen', 'volcengine:doubao-seed-1-6-250615');
+      binding('video_prompt_gen', 'volcengine:doubao-seed-1-6-250615');
       binding('asset_image', 'volcengine:doubao-seedream-4-0-250828');
       binding('shot_image', 'volcengine:doubao-seedream-4-0-250828');
       binding('shot_video', 'volcengine:doubao-seedance-2-0-mini-260615');
@@ -396,6 +401,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       binding('event_extract', 'azt:gpt-5.5');
       binding('asset_extract', 'azt:gpt-5.5');
       binding('storyboard_gen', 'azt:gpt-5.5');
+      binding('video_prompt_gen', 'azt:gpt-5.5');
       binding('asset_image', 'azt:gpt-image-2');
       binding('shot_image', 'azt:gpt-image-2');
       binding('shot_video', 'volcengine:doubao-seedance-2-0-mini-260615');
@@ -448,6 +454,23 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
           '（videoDesc）、预估时长秒数（duration）、所属分轨名称（track，如"主线"）、'
           '涉及的资产名称（assetNames，取剧本中出现的角色/道具/场景原名）。'
           '必须通过调用 resultTool 工具返回结果，禁止输出任何其他文字。',
+    );
+    // 视频提示词生成（照抄 ToonFlow generateVideoPrompt 语义，DramaFlow 补齐为可编辑提示词）
+    prompt(
+      name: 'video_prompt_gen',
+      type: 'video_prompt_gen',
+      data: '你是短剧运镜师。根据分镜的画面描述与运镜说明，输出一段适合图生视频'
+          '模型的英文动态提示词，需包含镜头运动方式（pan/zoom/dolly/static 等）、'
+          '主体动作、节奏与时长感受。只输出提示词本身，不要输出任何解释或标点符号'
+          '以外的说明文字。',
+    );
+    // 角色配音绑定（照抄 ToonFlow cornerScape batchBindAudio 语义）
+    prompt(
+      name: 'audio_bind',
+      type: 'audio_bind',
+      data: '你是配音匹配助手。根据角色资产的名称与描述，从候选音频列表中'
+          '选出音色气质最匹配的一条。必须通过调用 resultTool 工具返回结果'
+          '（每个角色对应一个音频 id），禁止输出任何其他文字。',
     );
   }
 

@@ -75,6 +75,8 @@ class JobQueue {
     'asset_image_generation': 'image',
     'storyboard_generate': 'text',
     'storyboard_image_generation': 'image',
+    'video_generation': 'video',
+    'audio_bind': 'text',
   };
   static const laneCap = {'text': 1, 'image': 1, 'video': 1};
 
