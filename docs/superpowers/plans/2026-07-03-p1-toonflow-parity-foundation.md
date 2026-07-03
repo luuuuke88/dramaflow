@@ -32,7 +32,7 @@ app/lib/src/theme/tokens.dart                  # T2 新建（DFColors v2 全量 
 app/lib/src/theme/theme.dart                   # T2 重写（旧 theme.dart 移入）
 app/lib/src/widgets/df_*.dart                  # T2 新建（DFPageScaffold/DFDataTable/DFStatusTag/DFEmpty/DFAdaptiveDialog/DFTagChip/DFSearchField）
 app/lib/src/engine/errors.dart                 # T3 新建（EngineException + errKey 常量）
-app/lib/src/engine/db.dart                     # T3 重写 initSchema→v3（22 表）
+app/lib/src/engine/db.dart                     # T3 重写 initSchema→v3（26 表）
 app/lib/src/engine/queue.dart                  # T3 改造（jobs→o_tasks、reason=JSON）
 app/lib/src/engine/config.dart                 # T4 改造（o_setting/o_vendorConfig/o_prompt）
 app/lib/src/engine/providers/resolve.dart      # T4 适配新表
@@ -144,7 +144,7 @@ class DFSearchField extends StatelessWidget { const DFSearchField({required this
 - [ ] **Step 3（审核方）**：analyze+test 全绿（旧页面若因 theme 改动编译报错，本任务内一并修引用，不改其行为）。
 - [ ] **Step 4（审核方）**：`git commit -m "feat(theme): 设计系统 v2 tokens + DF 组件族（桌面/移动双形态）"`
 
-### Task 3：schema v3（22 表）+ 错误码基建 + 队列改造
+### Task 3：schema v3（26 表）+ 错误码基建 + 队列改造
 
 **Files:**
 - Create: `app/lib/src/engine/errors.dart`
@@ -164,7 +164,7 @@ class EngineException implements Exception {
 // errKey 常量（ARB 同名条目三语，本任务补入）：
 // errProviderMissing / errModelMissing / errNetwork / errLlmFormat / errCanceled / errAppRestart / errFileTooLarge / errFileType / errRegexInvalid / errNoChapters
 ```
-- schema v3：22 张表 CREATE TABLE 语句字段=《database.d.ts》逐字（`o_novel.chapterIndex INTEGER`、`o_project.id INTEGER PRIMARY KEY`（AUTOINCREMENT，全表统一自增；ToonFlow 用 Date.now() 只是取巧，不抄）、TEXT/INTEGER 映射：string→TEXT、number→INTEGER、boolean→INTEGER）；索引：`o_novel(projectId,chapterIndex)`、`o_eventChapter(eventId)/(novelId)`、`o_scriptAssets(scriptId)`、`o_tasks(projectId,state)`。
+- schema v3：26 张表 CREATE TABLE 语句字段=《database.d.ts》逐字（`o_novel.chapterIndex INTEGER`、`o_project.id INTEGER PRIMARY KEY`（AUTOINCREMENT，全表统一自增；ToonFlow 用 Date.now() 只是取巧，不抄）、TEXT/INTEGER 映射：string→TEXT、number→INTEGER、boolean→INTEGER）；索引：`o_novel(projectId,chapterIndex)`、`o_eventChapter(eventId)/(novelId)`、`o_scriptAssets(scriptId)`、`o_tasks(projectId,state)`。
 - `PRAGMA user_version=3`；打开时 `user_version<3` → 关闭连接、删除 db 文件与 `-wal/-shm`、重建（**注意仅删数据库文件，不碰 media 目录**）。
 - queue 改造：任务持久化到 `o_tasks`（state=pending/processing/success/failed；reason=EngineException JSON；relatedObjects=JSON `{"kind":"novel","ids":[...]}`；taskClass ∈ `event_generation`/`asset_extraction`（P1 两类，后批扩展））。冷启动恢复：processing→failed reason=`errAppRestart`，关联实体状态回置由各 runner 注册的 recover 回调处理（`queue.registerRecover(String taskClass, void Function(TasksRow) fn)`）。
 - Engine 门面（本任务先落 projects）：

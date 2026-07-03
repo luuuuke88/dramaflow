@@ -61,4 +61,58 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get commonPrevStep => '前へ';
+
+  @override
+  String get projectListTitle => 'プロジェクト';
+
+  @override
+  String get projectListSubtitle => '一時的なプロジェクト一覧です。T9で全面的に作り直します';
+
+  @override
+  String get projectNew => '新規プロジェクト';
+
+  @override
+  String get projectName => 'プロジェクト名';
+
+  @override
+  String get projectCreate => '作成';
+
+  @override
+  String get projectCreated => 'プロジェクトを作成しました';
+
+  @override
+  String get projectEmpty => 'プロジェクトはまだありません';
+
+  @override
+  String get projectUntitled => '無題のプロジェクト';
+
+  @override
+  String get errProviderMissing => 'プロバイダーが見つからないか無効です';
+
+  @override
+  String get errModelMissing => 'モデルが見つからないか未設定です';
+
+  @override
+  String get errNetwork => 'ネットワーク要求に失敗しました';
+
+  @override
+  String get errLlmFormat => 'モデル出力形式が不正です';
+
+  @override
+  String get errCanceled => 'タスクはキャンセルされました';
+
+  @override
+  String get errAppRestart => 'アプリが再起動し、タスクが中断されました';
+
+  @override
+  String get errFileTooLarge => 'ファイルが大きすぎます';
+
+  @override
+  String get errFileType => '対応していないファイル形式です';
+
+  @override
+  String get errRegexInvalid => '正規表現が無効です';
+
+  @override
+  String get errNoChapters => '章が見つかりません';
 }

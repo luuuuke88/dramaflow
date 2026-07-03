@@ -1,47 +1,92 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'db.dart';
-import 'util.dart';
-import 'pipeline/runners.dart' show JobRow;
 
-/// 任务队列（移植 server/src/queue.ts + M0 生命周期约定）。
-/// - 车道串行：text=1 / image=1 / video=1（azt/OAuth 路径脆弱，宁慢勿炸）
-/// - start() 幂等：全局唯一 worker loop，热重载不叠加
-/// - 冷启动恢复：running→failed('应用重启，任务中断') + 实体三处复位
-/// - 取消：queued→canceled+实体按产物恢复；running→CancelToken 中断→canceled
-/// - events：任意状态迁移广播（UI watch 源）；onJobFinished：M3.5 导演循环钩子
+import 'errors.dart';
+
+class TasksRow {
+  final int id;
+  final int? projectId;
+  final String state;
+  final String? reason;
+  final String? relatedObjects;
+  final String taskClass;
+  final int? startTime;
+  final String? model;
+  final String? describe;
+
+  const TasksRow({
+    required this.id,
+    required this.projectId,
+    required this.state,
+    required this.reason,
+    required this.relatedObjects,
+    required this.taskClass,
+    required this.startTime,
+    required this.model,
+    required this.describe,
+  });
+
+  factory TasksRow.fromRow(Row row) => TasksRow(
+        id: row['id'] as int,
+        projectId: row['projectId'] as int?,
+        state: row['state'] as String? ?? 'pending',
+        reason: row['reason'] as String?,
+        relatedObjects: row['relatedObjects'] as String?,
+        taskClass: row['taskClass'] as String? ?? '',
+        startTime: row['startTime'] as int?,
+        model: row['model'] as String?,
+        describe: row['describe'] as String?,
+      );
+
+  Map<String, dynamic> get relatedObjectsJson {
+    final raw = relatedObjects;
+    if (raw == null || raw.trim().isEmpty) return const {};
+    final decoded = jsonDecode(raw);
+    return decoded is Map ? Map<String, dynamic>.from(decoded) : const {};
+  }
+
+  EngineException? get engineReason => EngineException.fromReasonJson(reason);
+}
+
+typedef TaskRunner = Future<void> Function(TasksRow task, CancelToken token);
+typedef TaskRecover = void Function(TasksRow task);
+
 class JobQueue {
   final Database db;
-  final Future<String> Function(JobRow job, CancelToken token) run;
+  final TaskRunner run;
   final Duration tick;
 
   Timer? _timer;
   bool _started = false;
   final _runningByLane = {'text': 0, 'image': 0, 'video': 0};
-  final _cancelTokens = <String, CancelToken>{};
+  final _cancelTokens = <int, CancelToken>{};
+  final _recover = <String, TaskRecover>{};
   final _events = StreamController<void>.broadcast();
 
-  void Function(String jobId, String kind, String state)? onJobFinished;
+  void Function(int taskId, String taskClass, String state)? onTaskFinished;
 
   static const laneOf = {
-    'script_gen': 'text',
-    'asset_extract': 'text',
-    'storyboard_gen': 'text',
-    'asset_image': 'image',
-    'shot_image': 'image',
-    'shot_video': 'video',
-    'compose': 'video',
+    'event_generation': 'text',
+    'asset_extraction': 'text',
   };
   static const laneCap = {'text': 1, 'image': 1, 'video': 1};
 
-  JobQueue(this.db,
-      {required this.run, this.tick = const Duration(milliseconds: 500)});
+  JobQueue(
+    this.db, {
+    required this.run,
+    this.tick = const Duration(milliseconds: 500),
+  });
 
   Stream<void> get events => _events.stream;
 
   void notifyChanged() => _events.add(null);
+
+  void registerRecover(String taskClass, TaskRecover fn) {
+    _recover[taskClass] = fn;
+  }
 
   void start() {
     if (_started) return;
@@ -49,159 +94,143 @@ class JobQueue {
     _timer = Timer.periodic(tick, (_) => _tick());
   }
 
-  /// 仅冷启动调用（resume 不调用——后台冻结期间任务可能仍在收尾）
   void recoverOnColdStart() {
-    final n = db
-        .select("SELECT COUNT(*) n FROM jobs WHERE state='running'")
-        .first['n'] as int;
+    final rows = db
+        .select("SELECT * FROM o_tasks WHERE state='processing'")
+        .map(TasksRow.fromRow)
+        .toList();
+    if (rows.isEmpty) return;
+    final reason = const EngineException(errAppRestart).toReasonJson();
     db.execute(
-        "UPDATE jobs SET state='failed', error='应用重启，任务中断', finishedAt=? WHERE state='running'",
-        [nowIso()]);
-    db.execute(
-        "UPDATE assets SET status='failed', error='应用重启，任务中断' WHERE status='running'");
-    db.execute(
-        "UPDATE shots SET imageStatus='failed', imageError='应用重启，任务中断' WHERE imageStatus='running'");
-    db.execute(
-        "UPDATE shots SET videoStatus='failed', videoError='应用重启，任务中断' WHERE videoStatus='running'");
-    db.execute(
-        "UPDATE episodes SET composeStatus='failed', composeError='应用重启，任务中断' WHERE composeStatus='running'");
-    if (n > 0) _events.add(null);
+      "UPDATE o_tasks SET state='failed', reason=? WHERE state='processing'",
+      [reason],
+    );
+    for (final task in rows) {
+      _recover[task.taskClass]?.call(task);
+    }
+    _events.add(null);
   }
 
-  String enqueue({
-    required String projectId,
-    required String kind,
-    String targetId = '',
-    String targetLabel = '',
-    Map<String, dynamic> payload = const {},
-    int attempt = 1,
+  int enqueue({
+    required int projectId,
+    required String taskClass,
+    String? describe,
+    String? model,
+    Map<String, Object?> relatedObjects = const {},
   }) {
-    final id = newId();
     db.execute(
-        "INSERT INTO jobs (id, projectId, kind, targetId, targetLabel, state, attempt, payload, createdAt) VALUES (?,?,?,?,?,'queued',?,?,?)",
-        [
-          id,
-          projectId,
-          kind,
-          targetId,
-          targetLabel,
-          attempt,
-          jsonEncode(payload),
-          nowIso()
-        ]);
+      "INSERT INTO o_tasks (projectId,state,taskClass,describe,model,relatedObjects,startTime) VALUES (?,'pending',?,?,?,?,?)",
+      [
+        projectId,
+        taskClass,
+        describe,
+        model,
+        jsonEncode(relatedObjects),
+        DateTime.now().millisecondsSinceEpoch,
+      ],
+    );
+    final id = db.lastInsertRowId;
     _events.add(null);
     return id;
   }
 
-  bool hasActiveJob(String kind, String targetId) => db.select(
-      "SELECT id FROM jobs WHERE kind=? AND targetId=? AND state IN ('queued','running') LIMIT 1",
-      [kind, targetId]).isNotEmpty;
-
-  void cancel(String jobId) {
-    final rows = db.select(
-        'SELECT id, kind, targetId, state FROM jobs WHERE id=?', [jobId]);
-    if (rows.isEmpty) throw EngineException('任务不存在');
-    final j = rows.first;
-    final state = j['state'] as String;
-    if (state == 'queued') {
-      db.execute(
-          "UPDATE jobs SET state='canceled', finishedAt=? WHERE id=? AND state='queued'",
-          [nowIso(), jobId]);
-      _restoreEntity(j['kind'] as String, j['targetId'] as String);
-      _events.add(null);
-      onJobFinished?.call(jobId, j['kind'] as String, 'canceled');
-      return;
+  bool hasActiveTask(String taskClass, {int? projectId}) {
+    final params = <Object?>[taskClass];
+    var sql =
+        "SELECT id FROM o_tasks WHERE taskClass=? AND state IN ('pending','processing')";
+    if (projectId != null) {
+      sql += ' AND projectId=?';
+      params.add(projectId);
     }
-    if (state == 'running') {
-      _cancelTokens[jobId]?.cancel('用户取消');
-      return; // 终态由 _execute 的 catch 写入
-    }
-    throw EngineException('只有排队中或运行中的任务可以取消');
+    sql += ' LIMIT 1';
+    return db.select(sql, params).isNotEmpty;
   }
 
-  /// 取消后的实体状态恢复：已有产物→done，否则回初始态（v0.1 cancel 语义）
-  void _restoreEntity(String kind, String targetId) {
-    switch (kind) {
-      case 'asset_image':
-        db.execute(
-            "UPDATE assets SET status = CASE WHEN imagePath IS NOT NULL THEN 'done' ELSE 'draft' END, error=NULL WHERE id=?",
-            [targetId]);
-      case 'shot_image':
-        db.execute(
-            "UPDATE shots SET imageStatus = CASE WHEN imagePath IS NOT NULL THEN 'done' ELSE 'none' END, imageError=NULL WHERE id=?",
-            [targetId]);
-      case 'shot_video':
-        db.execute(
-            "UPDATE shots SET videoStatus = CASE WHEN videoPath IS NOT NULL THEN 'done' ELSE 'none' END, videoError=NULL WHERE id=?",
-            [targetId]);
-      case 'compose':
-        db.execute(
-            "UPDATE episodes SET composeStatus = CASE WHEN composedPath IS NOT NULL THEN 'done' ELSE 'none' END, composeError=NULL WHERE id=?",
-            [targetId]);
+  void cancel(int taskId) {
+    final rows = db.select('SELECT * FROM o_tasks WHERE id=?', [taskId]);
+    if (rows.isEmpty) {
+      throw const EngineException(errCanceled, {'reason': '任务不存在'});
     }
+    final task = TasksRow.fromRow(rows.first);
+    if (task.state == 'pending') {
+      _fail(task, const EngineException(errCanceled));
+      onTaskFinished?.call(task.id, task.taskClass, 'failed');
+      return;
+    }
+    if (task.state == 'processing') {
+      _cancelTokens[taskId]?.cancel(errCanceled);
+      return;
+    }
+    throw const EngineException(errCanceled, {'reason': '任务已结束'});
   }
 
   void _tick() {
     for (final lane in laneCap.keys) {
       while ((_runningByLane[lane] ?? 0) < laneCap[lane]!) {
-        final job = _claim(lane);
-        if (job == null) break;
-        unawaited(_execute(job, lane));
+        final task = _claim(lane);
+        if (task == null) break;
+        unawaited(_execute(task, lane));
       }
     }
   }
 
-  JobRow? _claim(String lane) {
-    final kinds = laneOf.entries
-        .where((e) => e.value == lane)
-        .map((e) => "'${e.key}'")
+  TasksRow? _claim(String lane) {
+    final classes = laneOf.entries
+        .where((entry) => entry.value == lane)
+        .map((entry) => "'${entry.key}'")
         .join(',');
+    if (classes.isEmpty) return null;
     final rows = db.select(
-        "SELECT id, projectId, kind, targetId, payload FROM jobs WHERE state='queued' AND kind IN ($kinds) ORDER BY createdAt ASC LIMIT 1");
+      "SELECT * FROM o_tasks WHERE state='pending' AND taskClass IN ($classes) ORDER BY id ASC LIMIT 1",
+    );
     if (rows.isEmpty) return null;
-    final r = rows.first;
-    db.execute("UPDATE jobs SET state='running', startedAt=? WHERE id=?",
-        [nowIso(), r['id']]);
+    final id = rows.first['id'] as int;
+    db.execute(
+      "UPDATE o_tasks SET state='processing', reason=NULL WHERE id=? AND state='pending'",
+      [id],
+    );
     _events.add(null);
-    return JobRow(r['id'] as String, r['projectId'] as String,
-        r['kind'] as String, r['targetId'] as String, r['payload'] as String);
+    return TasksRow.fromRow(
+      db.select('SELECT * FROM o_tasks WHERE id=?', [id]).first,
+    );
   }
 
-  Future<void> _execute(JobRow job, String lane) async {
+  Future<void> _execute(TasksRow task, String lane) async {
     _runningByLane[lane] = (_runningByLane[lane] ?? 0) + 1;
     final token = CancelToken();
-    _cancelTokens[job.id] = token;
+    _cancelTokens[task.id] = token;
     var finalState = 'failed';
     try {
-      final result = await run(job, token);
+      await run(task, token);
       db.execute(
-          "UPDATE jobs SET state='done', result=?, finishedAt=? WHERE id=? AND state='running'",
-          [result, nowIso(), job.id]);
-      finalState = 'done';
+        "UPDATE o_tasks SET state='success', reason=NULL WHERE id=? AND state='processing'",
+        [task.id],
+      );
+      finalState = 'success';
     } catch (e) {
       if (token.isCancelled) {
-        db.execute(
-            "UPDATE jobs SET state='canceled', finishedAt=? WHERE id=? AND state='running'",
-            [nowIso(), job.id]);
-        _restoreEntity(job.kind, job.targetId); // 覆盖 runner catch 写的 failed
-        finalState = 'canceled';
+        _fail(task, const EngineException(errCanceled));
+      } else if (e is EngineException) {
+        _fail(task, e);
+      } else if (e is DioException) {
+        _fail(task, EngineException(errNetwork, {'message': e.message}));
       } else {
-        final msg = errMessage(e);
-        db.execute(
-            "UPDATE jobs SET state='failed', error=?, finishedAt=? WHERE id=? AND state='running'",
-            [
-              msg.length > 2000 ? msg.substring(0, 2000) : msg,
-              nowIso(),
-              job.id
-            ]);
-        finalState = 'failed';
+        _fail(task, EngineException(errLlmFormat, {'message': e.toString()}));
       }
     } finally {
       _runningByLane[lane] = (_runningByLane[lane] ?? 1) - 1;
-      _cancelTokens.remove(job.id);
+      _cancelTokens.remove(task.id);
       _events.add(null);
-      onJobFinished?.call(job.id, job.kind, finalState);
+      onTaskFinished?.call(task.id, task.taskClass, finalState);
     }
+  }
+
+  void _fail(TasksRow task, EngineException reason) {
+    db.execute(
+      "UPDATE o_tasks SET state='failed', reason=? WHERE id=? AND state IN ('pending','processing')",
+      [reason.toReasonJson(), task.id],
+    );
+    _events.add(null);
   }
 
   void dispose() {

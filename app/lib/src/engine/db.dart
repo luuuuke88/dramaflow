@@ -1,109 +1,282 @@
+import 'dart:io';
+
 import 'package:sqlite3/sqlite3.dart';
+
+const schemaVersion = 3;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
-/// 打开引擎数据库（path=':memory:' 用于测试）。Schema v1 一次到位（含 M1-M5 已定字段）。
 Database openEngineDb(String path) {
-  final db = path == ':memory:' ? sqlite3.openInMemory() : sqlite3.open(path);
-  db.execute('PRAGMA journal_mode = WAL');
-  db.execute('PRAGMA foreign_keys = ON');
+  if (path == ':memory:') {
+    final db = sqlite3.openInMemory();
+    _configure(db);
+    initSchema(db);
+    return db;
+  }
+
+  var db = sqlite3.open(path);
+  final version = db.select('PRAGMA user_version').first.values.first as int;
+  if (version < schemaVersion) {
+    db.close();
+    _deleteDatabaseFiles(path);
+    db = sqlite3.open(path);
+  }
+
+  _configure(db);
   initSchema(db);
   return db;
 }
 
+void _configure(Database db) {
+  db.execute('PRAGMA journal_mode = WAL');
+  db.execute('PRAGMA foreign_keys = ON');
+}
+
+void _deleteDatabaseFiles(String path) {
+  for (final filePath in [path, '$path-wal', '$path-shm']) {
+    final file = File(filePath);
+    if (file.existsSync()) file.deleteSync();
+  }
+}
+
 void initSchema(Database db) {
   db.execute('''
-CREATE TABLE IF NOT EXISTS projects (
-  id TEXT PRIMARY KEY, name TEXT NOT NULL,
-  artStyle TEXT NOT NULL DEFAULT '', userId TEXT NOT NULL DEFAULT '',
-  createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS novels (
+CREATE TABLE IF NOT EXISTS memories (
+  content TEXT,
+  createTime INTEGER,
+  embedding TEXT,
   id TEXT PRIMARY KEY,
-  projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  title TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '',
-  updatedAt TEXT NOT NULL
+  isolationKey TEXT,
+  name TEXT,
+  relatedMessageIds TEXT,
+  role TEXT,
+  summarized INTEGER,
+  type TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_novels_project ON novels(projectId);
-CREATE TABLE IF NOT EXISTS episodes (
+CREATE TABLE IF NOT EXISTS o_agentDeploy (
+  desc TEXT,
+  disabled INTEGER,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT,
+  maxOutputTokens INTEGER,
+  model TEXT,
+  modelName TEXT,
+  name TEXT,
+  temperature INTEGER,
+  type TEXT,
+  vendorId TEXT
+);
+CREATE TABLE IF NOT EXISTS o_agentWorkData (
+  createTime INTEGER,
+  data TEXT,
+  episodesId INTEGER,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT,
+  projectId INTEGER,
+  updateTime INTEGER
+);
+CREATE TABLE IF NOT EXISTS o_artStyle (
+  fileUrl TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  label TEXT,
+  name TEXT,
+  prompt TEXT
+);
+CREATE TABLE IF NOT EXISTS o_assets (
+  assetsId INTEGER,
+  audioBindState INTEGER,
+  describe TEXT,
+  flowId INTEGER,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  imageId INTEGER,
+  name TEXT,
+  projectId INTEGER,
+  prompt TEXT,
+  promptErrorReason TEXT,
+  promptState TEXT,
+  remark TEXT,
+  scriptId INTEGER,
+  startTime INTEGER,
+  type TEXT
+);
+CREATE TABLE IF NOT EXISTS o_assets2Storyboard (
+  assetId INTEGER,
+  storyboardId INTEGER,
+  PRIMARY KEY (assetId, storyboardId)
+);
+CREATE TABLE IF NOT EXISTS o_assetsRole2Audio (
+  assetsAudioId INTEGER,
+  assetsRoleId INTEGER,
+  PRIMARY KEY (assetsAudioId, assetsRoleId)
+);
+CREATE TABLE IF NOT EXISTS o_event (
+  createTime INTEGER,
+  detail TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT
+);
+CREATE TABLE IF NOT EXISTS o_eventChapter (
+  eventId INTEGER,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  novelId INTEGER
+);
+CREATE TABLE IF NOT EXISTS o_image (
+  assetsId INTEGER,
+  errorReason TEXT,
+  filePath TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  model TEXT,
+  resolution TEXT,
+  state TEXT,
+  type TEXT
+);
+CREATE TABLE IF NOT EXISTS o_imageFlow (
+  flowData TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT
+);
+CREATE TABLE IF NOT EXISTS o_modelPrompt (
+  fileName TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  model TEXT,
+  path TEXT,
+  prompt TEXT,
+  vendorId TEXT
+);
+CREATE TABLE IF NOT EXISTS o_novel (
+  chapter TEXT,
+  chapterData TEXT,
+  chapterIndex INTEGER,
+  createTime INTEGER,
+  errorReason TEXT,
+  event TEXT,
+  eventState INTEGER,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  projectId INTEGER,
+  reel TEXT
+);
+CREATE TABLE IF NOT EXISTS o_project (
+  artStyle TEXT,
+  createTime INTEGER,
+  directorManual TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  imageModel TEXT,
+  imageQuality TEXT,
+  intro TEXT,
+  mode TEXT,
+  name TEXT,
+  projectType TEXT,
+  type TEXT,
+  userId INTEGER,
+  videoModel TEXT,
+  videoRatio TEXT
+);
+CREATE TABLE IF NOT EXISTS o_prompt (
+  data TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  type TEXT,
+  useData TEXT
+);
+CREATE TABLE IF NOT EXISTS o_script (
+  content TEXT,
+  createTime INTEGER,
+  errorReason TEXT,
+  extractState INTEGER,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  projectId INTEGER
+);
+CREATE TABLE IF NOT EXISTS o_scriptAssets (
+  assetId INTEGER,
+  scriptId INTEGER,
+  PRIMARY KEY (assetId, scriptId)
+);
+CREATE TABLE IF NOT EXISTS o_setting (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+CREATE TABLE IF NOT EXISTS o_skillAttribution (
+  attribution TEXT,
+  skillId TEXT,
+  PRIMARY KEY (attribution, skillId)
+);
+CREATE TABLE IF NOT EXISTS o_skillList (
+  createTime INTEGER,
+  description TEXT,
+  embedding TEXT,
   id TEXT PRIMARY KEY,
-  projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  idx INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '',
-  synopsis TEXT NOT NULL DEFAULT '', scriptJson TEXT NOT NULL DEFAULT '[]',
-  composedPath TEXT, composeStatus TEXT NOT NULL DEFAULT 'none', composeError TEXT,
-  createdAt TEXT NOT NULL
+  md5 TEXT,
+  name TEXT,
+  path TEXT,
+  state INTEGER,
+  type TEXT,
+  updateTime INTEGER
 );
-CREATE INDEX IF NOT EXISTS idx_episodes_project ON episodes(projectId);
-CREATE TABLE IF NOT EXISTS assets (
+CREATE TABLE IF NOT EXISTS o_storyboard (
+  createTime INTEGER,
+  duration TEXT,
+  filePath TEXT,
+  flowId INTEGER,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  "index" INTEGER,
+  projectId INTEGER,
+  prompt TEXT,
+  reason TEXT,
+  scriptId INTEGER,
+  shouldGenerateImage INTEGER,
+  state TEXT,
+  track TEXT,
+  trackId INTEGER,
+  videoDesc TEXT
+);
+CREATE TABLE IF NOT EXISTS o_tasks (
+  describe TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  model TEXT,
+  projectId INTEGER,
+  reason TEXT,
+  relatedObjects TEXT,
+  startTime INTEGER,
+  state TEXT,
+  taskClass TEXT
+);
+CREATE TABLE IF NOT EXISTS o_user (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  password TEXT
+);
+CREATE TABLE IF NOT EXISTS o_vendorConfig (
+  enable INTEGER,
   id TEXT PRIMARY KEY,
-  projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL CHECK (kind IN ('character','scene','prop')),
-  name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
-  imagePrompt TEXT NOT NULL DEFAULT '', imagePath TEXT,
-  status TEXT NOT NULL DEFAULT 'draft', error TEXT,
-  note TEXT NOT NULL DEFAULT '', voiceId TEXT,
-  userId TEXT NOT NULL DEFAULT '', createdAt TEXT NOT NULL
+  inputValues TEXT,
+  models TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_assets_project ON assets(projectId);
-CREATE TABLE IF NOT EXISTS shots (
-  id TEXT PRIMARY KEY,
-  episodeId TEXT NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
-  projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  idx INTEGER NOT NULL, description TEXT NOT NULL DEFAULT '',
-  dialogue TEXT NOT NULL DEFAULT '', camera TEXT NOT NULL DEFAULT '',
-  assetNames TEXT NOT NULL DEFAULT '[]',
-  imagePrompt TEXT NOT NULL DEFAULT '', imagePath TEXT,
-  imageStatus TEXT NOT NULL DEFAULT 'none', imageError TEXT,
-  videoPrompt TEXT NOT NULL DEFAULT '', videoPath TEXT,
-  videoStatus TEXT NOT NULL DEFAULT 'none', videoError TEXT,
-  selectedTakeId TEXT,
-  audioPath TEXT, audioStatus TEXT NOT NULL DEFAULT 'none', audioError TEXT,
-  createdAt TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS o_video (
+  errorReason TEXT,
+  filePath TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  projectId INTEGER,
+  scriptId INTEGER,
+  state TEXT,
+  time INTEGER,
+  videoTrackId INTEGER
 );
-CREATE INDEX IF NOT EXISTS idx_shots_episode ON shots(episodeId);
-CREATE INDEX IF NOT EXISTS idx_shots_project ON shots(projectId);
-CREATE TABLE IF NOT EXISTS jobs (
-  id TEXT PRIMARY KEY, projectId TEXT NOT NULL,
-  kind TEXT NOT NULL, targetId TEXT NOT NULL DEFAULT '',
-  targetLabel TEXT NOT NULL DEFAULT '', state TEXT NOT NULL DEFAULT 'queued',
-  attempt INTEGER NOT NULL DEFAULT 1, error TEXT,
-  payload TEXT NOT NULL DEFAULT '{}', result TEXT,
-  createdAt TEXT NOT NULL, startedAt TEXT, finishedAt TEXT
+CREATE TABLE IF NOT EXISTS o_videoTrack (
+  duration INTEGER,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  projectId INTEGER,
+  prompt TEXT,
+  reason TEXT,
+  scriptId INTEGER,
+  selectVideoId INTEGER,
+  state TEXT,
+  videoId INTEGER
 );
-CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state);
-CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(projectId, createdAt DESC);
-CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS providers (
-  id TEXT PRIMARY KEY, name TEXT NOT NULL,
-  protocol TEXT NOT NULL CHECK (protocol IN ('openai_compatible','volcengine')),
-  baseUrl TEXT NOT NULL DEFAULT '', apiKey TEXT NOT NULL DEFAULT '',
-  enabled INTEGER NOT NULL DEFAULT 1, userId TEXT NOT NULL DEFAULT '',
-  createdAt TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS provider_models (
-  id TEXT PRIMARY KEY,
-  providerId TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
-  modelId TEXT NOT NULL, label TEXT NOT NULL DEFAULT '',
-  kind TEXT NOT NULL CHECK (kind IN ('text','image','video','tts')),
-  capabilities TEXT NOT NULL DEFAULT '{}', enabled INTEGER NOT NULL DEFAULT 1
-);
-CREATE TABLE IF NOT EXISTS prompts (
-  key TEXT PRIMARY KEY, content TEXT NOT NULL, updatedAt TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS video_takes (
-  id TEXT PRIMARY KEY,
-  shotId TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
-  videoPath TEXT NOT NULL, durationSec REAL, createdAt TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_vtakes_shot ON video_takes(shotId);
-CREATE TABLE IF NOT EXISTS image_takes (
-  id TEXT PRIMARY KEY,
-  assetId TEXT REFERENCES assets(id) ON DELETE CASCADE,
-  shotId TEXT REFERENCES shots(id) ON DELETE CASCADE,
-  imagePath TEXT NOT NULL, selected INTEGER NOT NULL DEFAULT 0,
-  createdAt TEXT NOT NULL,
-  CHECK ((assetId IS NULL) != (shotId IS NULL))
-);
+CREATE INDEX IF NOT EXISTS idx_o_novel_project_chapter ON o_novel(projectId, chapterIndex);
+CREATE INDEX IF NOT EXISTS idx_o_eventChapter_event ON o_eventChapter(eventId);
+CREATE INDEX IF NOT EXISTS idx_o_eventChapter_novel ON o_eventChapter(novelId);
+CREATE INDEX IF NOT EXISTS idx_o_scriptAssets_script ON o_scriptAssets(scriptId);
+CREATE INDEX IF NOT EXISTS idx_o_tasks_project_state ON o_tasks(projectId, state);
 ''');
-  db.execute('PRAGMA user_version = 1');
+  db.execute('PRAGMA user_version = $schemaVersion');
 }

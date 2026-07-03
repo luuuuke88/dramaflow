@@ -36,7 +36,7 @@ class EngineConfig {
   EngineConfig(this._db, {required this.isMobile});
 
   String str(String key) {
-    final row = _db.select('SELECT value FROM settings WHERE key = ?', [key]);
+    final row = _db.select('SELECT value FROM o_setting WHERE key = ?', [key]);
     if (row.isNotEmpty) return row.first['value'] as String;
     return _defaults[key] ?? '';
   }
@@ -60,7 +60,7 @@ class EngineConfig {
 
   void update(Map<String, dynamic> patch) {
     final stmt = _db.prepare(
-        'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+        'INSERT INTO o_setting (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
     try {
       for (final e in patch.entries) {
         if (!_defaults.containsKey(e.key) || e.value == null) continue;

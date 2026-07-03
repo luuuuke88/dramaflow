@@ -1,7 +1,3 @@
-/// 所有 LLM 提示词（移植 server/src/pipeline/prompts.ts，逐字保留；
-/// assetExtract 新增道具规则——spec M1 约定）。约定：
-/// - 输出必须是纯 JSON（无 markdown 围栏、无解说），上层校验
-/// - 校验失败会把错误信息拼进重试 prompt（self-heal 一次）
 library;
 
 const scriptGenSystem = '''你是资深短剧编剧。你的任务是把小说改编成适合 AI 图像/视频生成的竖屏短剧剧本。
@@ -16,10 +12,6 @@ const scriptGenSystem = '''你是资深短剧编剧。你的任务是把小说�
 输出严格的 JSON（不要 markdown 代码块，不要任何解释文字），结构：
 {"episodes":[{"title":"集标题","synopsis":"一句话梗概","scenes":[{"location":"地点","timeOfDay":"日/夜/黄昏等","action":"这场戏发生了什么（具体动作与画面）","dialogues":[{"speaker":"角色名","line":"台词"}]}]}]}''';
 
-String scriptGenUser(
-        String novelTitle, String novelContent, int episodeCount) =>
-    '请把下面的小说改编成 $episodeCount 集短剧剧本。\n\n《$novelTitle》\n\n$novelContent';
-
 const assetExtractSystem = '''你是短剧美术指导。从剧本中提取需要建立视觉资产的角色、场景和道具。
 
 要求：
@@ -31,12 +23,6 @@ const assetExtractSystem = '''你是短剧美术指导。从剧本中提取需�
 
 输出严格的 JSON（不要 markdown 代码块），结构：
 {"assets":[{"kind":"character或scene或prop","name":"名称","description":"中文设定描述","imagePrompt":"English image generation prompt"}]}''';
-
-String assetExtractUser(String scriptSummary, String artStyle) {
-  final style =
-      artStyle.isNotEmpty ? '\n\n本剧美术风格：$artStyle。imagePrompt 中体现该风格。' : '';
-  return '以下是全部剧本内容，请提取角色、场景与道具资产。$style\n\n$scriptSummary';
-}
 
 const storyboardGenSystem = '''你是短剧分镜师。把一集剧本拆解成可逐镜生成的分镜表。
 
@@ -62,16 +48,3 @@ const defaultSystemPrompts = {
   promptKeyAssetExtractSystem: assetExtractSystem,
   promptKeyStoryboardGenSystem: storyboardGenSystem,
 };
-
-String storyboardGenUser(String episodeTitle, String scriptJson,
-    String assetsContext, String artStyle) {
-  final style =
-      artStyle.isNotEmpty ? '\n本剧美术风格：$artStyle。imagePrompt 中体现该风格。' : '';
-  return '请为《$episodeTitle》生成分镜表。$style\n\n== 可用资产（imagePrompt 中的角色外貌必须与这里的设定一致）==\n$assetsContext\n\n== 本集剧本 ==\n$scriptJson';
-}
-
-/// LLM 输出 JSON 解析失败时的自愈重试包装
-String repairUser(String originalUser, String badOutput, String parseError) {
-  final head = badOutput.length > 200 ? badOutput.substring(0, 200) : badOutput;
-  return '$originalUser\n\n（你上一次的输出无法解析：$parseError。上次输出的开头是：$head……请重新输出，务必是纯 JSON，不要 markdown 代码块，不要任何解释文字。）';
-}

@@ -207,6 +207,114 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'上一步'**
   String get commonPrevStep;
+
+  /// No description provided for @projectListTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目'**
+  String get projectListTitle;
+
+  /// No description provided for @projectListSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时项目列表，T9 将全量重写'**
+  String get projectListSubtitle;
+
+  /// No description provided for @projectNew.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建项目'**
+  String get projectNew;
+
+  /// No description provided for @projectName.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目名称'**
+  String get projectName;
+
+  /// No description provided for @projectCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建'**
+  String get projectCreate;
+
+  /// No description provided for @projectCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目已创建'**
+  String get projectCreated;
+
+  /// No description provided for @projectEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无项目'**
+  String get projectEmpty;
+
+  /// No description provided for @projectUntitled.
+  ///
+  /// In zh, this message translates to:
+  /// **'未命名项目'**
+  String get projectUntitled;
+
+  /// No description provided for @errProviderMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'供应商缺失或已停用'**
+  String get errProviderMissing;
+
+  /// No description provided for @errModelMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型缺失或未绑定'**
+  String get errModelMissing;
+
+  /// No description provided for @errNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络请求失败'**
+  String get errNetwork;
+
+  /// No description provided for @errLlmFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型输出格式无效'**
+  String get errLlmFormat;
+
+  /// No description provided for @errCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务已取消'**
+  String get errCanceled;
+
+  /// No description provided for @errAppRestart.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用重启，任务中断'**
+  String get errAppRestart;
+
+  /// No description provided for @errFileTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件过大'**
+  String get errFileTooLarge;
+
+  /// No description provided for @errFileType.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件类型不支持'**
+  String get errFileType;
+
+  /// No description provided for @errRegexInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'正则表达式无效'**
+  String get errRegexInvalid;
+
+  /// No description provided for @errNoChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到章节'**
+  String get errNoChapters;
 }
 
 class _AppLocalizationsDelegate

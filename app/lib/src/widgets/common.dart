@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,7 @@ import '../theme/theme.dart';
 
 /// 状态 → 视觉语义 的唯一映射，全 App 统一。
 class StatusChip extends StatelessWidget {
-  final String status; // none/draft/queued/running/done/failed/canceled
+  final String status;
   final String? errorTooltip;
   final bool dense;
 
@@ -20,8 +21,11 @@ class StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color, icon) = switch (status) {
       'queued' => ('排队中', context.df.blue, Icons.schedule_rounded),
+      'pending' => ('等待中', context.df.blue, Icons.schedule_rounded),
       'running' => ('生成中', context.df.primary, Icons.autorenew_rounded),
+      'processing' => ('生成中', context.df.primary, Icons.autorenew_rounded),
       'done' => ('已完成', context.df.green, Icons.check_circle_rounded),
+      'success' => ('已完成', context.df.green, Icons.check_circle_rounded),
       'failed' => ('失败', context.df.red, Icons.error_rounded),
       'canceled' => ('已取消', context.df.grey, Icons.block_rounded),
       'draft' => ('待生成', context.df.grey, Icons.edit_note_rounded),
@@ -38,7 +42,7 @@ class StatusChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (status == 'running')
+          if (status == 'running' || status == 'processing')
             SizedBox(
               width: dense ? 10 : 12,
               height: dense ? 10 : 12,
@@ -210,12 +214,30 @@ Future<void> runAction(
   } on EngineException catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.message, style: const TextStyle(color: Colors.white)),
+        content: Text(_engineErrorText(context, e),
+            style: const TextStyle(color: Colors.white)),
         backgroundColor: context.df.red,
         duration: const Duration(seconds: 4),
       ));
     }
   }
+}
+
+String _engineErrorText(BuildContext context, EngineException error) {
+  final l10n = AppLocalizations.of(context);
+  return switch (error.errKey) {
+    errProviderMissing => l10n.errProviderMissing,
+    errModelMissing => l10n.errModelMissing,
+    errNetwork => l10n.errNetwork,
+    errLlmFormat => l10n.errLlmFormat,
+    errCanceled => l10n.errCanceled,
+    errAppRestart => l10n.errAppRestart,
+    errFileTooLarge => l10n.errFileTooLarge,
+    errFileType => l10n.errFileType,
+    errRegexInvalid => l10n.errRegexInvalid,
+    errNoChapters => l10n.errNoChapters,
+    _ => error.message,
+  };
 }
 
 /// 带 token 的后端图片。统一圆角、加载渐入、错误占位。

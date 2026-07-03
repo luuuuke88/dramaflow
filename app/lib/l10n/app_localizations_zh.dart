@@ -61,4 +61,58 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get commonPrevStep => '上一步';
+
+  @override
+  String get projectListTitle => '项目';
+
+  @override
+  String get projectListSubtitle => '临时项目列表，T9 将全量重写';
+
+  @override
+  String get projectNew => '新建项目';
+
+  @override
+  String get projectName => '项目名称';
+
+  @override
+  String get projectCreate => '创建';
+
+  @override
+  String get projectCreated => '项目已创建';
+
+  @override
+  String get projectEmpty => '暂无项目';
+
+  @override
+  String get projectUntitled => '未命名项目';
+
+  @override
+  String get errProviderMissing => '供应商缺失或已停用';
+
+  @override
+  String get errModelMissing => '模型缺失或未绑定';
+
+  @override
+  String get errNetwork => '网络请求失败';
+
+  @override
+  String get errLlmFormat => '模型输出格式无效';
+
+  @override
+  String get errCanceled => '任务已取消';
+
+  @override
+  String get errAppRestart => '应用重启，任务中断';
+
+  @override
+  String get errFileTooLarge => '文件过大';
+
+  @override
+  String get errFileType => '文件类型不支持';
+
+  @override
+  String get errRegexInvalid => '正则表达式无效';
+
+  @override
+  String get errNoChapters => '未找到章节';
 }

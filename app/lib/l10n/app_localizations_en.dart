@@ -61,4 +61,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonPrevStep => 'Previous';
+
+  @override
+  String get projectListTitle => 'Projects';
+
+  @override
+  String get projectListSubtitle =>
+      'Temporary project list; T9 will rebuild this screen';
+
+  @override
+  String get projectNew => 'New Project';
+
+  @override
+  String get projectName => 'Project Name';
+
+  @override
+  String get projectCreate => 'Create';
+
+  @override
+  String get projectCreated => 'Project created';
+
+  @override
+  String get projectEmpty => 'No projects yet';
+
+  @override
+  String get projectUntitled => 'Untitled project';
+
+  @override
+  String get errProviderMissing => 'Provider is missing or disabled';
+
+  @override
+  String get errModelMissing => 'Model is missing or not bound';
+
+  @override
+  String get errNetwork => 'Network request failed';
+
+  @override
+  String get errLlmFormat => 'Model output format is invalid';
+
+  @override
+  String get errCanceled => 'Task canceled';
+
+  @override
+  String get errAppRestart => 'App restarted; task interrupted';
+
+  @override
+  String get errFileTooLarge => 'File is too large';
+
+  @override
+  String get errFileType => 'File type is not supported';
+
+  @override
+  String get errRegexInvalid => 'Regular expression is invalid';
+
+  @override
+  String get errNoChapters => 'No chapters found';
 }

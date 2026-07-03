@@ -27,4 +27,25 @@ void main() {
 
     expect(zh.commonSave, '保存');
   });
+
+  test('engine error keys have translations in all locales', () async {
+    final locales = [
+      await AppLocalizations.delegate.load(const Locale('zh')),
+      await AppLocalizations.delegate.load(const Locale('en')),
+      await AppLocalizations.delegate.load(const Locale('ja')),
+    ];
+
+    for (final l10n in locales) {
+      expect(l10n.errProviderMissing, isNotEmpty);
+      expect(l10n.errModelMissing, isNotEmpty);
+      expect(l10n.errNetwork, isNotEmpty);
+      expect(l10n.errLlmFormat, isNotEmpty);
+      expect(l10n.errCanceled, isNotEmpty);
+      expect(l10n.errAppRestart, isNotEmpty);
+      expect(l10n.errFileTooLarge, isNotEmpty);
+      expect(l10n.errFileType, isNotEmpty);
+      expect(l10n.errRegexInvalid, isNotEmpty);
+      expect(l10n.errNoChapters, isNotEmpty);
+    }
+  });
 }

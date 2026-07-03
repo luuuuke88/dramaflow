@@ -55,19 +55,30 @@ void main() {
       String protocol = 'openai_compatible',
       String apiKey = 'sk-test'}) {
     db.execute(
-        'INSERT OR REPLACE INTO providers (id,name,protocol,baseUrl,apiKey,createdAt) VALUES (?,?,?,?,?,?)',
-        [providerId, providerId, protocol, 'https://api.test/v1', apiKey, 'x']);
-    db.execute(
-        'INSERT INTO provider_models (id,providerId,modelId,label,kind,capabilities,enabled) VALUES (?,?,?,?,?,?,1)',
+        'INSERT OR REPLACE INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
         [
-          '$providerId-$modelId-$kind',
           providerId,
-          modelId,
-          modelId,
-          kind,
-          '{}'
+          1,
+          jsonEncode({
+            'name': providerId,
+            'protocol': protocol,
+            'baseUrl': 'https://api.test/v1',
+            'apiKey': apiKey,
+            'createdAt': 'x',
+          }),
+          jsonEncode([
+            {
+              'id': '$providerId-$modelId-$kind',
+              'providerId': providerId,
+              'modelId': modelId,
+              'label': modelId,
+              'kind': kind,
+              'capabilities': {},
+              'enabled': true,
+            }
+          ]),
         ]);
-    db.execute('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)',
+    db.execute('INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
         ['binding.$stage', '$providerId:$modelId']);
   }
 
@@ -237,11 +248,31 @@ void main() {
       final freshDb = openEngineDb(':memory:');
       final freshConfig = EngineConfig(freshDb, isMobile: false);
       freshDb.execute(
-          "INSERT INTO providers (id,name,protocol,baseUrl,apiKey,createdAt) VALUES ('volc','火山','volcengine','https://api.test/v1','','x')");
+          'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+          [
+            'volc',
+            1,
+            jsonEncode({
+              'name': '火山',
+              'protocol': 'volcengine',
+              'baseUrl': 'https://api.test/v1',
+              'apiKey': '',
+              'createdAt': 'x',
+            }),
+            jsonEncode([
+              {
+                'id': 'vm',
+                'providerId': 'volc',
+                'modelId': 'seedance',
+                'label': 'seedance',
+                'kind': 'video',
+                'capabilities': {},
+                'enabled': true,
+              }
+            ]),
+          ]);
       freshDb.execute(
-          "INSERT INTO provider_models (id,providerId,modelId,label,kind,capabilities,enabled) VALUES ('vm','volc','seedance','seedance','video','{}',1)");
-      freshDb.execute(
-          "INSERT INTO settings (key,value) VALUES ('binding.shot_video','volc:seedance')");
+          "INSERT INTO o_setting (key,value) VALUES ('binding.shot_video','volc:seedance')");
       final g = HttpProviderGateway(freshDb, freshConfig, media,
           dio: Dio()..httpClientAdapter = FakeAdapter((o) => jsonBody({})),
           pollInterval: Duration.zero);
