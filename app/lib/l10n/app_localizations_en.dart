@@ -1853,6 +1853,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentMemoryCreateTitle => 'Add long-term memory';
 
   @override
+  String get agentMemoryEditTitle => 'Edit long-term memory';
+
+  @override
   String get agentMemoryName => 'Memory name';
 
   @override
@@ -1860,6 +1863,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentMemorySaved => 'Long-term memory saved';
+
+  @override
+  String get agentMemoryUpdated => 'Long-term memory updated';
 
   @override
   String get agentMemoryDeleted => 'Long-term memory deleted';

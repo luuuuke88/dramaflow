@@ -116,11 +116,11 @@ Next Verification: If task-center UI changes, keep the 390px smoke and add a rea
 
 Status: Partial
 
-Desktop Evidence: `app/test/widgets/agent_chat_screen_test.dart`, `app/test/widgets/canvas_chat_panel_test.dart`, and `app/test/engine/agent_test.dart` cover basic persisted messages, tool dispatch, errors, production panel entry, deployment-mode persistence, per-stage `o_agentDeploy` model/temperature/max-output configuration, Agent HTTP model resolution from deployment overrides, local `o_skillList` seeding, skill description editing, skill enable/disable filtering before LLM tool dispatch, short-term chat memory listing/clearing, local long-term memory CRUD in the Agent memory tab, lexical long-term memory search, and injection of matched long-term memories into the Agent system prompt.
+Desktop Evidence: `app/test/widgets/agent_chat_screen_test.dart`, `app/test/widgets/canvas_chat_panel_test.dart`, and `app/test/engine/agent_test.dart` cover basic persisted messages, tool dispatch, errors, production panel entry, deployment-mode persistence, per-stage `o_agentDeploy` model/temperature/max-output configuration, Agent HTTP model resolution from deployment overrides, local `o_skillList` seeding, skill description editing, skill enable/disable filtering before LLM tool dispatch, short-term chat memory listing/clearing, local long-term memory CRUD in the Agent memory tab, local token-embedding generation/backfill in `memories.embedding`, long-term memory search, and injection of matched long-term memories into the Agent system prompt.
 
 Mobile Evidence: `app/test/widgets/production_screen_test.dart` covers 390px Agent entry from production.
 
-Known Gaps: Full ToonFlow multi-layer Agent orchestration, vector RAG recall/reranking, and custom JS skill execution are not fully replicated. Current long-term memory is a local, editable, lexical-search note store over the existing `memories` table.
+Known Gaps: Full ToonFlow multi-layer Agent orchestration, model/vector RAG recall/reranking, and custom JS skill execution are not fully replicated. Current long-term memory is a local, editable, token-embedding note store over the existing `memories` table.
 
 Next Verification: Treat full Agent parity as its own subsystem plan; add engine/UI coverage for any accepted RAG/custom-skill scope before claiming this page complete.
 

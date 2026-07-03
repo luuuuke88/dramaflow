@@ -1802,6 +1802,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentMemoryCreateTitle => '長期記憶を追加';
 
   @override
+  String get agentMemoryEditTitle => '長期記憶を編集';
+
+  @override
   String get agentMemoryName => '記憶名';
 
   @override
@@ -1809,6 +1812,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agentMemorySaved => '長期記憶を保存しました';
+
+  @override
+  String get agentMemoryUpdated => '長期記憶を更新しました';
 
   @override
   String get agentMemoryDeleted => '長期記憶を削除しました';

@@ -277,6 +277,25 @@ void main() {
     expect(gateway.lastSystem, contains('长期记忆'));
     expect(gateway.lastSystem, contains('寒山少主李澈'));
   });
+
+  test('长期记忆：写入本地 embedding，搜索旧记录时自动回填', () {
+    final id = engine.saveAgentMemory(
+      projectId,
+      name: '战力设定',
+      content: '李澈是寒山剑修，出手克制，不能滥杀。',
+    );
+    var row =
+        db.select('SELECT embedding FROM memories WHERE id=?', [id]).single;
+    expect(row['embedding'], isNot(''));
+    expect(row['embedding'], contains('李澈'));
+
+    db.execute('UPDATE memories SET embedding=? WHERE id=?', ['', id]);
+    final matched = engine.searchAgentMemories(projectId, '李澈剑修');
+    expect(matched.map((item) => item.id), [id]);
+
+    row = db.select('SELECT embedding FROM memories WHERE id=?', [id]).single;
+    expect(row['embedding'], isNot(''), reason: '旧记忆检索时应回填本地 embedding');
+  });
 }
 
 class _Gateway implements ProviderGateway {

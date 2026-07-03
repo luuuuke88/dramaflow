@@ -93,11 +93,13 @@ class AgentMemoryRecord {
   final String name;
   final String content;
   final int createdAt;
+  final String embedding;
   const AgentMemoryRecord({
     required this.id,
     required this.name,
     required this.content,
     required this.createdAt,
+    required this.embedding,
   });
 
   factory AgentMemoryRecord.fromRow(Map<String, Object?> row) =>
@@ -106,6 +108,15 @@ class AgentMemoryRecord {
         name: row['name'] as String? ?? '',
         content: row['content'] as String? ?? '',
         createdAt: row['createTime'] as int? ?? 0,
+        embedding: row['embedding'] as String? ?? '',
+      );
+
+  AgentMemoryRecord withEmbedding(String value) => AgentMemoryRecord(
+        id: id,
+        name: name,
+        content: content,
+        createdAt: createdAt,
+        embedding: value,
       );
 }
 
@@ -499,7 +510,7 @@ extension AgentApi on Engine {
 
   List<AgentMemoryRecord> agentLongTermMemories(int projectId) {
     final rows = db.select(
-      'SELECT id,name,content,createTime FROM memories '
+      'SELECT id,name,content,createTime,embedding FROM memories '
       'WHERE isolationKey=? AND role=? AND type=? '
       'ORDER BY createTime DESC, id DESC',
       [_agentMemoryIsolationKey(projectId), _agentMemoryRole, _agentMemoryType],
@@ -532,7 +543,7 @@ extension AgentApi on Engine {
         name.trim().isEmpty ? '长期记忆' : name.trim(),
         trimmedContent,
         existing?['createTime'] as int? ?? now,
-        '',
+        _memoryEmbeddingJson(name, trimmedContent),
         _agentMemoryIsolationKey(projectId),
         '[]',
         _agentMemoryRole,
@@ -563,9 +574,12 @@ extension AgentApi on Engine {
     final records = agentLongTermMemories(projectId);
     final normalizedQuery = _normalizeMemoryText(query);
     final tokens = _memorySearchTokens(normalizedQuery);
+    final queryEmbedding = _memoryEmbeddingFromText(normalizedQuery);
     final scored = <(int, AgentMemoryRecord)>[];
-    for (final record in records) {
-      final score = _memoryScore(record, normalizedQuery, tokens);
+    for (var record in records) {
+      record = _ensureMemoryEmbedding(projectId, record);
+      final score =
+          _memoryScore(record, normalizedQuery, tokens, queryEmbedding);
       if (score > 0) scored.add((score, record));
     }
     scored.sort((a, b) {
@@ -593,10 +607,62 @@ extension AgentApi on Engine {
     return tokens;
   }
 
+  String _memoryEmbeddingJson(String name, String content) => jsonEncode(
+      _memoryEmbeddingFromText(_normalizeMemoryText('$name $content')));
+
+  Map<String, int> _memoryEmbeddingFromText(String text) {
+    final tokens = _memorySearchTokens(text);
+    final embedding = <String, int>{};
+    for (final token in tokens) {
+      if (token.length <= 1) continue;
+      embedding[token] = (embedding[token] ?? 0) + 1;
+    }
+    return Map.fromEntries(
+        embedding.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
+  }
+
+  AgentMemoryRecord _ensureMemoryEmbedding(
+    int projectId,
+    AgentMemoryRecord record,
+  ) {
+    if (record.embedding.trim().isNotEmpty) return record;
+    final embedding = _memoryEmbeddingJson(record.name, record.content);
+    db.execute(
+      'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
+      [embedding, record.id, _agentMemoryIsolationKey(projectId)],
+    );
+    return record.withEmbedding(embedding);
+  }
+
+  Map<String, int> _decodeMemoryEmbedding(String value) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! Map) return const {};
+      return {
+        for (final entry in decoded.entries)
+          if (entry.key is String && entry.value is num)
+            entry.key as String: (entry.value as num).toInt(),
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  int _embeddingScore(Map<String, int> query, Map<String, int> memory) {
+    var score = 0;
+    for (final entry in query.entries) {
+      final value = memory[entry.key];
+      if (value == null) continue;
+      score += entry.value < value ? entry.value : value;
+    }
+    return score;
+  }
+
   int _memoryScore(
     AgentMemoryRecord record,
     String query,
     Set<String> tokens,
+    Map<String, int> queryEmbedding,
   ) {
     if (query.isEmpty) return 1;
     final haystack = _normalizeMemoryText('${record.name}\n${record.content}');
@@ -605,6 +671,10 @@ extension AgentApi on Engine {
       if (token.length <= 1) continue;
       if (haystack.contains(token)) score += 10;
     }
+    score += _embeddingScore(
+      queryEmbedding,
+      _decodeMemoryEmbedding(record.embedding),
+    );
     return score;
   }
 

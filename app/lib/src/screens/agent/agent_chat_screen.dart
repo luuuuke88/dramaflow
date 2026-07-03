@@ -747,6 +747,33 @@ class _AgentMemoryPane extends ConsumerWidget {
     );
   }
 
+  Future<void> _editMemory(
+    BuildContext context,
+    WidgetRef ref,
+    AgentMemoryRecord memory,
+  ) async {
+    final l10n = context.l10n;
+    final draft = await showDialog<_MemoryDraft>(
+      context: context,
+      builder: (_) => _AgentMemoryDialog(memory: memory),
+    );
+    if (draft == null || !context.mounted) return;
+    await runAction(
+      context,
+      ref,
+      () async {
+        ref.read(engineProvider).saveAgentMemory(
+              projectId,
+              id: memory.id,
+              name: draft.name,
+              content: draft.content,
+            );
+        onChanged();
+      },
+      successMessage: l10n.agentMemoryUpdated,
+    );
+  }
+
   Future<void> _deleteMemory(
     BuildContext context,
     WidgetRef ref,
@@ -818,6 +845,13 @@ class _AgentMemoryPane extends ConsumerWidget {
                     ),
                   ),
                   IconButton(
+                    key: ValueKey('agent-memory-edit-${memory.id}'),
+                    tooltip: l10n.commonEdit,
+                    onPressed: () => _editMemory(context, ref, memory),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                  ),
+                  IconButton(
+                    key: ValueKey('agent-memory-delete-${memory.id}'),
                     tooltip: l10n.commonDelete,
                     onPressed: () => _deleteMemory(context, ref, memory),
                     icon: const Icon(Icons.delete_outline, size: 18),
@@ -881,7 +915,8 @@ class _MemoryDraft {
 }
 
 class _AgentMemoryDialog extends StatefulWidget {
-  const _AgentMemoryDialog();
+  final AgentMemoryRecord? memory;
+  const _AgentMemoryDialog({this.memory});
 
   @override
   State<_AgentMemoryDialog> createState() => _AgentMemoryDialogState();
@@ -898,6 +933,13 @@ class _AgentMemoryDialogState extends State<_AgentMemoryDialog> {
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _name.text = widget.memory?.name ?? '';
+    _content.text = widget.memory?.content ?? '';
+  }
+
   void _save() {
     final content = _content.text.trim();
     if (content.isEmpty) return;
@@ -911,7 +953,9 @@ class _AgentMemoryDialogState extends State<_AgentMemoryDialog> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return AlertDialog(
-      title: Text(l10n.agentMemoryCreateTitle),
+      title: Text(widget.memory == null
+          ? l10n.agentMemoryCreateTitle
+          : l10n.agentMemoryEditTitle),
       content: SizedBox(
         width: 460,
         child: Column(

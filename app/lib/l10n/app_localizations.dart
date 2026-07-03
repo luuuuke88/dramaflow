@@ -3538,6 +3538,12 @@ abstract class AppLocalizations {
   /// **'新增长期记忆'**
   String get agentMemoryCreateTitle;
 
+  /// No description provided for @agentMemoryEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑长期记忆'**
+  String get agentMemoryEditTitle;
+
   /// No description provided for @agentMemoryName.
   ///
   /// In zh, this message translates to:
@@ -3555,6 +3561,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'长期记忆已保存'**
   String get agentMemorySaved;
+
+  /// No description provided for @agentMemoryUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'长期记忆已更新'**
+  String get agentMemoryUpdated;
 
   /// No description provided for @agentMemoryDeleted.
   ///

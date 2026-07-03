@@ -1789,6 +1789,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentMemoryCreateTitle => '新增长期记忆';
 
   @override
+  String get agentMemoryEditTitle => '编辑长期记忆';
+
+  @override
   String get agentMemoryName => '记忆名称';
 
   @override
@@ -1796,6 +1799,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentMemorySaved => '长期记忆已保存';
+
+  @override
+  String get agentMemoryUpdated => '长期记忆已更新';
 
   @override
   String get agentMemoryDeleted => '长期记忆已删除';

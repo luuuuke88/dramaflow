@@ -282,4 +282,38 @@ void main() {
     expect(find.text('主角设定'), findsOneWidget);
     expect(find.textContaining('寒山少主李澈'), findsOneWidget);
   });
+
+  testWidgets('记忆页可编辑已有长期记忆', (tester) async {
+    final id = engine.saveAgentMemory(
+      projectId,
+      name: '主角设定',
+      content: '旧设定',
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('agent-memory-edit-$id')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑长期记忆'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-name-field')),
+      '主角新设定',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-content-field')),
+      '寒山少主李澈，不能写成反派。',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final memory = engine.agentLongTermMemories(projectId).single;
+    expect(memory.id, id);
+    expect(memory.name, '主角新设定');
+    expect(memory.content, contains('不能写成反派'));
+    expect(find.text('主角新设定'), findsOneWidget);
+  });
 }
