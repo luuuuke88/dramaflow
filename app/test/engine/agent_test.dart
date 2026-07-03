@@ -34,8 +34,7 @@ void main() {
       config: EngineConfig(db, isMobile: false),
       queueTick: const Duration(milliseconds: 10),
     );
-    db.execute(
-        "INSERT INTO o_prompt (name,type,data,useData) VALUES "
+    db.execute("INSERT INTO o_prompt (name,type,data,useData) VALUES "
         "('eventExtraction','eventExtraction','事件系统词',NULL)");
     engine.installNovelEventPipeline();
     engine.installScriptPipeline();
@@ -67,11 +66,9 @@ void main() {
   });
 
   test('manual 模式：一次工具调用后停止，等待用户下一句', () async {
-    final novelId = engine
-        .addNovels(projectId, const [
-          ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),
-        ])
-        .single;
+    final novelId = engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),
+    ]).single;
     gateway.turns = [
       AgentTurnResult.tool('generate_events', {
         'novelIds': [novelId]
@@ -108,8 +105,8 @@ void main() {
   });
 
   test('auto 模式在安全上限内停止（防止无限工具调用循环）', () async {
-    gateway.turns = List.generate(
-        10, (_) => const AgentTurnResult.tool('get_status', {}));
+    gateway.turns =
+        List.generate(10, (_) => const AgentTurnResult.tool('get_status', {}));
     await engine.sendAgentMessage(projectId, '一直做', autoMode: true);
     expect(gateway.callCount, 5, reason: '_maxAutoTurns=5 上限生效');
   });
@@ -146,7 +143,8 @@ void main() {
   test('LLM 调用失败时追加带错误码的助手消息', () async {
     gateway.shouldThrow = true;
     await engine.sendAgentMessage(projectId, '你好', autoMode: false);
-    expect(engine.agentMessages(projectId).last.content, contains('errLlmFormat'));
+    expect(
+        engine.agentMessages(projectId).last.content, contains('errLlmFormat'));
   });
 
   test('Agent 执行模式默认 manual 且持久化到 o_setting', () {
@@ -155,22 +153,58 @@ void main() {
     engine.setAgentUseMode(true);
     expect(engine.agentUseMode(), isTrue);
     expect(
-      db.select("SELECT value FROM o_setting WHERE key='agent.useMode'").single[
-          'value'],
+      db
+          .select("SELECT value FROM o_setting WHERE key='agent.useMode'")
+          .single['value'],
       'auto',
     );
     engine.setAgentUseMode(false);
     expect(engine.agentUseMode(), isFalse);
     expect(
-      db.select("SELECT value FROM o_setting WHERE key='agent.useMode'").single[
-          'value'],
+      db
+          .select("SELECT value FROM o_setting WHERE key='agent.useMode'")
+          .single['value'],
       'manual',
     );
+  });
+
+  test('技能定义 seed 到 o_skillList，编辑启停后影响传给模型的工具列表', () async {
+    final seeded = engine.agentSkills();
+    expect(seeded.map((s) => s.id), contains('generate_events'));
+    expect(
+      db
+          .select(
+            "SELECT COUNT(*) n FROM o_skillList WHERE type='builtin-agent'",
+          )
+          .single['n'],
+      seeded.length,
+    );
+
+    engine.updateAgentSkill(
+      'generate_events',
+      description: '只为用户指定的章节生成事件摘要。',
+      enabled: false,
+    );
+    final edited = engine
+        .agentSkills()
+        .singleWhere((skill) => skill.id == 'generate_events');
+    expect(edited.description, '只为用户指定的章节生成事件摘要。');
+    expect(edited.enabled, isFalse);
+
+    gateway.turns = [const AgentTurnResult.text('收到')];
+    await engine.sendAgentMessage(projectId, '列出可用能力', autoMode: false);
+
+    expect(
+      gateway.lastTools.map((tool) => tool.name),
+      isNot(contains('generate_events')),
+    );
+    expect(gateway.lastTools.map((tool) => tool.name), contains('get_status'));
   });
 }
 
 class _Gateway implements ProviderGateway {
   List<AgentTurnResult> turns = const [];
+  List<AgentToolDef> lastTools = const [];
   int callCount = 0;
   bool shouldThrow = false;
 
@@ -183,6 +217,7 @@ class _Gateway implements ProviderGateway {
     CancelToken? cancelToken,
   }) async {
     if (shouldThrow) throw Exception('boom');
+    lastTools = List<AgentToolDef>.from(tools);
     final r = turns[callCount];
     callCount++;
     return r;

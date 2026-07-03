@@ -169,4 +169,32 @@ void main() {
     expect(engine.agentMessages(projectId), isEmpty);
     expect(find.text('记忆条目 0'), findsOneWidget);
   });
+
+  testWidgets('技能页可编辑技能描述并启停技能定义', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('agent-skill-edit-generate_events')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑技能'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-skill-description-field')),
+      '只处理用户明确选择的章节事件。',
+    );
+    await tester.tap(find.byKey(const ValueKey('agent-skill-enabled-switch')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final skill = engine
+        .agentSkills()
+        .singleWhere((item) => item.id == 'generate_events');
+    expect(skill.description, '只处理用户明确选择的章节事件。');
+    expect(skill.enabled, isFalse);
+    expect(find.text('只处理用户明确选择的章节事件。'), findsOneWidget);
+  });
 }

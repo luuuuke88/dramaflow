@@ -1740,6 +1740,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentSkillsBuiltinTitle => '組み込み技能';
 
   @override
+  String get agentSkillsEditableHint =>
+      '技能定義はローカルの o_skillList に保存されます。説明と有効状態を編集できます。ツール名は固定され、タスクセンターの記録を追跡・再試行できる状態に保ちます。';
+
+  @override
+  String get agentSkillEditTitle => '技能を編集';
+
+  @override
+  String get agentSkillDescription => '技能説明';
+
+  @override
+  String get agentSkillEnabled => '技能を有効化';
+
+  @override
+  String get agentSkillEnabledTag => '有効';
+
+  @override
+  String get agentSkillDisabledTag => '無効';
+
+  @override
   String agentMemoryCount(int count) {
     return '記憶項目 $count';
   }

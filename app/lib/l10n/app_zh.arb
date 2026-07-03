@@ -743,6 +743,12 @@
   "agentDeployExecutionMode": "执行模式",
   "agentDeployModeSaved": "此设置会保存为项目内 Agent 默认执行方式",
   "agentSkillsBuiltinTitle": "内置技能",
+  "agentSkillsEditableHint": "技能定义保存在本地 o_skillList，可编辑说明与启停状态；工具名保持固定，确保任务中心可追踪、可重试。",
+  "agentSkillEditTitle": "编辑技能",
+  "agentSkillDescription": "技能说明",
+  "agentSkillEnabled": "启用技能",
+  "agentSkillEnabledTag": "已启用",
+  "agentSkillDisabledTag": "已停用",
   "agentMemoryCount": "记忆条目 {count}",
   "@agentMemoryCount": {
     "placeholders": {

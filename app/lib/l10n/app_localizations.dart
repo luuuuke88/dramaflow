@@ -3430,6 +3430,42 @@ abstract class AppLocalizations {
   /// **'内置技能'**
   String get agentSkillsBuiltinTitle;
 
+  /// No description provided for @agentSkillsEditableHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能定义保存在本地 o_skillList，可编辑说明与启停状态；工具名保持固定，确保任务中心可追踪、可重试。'**
+  String get agentSkillsEditableHint;
+
+  /// No description provided for @agentSkillEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑技能'**
+  String get agentSkillEditTitle;
+
+  /// No description provided for @agentSkillDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能说明'**
+  String get agentSkillDescription;
+
+  /// No description provided for @agentSkillEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用技能'**
+  String get agentSkillEnabled;
+
+  /// No description provided for @agentSkillEnabledTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'已启用'**
+  String get agentSkillEnabledTag;
+
+  /// No description provided for @agentSkillDisabledTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'已停用'**
+  String get agentSkillDisabledTag;
+
   /// No description provided for @agentMemoryCount.
   ///
   /// In zh, this message translates to:

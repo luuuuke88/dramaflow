@@ -1730,6 +1730,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentSkillsBuiltinTitle => '内置技能';
 
   @override
+  String get agentSkillsEditableHint =>
+      '技能定义保存在本地 o_skillList，可编辑说明与启停状态；工具名保持固定，确保任务中心可追踪、可重试。';
+
+  @override
+  String get agentSkillEditTitle => '编辑技能';
+
+  @override
+  String get agentSkillDescription => '技能说明';
+
+  @override
+  String get agentSkillEnabled => '启用技能';
+
+  @override
+  String get agentSkillEnabledTag => '已启用';
+
+  @override
+  String get agentSkillDisabledTag => '已停用';
+
+  @override
   String agentMemoryCount(int count) {
     return '记忆条目 $count';
   }

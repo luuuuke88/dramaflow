@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/agent.dart';
-import '../../engine/providers/openai_text.dart' show AgentToolDef;
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -223,7 +222,10 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
               ),
             ]),
             _AgentDeployPane(autoMode: _autoMode, onChanged: _setAutoMode),
-            _AgentSkillsPane(tools: ref.watch(engineProvider).agentTools),
+            _AgentSkillsPane(
+              skills: ref.watch(engineProvider).agentSkills(),
+              onUpdated: () => setState(() {}),
+            ),
             _AgentMemoryPane(messages: messages, onClear: _clearMemory),
           ],
         ),
@@ -268,17 +270,36 @@ class _AgentDeployPane extends StatelessWidget {
   }
 }
 
-class _AgentSkillsPane extends StatelessWidget {
-  final List<AgentToolDef> tools;
-  const _AgentSkillsPane({required this.tools});
+class _AgentSkillsPane extends ConsumerWidget {
+  final List<AgentSkill> skills;
+  final VoidCallback onUpdated;
+  const _AgentSkillsPane({required this.skills, required this.onUpdated});
+
+  Future<void> _editSkill(
+      BuildContext context, WidgetRef ref, AgentSkill skill) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => _AgentSkillDialog(
+        skill: skill,
+        onSave: (description, enabled) {
+          ref.read(engineProvider).updateAgentSkill(
+                skill.id,
+                description: description,
+                enabled: enabled,
+              );
+          onUpdated();
+        },
+      ),
+    );
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final df = context.df;
     return ListView.separated(
       padding: const EdgeInsets.all(16),
-      itemCount: tools.length + 1,
+      itemCount: skills.length + 1,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         if (index == 0) {
@@ -291,36 +312,134 @@ class _AgentSkillsPane extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: df.textPrimary)),
               const SizedBox(height: 6),
-              Text(l10n.agentChatSkillsBody,
+              Text(l10n.agentSkillsEditableHint,
                   style: TextStyle(fontSize: 12, color: df.textSecondary)),
             ],
           );
         }
-        final tool = tools[index - 1];
+        final skill = skills[index - 1];
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: df.surface,
+            color: skill.enabled ? df.surface : df.surfaceMuted,
             border: Border.all(color: df.stroke),
             borderRadius: BorderRadius.circular(DFTokens.radiusCard),
           ),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Icon(Icons.bolt_outlined, size: 16, color: df.primary),
+              Icon(
+                skill.enabled
+                    ? Icons.bolt_outlined
+                    : Icons.power_settings_new_outlined,
+                size: 16,
+                color: skill.enabled ? df.primary : df.textTertiary,
+              ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(tool.name,
+                child: Text(skill.name,
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w700)),
               ),
+              Text(
+                skill.enabled
+                    ? l10n.agentSkillEnabledTag
+                    : l10n.agentSkillDisabledTag,
+                style: TextStyle(fontSize: 11, color: df.textTertiary),
+              ),
+              IconButton(
+                key: ValueKey('agent-skill-edit-${skill.id}'),
+                tooltip: l10n.commonEdit,
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                onPressed: () => _editSkill(context, ref, skill),
+              ),
             ]),
             const SizedBox(height: 6),
-            Text(tool.description,
+            Text(skill.description,
                 style: TextStyle(fontSize: 12, color: df.textSecondary)),
           ]),
         );
       },
+    );
+  }
+}
+
+class _AgentSkillDialog extends StatefulWidget {
+  final AgentSkill skill;
+  final void Function(String description, bool enabled) onSave;
+  const _AgentSkillDialog({required this.skill, required this.onSave});
+
+  @override
+  State<_AgentSkillDialog> createState() => _AgentSkillDialogState();
+}
+
+class _AgentSkillDialogState extends State<_AgentSkillDialog> {
+  late final TextEditingController _description;
+  late bool _enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _description = TextEditingController(text: widget.skill.description);
+    _enabled = widget.skill.enabled;
+  }
+
+  @override
+  void dispose() {
+    _description.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.agentSkillEditTitle),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.skill.name,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('agent-skill-description-field'),
+                controller: _description,
+                minLines: 4,
+                maxLines: 8,
+                decoration: InputDecoration(
+                  labelText: l10n.agentSkillDescription,
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                key: const ValueKey('agent-skill-enabled-switch'),
+                contentPadding: EdgeInsets.zero,
+                value: _enabled,
+                onChanged: (value) => setState(() => _enabled = value),
+                title: Text(l10n.agentSkillEnabled),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () {
+            widget.onSave(_description.text.trim(), _enabled);
+            Navigator.pop(context);
+          },
+          child: Text(l10n.commonSave),
+        ),
+      ],
     );
   }
 }

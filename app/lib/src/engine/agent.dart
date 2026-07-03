@@ -50,6 +50,23 @@ class AgentMessage {
       );
 }
 
+class AgentSkill {
+  final String id;
+  final String name;
+  final String description;
+  final bool enabled;
+  final String type;
+  const AgentSkill({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.enabled,
+    required this.type,
+  });
+}
+
+const _agentSkillType = 'builtin-agent';
+
 final _tools = <AgentToolDef>[
   const AgentToolDef(
     name: 'get_status',
@@ -152,15 +169,106 @@ final _tools = <AgentToolDef>[
 ];
 
 extension AgentApi on Engine {
-  List<AgentToolDef> get agentTools => _tools;
+  List<AgentToolDef> get agentTools {
+    final skills = agentSkills();
+    return [
+      for (final skill in skills)
+        if (skill.enabled)
+          AgentToolDef(
+            name: skill.id,
+            description: skill.description.isEmpty
+                ? _defaultTool(skill.id)?.description ?? ''
+                : skill.description,
+            schema: _defaultTool(skill.id)?.schema ?? const {},
+          ),
+    ];
+  }
+
+  AgentToolDef? _defaultTool(String id) {
+    for (final tool in _tools) {
+      if (tool.name == id) return tool;
+    }
+    return null;
+  }
+
+  void _ensureAgentSkillsSeeded() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final tool in _tools) {
+      final exists =
+          db.select('SELECT id FROM o_skillList WHERE id=?', [tool.name]);
+      if (exists.isNotEmpty) continue;
+      db.execute(
+        'INSERT INTO o_skillList '
+        '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          tool.name,
+          tool.name,
+          tool.description,
+          1,
+          _agentSkillType,
+          now,
+          now,
+          '',
+          '',
+          '',
+        ],
+      );
+    }
+  }
+
+  List<AgentSkill> agentSkills() {
+    _ensureAgentSkillsSeeded();
+    final rows = db.select(
+      'SELECT id,name,description,state,type FROM o_skillList '
+      'WHERE type=? ORDER BY createTime ASC, id ASC',
+      [_agentSkillType],
+    );
+    return [
+      for (final row in rows)
+        AgentSkill(
+          id: row['id'] as String,
+          name: (row['name'] as String?)?.isNotEmpty == true
+              ? row['name'] as String
+              : row['id'] as String,
+          description: row['description'] as String? ?? '',
+          enabled: (row['state'] as int? ?? 1) != 0,
+          type: row['type'] as String? ?? _agentSkillType,
+        ),
+    ];
+  }
+
+  void updateAgentSkill(
+    String id, {
+    String? description,
+    bool? enabled,
+  }) {
+    _ensureAgentSkillsSeeded();
+    final row = db.select(
+      'SELECT id,description,state FROM o_skillList WHERE id=? AND type=?',
+      [id, _agentSkillType],
+    ).firstOrNull;
+    if (row == null) {
+      throw EngineException(errLlmFormat, {'reason': '技能不存在'});
+    }
+    db.execute(
+      'UPDATE o_skillList SET description=?, state=?, updateTime=? '
+      'WHERE id=? AND type=?',
+      [
+        description ?? row['description'] as String? ?? '',
+        enabled == null ? row['state'] as int? ?? 1 : (enabled ? 1 : 0),
+        DateTime.now().millisecondsSinceEpoch,
+        id,
+        _agentSkillType,
+      ],
+    );
+  }
 
   List<AgentMessage> agentMessages(int projectId) {
-    final row = db
-        .select(
-          "SELECT data FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL AND key='agentChat'",
-          [projectId],
-        )
-        .firstOrNull;
+    final row = db.select(
+      "SELECT data FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL AND key='agentChat'",
+      [projectId],
+    ).firstOrNull;
     if (row == null) return const [];
     try {
       final decoded = jsonDecode(row['data'] as String) as List;
@@ -174,12 +282,10 @@ extension AgentApi on Engine {
 
   void _saveAgentMessages(int projectId, List<AgentMessage> messages) {
     final json = jsonEncode([for (final m in messages) m.toJson()]);
-    final exists = db
-        .select(
-          "SELECT id FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL AND key='agentChat'",
-          [projectId],
-        )
-        .firstOrNull;
+    final exists = db.select(
+      "SELECT id FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL AND key='agentChat'",
+      [projectId],
+    ).firstOrNull;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (exists == null) {
       db.execute(
@@ -227,7 +333,8 @@ extension AgentApi on Engine {
   }) async {
     final messages = List<AgentMessage>.from(agentMessages(projectId));
     final now = DateTime.now().millisecondsSinceEpoch;
-    messages.add(AgentMessage(role: agentRoleUser, content: text, createdAt: now));
+    messages
+        .add(AgentMessage(role: agentRoleUser, content: text, createdAt: now));
     _saveAgentMessages(projectId, messages);
 
     const system = '你是短剧创作助手。你可以调用工具推进项目的制作流程'
@@ -247,10 +354,11 @@ extension AgentApi on Engine {
       ];
       AgentTurnResult result;
       try {
+        final tools = agentTools;
         result = await gateway.generateAgentTurn(
           system,
           history,
-          _tools,
+          tools,
           stage: 'script_gen',
         );
       } catch (e) {
@@ -276,8 +384,8 @@ extension AgentApi on Engine {
         return;
       }
 
-      final summary =
-          await _runTool(projectId, result.toolName!, result.toolArgs ?? const {});
+      final summary = await _runTool(
+          projectId, result.toolName!, result.toolArgs ?? const {});
       messages.add(AgentMessage(
         role: agentRoleTool,
         content: summary,
@@ -378,20 +486,16 @@ extension AgentApi on Engine {
     final eventTotal = events(projectId, limit: 1).total;
     final scriptRows = scripts(projectId);
     final scriptDone = scriptRows.where((s) => s.extractState == 1).length;
-    final storyboardCount = db
-        .select(
-          'SELECT COUNT(*) n FROM o_storyboard WHERE scriptId IN '
-          '(SELECT id FROM o_script WHERE projectId=?)',
-          [projectId],
-        )
-        .first['n'] as int;
-    final storyboardImageDone = db
-        .select(
-          "SELECT COUNT(*) n FROM o_storyboard WHERE state=? AND scriptId IN "
-          '(SELECT id FROM o_script WHERE projectId=?)',
-          [sbDone, projectId],
-        )
-        .first['n'] as int;
+    final storyboardCount = db.select(
+      'SELECT COUNT(*) n FROM o_storyboard WHERE scriptId IN '
+      '(SELECT id FROM o_script WHERE projectId=?)',
+      [projectId],
+    ).first['n'] as int;
+    final storyboardImageDone = db.select(
+      "SELECT COUNT(*) n FROM o_storyboard WHERE state=? AND scriptId IN "
+      '(SELECT id FROM o_script WHERE projectId=?)',
+      [sbDone, projectId],
+    ).first['n'] as int;
     final roles = roleAudioBindings(projectId);
     final roleBound = roles.where((r) => r.audioAssetId != null).length;
     return '章节 ${chapters.length} 个（事件已生成 $chapterDone 个，共 $eventTotal 条事件）；'
