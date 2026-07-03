@@ -136,7 +136,7 @@ class HttpProviderGateway implements ProviderGateway {
     required String stage,
     CancelToken? cancelToken,
   }) {
-    final model = resolveStage(db, stage);
+    final model = resolveAgentStage(db, stage);
     return openaiGenerateAgentTurn(dio, model, system, messages, tools,
         cancelToken: cancelToken);
   }

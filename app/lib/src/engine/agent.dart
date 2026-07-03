@@ -65,7 +65,34 @@ class AgentSkill {
   });
 }
 
+class AgentDeployment {
+  final String key;
+  final String name;
+  final String vendorId;
+  final String modelName;
+  final int maxOutputTokens;
+  final int temperature;
+  final bool disabled;
+  const AgentDeployment({
+    required this.key,
+    required this.name,
+    required this.vendorId,
+    required this.modelName,
+    required this.maxOutputTokens,
+    required this.temperature,
+    required this.disabled,
+  });
+}
+
 const _agentSkillType = 'builtin-agent';
+const _agentDeploymentType = 'agent-stage';
+const _agentDeploymentKeys = [
+  'script_gen',
+  'event_extract',
+  'asset_extract',
+  'storyboard_gen',
+  'video_prompt_gen',
+];
 
 final _tools = <AgentToolDef>[
   const AgentToolDef(
@@ -263,6 +290,141 @@ extension AgentApi on Engine {
       ],
     );
   }
+
+  void _ensureAgentDeploymentsSeeded() {
+    for (final key in _agentDeploymentKeys) {
+      final exists =
+          db.select('SELECT id FROM o_agentDeploy WHERE key=? LIMIT 1', [key]);
+      if (exists.isNotEmpty) continue;
+      final binding = db.select('SELECT value FROM o_setting WHERE key=?',
+          ['binding.$key']).firstOrNull?['value'] as String?;
+      final split = _splitBinding(binding);
+      db.execute(
+        'INSERT INTO o_agentDeploy '
+        '(key,name,desc,type,vendorId,modelName,model,disabled,maxOutputTokens,temperature) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          key,
+          key,
+          '',
+          _agentDeploymentType,
+          split.$1,
+          split.$2,
+          split.$1.isEmpty || split.$2.isEmpty ? '' : '${split.$1}:${split.$2}',
+          0,
+          8000,
+          70,
+        ],
+      );
+    }
+  }
+
+  List<AgentDeployment> agentDeployments() {
+    _ensureAgentDeploymentsSeeded();
+    return [
+      for (final row in db.select(
+        'SELECT key,name,vendorId,modelName,disabled,maxOutputTokens,temperature '
+        'FROM o_agentDeploy WHERE key IN (${List.filled(_agentDeploymentKeys.length, '?').join(',')}) '
+        'ORDER BY CASE key '
+        "WHEN 'script_gen' THEN 0 "
+        "WHEN 'event_extract' THEN 1 "
+        "WHEN 'asset_extract' THEN 2 "
+        "WHEN 'storyboard_gen' THEN 3 "
+        "WHEN 'video_prompt_gen' THEN 4 ELSE 99 END",
+        _agentDeploymentKeys,
+      ))
+        AgentDeployment(
+          key: row['key'] as String,
+          name: row['name'] as String? ?? row['key'] as String,
+          vendorId: row['vendorId'] as String? ?? '',
+          modelName: row['modelName'] as String? ?? '',
+          maxOutputTokens: row['maxOutputTokens'] as int? ?? 8000,
+          temperature: row['temperature'] as int? ?? 70,
+          disabled: _truthy(row['disabled']),
+        ),
+    ];
+  }
+
+  void updateAgentDeployment(
+    String key, {
+    String? vendorId,
+    String? modelName,
+    int? maxOutputTokens,
+    int? temperature,
+    bool? disabled,
+  }) {
+    if (!_agentDeploymentKeys.contains(key)) {
+      throw EngineException(errModelMissing, {'stage': key});
+    }
+    _ensureAgentDeploymentsSeeded();
+    final row = db
+        .select('SELECT * FROM o_agentDeploy WHERE key=? LIMIT 1', [key]).first;
+    final nextVendor = vendorId ?? row['vendorId'] as String? ?? '';
+    final nextModel = modelName ?? row['modelName'] as String? ?? '';
+    if (nextVendor.isNotEmpty || nextModel.isNotEmpty) {
+      final kind = _modelKind(nextVendor, nextModel);
+      if (kind != 'text') {
+        throw EngineException(errModelMissing, {
+          'stage': key,
+          'requiredKind': 'text',
+          'actualKind': kind,
+        });
+      }
+    }
+    final nextMaxTokens =
+        (maxOutputTokens ?? row['maxOutputTokens'] as int? ?? 8000)
+            .clamp(256, 64000)
+            .toInt();
+    final nextTemperature =
+        (temperature ?? row['temperature'] as int? ?? 70).clamp(0, 200).toInt();
+    db.execute(
+      'UPDATE o_agentDeploy SET vendorId=?, modelName=?, model=?, disabled=?, '
+      'maxOutputTokens=?, temperature=? WHERE key=?',
+      [
+        nextVendor,
+        nextModel,
+        nextVendor.isEmpty || nextModel.isEmpty ? '' : '$nextVendor:$nextModel',
+        disabled == null ? row['disabled'] as int? ?? 0 : (disabled ? 1 : 0),
+        nextMaxTokens,
+        nextTemperature,
+        key,
+      ],
+    );
+  }
+
+  (String, String) _splitBinding(String? value) {
+    if (value == null) return ('', '');
+    final sep = value.indexOf(':');
+    if (sep <= 0 || sep == value.length - 1) return ('', '');
+    return (value.substring(0, sep), value.substring(sep + 1));
+  }
+
+  String _modelKind(String providerId, String modelName) {
+    final rows = db.select(
+      'SELECT models FROM o_vendorConfig WHERE id=? AND COALESCE(enable,1)=1',
+      [providerId],
+    );
+    if (rows.isEmpty) {
+      throw EngineException(errProviderMissing, {'providerId': providerId});
+    }
+    final decoded = jsonDecode(rows.first['models'] as String? ?? '[]');
+    if (decoded is List) {
+      for (final item in decoded.whereType<Map>()) {
+        final candidate = Map<String, dynamic>.from(item);
+        if (candidate['modelId'] == modelName &&
+            (candidate['enabled'] == null ||
+                candidate['enabled'] == true ||
+                candidate['enabled'] == 1 ||
+                candidate['enabled'] == '1')) {
+          return candidate['kind'] as String? ?? '';
+        }
+      }
+    }
+    throw EngineException(errModelMissing, {'modelId': modelName});
+  }
+
+  bool _truthy(Object? value) =>
+      value == true || value == 1 || value == '1' || value == 'true';
 
   List<AgentMessage> agentMessages(int projectId) {
     final row = db.select(

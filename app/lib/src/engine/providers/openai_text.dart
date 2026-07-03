@@ -117,8 +117,8 @@ Future<Map<String, dynamic>> openaiGenerateToolJson(
       if (msg is Map) {
         final toolCalls = msg['tool_calls'];
         if (toolCalls is List && toolCalls.isNotEmpty) {
-          final args = ((toolCalls.first as Map?)?['function']
-              as Map?)?['arguments'];
+          final args =
+              ((toolCalls.first as Map?)?['function'] as Map?)?['arguments'];
           final parsed = _tryParseJsonObject(args is String ? args : null);
           if (parsed != null) return parsed;
         }
@@ -185,7 +185,8 @@ Future<AgentTurnResult> openaiGenerateAgentTurn(
           },
       ],
       'tool_choice': 'auto',
-      'max_completion_tokens': 8000,
+      'max_completion_tokens': model.maxOutputTokens ?? 8000,
+      if (model.temperature != null) 'temperature': model.temperature! / 100,
     },
     options: Options(
       headers: model.apiKey.isEmpty
@@ -207,8 +208,9 @@ Future<AgentTurnResult> openaiGenerateAgentTurn(
         if (toolCalls is List && toolCalls.isNotEmpty) {
           final call = (toolCalls.first as Map?)?['function'];
           final name = call?['name'] as String?;
-          final args = _tryParseJsonObject(
-                  call?['arguments'] is String ? call!['arguments'] as String : null) ??
+          final args = _tryParseJsonObject(call?['arguments'] is String
+                  ? call!['arguments'] as String
+                  : null) ??
               const {};
           if (name != null) return AgentTurnResult.tool(name, args);
         }

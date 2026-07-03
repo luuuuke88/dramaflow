@@ -10,6 +10,7 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/novel.dart';
 import 'package:dramaflow/src/engine/novel_parse.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -199,6 +200,59 @@ void main() {
       isNot(contains('generate_events')),
     );
     expect(gateway.lastTools.map((tool) => tool.name), contains('get_status'));
+  });
+
+  test('Agent 部署配置 seed 自阶段绑定，保存后 resolveAgentStage 优先使用部署模型与参数', () async {
+    final provider = await engine.createProvider(
+      name: 'azt',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'gpt-5.5',
+        'label': 'gpt-5.5',
+        'kind': 'text',
+        'enabled': true,
+      },
+      {
+        'modelId': 'gpt-5.4-mini',
+        'label': 'gpt-5.4-mini',
+        'kind': 'text',
+        'enabled': true,
+      },
+    ]);
+    await engine.setBinding('script_gen', provider.id, 'gpt-5.5');
+
+    final rows = engine.agentDeployments();
+    final scriptDeploy =
+        rows.singleWhere((deploy) => deploy.key == 'script_gen');
+    expect(scriptDeploy.vendorId, 'azt');
+    expect(scriptDeploy.modelName, 'gpt-5.5');
+    expect(scriptDeploy.maxOutputTokens, 8000);
+    expect(scriptDeploy.temperature, 70);
+    expect(scriptDeploy.disabled, isFalse);
+
+    engine.updateAgentDeployment(
+      'script_gen',
+      vendorId: 'azt',
+      modelName: 'gpt-5.4-mini',
+      maxOutputTokens: 1200,
+      temperature: 35,
+      disabled: false,
+    );
+
+    final resolved = resolveAgentStage(db, 'script_gen');
+    expect(resolved.providerId, 'azt');
+    expect(resolved.modelId, 'gpt-5.4-mini');
+    expect(resolved.maxOutputTokens, 1200);
+    expect(resolved.temperature, 35);
+
+    engine.updateAgentDeployment('script_gen', disabled: true);
+    final fallback = resolveAgentStage(db, 'script_gen');
+    expect(fallback.modelId, 'gpt-5.5');
+    expect(fallback.maxOutputTokens, isNull);
   });
 }
 

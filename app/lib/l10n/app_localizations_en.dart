@@ -1788,6 +1788,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'This setting is saved as the default Agent execution mode';
 
   @override
+  String get agentDeployStagesTitle => 'Stage deployments';
+
+  @override
+  String get agentDeployStagesHint =>
+      'Choose text models and call parameters for each Agent stage. Enabled rows override the normal model binding.';
+
+  @override
+  String get agentDeployModel => 'Model';
+
+  @override
+  String get agentDeployMaxTokens => 'Max output';
+
+  @override
+  String get agentDeployTemperature => 'Temperature x100';
+
+  @override
+  String get agentDeploySaved => 'Agent deployment saved';
+
+  @override
   String get agentSkillsBuiltinTitle => 'Built-in skills';
 
   @override

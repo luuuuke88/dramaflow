@@ -197,4 +197,61 @@ void main() {
     expect(skill.enabled, isFalse);
     expect(find.text('只处理用户明确选择的章节事件。'), findsOneWidget);
   });
+
+  testWidgets('部署页可配置阶段模型与 Agent 参数', (tester) async {
+    final provider = await engine.createProvider(
+      name: 'azt',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'gpt-5.5',
+        'label': 'gpt-5.5',
+        'kind': 'text',
+        'enabled': true,
+      },
+      {
+        'modelId': 'gpt-5.4-mini',
+        'label': 'gpt-5.4-mini',
+        'kind': 'text',
+        'enabled': true,
+      },
+    ]);
+    await engine.setBinding('script_gen', provider.id, 'gpt-5.5');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('部署'));
+    await tester.pumpAndSettle();
+    expect(find.text('剧本生成'), findsOneWidget);
+    expect(find.textContaining('gpt-5.5'), findsWidgets);
+
+    await tester
+        .tap(find.byKey(const ValueKey('agent-deploy-model-script_gen')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('gpt-5.4-mini').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-deploy-max-tokens-script_gen')),
+      '1200',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-deploy-temperature-script_gen')),
+      '35',
+    );
+    await tester
+        .tap(find.byKey(const ValueKey('agent-deploy-save-script_gen')));
+    await tester.pumpAndSettle();
+
+    final deployment = engine
+        .agentDeployments()
+        .singleWhere((item) => item.key == 'script_gen');
+    expect(deployment.modelName, 'gpt-5.4-mini');
+    expect(deployment.maxOutputTokens, 1200);
+    expect(deployment.temperature, 35);
+    expect(deployment.disabled, isFalse);
+  });
 }

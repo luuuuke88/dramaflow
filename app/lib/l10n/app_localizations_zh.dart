@@ -1727,6 +1727,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentDeployModeSaved => '此设置会保存为项目内 Agent 默认执行方式';
 
   @override
+  String get agentDeployStagesTitle => '阶段部署';
+
+  @override
+  String get agentDeployStagesHint => '为 Agent 各阶段指定文本模型与调用参数；启用后优先覆盖普通模型绑定。';
+
+  @override
+  String get agentDeployModel => '模型';
+
+  @override
+  String get agentDeployMaxTokens => '最大输出';
+
+  @override
+  String get agentDeployTemperature => '温度 x100';
+
+  @override
+  String get agentDeploySaved => 'Agent 部署已保存';
+
+  @override
   String get agentSkillsBuiltinTitle => '内置技能';
 
   @override

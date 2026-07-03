@@ -1737,6 +1737,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentDeployModeSaved => 'この設定は Agent の既定実行モードとして保存されます';
 
   @override
+  String get agentDeployStagesTitle => '段階デプロイ';
+
+  @override
+  String get agentDeployStagesHint =>
+      'Agent の各段階に使うテキストモデルと呼び出しパラメータを指定します。有効な行は通常のモデルバインドより優先されます。';
+
+  @override
+  String get agentDeployModel => 'モデル';
+
+  @override
+  String get agentDeployMaxTokens => '最大出力';
+
+  @override
+  String get agentDeployTemperature => '温度 x100';
+
+  @override
+  String get agentDeploySaved => 'Agent デプロイを保存しました';
+
+  @override
   String get agentSkillsBuiltinTitle => '組み込み技能';
 
   @override

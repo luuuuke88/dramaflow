@@ -22,6 +22,8 @@ class ResolvedModel {
   final String baseUrl;
   final String apiKey;
   final String modelId;
+  final int? maxOutputTokens;
+  final int? temperature;
 
   const ResolvedModel({
     required this.providerId,
@@ -29,7 +31,23 @@ class ResolvedModel {
     required this.baseUrl,
     required this.apiKey,
     required this.modelId,
+    this.maxOutputTokens,
+    this.temperature,
   });
+
+  ResolvedModel copyWith({
+    int? maxOutputTokens,
+    int? temperature,
+  }) =>
+      ResolvedModel(
+        providerId: providerId,
+        protocol: protocol,
+        baseUrl: baseUrl,
+        apiKey: apiKey,
+        modelId: modelId,
+        maxOutputTokens: maxOutputTokens ?? this.maxOutputTokens,
+        temperature: temperature ?? this.temperature,
+      );
 }
 
 String requiredKindForStage(String stage) {
@@ -91,6 +109,29 @@ ResolvedModel resolveStage(Database db, String stage) {
   );
 }
 
+/// Agent 体系页的部署配置：优先读取 `o_agentDeploy` 中启用的 stage 覆盖，
+/// 否则回退到普通 `binding.<stage>`，保持旧流水线可运行。
+ResolvedModel resolveAgentStage(Database db, String stage) {
+  final rows = db.select(
+    'SELECT vendorId,modelName,disabled,maxOutputTokens,temperature '
+    'FROM o_agentDeploy WHERE key=? LIMIT 1',
+    [stage],
+  );
+  if (rows.isEmpty || _disabled(rows.first['disabled'])) {
+    return resolveStage(db, stage);
+  }
+  final row = rows.first;
+  final providerId = (row['vendorId'] as String?)?.trim() ?? '';
+  final modelName = (row['modelName'] as String?)?.trim() ?? '';
+  if (providerId.isEmpty || modelName.isEmpty) {
+    return resolveStage(db, stage);
+  }
+  return resolveModelById(db, providerId, modelName).copyWith(
+    maxOutputTokens: row['maxOutputTokens'] as int?,
+    temperature: row['temperature'] as int?,
+  );
+}
+
 /// 按 providerId + modelId 直接解析一个已启用模型（用于逐次生成时覆盖阶段绑定，
 /// 对齐 ToonFlow generateAssets/generateFlowImage 的 model 入参）。kind 不限。
 ResolvedModel resolveModelById(Database db, String providerId, String modelId) {
@@ -141,3 +182,6 @@ List<dynamic> _jsonList(Object? value) {
 
 bool _enabled(Object? value) =>
     value == null || value == true || value == 1 || value == '1';
+
+bool _disabled(Object? value) =>
+    value == true || value == 1 || value == '1' || value == 'true';

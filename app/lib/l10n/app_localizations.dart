@@ -3424,6 +3424,42 @@ abstract class AppLocalizations {
   /// **'此设置会保存为项目内 Agent 默认执行方式'**
   String get agentDeployModeSaved;
 
+  /// No description provided for @agentDeployStagesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'阶段部署'**
+  String get agentDeployStagesTitle;
+
+  /// No description provided for @agentDeployStagesHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'为 Agent 各阶段指定文本模型与调用参数；启用后优先覆盖普通模型绑定。'**
+  String get agentDeployStagesHint;
+
+  /// No description provided for @agentDeployModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型'**
+  String get agentDeployModel;
+
+  /// No description provided for @agentDeployMaxTokens.
+  ///
+  /// In zh, this message translates to:
+  /// **'最大输出'**
+  String get agentDeployMaxTokens;
+
+  /// No description provided for @agentDeployTemperature.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度 x100'**
+  String get agentDeployTemperature;
+
+  /// No description provided for @agentDeploySaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 部署已保存'**
+  String get agentDeploySaved;
+
   /// No description provided for @agentSkillsBuiltinTitle.
   ///
   /// In zh, this message translates to:

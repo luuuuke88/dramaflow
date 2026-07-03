@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:dramaflow/l10n/app_localizations.dart';
+import '../../api/models.dart';
 import '../../engine/agent.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
@@ -234,15 +236,38 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   }
 }
 
-class _AgentDeployPane extends StatelessWidget {
+class _AgentDeployPane extends ConsumerStatefulWidget {
   final bool autoMode;
   final ValueChanged<bool> onChanged;
   const _AgentDeployPane({required this.autoMode, required this.onChanged});
 
   @override
+  ConsumerState<_AgentDeployPane> createState() => _AgentDeployPaneState();
+}
+
+class _AgentDeployPaneState extends ConsumerState<_AgentDeployPane> {
+  int _revision = 0;
+
+  Future<List<_AgentModelOption>> _loadModelOptions() async {
+    final engine = ref.read(engineProvider);
+    final providers = await engine.listProviders();
+    final options = <_AgentModelOption>[];
+    for (final provider in providers.where((item) => item.enabled)) {
+      final models = await engine.listProviderModels(provider.id);
+      for (final model
+          in models.where((item) => item.enabled && item.kind == 'text')) {
+        options.add(_AgentModelOption(provider: provider, model: model));
+      }
+    }
+    options.sort((a, b) => a.label.compareTo(b.label));
+    return options;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
+    final deployments = ref.watch(engineProvider).agentDeployments();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -257,15 +282,248 @@ class _AgentDeployPane extends StatelessWidget {
         const SizedBox(height: 12),
         SwitchListTile(
           key: const ValueKey('agent-deploy-mode-switch'),
-          value: autoMode,
-          onChanged: onChanged,
-          title: Text(
-              autoMode ? l10n.agentChatAutoMode : l10n.agentChatManualMode),
+          value: widget.autoMode,
+          onChanged: widget.onChanged,
+          title: Text(widget.autoMode
+              ? l10n.agentChatAutoMode
+              : l10n.agentChatManualMode),
           subtitle: Text(l10n.agentDeployModeSaved,
               style: TextStyle(fontSize: 12, color: df.textTertiary)),
           secondary: const Icon(Icons.account_tree_outlined),
         ),
+        const SizedBox(height: 18),
+        Text(l10n.agentDeployStagesTitle,
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: df.textPrimary)),
+        const SizedBox(height: 8),
+        Text(l10n.agentDeployStagesHint,
+            style: TextStyle(fontSize: 12, color: df.textSecondary)),
+        const SizedBox(height: 12),
+        FutureBuilder<List<_AgentModelOption>>(
+          key: ValueKey(_revision),
+          future: _loadModelOptions(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final options = snapshot.data ?? const <_AgentModelOption>[];
+            return Column(
+              children: [
+                for (final deployment in deployments)
+                  _AgentDeployRow(
+                    key: ValueKey('agent-deploy-row-${deployment.key}'),
+                    deployment: deployment,
+                    options: options,
+                    onSaved: () => setState(() => _revision++),
+                  ),
+              ],
+            );
+          },
+        ),
       ],
+    );
+  }
+}
+
+class _AgentModelOption {
+  final ProviderInfo provider;
+  final ProviderModelInfo model;
+  const _AgentModelOption({required this.provider, required this.model});
+
+  String get value => '${provider.id}:${model.modelId}';
+  String get label =>
+      '${provider.name} · ${model.label.isEmpty ? model.modelId : model.label}';
+}
+
+class _AgentDeployRow extends ConsumerStatefulWidget {
+  final AgentDeployment deployment;
+  final List<_AgentModelOption> options;
+  final VoidCallback onSaved;
+  const _AgentDeployRow({
+    super.key,
+    required this.deployment,
+    required this.options,
+    required this.onSaved,
+  });
+
+  @override
+  ConsumerState<_AgentDeployRow> createState() => _AgentDeployRowState();
+}
+
+class _AgentDeployRowState extends ConsumerState<_AgentDeployRow> {
+  late bool _enabled;
+  late String? _modelValue;
+  late final TextEditingController _maxTokens;
+  late final TextEditingController _temperature;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncFromDeployment();
+    _maxTokens = TextEditingController(
+        text: widget.deployment.maxOutputTokens.toString());
+    _temperature =
+        TextEditingController(text: widget.deployment.temperature.toString());
+  }
+
+  @override
+  void didUpdateWidget(covariant _AgentDeployRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deployment.key != widget.deployment.key ||
+        oldWidget.deployment.modelName != widget.deployment.modelName ||
+        oldWidget.deployment.vendorId != widget.deployment.vendorId ||
+        oldWidget.deployment.disabled != widget.deployment.disabled) {
+      _syncFromDeployment();
+      _maxTokens.text = widget.deployment.maxOutputTokens.toString();
+      _temperature.text = widget.deployment.temperature.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _maxTokens.dispose();
+    _temperature.dispose();
+    super.dispose();
+  }
+
+  void _syncFromDeployment() {
+    _enabled = !widget.deployment.disabled;
+    final value = widget.deployment.vendorId.isEmpty ||
+            widget.deployment.modelName.isEmpty
+        ? null
+        : '${widget.deployment.vendorId}:${widget.deployment.modelName}';
+    final optionValues = widget.options.map((option) => option.value).toSet();
+    _modelValue = value != null && optionValues.contains(value) ? value : null;
+  }
+
+  String _stageTitle(AppLocalizations l10n, String key) => switch (key) {
+        'script_gen' => l10n.stageScriptGenTitle,
+        'event_extract' => l10n.stageEventExtractTitle,
+        'asset_extract' => l10n.stageAssetExtractTitle,
+        'storyboard_gen' => l10n.stageStoryboardGenTitle,
+        'video_prompt_gen' => l10n.stageVideoPromptGenTitle,
+        _ => key,
+      };
+
+  Future<void> _save() async {
+    final selected = _modelValue;
+    if (selected == null) return;
+    final sep = selected.indexOf(':');
+    if (sep <= 0 || sep == selected.length - 1) return;
+    ref.read(engineProvider).updateAgentDeployment(
+          widget.deployment.key,
+          vendorId: selected.substring(0, sep),
+          modelName: selected.substring(sep + 1),
+          maxOutputTokens: int.tryParse(_maxTokens.text.trim()),
+          temperature: int.tryParse(_temperature.text.trim()),
+          disabled: !_enabled,
+        );
+    widget.onSaved();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.agentDeploySaved)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: df.surface,
+        border: Border.all(color: df.stroke),
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 680;
+          final title = Row(children: [
+            Expanded(
+              child: Text(
+                _stageTitle(l10n, widget.deployment.key),
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
+            Switch(
+              value: _enabled,
+              onChanged: (value) => setState(() => _enabled = value),
+            ),
+          ]);
+          final model = DropdownButtonFormField<String>(
+            key: ValueKey('agent-deploy-model-${widget.deployment.key}'),
+            initialValue: _modelValue,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: l10n.agentDeployModel),
+            items: [
+              for (final option in widget.options)
+                DropdownMenuItem(
+                    value: option.value, child: Text(option.label)),
+            ],
+            onChanged: (value) => setState(() => _modelValue = value),
+          );
+          final maxTokens = TextField(
+            key: ValueKey('agent-deploy-max-tokens-${widget.deployment.key}'),
+            controller: _maxTokens,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(labelText: l10n.agentDeployMaxTokens),
+          );
+          final temperature = TextField(
+            key: ValueKey('agent-deploy-temperature-${widget.deployment.key}'),
+            controller: _temperature,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(labelText: l10n.agentDeployTemperature),
+          );
+          final save = FilledButton.icon(
+            key: ValueKey('agent-deploy-save-${widget.deployment.key}'),
+            onPressed: _modelValue == null ? null : _save,
+            icon: const Icon(Icons.save_outlined, size: 18),
+            label: Text(l10n.commonSave),
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                title,
+                const SizedBox(height: 8),
+                model,
+                const SizedBox(height: 8),
+                maxTokens,
+                const SizedBox(height: 8),
+                temperature,
+                const SizedBox(height: 10),
+                Align(alignment: Alignment.centerRight, child: save),
+              ],
+            );
+          }
+          return Column(
+            children: [
+              title,
+              const SizedBox(height: 8),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(flex: 4, child: model),
+                const SizedBox(width: 10),
+                Expanded(child: maxTokens),
+                const SizedBox(width: 10),
+                Expanded(child: temperature),
+                const SizedBox(width: 10),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: save,
+                ),
+              ]),
+            ],
+          );
+        },
+      ),
     );
   }
 }
