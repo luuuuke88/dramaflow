@@ -51,16 +51,17 @@ class MainActivity : FlutterActivity() {
 
     private fun compose(segments: List<Map<String, String?>>, output: String) {
         if (segments.isEmpty()) throw ComposerException("视频片段不能为空")
-        val audioCount = segments.count { !it["audioPath"].isNullOrBlank() }
-        if (audioCount > 0) {
-            throw ComposerException("Android 当前合成器暂未支持分镜配音混合")
+        val inputs = segments.map {
+            ComposeSegmentInput(
+                videoPath = it["videoPath"] ?: throw ComposerException("视频路径不能为空"),
+                audioPath = it["audioPath"]?.takeIf { path -> path.isNotBlank() },
+            )
         }
-        concat(
-            segments.map {
-                it["videoPath"] ?: throw ComposerException("视频路径不能为空")
-            },
-            output,
-        )
+        if (inputs.none { it.audioPath != null }) {
+            concat(inputs.map { it.videoPath }, output)
+            return
+        }
+        composeWithExternalAudio(inputs, output)
     }
 
     private fun probeDuration(path: String): Double? {
@@ -113,6 +114,64 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun composeWithExternalAudio(segments: List<ComposeSegmentInput>, output: String) {
+        segments.forEach { ensureFile(it.videoPath) }
+        segments.mapNotNull { it.audioPath }.forEach(::ensureFile)
+
+        val inspected = segments.map { segment ->
+            val tracks = inspectTracks(segment.videoPath)
+            ComposeInspection(
+                segment = segment,
+                tracks = tracks,
+                externalAudio = segment.audioPath?.let(::inspectAudioTrack),
+                durationUs = max(durationUs(segment.videoPath), trackDurationUs(tracks.videoFormat)),
+            )
+        }
+        val first = inspected.first()
+        val outputAudioFormat = firstOutputAudioFormat(inspected)
+
+        val outputFile = File(output)
+        outputFile.parentFile?.mkdirs()
+        if (outputFile.exists()) outputFile.delete()
+
+        val muxer = MediaMuxer(output, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        var started = false
+        try {
+            val videoOutTrack = muxer.addTrack(first.tracks.videoFormat)
+            val audioOutTrack = outputAudioFormat?.let { muxer.addTrack(it) }
+            first.tracks.rotationDegrees?.let { muxer.setOrientationHint(it) }
+            muxer.start()
+            started = true
+
+            var offsetUs = 0L
+            for (item in inspected) {
+                ensureCompatible(first.tracks.videoFormat, item.tracks.videoFormat, item.segment.videoPath)
+                copyTrack(item.segment.videoPath, item.tracks.videoIndex, muxer, videoOutTrack, offsetUs)
+                if (audioOutTrack != null) {
+                    val externalAudio = item.externalAudio
+                    if (externalAudio != null) {
+                        ensureCompatible(outputAudioFormat, externalAudio.audioFormat, item.segment.audioPath!!)
+                        copyExternalAudioTrack(
+                            item.segment.audioPath,
+                            externalAudio.audioIndex,
+                            muxer,
+                            audioOutTrack,
+                            offsetUs,
+                            item.durationUs,
+                        )
+                    } else if (item.tracks.audioIndex != null) {
+                        ensureCompatible(outputAudioFormat, item.tracks.audioFormat, item.segment.videoPath)
+                        copyTrack(item.segment.videoPath, item.tracks.audioIndex, muxer, audioOutTrack, offsetUs)
+                    }
+                }
+                offsetUs += item.durationUs
+            }
+        } finally {
+            if (started) muxer.stop()
+            muxer.release()
+        }
+    }
+
     private fun inspectTracks(path: String): TrackInspection {
         val extractor = MediaExtractor()
         try {
@@ -144,12 +203,38 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun inspectAudioTrack(path: String): AudioInspection {
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(path)
+            for (i in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
+                if (mime.startsWith("audio/")) {
+                    return AudioInspection(i, format)
+                }
+            }
+            throw ComposerException("音频文件没有音频轨：$path")
+        } finally {
+            extractor.release()
+        }
+    }
+
+    private fun firstOutputAudioFormat(inspected: List<ComposeInspection>): MediaFormat? {
+        for (item in inspected) {
+            item.externalAudio?.audioFormat?.let { return it }
+            item.tracks.audioFormat?.let { return it }
+        }
+        return null
+    }
+
     private fun copyTrack(
         path: String,
         trackIndex: Int,
         muxer: MediaMuxer,
         muxerTrackIndex: Int,
         offsetUs: Long,
+        maxInputDurationUs: Long? = null,
     ) {
         val extractor = MediaExtractor()
         try {
@@ -158,9 +243,11 @@ class MainActivity : FlutterActivity() {
             val buffer = ByteBuffer.allocateDirect(4 * 1024 * 1024)
             val info = android.media.MediaCodec.BufferInfo()
             while (true) {
+                buffer.clear()
                 val size = extractor.readSampleData(buffer, 0)
                 if (size < 0) break
                 val sampleTime = extractor.sampleTime
+                if (maxInputDurationUs != null && sampleTime >= maxInputDurationUs) break
                 if (sampleTime >= 0) {
                     info.set(0, size, sampleTime + offsetUs, extractor.sampleFlags)
                     muxer.writeSampleData(muxerTrackIndex, buffer, info)
@@ -170,6 +257,17 @@ class MainActivity : FlutterActivity() {
         } finally {
             extractor.release()
         }
+    }
+
+    private fun copyExternalAudioTrack(
+        path: String,
+        trackIndex: Int,
+        muxer: MediaMuxer,
+        muxerTrackIndex: Int,
+        offsetUs: Long,
+        segmentDurationUs: Long,
+    ) {
+        copyTrack(path, trackIndex, muxer, muxerTrackIndex, offsetUs, segmentDurationUs)
     }
 
     private fun ensureCompatible(
@@ -231,6 +329,23 @@ private data class TrackInspection(
     val audioIndex: Int?,
     val audioFormat: MediaFormat?,
     val rotationDegrees: Int?,
+)
+
+private data class AudioInspection(
+    val audioIndex: Int,
+    val audioFormat: MediaFormat,
+)
+
+private data class ComposeSegmentInput(
+    val videoPath: String,
+    val audioPath: String?,
+)
+
+private data class ComposeInspection(
+    val segment: ComposeSegmentInput,
+    val tracks: TrackInspection,
+    val externalAudio: AudioInspection?,
+    val durationUs: Long,
 )
 
 private class ComposerException(message: String) : Exception(message)

@@ -608,3 +608,12 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
   通过；`flutter analyze` 零 issue；`flutter test` 248/248 通过；
   `flutter build macos --debug`、`flutter build ios --simulator`、
   `flutter build apk --debug`、`flutter build web` 均通过。
+- ✅ Android 配音导出从“遇到 audioPath 直接降级”推进到“无重编码封装独立配音轨”：
+  `MainActivity.compose` 在存在 `audioPath` 时不再直接抛“暂不支持”，而是用
+  `MediaMuxer` 复制视频轨，并将每个分镜的外部 AAC/M4A 音频轨按该镜头时长裁剪后写入
+  输出音轨；无 `audioPath` 时保留原 `concat` 快路径。限制仍然明确：这不是 PCM 混音器，
+  若要“源视频原声 + 配音 + BGM”真正叠混，仍需 Media3 Transformer/FFmpeg Kit。
+- ✅ Android 配音封装验证已跑：先用
+  `flutter test test/platform/android_composer_static_test.dart` 观察到缺口红灯，再实现；
+  之后该测试通过，`flutter build apk --debug` 通过，`flutter analyze` 零 issue，
+  `flutter test` 248/248 通过。

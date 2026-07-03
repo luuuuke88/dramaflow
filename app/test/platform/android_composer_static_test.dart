@@ -28,9 +28,13 @@ void main() {
     expect(activitySource, contains('compose'));
     expect(
       activitySource,
-      contains('Android 当前合成器暂未支持分镜配音混合'),
+      contains('copyExternalAudioTrack'),
       reason:
-          'Android must fail audio timelines explicitly until native mixing lands.',
+          'Android should at least mux silent video with standalone voice audio.',
+    );
+    expect(
+      activitySource,
+      isNot(contains('Android 当前合成器暂未支持分镜配音混合')),
     );
   });
 }
