@@ -192,6 +192,16 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       getAssets(projectId,
           type: type, page: page, limit: limit, search: search);
 
+  /// 按 id 批量取资产（跨类型），供制作画布资产节点展示关联资产缩略图。
+  List<AssetRow> assetsByIds(List<int> ids) {
+    if (ids.isEmpty) return const [];
+    final rows = db.select(
+      '$_assetSelect WHERE a.id IN (${_ph(ids)})',
+      ids,
+    );
+    return [for (final r in rows) _assetFromRow(r)];
+  }
+
   List<AssetImageRow> assetImages(int assetsId) {
     final selectedId = db
         .select('SELECT imageId FROM o_assets WHERE id=?', [assetsId])

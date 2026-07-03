@@ -1287,4 +1287,119 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get assetsSelectAtLeastOne => '1 件以上選択してください';
+
+  @override
+  String get productionEditImageInvalidConnection => '接続できません：接続先は生成ノードのみ、重複不可';
+
+  @override
+  String get productionEditImageUploadImage => '画像をアップロード';
+
+  @override
+  String get productionEditImageImageGeneration => '画像生成';
+
+  @override
+  String get productionEditImageGenerating => '生成中...';
+
+  @override
+  String get productionEditImagePromptPlaceholder => '生成内容を入力';
+
+  @override
+  String get productionEditImageGenerateBtn => '生成';
+
+  @override
+  String get productionEditImageUpload => 'アップロードノード';
+
+  @override
+  String get productionEditImageGenerate => '生成ノード';
+
+  @override
+  String get productionNodeScriptTitle => '脚本';
+
+  @override
+  String get productionNodeScriptPlanTitle => '脚本プラン';
+
+  @override
+  String get productionNodeAssetsTitle => 'アセット';
+
+  @override
+  String get productionNodeStoryboardTableTitle => '絵コンテ表';
+
+  @override
+  String get productionNodeStoryboardTitle => '絵コンテ';
+
+  @override
+  String get productionNodeWorkbenchTitle => 'ワークベンチ';
+
+  @override
+  String get productionSelectEpisode => '話数を選択';
+
+  @override
+  String get productionNoScripts => '脚本がありません。脚本管理で作成してください';
+
+  @override
+  String get productionGoToScripts => '脚本を作成';
+
+  @override
+  String get productionStoryboardGenerate => '絵コンテ生成';
+
+  @override
+  String get productionStoryboardGenerating => '絵コンテ生成中...';
+
+  @override
+  String productionStoryboardSelectedCount(String count) {
+    return '$count 件選択中';
+  }
+
+  @override
+  String get productionStoryboardSelectAll => 'すべて選択';
+
+  @override
+  String get productionStoryboardClearSelection => '選択解除';
+
+  @override
+  String get productionStoryboardBatchGenerateImage => '画像生成';
+
+  @override
+  String get productionStoryboardDeleteNode => '削除';
+
+  @override
+  String get productionStoryboardEditNode => '編集';
+
+  @override
+  String get productionStoryboardScaleRatio => '拡大縮小';
+
+  @override
+  String get productionStoryboardNotGenerated => '未生成';
+
+  @override
+  String get productionStoryboardVideoDesc => '画面説明';
+
+  @override
+  String get productionStoryboardVideoDescPlaceholder => '画面説明を入力';
+
+  @override
+  String get productionStoryboardPrompt => 'プロンプト';
+
+  @override
+  String get productionStoryboardPromptPlaceholder => '絵コンテのプロンプトを入力';
+
+  @override
+  String get productionStoryboardConfirmDeleteBody => 'このカットを削除しますか？';
+
+  @override
+  String productionStoryboardConfirmBatchDeleteBody(String count) {
+    return '選択した $count 件のカットを削除しますか？';
+  }
+
+  @override
+  String get productionStoryboardInsertHint => 'カットを挿入';
+
+  @override
+  String get productionStoryboardEditImageEntry => 'ノードエディタ';
+
+  @override
+  String get productionChatDisabledHint => 'エージェントチャットは今後のバッチで提供予定';
+
+  @override
+  String get productionEmptyProject => '先にプロジェクトを選択してください';
 }

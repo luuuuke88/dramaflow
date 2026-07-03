@@ -39,8 +39,7 @@ final _projectMenus = <_ProjectMenu>[
       'cornerScape', (c) => c.l10n.menuCornerScape, Icons.record_voice_over_outlined,
       comingBatch: 'P4'),
   _ProjectMenu(
-      'production', (c) => c.l10n.menuProduction, Icons.movie_filter_outlined,
-      comingBatch: 'P3'),
+      'production', (c) => c.l10n.menuProduction, Icons.movie_filter_outlined),
   _ProjectMenu(
       'assets', (c) => c.l10n.menuAssetCenter, Icons.inventory_2_outlined),
 ];

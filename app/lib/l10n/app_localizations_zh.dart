@@ -1278,4 +1278,119 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get assetsSelectAtLeastOne => '请至少选择一项';
+
+  @override
+  String get productionEditImageInvalidConnection => '无法连接：仅可连到生成节点且不可重复';
+
+  @override
+  String get productionEditImageUploadImage => '上传图片';
+
+  @override
+  String get productionEditImageImageGeneration => '图片生成';
+
+  @override
+  String get productionEditImageGenerating => '生成中...';
+
+  @override
+  String get productionEditImagePromptPlaceholder => '描述生成需求';
+
+  @override
+  String get productionEditImageGenerateBtn => '生成';
+
+  @override
+  String get productionEditImageUpload => '上传节点';
+
+  @override
+  String get productionEditImageGenerate => '生成节点';
+
+  @override
+  String get productionNodeScriptTitle => '剧本';
+
+  @override
+  String get productionNodeScriptPlanTitle => '剧本规划';
+
+  @override
+  String get productionNodeAssetsTitle => '资产';
+
+  @override
+  String get productionNodeStoryboardTableTitle => '分镜表';
+
+  @override
+  String get productionNodeStoryboardTitle => '分镜';
+
+  @override
+  String get productionNodeWorkbenchTitle => '工作台';
+
+  @override
+  String get productionSelectEpisode => '选择剧集';
+
+  @override
+  String get productionNoScripts => '暂无剧本，请先在「剧本管理」创建';
+
+  @override
+  String get productionGoToScripts => '去创建剧本';
+
+  @override
+  String get productionStoryboardGenerate => '生成分镜';
+
+  @override
+  String get productionStoryboardGenerating => '分镜生成中...';
+
+  @override
+  String productionStoryboardSelectedCount(String count) {
+    return '已选择 $count 个';
+  }
+
+  @override
+  String get productionStoryboardSelectAll => '全选';
+
+  @override
+  String get productionStoryboardClearSelection => '清空选择';
+
+  @override
+  String get productionStoryboardBatchGenerateImage => '生成图片';
+
+  @override
+  String get productionStoryboardDeleteNode => '删除';
+
+  @override
+  String get productionStoryboardEditNode => '编辑';
+
+  @override
+  String get productionStoryboardScaleRatio => '缩放';
+
+  @override
+  String get productionStoryboardNotGenerated => '未生成';
+
+  @override
+  String get productionStoryboardVideoDesc => '画面描述';
+
+  @override
+  String get productionStoryboardVideoDescPlaceholder => '请输入画面描述';
+
+  @override
+  String get productionStoryboardPrompt => '提示词';
+
+  @override
+  String get productionStoryboardPromptPlaceholder => '请输入分镜提示词';
+
+  @override
+  String get productionStoryboardConfirmDeleteBody => '确定要删除该分镜吗？';
+
+  @override
+  String productionStoryboardConfirmBatchDeleteBody(String count) {
+    return '确定要删除选中的 $count 个分镜吗？';
+  }
+
+  @override
+  String get productionStoryboardInsertHint => '插入分镜';
+
+  @override
+  String get productionStoryboardEditImageEntry => '节点编辑器';
+
+  @override
+  String get productionChatDisabledHint => 'Agent 对话在后续批次开放';
+
+  @override
+  String get productionEmptyProject => '请先选择项目';
 }

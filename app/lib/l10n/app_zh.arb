@@ -542,5 +542,56 @@
   "assetsBatchImageDone": "图片批量生成已提交",
   "assetsBatchSaveSuccess": "保存成功",
   "assetsCancelBtn": "取消",
-  "assetsSelectAtLeastOne": "请至少选择一项"
+  "assetsSelectAtLeastOne": "请至少选择一项",
+  "productionEditImageInvalidConnection": "无法连接：仅可连到生成节点且不可重复",
+  "productionEditImageUploadImage": "上传图片",
+  "productionEditImageImageGeneration": "图片生成",
+  "productionEditImageGenerating": "生成中...",
+  "productionEditImagePromptPlaceholder": "描述生成需求",
+  "productionEditImageGenerateBtn": "生成",
+  "productionEditImageUpload": "上传节点",
+  "productionEditImageGenerate": "生成节点",
+  "productionNodeScriptTitle": "剧本",
+  "productionNodeScriptPlanTitle": "剧本规划",
+  "productionNodeAssetsTitle": "资产",
+  "productionNodeStoryboardTableTitle": "分镜表",
+  "productionNodeStoryboardTitle": "分镜",
+  "productionNodeWorkbenchTitle": "工作台",
+  "productionSelectEpisode": "选择剧集",
+  "productionNoScripts": "暂无剧本，请先在「剧本管理」创建",
+  "productionGoToScripts": "去创建剧本",
+  "productionStoryboardGenerate": "生成分镜",
+  "productionStoryboardGenerating": "分镜生成中...",
+  "productionStoryboardSelectedCount": "已选择 {count} 个",
+  "@productionStoryboardSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "productionStoryboardSelectAll": "全选",
+  "productionStoryboardClearSelection": "清空选择",
+  "productionStoryboardBatchGenerateImage": "生成图片",
+  "productionStoryboardDeleteNode": "删除",
+  "productionStoryboardEditNode": "编辑",
+  "productionStoryboardScaleRatio": "缩放",
+  "productionStoryboardNotGenerated": "未生成",
+  "productionStoryboardVideoDesc": "画面描述",
+  "productionStoryboardVideoDescPlaceholder": "请输入画面描述",
+  "productionStoryboardPrompt": "提示词",
+  "productionStoryboardPromptPlaceholder": "请输入分镜提示词",
+  "productionStoryboardConfirmDeleteBody": "确定要删除该分镜吗？",
+  "productionStoryboardConfirmBatchDeleteBody": "确定要删除选中的 {count} 个分镜吗？",
+  "@productionStoryboardConfirmBatchDeleteBody": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "productionStoryboardInsertHint": "插入分镜",
+  "productionStoryboardEditImageEntry": "节点编辑器",
+  "productionChatDisabledHint": "Agent 对话在后续批次开放",
+  "productionEmptyProject": "请先选择项目"
 }

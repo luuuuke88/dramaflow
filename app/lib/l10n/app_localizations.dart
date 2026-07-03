@@ -2565,6 +2565,228 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'请至少选择一项'**
   String get assetsSelectAtLeastOne;
+
+  /// No description provided for @productionEditImageInvalidConnection.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法连接：仅可连到生成节点且不可重复'**
+  String get productionEditImageInvalidConnection;
+
+  /// No description provided for @productionEditImageUploadImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传图片'**
+  String get productionEditImageUploadImage;
+
+  /// No description provided for @productionEditImageImageGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片生成'**
+  String get productionEditImageImageGeneration;
+
+  /// No description provided for @productionEditImageGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成中...'**
+  String get productionEditImageGenerating;
+
+  /// No description provided for @productionEditImagePromptPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述生成需求'**
+  String get productionEditImagePromptPlaceholder;
+
+  /// No description provided for @productionEditImageGenerateBtn.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成'**
+  String get productionEditImageGenerateBtn;
+
+  /// No description provided for @productionEditImageUpload.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传节点'**
+  String get productionEditImageUpload;
+
+  /// No description provided for @productionEditImageGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成节点'**
+  String get productionEditImageGenerate;
+
+  /// No description provided for @productionNodeScriptTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本'**
+  String get productionNodeScriptTitle;
+
+  /// No description provided for @productionNodeScriptPlanTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本规划'**
+  String get productionNodeScriptPlanTitle;
+
+  /// No description provided for @productionNodeAssetsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'资产'**
+  String get productionNodeAssetsTitle;
+
+  /// No description provided for @productionNodeStoryboardTableTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜表'**
+  String get productionNodeStoryboardTableTitle;
+
+  /// No description provided for @productionNodeStoryboardTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜'**
+  String get productionNodeStoryboardTitle;
+
+  /// No description provided for @productionNodeWorkbenchTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作台'**
+  String get productionNodeWorkbenchTitle;
+
+  /// No description provided for @productionSelectEpisode.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择剧集'**
+  String get productionSelectEpisode;
+
+  /// No description provided for @productionNoScripts.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无剧本，请先在「剧本管理」创建'**
+  String get productionNoScripts;
+
+  /// No description provided for @productionGoToScripts.
+  ///
+  /// In zh, this message translates to:
+  /// **'去创建剧本'**
+  String get productionGoToScripts;
+
+  /// No description provided for @productionStoryboardGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成分镜'**
+  String get productionStoryboardGenerate;
+
+  /// No description provided for @productionStoryboardGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜生成中...'**
+  String get productionStoryboardGenerating;
+
+  /// No description provided for @productionStoryboardSelectedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选择 {count} 个'**
+  String productionStoryboardSelectedCount(String count);
+
+  /// No description provided for @productionStoryboardSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get productionStoryboardSelectAll;
+
+  /// No description provided for @productionStoryboardClearSelection.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空选择'**
+  String get productionStoryboardClearSelection;
+
+  /// No description provided for @productionStoryboardBatchGenerateImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成图片'**
+  String get productionStoryboardBatchGenerateImage;
+
+  /// No description provided for @productionStoryboardDeleteNode.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get productionStoryboardDeleteNode;
+
+  /// No description provided for @productionStoryboardEditNode.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get productionStoryboardEditNode;
+
+  /// No description provided for @productionStoryboardScaleRatio.
+  ///
+  /// In zh, this message translates to:
+  /// **'缩放'**
+  String get productionStoryboardScaleRatio;
+
+  /// No description provided for @productionStoryboardNotGenerated.
+  ///
+  /// In zh, this message translates to:
+  /// **'未生成'**
+  String get productionStoryboardNotGenerated;
+
+  /// No description provided for @productionStoryboardVideoDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'画面描述'**
+  String get productionStoryboardVideoDesc;
+
+  /// No description provided for @productionStoryboardVideoDescPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入画面描述'**
+  String get productionStoryboardVideoDescPlaceholder;
+
+  /// No description provided for @productionStoryboardPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get productionStoryboardPrompt;
+
+  /// No description provided for @productionStoryboardPromptPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入分镜提示词'**
+  String get productionStoryboardPromptPlaceholder;
+
+  /// No description provided for @productionStoryboardConfirmDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除该分镜吗？'**
+  String get productionStoryboardConfirmDeleteBody;
+
+  /// No description provided for @productionStoryboardConfirmBatchDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除选中的 {count} 个分镜吗？'**
+  String productionStoryboardConfirmBatchDeleteBody(String count);
+
+  /// No description provided for @productionStoryboardInsertHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'插入分镜'**
+  String get productionStoryboardInsertHint;
+
+  /// No description provided for @productionStoryboardEditImageEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点编辑器'**
+  String get productionStoryboardEditImageEntry;
+
+  /// No description provided for @productionChatDisabledHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 对话在后续批次开放'**
+  String get productionChatDisabledHint;
+
+  /// No description provided for @productionEmptyProject.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先选择项目'**
+  String get productionEmptyProject;
 }
 
 class _AppLocalizationsDelegate

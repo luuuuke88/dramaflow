@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'screens/assets/assets_screen.dart';
 import 'screens/coming_soon_screen.dart';
 import 'screens/novel/novel_screen.dart';
+import 'screens/production/production_screen.dart';
 import 'screens/project/project_list_screen.dart';
 import 'screens/script/script_screen.dart';
 import 'screens/settings_screen.dart';
@@ -49,7 +50,8 @@ final _router = GoRouter(
             builder: (c, s) => const ComingSoonScreen(batch: 'P4')),
         GoRoute(
             path: '/p/:pid/production',
-            builder: (c, s) => const ComingSoonScreen(batch: 'P3')),
+            builder: (c, s) => ProductionScreen(
+                projectId: int.parse(s.pathParameters['pid']!))),
         GoRoute(
             path: '/p/:pid/assets',
             builder: (c, s) =>

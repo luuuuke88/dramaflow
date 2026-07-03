@@ -10,6 +10,7 @@
 // 本操作是交互式同步调用（用户点击等待），不入队列（与 ToonFlow 该端点同为同步语义，
 // 不产生 o_tasks 行）。
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'engine.dart';
 
@@ -63,6 +64,11 @@ class ImageFlowData {
 }
 
 extension ImageFlowApi on Engine {
+  /// 编辑器上传节点选图：落盘为普通媒体文件，返回相对路径。
+  String saveFlowUploadImage(int projectId, Uint8List bytes) =>
+      media.saveImage(bytes, '$projectId');
+
+
   ImageFlowData getImageFlow(int? flowId) {
     if (flowId == null) return const ImageFlowData(nodes: [], edges: []);
     final row = db

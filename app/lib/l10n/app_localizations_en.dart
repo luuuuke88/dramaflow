@@ -1315,4 +1315,122 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get assetsSelectAtLeastOne => 'Select at least one item';
+
+  @override
+  String get productionEditImageInvalidConnection =>
+      'Cannot connect: target must be a generation node and not duplicate';
+
+  @override
+  String get productionEditImageUploadImage => 'Upload Image';
+
+  @override
+  String get productionEditImageImageGeneration => 'Image Generation';
+
+  @override
+  String get productionEditImageGenerating => 'Generating...';
+
+  @override
+  String get productionEditImagePromptPlaceholder =>
+      'Describe what to generate';
+
+  @override
+  String get productionEditImageGenerateBtn => 'Generate';
+
+  @override
+  String get productionEditImageUpload => 'Upload Node';
+
+  @override
+  String get productionEditImageGenerate => 'Generation Node';
+
+  @override
+  String get productionNodeScriptTitle => 'Script';
+
+  @override
+  String get productionNodeScriptPlanTitle => 'Script Plan';
+
+  @override
+  String get productionNodeAssetsTitle => 'Assets';
+
+  @override
+  String get productionNodeStoryboardTableTitle => 'Storyboard Table';
+
+  @override
+  String get productionNodeStoryboardTitle => 'Storyboard';
+
+  @override
+  String get productionNodeWorkbenchTitle => 'Workbench';
+
+  @override
+  String get productionSelectEpisode => 'Select episode';
+
+  @override
+  String get productionNoScripts => 'No scripts yet — create one in Scripts';
+
+  @override
+  String get productionGoToScripts => 'Go create a script';
+
+  @override
+  String get productionStoryboardGenerate => 'Generate Storyboard';
+
+  @override
+  String get productionStoryboardGenerating => 'Generating storyboard...';
+
+  @override
+  String productionStoryboardSelectedCount(String count) {
+    return '$count selected';
+  }
+
+  @override
+  String get productionStoryboardSelectAll => 'Select All';
+
+  @override
+  String get productionStoryboardClearSelection => 'Clear';
+
+  @override
+  String get productionStoryboardBatchGenerateImage => 'Generate Images';
+
+  @override
+  String get productionStoryboardDeleteNode => 'Delete';
+
+  @override
+  String get productionStoryboardEditNode => 'Edit';
+
+  @override
+  String get productionStoryboardScaleRatio => 'Scale';
+
+  @override
+  String get productionStoryboardNotGenerated => 'Not generated';
+
+  @override
+  String get productionStoryboardVideoDesc => 'Shot description';
+
+  @override
+  String get productionStoryboardVideoDescPlaceholder =>
+      'Enter shot description';
+
+  @override
+  String get productionStoryboardPrompt => 'Prompt';
+
+  @override
+  String get productionStoryboardPromptPlaceholder => 'Enter shot prompt';
+
+  @override
+  String get productionStoryboardConfirmDeleteBody => 'Delete this shot?';
+
+  @override
+  String productionStoryboardConfirmBatchDeleteBody(String count) {
+    return 'Delete the selected $count shots?';
+  }
+
+  @override
+  String get productionStoryboardInsertHint => 'Insert shot';
+
+  @override
+  String get productionStoryboardEditImageEntry => 'Node Editor';
+
+  @override
+  String get productionChatDisabledHint => 'Agent chat ships in a later batch';
+
+  @override
+  String get productionEmptyProject => 'Select a project first';
 }
