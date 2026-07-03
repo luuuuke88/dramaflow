@@ -26,6 +26,24 @@ class AVFoundationComposer implements VideoComposer {
     );
   }
 
+  @override
+  Future<void> compose(
+      List<ComposeSegment> segments, String outputAbsPath) async {
+    await _invoke<void>(
+      'compose',
+      {
+        'segments': [
+          for (final segment in segments)
+            {
+              'videoPath': segment.videoAbsPath,
+              'audioPath': segment.audioAbsPath,
+            },
+        ],
+        'output': outputAbsPath,
+      },
+    );
+  }
+
   Future<T?> _invoke<T>(String method, Object? arguments) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);

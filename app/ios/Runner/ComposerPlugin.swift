@@ -6,6 +6,7 @@ private enum ComposerPluginError: LocalizedError {
   case invalidArguments
   case fileMissing(String)
   case noVideoTrack(String)
+  case noAudioTrack(String)
   case invalidDuration(String)
   case exportSessionUnavailable
   case exportFailed
@@ -18,6 +19,8 @@ private enum ComposerPluginError: LocalizedError {
       return "视频文件不存在：\(path)"
     case .noVideoTrack(let path):
       return "视频文件没有视频轨：\(path)"
+    case .noAudioTrack(let path):
+      return "音频文件没有音频轨：\(path)"
     case .invalidDuration(let path):
       return "视频时长无效：\(path)"
     case .exportSessionUnavailable:
@@ -34,6 +37,11 @@ private final class ExportSessionBox: @unchecked Sendable {
   init(_ session: AVAssetExportSession) {
     self.session = session
   }
+}
+
+private struct ComposeSegment {
+  let videoPath: String
+  let audioPath: String?
 }
 
 final class ComposerPlugin {
@@ -73,6 +81,17 @@ final class ComposerPlugin {
           result(flutterError(error))
         }
       }
+    case "compose":
+      Task {
+        do {
+          let segments = try composeSegmentsArgument(call.arguments, key: "segments")
+          let output = try stringArgument(call.arguments, key: "output")
+          try await compose(segments: segments, output: output)
+          result(nil)
+        } catch {
+          result(flutterError(error))
+        }
+      }
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -87,9 +106,13 @@ final class ComposerPlugin {
   }
 
   private func concat(paths: [String], output: String) async throws {
-    if paths.isEmpty {
-      throw ComposerPluginError.invalidArguments
-    }
+    try await compose(
+      segments: paths.map { ComposeSegment(videoPath: $0, audioPath: nil) },
+      output: output)
+  }
+
+  private func compose(segments: [ComposeSegment], output: String) async throws {
+    if segments.isEmpty { throw ComposerPluginError.invalidArguments }
 
     let composition = AVMutableComposition()
     guard let compositionVideoTrack = composition.addMutableTrack(
@@ -101,23 +124,46 @@ final class ComposerPlugin {
     let compositionAudioTrack = composition.addMutableTrack(
       withMediaType: .audio,
       preferredTrackID: kCMPersistentTrackID_Invalid)
+    var compositionVoiceTrack: AVMutableCompositionTrack?
 
     var cursor = CMTime.zero
-    for path in paths {
-      try ensureFileExists(path)
-      let asset = AVAsset(url: URL(fileURLWithPath: path))
+    for segment in segments {
+      try ensureFileExists(segment.videoPath)
+      let asset = AVAsset(url: URL(fileURLWithPath: segment.videoPath))
       let duration = try await loadDuration(asset)
       if !CMTimeGetSeconds(duration).isFinite || CMTimeCompare(duration, .zero) <= 0 {
-        throw ComposerPluginError.invalidDuration(path)
+        throw ComposerPluginError.invalidDuration(segment.videoPath)
       }
       guard let videoTrack = asset.tracks(withMediaType: .video).first else {
-        throw ComposerPluginError.noVideoTrack(path)
+        throw ComposerPluginError.noVideoTrack(segment.videoPath)
       }
 
       let timeRange = CMTimeRange(start: .zero, duration: duration)
       try compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: cursor)
       if let audioTrack = asset.tracks(withMediaType: .audio).first {
         try compositionAudioTrack?.insertTimeRange(timeRange, of: audioTrack, at: cursor)
+      }
+
+      if let audioPath = segment.audioPath, !audioPath.isEmpty {
+        try ensureFileExists(audioPath)
+        let audioAsset = AVAsset(url: URL(fileURLWithPath: audioPath))
+        let audioDuration = try await loadDuration(audioAsset)
+        if !CMTimeGetSeconds(audioDuration).isFinite || CMTimeCompare(audioDuration, .zero) <= 0 {
+          throw ComposerPluginError.invalidDuration(audioPath)
+        }
+        guard let voiceTrack = audioAsset.tracks(withMediaType: .audio).first else {
+          throw ComposerPluginError.noAudioTrack(audioPath)
+        }
+        if compositionVoiceTrack == nil {
+          compositionVoiceTrack = composition.addMutableTrack(
+            withMediaType: .audio,
+            preferredTrackID: kCMPersistentTrackID_Invalid)
+          if compositionVoiceTrack == nil {
+            throw ComposerPluginError.exportSessionUnavailable
+          }
+        }
+        let voiceRange = CMTimeRange(start: .zero, duration: minTime(audioDuration, duration))
+        try compositionVoiceTrack?.insertTimeRange(voiceRange, of: voiceTrack, at: cursor)
       }
       cursor = CMTimeAdd(cursor, duration)
     }
@@ -140,6 +186,10 @@ final class ComposerPlugin {
     exportSession.outputFileType = .mp4
     exportSession.shouldOptimizeForNetworkUse = true
     try await export(exportSession)
+  }
+
+  private func minTime(_ lhs: CMTime, _ rhs: CMTime) -> CMTime {
+    CMTimeCompare(lhs, rhs) <= 0 ? lhs : rhs
   }
 
   private func loadDuration(_ asset: AVAsset) async throws -> CMTime {
@@ -202,6 +252,23 @@ final class ComposerPlugin {
       throw ComposerPluginError.invalidArguments
     }
     return values
+  }
+
+  private func composeSegmentsArgument(_ arguments: Any?, key: String) throws -> [ComposeSegment] {
+    guard let dict = arguments as? [String: Any],
+          let values = dict[key] as? [[String: Any]],
+          !values.isEmpty
+    else {
+      throw ComposerPluginError.invalidArguments
+    }
+    return try values.map { value in
+      guard let videoPath = value["videoPath"] as? String, !videoPath.isEmpty else {
+        throw ComposerPluginError.invalidArguments
+      }
+      let rawAudioPath = value["audioPath"] as? String
+      let audioPath = rawAudioPath?.isEmpty == true ? nil : rawAudioPath
+      return ComposeSegment(videoPath: videoPath, audioPath: audioPath)
+    }
   }
 
   private func flutterError(_ error: Error) -> FlutterError {

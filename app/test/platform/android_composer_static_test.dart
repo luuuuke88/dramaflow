@@ -3,7 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Android uses the native video composer channel instead of UnsupportedComposer',
+  test(
+      'Android uses the native video composer channel instead of UnsupportedComposer',
       () {
     final bootstrapSource =
         File('lib/src/bootstrap/bootstrap_io.dart').readAsStringSync();
@@ -24,5 +25,12 @@ void main() {
     expect(activitySource, contains('dramaflow/composer'));
     expect(activitySource, contains('probeDuration'));
     expect(activitySource, contains('concat'));
+    expect(activitySource, contains('compose'));
+    expect(
+      activitySource,
+      contains('Android 当前合成器暂未支持分镜配音混合'),
+      reason:
+          'Android must fail audio timelines explicitly until native mixing lands.',
+    );
   });
 }

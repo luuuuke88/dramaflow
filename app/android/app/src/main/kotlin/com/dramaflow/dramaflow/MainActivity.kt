@@ -33,12 +33,34 @@ class MainActivity : FlutterActivity() {
                         concat(paths, output)
                         result.success(null)
                     }
+                    "compose" -> {
+                        val segments = call.argument<List<Map<String, String?>>>("segments")
+                            ?: throw ComposerException("视频片段不能为空")
+                        val output = call.argument<String>("output")
+                            ?: throw ComposerException("输出路径不能为空")
+                        compose(segments, output)
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             } catch (e: Exception) {
                 result.error("composer_error", e.message ?: "视频合成失败", null)
             }
         }
+    }
+
+    private fun compose(segments: List<Map<String, String?>>, output: String) {
+        if (segments.isEmpty()) throw ComposerException("视频片段不能为空")
+        val audioCount = segments.count { !it["audioPath"].isNullOrBlank() }
+        if (audioCount > 0) {
+            throw ComposerException("Android 当前合成器暂未支持分镜配音混合")
+        }
+        concat(
+            segments.map {
+                it["videoPath"] ?: throw ComposerException("视频路径不能为空")
+            },
+            output,
+        )
     }
 
     private fun probeDuration(path: String): Double? {

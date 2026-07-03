@@ -583,5 +583,16 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
   `audioAssetId/audioText/audioPath/audioState/audioError`，`StoryboardRow` 可回读；
   新增 `StoryboardAudioApi.bindStoryboardAudio` 与 `orderedStoryboardAudioPaths`，先把
   “每个镜头绑定哪段配音”这层数据打通，为后续合成混音做准备。
-- ⚠️ 合成混音仍未完成：当前 `composeEpisode` 仍只按分镜顺序拼接选中视频，尚未把
-  `orderedStoryboardAudioPaths` 的音频混入视频；下一步应扩展 `VideoComposer` 原生通道。
+- ✅ 分镜配音已接入整集合成时间线：`composeEpisode` 会按分镜顺序生成
+  `ComposeSegment(videoAbsPath,audioAbsPath)`，有任一镜头绑定配音时走
+  `VideoComposer.compose`，无配音时保持原 `concat` 快路径；回归测试锁定
+  “纯视频仍 concat / 带配音传视频+音频时间线”两条分支。
+- ✅ macOS/iOS AVFoundation 合成器已支持配音混入：Flutter method channel 新增
+  `compose(segments, output)`；Swift 插件逐段插入视频轨、保留原视频音轨，并将分镜
+  配音作为额外音轨按镜头时长裁剪插入。`concat` 复用同一 compose 实现，减少双路径漂移。
+- ⚠️ Android 配音混音仍未完成：Android method channel 已新增 `compose`，无配音时退回
+  当前 `MediaMuxer` 直拼；有配音时明确抛出“Android 当前合成器暂未支持分镜配音混合”。
+  要在 Android 上真正混音，仍需升级到 Media3 Transformer/FFmpeg Kit 等可转码管线。
+- ✅ 本轮接力验证已跑：`flutter analyze` 零 issue；`flutter test` 248/248 通过；
+  `flutter build macos --debug` 通过；`flutter build ios --simulator` 通过；
+  `flutter build apk --debug` 通过。

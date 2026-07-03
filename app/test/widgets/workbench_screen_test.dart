@@ -26,7 +26,14 @@ class _NoopGateway implements ProviderGateway {
 
 class _FakeComposer implements VideoComposer {
   @override
-  Future<void> concat(List<String> segmentAbsPaths, String outputAbsPath) async {
+  Future<void> concat(
+      List<String> segmentAbsPaths, String outputAbsPath) async {
+    File(outputAbsPath).writeAsBytesSync([0]);
+  }
+
+  @override
+  Future<void> compose(
+      List<ComposeSegment> segments, String outputAbsPath) async {
     File(outputAbsPath).writeAsBytesSync([0]);
   }
 

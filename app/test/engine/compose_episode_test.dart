@@ -1,5 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
 
+import 'package:dramaflow/src/engine/assets.dart';
+import 'package:dramaflow/src/engine/audio_bind.dart';
 import 'package:dramaflow/src/engine/compose.dart';
 import 'package:dramaflow/src/engine/compose_episode.dart';
 import 'package:dramaflow/src/engine/config.dart';
@@ -10,6 +13,7 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/storyboard_audio.dart';
 import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -24,11 +28,20 @@ class _NoopGateway implements ProviderGateway {
 /// 2026-07-03 修复）。此处锁定 engine.composer 确实是传入的实例。
 class _FakeComposer implements VideoComposer {
   final List<List<String>> concatCalls = [];
+  final List<List<ComposeSegment>> composeCalls = [];
   double? probedDuration = 4.0;
 
   @override
-  Future<void> concat(List<String> segmentAbsPaths, String outputAbsPath) async {
+  Future<void> concat(
+      List<String> segmentAbsPaths, String outputAbsPath) async {
     concatCalls.add(segmentAbsPaths);
+    File(outputAbsPath).writeAsBytesSync([0]);
+  }
+
+  @override
+  Future<void> compose(
+      List<ComposeSegment> segments, String outputAbsPath) async {
+    composeCalls.add(segments);
     File(outputAbsPath).writeAsBytesSync([0]);
   }
 
@@ -106,7 +119,44 @@ void main() {
     expect(result.segmentCount, 1);
     expect(result.durationSec, 4.0);
     expect(composer.concatCalls.single.single, contains('vid_1.mp4'));
-    expect(File(engine.mediaAbsPath(result.outputRelPath)).existsSync(), isTrue);
+    expect(composer.composeCalls, isEmpty);
+    expect(
+        File(engine.mediaAbsPath(result.outputRelPath)).existsSync(), isTrue);
+  });
+
+  test('composeEpisode：存在分镜配音时传递视频+音频时间线给 composer', () async {
+    final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final track1 = engine.ensureTrackForStoryboard(sb1);
+    db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [track1, 'p/vid_1.mp4', vtDone]);
+    engine.selectVideo(track1, db.lastInsertRowId);
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: 'alloy',
+      sex: '男',
+      describe: '沉稳',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '少侠，该醒了。',
+          name: 'alloy-1',
+          describe: '平静',
+          existingImageId: null,
+        ),
+      ],
+    );
+    engine.bindStoryboardAudio(
+        storyboardId: sb1, audioAssetId: audioId, audioText: '少侠，该醒了。');
+
+    final result = await engine.composeEpisode(projectId, scriptId);
+
+    expect(result.segmentCount, 1);
+    expect(composer.concatCalls, isEmpty);
+    final segment = composer.composeCalls.single.single;
+    expect(segment.videoAbsPath, engine.mediaAbsPath('p/vid_1.mp4'));
+    expect(segment.audioAbsPath, engine.audioAssetAbsPath(audioId));
   });
 
   test('composeEpisode：存在未选中分镜时抛 errPromptMissing 且不拼接', () async {
