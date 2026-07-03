@@ -1709,6 +1709,35 @@ class AppLocalizationsZh extends AppLocalizations {
       '我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。';
 
   @override
+  String get agentTabChat => '对话';
+
+  @override
+  String get agentTabDeploy => '部署';
+
+  @override
+  String get agentTabSkills => '技能';
+
+  @override
+  String get agentTabMemory => '记忆';
+
+  @override
+  String get agentDeployExecutionMode => '执行模式';
+
+  @override
+  String get agentDeployModeSaved => '此设置会保存为项目内 Agent 默认执行方式';
+
+  @override
+  String get agentSkillsBuiltinTitle => '内置技能';
+
+  @override
+  String agentMemoryCount(int count) {
+    return '记忆条目 $count';
+  }
+
+  @override
+  String get agentMemoryEmpty => '暂无记忆。发送消息后会在这里显示可检查的上下文记录。';
+
+  @override
   String get cornerScapeSearchHint => '搜索角色名称';
 
   @override

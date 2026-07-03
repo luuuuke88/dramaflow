@@ -3388,6 +3388,60 @@ abstract class AppLocalizations {
   /// **'我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。'**
   String get agentChatSkillsBody;
 
+  /// No description provided for @agentTabChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话'**
+  String get agentTabChat;
+
+  /// No description provided for @agentTabDeploy.
+  ///
+  /// In zh, this message translates to:
+  /// **'部署'**
+  String get agentTabDeploy;
+
+  /// No description provided for @agentTabSkills.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能'**
+  String get agentTabSkills;
+
+  /// No description provided for @agentTabMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆'**
+  String get agentTabMemory;
+
+  /// No description provided for @agentDeployExecutionMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行模式'**
+  String get agentDeployExecutionMode;
+
+  /// No description provided for @agentDeployModeSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'此设置会保存为项目内 Agent 默认执行方式'**
+  String get agentDeployModeSaved;
+
+  /// No description provided for @agentSkillsBuiltinTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'内置技能'**
+  String get agentSkillsBuiltinTitle;
+
+  /// No description provided for @agentMemoryCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆条目 {count}'**
+  String agentMemoryCount(int count);
+
+  /// No description provided for @agentMemoryEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无记忆。发送消息后会在这里显示可检查的上下文记录。'**
+  String get agentMemoryEmpty;
+
   /// No description provided for @cornerScapeSearchHint.
   ///
   /// In zh, this message translates to:

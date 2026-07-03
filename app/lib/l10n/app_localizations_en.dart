@@ -1769,6 +1769,37 @@ class AppLocalizationsEn extends AppLocalizations {
       'Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported.';
 
   @override
+  String get agentTabChat => 'Chat';
+
+  @override
+  String get agentTabDeploy => 'Deploy';
+
+  @override
+  String get agentTabSkills => 'Skills';
+
+  @override
+  String get agentTabMemory => 'Memory';
+
+  @override
+  String get agentDeployExecutionMode => 'Execution mode';
+
+  @override
+  String get agentDeployModeSaved =>
+      'This setting is saved as the default Agent execution mode';
+
+  @override
+  String get agentSkillsBuiltinTitle => 'Built-in skills';
+
+  @override
+  String agentMemoryCount(int count) {
+    return '$count memory items';
+  }
+
+  @override
+  String get agentMemoryEmpty =>
+      'No memory yet. Sent messages will appear here as inspectable context records.';
+
+  @override
   String get cornerScapeSearchHint => 'Search role name';
 
   @override

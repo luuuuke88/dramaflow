@@ -1719,6 +1719,36 @@ class AppLocalizationsJa extends AppLocalizations {
       '私が呼び出せる機能はすべて既存パイプラインの実際の動作で、呼び出すたびにタスクセンターに確認・再試行可能な記録が残ります：イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像生成、動画生成、配音マッチング、合成書き出し。カスタムスクリプト技能には対応していません。';
 
   @override
+  String get agentTabChat => '対話';
+
+  @override
+  String get agentTabDeploy => '配置';
+
+  @override
+  String get agentTabSkills => '技能';
+
+  @override
+  String get agentTabMemory => '記憶';
+
+  @override
+  String get agentDeployExecutionMode => '実行モード';
+
+  @override
+  String get agentDeployModeSaved => 'この設定は Agent の既定実行モードとして保存されます';
+
+  @override
+  String get agentSkillsBuiltinTitle => '組み込み技能';
+
+  @override
+  String agentMemoryCount(int count) {
+    return '記憶項目 $count';
+  }
+
+  @override
+  String get agentMemoryEmpty =>
+      '記憶はまだありません。送信したメッセージは確認可能なコンテキストとしてここに表示されます。';
+
+  @override
   String get cornerScapeSearchHint => 'キャラクター名を検索';
 
   @override

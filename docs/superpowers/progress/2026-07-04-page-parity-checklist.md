@@ -116,13 +116,13 @@ Next Verification: If task-center UI changes, keep the 390px smoke and add a rea
 
 Status: Partial
 
-Desktop Evidence: `app/test/widgets/agent_chat_screen_test.dart`, `app/test/widgets/canvas_chat_panel_test.dart`, and `app/test/engine/agent_test.dart` cover basic persisted messages, tool dispatch, errors, and production panel entry.
+Desktop Evidence: `app/test/widgets/agent_chat_screen_test.dart`, `app/test/widgets/canvas_chat_panel_test.dart`, and `app/test/engine/agent_test.dart` cover basic persisted messages, tool dispatch, errors, production panel entry, deployment-mode persistence, built-in skill list display, and memory listing/clearing.
 
 Mobile Evidence: `app/test/widgets/production_screen_test.dart` covers 390px Agent entry from production.
 
-Known Gaps: Full ToonFlow multi-layer Agent + RAG memory, skill editing, deployment configuration, and custom JS skill execution are not fully replicated.
+Known Gaps: Full ToonFlow multi-layer Agent + RAG memory, editable skill definitions, full model/parameter deployment configuration, and custom JS skill execution are not fully replicated.
 
-Next Verification: Treat full Agent parity as its own subsystem plan; add page tests for deployment mode persistence, skill list display, and memory management before claiming this page complete.
+Next Verification: Treat full Agent parity as its own subsystem plan; add engine/UI coverage for editable skill definitions, per-stage deployment model/parameter configuration, and any accepted RAG/custom-skill scope before claiming this page complete.
 
 ## 全套设置
 

@@ -736,6 +736,22 @@
   "agentChatModeHint": "手动模式每次只执行一步并等待你确认；自动模式会连续执行工具链（安全上限内）。",
   "agentChatSkillsInfo": "内置能力",
   "agentChatSkillsBody": "我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。",
+  "agentTabChat": "对话",
+  "agentTabDeploy": "部署",
+  "agentTabSkills": "技能",
+  "agentTabMemory": "记忆",
+  "agentDeployExecutionMode": "执行模式",
+  "agentDeployModeSaved": "此设置会保存为项目内 Agent 默认执行方式",
+  "agentSkillsBuiltinTitle": "内置技能",
+  "agentMemoryCount": "记忆条目 {count}",
+  "@agentMemoryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentMemoryEmpty": "暂无记忆。发送消息后会在这里显示可检查的上下文记录。",
   "cornerScapeSearchHint": "搜索角色名称",
   "cornerScapeFilterAll": "全部",
   "cornerScapeFilterBound": "已绑定",

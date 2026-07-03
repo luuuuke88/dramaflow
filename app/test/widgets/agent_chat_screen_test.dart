@@ -134,4 +134,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('自动连跑'), findsOneWidget);
   });
+
+  testWidgets('Agent 体系页展示部署配置、技能列表与记忆管理', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '记录一条记忆');
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+    expect(engine.agentMessages(projectId), hasLength(2));
+
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+    expect(find.text('generate_events'), findsOneWidget);
+    expect(find.textContaining('为章节生成事件摘要'), findsOneWidget);
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+    expect(find.text('记忆条目 2'), findsOneWidget);
+    expect(find.text('记录一条记忆'), findsOneWidget);
+
+    await tester.tap(find.text('部署'));
+    await tester.pumpAndSettle();
+    expect(find.text('执行模式'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('agent-deploy-mode-switch')));
+    await tester.pumpAndSettle();
+    expect(engine.agentUseMode(), isTrue);
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('清空记忆'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+    expect(engine.agentMessages(projectId), isEmpty);
+    expect(find.text('记忆条目 0'), findsOneWidget);
+  });
 }

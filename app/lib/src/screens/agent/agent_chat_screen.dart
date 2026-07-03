@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/agent.dart';
+import '../../engine/providers/openai_text.dart' show AgentToolDef;
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -101,11 +102,11 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text(l10n.agentChatSkillsInfo),
-        content: SizedBox(
-            width: 420, child: Text(l10n.agentChatSkillsBody)),
+        content: SizedBox(width: 420, child: Text(l10n.agentChatSkillsBody)),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(c), child: Text(l10n.commonConfirm)),
+              onPressed: () => Navigator.pop(c),
+              child: Text(l10n.commonConfirm)),
         ],
       ),
     );
@@ -117,94 +118,267 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     final df = context.df;
     final messages = ref.watch(engineProvider).agentMessages(widget.projectId);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.agentChatTitle),
-        actions: [
-          IconButton(
-            tooltip: l10n.agentChatSkillsInfo,
-            icon: const Icon(Icons.info_outline),
-            onPressed: _showSkillsInfo,
-          ),
-          Tooltip(
-            message: l10n.agentChatModeHint,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(children: [
-                Text(
-                    _autoMode
-                        ? l10n.agentChatAutoMode
-                        : l10n.agentChatManualMode,
-                    style: const TextStyle(fontSize: 12)),
-                Switch(
-                  value: _autoMode,
-                  onChanged: _setAutoMode,
-                ),
-              ]),
-            ),
-          ),
-          IconButton(
-            tooltip: l10n.agentChatClearMemory,
-            icon: const Icon(Icons.delete_sweep_outlined),
-            onPressed: _clearMemory,
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Column(children: [
-        Expanded(
-          child: ListView(
-            controller: _scroll,
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (messages.isEmpty) _WelcomeBubble(text: l10n.agentChatWelcome),
-              for (final m in messages) _MessageBubble(message: m),
-              if (_sending)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(children: [
-                    const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2)),
-                    const SizedBox(width: 8),
-                    Text(l10n.agentChatThinking,
-                        style: TextStyle(fontSize: 12, color: df.textTertiary)),
-                  ]),
-                ),
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.agentChatTitle),
+          bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(text: l10n.agentTabChat),
+              Tab(text: l10n.agentTabDeploy),
+              Tab(text: l10n.agentTabSkills),
+              Tab(text: l10n.agentTabMemory),
             ],
           ),
+          actions: [
+            IconButton(
+              tooltip: l10n.agentChatSkillsInfo,
+              icon: const Icon(Icons.info_outline),
+              onPressed: _showSkillsInfo,
+            ),
+            Tooltip(
+              message: l10n.agentChatModeHint,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(children: [
+                  Text(
+                      _autoMode
+                          ? l10n.agentChatAutoMode
+                          : l10n.agentChatManualMode,
+                      style: const TextStyle(fontSize: 12)),
+                  Switch(
+                    value: _autoMode,
+                    onChanged: _setAutoMode,
+                  ),
+                ]),
+              ),
+            ),
+            IconButton(
+              tooltip: l10n.agentChatClearMemory,
+              icon: const Icon(Icons.delete_sweep_outlined),
+              onPressed: _clearMemory,
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
-        Container(
+        body: TabBarView(
+          children: [
+            Column(children: [
+              Expanded(
+                child: ListView(
+                  controller: _scroll,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    if (messages.isEmpty)
+                      _WelcomeBubble(text: l10n.agentChatWelcome),
+                    for (final m in messages) _MessageBubble(message: m),
+                    if (_sending)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(children: [
+                          const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2)),
+                          const SizedBox(width: 8),
+                          Text(l10n.agentChatThinking,
+                              style: TextStyle(
+                                  fontSize: 12, color: df.textTertiary)),
+                        ]),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: df.surface,
+                  border: Border(top: BorderSide(color: df.stroke)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Row(children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _input,
+                        minLines: 1,
+                        maxLines: 4,
+                        onSubmitted: (_) => _send(),
+                        decoration: InputDecoration(
+                          hintText: l10n.agentChatInputPlaceholder,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: _sending ? null : _send,
+                      child: Text(l10n.agentChatSend),
+                    ),
+                  ]),
+                ),
+              ),
+            ]),
+            _AgentDeployPane(autoMode: _autoMode, onChanged: _setAutoMode),
+            _AgentSkillsPane(tools: ref.watch(engineProvider).agentTools),
+            _AgentMemoryPane(messages: messages, onClear: _clearMemory),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentDeployPane extends StatelessWidget {
+  final bool autoMode;
+  final ValueChanged<bool> onChanged;
+  const _AgentDeployPane({required this.autoMode, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(l10n.agentDeployExecutionMode,
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: df.textPrimary)),
+        const SizedBox(height: 8),
+        Text(l10n.agentChatModeHint,
+            style: TextStyle(fontSize: 12, color: df.textSecondary)),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          key: const ValueKey('agent-deploy-mode-switch'),
+          value: autoMode,
+          onChanged: onChanged,
+          title: Text(
+              autoMode ? l10n.agentChatAutoMode : l10n.agentChatManualMode),
+          subtitle: Text(l10n.agentDeployModeSaved,
+              style: TextStyle(fontSize: 12, color: df.textTertiary)),
+          secondary: const Icon(Icons.account_tree_outlined),
+        ),
+      ],
+    );
+  }
+}
+
+class _AgentSkillsPane extends StatelessWidget {
+  final List<AgentToolDef> tools;
+  const _AgentSkillsPane({required this.tools});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: tools.length + 1,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.agentSkillsBuiltinTitle,
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: df.textPrimary)),
+              const SizedBox(height: 6),
+              Text(l10n.agentChatSkillsBody,
+                  style: TextStyle(fontSize: 12, color: df.textSecondary)),
+            ],
+          );
+        }
+        final tool = tools[index - 1];
+        return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: df.surface,
-            border: Border(top: BorderSide(color: df.stroke)),
+            border: Border.all(color: df.stroke),
+            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
           ),
-          child: SafeArea(
-            top: false,
-            child: Row(children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(Icons.bolt_outlined, size: 16, color: df.primary),
+              const SizedBox(width: 6),
               Expanded(
-                child: TextField(
-                  controller: _input,
-                  minLines: 1,
-                  maxLines: 4,
-                  onSubmitted: (_) => _send(),
-                  decoration: InputDecoration(
-                    hintText: l10n.agentChatInputPlaceholder,
-                    isDense: true,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _sending ? null : _send,
-                child: Text(l10n.agentChatSend),
+                child: Text(tool.name,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700)),
               ),
             ]),
+            const SizedBox(height: 6),
+            Text(tool.description,
+                style: TextStyle(fontSize: 12, color: df.textSecondary)),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+class _AgentMemoryPane extends StatelessWidget {
+  final List<AgentMessage> messages;
+  final VoidCallback onClear;
+  const _AgentMemoryPane({required this.messages, required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(children: [
+          Expanded(
+            child: Text(l10n.agentMemoryCount(messages.length),
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: df.textPrimary)),
           ),
-        ),
-      ]),
+          FilledButton.tonalIcon(
+            onPressed: messages.isEmpty ? null : onClear,
+            icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+            label: Text(l10n.agentChatClearMemory),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        if (messages.isEmpty)
+          Text(l10n.agentMemoryEmpty,
+              style: TextStyle(fontSize: 12, color: df.textTertiary))
+        else
+          for (final message in messages)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: df.surface,
+                border: Border.all(color: df.stroke),
+                borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(message.role,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: df.textTertiary)),
+                  const SizedBox(height: 4),
+                  Text(message.content, style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+      ],
     );
   }
 }
@@ -255,7 +429,8 @@ class _MessageBubble extends StatelessWidget {
             borderRadius: BorderRadius.circular(DFTokens.radiusCard),
             border: Border.all(color: df.primary.withValues(alpha: 0.3)),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Icon(Icons.bolt, size: 14, color: df.primary),
               const SizedBox(width: 4),
