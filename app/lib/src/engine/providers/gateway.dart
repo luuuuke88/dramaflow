@@ -50,6 +50,7 @@ abstract class ProviderGateway {
     CancelToken? cancelToken,
     List<String> referenceAbsPaths = const [],
     String? editInstruction,
+    String? maskAbsPath,
     String? ratio,
     String? quality,
     String? modelOverride,
@@ -148,6 +149,7 @@ class HttpProviderGateway implements ProviderGateway {
     CancelToken? cancelToken,
     List<String> referenceAbsPaths = const [],
     String? editInstruction,
+    String? maskAbsPath,
     String? ratio,
     String? quality,
     String? modelOverride,
@@ -174,6 +176,7 @@ class HttpProviderGateway implements ProviderGateway {
         cancelToken: cancelToken,
         referenceAbsPaths: referenceAbsPaths,
         editInstruction: editInstruction,
+        maskAbsPath: maskAbsPath,
         size: _ratioToSize(ratio),
         quality: _qualityLabelToApi(quality));
   }

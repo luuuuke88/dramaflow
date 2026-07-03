@@ -34,8 +34,8 @@ void main() {
     );
     engine.installAssetPipeline();
     engine.queue.start();
-    projectId = engine.addProject(
-        projectType: 'novel', name: '素材测试', artStyle: '国风水墨');
+    projectId =
+        engine.addProject(projectType: 'novel', name: '素材测试', artStyle: '国风水墨');
   });
 
   tearDown(() {
@@ -47,9 +47,9 @@ void main() {
   Future<void> waitTask(int taskId, {String expectState = 'success'}) async {
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (DateTime.now().isBefore(deadline)) {
-      final state = db
-          .select('SELECT state FROM o_tasks WHERE id=?', [taskId])
-          .first['state'] as String;
+      final state = db.select(
+              'SELECT state FROM o_tasks WHERE id=?', [taskId]).first['state']
+          as String;
       if (state == 'success' || state == 'failed') {
         expect(state, expectState);
         return;
@@ -103,8 +103,8 @@ void main() {
 
     engine.deleteAssetImage(img.id);
     expect(File(abs).existsSync(), isFalse);
-    expect(engine.getAssets(projectId, type: 'scene').data.single.imageId,
-        isNull);
+    expect(
+        engine.getAssets(projectId, type: 'scene').data.single.imageId, isNull);
 
     engine.addAsset(
         projectId: projectId,
@@ -221,7 +221,9 @@ void main() {
     final c = engine.addAsset(
         projectId: projectId, type: 'tool', name: '坏', describe: 'x');
     gateway.textHandler = (system, user) {
-      if (user.contains('坏')) throw DioException(requestOptions: RequestOptions());
+      if (user.contains('坏')) {
+        throw DioException(requestOptions: RequestOptions());
+      }
       if (user.contains('剑-鞘')) {
         expect(system, contains('手册[art_prop_derivative]'));
       } else {
@@ -229,8 +231,7 @@ void main() {
       }
       return 'ok prompt';
     };
-    final taskId =
-        engine.batchPolishAssetPrompts(projectId, [a, b, c]);
+    final taskId = engine.batchPolishAssetPrompts(projectId, [a, b, c]);
     await waitTask(taskId);
     final states = db
         .select('SELECT id,promptState FROM o_assets ORDER BY id')
@@ -262,7 +263,10 @@ void main() {
     };
     final taskId = engine.generateAssetImages(
       projectId,
-      [(assetsId: a, refImageBase64: null), (assetsId: b, refImageBase64: null)],
+      [
+        (assetsId: a, refImageBase64: null),
+        (assetsId: b, refImageBase64: null)
+      ],
       resolution: '2K',
     );
     // 预插断言
@@ -284,10 +288,9 @@ void main() {
     );
 
     // 冷启动恢复
-    db.execute('UPDATE o_image SET state=? WHERE assetsId=?',
-        [stateGenerating, a]);
     db.execute(
-        "UPDATE o_tasks SET state='processing' WHERE id=?", [taskId]);
+        'UPDATE o_image SET state=? WHERE assetsId=?', [stateGenerating, a]);
+    db.execute("UPDATE o_tasks SET state='processing' WHERE id=?", [taskId]);
     engine.queue.recoverOnColdStart();
     expect(engine.assetImages(a).single.state, stateFailed);
   });
@@ -310,6 +313,7 @@ class _Gateway implements ProviderGateway {
       CancelToken? cancelToken,
       List<String> referenceAbsPaths = const [],
       String? editInstruction,
+      String? maskAbsPath,
       String? ratio,
       String? quality,
       String? modelOverride}) async {

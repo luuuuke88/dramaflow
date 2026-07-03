@@ -66,15 +66,15 @@ Next Verification: Add a page-level visual parity checklist entry with screensho
 
 ## 节点式图片编辑器
 
-Status: Partial
+Status: Verified
 
-Desktop Evidence: `app/test/widgets/image_flow_editor_test.dart` and `app/test/engine/image_flow_test.dart` cover graph persistence, reference image selection, generated node controls, flow image generation, line deletion, and generated-image repaint/edit requests that pass the current result image plus edit instruction to the image provider.
+Desktop Evidence: `app/test/widgets/image_flow_editor_test.dart` and `app/test/engine/image_flow_test.dart` cover graph persistence, reference image selection, generated node controls, flow image generation, line deletion, generated-image repaint/edit requests, and mask-brush local inpaint requests that pass the current result image, edit instruction, and generated mask image to the image provider.
 
-Mobile Evidence: `app/test/widgets/image_flow_editor_test.dart` covers a dedicated 390px editor flow: the generated node is fit into the first mobile viewport, an upload node can replace its reference from the asset library, and generated-node prompt/model/ratio/quality settings persist into `o_imageFlow`.
+Mobile Evidence: `app/test/widgets/image_flow_editor_test.dart` covers a dedicated 390px editor flow: the generated node is fit into the first mobile viewport, an upload node can replace its reference from the asset library, generated-node prompt/model/ratio/quality settings persist into `o_imageFlow`, and an already-generated node can perform mask-brush local inpaint with the mask passed to the image provider.
 
-Known Gaps: Mask-brush local inpaint UI parity is not implemented/proven; prompt-based repaint through the image edit endpoint is now covered.
+Known Gaps: None at the current node-based image-editor scope.
 
-Next Verification: Add a scoped mask-brush inpaint parity plan before claiming full image-flow editor parity.
+Next Verification: If image-editor UI changes, keep the desktop graph/edit/mask coverage and the 390px generated-node/reference/mask smokes together.
 
 ## 多轨工作台
 

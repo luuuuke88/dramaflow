@@ -30,6 +30,7 @@ class _Gateway implements ProviderGateway {
           CancelToken? cancelToken,
           List<String> referenceAbsPaths = const [],
           String? editInstruction,
+          String? maskAbsPath,
           String? ratio,
           String? quality,
           String? modelOverride}) async =>

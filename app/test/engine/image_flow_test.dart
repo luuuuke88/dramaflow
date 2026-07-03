@@ -23,6 +23,7 @@ class _Gateway implements ProviderGateway {
       CancelToken? cancelToken,
       List<String> referenceAbsPaths = const [],
       String? editInstruction,
+      String? maskAbsPath,
       String? ratio,
       String? quality,
       String? modelOverride}) async {
@@ -62,10 +63,13 @@ void main() {
 
   test('图节点往返：save→get 保留节点/边/位置/数据', () {
     final nodes = [
-      const ImageFlowNode(id: 'u1', type: 'upload', x: 0, y: 0, data: {'image': 'p/a.png'}),
+      const ImageFlowNode(
+          id: 'u1', type: 'upload', x: 0, y: 0, data: {'image': 'p/a.png'}),
       const ImageFlowNode(id: 'g1', type: 'generated', x: 400, y: 0, data: {
         'prompt': '水墨少年',
-        'references': [{'image': 'p/a.png'}],
+        'references': [
+          {'image': 'p/a.png'}
+        ],
       }),
     ];
     final edges = [
@@ -79,7 +83,8 @@ void main() {
     expect(loaded.edges.single.target, 'g1');
 
     // 更新覆盖
-    final updatedId = engine.saveImageFlow(nodes, const [], existingFlowId: flowId);
+    final updatedId =
+        engine.saveImageFlow(nodes, const [], existingFlowId: flowId);
     expect(updatedId, flowId);
     expect(engine.getImageFlow(flowId).edges, isEmpty);
   });

@@ -53,9 +53,9 @@ void main() {
   Future<void> waitTask(int taskId, {String expectState = 'success'}) async {
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (DateTime.now().isBefore(deadline)) {
-      final state = db
-          .select('SELECT state FROM o_tasks WHERE id=?', [taskId])
-          .first['state'] as String;
+      final state = db.select(
+              'SELECT state FROM o_tasks WHERE id=?', [taskId]).first['state']
+          as String;
       if (state == 'success' || state == 'failed') {
         expect(state, expectState);
         return;
@@ -109,8 +109,7 @@ void main() {
       insertAfterIndex: rows.first.index - 1,
     );
     rows = engine.storyboards(scriptId);
-    expect(rows.map((r) => r.id), [beforeFirst, s1, s2],
-        reason: '前插首格应排在最前');
+    expect(rows.map((r) => r.id), [beforeFirst, s1, s2], reason: '前插首格应排在最前');
     expect(rows.map((r) => r.index), [1, 2, 3]);
 
     // 在原第二格（现 index=3 的 s2）之前插入。
@@ -160,9 +159,9 @@ void main() {
     gateway.toolResult = (_) => {'shots': []};
     final taskId = engine.generateStoryboards(projectId, scriptId);
     await waitTask(taskId, expectState: 'failed');
-    final reason = db
-        .select('SELECT reason FROM o_tasks WHERE id=?', [taskId])
-        .first['reason'] as String;
+    final reason = db.select(
+            'SELECT reason FROM o_tasks WHERE id=?', [taskId]).first['reason']
+        as String;
     expect(EngineException.fromReasonJson(reason)?.errKey, errLlmFormat);
   });
 
@@ -188,8 +187,7 @@ void main() {
       }
       throw const EngineException(errLlmFormat);
     };
-    final taskId =
-        engine.batchGenerateStoryboardImages(projectId, [s1, s2]);
+    final taskId = engine.batchGenerateStoryboardImages(projectId, [s1, s2]);
     await waitTask(taskId);
     final rows = engine.storyboards(scriptId);
     final good = rows.firstWhere((r) => r.id == s1);
@@ -203,15 +201,15 @@ void main() {
   test('shouldGenerateImage=0 的分镜默认跳过批量生成，compulsory=true 时强制', () async {
     final skip = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '跳过镜头');
-    db.execute('UPDATE o_storyboard SET shouldGenerateImage=0 WHERE id=?', [skip]);
+    db.execute(
+        'UPDATE o_storyboard SET shouldGenerateImage=0 WHERE id=?', [skip]);
     gateway.imageHandler = (p, i, r) => 'x/img.png';
 
-    final skipped =
-        engine.batchGenerateStoryboardImages(projectId, [skip]);
+    final skipped = engine.batchGenerateStoryboardImages(projectId, [skip]);
     expect(skipped, 0, reason: '无可生成目标，不入队');
 
-    final forced = engine.batchGenerateStoryboardImages(
-        projectId, [skip], compulsory: true);
+    final forced = engine.batchGenerateStoryboardImages(projectId, [skip],
+        compulsory: true);
     await waitTask(forced);
     expect(engine.storyboards(scriptId).single.state, sbDone);
   });
@@ -250,6 +248,7 @@ class _Gateway implements ProviderGateway {
       CancelToken? cancelToken,
       List<String> referenceAbsPaths = const [],
       String? editInstruction,
+      String? maskAbsPath,
       String? ratio,
       String? quality,
       String? modelOverride}) async {

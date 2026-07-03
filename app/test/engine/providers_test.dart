@@ -197,6 +197,33 @@ void main() {
       expect(prompt, contains('SQUARE 1:1'));
       expect(form.files.single.key, 'image');
     });
+
+    test('带 mask 时 edits multipart 传递 mask 文件', () async {
+      final ref = File('${tmp.path}/ref.png')..writeAsBytesSync([1, 2, 3]);
+      final mask = File('${tmp.path}/mask.png')..writeAsBytesSync([9, 9, 9]);
+      final adapter = FakeAdapter((o) => jsonBody({
+            'data': [
+              {
+                'b64_json': base64Encode([7, 7, 7])
+              }
+            ]
+          }));
+      bindModel('asset_image', 'image');
+
+      await gw(adapter).generateImage(
+        '青衣少女',
+        'projX',
+        stage: 'asset_image',
+        referenceAbsPaths: [ref.path],
+        editInstruction: '只重绘袖口',
+        maskAbsPath: mask.path,
+      );
+
+      final form = adapter.requests.single.data as FormData;
+      final fileKeys = form.files.map((f) => f.key).toList();
+      expect(fileKeys, contains('image'));
+      expect(fileKeys, contains('mask'));
+    });
   });
 
   group('generateVideo', () {

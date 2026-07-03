@@ -2246,6 +2246,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get repaintAction => '重绘';
 
   @override
+  String get inpaintAction => '局部重绘';
+
+  @override
+  String get inpaintTitle => '局部重绘';
+
+  @override
+  String get inpaintHint => '涂抹要重绘的区域，并描述修改意见';
+
+  @override
+  String get inpaintMaskRequired => '请先涂抹要重绘的区域';
+
+  @override
+  String get inpaintMaskCreateFailed => '生成局部重绘蒙版失败';
+
+  @override
   String get settingsTitle => '设置';
 
   @override

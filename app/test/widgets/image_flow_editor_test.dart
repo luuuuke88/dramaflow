@@ -37,6 +37,7 @@ class _Gateway implements ProviderGateway {
   int imageCalls = 0;
   String? lastEditInstruction;
   List<String> lastReferenceAbsPaths = const [];
+  String? lastMaskAbsPath;
 
   @override
   Future<String> generateImage(String prompt, String projectId,
@@ -44,12 +45,14 @@ class _Gateway implements ProviderGateway {
       CancelToken? cancelToken,
       List<String> referenceAbsPaths = const [],
       String? editInstruction,
+      String? maskAbsPath,
       String? ratio,
       String? quality,
       String? modelOverride}) async {
     imageCalls++;
     lastEditInstruction = editInstruction;
     lastReferenceAbsPaths = referenceAbsPaths;
+    lastMaskAbsPath = maskAbsPath;
     return 'p/gen.png';
   }
 
@@ -250,8 +253,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // 从引擎回读最新 flow，校验 generated 节点 data。
-    final flows = engine.db
-        .select('SELECT id FROM o_imageFlow ORDER BY id DESC LIMIT 1');
+    final flows =
+        engine.db.select('SELECT id FROM o_imageFlow ORDER BY id DESC LIMIT 1');
     expect(flows, isNotEmpty, reason: '保存应写入 o_imageFlow');
     final flowId = flows.first['id'] as int;
     final data = engine.getImageFlow(flowId);
@@ -314,8 +317,7 @@ void main() {
     expect(find.text('林朝雪'), findsNothing);
   });
 
-  testWidgets('移动端 390px：生成节点首屏可操作，素材参考与生成参数可保存',
-      (tester) async {
+  testWidgets('移动端 390px：生成节点首屏可操作，素材参考与生成参数可保存', (tester) async {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -325,8 +327,8 @@ void main() {
     final assetRel = engine.media.saveImage(_pngBytes, '$projectId');
     engine.attachAssetImage(assetId, assetRel);
 
-    await tester.pumpWidget(host(
-        size: const Size(390, 900), seedRefs: [seedUploadRel()]));
+    await tester.pumpWidget(
+        host(size: const Size(390, 900), seedRefs: [seedUploadRel()]));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -368,8 +370,8 @@ void main() {
     await tester.tap(find.byIcon(Icons.save_outlined));
     await tester.pumpAndSettle();
 
-    final rows = engine.db
-        .select('SELECT id FROM o_imageFlow ORDER BY id DESC LIMIT 1');
+    final rows =
+        engine.db.select('SELECT id FROM o_imageFlow ORDER BY id DESC LIMIT 1');
     expect(rows, isNotEmpty);
     final data = engine.getImageFlow(rows.first['id'] as int);
     final upload = data.nodes.firstWhere((n) => n.type == 'upload');
@@ -411,7 +413,8 @@ void main() {
     final rel = engine.media.saveImage(_pngBytes, '$projectId');
     engine.setStoryboardImage(sbId, rel);
 
-    await tester.pumpWidget(host(scriptId: scriptId, seedRefs: [seedUploadRel()]));
+    await tester
+        .pumpWidget(host(scriptId: scriptId, seedRefs: [seedUploadRel()]));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
@@ -443,8 +446,7 @@ void main() {
     expect(find.text('已删除连线'), findsOneWidget);
   });
 
-  testWidgets('已生成节点可重绘：当前结果作为参考图并传递修改意见',
-      (tester) async {
+  testWidgets('已生成节点可重绘：当前结果作为参考图并传递修改意见', (tester) async {
     tester.view.physicalSize = const Size(1400, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -482,5 +484,97 @@ void main() {
     expect(gateway.lastReferenceAbsPaths, [
       engine.mediaAbsPath(generatedRel),
     ]);
+  });
+
+  testWidgets('已生成节点可局部重绘：画笔 mask 随图片编辑请求传递', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await installImageModel();
+    final generatedRel = engine.media.saveImage(_pngBytes, '$projectId');
+    final flowId = engine.saveImageFlow([
+      ImageFlowNode(
+        id: 'g0',
+        type: 'generated',
+        x: 40,
+        y: 40,
+        data: {
+          'prompt': '白衣少年',
+          'generatedImage': generatedRel,
+          'model': null,
+          'ratio': '16:9',
+          'quality': '2K',
+        },
+      ),
+    ], const []);
+
+    await tester.pumpWidget(host(flowId: flowId));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await expandGeneratedNode(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '局部重绘'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '只重绘袖口');
+    await tester.drag(
+        find.byKey(const Key('mask-paint-area')), const Offset(48, 0));
+    await tester.pump();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, '局部重绘'));
+    await tester.tap(find.widgetWithText(FilledButton, '局部重绘'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.imageCalls, 1);
+    expect(gateway.lastEditInstruction, '只重绘袖口');
+    expect(gateway.lastReferenceAbsPaths, [
+      engine.mediaAbsPath(generatedRel),
+    ]);
+    expect(gateway.lastMaskAbsPath, isNotNull);
+    expect(File(gateway.lastMaskAbsPath!).existsSync(), isTrue);
+  });
+
+  testWidgets('移动端 390px：已生成节点可局部重绘并传递 mask', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await installImageModel();
+    final generatedRel = engine.media.saveImage(_pngBytes, '$projectId');
+    final flowId = engine.saveImageFlow([
+      ImageFlowNode(
+        id: 'g0',
+        type: 'generated',
+        x: 40,
+        y: 40,
+        data: {
+          'prompt': '青衣少女',
+          'generatedImage': generatedRel,
+          'model': null,
+          'ratio': '9:16',
+          'quality': '1K',
+        },
+      ),
+    ], const []);
+
+    await tester.pumpWidget(host(flowId: flowId, size: const Size(390, 900)));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await expandGeneratedNode(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '局部重绘'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '只重绘发簪');
+    await tester.drag(
+        find.byKey(const Key('mask-paint-area')), const Offset(32, 0));
+    await tester.pump();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, '局部重绘'));
+    await tester.tap(find.widgetWithText(FilledButton, '局部重绘'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.imageCalls, 1);
+    expect(gateway.lastEditInstruction, '只重绘发簪');
+    expect(gateway.lastReferenceAbsPaths, [
+      engine.mediaAbsPath(generatedRel),
+    ]);
+    expect(gateway.lastMaskAbsPath, isNotNull);
+    expect(File(gateway.lastMaskAbsPath!).existsSync(), isTrue);
   });
 }

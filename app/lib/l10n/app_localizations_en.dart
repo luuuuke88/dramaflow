@@ -2318,6 +2318,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get repaintAction => 'Repaint';
 
   @override
+  String get inpaintAction => 'Local repaint';
+
+  @override
+  String get inpaintTitle => 'Local Repaint';
+
+  @override
+  String get inpaintHint =>
+      'Brush the area to repaint, then describe the edit.';
+
+  @override
+  String get inpaintMaskRequired => 'Brush the area to repaint first.';
+
+  @override
+  String get inpaintMaskCreateFailed => 'Failed to create the repaint mask';
+
+  @override
   String get settingsTitle => 'Settings';
 
   @override

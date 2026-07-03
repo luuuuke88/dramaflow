@@ -3,11 +3,14 @@
 // 连线（点击右侧手柄进入连接模式→点击目标节点左侧手柄完成，禁自环/禁重复）；
 // 连线驱动 syncReferences：generated 节点的参考图 = 其入边来源节点的图片，
 // 不是静态选择——这是本页唯一必须逐一复刻的非显然机制（见移植参照 §3）。
+import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image/image.dart' as img;
 
 import '../../engine/assets.dart';
 import '../../engine/engine.dart';
@@ -190,8 +193,8 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
         quality: _defaultQuality,
       ));
       for (final upload in _nodes.where((n) => n.type == 'upload')) {
-        _edges.add(_EdgeVM(
-            id: 'e${_edges.length}', source: upload.id, target: genId));
+        _edges.add(
+            _EdgeVM(id: 'e${_edges.length}', source: upload.id, target: genId));
       }
     }
     _syncReferences();
@@ -248,9 +251,8 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
       final refs = <String>[];
       for (final edge in _edges.where((e) => e.target == node.id)) {
         final source = _nodes.where((n) => n.id == edge.source).firstOrNull;
-        final rel = source?.type == 'upload'
-            ? source?.imageRel
-            : source?.generatedRel;
+        final rel =
+            source?.type == 'upload' ? source?.imageRel : source?.generatedRel;
         if (rel != null) refs.add(rel);
       }
       node.references = refs;
@@ -264,7 +266,8 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
   void _addUploadNode() {
     setState(() {
       _nodes.add(_NodeVM(
-          id: 'u${_seq++}', position: Offset(40, 40 + _nodes.length * 40),
+          id: 'u${_seq++}',
+          position: Offset(40, 40 + _nodes.length * 40),
           type: 'upload'));
     });
   }
@@ -341,15 +344,16 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
       setState(() => _connectingFrom = null);
       return;
     }
-    final duplicate = _edges
-        .any((e) => e.source == sourceId && e.target == node.id);
+    final duplicate =
+        _edges.any((e) => e.source == sourceId && e.target == node.id);
     if (duplicate || node.type != 'generated') {
       _toast(l10n.productionEditImageInvalidConnection);
       setState(() => _connectingFrom = null);
       return;
     }
     setState(() {
-      _edges.add(_EdgeVM(id: 'e${_edges.length}_$_seq', source: sourceId, target: node.id));
+      _edges.add(_EdgeVM(
+          id: 'e${_edges.length}_$_seq', source: sourceId, target: node.id));
       _seq++;
       _connectingFrom = null;
       _syncReferences();
@@ -395,7 +399,8 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
 
   Future<void> _pickLocalImage(_NodeVM node) async {
     final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
+      const XTypeGroup(
+          label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
     ]);
     if (file == null) return;
     final bytes = await file.readAsBytes();
@@ -452,8 +457,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     for (final (i, r) in rows.indexed) {
       if (r.filePath != null && r.filePath!.isNotEmpty) {
         out.add(_PickItem(
-            rel: r.filePath!,
-            label: 'S${(i + 1).toString().padLeft(2, '0')}'));
+            rel: r.filePath!, label: 'S${(i + 1).toString().padLeft(2, '0')}'));
       }
     }
     return out;
@@ -547,6 +551,41 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     }
   }
 
+  Future<void> _localInpaint(_NodeVM node) async {
+    final sourceRel = node.generatedRel;
+    if (sourceRel == null) return;
+    final sourceAbs = _engine.mediaAbsPath(sourceRel);
+    final result = await _showMaskInpaintDialog(context, sourceAbs);
+    if (!mounted || result == null) return;
+    final maskRel = _engine.saveFlowMaskImage(widget.projectId, result.maskPng);
+    setState(() {
+      node.state = 'generating';
+      node.errorText = null;
+    });
+    try {
+      final rel = await _engine.generateFlowImage(
+        projectId: widget.projectId,
+        prompt: node.promptCtl.text,
+        referenceAbsPaths: [sourceAbs],
+        editInstruction: result.instruction,
+        maskAbsPath: _engine.mediaAbsPath(maskRel),
+        model: node.model,
+        ratio: node.ratio,
+        quality: node.quality,
+      );
+      setState(() {
+        node.generatedRel = rel;
+        node.state = 'done';
+        _syncReferences();
+      });
+    } catch (e) {
+      setState(() {
+        node.state = 'failed';
+        node.errorText = localizeError(context, e);
+      });
+    }
+  }
+
   void _save() {
     final imageNodes = [
       for (final n in _nodes)
@@ -560,7 +599,9 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
               : {
                   'prompt': n.promptCtl.text,
                   'generatedImage': n.generatedRel,
-                  'references': [for (final r in n.references) {'image': r}],
+                  'references': [
+                    for (final r in n.references) {'image': r}
+                  ],
                   // 生成参数随节点持久化（对齐 ToonFlow data.model/ratio/quality）。
                   'model': n.model,
                   'ratio': n.ratio,
@@ -572,7 +613,8 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
       for (final e in _edges)
         ImageFlowEdge(id: e.id, source: e.source, target: e.target),
     ];
-    _flowId = _engine.saveImageFlow(imageNodes, imageEdges, existingFlowId: _flowId);
+    _flowId =
+        _engine.saveImageFlow(imageNodes, imageEdges, existingFlowId: _flowId);
     _toast(context.l10n.assetsGenImageSaved);
   }
 
@@ -771,19 +813,24 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
             color: df.surfaceMuted,
             child: switch (node.state) {
               'generating' => Center(
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const SizedBox(
-                        width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                    const SizedBox(height: 6),
-                    Text(l10n.productionEditImageGenerating,
-                        style: TextStyle(fontSize: 11, color: df.textTertiary)),
-                  ]),
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                        const SizedBox(height: 6),
+                        Text(l10n.productionEditImageGenerating,
+                            style: TextStyle(
+                                fontSize: 11, color: df.textTertiary)),
+                      ]),
                 ),
               'done' when node.generatedRel != null => Image.file(
                   File(_engine.mediaAbsPath(node.generatedRel!)),
                   fit: BoxFit.cover,
-                  errorBuilder: (c, e, s) =>
-                      Icon(Icons.broken_image_outlined, color: df.textTertiary)),
+                  errorBuilder: (c, e, s) => Icon(Icons.broken_image_outlined,
+                      color: df.textTertiary)),
               'failed' => Center(
                   child: Tooltip(
                     message: node.errorText ?? '',
@@ -858,9 +905,10 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                 Row(children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: node.state == 'generating' || !_canGenerate(node)
-                          ? null
-                          : () => _generate(node),
+                      onPressed:
+                          node.state == 'generating' || !_canGenerate(node)
+                              ? null
+                              : () => _generate(node),
                       child: Text(l10n.productionEditImageGenerateBtn,
                           style: const TextStyle(fontSize: 12)),
                     ),
@@ -880,10 +928,23 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed:
-                          node.state == 'generating' ? null : () => _repaint(node),
+                      onPressed: node.state == 'generating'
+                          ? null
+                          : () => _repaint(node),
                       icon: const Icon(Icons.brush_outlined, size: 16),
                       label: Text(l10n.repaintAction,
+                          style: const TextStyle(fontSize: 12)),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: node.state == 'generating'
+                          ? null
+                          : () => _localInpaint(node),
+                      icon: const Icon(Icons.gesture_rounded, size: 16),
+                      label: Text(l10n.inpaintAction,
                           style: const TextStyle(fontSize: 12)),
                     ),
                   ),
@@ -955,6 +1016,338 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
       ),
     );
   }
+}
+
+class _MaskEditResult {
+  final String instruction;
+  final Uint8List maskPng;
+
+  const _MaskEditResult({required this.instruction, required this.maskPng});
+}
+
+class _ImagePixelSize {
+  final int width;
+  final int height;
+
+  const _ImagePixelSize(this.width, this.height);
+}
+
+Future<_MaskEditResult?> _showMaskInpaintDialog(
+  BuildContext context,
+  String imageAbsPath,
+) {
+  return showDialog<_MaskEditResult>(
+    context: context,
+    builder: (context) => _MaskInpaintDialog(imageAbsPath: imageAbsPath),
+  );
+}
+
+class _MaskInpaintDialog extends StatefulWidget {
+  final String imageAbsPath;
+
+  const _MaskInpaintDialog({required this.imageAbsPath});
+
+  @override
+  State<_MaskInpaintDialog> createState() => _MaskInpaintDialogState();
+}
+
+class _MaskInpaintDialogState extends State<_MaskInpaintDialog> {
+  final _controller = TextEditingController();
+  final List<Offset?> _points = [];
+  Size _paintSize = Size.zero;
+  String? _instructionError;
+  String? _maskError;
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _addPoint(Offset point) {
+    final size = _paintSize;
+    final clamped = size.isEmpty
+        ? point
+        : Offset(
+            point.dx.clamp(0.0, size.width).toDouble(),
+            point.dy.clamp(0.0, size.height).toDouble(),
+          );
+    setState(() {
+      _points.add(clamped);
+      _maskError = null;
+    });
+  }
+
+  _ImagePixelSize _readSourceImageSize() {
+    final bytes = File(widget.imageAbsPath).readAsBytesSync();
+    return _parsePngSize(bytes) ??
+        _parseJpegSize(bytes) ??
+        _ImagePixelSize(
+          _paintSize.width.round().clamp(1, 4096).toInt(),
+          _paintSize.height.round().clamp(1, 4096).toInt(),
+        );
+  }
+
+  _ImagePixelSize? _parsePngSize(Uint8List bytes) {
+    const signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    if (bytes.length < 24) return null;
+    for (var i = 0; i < signature.length; i++) {
+      if (bytes[i] != signature[i]) return null;
+    }
+    final data = ByteData.sublistView(bytes);
+    return _ImagePixelSize(data.getUint32(16), data.getUint32(20));
+  }
+
+  _ImagePixelSize? _parseJpegSize(Uint8List bytes) {
+    if (bytes.length < 4 || bytes[0] != 0xFF || bytes[1] != 0xD8) {
+      return null;
+    }
+    var offset = 2;
+    while (offset + 9 < bytes.length) {
+      if (bytes[offset] != 0xFF) {
+        offset++;
+        continue;
+      }
+      final marker = bytes[offset + 1];
+      final length = (bytes[offset + 2] << 8) + bytes[offset + 3];
+      final isStartOfFrame = marker >= 0xC0 &&
+          marker <= 0xCF &&
+          marker != 0xC4 &&
+          marker != 0xC8 &&
+          marker != 0xCC;
+      if (isStartOfFrame && length >= 7 && offset + 8 < bytes.length) {
+        final height = (bytes[offset + 5] << 8) + bytes[offset + 6];
+        final width = (bytes[offset + 7] << 8) + bytes[offset + 8];
+        if (width > 0 && height > 0) return _ImagePixelSize(width, height);
+      }
+      if (length < 2) return null;
+      offset += 2 + length;
+    }
+    return null;
+  }
+
+  Uint8List _buildMaskPng(_ImagePixelSize source) {
+    final paintSize = _paintSize.isEmpty
+        ? Size(source.width.toDouble(), source.height.toDouble())
+        : _paintSize;
+    final scaleX = source.width / paintSize.width;
+    final scaleY = source.height / paintSize.height;
+    final strokeWidth =
+        (28 * ((scaleX + scaleY) / 2)).clamp(1.0, 96.0).toDouble();
+    final mask =
+        img.Image(width: source.width, height: source.height, numChannels: 4)
+          ..clear(img.ColorRgba8(0, 0, 0, 0));
+    final color = img.ColorRgba8(255, 255, 255, 255);
+
+    int scaleXToPixel(Offset point) =>
+        (point.dx * scaleX).round().clamp(0, source.width - 1).toInt();
+    int scaleYToPixel(Offset point) =>
+        (point.dy * scaleY).round().clamp(0, source.height - 1).toInt();
+
+    for (var i = 0; i < _points.length; i++) {
+      final current = _points[i];
+      if (current == null) continue;
+      final previous = i == 0 ? null : _points[i - 1];
+      if (previous == null) {
+        img.fillCircle(
+          mask,
+          x: scaleXToPixel(current),
+          y: scaleYToPixel(current),
+          radius: (strokeWidth / 2).ceil(),
+          color: color,
+          antialias: true,
+        );
+      } else {
+        img.drawLine(
+          mask,
+          x1: scaleXToPixel(previous),
+          y1: scaleYToPixel(previous),
+          x2: scaleXToPixel(current),
+          y2: scaleYToPixel(current),
+          thickness: strokeWidth,
+          color: color,
+          antialias: true,
+        );
+      }
+    }
+
+    return Uint8List.fromList(img.encodePng(mask));
+  }
+
+  Future<void> _submit() async {
+    if (_submitting) return;
+    final l10n = context.l10n;
+    final instruction = _controller.text.trim();
+    final hasMask = _points.whereType<Offset>().isNotEmpty;
+    setState(() {
+      _instructionError =
+          instruction.isEmpty ? l10n.repaintInstructionRequired : null;
+      _maskError = hasMask ? null : l10n.inpaintMaskRequired;
+    });
+    if (instruction.isEmpty || !hasMask) return;
+
+    setState(() => _submitting = true);
+    try {
+      final source = _readSourceImageSize();
+      final maskPng = _buildMaskPng(source);
+      if (!mounted) return;
+      Navigator.of(context).pop(
+        _MaskEditResult(instruction: instruction, maskPng: maskPng),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _maskError = l10n.inpaintMaskCreateFailed;
+        _submitting = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final dialogWidth =
+        (MediaQuery.sizeOf(context).width - 96).clamp(280.0, 560.0);
+    final paintSize =
+        Size(dialogWidth.toDouble(), dialogWidth.toDouble() * 9 / 16);
+    _paintSize = paintSize;
+    return AlertDialog(
+      title: Text(l10n.inpaintTitle),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l10n.inpaintHint,
+                  style: TextStyle(fontSize: 13, color: df.textMid)),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: paintSize.width,
+                height: paintSize.height,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(color: df.surfaceMuted),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.file(
+                          File(widget.imageAbsPath),
+                          fit: BoxFit.fill,
+                          errorBuilder: (context, error, stack) => Center(
+                            child: Icon(Icons.broken_image_outlined,
+                                color: df.textTertiary),
+                          ),
+                        ),
+                        GestureDetector(
+                          key: const Key('mask-paint-area'),
+                          behavior: HitTestBehavior.opaque,
+                          onPanStart: (details) =>
+                              _addPoint(details.localPosition),
+                          onPanUpdate: (details) =>
+                              _addPoint(details.localPosition),
+                          onPanEnd: (_) => setState(() {
+                            if (_points.isNotEmpty && _points.last != null) {
+                              _points.add(null);
+                            }
+                          }),
+                          child: CustomPaint(
+                            painter: _MaskPainter(points: _points),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (_maskError != null) ...[
+                const SizedBox(height: 6),
+                Text(_maskError!,
+                    style: TextStyle(fontSize: 12, color: df.danger)),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: _controller,
+                minLines: 2,
+                maxLines: 4,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  hintText: l10n.repaintImageHint,
+                  errorText: _instructionError,
+                ),
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(() {
+                            _points.clear();
+                            _maskError = null;
+                          }),
+                  icon: const Icon(Icons.cleaning_services_outlined, size: 16),
+                  label: Text(l10n.commonDelete),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton.icon(
+          onPressed: _submitting ? null : _submit,
+          icon: const Icon(Icons.gesture_rounded, size: 18),
+          label: Text(l10n.inpaintAction),
+        ),
+      ],
+    );
+  }
+}
+
+class _MaskPainter extends CustomPainter {
+  final List<Offset?> points;
+
+  const _MaskPainter({required this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.72)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = 28;
+    final dotPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.72)
+      ..style = PaintingStyle.fill;
+
+    for (var i = 0; i < points.length; i++) {
+      final current = points[i];
+      if (current == null) continue;
+      final previous = i == 0 ? null : points[i - 1];
+      if (previous == null) {
+        canvas.drawCircle(current, paint.strokeWidth / 2, dotPaint);
+      } else {
+        canvas.drawLine(previous, current, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MaskPainter oldDelegate) =>
+      !identical(points, oldDelegate.points) ||
+      points.length != oldDelegate.points.length;
 }
 
 class _HandleDot extends StatelessWidget {
@@ -1063,8 +1456,8 @@ class _LibraryPicker extends StatelessWidget {
                   child: Image.file(
                     File(engine.mediaAbsPath(it.rel)),
                     fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => Icon(
-                        Icons.broken_image_outlined, color: df.textTertiary),
+                    errorBuilder: (c, e, s) => Icon(Icons.broken_image_outlined,
+                        color: df.textTertiary),
                   ),
                 ),
               ),

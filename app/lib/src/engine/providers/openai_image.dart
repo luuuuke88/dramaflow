@@ -17,13 +17,13 @@ Future<String> openaiGenerateImage(
   CancelToken? cancelToken,
   List<String> referenceAbsPaths = const [],
   String? editInstruction,
+  String? maskAbsPath,
   String? size,
   String? quality,
 }) async {
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
   final fullPrompt = '${prompt.trim()}\n\n$imageSizeDirective';
-  final refs =
-      referenceAbsPaths.where((p) => p.trim().isNotEmpty).toList();
+  final refs = referenceAbsPaths.where((p) => p.trim().isNotEmpty).toList();
   final effSize = size ?? '1024x1024';
   final effQuality = quality ?? 'low';
   final requestOptions = Options(
@@ -52,6 +52,9 @@ Future<String> openaiGenerateImage(
       form['image[]'] = [
         for (final r in refs) await MultipartFile.fromFile(r),
       ];
+    }
+    if (maskAbsPath?.trim().isNotEmpty ?? false) {
+      form['mask'] = await MultipartFile.fromFile(maskAbsPath!);
     }
     final res = await dio.post(
       '$base/images/edits',

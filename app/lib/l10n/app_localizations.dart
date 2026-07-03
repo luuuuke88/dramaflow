@@ -4414,6 +4414,36 @@ abstract class AppLocalizations {
   /// **'重绘'**
   String get repaintAction;
 
+  /// No description provided for @inpaintAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'局部重绘'**
+  String get inpaintAction;
+
+  /// No description provided for @inpaintTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'局部重绘'**
+  String get inpaintTitle;
+
+  /// No description provided for @inpaintHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'涂抹要重绘的区域，并描述修改意见'**
+  String get inpaintHint;
+
+  /// No description provided for @inpaintMaskRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先涂抹要重绘的区域'**
+  String get inpaintMaskRequired;
+
+  /// No description provided for @inpaintMaskCreateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成局部重绘蒙版失败'**
+  String get inpaintMaskCreateFailed;
+
   /// No description provided for @settingsTitle.
   ///
   /// In zh, this message translates to:

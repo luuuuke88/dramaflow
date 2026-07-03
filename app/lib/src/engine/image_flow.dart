@@ -24,8 +24,12 @@ class ImageFlowNode {
       required this.y,
       required this.data});
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'type': type, 'position': {'x': x, 'y': y}, 'data': data};
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'type': type,
+        'position': {'x': x, 'y': y},
+        'data': data
+      };
 
   factory ImageFlowNode.fromJson(Map<String, dynamic> j) => ImageFlowNode(
         id: j['id'] as String,
@@ -65,12 +69,14 @@ extension ImageFlowApi on Engine {
   String saveFlowUploadImage(int projectId, Uint8List bytes) =>
       media.saveImage(bytes, '$projectId');
 
+  /// 局部重绘 mask：白色区域表示需要重绘，作为图片编辑 multipart 的 mask。
+  String saveFlowMaskImage(int projectId, Uint8List bytes) =>
+      media.saveImage(bytes, '$projectId');
 
   ImageFlowData getImageFlow(int? flowId) {
     if (flowId == null) return const ImageFlowData(nodes: [], edges: []);
-    final row = db
-        .select('SELECT flowData FROM o_imageFlow WHERE id=?', [flowId])
-        .firstOrNull;
+    final row = db.select(
+        'SELECT flowData FROM o_imageFlow WHERE id=?', [flowId]).firstOrNull;
     if (row == null) return const ImageFlowData(nodes: [], edges: []);
     try {
       final decoded = jsonDecode(row['flowData'] as String) as Map;
@@ -117,6 +123,7 @@ extension ImageFlowApi on Engine {
     required String prompt,
     List<String> referenceAbsPaths = const [],
     String? editInstruction,
+    String? maskAbsPath,
     String? model,
     String? ratio,
     String? quality,
@@ -127,6 +134,7 @@ extension ImageFlowApi on Engine {
       stage: 'asset_image',
       referenceAbsPaths: referenceAbsPaths,
       editInstruction: editInstruction,
+      maskAbsPath: maskAbsPath,
       ratio: ratio,
       quality: quality,
       modelOverride: model,

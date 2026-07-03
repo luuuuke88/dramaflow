@@ -2259,6 +2259,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get repaintAction => '再生成';
 
   @override
+  String get inpaintAction => '局所再描画';
+
+  @override
+  String get inpaintTitle => '局所再描画';
+
+  @override
+  String get inpaintHint => '再描画したい範囲を塗り、修正内容を入力してください';
+
+  @override
+  String get inpaintMaskRequired => '先に再描画する範囲を塗ってください';
+
+  @override
+  String get inpaintMaskCreateFailed => '局所再描画マスクの作成に失敗しました';
+
+  @override
   String get settingsTitle => '設定';
 
   @override

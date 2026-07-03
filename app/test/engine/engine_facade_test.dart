@@ -357,6 +357,7 @@ class _NoopGateway implements ProviderGateway {
     CancelToken? cancelToken,
     List<String> referenceAbsPaths = const [],
     String? editInstruction,
+    String? maskAbsPath,
     String? ratio,
     String? quality,
     String? modelOverride,
