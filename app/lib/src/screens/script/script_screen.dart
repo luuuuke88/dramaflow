@@ -53,8 +53,7 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
               onPressed: () => Navigator.pop(c, false),
               child: Text(l10n.scriptMsgCancel)),
           FilledButton(
-              style:
-                  FilledButton.styleFrom(backgroundColor: context.df.danger),
+              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
               onPressed: () => Navigator.pop(c, true),
               child: Text(l10n.scriptMsgDeleteConfirm)),
         ],
@@ -73,13 +72,11 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
       return;
     }
     try {
-      final bytes =
-          ref.read(engineProvider).exportScripts(_selected.toList());
-      final location = await fs.getSaveLocation(
-          suggestedName: 'scripts.zip',
-          acceptedTypeGroups: [
-            const fs.XTypeGroup(label: 'zip', extensions: ['zip'])
-          ]);
+      final bytes = ref.read(engineProvider).exportScripts(_selected.toList());
+      final location = await fs
+          .getSaveLocation(suggestedName: 'scripts.zip', acceptedTypeGroups: [
+        const fs.XTypeGroup(label: 'zip', extensions: ['zip'])
+      ]);
       if (location == null) return;
       final file = fs.XFile.fromData(
         Uint8List.fromList(bytes),
@@ -133,82 +130,115 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
     final l10n = context.l10n;
     final df = context.df;
     ref.watch(jobsGenerationProvider);
-    final scripts = ref.watch(engineProvider).scripts(widget.projectId,
-        search: _search.isEmpty ? null : _search);
+    final scripts = ref
+        .watch(engineProvider)
+        .scripts(widget.projectId, search: _search.isEmpty ? null : _search);
     final allSelected =
         scripts.isNotEmpty && _selected.length == scripts.length;
 
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
-        child: Row(children: [
-          DFSearchField(
-            hint: l10n.scriptSearchPlaceholder,
-            width: 240,
-            onSearch: (q) => setState(() => _search = q),
-          ),
-          const SizedBox(width: 10),
-          FilledButton.icon(
-            onPressed: () async {
-              final saved = await showAddScriptDialog(context, ref,
-                  projectId: widget.projectId);
-              if (saved == true) setState(() {});
-            },
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(l10n.scriptAddScript),
-          ),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: () async {
-              final saved = await showBatchAddDialog(context, ref,
-                  projectId: widget.projectId);
-              if (saved == true) setState(() {});
-            },
-            icon: const Icon(Icons.library_add_outlined, size: 18),
-            label: Text(l10n.scriptBatchAdd),
-          ),
-          const Spacer(),
-          if (scripts.isNotEmpty) ...[
-            OutlinedButton(
-              onPressed: () => setState(() {
-                if (allSelected) {
-                  _selected.clear();
-                } else {
-                  _selected
-                    ..clear()
-                    ..addAll(scripts.map((s) => s.id));
-                }
-              }),
-              child: Text(
-                  allSelected ? l10n.scriptCancelSelectAll : l10n.scriptSelectAll),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: _export,
-              icon: const Icon(Icons.file_download_outlined, size: 18),
-              label: Text(_selected.isEmpty
-                  ? l10n.scriptExportScript
-                  : '${l10n.scriptExportScript} (${_selected.length})'),
-            ),
-            const SizedBox(width: 8),
+        child: LayoutBuilder(builder: (context, constraints) {
+          final compact = constraints.maxWidth < 720;
+          Future<void> openAdd() async {
+            final saved = await showAddScriptDialog(context, ref,
+                projectId: widget.projectId);
+            if (saved == true) setState(() {});
+          }
+
+          Future<void> openBatchAdd() async {
+            final saved = await showBatchAddDialog(context, ref,
+                projectId: widget.projectId);
+            if (saved == true) setState(() {});
+          }
+
+          final primaryActions = <Widget>[
             FilledButton.icon(
-              onPressed: _extract,
-              icon: const Icon(Icons.category_outlined, size: 18),
-              label: Text(_selected.isEmpty
-                  ? l10n.scriptExtractAssets
-                  : '${l10n.scriptExtractAssets} (${_selected.length})'),
+              onPressed: openAdd,
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(l10n.scriptAddScript),
             ),
-            const SizedBox(width: 8),
             FilledButton.icon(
-              onPressed: () => _batchDelete(scripts),
-              style: FilledButton.styleFrom(backgroundColor: df.danger),
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: Text(_selected.isEmpty
-                  ? l10n.commonDelete
-                  : '${l10n.commonDelete} (${_selected.length})'),
+              onPressed: openBatchAdd,
+              icon: const Icon(Icons.library_add_outlined, size: 18),
+              label: Text(l10n.scriptBatchAdd),
             ),
-          ],
-        ]),
+          ];
+          final batchActions = scripts.isEmpty
+              ? <Widget>[]
+              : <Widget>[
+                  OutlinedButton(
+                    onPressed: () => setState(() {
+                      if (allSelected) {
+                        _selected.clear();
+                      } else {
+                        _selected
+                          ..clear()
+                          ..addAll(scripts.map((s) => s.id));
+                      }
+                    }),
+                    child: Text(allSelected
+                        ? l10n.scriptCancelSelectAll
+                        : l10n.scriptSelectAll),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _export,
+                    icon: const Icon(Icons.file_download_outlined, size: 18),
+                    label: Text(_selected.isEmpty
+                        ? l10n.scriptExportScript
+                        : '${l10n.scriptExportScript} (${_selected.length})'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _extract,
+                    icon: const Icon(Icons.category_outlined, size: 18),
+                    label: Text(_selected.isEmpty
+                        ? l10n.scriptExtractAssets
+                        : '${l10n.scriptExtractAssets} (${_selected.length})'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => _batchDelete(scripts),
+                    style: FilledButton.styleFrom(backgroundColor: df.danger),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: Text(_selected.isEmpty
+                        ? l10n.commonDelete
+                        : '${l10n.commonDelete} (${_selected.length})'),
+                  ),
+                ];
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DFSearchField(
+                  hint: l10n.scriptSearchPlaceholder,
+                  width: constraints.maxWidth,
+                  onSearch: (q) => setState(() => _search = q),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [...primaryActions, ...batchActions],
+                ),
+              ],
+            );
+          }
+
+          return Row(children: [
+            DFSearchField(
+              hint: l10n.scriptSearchPlaceholder,
+              width: 240,
+              onSearch: (q) => setState(() => _search = q),
+            ),
+            const SizedBox(width: 10),
+            ...primaryActions
+                .expand((button) => [button, const SizedBox(width: 8)]),
+            const Spacer(),
+            ...batchActions
+                .expand((button) => [button, const SizedBox(width: 8)]),
+          ]);
+        }),
       ),
       Expanded(
         child: scripts.isEmpty
@@ -333,7 +363,8 @@ class _ScriptCardState extends State<_ScriptCard> {
                         fontSize: 15, fontWeight: FontWeight.w700)),
               ),
               const SizedBox(width: 12),
-              Checkbox(value: widget.selected, onChanged: widget.onToggleSelect),
+              Checkbox(
+                  value: widget.selected, onChanged: widget.onToggleSelect),
             ]),
             const SizedBox(height: 4),
             Text(row.content ?? '',
