@@ -1482,4 +1482,90 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cornerScapeUnbind => '割り当て解除';
+
+  @override
+  String get promptStoryboardGenTitle => '絵コンテ生成';
+
+  @override
+  String get promptStoryboardGenDescription => '脚本をカットリストに分解するプロンプト';
+
+  @override
+  String get promptVideoPromptGenTitle => 'カメラワークプロンプト生成';
+
+  @override
+  String get promptVideoPromptGenDescription => 'カットを画像から動画へのプロンプトに変換';
+
+  @override
+  String get promptAudioBindTitle => '配音マッチング';
+
+  @override
+  String get promptAudioBindDescription => 'キャラクター説明から最適な音声を選ぶプロンプト';
+
+  @override
+  String get promptEventAnalysisTitle => 'イベント分析';
+
+  @override
+  String get promptEventAnalysisDescription => '章のイベントの改編価値を分析するプロンプト';
+
+  @override
+  String get stageEventExtractTitle => 'イベント抽出';
+
+  @override
+  String get stageEventExtractDescription => '章の内容から構造化イベント要約を抽出';
+
+  @override
+  String get stageVideoPromptGenTitle => 'カメラワークプロンプト生成';
+
+  @override
+  String get stageVideoPromptGenDescription => 'カット説明を画像から動画へのプロンプトに変換';
+
+  @override
+  String get stageScriptGenTitle => '脚本生成';
+
+  @override
+  String get stageScriptGenDescription => '小説を短編ドラマの脚本に改編';
+
+  @override
+  String get stageAssetExtractTitle => '素材抽出';
+
+  @override
+  String get stageAssetExtractDescription => '脚本からキャラクター・シーン・小道具を抽出';
+
+  @override
+  String get stageStoryboardGenTitle => '絵コンテ生成';
+
+  @override
+  String get stageStoryboardGenDescription => '話数をカットとプロンプトに分解';
+
+  @override
+  String get stageAssetImageTitle => '素材画像生成';
+
+  @override
+  String get stageAssetImageDescription => 'キャラクター・シーン・小道具の画像を生成';
+
+  @override
+  String get stageShotImageTitle => 'カット画像生成';
+
+  @override
+  String get stageShotImageDescription => '各カットの静止画を生成';
+
+  @override
+  String get stageShotVideoTitle => 'カット動画生成';
+
+  @override
+  String get stageShotVideoDescription => 'カット画像から短い動画を生成';
+
+  @override
+  String get stageTtsTitle => '音声生成';
+
+  @override
+  String get stageTtsDescription => 'カットのセリフの音声を生成';
+
+  @override
+  String stageBindingUpdated(String title) {
+    return '$title の割り当てを更新しました';
+  }
+
+  @override
+  String get stageBindingMissing => 'モデルが未割り当てです';
 }

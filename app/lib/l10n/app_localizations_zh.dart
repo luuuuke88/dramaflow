@@ -1473,4 +1473,90 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cornerScapeUnbind => '解除绑定';
+
+  @override
+  String get promptStoryboardGenTitle => '分镜生成';
+
+  @override
+  String get promptStoryboardGenDescription => '将剧本拆解为分镜镜头列表的提示词';
+
+  @override
+  String get promptVideoPromptGenTitle => '运镜提示词生成';
+
+  @override
+  String get promptVideoPromptGenDescription => '将分镜画面转换为图生视频运镜提示词';
+
+  @override
+  String get promptAudioBindTitle => '配音匹配';
+
+  @override
+  String get promptAudioBindDescription => '按角色描述匹配最合适音色的提示词';
+
+  @override
+  String get promptEventAnalysisTitle => '事件分析';
+
+  @override
+  String get promptEventAnalysisDescription => '分析章节事件改编价值的提示词';
+
+  @override
+  String get stageEventExtractTitle => '事件提取';
+
+  @override
+  String get stageEventExtractDescription => '从章节内容提取结构化事件摘要';
+
+  @override
+  String get stageVideoPromptGenTitle => '运镜提示词生成';
+
+  @override
+  String get stageVideoPromptGenDescription => '将分镜描述转换为图生视频提示词';
+
+  @override
+  String get stageScriptGenTitle => '剧本生成';
+
+  @override
+  String get stageScriptGenDescription => '把小说改编为短剧剧本';
+
+  @override
+  String get stageAssetExtractTitle => '素材提取';
+
+  @override
+  String get stageAssetExtractDescription => '从剧本提取角色、场景和道具';
+
+  @override
+  String get stageStoryboardGenTitle => '分镜生成';
+
+  @override
+  String get stageStoryboardGenDescription => '按集拆解镜头与镜头提示词';
+
+  @override
+  String get stageAssetImageTitle => '素材图生成';
+
+  @override
+  String get stageAssetImageDescription => '生成角色、场景、道具资产图';
+
+  @override
+  String get stageShotImageTitle => '镜头图生成';
+
+  @override
+  String get stageShotImageDescription => '生成每个镜头的静帧画面';
+
+  @override
+  String get stageShotVideoTitle => '镜头视频生成';
+
+  @override
+  String get stageShotVideoDescription => '从镜头图生成短视频片段';
+
+  @override
+  String get stageTtsTitle => '配音生成';
+
+  @override
+  String get stageTtsDescription => '为镜头台词生成语音';
+
+  @override
+  String stageBindingUpdated(String title) {
+    return '$title绑定已更新';
+  }
+
+  @override
+  String get stageBindingMissing => '未绑定可用模型';
 }

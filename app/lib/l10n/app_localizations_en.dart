@@ -1516,4 +1516,102 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cornerScapeUnbind => 'Unbind';
+
+  @override
+  String get promptStoryboardGenTitle => 'Storyboard Generation';
+
+  @override
+  String get promptStoryboardGenDescription =>
+      'Splits the script into a shot list';
+
+  @override
+  String get promptVideoPromptGenTitle => 'Motion Prompt Generation';
+
+  @override
+  String get promptVideoPromptGenDescription =>
+      'Turns a shot into an image-to-video motion prompt';
+
+  @override
+  String get promptAudioBindTitle => 'Voice Matching';
+
+  @override
+  String get promptAudioBindDescription =>
+      'Matches the best-fit voice by role description';
+
+  @override
+  String get promptEventAnalysisTitle => 'Event Analysis';
+
+  @override
+  String get promptEventAnalysisDescription =>
+      'Analyzes adaptation value of chapter events';
+
+  @override
+  String get stageEventExtractTitle => 'Event Extraction';
+
+  @override
+  String get stageEventExtractDescription =>
+      'Extracts structured event summaries from chapters';
+
+  @override
+  String get stageVideoPromptGenTitle => 'Motion Prompt Generation';
+
+  @override
+  String get stageVideoPromptGenDescription =>
+      'Turns shot descriptions into image-to-video prompts';
+
+  @override
+  String get stageScriptGenTitle => 'Script Generation';
+
+  @override
+  String get stageScriptGenDescription =>
+      'Adapts the novel into a short-drama script';
+
+  @override
+  String get stageAssetExtractTitle => 'Asset Extraction';
+
+  @override
+  String get stageAssetExtractDescription =>
+      'Extracts roles, scenes and props from the script';
+
+  @override
+  String get stageStoryboardGenTitle => 'Storyboard Generation';
+
+  @override
+  String get stageStoryboardGenDescription =>
+      'Splits episodes into shots and shot prompts';
+
+  @override
+  String get stageAssetImageTitle => 'Asset Image Generation';
+
+  @override
+  String get stageAssetImageDescription =>
+      'Generates role, scene and prop asset images';
+
+  @override
+  String get stageShotImageTitle => 'Shot Image Generation';
+
+  @override
+  String get stageShotImageDescription =>
+      'Generates the still frame for each shot';
+
+  @override
+  String get stageShotVideoTitle => 'Shot Video Generation';
+
+  @override
+  String get stageShotVideoDescription =>
+      'Generates a short video clip from the shot image';
+
+  @override
+  String get stageTtsTitle => 'Voice Generation';
+
+  @override
+  String get stageTtsDescription => 'Generates speech for shot dialogue';
+
+  @override
+  String stageBindingUpdated(String title) {
+    return '$title binding updated';
+  }
+
+  @override
+  String get stageBindingMissing => 'No model bound';
 }

@@ -133,6 +133,95 @@ Future<Map<String, dynamic>> openaiGenerateToolJson(
   throw EngineException(errLlmFormat, {'message': _head(data)});
 }
 
+/// 一个可供模型自由选择调用的工具定义（Agent 多工具场景，对应 P5 AgentRunner）。
+class AgentToolDef {
+  final String name;
+  final String description;
+  final Map<String, dynamic> schema;
+  const AgentToolDef(
+      {required this.name, required this.description, required this.schema});
+}
+
+/// Agent 对话轮次结果：要么是纯文本回复，要么是一次工具调用（互斥）。
+class AgentTurnResult {
+  final String? text;
+  final String? toolName;
+  final Map<String, dynamic>? toolArgs;
+  const AgentTurnResult.text(this.text)
+      : toolName = null,
+        toolArgs = null;
+  const AgentTurnResult.tool(this.toolName, this.toolArgs) : text = null;
+  bool get isToolCall => toolName != null;
+}
+
+/// 多轮对话+多工具自由选择（tool_choice=auto，模型可回文本也可调用任一工具）。
+/// messages 为 [{role,content}] 历史（不含 system）。
+Future<AgentTurnResult> openaiGenerateAgentTurn(
+  Dio dio,
+  ResolvedModel model,
+  String system,
+  List<Map<String, String>> messages,
+  List<AgentToolDef> tools, {
+  CancelToken? cancelToken,
+}) async {
+  final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
+  final res = await dio.post(
+    '$base/chat/completions',
+    data: {
+      'model': model.modelId,
+      'messages': [
+        {'role': 'system', 'content': system},
+        ...messages,
+      ],
+      'tools': [
+        for (final t in tools)
+          {
+            'type': 'function',
+            'function': {
+              'name': t.name,
+              'description': t.description,
+              'parameters': t.schema,
+            },
+          },
+      ],
+      'tool_choice': 'auto',
+      'max_completion_tokens': 8000,
+    },
+    options: Options(
+      headers: model.apiKey.isEmpty
+          ? const <String, String>{}
+          : {'Authorization': 'Bearer ${model.apiKey}'},
+      sendTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 300),
+      validateStatus: (s) => s != null && s < 400,
+    ),
+    cancelToken: cancelToken,
+  );
+  final data = res.data;
+  if (data is Map) {
+    final choices = data['choices'];
+    if (choices is List && choices.isNotEmpty) {
+      final msg = (choices.first as Map?)?['message'];
+      if (msg is Map) {
+        final toolCalls = msg['tool_calls'];
+        if (toolCalls is List && toolCalls.isNotEmpty) {
+          final call = (toolCalls.first as Map?)?['function'];
+          final name = call?['name'] as String?;
+          final args = _tryParseJsonObject(
+                  call?['arguments'] is String ? call!['arguments'] as String : null) ??
+              const {};
+          if (name != null) return AgentTurnResult.tool(name, args);
+        }
+        final content = msg['content'];
+        if (content is String && content.trim().isNotEmpty) {
+          return AgentTurnResult.text(content.trim());
+        }
+      }
+    }
+  }
+  throw EngineException(errLlmFormat, {'message': _head(data)});
+}
+
 Map<String, dynamic>? _tryParseJsonObject(String? s) {
   if (s == null || s.trim().isEmpty) return null;
   try {

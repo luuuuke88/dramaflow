@@ -2943,6 +2943,174 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'解除绑定'**
   String get cornerScapeUnbind;
+
+  /// No description provided for @promptStoryboardGenTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜生成'**
+  String get promptStoryboardGenTitle;
+
+  /// No description provided for @promptStoryboardGenDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'将剧本拆解为分镜镜头列表的提示词'**
+  String get promptStoryboardGenDescription;
+
+  /// No description provided for @promptVideoPromptGenTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'运镜提示词生成'**
+  String get promptVideoPromptGenTitle;
+
+  /// No description provided for @promptVideoPromptGenDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'将分镜画面转换为图生视频运镜提示词'**
+  String get promptVideoPromptGenDescription;
+
+  /// No description provided for @promptAudioBindTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配音匹配'**
+  String get promptAudioBindTitle;
+
+  /// No description provided for @promptAudioBindDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'按角色描述匹配最合适音色的提示词'**
+  String get promptAudioBindDescription;
+
+  /// No description provided for @promptEventAnalysisTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件分析'**
+  String get promptEventAnalysisTitle;
+
+  /// No description provided for @promptEventAnalysisDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'分析章节事件改编价值的提示词'**
+  String get promptEventAnalysisDescription;
+
+  /// No description provided for @stageEventExtractTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件提取'**
+  String get stageEventExtractTitle;
+
+  /// No description provided for @stageEventExtractDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'从章节内容提取结构化事件摘要'**
+  String get stageEventExtractDescription;
+
+  /// No description provided for @stageVideoPromptGenTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'运镜提示词生成'**
+  String get stageVideoPromptGenTitle;
+
+  /// No description provided for @stageVideoPromptGenDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'将分镜描述转换为图生视频提示词'**
+  String get stageVideoPromptGenDescription;
+
+  /// No description provided for @stageScriptGenTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本生成'**
+  String get stageScriptGenTitle;
+
+  /// No description provided for @stageScriptGenDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'把小说改编为短剧剧本'**
+  String get stageScriptGenDescription;
+
+  /// No description provided for @stageAssetExtractTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材提取'**
+  String get stageAssetExtractTitle;
+
+  /// No description provided for @stageAssetExtractDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'从剧本提取角色、场景和道具'**
+  String get stageAssetExtractDescription;
+
+  /// No description provided for @stageStoryboardGenTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜生成'**
+  String get stageStoryboardGenTitle;
+
+  /// No description provided for @stageStoryboardGenDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'按集拆解镜头与镜头提示词'**
+  String get stageStoryboardGenDescription;
+
+  /// No description provided for @stageAssetImageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材图生成'**
+  String get stageAssetImageTitle;
+
+  /// No description provided for @stageAssetImageDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成角色、场景、道具资产图'**
+  String get stageAssetImageDescription;
+
+  /// No description provided for @stageShotImageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜头图生成'**
+  String get stageShotImageTitle;
+
+  /// No description provided for @stageShotImageDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成每个镜头的静帧画面'**
+  String get stageShotImageDescription;
+
+  /// No description provided for @stageShotVideoTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜头视频生成'**
+  String get stageShotVideoTitle;
+
+  /// No description provided for @stageShotVideoDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'从镜头图生成短视频片段'**
+  String get stageShotVideoDescription;
+
+  /// No description provided for @stageTtsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配音生成'**
+  String get stageTtsTitle;
+
+  /// No description provided for @stageTtsDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'为镜头台词生成语音'**
+  String get stageTtsDescription;
+
+  /// No description provided for @stageBindingUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'{title}绑定已更新'**
+  String stageBindingUpdated(String title);
+
+  /// No description provided for @stageBindingMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'未绑定可用模型'**
+  String get stageBindingMissing;
 }
 
 class _AppLocalizationsDelegate

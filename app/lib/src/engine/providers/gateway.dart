@@ -7,6 +7,8 @@ import 'openai_image.dart';
 import 'resolve.dart';
 import 'volcengine_video.dart';
 
+export 'openai_text.dart' show AgentTurnResult, AgentToolDef;
+
 class TextResult {
   final String content;
   final int promptTokens;
@@ -45,6 +47,15 @@ abstract class ProviderGateway {
     required Map<String, dynamic> schema,
     CancelToken? cancelToken,
   });
+
+  /// Agent 多轮对话：模型自由选择回文本或调用任一已注册工具（P5 AgentRunner 专用）。
+  Future<AgentTurnResult> generateAgentTurn(
+    String system,
+    List<Map<String, String>> messages,
+    List<AgentToolDef> tools, {
+    required String stage,
+    CancelToken? cancelToken,
+  });
 }
 
 class HttpProviderGateway implements ProviderGateway {
@@ -81,6 +92,19 @@ class HttpProviderGateway implements ProviderGateway {
     final model = resolveStage(db, stage);
     return openaiGenerateToolJson(dio, model, system, user,
         toolName: toolName, schema: schema, cancelToken: cancelToken);
+  }
+
+  @override
+  Future<AgentTurnResult> generateAgentTurn(
+    String system,
+    List<Map<String, String>> messages,
+    List<AgentToolDef> tools, {
+    required String stage,
+    CancelToken? cancelToken,
+  }) {
+    final model = resolveStage(db, stage);
+    return openaiGenerateAgentTurn(dio, model, system, messages, tools,
+        cancelToken: cancelToken);
   }
 
   @override

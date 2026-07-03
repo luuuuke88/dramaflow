@@ -262,4 +262,14 @@ class _NoopGateway implements ProviderGateway {
           CancelToken? cancelToken}) async =>
       const <String, dynamic>{};
 
+  @override
+  Future<AgentTurnResult> generateAgentTurn(
+    String system,
+    List<Map<String, String>> messages,
+    List<AgentToolDef> tools, {
+    required String stage,
+    CancelToken? cancelToken,
+  }) async =>
+      const AgentTurnResult.text('');
+
 }

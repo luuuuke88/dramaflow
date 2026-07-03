@@ -626,5 +626,40 @@
   "cornerScapeNoRoles": "暂无角色资产，请先在「资产中心」创建角色",
   "cornerScapeSelectAtLeastOne": "请至少选择一个角色",
   "cornerScapeBindSuccess": "绑定成功",
-  "cornerScapeUnbind": "解除绑定"
+  "cornerScapeUnbind": "解除绑定",
+  "promptStoryboardGenTitle": "分镜生成",
+  "promptStoryboardGenDescription": "将剧本拆解为分镜镜头列表的提示词",
+  "promptVideoPromptGenTitle": "运镜提示词生成",
+  "promptVideoPromptGenDescription": "将分镜画面转换为图生视频运镜提示词",
+  "promptAudioBindTitle": "配音匹配",
+  "promptAudioBindDescription": "按角色描述匹配最合适音色的提示词",
+  "promptEventAnalysisTitle": "事件分析",
+  "promptEventAnalysisDescription": "分析章节事件改编价值的提示词",
+  "stageEventExtractTitle": "事件提取",
+  "stageEventExtractDescription": "从章节内容提取结构化事件摘要",
+  "stageVideoPromptGenTitle": "运镜提示词生成",
+  "stageVideoPromptGenDescription": "将分镜描述转换为图生视频提示词",
+  "stageScriptGenTitle": "剧本生成",
+  "stageScriptGenDescription": "把小说改编为短剧剧本",
+  "stageAssetExtractTitle": "素材提取",
+  "stageAssetExtractDescription": "从剧本提取角色、场景和道具",
+  "stageStoryboardGenTitle": "分镜生成",
+  "stageStoryboardGenDescription": "按集拆解镜头与镜头提示词",
+  "stageAssetImageTitle": "素材图生成",
+  "stageAssetImageDescription": "生成角色、场景、道具资产图",
+  "stageShotImageTitle": "镜头图生成",
+  "stageShotImageDescription": "生成每个镜头的静帧画面",
+  "stageShotVideoTitle": "镜头视频生成",
+  "stageShotVideoDescription": "从镜头图生成短视频片段",
+  "stageTtsTitle": "配音生成",
+  "stageTtsDescription": "为镜头台词生成语音",
+  "stageBindingUpdated": "{title}绑定已更新",
+  "@stageBindingUpdated": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "stageBindingMissing": "未绑定可用模型"
 }

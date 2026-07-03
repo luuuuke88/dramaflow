@@ -38,18 +38,24 @@ const _sections = [
 ];
 
 const _stages = [
-  _StageMeta('script_gen', '剧本生成', '把小说改编为短剧剧本', 'text'),
-  _StageMeta('asset_extract', '素材提取', '从剧本提取角色、场景和道具', 'text'),
-  _StageMeta('storyboard_gen', '分镜生成', '按集拆解镜头与镜头提示词', 'text'),
-  _StageMeta('asset_image', '素材图生成', '生成角色、场景、道具资产图', 'image'),
-  _StageMeta('shot_image', '镜头图生成', '生成每个镜头的静帧画面', 'image'),
-  _StageMeta('shot_video', '镜头视频生成', '从镜头图生成短视频片段', 'video'),
-  _StageMeta('tts', '配音生成', '为镜头台词生成语音', 'tts'),
+  _StageMeta('script_gen', 'text'),
+  _StageMeta('event_extract', 'text'),
+  _StageMeta('asset_extract', 'text'),
+  _StageMeta('storyboard_gen', 'text'),
+  _StageMeta('video_prompt_gen', 'text'),
+  _StageMeta('asset_image', 'image'),
+  _StageMeta('shot_image', 'image'),
+  _StageMeta('shot_video', 'video'),
+  _StageMeta('tts', 'tts'),
 ];
 
 const _promptMetas = [
   _PromptMeta('eventExtraction'),
   _PromptMeta('scriptAssetExtraction'),
+  _PromptMeta('storyboard_gen'),
+  _PromptMeta('video_prompt_gen'),
+  _PromptMeta('audio_bind'),
+  _PromptMeta('eventAnalysis'),
   _PromptMeta('image_size_directive'),
 ];
 
@@ -70,11 +76,35 @@ class _SectionMeta {
 
 class _StageMeta {
   final String key;
-  final String title;
-  final String description;
   final String kind;
 
-  const _StageMeta(this.key, this.title, this.description, this.kind);
+  const _StageMeta(this.key, this.kind);
+
+  String title(AppLocalizations l10n) => switch (key) {
+        'script_gen' => l10n.stageScriptGenTitle,
+        'event_extract' => l10n.stageEventExtractTitle,
+        'asset_extract' => l10n.stageAssetExtractTitle,
+        'storyboard_gen' => l10n.stageStoryboardGenTitle,
+        'video_prompt_gen' => l10n.stageVideoPromptGenTitle,
+        'asset_image' => l10n.stageAssetImageTitle,
+        'shot_image' => l10n.stageShotImageTitle,
+        'shot_video' => l10n.stageShotVideoTitle,
+        'tts' => l10n.stageTtsTitle,
+        _ => key,
+      };
+
+  String description(AppLocalizations l10n) => switch (key) {
+        'script_gen' => l10n.stageScriptGenDescription,
+        'event_extract' => l10n.stageEventExtractDescription,
+        'asset_extract' => l10n.stageAssetExtractDescription,
+        'storyboard_gen' => l10n.stageStoryboardGenDescription,
+        'video_prompt_gen' => l10n.stageVideoPromptGenDescription,
+        'asset_image' => l10n.stageAssetImageDescription,
+        'shot_image' => l10n.stageShotImageDescription,
+        'shot_video' => l10n.stageShotVideoDescription,
+        'tts' => l10n.stageTtsDescription,
+        _ => '',
+      };
 }
 
 class _PromptMeta {
@@ -85,6 +115,10 @@ class _PromptMeta {
   String title(AppLocalizations l10n) => switch (key) {
         'eventExtraction' => l10n.promptEventExtractionTitle,
         'scriptAssetExtraction' => l10n.promptScriptAssetExtractionTitle,
+        'storyboard_gen' => l10n.promptStoryboardGenTitle,
+        'video_prompt_gen' => l10n.promptVideoPromptGenTitle,
+        'audio_bind' => l10n.promptAudioBindTitle,
+        'eventAnalysis' => l10n.promptEventAnalysisTitle,
         'image_size_directive' => l10n.promptImageSizeDirectiveTitle,
         _ => key,
       };
@@ -92,6 +126,10 @@ class _PromptMeta {
   String description(AppLocalizations l10n) => switch (key) {
         'eventExtraction' => l10n.promptEventExtractionDescription,
         'scriptAssetExtraction' => l10n.promptScriptAssetExtractionDescription,
+        'storyboard_gen' => l10n.promptStoryboardGenDescription,
+        'video_prompt_gen' => l10n.promptVideoPromptGenDescription,
+        'audio_bind' => l10n.promptAudioBindDescription,
+        'eventAnalysis' => l10n.promptEventAnalysisDescription,
         'image_size_directive' => l10n.promptImageSizeDirectiveDescription,
         _ => '',
       };
@@ -606,9 +644,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final providerId = value.substring(0, sep);
     final modelId = value.substring(sep + 1);
 
+    final l10n = context.l10n;
     await runAction(context, ref, () async {
       await ref.read(engineProvider).setBinding(stage.key, providerId, modelId);
-    }, successMessage: '${stage.title}绑定已更新');
+    }, successMessage: l10n.stageBindingUpdated(stage.title(l10n)));
     if (!mounted) return;
     ref.invalidate(bindingsProvider);
     ref.invalidate(healthProvider);
@@ -2009,6 +2048,7 @@ class _BindingTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2016,7 +2056,7 @@ class _BindingTitle extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                stage.title,
+                stage.title(l10n),
                 style: TextStyle(
                   color: context.df.textHi,
                   fontWeight: FontWeight.w700,
@@ -2028,13 +2068,13 @@ class _BindingTitle extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          stage.description,
+          stage.description(l10n),
           style: TextStyle(color: context.df.textLo, fontSize: 12),
         ),
         if (missing) ...[
           const SizedBox(height: 6),
           Text(
-            '未绑定可用模型',
+            l10n.stageBindingMissing,
             style: TextStyle(
               color: context.df.red,
               fontSize: 12,
