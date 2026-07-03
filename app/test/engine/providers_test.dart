@@ -144,6 +144,24 @@ void main() {
           throwsA(isA<EngineException>()));
     });
 
+    test('o_prompt 种子 useData=NULL 时尺寸指令回落到 data（回归：P2 生图 Null 强转崩溃）',
+        () async {
+      db.execute(
+          'INSERT INTO o_prompt (name,type,data,useData) VALUES (?,?,?,NULL)',
+          ['image_size_directive', 'system', 'PORTRAIT 9:16 指令']);
+      final adapter = FakeAdapter((o) => jsonBody({
+            'data': [
+              {'b64_json': base64Encode([1, 2, 3])}
+            ]
+          }));
+      bindModel('asset_image', 'image');
+      final rel =
+          await gw(adapter).generateImage('少年', 'projX', stage: 'asset_image');
+      expect(rel, startsWith('projX/img_'));
+      final body = adapter.requests.single.data as Map;
+      expect(body['prompt'] as String, contains('PORTRAIT 9:16 指令'));
+    });
+
     test('带参考图时走 edits multipart 并拼接修改意见', () async {
       final ref = File('${tmp.path}/ref.png')..writeAsBytesSync([1, 2, 3]);
       final adapter = FakeAdapter((o) => jsonBody({

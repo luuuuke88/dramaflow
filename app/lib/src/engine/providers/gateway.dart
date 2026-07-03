@@ -94,10 +94,13 @@ class HttpProviderGateway implements ProviderGateway {
   }) {
     final model = resolveStage(db, stage);
     final directiveRows = db.select(
-        'SELECT useData FROM o_prompt WHERE name=?', ['image_size_directive']);
+        'SELECT useData, data FROM o_prompt WHERE name=?',
+        ['image_size_directive']);
     final directive = directiveRows.isEmpty
         ? config.str('imageSizeDirective')
-        : directiveRows.first['useData'] as String;
+        : (directiveRows.first['useData'] as String?) ??
+            (directiveRows.first['data'] as String?) ??
+            config.str('imageSizeDirective');
     return openaiGenerateImage(dio, model, media, prompt, projectId,
         imageSizeDirective: directive,
         cancelToken: cancelToken,
