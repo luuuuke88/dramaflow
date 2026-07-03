@@ -568,5 +568,12 @@
   "scriptPlanSaved": "脚本プランを保存しました",
   "canvasChatTitle": "脚本エージェント",
   "canvasChatOpen": "エージェント対話",
-  "canvasChatClose": "閉じる"
+  "canvasChatClose": "閉じる",
+  "imageEditorModel": "モデル",
+  "imageEditorRatio": "アスペクト比",
+  "imageEditorQuality": "画質",
+  "imageEditorSelectModel": "先にモデルを選択してください",
+  "imageEditorSelectQuality": "画質を選択してください",
+  "imageEditorSelectRatio": "アスペクト比を選択してください",
+  "imageEditorNoImageModel": "利用可能な画像モデルがありません"
 }

@@ -568,5 +568,12 @@
   "scriptPlanSaved": "Script plan saved",
   "canvasChatTitle": "Script Agent",
   "canvasChatOpen": "Agent chat",
-  "canvasChatClose": "Close"
+  "canvasChatClose": "Close",
+  "imageEditorModel": "Model",
+  "imageEditorRatio": "Ratio",
+  "imageEditorQuality": "Quality",
+  "imageEditorSelectModel": "Please select a model first",
+  "imageEditorSelectQuality": "Please select a quality",
+  "imageEditorSelectRatio": "Please select a ratio",
+  "imageEditorNoImageModel": "No image model available"
 }

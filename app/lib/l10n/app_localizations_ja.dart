@@ -1695,4 +1695,25 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get canvasChatClose => '閉じる';
+
+  @override
+  String get imageEditorModel => 'モデル';
+
+  @override
+  String get imageEditorRatio => 'アスペクト比';
+
+  @override
+  String get imageEditorQuality => '画質';
+
+  @override
+  String get imageEditorSelectModel => '先にモデルを選択してください';
+
+  @override
+  String get imageEditorSelectQuality => '画質を選択してください';
+
+  @override
+  String get imageEditorSelectRatio => 'アスペクト比を選択してください';
+
+  @override
+  String get imageEditorNoImageModel => '利用可能な画像モデルがありません';
 }

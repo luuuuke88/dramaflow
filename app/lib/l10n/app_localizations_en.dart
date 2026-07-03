@@ -1745,4 +1745,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get canvasChatClose => 'Close';
+
+  @override
+  String get imageEditorModel => 'Model';
+
+  @override
+  String get imageEditorRatio => 'Ratio';
+
+  @override
+  String get imageEditorQuality => 'Quality';
+
+  @override
+  String get imageEditorSelectModel => 'Please select a model first';
+
+  @override
+  String get imageEditorSelectQuality => 'Please select a quality';
+
+  @override
+  String get imageEditorSelectRatio => 'Please select a ratio';
+
+  @override
+  String get imageEditorNoImageModel => 'No image model available';
 }

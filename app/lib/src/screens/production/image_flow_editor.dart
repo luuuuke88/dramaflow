@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/engine.dart';
 import '../../engine/image_flow.dart';
+import '../project/model_select.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -20,7 +21,13 @@ import '../../widgets/df_canvas.dart';
 
 const _nodeWidth = 260.0;
 const _nodeCollapsedHeight = 220.0;
-const _nodeExpandedHeight = 460.0;
+// 选中态展开后要容纳：参考图缩略图 + prompt + 三个参数选择器 + 操作按钮，
+// 故较未选中态更高（对齐 ToonFlow generatedNode 展开的 .parameter 面板）。
+const _nodeExpandedHeight = 560.0;
+
+// 画幅/清晰度为静态枚举（对齐 ToonFlow t-option 硬编码值）。
+const _ratioOptions = ['16:9', '9:16', '1:1'];
+const _qualityOptions = ['1K', '2K', '4K'];
 
 class _NodeVM {
   final String id;
@@ -33,6 +40,11 @@ class _NodeVM {
   String? errorText;
   bool selected;
   List<String> references; // 由连线推导，只读展示
+  // 生成参数（对齐 ToonFlow generatedNode 的 data.model/ratio/quality）：
+  // model 为 'providerId:modelId'（enabled 图片模型），ratio/quality 为静态枚举值。
+  String? model;
+  String? ratio;
+  String? quality;
 
   _NodeVM({
     required this.id,
@@ -42,6 +54,9 @@ class _NodeVM {
     String prompt = '',
     this.generatedRel,
     this.state = 'idle',
+    this.model,
+    this.ratio,
+    this.quality,
   })  : errorText = null,
         selected = false,
         references = const [],
@@ -104,12 +119,22 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
   int _seq = 0;
   int? _flowId;
 
+  // 生成参数默认值（对齐 ToonFlow onMounted：model=project.imageModel、
+  // quality=project.imageQuality、ratio=project.videoRatio ?? '16:9'）。
+  String? _defaultModel;
+  String? _defaultQuality;
+  String _defaultRatio = '16:9';
+
+  // enabled 图片模型选项（providerId:modelId），异步加载后填充。
+  List<ModelOption> _imageModels = const [];
+
   Engine get _engine => widget.ref.read(engineProvider);
 
   @override
   void initState() {
     super.initState();
     _flowId = widget.flowId;
+    _loadProjectDefaults();
     if (widget.flowId != null) {
       final data = _engine.getImageFlow(widget.flowId);
       for (final n in data.nodes) {
@@ -121,6 +146,15 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
           prompt: (n.data['prompt'] as String?) ?? '',
           generatedRel: n.data['generatedImage'] as String?,
           state: n.data['generatedImage'] != null ? 'done' : 'idle',
+          model: (n.data['model'] as String?)?.trim().isEmpty ?? true
+              ? _defaultModel
+              : n.data['model'] as String?,
+          ratio: (n.data['ratio'] as String?)?.trim().isEmpty ?? true
+              ? _defaultRatio
+              : n.data['ratio'] as String?,
+          quality: (n.data['quality'] as String?)?.trim().isEmpty ?? true
+              ? _defaultQuality
+              : n.data['quality'] as String?,
         ));
       }
       for (final e in data.edges) {
@@ -141,6 +175,9 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
         id: genId,
         type: 'generated',
         position: const Offset(400, 40),
+        model: _defaultModel,
+        ratio: _defaultRatio,
+        quality: _defaultQuality,
       ));
       for (final upload in _nodes.where((n) => n.type == 'upload')) {
         _edges.add(_EdgeVM(
@@ -148,6 +185,44 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
       }
     }
     _syncReferences();
+    _loadImageModels();
+  }
+
+  /// 从当前项目读取默认 model/quality/ratio（对齐 ToonFlow onMounted）。
+  void _loadProjectDefaults() {
+    try {
+      final project =
+          _engine.projects().where((p) => p.id == widget.projectId).firstOrNull;
+      final model = project?.imageModel?.trim();
+      final quality = project?.imageQuality?.trim();
+      final ratio = project?.videoRatio?.trim();
+      _defaultModel = (model?.isEmpty ?? true) ? null : model;
+      _defaultQuality = (quality?.isEmpty ?? true) ? null : quality;
+      _defaultRatio = (ratio?.isEmpty ?? true) ? '16:9' : ratio!;
+    } catch (_) {
+      _defaultRatio = '16:9';
+    }
+  }
+
+  /// 异步加载 enabled 图片模型（复用 modelSelect 的 providerId:modelId 语义）。
+  Future<void> _loadImageModels() async {
+    try {
+      final options =
+          await widget.ref.read(modelOptionsProvider('image').future);
+      if (!mounted) return;
+      setState(() {
+        _imageModels = options;
+        // 项目默认模型可能不在 enabled 列表里；若节点未选且默认无效则留空待选。
+        for (final node in _nodes.where((n) => n.type == 'generated')) {
+          if (node.model != null &&
+              !options.any((o) => o.value == node.model)) {
+            node.model = null;
+          }
+        }
+      });
+    } catch (_) {
+      // 加载失败时保持空列表；模型选择器回退为只读占位（见 _modelSelectField）。
+    }
   }
 
   @override
@@ -241,10 +316,31 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     });
   }
 
+  /// 生成前置校验：prompt + model + quality + ratio 均必填（对齐 ToonFlow
+  /// handleGenerate 的必选校验；按钮禁用态也据此）。
+  bool _canGenerate(_NodeVM node) =>
+      node.promptCtl.text.trim().isNotEmpty &&
+      (node.model?.isNotEmpty ?? false) &&
+      (node.quality?.isNotEmpty ?? false) &&
+      (node.ratio?.isNotEmpty ?? false);
+
   Future<void> _generate(_NodeVM node) async {
     final l10n = context.l10n;
+    // 校验顺序对齐 ToonFlow handleGenerate：prompt→model→quality→ratio。
     if (node.promptCtl.text.trim().isEmpty) {
       _toast(l10n.assetsGenFillPrompt);
+      return;
+    }
+    if (node.model?.isEmpty ?? true) {
+      _toast(l10n.imageEditorSelectModel);
+      return;
+    }
+    if (node.quality?.isEmpty ?? true) {
+      _toast(l10n.imageEditorSelectQuality);
+      return;
+    }
+    if (node.ratio?.isEmpty ?? true) {
+      _toast(l10n.imageEditorSelectRatio);
       return;
     }
     setState(() {
@@ -259,6 +355,9 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
         projectId: widget.projectId,
         prompt: node.promptCtl.text,
         referenceAbsPaths: refs,
+        model: node.model,
+        ratio: node.ratio,
+        quality: node.quality,
       );
       setState(() {
         node.generatedRel = rel;
@@ -287,6 +386,10 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                   'prompt': n.promptCtl.text,
                   'generatedImage': n.generatedRel,
                   'references': [for (final r in n.references) {'image': r}],
+                  // 生成参数随节点持久化（对齐 ToonFlow data.model/ratio/quality）。
+                  'model': n.model,
+                  'ratio': n.ratio,
+                  'quality': n.quality,
                 },
         ),
     ];
@@ -363,6 +466,87 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
           ]),
         ),
       ]),
+    );
+  }
+
+  /// 模型选择器：填充 enabled 图片模型（providerId:modelId）。
+  /// 若引擎当前无可用图片模型，则退化为只读展示节点已绑定/项目默认模型
+  /// （对齐移植说明：无干净模型列表时不臆造，显示已绑定模型即可）。
+  Widget _modelSelectField(_NodeVM node) {
+    final df = context.df;
+    final l10n = context.l10n;
+    if (_imageModels.isEmpty) {
+      final bound = node.model;
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: df.stroke),
+          borderRadius: BorderRadius.circular(6),
+          color: df.surfaceMuted,
+        ),
+        child: Row(children: [
+          Icon(Icons.smart_toy_outlined, size: 14, color: df.textTertiary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              bound == null || bound.isEmpty
+                  ? l10n.imageEditorNoImageModel
+                  : bound,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: df.textSecondary),
+            ),
+          ),
+        ]),
+      );
+    }
+    final valid =
+        _imageModels.any((o) => o.value == node.model) ? node.model : null;
+    return DropdownButtonFormField<String>(
+      initialValue: valid,
+      isExpanded: true,
+      isDense: true,
+      hint: Text(l10n.imageEditorModel,
+          style: TextStyle(color: df.textTertiary, fontSize: 12)),
+      decoration: const InputDecoration(isDense: true),
+      style: TextStyle(fontSize: 12, color: df.textPrimary),
+      items: [
+        for (final o in _imageModels)
+          DropdownMenuItem(
+            value: o.value,
+            child: Text(o.label,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12)),
+          ),
+      ],
+      onChanged: (v) => setState(() => node.model = v),
+    );
+  }
+
+  /// 静态枚举选择器（画幅/清晰度共用）。
+  Widget _enumSelectField({
+    required String? value,
+    required String hint,
+    required List<String> options,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final df = context.df;
+    final valid = options.contains(value) ? value : null;
+    return DropdownButtonFormField<String>(
+      initialValue: valid,
+      isExpanded: true,
+      isDense: true,
+      hint: Text(hint, style: TextStyle(color: df.textTertiary, fontSize: 12)),
+      decoration: const InputDecoration(isDense: true),
+      style: TextStyle(fontSize: 12, color: df.textPrimary),
+      items: [
+        for (final o in options)
+          DropdownMenuItem(
+            value: o,
+            child: Text(o, style: const TextStyle(fontSize: 12)),
+          ),
+      ],
+      onChanged: onChanged,
     );
   }
 
@@ -472,10 +656,34 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                       isDense: true),
                 ),
                 const SizedBox(height: 6),
+                // 模型选择（enabled 图片模型；对齐 ToonFlow modelSelect）。
+                _modelSelectField(node),
+                const SizedBox(height: 6),
+                // 画幅 + 清晰度（静态枚举；对齐 ToonFlow 两个 t-select）。
+                Row(children: [
+                  Expanded(
+                    child: _enumSelectField(
+                      value: node.ratio,
+                      hint: l10n.imageEditorRatio,
+                      options: _ratioOptions,
+                      onChanged: (v) => setState(() => node.ratio = v),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _enumSelectField(
+                      value: node.quality,
+                      hint: l10n.imageEditorQuality,
+                      options: _qualityOptions,
+                      onChanged: (v) => setState(() => node.quality = v),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 6),
                 Row(children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: node.state == 'generating'
+                      onPressed: node.state == 'generating' || !_canGenerate(node)
                           ? null
                           : () => _generate(node),
                       child: Text(l10n.productionEditImageGenerateBtn,

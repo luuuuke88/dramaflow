@@ -743,5 +743,12 @@
   "scriptPlanSaved": "剧本规划已保存",
   "canvasChatTitle": "剧本 Agent",
   "canvasChatOpen": "Agent 对话",
-  "canvasChatClose": "关闭"
+  "canvasChatClose": "关闭",
+  "imageEditorModel": "模型",
+  "imageEditorRatio": "比例",
+  "imageEditorQuality": "质量",
+  "imageEditorSelectModel": "请先选择模型",
+  "imageEditorSelectQuality": "请选择画质",
+  "imageEditorSelectRatio": "请选择比例",
+  "imageEditorNoImageModel": "暂无可用图片模型"
 }

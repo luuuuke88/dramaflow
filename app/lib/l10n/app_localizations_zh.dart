@@ -1685,4 +1685,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get canvasChatClose => '关闭';
+
+  @override
+  String get imageEditorModel => '模型';
+
+  @override
+  String get imageEditorRatio => '比例';
+
+  @override
+  String get imageEditorQuality => '质量';
+
+  @override
+  String get imageEditorSelectModel => '请先选择模型';
+
+  @override
+  String get imageEditorSelectQuality => '请选择画质';
+
+  @override
+  String get imageEditorSelectRatio => '请选择比例';
+
+  @override
+  String get imageEditorNoImageModel => '暂无可用图片模型';
 }
