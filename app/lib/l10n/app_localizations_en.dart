@@ -561,4 +561,294 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errManualInvalid => 'Invalid manual data';
+
+  @override
+  String get novelImportText => 'Import Text';
+
+  @override
+  String get novelBatchDelete => 'Batch Delete';
+
+  @override
+  String get novelEventAnalysis => 'Event Analysis';
+
+  @override
+  String get novelSearchPlaceholder => 'Search text names...';
+
+  @override
+  String get novelSearch => 'Search';
+
+  @override
+  String get novelGenerating => 'Generating...';
+
+  @override
+  String get novelGenFailed => 'Generation failed';
+
+  @override
+  String get novelViewDetail => 'View Details';
+
+  @override
+  String get novelNone => 'None';
+
+  @override
+  String get novelEdit => 'Edit';
+
+  @override
+  String get novelDelete => 'Delete';
+
+  @override
+  String get novelColId => 'No.';
+
+  @override
+  String get novelColReel => 'Volume';
+
+  @override
+  String get novelColChapter => 'Chapter Name';
+
+  @override
+  String get novelColChapterData => 'Chapter Content';
+
+  @override
+  String get novelColEvent => 'Event';
+
+  @override
+  String get novelColOperation => 'Operation';
+
+  @override
+  String get novelMsgBatchDeleteHeader => 'Batch Delete';
+
+  @override
+  String novelMsgBatchDeleteBody(String count) {
+    return 'Are you sure you want to delete the selected $count items?';
+  }
+
+  @override
+  String get novelMsgBatchDeleteSuccess => 'Batch delete successful';
+
+  @override
+  String get novelMsgDeleteHeader => 'Confirm Deletion';
+
+  @override
+  String novelMsgDeleteBody(String name) {
+    return 'Are you sure you want to delete the chapter named \"$name\"?';
+  }
+
+  @override
+  String get novelMsgDeleteSuccess => 'Deleted successfully';
+
+  @override
+  String get novelMsgEventAnalysisHeader => 'Event Analysis';
+
+  @override
+  String novelMsgEventAnalysisBody(String count) {
+    return 'Are you sure you want to analyze events for the selected $count items?';
+  }
+
+  @override
+  String get novelImportTitle => 'Upload Novel Text';
+
+  @override
+  String get novelImportStep1 => 'Step 1';
+
+  @override
+  String get novelImportStep2 => 'Step 2';
+
+  @override
+  String get novelImportStep3 => 'Step 3';
+
+  @override
+  String get novelImportDragUpload =>
+      'Drag and drop your novel file here or click to upload';
+
+  @override
+  String get novelImportUploadHint =>
+      'Supports .txt, .docx. Recommended file size under 10MB';
+
+  @override
+  String get novelImportOr => 'OR';
+
+  @override
+  String get novelImportPasteLabel => 'Directly paste novel text';
+
+  @override
+  String get novelImportPastePlaceholder => 'Please paste novel text here';
+
+  @override
+  String get novelImportChars => 'chars';
+
+  @override
+  String get novelImportTooShort =>
+      'Content is too short, recommend at least 100 characters';
+
+  @override
+  String novelImportParsedChapters(String count) {
+    return '$count chapters parsed';
+  }
+
+  @override
+  String get novelImportNextStep => 'Next';
+
+  @override
+  String get novelImportPrevStep => 'Previous';
+
+  @override
+  String novelImportSelectedInfo(String count) {
+    return 'Selected: $count chars (Must be < 200,000)';
+  }
+
+  @override
+  String get novelImportEventAnalysis => 'Event Analysis';
+
+  @override
+  String get novelImportSaveAndAnalyze => 'Save Text and Analyze Events';
+
+  @override
+  String get novelImportColChapter => 'Chapter';
+
+  @override
+  String get novelImportColReel => 'Volume';
+
+  @override
+  String get novelImportColChapterName => 'Chapter Name';
+
+  @override
+  String get novelImportColChapterData => 'Chapter Content';
+
+  @override
+  String get novelImportMsgParseFailed =>
+      'Failed to parse file. Please re-upload';
+
+  @override
+  String get novelImportMsgSelectFile => 'Select file';
+
+  @override
+  String get novelImportMsgDocNotSupported =>
+      '.doc files do not support parsing, please convert to .ts files';
+
+  @override
+  String get novelImportMsgUnsupportedType => 'Unsupported file type';
+
+  @override
+  String get novelImportMsgFileTooLarge =>
+      'File exceeds 10MB. Please upload a smaller file';
+
+  @override
+  String get novelImportMsgSelectChapters => 'Please select chapters first';
+
+  @override
+  String get novelImportMsgSaveSuccess => 'Novel text saved successfully';
+
+  @override
+  String get novelImportImportAdd =>
+      'Drag and drop files here or click to upload';
+
+  @override
+  String get novelImportLimit => 'Support .ts format';
+
+  @override
+  String get novelEditDialogTitle => 'Edit Novel Text';
+
+  @override
+  String get novelEditDialogChapterName => 'Chapter Name';
+
+  @override
+  String get novelEditDialogChapterNamePh => 'Please enter chapter name';
+
+  @override
+  String get novelEditDialogEventContent => 'Event Content';
+
+  @override
+  String get novelEditDialogEventContentPh => 'Enter event content';
+
+  @override
+  String get novelEditDialogChapterContent => 'Chapter Content';
+
+  @override
+  String get novelEditDialogChapterContentPh => 'Please enter chapter content';
+
+  @override
+  String get novelEditDialogCancel => 'Cancel';
+
+  @override
+  String get novelEditDialogSave => 'Save';
+
+  @override
+  String get novelEditDialogMsgUpdateSuccess =>
+      'Novel text updated successfully';
+
+  @override
+  String get novelEventRegenerate => 'Regenerate Events';
+
+  @override
+  String get novelEventBatchDelete => 'Batch Delete';
+
+  @override
+  String get novelEventNoData => 'No event data. Click to start generation';
+
+  @override
+  String get novelEventGenerate => 'Generate Events';
+
+  @override
+  String get novelEventGeneratingHint => 'Generating events, please wait...';
+
+  @override
+  String get novelEventLoading => 'Loading...';
+
+  @override
+  String get novelEventDelete => 'Delete';
+
+  @override
+  String get novelEventColId => 'Event ID';
+
+  @override
+  String get novelEventColEventName => 'Event Name';
+
+  @override
+  String get novelEventColChapters => 'Source Chapter';
+
+  @override
+  String get novelEventColDetail => 'Event Details';
+
+  @override
+  String get novelEventColCreateTime => 'Created Time';
+
+  @override
+  String get novelEventColOperation => 'Operation';
+
+  @override
+  String get novelEventMsgDeleteHeader => 'Delete Event';
+
+  @override
+  String get novelEventMsgDeleteBody =>
+      'Are you sure you want to delete this event?';
+
+  @override
+  String get novelEventMsgDeleteSuccess => 'Deleted successfully';
+
+  @override
+  String get novelEventMsgGenerateSuccess => 'Events generated successfully';
+
+  @override
+  String get novelEventMsgBatchDeleteHeader => 'Batch Delete';
+
+  @override
+  String novelEventMsgBatchDeleteBody(String count) {
+    return 'Are you sure you want to delete the selected $count items?';
+  }
+
+  @override
+  String get novelEventMsgBatchDeleteSuccess => 'Batch delete successful';
+
+  @override
+  String get novelAnalysisAnalyzeFirst => 'Please analyze events first';
+
+  @override
+  String get novelAnalysisStartAnalysis => 'Start Analysis';
+
+  @override
+  String novelAnalysisChapterHeader(String index, String name) {
+    return 'Chapter $index - $name';
+  }
+
+  @override
+  String get novelAnalysisAnalyzing => 'Analyzing events';
 }

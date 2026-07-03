@@ -550,4 +550,287 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get errManualInvalid => 'マニュアルデータが無効です';
+
+  @override
+  String get novelImportText => '原文をインポート';
+
+  @override
+  String get novelBatchDelete => '一括削除';
+
+  @override
+  String get novelEventAnalysis => 'イベント分析';
+
+  @override
+  String get novelSearchPlaceholder => '原文の名前を検索...';
+
+  @override
+  String get novelSearch => '検索';
+
+  @override
+  String get novelGenerating => '生成中...';
+
+  @override
+  String get novelGenFailed => '生成失敗';
+
+  @override
+  String get novelViewDetail => '查看详情';
+
+  @override
+  String get novelNone => 'なし';
+
+  @override
+  String get novelEdit => '編集';
+
+  @override
+  String get novelDelete => '削除';
+
+  @override
+  String get novelColId => 'No.';
+
+  @override
+  String get novelColReel => '巻';
+
+  @override
+  String get novelColChapter => '章名';
+
+  @override
+  String get novelColChapterData => '章の内容';
+
+  @override
+  String get novelColEvent => 'イベント';
+
+  @override
+  String get novelColOperation => '操作';
+
+  @override
+  String get novelMsgBatchDeleteHeader => '一括削除';
+
+  @override
+  String novelMsgBatchDeleteBody(String count) {
+    return '選択した $count 件のデータを削除してもよろしいですか？';
+  }
+
+  @override
+  String get novelMsgBatchDeleteSuccess => '一括削除に成功しました';
+
+  @override
+  String get novelMsgDeleteHeader => '削除の確認';
+
+  @override
+  String novelMsgDeleteBody(String name) {
+    return '章名「$name」のデータを削除してもよろしいですか？';
+  }
+
+  @override
+  String get novelMsgDeleteSuccess => '削除に成功しました';
+
+  @override
+  String get novelMsgEventAnalysisHeader => 'イベント分析';
+
+  @override
+  String novelMsgEventAnalysisBody(String count) {
+    return '選択した $count 件のデータのイベント分析を実行してもよろしいですか？';
+  }
+
+  @override
+  String get novelImportTitle => '小説の原文をアップロード';
+
+  @override
+  String get novelImportStep1 => 'ステップ 1';
+
+  @override
+  String get novelImportStep2 => 'ステップ 2';
+
+  @override
+  String get novelImportStep3 => 'ステップ 3';
+
+  @override
+  String get novelImportDragUpload => 'ここに小説ファイルをドラッグ＆ドロップするか、クリックしてアップロード';
+
+  @override
+  String get novelImportUploadHint => '対応形式: .txt, .docx。ファイルサイズは10MB以下を推奨します';
+
+  @override
+  String get novelImportOr => 'または';
+
+  @override
+  String get novelImportPasteLabel => '小説の原文を直接貼り付け';
+
+  @override
+  String get novelImportPastePlaceholder => '小説の原文を入力してください';
+
+  @override
+  String get novelImportChars => '文字';
+
+  @override
+  String get novelImportTooShort => '内容が短すぎます。100文字以上を推奨します';
+
+  @override
+  String novelImportParsedChapters(String count) {
+    return '$count 章を解析しました';
+  }
+
+  @override
+  String get novelImportNextStep => '次へ';
+
+  @override
+  String get novelImportPrevStep => '戻る';
+
+  @override
+  String novelImportSelectedInfo(String count) {
+    return '選択済み：$count 文字 (200,000文字以内)';
+  }
+
+  @override
+  String get novelImportEventAnalysis => 'イベント分析';
+
+  @override
+  String get novelImportSaveAndAnalyze => '原文を保存してイベントを分析';
+
+  @override
+  String get novelImportColChapter => '章';
+
+  @override
+  String get novelImportColReel => '巻';
+
+  @override
+  String get novelImportColChapterName => '章名';
+
+  @override
+  String get novelImportColChapterData => '章の内容';
+
+  @override
+  String get novelImportMsgParseFailed => 'ファイルの解析に失敗しました。再アップロードしてください';
+
+  @override
+  String get novelImportMsgSelectFile => 'ファイルを選択';
+
+  @override
+  String get novelImportMsgDocNotSupported =>
+      '.doc ファイルは解析をサポートしていません。.ts ファイルに変換してください。';
+
+  @override
+  String get novelImportMsgUnsupportedType => '未対応のファイル形式です';
+
+  @override
+  String get novelImportMsgFileTooLarge =>
+      'ファイルサイズが10MBを超えています。より小さなファイルをアップロードしてください';
+
+  @override
+  String get novelImportMsgSelectChapters => '先に章を選択してください';
+
+  @override
+  String get novelImportMsgSaveSuccess => '小説の原文を保存しました';
+
+  @override
+  String get novelImportImportAdd => 'ここにファイルをドラッグ アンド ドロップするか、クリックしてアップロードします';
+
+  @override
+  String get novelImportLimit => '.ts形式をサポート';
+
+  @override
+  String get novelEditDialogTitle => '小説の原文を編集';
+
+  @override
+  String get novelEditDialogChapterName => '章名';
+
+  @override
+  String get novelEditDialogChapterNamePh => '章名を入力してください';
+
+  @override
+  String get novelEditDialogEventContent => 'イベント内容';
+
+  @override
+  String get novelEditDialogEventContentPh => 'イベント内容を入力してください';
+
+  @override
+  String get novelEditDialogChapterContent => '章の内容';
+
+  @override
+  String get novelEditDialogChapterContentPh => '章の内容を入力してください';
+
+  @override
+  String get novelEditDialogCancel => 'キャンセル';
+
+  @override
+  String get novelEditDialogSave => '保存';
+
+  @override
+  String get novelEditDialogMsgUpdateSuccess => '小説の原文を更新しました';
+
+  @override
+  String get novelEventRegenerate => 'イベントを再生成';
+
+  @override
+  String get novelEventBatchDelete => '一括削除';
+
+  @override
+  String get novelEventNoData => 'イベントデータがありません。生成を開始してください';
+
+  @override
+  String get novelEventGenerate => 'イベントを生成';
+
+  @override
+  String get novelEventGeneratingHint => 'イベント生成中。しばらくお待ちください...';
+
+  @override
+  String get novelEventLoading => '読み込み中...';
+
+  @override
+  String get novelEventDelete => '削除';
+
+  @override
+  String get novelEventColId => 'イベントID';
+
+  @override
+  String get novelEventColEventName => 'イベント名';
+
+  @override
+  String get novelEventColChapters => '元の章';
+
+  @override
+  String get novelEventColDetail => 'イベントのプロセス';
+
+  @override
+  String get novelEventColCreateTime => '作成時間';
+
+  @override
+  String get novelEventColOperation => '操作';
+
+  @override
+  String get novelEventMsgDeleteHeader => 'イベントの削除';
+
+  @override
+  String get novelEventMsgDeleteBody => 'このイベントを削除してもよろしいですか？';
+
+  @override
+  String get novelEventMsgDeleteSuccess => '削除に成功しました';
+
+  @override
+  String get novelEventMsgGenerateSuccess => 'イベントの生成に成功しました';
+
+  @override
+  String get novelEventMsgBatchDeleteHeader => '一括削除';
+
+  @override
+  String novelEventMsgBatchDeleteBody(String count) {
+    return '選択した $count 件のデータを削除してもよろしいですか？';
+  }
+
+  @override
+  String get novelEventMsgBatchDeleteSuccess => '一括削除に成功しました';
+
+  @override
+  String get novelAnalysisAnalyzeFirst => '先にイベントを分析してください';
+
+  @override
+  String get novelAnalysisStartAnalysis => '分析を開始';
+
+  @override
+  String novelAnalysisChapterHeader(String index, String name) {
+    return '第$index章 - $name';
+  }
+
+  @override
+  String get novelAnalysisAnalyzing => 'イベント分析中';
 }

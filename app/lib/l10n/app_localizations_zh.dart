@@ -546,4 +546,285 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errManualInvalid => '手册数据无效';
+
+  @override
+  String get novelImportText => '导入原文';
+
+  @override
+  String get novelBatchDelete => '批量删除';
+
+  @override
+  String get novelEventAnalysis => '事件分析';
+
+  @override
+  String get novelSearchPlaceholder => '搜索原文名称...';
+
+  @override
+  String get novelSearch => '搜索';
+
+  @override
+  String get novelGenerating => '生成中...';
+
+  @override
+  String get novelGenFailed => '生成失败';
+
+  @override
+  String get novelViewDetail => '查看详情';
+
+  @override
+  String get novelNone => '无';
+
+  @override
+  String get novelEdit => '编辑';
+
+  @override
+  String get novelDelete => '删除';
+
+  @override
+  String get novelColId => '序号';
+
+  @override
+  String get novelColReel => '卷';
+
+  @override
+  String get novelColChapter => '章节名称';
+
+  @override
+  String get novelColChapterData => '章节内容';
+
+  @override
+  String get novelColEvent => '事件';
+
+  @override
+  String get novelColOperation => '操作';
+
+  @override
+  String get novelMsgBatchDeleteHeader => '批量删除';
+
+  @override
+  String novelMsgBatchDeleteBody(String count) {
+    return '确定要删除选中的 $count 条数据吗?';
+  }
+
+  @override
+  String get novelMsgBatchDeleteSuccess => '批量删除成功';
+
+  @override
+  String get novelMsgDeleteHeader => '删除确认';
+
+  @override
+  String novelMsgDeleteBody(String name) {
+    return '确定要删除章节名称为「$name」的数据吗?';
+  }
+
+  @override
+  String get novelMsgDeleteSuccess => '删除成功';
+
+  @override
+  String get novelMsgEventAnalysisHeader => '事件分析';
+
+  @override
+  String novelMsgEventAnalysisBody(String count) {
+    return '确定要对选中的 $count 条数据进行事件分析吗?';
+  }
+
+  @override
+  String get novelImportTitle => '上传小说原文';
+
+  @override
+  String get novelImportStep1 => '第一步';
+
+  @override
+  String get novelImportStep2 => '第二步';
+
+  @override
+  String get novelImportStep3 => '第三步';
+
+  @override
+  String get novelImportDragUpload => '拖拽小说原文文件到此处或点击上传';
+
+  @override
+  String get novelImportUploadHint => '支持 .txt, .docx 格式，建议文件大小不超过 10MB';
+
+  @override
+  String get novelImportOr => '或';
+
+  @override
+  String get novelImportPasteLabel => '直接粘贴小说原文内容';
+
+  @override
+  String get novelImportPastePlaceholder => '请输入小说原文内容';
+
+  @override
+  String get novelImportChars => '字符';
+
+  @override
+  String get novelImportTooShort => '内容过短，建议至少100字符';
+
+  @override
+  String novelImportParsedChapters(String count) {
+    return '已解析 $count 章节';
+  }
+
+  @override
+  String get novelImportNextStep => '下一步';
+
+  @override
+  String get novelImportPrevStep => '上一步';
+
+  @override
+  String novelImportSelectedInfo(String count) {
+    return '已勾选：$count字';
+  }
+
+  @override
+  String get novelImportEventAnalysis => '事件分析';
+
+  @override
+  String get novelImportSaveAndAnalyze => '保存原文并分析事件';
+
+  @override
+  String get novelImportColChapter => '章';
+
+  @override
+  String get novelImportColReel => '卷';
+
+  @override
+  String get novelImportColChapterName => '章节名称';
+
+  @override
+  String get novelImportColChapterData => '章节内容';
+
+  @override
+  String get novelImportMsgParseFailed => '文件解析失败，请重新上传';
+
+  @override
+  String get novelImportMsgSelectFile => '选择文件';
+
+  @override
+  String get novelImportMsgDocNotSupported => '.doc文件不支持解析，请转换为.ts文件';
+
+  @override
+  String get novelImportMsgUnsupportedType => '不支持的文件类型';
+
+  @override
+  String get novelImportMsgFileTooLarge => '文件大小超过10MB，请上传更小的文件';
+
+  @override
+  String get novelImportMsgSelectChapters => '请先勾选章节';
+
+  @override
+  String get novelImportMsgSaveSuccess => '小说原文保存成功';
+
+  @override
+  String get novelImportImportAdd => '拖拽文件到此处或点击上传';
+
+  @override
+  String get novelImportLimit => '支持 .ts格式';
+
+  @override
+  String get novelEditDialogTitle => '编辑小说原文';
+
+  @override
+  String get novelEditDialogChapterName => '章节名称';
+
+  @override
+  String get novelEditDialogChapterNamePh => '请输入章节名称';
+
+  @override
+  String get novelEditDialogEventContent => '事件内容';
+
+  @override
+  String get novelEditDialogEventContentPh => '输入事件内容';
+
+  @override
+  String get novelEditDialogChapterContent => '章节内容';
+
+  @override
+  String get novelEditDialogChapterContentPh => '请输入章节内容';
+
+  @override
+  String get novelEditDialogCancel => '取消';
+
+  @override
+  String get novelEditDialogSave => '保存';
+
+  @override
+  String get novelEditDialogMsgUpdateSuccess => '小说原文更新成功';
+
+  @override
+  String get novelEventRegenerate => '重新生成事件';
+
+  @override
+  String get novelEventBatchDelete => '批量删除';
+
+  @override
+  String get novelEventNoData => '暂无事件数据，点击开始生成';
+
+  @override
+  String get novelEventGenerate => '生成事件';
+
+  @override
+  String get novelEventGeneratingHint => '事件生成中，请稍候...';
+
+  @override
+  String get novelEventLoading => '加载中...';
+
+  @override
+  String get novelEventDelete => '删除';
+
+  @override
+  String get novelEventColId => '事件ID';
+
+  @override
+  String get novelEventColEventName => '事件名称';
+
+  @override
+  String get novelEventColChapters => '来源章节';
+
+  @override
+  String get novelEventColDetail => '事件过程';
+
+  @override
+  String get novelEventColCreateTime => '创建时间';
+
+  @override
+  String get novelEventColOperation => '操作';
+
+  @override
+  String get novelEventMsgDeleteHeader => '删除事件';
+
+  @override
+  String get novelEventMsgDeleteBody => '确定要删除这个事件吗？';
+
+  @override
+  String get novelEventMsgDeleteSuccess => '删除成功';
+
+  @override
+  String get novelEventMsgGenerateSuccess => '事件生成成功';
+
+  @override
+  String get novelEventMsgBatchDeleteHeader => '批量删除';
+
+  @override
+  String novelEventMsgBatchDeleteBody(String count) {
+    return '确定要删除选中的 $count 条数据吗?';
+  }
+
+  @override
+  String get novelEventMsgBatchDeleteSuccess => '批量删除成功';
+
+  @override
+  String get novelAnalysisAnalyzeFirst => '请先分析事件';
+
+  @override
+  String get novelAnalysisStartAnalysis => '开始分析';
+
+  @override
+  String novelAnalysisChapterHeader(String index, String name) {
+    return '第$index章 - $name';
+  }
+
+  @override
+  String get novelAnalysisAnalyzing => '事件分析中';
 }

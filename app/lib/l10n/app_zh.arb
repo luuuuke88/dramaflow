@@ -219,5 +219,146 @@
   "manualTabStoryboardTable": "技法-分镜表设计",
   "manualTabNarrativePlanning": "导演规划",
   "manualTabNarrativeTable": "分镜表",
-  "errManualInvalid": "手册数据无效"
+  "errManualInvalid": "手册数据无效",
+  "novelImportText": "导入原文",
+  "novelBatchDelete": "批量删除",
+  "novelEventAnalysis": "事件分析",
+  "novelSearchPlaceholder": "搜索原文名称...",
+  "novelSearch": "搜索",
+  "novelGenerating": "生成中...",
+  "novelGenFailed": "生成失败",
+  "novelViewDetail": "查看详情",
+  "novelNone": "无",
+  "novelEdit": "编辑",
+  "novelDelete": "删除",
+  "novelColId": "序号",
+  "novelColReel": "卷",
+  "novelColChapter": "章节名称",
+  "novelColChapterData": "章节内容",
+  "novelColEvent": "事件",
+  "novelColOperation": "操作",
+  "novelMsgBatchDeleteHeader": "批量删除",
+  "novelMsgBatchDeleteBody": "确定要删除选中的 {count} 条数据吗?",
+  "@novelMsgBatchDeleteBody": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "novelMsgBatchDeleteSuccess": "批量删除成功",
+  "novelMsgDeleteHeader": "删除确认",
+  "novelMsgDeleteBody": "确定要删除章节名称为「{name}」的数据吗?",
+  "@novelMsgDeleteBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "novelMsgDeleteSuccess": "删除成功",
+  "novelMsgEventAnalysisHeader": "事件分析",
+  "novelMsgEventAnalysisBody": "确定要对选中的 {count} 条数据进行事件分析吗?",
+  "@novelMsgEventAnalysisBody": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "novelImportTitle": "上传小说原文",
+  "novelImportStep1": "第一步",
+  "novelImportStep2": "第二步",
+  "novelImportStep3": "第三步",
+  "novelImportDragUpload": "拖拽小说原文文件到此处或点击上传",
+  "novelImportUploadHint": "支持 .txt, .docx 格式，建议文件大小不超过 10MB",
+  "novelImportOr": "或",
+  "novelImportPasteLabel": "直接粘贴小说原文内容",
+  "novelImportPastePlaceholder": "请输入小说原文内容",
+  "novelImportChars": "字符",
+  "novelImportTooShort": "内容过短，建议至少100字符",
+  "novelImportParsedChapters": "已解析 {count} 章节",
+  "@novelImportParsedChapters": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "novelImportNextStep": "下一步",
+  "novelImportPrevStep": "上一步",
+  "novelImportSelectedInfo": "已勾选：{count}字",
+  "@novelImportSelectedInfo": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "novelImportEventAnalysis": "事件分析",
+  "novelImportSaveAndAnalyze": "保存原文并分析事件",
+  "novelImportColChapter": "章",
+  "novelImportColReel": "卷",
+  "novelImportColChapterName": "章节名称",
+  "novelImportColChapterData": "章节内容",
+  "novelImportMsgParseFailed": "文件解析失败，请重新上传",
+  "novelImportMsgSelectFile": "选择文件",
+  "novelImportMsgDocNotSupported": ".doc文件不支持解析，请转换为.ts文件",
+  "novelImportMsgUnsupportedType": "不支持的文件类型",
+  "novelImportMsgFileTooLarge": "文件大小超过10MB，请上传更小的文件",
+  "novelImportMsgSelectChapters": "请先勾选章节",
+  "novelImportMsgSaveSuccess": "小说原文保存成功",
+  "novelImportImportAdd": "拖拽文件到此处或点击上传",
+  "novelImportLimit": "支持 .ts格式",
+  "novelEditDialogTitle": "编辑小说原文",
+  "novelEditDialogChapterName": "章节名称",
+  "novelEditDialogChapterNamePh": "请输入章节名称",
+  "novelEditDialogEventContent": "事件内容",
+  "novelEditDialogEventContentPh": "输入事件内容",
+  "novelEditDialogChapterContent": "章节内容",
+  "novelEditDialogChapterContentPh": "请输入章节内容",
+  "novelEditDialogCancel": "取消",
+  "novelEditDialogSave": "保存",
+  "novelEditDialogMsgUpdateSuccess": "小说原文更新成功",
+  "novelEventRegenerate": "重新生成事件",
+  "novelEventBatchDelete": "批量删除",
+  "novelEventNoData": "暂无事件数据，点击开始生成",
+  "novelEventGenerate": "生成事件",
+  "novelEventGeneratingHint": "事件生成中，请稍候...",
+  "novelEventLoading": "加载中...",
+  "novelEventDelete": "删除",
+  "novelEventColId": "事件ID",
+  "novelEventColEventName": "事件名称",
+  "novelEventColChapters": "来源章节",
+  "novelEventColDetail": "事件过程",
+  "novelEventColCreateTime": "创建时间",
+  "novelEventColOperation": "操作",
+  "novelEventMsgDeleteHeader": "删除事件",
+  "novelEventMsgDeleteBody": "确定要删除这个事件吗？",
+  "novelEventMsgDeleteSuccess": "删除成功",
+  "novelEventMsgGenerateSuccess": "事件生成成功",
+  "novelEventMsgBatchDeleteHeader": "批量删除",
+  "novelEventMsgBatchDeleteBody": "确定要删除选中的 {count} 条数据吗?",
+  "@novelEventMsgBatchDeleteBody": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "novelEventMsgBatchDeleteSuccess": "批量删除成功",
+  "novelAnalysisAnalyzeFirst": "请先分析事件",
+  "novelAnalysisStartAnalysis": "开始分析",
+  "novelAnalysisChapterHeader": "第{index}章 - {name}",
+  "@novelAnalysisChapterHeader": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "novelAnalysisAnalyzing": "事件分析中"
 }

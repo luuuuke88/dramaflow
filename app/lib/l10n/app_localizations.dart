@@ -1149,6 +1149,540 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'手册数据无效'**
   String get errManualInvalid;
+
+  /// No description provided for @novelImportText.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入原文'**
+  String get novelImportText;
+
+  /// No description provided for @novelBatchDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除'**
+  String get novelBatchDelete;
+
+  /// No description provided for @novelEventAnalysis.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件分析'**
+  String get novelEventAnalysis;
+
+  /// No description provided for @novelSearchPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索原文名称...'**
+  String get novelSearchPlaceholder;
+
+  /// No description provided for @novelSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索'**
+  String get novelSearch;
+
+  /// No description provided for @novelGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成中...'**
+  String get novelGenerating;
+
+  /// No description provided for @novelGenFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成失败'**
+  String get novelGenFailed;
+
+  /// No description provided for @novelViewDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看详情'**
+  String get novelViewDetail;
+
+  /// No description provided for @novelNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无'**
+  String get novelNone;
+
+  /// No description provided for @novelEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get novelEdit;
+
+  /// No description provided for @novelDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get novelDelete;
+
+  /// No description provided for @novelColId.
+  ///
+  /// In zh, this message translates to:
+  /// **'序号'**
+  String get novelColId;
+
+  /// No description provided for @novelColReel.
+  ///
+  /// In zh, this message translates to:
+  /// **'卷'**
+  String get novelColReel;
+
+  /// No description provided for @novelColChapter.
+  ///
+  /// In zh, this message translates to:
+  /// **'章节名称'**
+  String get novelColChapter;
+
+  /// No description provided for @novelColChapterData.
+  ///
+  /// In zh, this message translates to:
+  /// **'章节内容'**
+  String get novelColChapterData;
+
+  /// No description provided for @novelColEvent.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件'**
+  String get novelColEvent;
+
+  /// No description provided for @novelColOperation.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作'**
+  String get novelColOperation;
+
+  /// No description provided for @novelMsgBatchDeleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除'**
+  String get novelMsgBatchDeleteHeader;
+
+  /// No description provided for @novelMsgBatchDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除选中的 {count} 条数据吗?'**
+  String novelMsgBatchDeleteBody(String count);
+
+  /// No description provided for @novelMsgBatchDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除成功'**
+  String get novelMsgBatchDeleteSuccess;
+
+  /// No description provided for @novelMsgDeleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除确认'**
+  String get novelMsgDeleteHeader;
+
+  /// No description provided for @novelMsgDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除章节名称为「{name}」的数据吗?'**
+  String novelMsgDeleteBody(String name);
+
+  /// No description provided for @novelMsgDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除成功'**
+  String get novelMsgDeleteSuccess;
+
+  /// No description provided for @novelMsgEventAnalysisHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件分析'**
+  String get novelMsgEventAnalysisHeader;
+
+  /// No description provided for @novelMsgEventAnalysisBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要对选中的 {count} 条数据进行事件分析吗?'**
+  String novelMsgEventAnalysisBody(String count);
+
+  /// No description provided for @novelImportTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传小说原文'**
+  String get novelImportTitle;
+
+  /// No description provided for @novelImportStep1.
+  ///
+  /// In zh, this message translates to:
+  /// **'第一步'**
+  String get novelImportStep1;
+
+  /// No description provided for @novelImportStep2.
+  ///
+  /// In zh, this message translates to:
+  /// **'第二步'**
+  String get novelImportStep2;
+
+  /// No description provided for @novelImportStep3.
+  ///
+  /// In zh, this message translates to:
+  /// **'第三步'**
+  String get novelImportStep3;
+
+  /// No description provided for @novelImportDragUpload.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖拽小说原文文件到此处或点击上传'**
+  String get novelImportDragUpload;
+
+  /// No description provided for @novelImportUploadHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持 .txt, .docx 格式，建议文件大小不超过 10MB'**
+  String get novelImportUploadHint;
+
+  /// No description provided for @novelImportOr.
+  ///
+  /// In zh, this message translates to:
+  /// **'或'**
+  String get novelImportOr;
+
+  /// No description provided for @novelImportPasteLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'直接粘贴小说原文内容'**
+  String get novelImportPasteLabel;
+
+  /// No description provided for @novelImportPastePlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入小说原文内容'**
+  String get novelImportPastePlaceholder;
+
+  /// No description provided for @novelImportChars.
+  ///
+  /// In zh, this message translates to:
+  /// **'字符'**
+  String get novelImportChars;
+
+  /// No description provided for @novelImportTooShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容过短，建议至少100字符'**
+  String get novelImportTooShort;
+
+  /// No description provided for @novelImportParsedChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'已解析 {count} 章节'**
+  String novelImportParsedChapters(String count);
+
+  /// No description provided for @novelImportNextStep.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get novelImportNextStep;
+
+  /// No description provided for @novelImportPrevStep.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一步'**
+  String get novelImportPrevStep;
+
+  /// No description provided for @novelImportSelectedInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'已勾选：{count}字'**
+  String novelImportSelectedInfo(String count);
+
+  /// No description provided for @novelImportEventAnalysis.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件分析'**
+  String get novelImportEventAnalysis;
+
+  /// No description provided for @novelImportSaveAndAnalyze.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存原文并分析事件'**
+  String get novelImportSaveAndAnalyze;
+
+  /// No description provided for @novelImportColChapter.
+  ///
+  /// In zh, this message translates to:
+  /// **'章'**
+  String get novelImportColChapter;
+
+  /// No description provided for @novelImportColReel.
+  ///
+  /// In zh, this message translates to:
+  /// **'卷'**
+  String get novelImportColReel;
+
+  /// No description provided for @novelImportColChapterName.
+  ///
+  /// In zh, this message translates to:
+  /// **'章节名称'**
+  String get novelImportColChapterName;
+
+  /// No description provided for @novelImportColChapterData.
+  ///
+  /// In zh, this message translates to:
+  /// **'章节内容'**
+  String get novelImportColChapterData;
+
+  /// No description provided for @novelImportMsgParseFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件解析失败，请重新上传'**
+  String get novelImportMsgParseFailed;
+
+  /// No description provided for @novelImportMsgSelectFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择文件'**
+  String get novelImportMsgSelectFile;
+
+  /// No description provided for @novelImportMsgDocNotSupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'.doc文件不支持解析，请转换为.ts文件'**
+  String get novelImportMsgDocNotSupported;
+
+  /// No description provided for @novelImportMsgUnsupportedType.
+  ///
+  /// In zh, this message translates to:
+  /// **'不支持的文件类型'**
+  String get novelImportMsgUnsupportedType;
+
+  /// No description provided for @novelImportMsgFileTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件大小超过10MB，请上传更小的文件'**
+  String get novelImportMsgFileTooLarge;
+
+  /// No description provided for @novelImportMsgSelectChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先勾选章节'**
+  String get novelImportMsgSelectChapters;
+
+  /// No description provided for @novelImportMsgSaveSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说原文保存成功'**
+  String get novelImportMsgSaveSuccess;
+
+  /// No description provided for @novelImportImportAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖拽文件到此处或点击上传'**
+  String get novelImportImportAdd;
+
+  /// No description provided for @novelImportLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持 .ts格式'**
+  String get novelImportLimit;
+
+  /// No description provided for @novelEditDialogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑小说原文'**
+  String get novelEditDialogTitle;
+
+  /// No description provided for @novelEditDialogChapterName.
+  ///
+  /// In zh, this message translates to:
+  /// **'章节名称'**
+  String get novelEditDialogChapterName;
+
+  /// No description provided for @novelEditDialogChapterNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入章节名称'**
+  String get novelEditDialogChapterNamePh;
+
+  /// No description provided for @novelEditDialogEventContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件内容'**
+  String get novelEditDialogEventContent;
+
+  /// No description provided for @novelEditDialogEventContentPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入事件内容'**
+  String get novelEditDialogEventContentPh;
+
+  /// No description provided for @novelEditDialogChapterContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'章节内容'**
+  String get novelEditDialogChapterContent;
+
+  /// No description provided for @novelEditDialogChapterContentPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入章节内容'**
+  String get novelEditDialogChapterContentPh;
+
+  /// No description provided for @novelEditDialogCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get novelEditDialogCancel;
+
+  /// No description provided for @novelEditDialogSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get novelEditDialogSave;
+
+  /// No description provided for @novelEditDialogMsgUpdateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说原文更新成功'**
+  String get novelEditDialogMsgUpdateSuccess;
+
+  /// No description provided for @novelEventRegenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新生成事件'**
+  String get novelEventRegenerate;
+
+  /// No description provided for @novelEventBatchDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除'**
+  String get novelEventBatchDelete;
+
+  /// No description provided for @novelEventNoData.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无事件数据，点击开始生成'**
+  String get novelEventNoData;
+
+  /// No description provided for @novelEventGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成事件'**
+  String get novelEventGenerate;
+
+  /// No description provided for @novelEventGeneratingHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件生成中，请稍候...'**
+  String get novelEventGeneratingHint;
+
+  /// No description provided for @novelEventLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载中...'**
+  String get novelEventLoading;
+
+  /// No description provided for @novelEventDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get novelEventDelete;
+
+  /// No description provided for @novelEventColId.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件ID'**
+  String get novelEventColId;
+
+  /// No description provided for @novelEventColEventName.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件名称'**
+  String get novelEventColEventName;
+
+  /// No description provided for @novelEventColChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'来源章节'**
+  String get novelEventColChapters;
+
+  /// No description provided for @novelEventColDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件过程'**
+  String get novelEventColDetail;
+
+  /// No description provided for @novelEventColCreateTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建时间'**
+  String get novelEventColCreateTime;
+
+  /// No description provided for @novelEventColOperation.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作'**
+  String get novelEventColOperation;
+
+  /// No description provided for @novelEventMsgDeleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除事件'**
+  String get novelEventMsgDeleteHeader;
+
+  /// No description provided for @novelEventMsgDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除这个事件吗？'**
+  String get novelEventMsgDeleteBody;
+
+  /// No description provided for @novelEventMsgDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除成功'**
+  String get novelEventMsgDeleteSuccess;
+
+  /// No description provided for @novelEventMsgGenerateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件生成成功'**
+  String get novelEventMsgGenerateSuccess;
+
+  /// No description provided for @novelEventMsgBatchDeleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除'**
+  String get novelEventMsgBatchDeleteHeader;
+
+  /// No description provided for @novelEventMsgBatchDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除选中的 {count} 条数据吗?'**
+  String novelEventMsgBatchDeleteBody(String count);
+
+  /// No description provided for @novelEventMsgBatchDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除成功'**
+  String get novelEventMsgBatchDeleteSuccess;
+
+  /// No description provided for @novelAnalysisAnalyzeFirst.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先分析事件'**
+  String get novelAnalysisAnalyzeFirst;
+
+  /// No description provided for @novelAnalysisStartAnalysis.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始分析'**
+  String get novelAnalysisStartAnalysis;
+
+  /// No description provided for @novelAnalysisChapterHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'第{index}章 - {name}'**
+  String novelAnalysisChapterHeader(String index, String name);
+
+  /// No description provided for @novelAnalysisAnalyzing.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件分析中'**
+  String get novelAnalysisAnalyzing;
 }
 
 class _AppLocalizationsDelegate
