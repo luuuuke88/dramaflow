@@ -62,8 +62,8 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
       // 使用用户自定义章节正则（其他设置 chapterReg；空则用内置默认）。
       final chapterReg =
           widget.ref.read(engineProvider).config.str('chapterReg');
-      _parsed = flattenParsedNovel(
-          parseNovel(_content.text, chapterReg: chapterReg));
+      _parsed =
+          flattenParsedNovel(parseNovel(_content.text, chapterReg: chapterReg));
     } catch (_) {
       _parsed = const [];
     }
@@ -166,15 +166,15 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
         minLines: 10,
         maxLines: 10,
         onChanged: (_) => _reparse(),
-        decoration:
-            InputDecoration(hintText: l10n.novelImportPastePlaceholder),
+        decoration: InputDecoration(hintText: l10n.novelImportPastePlaceholder),
       ),
       const SizedBox(height: 6),
       Row(children: [
         Text('$chars ${l10n.novelImportChars}',
             style: TextStyle(
                 fontSize: 12,
-                color: chars > 0 && chars < 100 ? df.warning : df.textTertiary)),
+                color:
+                    chars > 0 && chars < 100 ? df.warning : df.textTertiary)),
         if (chars > 0 && chars < 100) ...[
           const SizedBox(width: 6),
           Text(l10n.novelImportTooShort,
@@ -214,8 +214,7 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
                 cells: [
                   Text('${c.index}'),
                   Text(c.reel, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(c.chapter,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(c.chapter, maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text(
                     c.chapterData.length > 60
                         ? c.chapterData.substring(0, 60)
@@ -228,8 +227,8 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
               ),
           ],
           mobileCardBuilder: (c, row) {
-            final item = _parsed
-                .firstWhere((x) => '${x.index}_${x.chapter}' == row.id);
+            final item =
+                _parsed.firstWhere((x) => '${x.index}_${x.chapter}' == row.id);
             return ListTile(
               title: Text('${item.index} · ${item.chapter}'),
               subtitle: Text(item.reel, style: const TextStyle(fontSize: 12)),
@@ -273,24 +272,48 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-        child: Row(children: [
-          for (final (i, t) in stepTitles.indexed) ...[
-            if (i > 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.chevron_right,
-                    size: 16, color: context.df.textTertiary),
+        child: LayoutBuilder(builder: (context, constraints) {
+          if (constraints.maxWidth < 420) {
+            return Row(children: [
+              Expanded(
+                child: Text(stepTitles[_step],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: context.df.primary,
+                    )),
               ),
-            Text(t,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: _step == i ? FontWeight.w700 : FontWeight.w400,
-                  color: _step == i
-                      ? context.df.primary
-                      : context.df.textTertiary,
-                )),
-          ],
-        ]),
+              const SizedBox(width: 8),
+              Text('${_step + 1}/${stepTitles.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.df.textTertiary,
+                    fontFeatures: DFTokens.tabularFigures,
+                  )),
+            ]);
+          }
+
+          return Row(children: [
+            for (final (i, t) in stepTitles.indexed) ...[
+              if (i > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.chevron_right,
+                      size: 16, color: context.df.textTertiary),
+                ),
+              Text(t,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: _step == i ? FontWeight.w700 : FontWeight.w400,
+                    color: _step == i
+                        ? context.df.primary
+                        : context.df.textTertiary,
+                  )),
+            ],
+          ]);
+        }),
       ),
       Flexible(
         child: Padding(
@@ -316,15 +339,18 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
           const SizedBox(width: 8),
           if (_step == 0)
             FilledButton(
-              onPressed: _parsed.isEmpty ? null : () {
-                setState(() {
-                  _step = 1;
-                  _selected
-                    ..clear()
-                    ..addAll(
-                        [for (final c in _parsed) '${c.index}_${c.chapter}']);
-                });
-              },
+              onPressed: _parsed.isEmpty
+                  ? null
+                  : () {
+                      setState(() {
+                        _step = 1;
+                        _selected
+                          ..clear()
+                          ..addAll([
+                            for (final c in _parsed) '${c.index}_${c.chapter}'
+                          ]);
+                      });
+                    },
               child: Text(l10n.novelImportNextStep),
             )
           else if (_step == 1)

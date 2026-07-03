@@ -54,8 +54,7 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
               onPressed: () => Navigator.pop(c, false),
               child: Text(l10n.commonCancel)),
           FilledButton(
-              style:
-                  FilledButton.styleFrom(backgroundColor: context.df.danger),
+              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
               onPressed: () => Navigator.pop(c, true),
               child: Text(l10n.commonDelete)),
         ],
@@ -79,8 +78,7 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
               onPressed: () => Navigator.pop(c, false),
               child: Text(l10n.commonCancel)),
           FilledButton(
-              style:
-                  FilledButton.styleFrom(backgroundColor: context.df.danger),
+              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
               onPressed: () => Navigator.pop(c, true),
               child: Text(l10n.commonDelete)),
         ],
@@ -151,13 +149,12 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
     final df = context.df;
     switch (row.eventState) {
       case 0:
-        return DFStatusTag(kind: DFStatusKind.processing, text: l10n.novelGenerating);
+        return DFStatusTag(
+            kind: DFStatusKind.processing, text: l10n.novelGenerating);
       case -1:
         return InkWell(
-          onTap: () => _showDetail(
-              l10n.novelGenFailed,
-              localizeReason(l10n, row.errorReason) ??
-                  (row.errorReason ?? '')),
+          onTap: () => _showDetail(l10n.novelGenFailed,
+              localizeReason(l10n, row.errorReason) ?? (row.errorReason ?? '')),
           child: Text(l10n.novelGenFailed,
               style: TextStyle(color: df.danger, fontSize: 13)),
         );
@@ -237,52 +234,72 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
-        child: Row(children: [
-          FilledButton.icon(
-            onPressed: () async {
-              final saved = await showImportNovelDialog(context, ref,
-                  projectId: widget.projectId);
-              if (saved == true) setState(() {});
-            },
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(l10n.novelImportText),
-          ),
-          const SizedBox(width: 10),
-          FilledButton.icon(
-            onPressed: _selected.isEmpty ? null : _batchDelete,
-            style: FilledButton.styleFrom(
-                backgroundColor: df.danger,
-                disabledBackgroundColor: df.danger.withValues(alpha: 0.35)),
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: Text(_selected.isEmpty
-                ? l10n.novelBatchDelete
-                : '${l10n.novelBatchDelete} (${_selected.length})'),
-          ),
-          const SizedBox(width: 10),
-          FilledButton.icon(
-            onPressed: _selected.isEmpty ? null : _generateSelectedEvents,
-            icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-            label: Text(_selected.isEmpty
-                ? l10n.novelGenerateSelectedEvents
-                : '${l10n.novelGenerateSelectedEvents} (${_selected.length})'),
-          ),
-          const SizedBox(width: 10),
-          OutlinedButton.icon(
-            onPressed: _eventAnalysis,
-            icon: const Icon(Icons.analytics_outlined, size: 18),
-            label: Text(_selected.isEmpty
-                ? l10n.novelEventAnalysis
-                : '${l10n.novelEventAnalysis} (${_selected.length})'),
-          ),
-          const Spacer(),
-          DFSearchField(
+        child: LayoutBuilder(builder: (context, constraints) {
+          final compact = constraints.maxWidth < 720;
+
+          Future<void> openImport() async {
+            final saved = await showImportNovelDialog(context, ref,
+                projectId: widget.projectId);
+            if (saved == true) setState(() {});
+          }
+
+          final search = DFSearchField(
             hint: l10n.novelSearchPlaceholder,
+            width: compact ? constraints.maxWidth : 240,
             onSearch: (q) => setState(() {
               _search = q;
               _page = 1;
             }),
-          ),
-        ]),
+          );
+          final actions = <Widget>[
+            FilledButton.icon(
+              onPressed: openImport,
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(l10n.novelImportText),
+            ),
+            FilledButton.icon(
+              onPressed: _selected.isEmpty ? null : _batchDelete,
+              style: FilledButton.styleFrom(
+                  backgroundColor: df.danger,
+                  disabledBackgroundColor: df.danger.withValues(alpha: 0.35)),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: Text(_selected.isEmpty
+                  ? l10n.novelBatchDelete
+                  : '${l10n.novelBatchDelete} (${_selected.length})'),
+            ),
+            FilledButton.icon(
+              onPressed: _selected.isEmpty ? null : _generateSelectedEvents,
+              icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+              label: Text(_selected.isEmpty
+                  ? l10n.novelGenerateSelectedEvents
+                  : '${l10n.novelGenerateSelectedEvents} (${_selected.length})'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _eventAnalysis,
+              icon: const Icon(Icons.analytics_outlined, size: 18),
+              label: Text(_selected.isEmpty
+                  ? l10n.novelEventAnalysis
+                  : '${l10n.novelEventAnalysis} (${_selected.length})'),
+            ),
+          ];
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 10),
+                Wrap(spacing: 8, runSpacing: 8, children: actions),
+              ],
+            );
+          }
+
+          return Row(children: [
+            ...actions.expand((button) => [button, const SizedBox(width: 10)]),
+            const Spacer(),
+            search,
+          ]);
+        }),
       ),
       Expanded(
         child: result.total == 0 && _search.isEmpty
@@ -313,10 +330,9 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
                   ],
                   selectable: true,
                   selectedIds: _selected,
-                  onSelectionChanged: (ids) =>
-                      setState(() => _selected
-                        ..clear()
-                        ..addAll(ids)),
+                  onSelectionChanged: (ids) => setState(() => _selected
+                    ..clear()
+                    ..addAll(ids)),
                   pagination: DFPagination(
                       page: _page, pageSize: _limit, total: result.total),
                   onPageChange: (p) => setState(() => _page = p),
@@ -337,8 +353,8 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
                       ),
                   ],
                   mobileCardBuilder: (c, dfRow) {
-                    final row = result.data
-                        .firstWhere((n) => '${n.id}' == dfRow.id);
+                    final row =
+                        result.data.firstWhere((n) => '${n.id}' == dfRow.id);
                     return ListTile(
                       title: Text('${row.chapterIndex} · ${row.chapter ?? ''}',
                           maxLines: 1, overflow: TextOverflow.ellipsis),
