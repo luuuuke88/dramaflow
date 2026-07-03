@@ -296,6 +296,23 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     db.execute('UPDATE o_assets SET ${sets.join(',')} WHERE id=?', args);
   }
 
+  /// 图片编辑器"保存"应用到资产：登记已落盘的 rel 路径为新图片版本并选中。
+  void attachAssetImage(int assetsId, String rel, {int? flowId}) {
+    final type = db
+            .select('SELECT type FROM o_assets WHERE id=?', [assetsId])
+            .firstOrNull?['type'] as String? ??
+        'role';
+    db.execute(
+      "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,?,?)",
+      [assetsId, rel, type, stateDone],
+    );
+    final imageId = db.lastInsertRowId;
+    db.execute(
+      'UPDATE o_assets SET imageId=?${flowId != null ? ',flowId=?' : ''} WHERE id=?',
+      flowId != null ? [imageId, flowId, assetsId] : [imageId, assetsId],
+    );
+  }
+
   void deleteAssetImage(int imageId) {
     final rows =
         db.select('SELECT filePath FROM o_image WHERE id=?', [imageId]);

@@ -175,6 +175,15 @@ extension StoryboardApi on Engine {
     return id;
   }
 
+  /// 图片编辑器"保存"应用到分镜：直接写入生成结果（不经批量生图队列）。
+  void setStoryboardImage(int id, String rel, {int? flowId}) {
+    db.execute(
+      'UPDATE o_storyboard SET filePath=?, state=?, reason=NULL'
+      '${flowId != null ? ', flowId=?' : ''} WHERE id=?',
+      flowId != null ? [rel, sbDone, flowId, id] : [rel, sbDone, id],
+    );
+  }
+
   void editStoryboard(int id, {String? prompt, String? videoDesc, String? duration}) {
     final sets = <String>[];
     final args = <Object?>[];
