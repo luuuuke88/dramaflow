@@ -49,16 +49,32 @@ class DFCanvas extends StatefulWidget {
 }
 
 class _DFCanvasState extends State<DFCanvas> {
-  late final TransformationController _controller =
-      widget.controller ?? TransformationController();
+  late final TransformationController _controller;
+  late final bool _ownsController;
   bool _fitted = false;
 
   @override
   void initState() {
     super.initState();
+    _ownsController = widget.controller == null;
+    _controller = widget.controller ?? TransformationController();
+    _controller.addListener(_handleTransformChanged);
     if (widget.fitOnInit && widget.nodes.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_handleTransformChanged);
+    if (_ownsController) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _handleTransformChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -99,46 +115,106 @@ class _DFCanvasState extends State<DFCanvas> {
     _fitted = true;
   }
 
+  Rect _visibleSceneRect(Size viewport) {
+    if (viewport.isEmpty) {
+      return const Rect.fromLTWH(0, 0, 12000, 8000);
+    }
+    final topLeft = _controller.toScene(Offset.zero);
+    final bottomRight =
+        _controller.toScene(Offset(viewport.width, viewport.height));
+    return Rect.fromLTRB(
+      math.min(topLeft.dx, bottomRight.dx),
+      math.min(topLeft.dy, bottomRight.dy),
+      math.max(topLeft.dx, bottomRight.dx),
+      math.max(topLeft.dy, bottomRight.dy),
+    ).inflate(600);
+  }
+
+  bool _nodeIntersects(DFCanvasNode node, Rect sceneRect) {
+    final rect = Rect.fromLTWH(
+      node.position.dx,
+      node.position.dy,
+      node.size.width,
+      node.size.height,
+    );
+    return rect.overlaps(sceneRect);
+  }
+
+  bool _edgeIntersects(
+    DFCanvasEdge edge,
+    Rect sceneRect,
+    Map<String, DFCanvasNode> nodes,
+  ) {
+    final source = nodes[edge.sourceId];
+    final target = nodes[edge.targetId];
+    if (source == null || target == null) return false;
+    final start = Offset(
+      source.position.dx + source.size.width,
+      source.position.dy + source.size.height / 2,
+    );
+    final end = Offset(
+      target.position.dx,
+      target.position.dy + target.size.height / 2,
+    );
+    return Rect.fromPoints(start, end).inflate(160).overlaps(sceneRect);
+  }
+
   @override
   Widget build(BuildContext context) {
     final df = context.df;
     return ClipRect(
-      child: InteractiveViewer(
-        transformationController: _controller,
-        minScale: 0.1,
-        maxScale: 10,
-        constrained: false,
-        boundaryMargin: const EdgeInsets.all(4000),
-        child: SizedBox(
-          width: 12000,
-          height: 8000,
-          child: Stack(children: [
-            RepaintBoundary(
-              child: CustomPaint(
-                size: const Size(12000, 8000),
-                painter: _GridPainter(color: df.stroke.withValues(alpha: 0.4)),
-              ),
-            ),
-            if (widget.edges.isNotEmpty)
-              RepaintBoundary(
-                child: CustomPaint(
-                  size: const Size(12000, 8000),
-                  painter: _EdgePainter(
-                    edges: widget.edges,
-                    nodes: {for (final n in widget.nodes) n.id: n},
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final viewport = constraints.biggest;
+          final visibleScene = _visibleSceneRect(viewport);
+          final nodesById = {for (final n in widget.nodes) n.id: n};
+          final visibleNodes = [
+            for (final node in widget.nodes)
+              if (_nodeIntersects(node, visibleScene)) node,
+          ];
+          final visibleEdges = [
+            for (final edge in widget.edges)
+              if (_edgeIntersects(edge, visibleScene, nodesById)) edge,
+          ];
+          return InteractiveViewer(
+            transformationController: _controller,
+            minScale: 0.1,
+            maxScale: 10,
+            constrained: false,
+            boundaryMargin: const EdgeInsets.all(4000),
+            child: SizedBox(
+              width: 12000,
+              height: 8000,
+              child: Stack(children: [
+                RepaintBoundary(
+                  child: CustomPaint(
+                    size: const Size(12000, 8000),
+                    painter:
+                        _GridPainter(color: df.stroke.withValues(alpha: 0.4)),
                   ),
                 ),
-              ),
-            for (final node in widget.nodes)
-              Positioned(
-                left: node.position.dx,
-                top: node.position.dy,
-                width: node.size.width,
-                height: node.size.height,
-                child: RepaintBoundary(child: node.child),
-              ),
-          ]),
-        ),
+                if (visibleEdges.isNotEmpty)
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      size: const Size(12000, 8000),
+                      painter: _EdgePainter(
+                        edges: visibleEdges,
+                        nodes: nodesById,
+                      ),
+                    ),
+                  ),
+                for (final node in visibleNodes)
+                  Positioned(
+                    left: node.position.dx,
+                    top: node.position.dy,
+                    width: node.size.width,
+                    height: node.size.height,
+                    child: RepaintBoundary(child: node.child),
+                  ),
+              ]),
+            ),
+          );
+        },
       ),
     );
   }

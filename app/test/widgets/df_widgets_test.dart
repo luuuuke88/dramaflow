@@ -2,6 +2,7 @@ import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/theme/theme.dart';
 import 'package:dramaflow/src/theme/tokens.dart';
 import 'package:dramaflow/src/widgets/df_adaptive_dialog.dart';
+import 'package:dramaflow/src/widgets/df_canvas.dart';
 import 'package:dramaflow/src/widgets/df_data_table.dart';
 import 'package:dramaflow/src/widgets/df_status_tag.dart';
 import 'package:flutter/material.dart';
@@ -122,5 +123,51 @@ void main() {
 
   test('DFColors light primary matches design token', () {
     expect(DFColors.light().primary, const Color(0xFF414CB2));
+  });
+
+  testWidgets('DFCanvas culls offscreen nodes in a 1000-node canvas',
+      (tester) async {
+    await setLogicalSize(tester, const Size(1200, 900));
+    final controller = TransformationController();
+    final built = <int>[];
+    final nodes = List.generate(1000, (i) {
+      final col = i % 40;
+      final row = i ~/ 40;
+      return DFCanvasNode(
+        id: 'n$i',
+        position: Offset(col * 260.0, row * 160.0),
+        size: const Size(160, 80),
+        child: Builder(builder: (context) {
+          built.add(i);
+          return Text('N$i');
+        }),
+      );
+    });
+    final edges = [
+      for (var i = 0; i < 999; i++)
+        DFCanvasEdge(sourceId: 'n$i', targetId: 'n${i + 1}'),
+    ];
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 1200,
+      height: 900,
+      child: DFCanvas(
+        nodes: nodes,
+        edges: edges,
+        controller: controller,
+        fitOnInit: false,
+      ),
+    )));
+
+    expect(find.text('N0'), findsOneWidget);
+    expect(find.text('N999'), findsNothing);
+    expect(built.length, lessThan(120));
+
+    controller.value = Matrix4.identity()
+      ..translateByDouble(-10000, -3700, 0, 1);
+    await tester.pump();
+
+    expect(find.text('N999'), findsOneWidget);
+    expect(find.text('N0'), findsNothing);
   });
 }
