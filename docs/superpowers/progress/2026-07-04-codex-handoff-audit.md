@@ -6,7 +6,7 @@
 - 本轮起点：`c4c3cf6 chore(progress): record handoff audit and localize composer errors`
 - 本轮接手验证：
   - `cd app && flutter analyze`：通过，0 issues
-  - `cd app && flutter test`：通过，256 tests
+  - `cd app && flutter test`：通过，257 tests
   - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`
   - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`
   - `cd app && flutter build apk --debug`：通过，产物 `build/app/outputs/flutter-apk/app-debug.apk`
@@ -27,6 +27,7 @@
 - 新增移动端剧本页 smoke：390px 宽度下工具栏不再溢出，可打开批量添加弹窗、解析两集剧本并落库显示。
 - 新增移动端小说页 smoke：390px 宽度下工具栏和导入步骤头不再溢出，可粘贴两章原文、保存落库并自动入队事件生成任务。
 - 新增移动端素材页 smoke：390px 宽度下素材工具栏不再溢出，音频 tab 可打开文本配音、生成音频资产并回到移动端卡片列表。
+- 新增移动端配音页 smoke：390px 宽度下角色音频下拉可打开、选择音频并写入绑定关系。
 - 合成导出：
   - macOS/iOS：`dramaflow/composer` Swift AVFoundation 插件，含音频轨合成。
   - Android：同一 MethodChannel，Kotlin `MediaMuxer` 实现，支持视频拼接与外部 AAC/M4A 音频轨封装。

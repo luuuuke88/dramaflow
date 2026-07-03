@@ -44,15 +44,18 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
-  Widget app() {
+  Widget app({double width = 1400}) {
     return ProviderScope(
       overrides: [engineProvider.overrideWithValue(engine)],
-      child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
-        locale: const Locale('zh'),
-        theme: buildTheme(Brightness.light),
-        home: Scaffold(body: CornerScapeScreen(projectId: projectId)),
+      child: MediaQuery(
+        data: MediaQueryData(size: Size(width, 900)),
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+          locale: const Locale('zh'),
+          theme: buildTheme(Brightness.light),
+          home: Scaffold(body: CornerScapeScreen(projectId: projectId)),
+        ),
       ),
     );
   }
@@ -198,8 +201,8 @@ void main() {
     // 未绑定：试听图标存在但按钮禁用（onPressed == null）。
     final playIcon = find.byIcon(Icons.play_circle_outline);
     expect(playIcon, findsOneWidget);
-    final btnFinder = find.ancestor(
-        of: playIcon, matching: find.byType(IconButton));
+    final btnFinder =
+        find.ancestor(of: playIcon, matching: find.byType(IconButton));
     expect(tester.widget<IconButton>(btnFinder).onPressed, isNull);
 
     // 绑定一个无实际文件的音频父资产，按钮启用；点击应提示"音频文件缺失"，不崩溃。
@@ -212,5 +215,27 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(find.text('音频文件缺失'), findsOneWidget);
+  });
+
+  testWidgets('移动端配音页：手动绑定角色音频', (tester) async {
+    engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+    engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(width: 390));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byType(DropdownButtonFormField<int?>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('低音男声').last);
+    await tester.pumpAndSettle();
+
+    expect(engine.roleAudioBindings(projectId).single.audioName, '低音男声');
+    expect(find.text('低音男声'), findsOneWidget);
   });
 }
