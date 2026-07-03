@@ -73,6 +73,8 @@ class JobQueue {
     'asset_extraction': 'text',
     'asset_prompt_polish': 'text',
     'asset_image_generation': 'image',
+    'storyboard_generate': 'text',
+    'storyboard_image_generation': 'image',
   };
   static const laneCap = {'text': 1, 'image': 1, 'video': 1};
 

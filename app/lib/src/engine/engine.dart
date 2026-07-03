@@ -8,6 +8,7 @@ import 'package:sqlite3/sqlite3.dart';
 import '../api/models.dart';
 import 'assets.dart';
 import 'compose.dart';
+import 'storyboard.dart' show StoryboardApi;
 import 'config.dart';
 import 'db.dart';
 import 'errors.dart';
@@ -277,6 +278,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     engine.installNovelEventPipeline();
     engine.installScriptPipeline();
     engine.installAssetPipeline();
+    engine.installStoryboardPipeline();
     engine.queue.recoverOnColdStart();
     engine.queue.start();
     return engine;
@@ -435,6 +437,16 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
           '请逐章分析其改编价值：主线推进、可视化难度、情绪曲线衔接、建议保留或合并。'
           '严格返回 JSON 数组，每元素形如 {"chapterIndex": 数字, "analysis": "分析文本"}，'
           '不要输出 JSON 以外的任何内容。',
+    );
+    // 分镜生成（照抄 ToonFlow batchAddStoryboardInfo 语义，DramaFlow 补齐为可编辑提示词）
+    prompt(
+      name: 'storyboard_gen',
+      type: 'storyboard_gen',
+      data: '你是短剧分镜师。根据剧本内容拆分镜头，每个镜头输出：画面提示词'
+          '（prompt，用于 AI 生图，包含构图/景别/光线）、运镜与画面描述'
+          '（videoDesc）、预估时长秒数（duration）、所属分轨名称（track，如"主线"）、'
+          '涉及的资产名称（assetNames，取剧本中出现的角色/道具/场景原名）。'
+          '必须通过调用 resultTool 工具返回结果，禁止输出任何其他文字。',
     );
   }
 
