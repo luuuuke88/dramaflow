@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/screens/settings_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
@@ -17,6 +19,33 @@ import 'package:path/path.dart' as p;
 class _NoopGateway implements ProviderGateway {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecordingHttpGateway extends HttpProviderGateway {
+  final calls = <String>[];
+
+  _RecordingHttpGateway(super.db, super.config, super.media);
+
+  @override
+  Future<int> testTextModel(ResolvedModel model,
+      {CancelToken? cancelToken}) async {
+    calls.add('text:${model.modelId}');
+    return 11;
+  }
+
+  @override
+  Future<int> testImageModel(ResolvedModel model,
+      {CancelToken? cancelToken}) async {
+    calls.add('image:${model.modelId}');
+    return 22;
+  }
+
+  @override
+  Future<int> testVideoModel(ResolvedModel model,
+      {CancelToken? cancelToken}) async {
+    calls.add('video:${model.modelId}');
+    return 33;
+  }
 }
 
 void main() {
@@ -182,6 +211,69 @@ void main() {
     expect(find.text('Old Gateway'), findsNothing);
   });
 
+  testWidgets('移动端设置页：分模态连通测试可选择图片和视频模型', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    final media = MediaStore(p.join(dir.path, 'media'));
+    final config = EngineConfig(db, isMobile: true);
+    final gateway = _RecordingHttpGateway(db, config, media);
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: gateway,
+      config: config,
+    );
+    final provider = await engine.createProvider(
+      name: 'Local Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'local-text',
+        'label': '本地文本',
+        'kind': 'text',
+        'enabled': true,
+      },
+      {
+        'modelId': 'local-image',
+        'label': '本地图像',
+        'kind': 'image',
+        'enabled': true,
+      },
+      {
+        'modelId': 'local-video',
+        'label': '本地视频',
+        'kind': 'video',
+        'enabled': true,
+      },
+    ]);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('测试连通').first);
+    await tester.pumpAndSettle();
+    expect(find.text('测试连通 · Local Gateway'), findsOneWidget);
+
+    await _chooseFirstDropdown(tester, '图片 · 本地图像');
+    await tester.tap(find.text('测试').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('测试连通').first);
+    await tester.pumpAndSettle();
+    await _chooseFirstDropdown(tester, '视频 · 本地视频');
+    await tester.tap(find.text('测试').last);
+    await tester.pumpAndSettle();
+
+    expect(gateway.calls, ['image:local-image', 'video:local-video']);
+  });
+
   testWidgets('移动端设置页：清空数据确认只清内容保留配置', (tester) async {
     await engine.createProvider(
       name: 'Keep Provider',
@@ -226,7 +318,9 @@ Future<void> _chooseFirstDropdown(
   WidgetTester tester,
   String optionLabel,
 ) async {
-  await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+  await tester.tap(find
+      .byWidgetPredicate((widget) => widget is DropdownButtonFormField)
+      .first);
   await tester.pumpAndSettle();
   await tester.tap(find.text(optionLabel).last);
   await tester.pumpAndSettle();
