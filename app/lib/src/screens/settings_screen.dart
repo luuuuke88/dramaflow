@@ -1,12 +1,15 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../api/models.dart';
+import '../engine/db_admin.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
@@ -27,15 +30,39 @@ PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
   );
 }
 
-enum _SettingsSection { appearance, providers, bindings, prompts, storage }
+// 应用版本（对齐 pubspec version；package_info_plus 未引入，引擎版本另经 health 展示）。
+const _appVersion = '0.1.0';
 
-const _sections = [
-  _SectionMeta(_SettingsSection.appearance, '外观', Icons.palette_outlined),
-  _SectionMeta(_SettingsSection.providers, '供应商', Icons.cloud_queue_rounded),
-  _SectionMeta(_SettingsSection.bindings, '模型绑定', Icons.hub_outlined),
-  _SectionMeta(_SettingsSection.prompts, '提示词', Icons.article_outlined),
-  _SectionMeta(_SettingsSection.storage, '存储与引擎', Icons.storage_outlined),
-];
+enum _SettingsSection {
+  appearance,
+  providers,
+  bindings,
+  prompts,
+  other,
+  storage,
+  about,
+}
+
+String _sectionLabel(AppLocalizations l10n, _SettingsSection section) =>
+    switch (section) {
+      _SettingsSection.appearance => '外观',
+      _SettingsSection.providers => '供应商',
+      _SettingsSection.bindings => '模型绑定',
+      _SettingsSection.prompts => '提示词',
+      _SettingsSection.other => l10n.settingsOtherSection,
+      _SettingsSection.storage => '存储与引擎',
+      _SettingsSection.about => l10n.settingsAboutSection,
+    };
+
+const _sectionIcons = {
+  _SettingsSection.appearance: Icons.palette_outlined,
+  _SettingsSection.providers: Icons.cloud_queue_rounded,
+  _SettingsSection.bindings: Icons.hub_outlined,
+  _SettingsSection.prompts: Icons.article_outlined,
+  _SettingsSection.other: Icons.tune_rounded,
+  _SettingsSection.storage: Icons.storage_outlined,
+  _SettingsSection.about: Icons.info_outline_rounded,
+};
 
 const _stages = [
   _StageMeta('script_gen', 'text'),
@@ -65,14 +92,6 @@ const _modelKinds = [
   _KindMeta('video', '视频'),
   _KindMeta('tts', '配音'),
 ];
-
-class _SectionMeta {
-  final _SettingsSection section;
-  final String label;
-  final IconData icon;
-
-  const _SectionMeta(this.section, this.label, this.icon);
-}
 
 class _StageMeta {
   final String key;
@@ -153,6 +172,29 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   _SettingsSection _section = _SettingsSection.appearance;
   int _modelRevision = 0;
+
+  // 其他设置字段控制器（懒初始化：进入面板时按引擎当前值填充）。
+  TextEditingController? _chapterRegCtrl;
+  TextEditingController? _episodeLengthCtrl;
+  TextEditingController? _batchSizeCtrl;
+
+  void _ensureOtherControllers() {
+    if (_chapterRegCtrl != null) return;
+    final config = ref.read(engineProvider).config;
+    _chapterRegCtrl = TextEditingController(text: config.str('chapterReg'));
+    _episodeLengthCtrl =
+        TextEditingController(text: config.str('scriptEpisodeLength'));
+    _batchSizeCtrl =
+        TextEditingController(text: config.str('assetsBatchGenereateSize'));
+  }
+
+  @override
+  void dispose() {
+    _chapterRegCtrl?.dispose();
+    _episodeLengthCtrl?.dispose();
+    _batchSizeCtrl?.dispose();
+    super.dispose();
+  }
 
   void _selectSection(_SettingsSection section) {
     if (section == _section) return;
@@ -238,7 +280,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _SettingsSection.providers => _providersPanel(),
           _SettingsSection.bindings => _bindingsPanel(),
           _SettingsSection.prompts => _promptsPanel(),
+          _SettingsSection.other => _otherPanel(),
           _SettingsSection.storage => _storageCard(),
+          _SettingsSection.about => _aboutCard(),
         },
         const SizedBox(height: 40),
       ],
@@ -489,19 +533,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
     if (!mounted || models == null) return;
 
-    final textModels = models!
-        .where((model) => model.kind == 'text' && model.enabled)
+    // 分模态测试（对齐引擎 testProvider 的 text/image/video 分派）：
+    // 允许测试任一启用的文本/图片/视频模型，而非仅文本。
+    final testable = models!
+        .where((model) =>
+            model.enabled &&
+            const {'text', 'image', 'video'}.contains(model.kind))
         .toList();
-    if (textModels.isEmpty) {
+    if (testable.isEmpty) {
       await runAction(context, ref, () async {
-        throw EngineException('请先启用至少一个文本模型');
+        throw EngineException(context.l10n.settingsProviderTestNoModel);
       });
       return;
     }
 
-    ProviderModelInfo? selected = textModels.length == 1
-        ? textModels.first
-        : await _chooseTextModel(provider, textModels);
+    final selected = testable.length == 1
+        ? testable.first
+        : await _chooseTestModel(provider, testable);
     if (!mounted || selected == null) return;
 
     var elapsedMs = 0;
@@ -512,9 +560,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }, successMessage: '连通成功：$elapsedMs ms');
   }
 
-  Future<ProviderModelInfo?> _chooseTextModel(
+  Future<ProviderModelInfo?> _chooseTestModel(
       ProviderInfo provider, List<ProviderModelInfo> models) {
+    final l10n = context.l10n;
     var selected = models.first;
+    String kindLabel(String kind) => _modelKinds
+        .firstWhere((item) => item.value == kind,
+            orElse: () => const _KindMeta('text', '文本'))
+        .label;
     return showDialog<ProviderModelInfo>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -524,12 +577,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             width: 420,
             child: DropdownButtonFormField<ProviderModelInfo>(
               initialValue: selected,
-              decoration: const InputDecoration(labelText: '文本模型'),
+              isExpanded: true,
+              decoration: InputDecoration(labelText: l10n.settingsProviderTestKind),
               items: [
                 for (final model in models)
                   DropdownMenuItem(
                     value: model,
-                    child: Text(_modelLabel(model)),
+                    child: Text(
+                      '${kindLabel(model.kind)} · ${_modelLabel(model)}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
               ],
               onChanged: (value) {
@@ -698,7 +755,78 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  // ---------- 4. 存储与引擎 ----------
+  // ---------- 4. 其他设置 ----------
+
+  Widget _otherPanel() {
+    _ensureOtherControllers();
+    final l10n = context.l10n;
+    return _SettingsCard(
+      title: l10n.settingsOtherTitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _chapterRegCtrl,
+            decoration: InputDecoration(
+              labelText: l10n.settingsOtherChapterReg,
+              helperText: l10n.settingsOtherChapterRegHint,
+              suffixIcon: IconButton(
+                tooltip: l10n.settingsOtherChapterRegRestore,
+                icon: const Icon(Icons.restore_rounded, size: 18),
+                onPressed: () => setState(() => _chapterRegCtrl!.clear()),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _episodeLengthCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: l10n.settingsOtherEpisodeLength,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _batchSizeCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: l10n.settingsOtherBatchSize,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: _saveOtherSettings,
+              icon: const Icon(Icons.save_outlined, size: 18),
+              label: Text(l10n.commonSave),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveOtherSettings() async {
+    final l10n = context.l10n;
+    final episode = int.tryParse(_episodeLengthCtrl!.text.trim());
+    final batch = int.tryParse(_batchSizeCtrl!.text.trim());
+    if (episode == null || episode <= 0 || batch == null || batch <= 0) {
+      await runAction(context, ref, () async {
+        throw EngineException(l10n.settingsOtherInvalidNumber);
+      });
+      return;
+    }
+    await runAction(context, ref, () async {
+      ref.read(engineProvider).config.update({
+        'chapterReg': _chapterRegCtrl!.text.trim(),
+        'scriptEpisodeLength': '$episode',
+        'assetsBatchGenereateSize': '$batch',
+      });
+    }, successMessage: l10n.settingsOtherSaved);
+  }
+
+  // ---------- 5. 存储与引擎 ----------
 
   Widget _storageCard() {
     final engine = ref.read(engineProvider);
@@ -745,6 +873,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Text(
             '引擎内嵌运行，数据与媒体全部保存在本机，无需任何后台服务',
             style: TextStyle(color: context.df.textLo, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _openDataFolder,
+                icon: const Icon(Icons.folder_open_outlined, size: 18),
+                label: Text(context.l10n.settingsStorageOpenFolder),
+              ),
+              OutlinedButton.icon(
+                onPressed: _showDbInfo,
+                icon: const Icon(Icons.table_chart_outlined, size: 18),
+                label: Text(context.l10n.settingsStorageDbInfo),
+              ),
+              OutlinedButton.icon(
+                onPressed: _clearAllData,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.df.red,
+                  side: BorderSide(color: context.df.red.withValues(alpha: 0.5)),
+                ),
+                icon: const Icon(Icons.delete_forever_outlined, size: 18),
+                label: Text(context.l10n.settingsStorageClear),
+              ),
+            ],
           ),
           const Divider(height: 28),
           Text('引擎状态',
@@ -843,6 +997,142 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }, successMessage: '配置已导入');
     if (!mounted) return;
     _invalidateConfig();
+  }
+
+  Future<void> _openDataFolder() async {
+    final l10n = context.l10n;
+    final dir = ref.read(engineProvider).dataDirPath();
+    await runAction(context, ref, () async {
+      try {
+        if (Platform.isMacOS) {
+          final result = await Process.run('open', [dir]);
+          if (result.exitCode != 0) {
+            throw EngineException(l10n.settingsStorageOpenFolderFailed(
+                (result.stderr ?? '').toString().trim()));
+          }
+        } else {
+          final ok = await launchUrl(Uri.file(dir));
+          if (!ok) {
+            throw EngineException(l10n.settingsStorageOpenFolderFailed(dir));
+          }
+        }
+      } on EngineException {
+        rethrow;
+      } catch (e) {
+        throw EngineException(l10n.settingsStorageOpenFolderFailed('$e'));
+      }
+    });
+  }
+
+  Future<void> _showDbInfo() async {
+    final l10n = context.l10n;
+    final info = ref.read(engineProvider).dbInfo();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.settingsStorageDbInfoTitle),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(l10n.settingsStorageTableColumn,
+                            style: TextStyle(
+                                color: context.df.textLo,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                      Text(l10n.settingsStorageRowsColumn,
+                          style: TextStyle(
+                              color: context.df.textLo,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+                for (final row in info)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(row.table,
+                              style: TextStyle(
+                                  color: context.df.textMid,
+                                  fontSize: 13,
+                                  fontFamily: 'monospace')),
+                        ),
+                        Text('${row.rowCount}',
+                            style: TextStyle(
+                                color: context.df.textHi,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.commonConfirm),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _clearAllData() async {
+    final l10n = context.l10n;
+    final confirmed = await _confirm(
+      title: l10n.settingsStorageClearConfirmTitle,
+      message: l10n.settingsStorageClearConfirmBody,
+      confirmText: l10n.settingsStorageClear,
+      destructive: true,
+    );
+    if (!mounted || !confirmed) return;
+    await runAction(context, ref, () async {
+      ref.read(engineProvider).clearAllData();
+    }, successMessage: l10n.settingsStorageClearDone);
+    if (!mounted) return;
+    ref.invalidate(projectsProvider);
+    _invalidateConfig();
+  }
+
+  // ---------- 6. 关于 ----------
+
+  Widget _aboutCard() {
+    final l10n = context.l10n;
+    final health = ref.watch(healthProvider);
+    final engineVersion = health.value?['version']?.toString() ?? '—';
+    return _SettingsCard(
+      title: l10n.settingsAboutTitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _KeyValueLine(label: l10n.settingsAboutAppName, value: 'DramaFlow'),
+          _KeyValueLine(
+              label: l10n.settingsAboutVersion, value: _appVersion),
+          _KeyValueLine(
+              label: l10n.settingsAboutEngine, value: engineVersion),
+          const SizedBox(height: 12),
+          Text(
+            l10n.settingsAboutDescription,
+            style: TextStyle(
+                color: context.df.textLo, fontSize: 12, height: 1.5),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _healthStatus() {
@@ -979,6 +1269,7 @@ class _TopSectionTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Align(
       alignment: Alignment.centerLeft,
       child: SingleChildScrollView(
@@ -1000,11 +1291,11 @@ class _TopSectionTabs extends StatelessWidget {
             side: WidgetStateProperty.all(BorderSide(color: context.df.stroke)),
           ),
           segments: [
-            for (final item in _sections)
+            for (final section in _SettingsSection.values)
               ButtonSegment(
-                value: item.section,
-                icon: Icon(item.icon, size: 18),
-                label: Text(item.label),
+                value: section,
+                icon: Icon(_sectionIcons[section], size: 18),
+                label: Text(_sectionLabel(l10n, section)),
               ),
           ],
           onSelectionChanged: (selected) => onSelected(selected.single),
@@ -1033,11 +1324,11 @@ class _SideNav extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final item in _sections)
+          for (final section in _SettingsSection.values)
             _SideNavItem(
-              item: item,
-              selected: selected == item.section,
-              onTap: () => onSelected(item.section),
+              section: section,
+              selected: selected == section,
+              onTap: () => onSelected(section),
             ),
         ],
       ),
@@ -1046,12 +1337,12 @@ class _SideNav extends StatelessWidget {
 }
 
 class _SideNavItem extends StatelessWidget {
-  final _SectionMeta item;
+  final _SettingsSection section;
   final bool selected;
   final VoidCallback onTap;
 
   const _SideNavItem({
-    required this.item,
+    required this.section,
     required this.selected,
     required this.onTap,
   });
@@ -1071,11 +1362,11 @@ class _SideNavItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(
               children: [
-                Icon(item.icon, size: 19, color: color),
+                Icon(_sectionIcons[section], size: 19, color: color),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    item.label,
+                    _sectionLabel(context.l10n, section),
                     style: TextStyle(
                       color: color,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,

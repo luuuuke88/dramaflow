@@ -114,4 +114,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('内置能力'), findsNothing);
   });
+
+  testWidgets('自动/手动模式切换持久化并在重建后恢复', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    // 默认 manual
+    expect(engine.agentUseMode(), isFalse);
+    expect(find.text('手动确认'), findsOneWidget);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    // 切到 auto 并持久化
+    expect(engine.agentUseMode(), isTrue);
+    expect(find.text('自动连跑'), findsOneWidget);
+
+    // 重建页面后从引擎恢复为 auto
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.text('自动连跑'), findsOneWidget);
+  });
 }

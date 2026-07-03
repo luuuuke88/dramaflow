@@ -45,4 +45,38 @@ void main() {
     final again = EngineConfig(db, isMobile: false);
     expect(again.str('textModel'), 'gpt-5.4');
   });
+
+  test('其他设置默认值：chapterReg 空 / 集长 5000 / 批量 5', () {
+    final c = EngineConfig(openEngineDb(':memory:'), isMobile: false);
+    expect(c.str('chapterReg'), isEmpty);
+    expect(c.intOf('scriptEpisodeLength'), 5000);
+    expect(c.intOf('assetsBatchGenereateSize'), 5);
+  });
+
+  test('其他设置读写往返并持久化', () {
+    final db = openEngineDb(':memory:');
+    final c = EngineConfig(db, isMobile: false);
+    c.update({
+      'chapterReg': r'^第[0-9]+章',
+      'scriptEpisodeLength': '8000',
+      'assetsBatchGenereateSize': '3',
+    });
+    expect(c.str('chapterReg'), r'^第[0-9]+章');
+    expect(c.intOf('scriptEpisodeLength'), 8000);
+    expect(c.intOf('assetsBatchGenereateSize'), 3);
+    // 新实例读同一 db 仍读到持久化值
+    final again = EngineConfig(db, isMobile: false);
+    expect(again.str('chapterReg'), r'^第[0-9]+章');
+    expect(again.intOf('scriptEpisodeLength'), 8000);
+    expect(again.intOf('assetsBatchGenereateSize'), 3);
+  });
+
+  test('chapterReg 可清回空串（恢复默认）', () {
+    final db = openEngineDb(':memory:');
+    final c = EngineConfig(db, isMobile: false);
+    c.update({'chapterReg': r'^第[0-9]+章'});
+    expect(c.str('chapterReg'), isNotEmpty);
+    c.update({'chapterReg': ''});
+    expect(c.str('chapterReg'), isEmpty);
+  });
 }

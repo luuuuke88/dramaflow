@@ -1766,4 +1766,143 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageEditorNoImageModel => 'No image model available';
+
+  @override
+  String get settingsOtherSection => 'Other';
+
+  @override
+  String get settingsOtherTitle => 'Other Settings';
+
+  @override
+  String get settingsOtherChapterReg => 'Chapter split regex';
+
+  @override
+  String get settingsOtherChapterRegHint =>
+      'Leave empty to use the built-in default chapter regex';
+
+  @override
+  String get settingsOtherChapterRegRestore => 'Restore default';
+
+  @override
+  String get settingsOtherEpisodeLength => 'Max characters per episode';
+
+  @override
+  String get settingsOtherBatchSize => 'Batch generation size';
+
+  @override
+  String get settingsOtherSaved => 'Other settings saved';
+
+  @override
+  String get settingsOtherInvalidNumber =>
+      'Please enter an integer greater than 0';
+
+  @override
+  String get settingsStorageOpenFolder => 'Open data folder';
+
+  @override
+  String settingsStorageOpenFolderFailed(String reason) {
+    return 'Could not open the data folder: $reason';
+  }
+
+  @override
+  String get settingsStorageDbInfo => 'Database info';
+
+  @override
+  String get settingsStorageDbInfoTitle => 'Database info';
+
+  @override
+  String get settingsStorageTableColumn => 'Table';
+
+  @override
+  String get settingsStorageRowsColumn => 'Rows';
+
+  @override
+  String get settingsStorageClear => 'Clear data';
+
+  @override
+  String get settingsStorageClearConfirmTitle => 'Clear all data';
+
+  @override
+  String get settingsStorageClearConfirmBody =>
+      'This deletes all projects, chapters, scripts, assets, tasks and media files and cannot be undone. Continue?';
+
+  @override
+  String get settingsStorageClearDone => 'Data cleared';
+
+  @override
+  String get settingsAboutSection => 'About';
+
+  @override
+  String get settingsAboutTitle => 'About DramaFlow';
+
+  @override
+  String get settingsAboutAppName => 'App name';
+
+  @override
+  String get settingsAboutVersion => 'Version';
+
+  @override
+  String get settingsAboutEngine => 'Engine version';
+
+  @override
+  String get settingsAboutDescription =>
+      'DramaFlow is a locally running AI short-drama studio. All data and media stay on your machine.';
+
+  @override
+  String get settingsProviderTestKind => 'Kind';
+
+  @override
+  String get settingsProviderTestNoModel =>
+      'Enable at least one testable model first';
+
+  @override
+  String get taskFilterClass => 'Task type';
+
+  @override
+  String get taskFilterState => 'State';
+
+  @override
+  String get taskFilterAll => 'All';
+
+  @override
+  String get taskDetailTitle => 'Task detail';
+
+  @override
+  String get taskDetailClass => 'Task type';
+
+  @override
+  String get taskDetailState => 'State';
+
+  @override
+  String get taskDetailDescribe => 'Description';
+
+  @override
+  String get taskDetailModel => 'Model';
+
+  @override
+  String get taskDetailRelated => 'Related objects';
+
+  @override
+  String get taskDetailReason => 'Failure reason';
+
+  @override
+  String get taskDetailTiming => 'Start time';
+
+  @override
+  String get taskDetailNone => 'None';
+
+  @override
+  String get taskStatePending => 'Pending';
+
+  @override
+  String get taskStateProcessing => 'Processing';
+
+  @override
+  String get taskStateSuccess => 'Completed';
+
+  @override
+  String get taskStateFailed => 'Failed';
+
+  @override
+  String get taskStateCanceled => 'Canceled';
 }

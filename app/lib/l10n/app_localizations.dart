@@ -3381,6 +3381,270 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无可用图片模型'**
   String get imageEditorNoImageModel;
+
+  /// No description provided for @settingsOtherSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他设置'**
+  String get settingsOtherSection;
+
+  /// No description provided for @settingsOtherTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他设置'**
+  String get settingsOtherTitle;
+
+  /// No description provided for @settingsOtherChapterReg.
+  ///
+  /// In zh, this message translates to:
+  /// **'章节切分正则'**
+  String get settingsOtherChapterReg;
+
+  /// No description provided for @settingsOtherChapterRegHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空则使用内置默认章节正则'**
+  String get settingsOtherChapterRegHint;
+
+  /// No description provided for @settingsOtherChapterRegRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认'**
+  String get settingsOtherChapterRegRestore;
+
+  /// No description provided for @settingsOtherEpisodeLength.
+  ///
+  /// In zh, this message translates to:
+  /// **'单集字数上限'**
+  String get settingsOtherEpisodeLength;
+
+  /// No description provided for @settingsOtherBatchSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量生成数量'**
+  String get settingsOtherBatchSize;
+
+  /// No description provided for @settingsOtherSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他设置已保存'**
+  String get settingsOtherSaved;
+
+  /// No description provided for @settingsOtherInvalidNumber.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入大于 0 的整数'**
+  String get settingsOtherInvalidNumber;
+
+  /// No description provided for @settingsStorageOpenFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开数据目录'**
+  String get settingsStorageOpenFolder;
+
+  /// No description provided for @settingsStorageOpenFolderFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开数据目录：{reason}'**
+  String settingsStorageOpenFolderFailed(String reason);
+
+  /// No description provided for @settingsStorageDbInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据库信息'**
+  String get settingsStorageDbInfo;
+
+  /// No description provided for @settingsStorageDbInfoTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据库信息'**
+  String get settingsStorageDbInfoTitle;
+
+  /// No description provided for @settingsStorageTableColumn.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据表'**
+  String get settingsStorageTableColumn;
+
+  /// No description provided for @settingsStorageRowsColumn.
+  ///
+  /// In zh, this message translates to:
+  /// **'行数'**
+  String get settingsStorageRowsColumn;
+
+  /// No description provided for @settingsStorageClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空数据'**
+  String get settingsStorageClear;
+
+  /// No description provided for @settingsStorageClearConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空所有数据'**
+  String get settingsStorageClearConfirmTitle;
+
+  /// No description provided for @settingsStorageClearConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'此操作会删除全部项目、章节、剧本、资产、任务与媒体文件，且不可恢复。确定继续吗？'**
+  String get settingsStorageClearConfirmBody;
+
+  /// No description provided for @settingsStorageClearDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据已清空'**
+  String get settingsStorageClearDone;
+
+  /// No description provided for @settingsAboutSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'关于'**
+  String get settingsAboutSection;
+
+  /// No description provided for @settingsAboutTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'关于 DramaFlow'**
+  String get settingsAboutTitle;
+
+  /// No description provided for @settingsAboutAppName.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用名称'**
+  String get settingsAboutAppName;
+
+  /// No description provided for @settingsAboutVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本'**
+  String get settingsAboutVersion;
+
+  /// No description provided for @settingsAboutEngine.
+  ///
+  /// In zh, this message translates to:
+  /// **'引擎版本'**
+  String get settingsAboutEngine;
+
+  /// No description provided for @settingsAboutDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'DramaFlow 是本机运行的 AI 短剧创作工作台，数据与媒体全部保存在本机。'**
+  String get settingsAboutDescription;
+
+  /// No description provided for @settingsProviderTestKind.
+  ///
+  /// In zh, this message translates to:
+  /// **'模态'**
+  String get settingsProviderTestKind;
+
+  /// No description provided for @settingsProviderTestNoModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先启用至少一个可测试的模型'**
+  String get settingsProviderTestNoModel;
+
+  /// No description provided for @taskFilterClass.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务类型'**
+  String get taskFilterClass;
+
+  /// No description provided for @taskFilterState.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get taskFilterState;
+
+  /// No description provided for @taskFilterAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get taskFilterAll;
+
+  /// No description provided for @taskDetailTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务详情'**
+  String get taskDetailTitle;
+
+  /// No description provided for @taskDetailClass.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务类型'**
+  String get taskDetailClass;
+
+  /// No description provided for @taskDetailState.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get taskDetailState;
+
+  /// No description provided for @taskDetailDescribe.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述'**
+  String get taskDetailDescribe;
+
+  /// No description provided for @taskDetailModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型'**
+  String get taskDetailModel;
+
+  /// No description provided for @taskDetailRelated.
+  ///
+  /// In zh, this message translates to:
+  /// **'关联对象'**
+  String get taskDetailRelated;
+
+  /// No description provided for @taskDetailReason.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败原因'**
+  String get taskDetailReason;
+
+  /// No description provided for @taskDetailTiming.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始时间'**
+  String get taskDetailTiming;
+
+  /// No description provided for @taskDetailNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无'**
+  String get taskDetailNone;
+
+  /// No description provided for @taskStatePending.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待中'**
+  String get taskStatePending;
+
+  /// No description provided for @taskStateProcessing.
+  ///
+  /// In zh, this message translates to:
+  /// **'进行中'**
+  String get taskStateProcessing;
+
+  /// No description provided for @taskStateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get taskStateSuccess;
+
+  /// No description provided for @taskStateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get taskStateFailed;
+
+  /// No description provided for @taskStateCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消'**
+  String get taskStateCanceled;
 }
 
 class _AppLocalizationsDelegate
