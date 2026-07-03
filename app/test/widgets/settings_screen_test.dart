@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/config.dart';
+import 'package:dramaflow/src/engine/db_admin.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/media.dart';
@@ -344,6 +345,27 @@ void main() {
     await tester.tap(find.text('导入配置'));
     await tester.pumpAndSettle();
     expect(find.textContaining('无法打开文件'), findsOneWidget);
+  });
+
+  testWidgets('移动端设置页：打开数据目录失败时显示错误', (tester) async {
+    debugOpenDataFolderOverride = (path) async {
+      expect(path, engine.dataDirPath());
+      throw StateError('folder opener unavailable');
+    };
+    addTearDown(() => debugOpenDataFolderOverride = null);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '存储与引擎');
+    await tester.tap(find.text('打开数据目录'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('无法打开数据目录'), findsOneWidget);
+    expect(find.textContaining('folder opener unavailable'), findsOneWidget);
   });
 
   testWidgets('移动端设置页：关于区展示应用与内嵌引擎信息', (tester) async {

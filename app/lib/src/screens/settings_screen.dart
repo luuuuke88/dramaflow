@@ -33,6 +33,8 @@ PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
 // 应用版本（对齐 pubspec version；package_info_plus 未引入，引擎版本另经 health 展示）。
 const _appVersion = '0.1.0';
 
+Future<void> Function(String path)? debugOpenDataFolderOverride;
+
 enum _SettingsSection {
   appearance,
   providers,
@@ -1027,7 +1029,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final dir = ref.read(engineProvider).dataDirPath();
     await runAction(context, ref, () async {
       try {
-        if (Platform.isMacOS) {
+        final override = debugOpenDataFolderOverride;
+        if (override != null) {
+          await override(dir);
+        } else if (Platform.isMacOS) {
           final result = await Process.run('open', [dir]);
           if (result.exitCode != 0) {
             throw EngineException(l10n.settingsStorageOpenFolderFailed(

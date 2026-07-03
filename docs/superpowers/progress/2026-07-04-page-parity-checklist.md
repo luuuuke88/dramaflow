@@ -126,12 +126,12 @@ Next Verification: Treat full Agent parity as its own subsystem plan; add page t
 
 ## 全套设置
 
-Status: Partial
+Status: Verified
 
 Desktop Evidence: `app/test/engine/engine_facade_test.dart`, `app/test/ui_i18n_static_test.dart`, and settings-related engine tests cover provider CRUD, model binding validation, config import/export, prompt seed/update/reset, theme and locale persistence, storage information, and static i18n checks.
 
-Mobile Evidence: `app/test/widgets/settings_screen_test.dart` covers 390px settings flows: theme change, locale change, provider creation, provider editing with refreshed cards, per-modality provider test selection for image/video models, prompt editor entry, provider model management, model binding, database info, clear-data confirmation, config import/export panel error visibility, and the about panel with app/engine version information.
+Mobile Evidence: `app/test/widgets/settings_screen_test.dart` covers 390px settings flows: theme change, locale change, provider creation, provider editing with refreshed cards, per-modality provider test selection for image/video models, prompt editor entry, provider model management, model binding, database info, clear-data confirmation, config import/export panel error visibility, open-data-folder failure handling with the resolved data path, and the about panel with app/engine version information.
 
-Known Gaps: Open data folder path is not yet proven by widget tests.
+Known Gaps: None at the current settings-page scope.
 
-Next Verification: Add 390px settings tests for open-data-folder failure handling with a testable platform opener.
+Next Verification: If settings storage/platform actions change, keep the file picker fake and data-folder opener fake tests together with the engine config import/export tests.
