@@ -80,11 +80,11 @@ Next Verification: If image-editor UI changes, keep the desktop graph/edit/mask 
 
 Status: Partial
 
-Desktop Evidence: `app/test/widgets/workbench_screen_test.dart`, `app/test/engine/video_track_test.dart`, `app/test/engine/compose_episode_test.dart`, `app/test/platform/apple_composer_static_test.dart`, and `app/test/platform/android_composer_static_test.dart` cover prompt editing, duration editing, per-shot transition/filter metadata editing, selected video candidates, shot audio binding, compose handoff with NLE metadata carried into `ComposeSegment`, native composer channel payload/parsing for those NLE fields, and Apple AVFoundation/CoreImage rendering hooks for per-shot filters plus fade-in/out transition rendering.
+Desktop Evidence: `app/test/widgets/workbench_screen_test.dart`, `app/test/engine/video_track_test.dart`, `app/test/engine/compose_episode_test.dart`, `app/test/platform/apple_composer_static_test.dart`, and `app/test/platform/android_composer_static_test.dart` cover prompt editing, duration editing, per-shot transition/filter metadata editing, selected video candidates, shot audio binding, compose handoff with NLE metadata carried into `ComposeSegment`, native composer channel payload/parsing for those NLE fields, and Apple AVFoundation/CoreImage rendering hooks for per-shot filters, fade-in/out transition rendering, and cross-shot dissolve via layered video tracks plus opacity ramps.
 
 Mobile Evidence: `app/test/widgets/production_screen_test.dart` covers 390px workbench entry through production tabs and the offline chain reaches compose.
 
-Known Gaps: Full WebAV/NLE parity is not implemented: Android/Web transition/filter visual rendering, cross-shot dissolve/whip-pan rendering, multi-layer timeline editing, and drag-based clip editing are not proven.
+Known Gaps: Full WebAV/NLE parity is not implemented: Android/Web transition/filter visual rendering, Android/Web cross-shot dissolve, Apple combined dissolve plus CoreImage filter rendering, Apple/Android/Web whip-pan rendering, multi-layer timeline editing, and drag-based clip editing are not proven.
 
 Next Verification: Keep current sequential-shot workbench as the v1 baseline, and open a separate NLE/WebAV parity plan before claiming full ToonFlow workbench parity.
 

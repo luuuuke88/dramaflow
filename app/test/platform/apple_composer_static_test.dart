@@ -46,6 +46,23 @@ void main() {
     }
   });
 
+  test('Apple composer renders cross-shot dissolve with layered tracks', () {
+    final macosSource =
+        File('macos/Runner/ComposerPlugin.swift').readAsStringSync();
+    final iosSource =
+        File('ios/Runner/ComposerPlugin.swift').readAsStringSync();
+
+    for (final source in [macosSource, iosSource]) {
+      expect(source, contains('secondaryCompositionVideoTrack'));
+      expect(source, contains('makeLayeredVideoComposition'));
+      expect(source, contains('AVMutableVideoCompositionLayerInstruction'));
+      expect(source, contains('setOpacityRamp'));
+      expect(source, contains('dissolveDuration'));
+      expect(source, contains('applyFadeOpacityRamps'));
+      expect(source, contains('transition == "dissolve"'));
+    }
+  });
+
   test('Dart composer wrapper uses localized error keys', () {
     final dartSource =
         File('lib/src/platform/avfoundation_composer.dart').readAsStringSync();

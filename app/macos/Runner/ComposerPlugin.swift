@@ -47,8 +47,10 @@ private struct ComposeSegment {
   let filterPreset: String?
 }
 
-private struct RenderSegment {
+private struct RenderSegment: @unchecked Sendable {
+  let videoTrack: AVMutableCompositionTrack
   let timeRange: CMTimeRange
+  let dissolveDuration: CMTime
   let transition: String?
   let filterPreset: String?
 }
@@ -160,12 +162,21 @@ final class ComposerPlugin {
     else {
       throw ComposerPluginError.exportSessionUnavailable
     }
+    guard let secondaryCompositionVideoTrack = composition.addMutableTrack(
+      withMediaType: .video,
+      preferredTrackID: kCMPersistentTrackID_Invalid)
+    else {
+      throw ComposerPluginError.exportSessionUnavailable
+    }
+    let compositionVideoTracks = [compositionVideoTrack, secondaryCompositionVideoTrack]
     var compositionAudioTrack: AVMutableCompositionTrack?
     var compositionVoiceTrack: AVMutableCompositionTrack?
 
     var cursor = CMTime.zero
+    var previousVideoDuration: CMTime?
+    var renderSize = CGSize.zero
     var renderSegments: [RenderSegment] = []
-    for segment in segments {
+    for (index, segment) in segments.enumerated() {
       try ensureFileExists(segment.videoPath)
       let asset = AVAsset(url: URL(fileURLWithPath: segment.videoPath))
       let duration = try await loadDuration(asset)
@@ -176,14 +187,31 @@ final class ComposerPlugin {
         throw ComposerPluginError.noVideoTrack(segment.videoPath)
       }
 
+      if renderSize == .zero {
+        renderSize = naturalRenderSize(for: videoTrack)
+      }
+      let incomingDissolve = dissolveDuration(
+        for: segment,
+        duration: duration,
+        previousDuration: previousVideoDuration,
+        cursor: cursor)
+      let segmentStart = CMTimeCompare(incomingDissolve, .zero) > 0
+        ? CMTimeSubtract(cursor, incomingDissolve)
+        : cursor
+      let targetVideoTrack = compositionVideoTracks[index % compositionVideoTracks.count]
       let timeRange = CMTimeRange(start: .zero, duration: duration)
-      let compositionRange = CMTimeRange(start: cursor, duration: duration)
+      let compositionRange = CMTimeRange(start: segmentStart, duration: duration)
       renderSegments.append(
         RenderSegment(
+          videoTrack: targetVideoTrack,
           timeRange: compositionRange,
+          dissolveDuration: incomingDissolve,
           transition: segment.transition,
           filterPreset: segment.filterPreset))
-      try compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: cursor)
+      try targetVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: segmentStart)
+      let audioSourceStart = incomingDissolve
+      let segmentAudioDuration = CMTimeSubtract(duration, incomingDissolve)
+      let audioInsertTime = CMTimeAdd(segmentStart, incomingDissolve)
       if let audioTrack = asset.tracks(withMediaType: .audio).first {
         if compositionAudioTrack == nil {
           compositionAudioTrack = composition.addMutableTrack(
@@ -193,14 +221,19 @@ final class ComposerPlugin {
             throw ComposerPluginError.exportSessionUnavailable
           }
         }
-        try compositionAudioTrack?.insertTimeRange(timeRange, of: audioTrack, at: cursor)
+        if CMTimeCompare(segmentAudioDuration, .zero) > 0 {
+          try compositionAudioTrack?.insertTimeRange(
+            CMTimeRange(start: audioSourceStart, duration: segmentAudioDuration),
+            of: audioTrack,
+            at: audioInsertTime)
+        }
       }
 
       if let audioPath = segment.audioPath, !audioPath.isEmpty {
         try ensureFileExists(audioPath)
         let audioAsset = AVAsset(url: URL(fileURLWithPath: audioPath))
-        let audioDuration = try await loadDuration(audioAsset)
-        if !CMTimeGetSeconds(audioDuration).isFinite || CMTimeCompare(audioDuration, .zero) <= 0 {
+        let externalAudioDuration = try await loadDuration(audioAsset)
+        if !CMTimeGetSeconds(externalAudioDuration).isFinite || CMTimeCompare(externalAudioDuration, .zero) <= 0 {
           throw ComposerPluginError.invalidDuration(audioPath)
         }
         guard let voiceTrack = audioAsset.tracks(withMediaType: .audio).first else {
@@ -214,10 +247,16 @@ final class ComposerPlugin {
             throw ComposerPluginError.exportSessionUnavailable
           }
         }
-        let voiceRange = CMTimeRange(start: .zero, duration: minTime(audioDuration, duration))
-        try compositionVoiceTrack?.insertTimeRange(voiceRange, of: voiceTrack, at: cursor)
+        let voiceRange = CMTimeRange(start: .zero, duration: minTime(externalAudioDuration, segmentAudioDuration))
+        if CMTimeCompare(voiceRange.duration, .zero) > 0 {
+          try compositionVoiceTrack?.insertTimeRange(voiceRange, of: voiceTrack, at: audioInsertTime)
+        }
       }
-      cursor = CMTimeAdd(cursor, duration)
+      cursor = CMTimeAdd(segmentStart, duration)
+      previousVideoDuration = duration
+    }
+    if renderSize == .zero {
+      renderSize = CGSize(width: 1280, height: 720)
     }
 
     let outputURL = URL(fileURLWithPath: output)
@@ -237,13 +276,105 @@ final class ComposerPlugin {
     exportSession.outputURL = outputURL
     exportSession.outputFileType = .mp4
     exportSession.shouldOptimizeForNetworkUse = true
-    if let videoComposition = makeVideoComposition(
+    if hasDissolveTransition(renderSegments),
+       let videoComposition = makeLayeredVideoComposition(
+        renderSegments: renderSegments,
+        renderSize: renderSize)
+    {
+      exportSession.videoComposition = videoComposition
+    } else if let videoComposition = makeVideoComposition(
       asset: composition,
       renderSegments: renderSegments)
     {
       exportSession.videoComposition = videoComposition
     }
     try await export(exportSession)
+  }
+
+  private func hasDissolveTransition(_ renderSegments: [RenderSegment]) -> Bool {
+    renderSegments.contains { $0.transition == "dissolve" && CMTimeCompare($0.dissolveDuration, .zero) > 0 }
+  }
+
+  private func makeLayeredVideoComposition(
+    renderSegments: [RenderSegment],
+    renderSize: CGSize
+  ) -> AVMutableVideoComposition? {
+    if !hasDissolveTransition(renderSegments) { return nil }
+    let videoComposition = AVMutableVideoComposition()
+    videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+    videoComposition.renderSize = renderSize
+    videoComposition.instructions = layeredInstructions(renderSegments)
+    return videoComposition
+  }
+
+  private func layeredInstructions(_ renderSegments: [RenderSegment]) -> [AVVideoCompositionInstructionProtocol] {
+    var instructions: [AVMutableVideoCompositionInstruction] = []
+    for (index, segment) in renderSegments.enumerated() {
+      if CMTimeCompare(segment.dissolveDuration, .zero) > 0, index > 0 {
+        let dissolveRange = CMTimeRange(start: segment.timeRange.start, duration: segment.dissolveDuration)
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = dissolveRange
+        let previous = renderSegments[index - 1]
+        let previousLayer = AVMutableVideoCompositionLayerInstruction(assetTrack: previous.videoTrack)
+        previousLayer.setOpacityRamp(fromStartOpacity: 1.0, toEndOpacity: 0.0, timeRange: dissolveRange)
+        let currentLayer = AVMutableVideoCompositionLayerInstruction(assetTrack: segment.videoTrack)
+        currentLayer.setOpacityRamp(fromStartOpacity: 0.0, toEndOpacity: 1.0, timeRange: dissolveRange)
+        instruction.layerInstructions = [currentLayer, previousLayer]
+        instructions.append(instruction)
+      }
+
+      let nextDissolve = index + 1 < renderSegments.count
+        ? renderSegments[index + 1].dissolveDuration
+        : CMTime.zero
+      let passStart = CMTimeAdd(segment.timeRange.start, segment.dissolveDuration)
+      let passEnd = CMTimeSubtract(CMTimeRangeGetEnd(segment.timeRange), nextDissolve)
+      let passDuration = CMTimeSubtract(passEnd, passStart)
+      if CMTimeCompare(passDuration, .zero) > 0 {
+        let passRange = CMTimeRange(start: passStart, duration: passDuration)
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = passRange
+        let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: segment.videoTrack)
+        layer.setOpacity(1.0, at: passStart)
+        applyFadeOpacityRamps(to: layer, for: segment, within: passRange)
+        instruction.layerInstructions = [layer]
+        instructions.append(instruction)
+      }
+    }
+    return instructions
+  }
+
+  private func applyFadeOpacityRamps(
+    to layer: AVMutableVideoCompositionLayerInstruction,
+    for segment: RenderSegment,
+    within instructionRange: CMTimeRange
+  ) {
+    guard segment.transition == "fade" else { return }
+    let fadeDuration = fadeRampDuration(for: segment.timeRange.duration)
+    if CMTimeCompare(fadeDuration, .zero) <= 0 { return }
+
+    let segmentStart = segment.timeRange.start
+    let segmentEnd = CMTimeRangeGetEnd(segment.timeRange)
+    let fadeInRange = CMTimeRange(start: segmentStart, duration: fadeDuration)
+    if containsRange(instructionRange, fadeInRange) {
+      layer.setOpacityRamp(fromStartOpacity: 0.0, toEndOpacity: 1.0, timeRange: fadeInRange)
+    }
+
+    let fadeOutRange = CMTimeRange(start: CMTimeSubtract(segmentEnd, fadeDuration), duration: fadeDuration)
+    if containsRange(instructionRange, fadeOutRange) {
+      layer.setOpacityRamp(fromStartOpacity: 1.0, toEndOpacity: 0.0, timeRange: fadeOutRange)
+    }
+  }
+
+  private func fadeRampDuration(for duration: CMTime) -> CMTime {
+    let seconds = CMTimeGetSeconds(duration)
+    if !seconds.isFinite || seconds <= 0 { return .zero }
+    let fadeSeconds = min(0.5, seconds / 2.0)
+    return fadeSeconds > 0 ? CMTime(seconds: fadeSeconds, preferredTimescale: 600) : .zero
+  }
+
+  private func containsRange(_ outer: CMTimeRange, _ inner: CMTimeRange) -> Bool {
+    CMTimeCompare(inner.start, outer.start) >= 0
+      && CMTimeCompare(CMTimeRangeGetEnd(inner), CMTimeRangeGetEnd(outer)) <= 0
   }
 
   private func makeVideoComposition(
@@ -333,6 +464,37 @@ final class ComposerPlugin {
 
   private func opacityImage(_ image: CIImage, opacity: CGFloat) -> CIImage {
     colorMatrix(image, red: opacity, green: opacity, blue: opacity)
+  }
+
+  private func dissolveDuration(
+    for segment: ComposeSegment,
+    duration: CMTime,
+    previousDuration: CMTime?,
+    cursor: CMTime
+  ) -> CMTime {
+    guard segment.transition == "dissolve",
+          let previousDuration = previousDuration,
+          CMTimeCompare(cursor, .zero) > 0
+    else {
+      return .zero
+    }
+    let currentSeconds = CMTimeGetSeconds(duration)
+    let previousSeconds = CMTimeGetSeconds(previousDuration)
+    if !currentSeconds.isFinite || !previousSeconds.isFinite {
+      return .zero
+    }
+    let seconds = min(0.5, currentSeconds / 2.0, previousSeconds / 2.0)
+    return seconds > 0 ? CMTime(seconds: seconds, preferredTimescale: 600) : .zero
+  }
+
+  private func naturalRenderSize(for videoTrack: AVAssetTrack) -> CGSize {
+    let transformed = videoTrack.naturalSize.applying(videoTrack.preferredTransform)
+    let width = abs(transformed.width)
+    let height = abs(transformed.height)
+    if width > 0 && height > 0 {
+      return CGSize(width: width, height: height)
+    }
+    return CGSize(width: 1280, height: 720)
   }
 
   private func minTime(_ lhs: CMTime, _ rhs: CMTime) -> CMTime {
