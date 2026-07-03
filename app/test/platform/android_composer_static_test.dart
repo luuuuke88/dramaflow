@@ -42,4 +42,28 @@ void main() {
       isNot(contains('Android 当前合成器暂未支持分镜配音混合')),
     );
   });
+
+  test('Android composer renders video-only NLE fade and filters with Media3', () {
+    final activitySource = File(
+      'android/app/src/main/kotlin/com/dramaflow/dramaflow/MainActivity.kt',
+    ).readAsStringSync();
+    final gradleSource = File('android/app/build.gradle.kts').readAsStringSync();
+
+    expect(gradleSource, contains('androidx.media3:media3-transformer'));
+    expect(gradleSource, contains('androidx.media3:media3-effect'));
+    expect(gradleSource, contains('androidx.media3:media3-common'));
+    expect(activitySource, contains('composeWithNleEffects'));
+    expect(activitySource, contains('EditedMediaItem'));
+    expect(activitySource, contains('Effects'));
+    expect(activitySource, contains('RgbMatrix'));
+    expect(activitySource, contains('Transformer.Builder'));
+    expect(activitySource, contains('transformer.start'));
+    expect(activitySource, contains('fadeMatrix'));
+    expect(activitySource, contains('filterMatrix'));
+    expect(
+      activitySource,
+      contains('copyTrack(item.segment.videoPath'),
+      reason: 'Non-NLE mux fallback should remain for external-audio paths.',
+    );
+  });
 }

@@ -1,15 +1,31 @@
 package com.dramaflow.dramaflow
 
+import android.net.Uri
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
+import androidx.media3.common.Effect
+import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.RgbMatrix
+import androidx.media3.transformer.Composition
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.EditedMediaItemSequence
+import androidx.media3.transformer.Effects
+import androidx.media3.transformer.ExportException
+import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.Transformer
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.nio.ByteBuffer
 import kotlin.math.max
+import kotlin.math.min
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -66,6 +82,10 @@ class MainActivity : FlutterActivity() {
         }
         if (inputs.none { it.audioPath != null || it.hasNleMetadata }) {
             concat(inputs.map { it.videoPath }, output)
+            return
+        }
+        if (inputs.none { it.audioPath != null }) {
+            composeWithNleEffects(inputs, output)
             return
         }
         composeWithExternalAudio(inputs, output)
@@ -208,6 +228,110 @@ class MainActivity : FlutterActivity() {
             muxer.release()
         }
     }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun composeWithNleEffects(segments: List<ComposeSegmentInput>, output: String) {
+        segments.forEach { ensureFile(it.videoPath) }
+        segments.firstOrNull { it.transition != null && it.transition != "fade" }?.let {
+            throw ComposerException("Android 当前仅支持淡入淡出与滤镜渲染，暂不支持 ${it.transition}")
+        }
+
+        val outputFile = File(output)
+        outputFile.parentFile?.mkdirs()
+        if (outputFile.exists()) outputFile.delete()
+
+        val editedItems = segments.map { segment ->
+            buildNleEditedMediaItem(segment, durationUs(segment.videoPath))
+        }
+        val sequence = EditedMediaItemSequence.withAudioAndVideoFrom(editedItems)
+        val composition = Composition.Builder(sequence).build()
+        val error = AtomicReference<Exception?>()
+        val done = CountDownLatch(1)
+        val transformer = Transformer.Builder(this)
+            .addListener(object : Transformer.Listener {
+                override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                    done.countDown()
+                }
+
+                override fun onError(
+                    composition: Composition,
+                    exportResult: ExportResult,
+                    exportException: ExportException,
+                ) {
+                    error.set(exportException)
+                    done.countDown()
+                }
+            })
+            .build()
+
+        transformer.start(composition, output)
+        if (!done.await(30, TimeUnit.MINUTES)) {
+            transformer.cancel()
+            throw ComposerException("Android NLE 合成超时")
+        }
+        error.get()?.let {
+            throw ComposerException("Android NLE 合成失败：${it.message ?: it.javaClass.simpleName}")
+        }
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun buildNleEditedMediaItem(
+        segment: ComposeSegmentInput,
+        durationUs: Long,
+    ): EditedMediaItem {
+        val effects = nleVideoEffects(segment, durationUs)
+        return EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(File(segment.videoPath))))
+            .setEffects(Effects(emptyList(), effects))
+            .build()
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun nleVideoEffects(segment: ComposeSegmentInput, durationUs: Long): List<Effect> {
+        val effects = mutableListOf<Effect>()
+        segment.filterPreset?.let { preset ->
+            effects.add(RgbMatrix { _, _ -> filterMatrix(preset) })
+        }
+        if (segment.transition == "fade") {
+            effects.add(RgbMatrix { presentationTimeUs, _ ->
+                fadeMatrix(presentationTimeUs, durationUs)
+            })
+        }
+        return effects
+    }
+
+    private fun fadeMatrix(presentationTimeUs: Long, durationUs: Long): FloatArray {
+        val fadeUs = min(500_000L, durationUs / 2L)
+        if (fadeUs <= 0L) return colorScaleMatrix(1f, 1f, 1f)
+        val tailUs = durationUs - presentationTimeUs
+        val opacity = when {
+            presentationTimeUs < fadeUs -> presentationTimeUs.toFloat() / fadeUs.toFloat()
+            tailUs < fadeUs -> max(0f, tailUs.toFloat() / fadeUs.toFloat())
+            else -> 1f
+        }
+        return colorScaleMatrix(opacity, opacity, opacity)
+    }
+
+    private fun filterMatrix(preset: String): FloatArray =
+        when (preset) {
+            "cinematic" -> colorScaleMatrix(0.96f, 1.02f, 1.08f)
+            "warm" -> colorScaleMatrix(1.10f, 1.03f, 0.92f)
+            "cool" -> colorScaleMatrix(0.92f, 1.00f, 1.12f)
+            "vintage" -> floatArrayOf(
+                0.393f, 0.349f, 0.272f, 0f,
+                0.769f, 0.686f, 0.534f, 0f,
+                0.189f, 0.168f, 0.131f, 0f,
+                0f, 0f, 0f, 1f,
+            )
+            else -> colorScaleMatrix(1f, 1f, 1f)
+        }
+
+    private fun colorScaleMatrix(red: Float, green: Float, blue: Float): FloatArray =
+        floatArrayOf(
+            red, 0f, 0f, 0f,
+            0f, green, 0f, 0f,
+            0f, 0f, blue, 0f,
+            0f, 0f, 0f, 1f,
+        )
 
     private fun inspectTracks(path: String): TrackInspection {
         val extractor = MediaExtractor()
