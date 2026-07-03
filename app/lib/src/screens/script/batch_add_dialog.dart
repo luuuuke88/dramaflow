@@ -49,6 +49,17 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
   List<({String scriptName, String scriptData})> _parsed = const [];
   final Set<String> _selected = {};
 
+  int get _episodeLimit =>
+      widget.ref.read(engineProvider).config.intOf('scriptEpisodeLength');
+
+  /// 已勾选且超出单集字数上限的分集（对齐 ToonFlow：任一超限则禁用保存）。
+  List<({String scriptName, String scriptData})> get _overLimit => [
+        for (final s in _parsed)
+          if (_selected.contains(s.scriptName) &&
+              s.scriptData.length > _episodeLimit)
+            s,
+      ];
+
   @override
   void dispose() {
     _regex.dispose();
@@ -155,6 +166,10 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
       _toast(l10n.novelImportMsgSelectChapters);
       return;
     }
+    if (_overLimit.isNotEmpty) {
+      _toast(l10n.scriptBatchAddMsgOverLimit('$_episodeLimit'));
+      return;
+    }
     setState(() => _saving = true);
     try {
       widget.ref
@@ -242,6 +257,8 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
     final selectedChars = _parsed
         .where((s) => _selected.contains(s.scriptName))
         .fold<int>(0, (sum, s) => sum + s.scriptData.length);
+    final limit = _episodeLimit;
+    final overLimit = _overLimit;
     return Column(children: [
       Expanded(
         child: DFDataTable(
@@ -263,14 +280,27 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
                   Text('${i + 1}'),
                   Text(s.scriptName,
                       maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(
-                    s.scriptData.length > 60
-                        ? s.scriptData.substring(0, 60)
-                        : s.scriptData,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
-                  ),
+                  Row(children: [
+                    Expanded(
+                      child: Text(
+                        s.scriptData.length > 60
+                            ? s.scriptData.substring(0, 60)
+                            : s.scriptData,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Text(
+                      '${s.scriptData.length}/$limit',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: s.scriptData.length > limit
+                            ? df.danger
+                            : df.textTertiary,
+                      ),
+                    ),
+                  ]),
                 ],
               ),
           ],
@@ -290,11 +320,19 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
       ),
       Padding(
         padding: const EdgeInsets.only(top: 8),
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: Text(l10n.novelImportSelectedInfo('$selectedChars'),
+        child: Row(children: [
+          if (overLimit.isNotEmpty)
+            Expanded(
+              child: Text(
+                l10n.scriptBatchAddMsgOverLimit('$limit'),
+                style: TextStyle(fontSize: 12, color: df.danger),
+              ),
+            )
+          else
+            const Spacer(),
+          Text(l10n.novelImportSelectedInfo('$selectedChars'),
               style: TextStyle(fontSize: 12, color: df.textSecondary)),
-        ),
+        ]),
       ),
     ]);
   }
@@ -337,7 +375,7 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
             )
           else
             FilledButton(
-              onPressed: _saving ? null : _save,
+              onPressed: _saving || _overLimit.isNotEmpty ? null : _save,
               child: _saving
                   ? const SizedBox(
                       width: 16,

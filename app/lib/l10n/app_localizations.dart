@@ -3381,6 +3381,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无可用图片模型'**
   String get imageEditorNoImageModel;
+
+  /// No description provided for @novelGenerateSelectedEvents.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成事件'**
+  String get novelGenerateSelectedEvents;
+
+  /// No description provided for @scriptBatchAddMsgOverLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'存在超出单集字数上限（{limit}）的分集，请取消勾选或缩短内容'**
+  String scriptBatchAddMsgOverLimit(String limit);
 }
 
 class _AppLocalizationsDelegate

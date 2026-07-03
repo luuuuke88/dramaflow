@@ -1706,4 +1706,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get imageEditorNoImageModel => '暂无可用图片模型';
+
+  @override
+  String get novelGenerateSelectedEvents => '生成事件';
+
+  @override
+  String scriptBatchAddMsgOverLimit(String limit) {
+    return '存在超出单集字数上限（$limit）的分集，请取消勾选或缩短内容';
+  }
 }

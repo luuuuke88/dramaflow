@@ -575,5 +575,14 @@
   "imageEditorSelectModel": "先にモデルを選択してください",
   "imageEditorSelectQuality": "画質を選択してください",
   "imageEditorSelectRatio": "アスペクト比を選択してください",
-  "imageEditorNoImageModel": "利用可能な画像モデルがありません"
+  "imageEditorNoImageModel": "利用可能な画像モデルがありません",
+  "novelGenerateSelectedEvents": "イベント生成",
+  "scriptBatchAddMsgOverLimit": "1話あたりの文字数上限（{limit}）を超えた話数があります。選択を外すか内容を短くしてください。",
+  "@scriptBatchAddMsgOverLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  }
 }

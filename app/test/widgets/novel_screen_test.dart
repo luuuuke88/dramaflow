@@ -1,0 +1,122 @@
+import 'dart:io';
+
+import 'package:dramaflow/l10n/app_localizations.dart';
+import 'package:dramaflow/src/engine/config.dart';
+import 'package:dramaflow/src/engine/db.dart';
+import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/novel.dart';
+import 'package:dramaflow/src/engine/novel_parse.dart';
+import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/screens/novel/novel_screen.dart';
+import 'package:dramaflow/src/state/providers.dart';
+import 'package:dramaflow/src/theme/theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart';
+
+class _NoopGateway implements ProviderGateway {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+void main() {
+  late Directory dir;
+  late Database db;
+  late Engine engine;
+  late int projectId;
+
+  setUp(() {
+    dir = Directory.systemTemp.createTempSync('dramaflow-novel-ui-');
+    db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+    );
+    // 注册事件任务执行器但不设置 onNovelsAdded，避免 addNovels 自动触发事件生成，
+    // 从而可以精确断言「生成选中章节事件」按钮入队的任务。
+    projectId = engine.addProject(projectType: 'novel', name: '章节测试');
+  });
+
+  tearDown(() {
+    engine.dispose();
+    db.close();
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+  });
+
+  List<int> seed(int n) => engine.addNovels(projectId, [
+        for (var i = 1; i <= n; i++)
+          ChapterItem(
+            index: i,
+            reel: '正文卷',
+            chapter: '章$i',
+            chapterData: '内容$i',
+          ),
+      ]);
+
+  Widget app(double width) => ProviderScope(
+        overrides: [engineProvider.overrideWithValue(engine)],
+        child: MediaQuery(
+          data: MediaQueryData(size: Size(width, 900)),
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+            locale: const Locale('zh'),
+            theme: buildTheme(Brightness.light),
+            home: Scaffold(body: NovelScreen(projectId: projectId)),
+          ),
+        ),
+      );
+
+  testWidgets('勾选章节后「生成事件」按钮为选中章节入队 event_generation 任务',
+      (tester) async {
+    final ids = seed(3);
+    // 先把三章都标记为已完成，便于断言仅选中章节被重置为「生成中」。
+    db.execute('UPDATE o_novel SET eventState=1');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    // 未勾选时按钮禁用，无任务入队。
+    final genButton = find.widgetWithText(FilledButton, '生成事件');
+    expect(genButton, findsOneWidget);
+    expect(tester.widget<FilledButton>(genButton).onPressed, isNull);
+
+    // 勾选前两章（复选框列的第 0 个是全选，行复选框依次跟随）。
+    final checkboxes = find.byType(Checkbox);
+    await tester.tap(checkboxes.at(1));
+    await tester.pump();
+    await tester.tap(find.byType(Checkbox).at(2));
+    await tester.pump();
+
+    expect(db.select("SELECT COUNT(*) n FROM o_tasks").first['n'], 0);
+
+    await tester.tap(find.widgetWithText(FilledButton, '生成事件 (2)'));
+    await tester.pump();
+
+    final tasks = db.select(
+        "SELECT relatedObjects FROM o_tasks WHERE taskClass='event_generation'");
+    expect(tasks, hasLength(1), reason: '仅入队一条事件生成任务');
+    final related = tasks.first['relatedObjects'] as String;
+    // 仅为选中的前两章入队，第三章不在内。
+    expect(related, contains('${ids[0]}'));
+    expect(related, contains('${ids[1]}'));
+    expect(related, isNot(contains('${ids[2]}')));
+
+    // 仅选中章节被重置为「生成中」（eventState=0），未选中章节保持完成（1）。
+    final states = engine
+        .novels(projectId)
+        .data
+        .map((r) => (r.id, r.eventState))
+        .toList();
+    expect(states.firstWhere((e) => e.$1 == ids[0]).$2, 0);
+    expect(states.firstWhere((e) => e.$1 == ids[1]).$2, 0);
+    expect(states.firstWhere((e) => e.$1 == ids[2]).$2, 1);
+  });
+}

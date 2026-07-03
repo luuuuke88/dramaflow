@@ -1716,4 +1716,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageEditorNoImageModel => '利用可能な画像モデルがありません';
+
+  @override
+  String get novelGenerateSelectedEvents => 'イベント生成';
+
+  @override
+  String scriptBatchAddMsgOverLimit(String limit) {
+    return '1話あたりの文字数上限（$limit）を超えた話数があります。選択を外すか内容を短くしてください。';
+  }
 }

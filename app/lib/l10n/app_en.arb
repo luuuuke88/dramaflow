@@ -575,5 +575,14 @@
   "imageEditorSelectModel": "Please select a model first",
   "imageEditorSelectQuality": "Please select a quality",
   "imageEditorSelectRatio": "Please select a ratio",
-  "imageEditorNoImageModel": "No image model available"
+  "imageEditorNoImageModel": "No image model available",
+  "novelGenerateSelectedEvents": "Generate events",
+  "scriptBatchAddMsgOverLimit": "Some episodes exceed the per-episode length limit ({limit}). Deselect them or shorten the content.",
+  "@scriptBatchAddMsgOverLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  }
 }
