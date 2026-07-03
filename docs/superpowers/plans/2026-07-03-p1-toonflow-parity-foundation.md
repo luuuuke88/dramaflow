@@ -406,3 +406,12 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - **T3**：`database.d.ts` 实为 26 表（计划初稿误记 22），已按 26 表全量落库。
 - **T5 起改为 Claude 亲自开发**（luke 2026-07-03 指示，Codex T5 长时间零产出后弃用）。
 - **T6 对 ToonFlow 半成品的补齐**：① ToonFlow 后端无任何代码写入 o_event/o_eventChapter（事件列表页读空表），DramaFlow 在逐章事件生成成功时解析管道格式落表（name=首字段，detail=整行），重跑同章替换不重复；② 前端调用的 /novel/event/eventAnalysis 在 ToonFlow 后端不存在，DramaFlow 以可编辑提示词（o_prompt type=eventAnalysis）实现真实分析；③ 新增 stage `event_extract`（text 类）与其种子绑定；④ 事件任务粒度：单章失败不失败整任务，全部失败才判任务失败（首个错误上抛）。
+
+## P1 进度快照（2026-07-03，审核方维护）
+
+- ✅ T1 i18n 基建（a44e661）/ T2 设计系统（6667900）/ T3 schema v3 26 表（902bccf）/ T4 提示词种子（f296bfd）
+- ✅ T5 章节引擎（f953f46）/ T6 事件引擎（a7b1471）/ T7 剧本引擎（09f069a）
+- ✅ T8 导航壳（724f343）/ T9+T10 项目页+手册（ee95bd4）/ T11 章节页（35c854b）/ T12 剧本页（56f2c61）
+- ✅ T13 部分：语言切换入口+工具 v3（1748bbc）；**真实 E2E 全链通过**（章节→事件 2/2→o_event 落表→剧本→资产提取 2/2→o_assets 8 行，azt gpt-5.5，管道格式与 resultTool 均正常）；macOS debug 构建+启动冒烟通过；109 单测全绿 analyze 零告警
+- ⏳ T13 余项：populate 演示项目（进行中）/ iPhone 模拟器双端验收 / en·ja 三语扫查截图
+- P1 完成后进入 P2（素材库全量：4 tabs/子资产/润色/批量生图 + 画风库），按 spec §6 继续
