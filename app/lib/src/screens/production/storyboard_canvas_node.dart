@@ -6,8 +6,10 @@
 // 缩放滑块为会话内状态（不做跨会话持久化，MVP 简化，行为不影响功能完整性）。
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../engine/storyboard.dart';
 import '../../state/providers.dart';
@@ -16,6 +18,7 @@ import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import 'image_flow_editor.dart';
+import 'storyboard_gallery.dart';
 
 const _tagColors = [
   0xFF5BCCB3,
@@ -83,6 +86,59 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
         widget.projectId, _selected.toList(),
         compulsory: true);
     _toast(context.l10n.productionStoryboardGenerate);
+  }
+
+  /// 整屏预览全部分镜首帧图（对齐 ToonFlow preview-all）。未生成图片的分镜显示占位。
+  void _previewAll(List<StoryboardRow> rows) {
+    final engine = ref.read(engineProvider);
+    final items = <StoryboardPreviewItem>[
+      for (final (i, row) in rows.indexed)
+        StoryboardPreviewItem(
+          shotNumber: i + 1,
+          absPath: (row.filePath == null || row.filePath!.isEmpty)
+              ? null
+              : engine.mediaAbsPath(row.filePath!),
+        ),
+    ];
+    showStoryboardGallery(context, items: items);
+  }
+
+  /// 批量导出首帧图到用户选择的文件夹，按镜头序号命名（S01.png…，对齐 downPreviewImage）。
+  Future<void> _downloadAll() async {
+    final l10n = context.l10n;
+    final engine = ref.read(engineProvider);
+    final images = engine.storyboardImagePaths(widget.scriptId);
+    if (images.isEmpty) {
+      _toast(l10n.storyboardExportNoImages);
+      return;
+    }
+    final String? dir;
+    try {
+      dir = await getDirectoryPath();
+    } catch (e) {
+      if (!mounted) return;
+      _toast(l10n.storyboardExportFailed('$e'));
+      return;
+    }
+    if (!mounted || dir == null) return;
+    var exported = 0;
+    try {
+      for (final img in images) {
+        final src = File(img.absPath);
+        if (!src.existsSync()) continue;
+        final ext = p.extension(img.absPath);
+        final name =
+            'S${img.shotNumber.toString().padLeft(2, '0')}${ext.isEmpty ? '.png' : ext}';
+        src.copySync(p.join(dir, name));
+        exported++;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _toast(l10n.storyboardExportFailed('$e'));
+      return;
+    }
+    if (!mounted) return;
+    _toast(l10n.storyboardExportSuccess('$exported'));
   }
 
   Future<void> _editRow(StoryboardRow row) async {
@@ -363,6 +419,18 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
               onPressed: _selected.isEmpty ? null : _batchDelete,
               style: OutlinedButton.styleFrom(foregroundColor: df.danger),
               child: Text(l10n.assetsBatchDelete, style: const TextStyle(fontSize: 12)),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _previewAll(rows),
+              icon: const Icon(Icons.photo_library_outlined, size: 14),
+              label: Text(l10n.storyboardPreviewAll,
+                  style: const TextStyle(fontSize: 12)),
+            ),
+            OutlinedButton.icon(
+              onPressed: _downloadAll,
+              icon: const Icon(Icons.download_outlined, size: 14),
+              label: Text(l10n.storyboardExportAll,
+                  style: const TextStyle(fontSize: 12)),
             ),
           ],
         ]),

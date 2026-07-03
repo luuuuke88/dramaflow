@@ -1603,4 +1603,39 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get agentChatSkillsBody =>
       '我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。';
+
+  @override
+  String get storyboardPreviewAll => '预览全部';
+
+  @override
+  String get storyboardPreviewEmpty => '暂无分镜可预览';
+
+  @override
+  String get storyboardPreviewImageMissing => '图片加载失败';
+
+  @override
+  String storyboardPreviewCounter(String shot, String current, String total) {
+    return '$shot（$current/$total）';
+  }
+
+  @override
+  String storyboardPreviewShotPlaceholder(String shot) {
+    return '$shot 尚未生成首帧图';
+  }
+
+  @override
+  String get storyboardExportAll => '导出全部';
+
+  @override
+  String get storyboardExportNoImages => '还没有可导出的首帧图';
+
+  @override
+  String storyboardExportSuccess(String count) {
+    return '已导出 $count 张首帧图';
+  }
+
+  @override
+  String storyboardExportFailed(String reason) {
+    return '导出失败：$reason';
+  }
 }

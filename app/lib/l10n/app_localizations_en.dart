@@ -1661,4 +1661,39 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agentChatSkillsBody =>
       'Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported.';
+
+  @override
+  String get storyboardPreviewAll => 'Preview all';
+
+  @override
+  String get storyboardPreviewEmpty => 'No shots to preview';
+
+  @override
+  String get storyboardPreviewImageMissing => 'Failed to load image';
+
+  @override
+  String storyboardPreviewCounter(String shot, String current, String total) {
+    return '$shot ($current/$total)';
+  }
+
+  @override
+  String storyboardPreviewShotPlaceholder(String shot) {
+    return '$shot has no first-frame image yet';
+  }
+
+  @override
+  String get storyboardExportAll => 'Export all';
+
+  @override
+  String get storyboardExportNoImages => 'No first-frame images to export yet';
+
+  @override
+  String storyboardExportSuccess(String count) {
+    return 'Exported $count first-frame images';
+  }
+
+  @override
+  String storyboardExportFailed(String reason) {
+    return 'Export failed: $reason';
+  }
 }

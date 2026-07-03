@@ -534,5 +534,14 @@
   "agentChatToolExecuted": "Executed: {tool}",
   "agentChatModeHint": "Manual mode runs one step and waits for you; auto mode chains steps automatically (within a safety cap).",
   "agentChatSkillsInfo": "Built-in capabilities",
-  "agentChatSkillsBody": "Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported."
+  "agentChatSkillsBody": "Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported.",
+  "storyboardPreviewAll": "Preview all",
+  "storyboardPreviewEmpty": "No shots to preview",
+  "storyboardPreviewImageMissing": "Failed to load image",
+  "storyboardPreviewCounter": "{shot} ({current}/{total})",
+  "storyboardPreviewShotPlaceholder": "{shot} has no first-frame image yet",
+  "storyboardExportAll": "Export all",
+  "storyboardExportNoImages": "No first-frame images to export yet",
+  "storyboardExportSuccess": "Exported {count} first-frame images",
+  "storyboardExportFailed": "Export failed: {reason}"
 }

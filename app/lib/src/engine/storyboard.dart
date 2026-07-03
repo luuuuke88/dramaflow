@@ -106,6 +106,19 @@ extension StoryboardApi on Engine {
         assetIds: assetIds,
       );
 
+  /// 有序返回已生成首帧图的分镜（1 基镜头序号 + 图片绝对路径），用于整屏预览/批量导出。
+  /// 未生成图片的分镜不返回；序号按当前分镜顺序（`index` 升序）连续编号。
+  List<({int shotNumber, String absPath})> storyboardImagePaths(int scriptId) {
+    final rows = storyboards(scriptId);
+    final out = <({int shotNumber, String absPath})>[];
+    for (final (i, r) in rows.indexed) {
+      final rel = r.filePath;
+      if (rel == null || rel.isEmpty) continue;
+      out.add((shotNumber: i + 1, absPath: media.absPath(rel)));
+    }
+    return out;
+  }
+
   List<StoryboardRow> storyboards(int scriptId) {
     final rows = db.select(
       'SELECT * FROM o_storyboard WHERE scriptId=? ORDER BY "index" ASC',

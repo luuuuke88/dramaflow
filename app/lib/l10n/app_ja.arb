@@ -534,5 +534,14 @@
   "agentChatToolExecuted": "実行しました：{tool}",
   "agentChatModeHint": "手動モードは1ステップ実行して確認を待ちます。自動モードは安全上限内で連続実行します。",
   "agentChatSkillsInfo": "組み込み機能",
-  "agentChatSkillsBody": "私が呼び出せる機能はすべて既存パイプラインの実際の動作で、呼び出すたびにタスクセンターに確認・再試行可能な記録が残ります：イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像生成、動画生成、配音マッチング、合成書き出し。カスタムスクリプト技能には対応していません。"
+  "agentChatSkillsBody": "私が呼び出せる機能はすべて既存パイプラインの実際の動作で、呼び出すたびにタスクセンターに確認・再試行可能な記録が残ります：イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像生成、動画生成、配音マッチング、合成書き出し。カスタムスクリプト技能には対応していません。",
+  "storyboardPreviewAll": "すべてプレビュー",
+  "storyboardPreviewEmpty": "プレビューできる絵コンテがありません",
+  "storyboardPreviewImageMissing": "画像の読み込みに失敗しました",
+  "storyboardPreviewCounter": "{shot}（{current}/{total}）",
+  "storyboardPreviewShotPlaceholder": "{shot} は初期フレーム画像が未生成です",
+  "storyboardExportAll": "すべて書き出し",
+  "storyboardExportNoImages": "書き出せる初期フレーム画像がまだありません",
+  "storyboardExportSuccess": "{count} 枚の初期フレーム画像を書き出しました",
+  "storyboardExportFailed": "書き出しに失敗しました：{reason}"
 }

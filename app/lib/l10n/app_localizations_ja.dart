@@ -1612,4 +1612,39 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get agentChatSkillsBody =>
       '私が呼び出せる機能はすべて既存パイプラインの実際の動作で、呼び出すたびにタスクセンターに確認・再試行可能な記録が残ります：イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像生成、動画生成、配音マッチング、合成書き出し。カスタムスクリプト技能には対応していません。';
+
+  @override
+  String get storyboardPreviewAll => 'すべてプレビュー';
+
+  @override
+  String get storyboardPreviewEmpty => 'プレビューできる絵コンテがありません';
+
+  @override
+  String get storyboardPreviewImageMissing => '画像の読み込みに失敗しました';
+
+  @override
+  String storyboardPreviewCounter(String shot, String current, String total) {
+    return '$shot（$current/$total）';
+  }
+
+  @override
+  String storyboardPreviewShotPlaceholder(String shot) {
+    return '$shot は初期フレーム画像が未生成です';
+  }
+
+  @override
+  String get storyboardExportAll => 'すべて書き出し';
+
+  @override
+  String get storyboardExportNoImages => '書き出せる初期フレーム画像がまだありません';
+
+  @override
+  String storyboardExportSuccess(String count) {
+    return '$count 枚の初期フレーム画像を書き出しました';
+  }
+
+  @override
+  String storyboardExportFailed(String reason) {
+    return '書き出しに失敗しました：$reason';
+  }
 }
