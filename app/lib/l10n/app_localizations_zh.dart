@@ -1538,6 +1538,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchNoClipAssets => '素材库暂无视频素材';
 
   @override
+  String get workbenchSaveCandidateToAssets => '保存到素材库';
+
+  @override
+  String workbenchCandidateClipName(int videoId) {
+    return '镜头候选 #$videoId';
+  }
+
+  @override
   String get workbenchShotAudioLabel => '镜头配音';
 
   @override

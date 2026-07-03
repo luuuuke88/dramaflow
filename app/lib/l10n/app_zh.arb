@@ -667,6 +667,15 @@
   "workbenchPickClip": "素材库",
   "workbenchPickClipTitle": "选择素材视频",
   "workbenchNoClipAssets": "素材库暂无视频素材",
+  "workbenchSaveCandidateToAssets": "保存到素材库",
+  "workbenchCandidateClipName": "镜头候选 #{videoId}",
+  "@workbenchCandidateClipName": {
+    "placeholders": {
+      "videoId": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchShotAudioLabel": "镜头配音",
   "workbenchShotAudioNone": "无配音",
   "workbenchEditPrompt": "编辑运镜提示词",

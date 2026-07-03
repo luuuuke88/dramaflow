@@ -270,6 +270,34 @@ void main() {
     expect(clipFile.existsSync(), isTrue, reason: '删除候选不能误删素材库里的 clip 源文件');
   });
 
+  test('saveVideoCandidateAsClip 将工作台候选保存为 clip 素材并保护源文件', () {
+    final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    const rel = 'p/generated_candidate.mp4';
+    final videoFile = File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([5, 6, 7, 8]);
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, rel, vtDone],
+    );
+    final videoId = db.lastInsertRowId;
+
+    final clipAssetId = engine.saveVideoCandidateAsClip(videoId, name: '可复用镜头');
+
+    final clips = engine.getAssets(projectId, type: 'clip').data;
+    expect(clips, hasLength(1));
+    expect(clips.single.id, clipAssetId);
+    expect(clips.single.name, '可复用镜头');
+    expect(clips.single.filePath, rel);
+    expect(videoFile.existsSync(), isTrue);
+
+    engine.deleteVideo(videoId);
+    expect(videoFile.existsSync(), isTrue,
+        reason: '候选保存进素材库后，删除候选不能删除已入库 clip 文件');
+  });
+
   test('deleteScripts 级联清除 o_videoTrack 行与视频磁盘文件（此前泄漏）', () async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');

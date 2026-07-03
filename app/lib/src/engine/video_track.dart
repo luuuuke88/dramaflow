@@ -10,6 +10,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart' show Row;
 
+import 'assets.dart';
 import 'engine.dart';
 import 'errors.dart';
 import 'events.dart' show stripThink;
@@ -380,6 +381,26 @@ extension VideoTrackApi on Engine {
       [vtDone, videoId, videoId, trackId],
     );
     return videoId;
+  }
+
+  /// 将某个工作台候选视频登记回素材库 clip，便于其他镜头复用。
+  int saveVideoCandidateAsClip(int videoId, {String? name}) {
+    final row = db.select(
+      'SELECT projectId,filePath FROM o_video WHERE id=? AND state=?',
+      [videoId, vtDone],
+    ).firstOrNull;
+    final rel = row?['filePath'] as String?;
+    if (row == null ||
+        rel == null ||
+        rel.isEmpty ||
+        !File(media.absPath(rel)).existsSync()) {
+      throw const EngineException(errFileType, {'type': 'video'});
+    }
+    return registerClipAsset(
+      projectId: (row['projectId'] as int?) ?? 0,
+      name: name?.trim().isNotEmpty == true ? name!.trim() : '镜头候选 #$videoId',
+      relPath: rel,
+    );
   }
 
   void deleteVideo(int videoId) {

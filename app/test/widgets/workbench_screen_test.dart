@@ -207,6 +207,37 @@ void main() {
     expect(find.text('已选'), findsOneWidget);
   });
 
+  testWidgets('候选视频可保存到素材库 clip 供后续复用', (tester) async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: 'x');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    const rel = 'p/candidate_for_library.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([9, 8, 7]);
+    engine.db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, rel, vtDone],
+    );
+    final videoId = engine.db.lastInsertRowId;
+    engine.selectVideo(trackId, videoId);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('保存到素材库'));
+    await tester.pumpAndSettle();
+
+    final clips = engine.getAssets(projectId, type: 'clip').data;
+    expect(engine.storyboards(scriptId).single.id, sbId);
+    expect(clips, hasLength(1));
+    expect(clips.single.filePath, rel);
+    expect(find.textContaining('已保存到素材库'), findsWidgets);
+  });
+
   testWidgets('候选删除按钮：可见删除图标 + 二次确认后调用 deleteVideo', (tester) async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');

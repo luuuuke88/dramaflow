@@ -540,6 +540,15 @@
   "workbenchPickClip": "Assets",
   "workbenchPickClipTitle": "Choose Clip Asset",
   "workbenchNoClipAssets": "No video clip assets yet",
+  "workbenchSaveCandidateToAssets": "Save to Assets",
+  "workbenchCandidateClipName": "Shot candidate #{videoId}",
+  "@workbenchCandidateClipName": {
+    "placeholders": {
+      "videoId": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchShotAudioLabel": "Shot Voice",
   "workbenchShotAudioNone": "No voice",
   "workbenchEditPrompt": "Edit Motion Prompt",

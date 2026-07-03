@@ -3058,6 +3058,18 @@ abstract class AppLocalizations {
   /// **'素材库暂无视频素材'**
   String get workbenchNoClipAssets;
 
+  /// No description provided for @workbenchSaveCandidateToAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存到素材库'**
+  String get workbenchSaveCandidateToAssets;
+
+  /// No description provided for @workbenchCandidateClipName.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜头候选 #{videoId}'**
+  String workbenchCandidateClipName(int videoId);
+
   /// No description provided for @workbenchShotAudioLabel.
   ///
   /// In zh, this message translates to:

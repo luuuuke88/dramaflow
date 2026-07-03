@@ -1548,6 +1548,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchNoClipAssets => '動画素材はまだありません';
 
   @override
+  String get workbenchSaveCandidateToAssets => '素材ライブラリに保存';
+
+  @override
+  String workbenchCandidateClipName(int videoId) {
+    return 'ショット候補 #$videoId';
+  }
+
+  @override
   String get workbenchShotAudioLabel => 'カット音声';
 
   @override

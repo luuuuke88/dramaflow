@@ -1581,6 +1581,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchNoClipAssets => 'No video clip assets yet';
 
   @override
+  String get workbenchSaveCandidateToAssets => 'Save to Assets';
+
+  @override
+  String workbenchCandidateClipName(int videoId) {
+    return 'Shot candidate #$videoId';
+  }
+
+  @override
   String get workbenchShotAudioLabel => 'Shot Voice';
 
   @override

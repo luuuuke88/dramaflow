@@ -825,6 +825,23 @@ class _VideoCandidateChip extends ConsumerWidget {
     if (ok == true) ref.read(engineProvider).deleteVideo(video.id);
   }
 
+  void _saveToAssets(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    try {
+      final clipAssetId = ref.read(engineProvider).saveVideoCandidateAsClip(
+            video.id,
+            name: l10n.workbenchCandidateClipName(video.id),
+          );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.workbenchSavedToAssets(clipAssetId))),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(localizeError(context, e))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
@@ -875,6 +892,15 @@ class _VideoCandidateChip extends ConsumerWidget {
               context,
               absPath: ref.read(engineProvider).mediaAbsPath(video.filePath!),
             ),
+          ),
+        if (canPlay)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            padding: EdgeInsets.zero,
+            tooltip: l10n.workbenchSaveCandidateToAssets,
+            icon: Icon(Icons.library_add_outlined, size: 17, color: df.primary),
+            onPressed: () => _saveToAssets(context, ref),
           ),
         // 选为正片（原 InkWell 语义保留）
         InkWell(
