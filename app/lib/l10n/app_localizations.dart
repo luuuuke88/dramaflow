@@ -3393,6 +3393,222 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'存在超出单集字数上限（{limit}）的分集，请取消勾选或缩短内容'**
   String scriptBatchAddMsgOverLimit(String limit);
+
+  /// No description provided for @artStyleLibraryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风库'**
+  String get artStyleLibraryTitle;
+
+  /// No description provided for @artStyleManage.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理画风库'**
+  String get artStyleManage;
+
+  /// No description provided for @artStyleAddTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增画风'**
+  String get artStyleAddTitle;
+
+  /// No description provided for @artStyleEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑画风'**
+  String get artStyleEditTitle;
+
+  /// No description provided for @artStyleName.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风名称'**
+  String get artStyleName;
+
+  /// No description provided for @artStyleNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'如：2D 动漫、照片写实、3D 国创'**
+  String get artStyleNamePh;
+
+  /// No description provided for @artStylePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风提示词'**
+  String get artStylePrompt;
+
+  /// No description provided for @artStylePromptPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'如：(画风：2D动漫风格,2d animation style)'**
+  String get artStylePromptPh;
+
+  /// No description provided for @artStyleCover.
+  ///
+  /// In zh, this message translates to:
+  /// **'封面图'**
+  String get artStyleCover;
+
+  /// No description provided for @artStyleUploadCover.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传封面'**
+  String get artStyleUploadCover;
+
+  /// No description provided for @artStyleNameRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请填写画风名称'**
+  String get artStyleNameRequired;
+
+  /// No description provided for @artStyleAddSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风添加成功'**
+  String get artStyleAddSuccess;
+
+  /// No description provided for @artStyleEditSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风编辑成功'**
+  String get artStyleEditSuccess;
+
+  /// No description provided for @artStyleDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'画风已删除'**
+  String get artStyleDeleted;
+
+  /// No description provided for @artStyleDeleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除画风'**
+  String get artStyleDeleteHeader;
+
+  /// No description provided for @artStyleDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除画风「{name}」吗？'**
+  String artStyleDeleteBody(String name);
+
+  /// No description provided for @artStyleEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有画风，点击上方新增。'**
+  String get artStyleEmpty;
+
+  /// No description provided for @artStyleClose.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get artStyleClose;
+
+  /// No description provided for @clipUpload.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传素材'**
+  String get clipUpload;
+
+  /// No description provided for @clipUploadTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传素材文件'**
+  String get clipUploadTitle;
+
+  /// No description provided for @clipPickFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择文件'**
+  String get clipPickFile;
+
+  /// No description provided for @clipNoFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未选择文件'**
+  String get clipNoFile;
+
+  /// No description provided for @clipName.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材名称'**
+  String get clipName;
+
+  /// No description provided for @clipNamePh.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空则使用文件名'**
+  String get clipNamePh;
+
+  /// No description provided for @clipUploadSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材上传成功'**
+  String get clipUploadSuccess;
+
+  /// No description provided for @clipUploadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材上传失败'**
+  String get clipUploadFailed;
+
+  /// No description provided for @assetBatchModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型'**
+  String get assetBatchModel;
+
+  /// No description provided for @assetBatchResolution.
+  ///
+  /// In zh, this message translates to:
+  /// **'分辨率'**
+  String get assetBatchResolution;
+
+  /// No description provided for @assetBatchConcurrency.
+  ///
+  /// In zh, this message translates to:
+  /// **'并发数'**
+  String get assetBatchConcurrency;
+
+  /// No description provided for @assetBatchConcurrencyPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'1-8'**
+  String get assetBatchConcurrencyPh;
+
+  /// No description provided for @assetBatchOtherPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'补充提示词'**
+  String get assetBatchOtherPrompt;
+
+  /// No description provided for @assetBatchOtherPromptPh.
+  ///
+  /// In zh, this message translates to:
+  /// **'追加到润色系统提示词（可选）'**
+  String get assetBatchOtherPromptPh;
+
+  /// No description provided for @assetBatchPickModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用阶段默认'**
+  String get assetBatchPickModel;
+
+  /// No description provided for @manualImportFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入文件'**
+  String get manualImportFile;
+
+  /// No description provided for @manualImportSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件已导入到当前标签'**
+  String get manualImportSuccess;
+
+  /// No description provided for @manualImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件导入失败'**
+  String get manualImportFailed;
 }
 
 class _AppLocalizationsDelegate

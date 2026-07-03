@@ -1774,4 +1774,115 @@ class AppLocalizationsEn extends AppLocalizations {
   String scriptBatchAddMsgOverLimit(String limit) {
     return 'Some episodes exceed the per-episode length limit ($limit). Deselect them or shorten the content.';
   }
+
+  @override
+  String get artStyleLibraryTitle => 'Art Style Library';
+
+  @override
+  String get artStyleManage => 'Manage art styles';
+
+  @override
+  String get artStyleAddTitle => 'Add art style';
+
+  @override
+  String get artStyleEditTitle => 'Edit art style';
+
+  @override
+  String get artStyleName => 'Style name';
+
+  @override
+  String get artStyleNamePh => 'e.g. 2D anime, photorealistic, 3D CG';
+
+  @override
+  String get artStylePrompt => 'Style prompt';
+
+  @override
+  String get artStylePromptPh => 'e.g. (style: 2D anime, 2d animation style)';
+
+  @override
+  String get artStyleCover => 'Cover image';
+
+  @override
+  String get artStyleUploadCover => 'Upload cover';
+
+  @override
+  String get artStyleNameRequired => 'Please enter a style name';
+
+  @override
+  String get artStyleAddSuccess => 'Art style added';
+
+  @override
+  String get artStyleEditSuccess => 'Art style updated';
+
+  @override
+  String get artStyleDeleted => 'Art style deleted';
+
+  @override
+  String get artStyleDeleteHeader => 'Delete art style';
+
+  @override
+  String artStyleDeleteBody(String name) {
+    return 'Delete art style \"$name\"?';
+  }
+
+  @override
+  String get artStyleEmpty => 'No art styles yet. Add one above.';
+
+  @override
+  String get artStyleClose => 'Close';
+
+  @override
+  String get clipUpload => 'Upload clip';
+
+  @override
+  String get clipUploadTitle => 'Upload clip file';
+
+  @override
+  String get clipPickFile => 'Choose file';
+
+  @override
+  String get clipNoFile => 'No file selected';
+
+  @override
+  String get clipName => 'Clip name';
+
+  @override
+  String get clipNamePh => 'Leave blank to use the file name';
+
+  @override
+  String get clipUploadSuccess => 'Clip uploaded';
+
+  @override
+  String get clipUploadFailed => 'Clip upload failed';
+
+  @override
+  String get assetBatchModel => 'Model';
+
+  @override
+  String get assetBatchResolution => 'Resolution';
+
+  @override
+  String get assetBatchConcurrency => 'Concurrency';
+
+  @override
+  String get assetBatchConcurrencyPh => '1-8';
+
+  @override
+  String get assetBatchOtherPrompt => 'Extra prompt';
+
+  @override
+  String get assetBatchOtherPromptPh =>
+      'Appended to the polish system prompt (optional)';
+
+  @override
+  String get assetBatchPickModel => 'Use stage default';
+
+  @override
+  String get manualImportFile => 'Import file';
+
+  @override
+  String get manualImportSuccess => 'File imported into the current tab';
+
+  @override
+  String get manualImportFailed => 'File import failed';
 }

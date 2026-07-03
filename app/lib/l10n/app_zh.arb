@@ -759,5 +759,48 @@
         "type": "String"
       }
     }
-  }
+  },
+  "artStyleLibraryTitle": "画风库",
+  "artStyleManage": "管理画风库",
+  "artStyleAddTitle": "新增画风",
+  "artStyleEditTitle": "编辑画风",
+  "artStyleName": "画风名称",
+  "artStyleNamePh": "如：2D 动漫、照片写实、3D 国创",
+  "artStylePrompt": "画风提示词",
+  "artStylePromptPh": "如：(画风：2D动漫风格,2d animation style)",
+  "artStyleCover": "封面图",
+  "artStyleUploadCover": "上传封面",
+  "artStyleNameRequired": "请填写画风名称",
+  "artStyleAddSuccess": "画风添加成功",
+  "artStyleEditSuccess": "画风编辑成功",
+  "artStyleDeleted": "画风已删除",
+  "artStyleDeleteHeader": "删除画风",
+  "artStyleDeleteBody": "确定删除画风「{name}」吗？",
+  "@artStyleDeleteBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "artStyleEmpty": "还没有画风，点击上方新增。",
+  "artStyleClose": "关闭",
+  "clipUpload": "上传素材",
+  "clipUploadTitle": "上传素材文件",
+  "clipPickFile": "选择文件",
+  "clipNoFile": "尚未选择文件",
+  "clipName": "素材名称",
+  "clipNamePh": "留空则使用文件名",
+  "clipUploadSuccess": "素材上传成功",
+  "clipUploadFailed": "素材上传失败",
+  "assetBatchModel": "模型",
+  "assetBatchResolution": "分辨率",
+  "assetBatchConcurrency": "并发数",
+  "assetBatchConcurrencyPh": "1-8",
+  "assetBatchOtherPrompt": "补充提示词",
+  "assetBatchOtherPromptPh": "追加到润色系统提示词（可选）",
+  "assetBatchPickModel": "使用阶段默认",
+  "manualImportFile": "导入文件",
+  "manualImportSuccess": "文件已导入到当前标签",
+  "manualImportFailed": "文件导入失败"
 }

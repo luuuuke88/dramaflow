@@ -254,6 +254,37 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     return db.lastInsertRowId;
   }
 
+  /// 素材文件上传（照抄 uploadClip.ts）：真实图片/音频/视频文件落盘，
+  /// 建 o_assets 行 + o_image 行并选中。ext 由调用方按文件名/MIME 提供，
+  /// 默认 bin。返回新建的资产 id。
+  int uploadClip({
+    required int projectId,
+    required String name,
+    required List<int> bytes,
+    String type = 'clip',
+    String ext = 'bin',
+  }) {
+    final assetsId = addAsset(
+      projectId: projectId,
+      type: type,
+      name: name.trim().isEmpty ? '素材' : name.trim(),
+      describe: '',
+    );
+    final rel = '$projectId/assets_clip_${assetsId}_'
+        '${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final f = File(media.absPath(rel));
+    f.parent.createSync(recursive: true);
+    f.writeAsBytesSync(bytes);
+    db.execute(
+      'INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,?,?)',
+      [assetsId, rel, type, stateDone],
+    );
+    final imageId = db.lastInsertRowId;
+    db.execute(
+        'UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetsId]);
+    return assetsId;
+  }
+
   void updateAsset(int id,
       {String? name, String? describe, String? remark, String? prompt}) {
     final sets = <String>[];

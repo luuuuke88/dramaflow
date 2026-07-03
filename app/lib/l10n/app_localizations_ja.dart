@@ -1724,4 +1724,114 @@ class AppLocalizationsJa extends AppLocalizations {
   String scriptBatchAddMsgOverLimit(String limit) {
     return '1話あたりの文字数上限（$limit）を超えた話数があります。選択を外すか内容を短くしてください。';
   }
+
+  @override
+  String get artStyleLibraryTitle => '画風ライブラリ';
+
+  @override
+  String get artStyleManage => '画風ライブラリを管理';
+
+  @override
+  String get artStyleAddTitle => '画風を追加';
+
+  @override
+  String get artStyleEditTitle => '画風を編集';
+
+  @override
+  String get artStyleName => '画風名';
+
+  @override
+  String get artStyleNamePh => '例：2Dアニメ、写真リアル、3D CG';
+
+  @override
+  String get artStylePrompt => '画風プロンプト';
+
+  @override
+  String get artStylePromptPh => '例：(画風：2Dアニメ,2d animation style)';
+
+  @override
+  String get artStyleCover => 'カバー画像';
+
+  @override
+  String get artStyleUploadCover => 'カバーをアップロード';
+
+  @override
+  String get artStyleNameRequired => '画風名を入力してください';
+
+  @override
+  String get artStyleAddSuccess => '画風を追加しました';
+
+  @override
+  String get artStyleEditSuccess => '画風を更新しました';
+
+  @override
+  String get artStyleDeleted => '画風を削除しました';
+
+  @override
+  String get artStyleDeleteHeader => '画風を削除';
+
+  @override
+  String artStyleDeleteBody(String name) {
+    return '画風「$name」を削除しますか？';
+  }
+
+  @override
+  String get artStyleEmpty => '画風がまだありません。上から追加してください。';
+
+  @override
+  String get artStyleClose => '閉じる';
+
+  @override
+  String get clipUpload => '素材をアップロード';
+
+  @override
+  String get clipUploadTitle => '素材ファイルをアップロード';
+
+  @override
+  String get clipPickFile => 'ファイルを選択';
+
+  @override
+  String get clipNoFile => 'ファイル未選択';
+
+  @override
+  String get clipName => '素材名';
+
+  @override
+  String get clipNamePh => '空欄の場合はファイル名を使用';
+
+  @override
+  String get clipUploadSuccess => '素材をアップロードしました';
+
+  @override
+  String get clipUploadFailed => '素材のアップロードに失敗しました';
+
+  @override
+  String get assetBatchModel => 'モデル';
+
+  @override
+  String get assetBatchResolution => '解像度';
+
+  @override
+  String get assetBatchConcurrency => '並列数';
+
+  @override
+  String get assetBatchConcurrencyPh => '1-8';
+
+  @override
+  String get assetBatchOtherPrompt => '追加プロンプト';
+
+  @override
+  String get assetBatchOtherPromptPh => '推敲システムプロンプトに追記（任意）';
+
+  @override
+  String get assetBatchPickModel => 'ステージ既定を使用';
+
+  @override
+  String get manualImportFile => 'ファイルを取り込む';
+
+  @override
+  String get manualImportSuccess => 'ファイルを現在のタブに取り込みました';
+
+  @override
+  String get manualImportFailed => 'ファイルの取り込みに失敗しました';
 }
