@@ -750,5 +750,14 @@
   "imageEditorSelectModel": "请先选择模型",
   "imageEditorSelectQuality": "请选择画质",
   "imageEditorSelectRatio": "请选择比例",
-  "imageEditorNoImageModel": "暂无可用图片模型"
+  "imageEditorNoImageModel": "暂无可用图片模型",
+  "novelGenerateSelectedEvents": "生成事件",
+  "scriptBatchAddMsgOverLimit": "存在超出单集字数上限（{limit}）的分集，请取消勾选或缩短内容",
+  "@scriptBatchAddMsgOverLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  }
 }

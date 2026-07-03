@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/events.dart';
 import '../../engine/novel.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
@@ -89,6 +90,16 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
     ref.read(engineProvider).deleteNovels([row.id]);
     setState(() => _selected.remove('${row.id}'));
     _toast(l10n.novelMsgDeleteSuccess);
+  }
+
+  void _generateSelectedEvents() {
+    final l10n = context.l10n;
+    if (_selected.isEmpty) {
+      _toast(l10n.novelImportMsgSelectChapters);
+      return;
+    }
+    ref.read(engineProvider).generateEvents(widget.projectId, _selectedIds);
+    _toast(l10n.novelEventGeneratingHint);
   }
 
   Future<void> _eventAnalysis() async {
@@ -246,6 +257,14 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
             label: Text(_selected.isEmpty
                 ? l10n.novelBatchDelete
                 : '${l10n.novelBatchDelete} (${_selected.length})'),
+          ),
+          const SizedBox(width: 10),
+          FilledButton.icon(
+            onPressed: _selected.isEmpty ? null : _generateSelectedEvents,
+            icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+            label: Text(_selected.isEmpty
+                ? l10n.novelGenerateSelectedEvents
+                : '${l10n.novelGenerateSelectedEvents} (${_selected.length})'),
           ),
           const SizedBox(width: 10),
           OutlinedButton.icon(

@@ -1766,4 +1766,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageEditorNoImageModel => 'No image model available';
+
+  @override
+  String get novelGenerateSelectedEvents => 'Generate events';
+
+  @override
+  String scriptBatchAddMsgOverLimit(String limit) {
+    return 'Some episodes exceed the per-episode length limit ($limit). Deselect them or shorten the content.';
+  }
 }
