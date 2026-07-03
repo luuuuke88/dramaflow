@@ -21,6 +21,9 @@ Future<String> volcengineGenerateVideo(
   CancelToken? cancelToken,
   Duration pollInterval = const Duration(seconds: 10),
   Duration pollTimeout = const Duration(minutes: 30),
+  // 连通测试用：提交任务、确认已受理后立即返回 taskId，不轮询到渲染完成
+  // （视频渲染耗时且计费，测试无需等待成片）。
+  bool submitOnly = false,
 }) async {
   final apiKey = model.apiKey;
   if (apiKey.isEmpty) {
@@ -61,6 +64,8 @@ Future<String> volcengineGenerateVideo(
   if (taskId == null || taskId.isEmpty) {
     throw EngineException(errLlmFormat, {'message': '视频任务创建未返回任务ID'});
   }
+  // 连通测试：任务已受理即返回，不等待渲染成片。
+  if (submitOnly) return taskId;
 
   final deadline = DateTime.now().add(pollTimeout);
   while (true) {

@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
 import '../config.dart';
@@ -8,6 +11,19 @@ import 'resolve.dart';
 import 'volcengine_video.dart';
 
 export 'openai_text.dart' show AgentTurnResult, AgentToolDef;
+
+/// 1×1 透明 PNG（最小合法图容器），用于视频连通测试的首帧占位。
+final _tinyPngBytes = Uint8List.fromList(const [
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+  0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+  0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41,
+  0x54, 0x78, 0x9C, 0x62, 0x00, 0x01, 0x00, 0x00,
+  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+  0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+  0x42, 0x60, 0x82,
+]);
 
 class TextResult {
   final String content;
@@ -148,6 +164,39 @@ class HttpProviderGateway implements ProviderGateway {
       {CancelToken? cancelToken}) async {
     final sw = Stopwatch()..start();
     await openaiGenerateText(dio, model, '', '只回复OK', cancelToken: cancelToken);
+    sw.stop();
+    return sw.elapsedMilliseconds;
+  }
+
+  /// 图片模型连通测试：真实生成一张极简图并计时，随后清理测试产物。
+  Future<int> testImageModel(ResolvedModel model,
+      {CancelToken? cancelToken}) async {
+    final sw = Stopwatch()..start();
+    final rel = await openaiGenerateImage(
+      dio, model, media, 'a small solid circle icon, minimal', '__conn_test__',
+      imageSizeDirective: '', cancelToken: cancelToken);
+    sw.stop();
+    final f = File(media.absPath(rel));
+    if (f.existsSync()) f.deleteSync();
+    return sw.elapsedMilliseconds;
+  }
+
+  /// 视频模型连通测试：只提交任务、确认服务受理即可，不轮询到成片
+  /// （渲染耗时且计费）。用 1×1 占位首帧提交。
+  Future<int> testVideoModel(ResolvedModel model,
+      {CancelToken? cancelToken}) async {
+    final sw = Stopwatch()..start();
+    final tmp = File(media.absPath('__conn_test__/vtest_frame.png'))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync(_tinyPngBytes);
+    try {
+      await volcengineGenerateVideo(
+        dio, config, media, model, 'connectivity test', tmp.path,
+        '__conn_test__',
+        submitOnly: true, cancelToken: cancelToken);
+    } finally {
+      if (tmp.existsSync()) tmp.deleteSync();
+    }
     sw.stop();
     return sw.elapsedMilliseconds;
   }

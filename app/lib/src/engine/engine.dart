@@ -817,13 +817,11 @@ WHERE id=?
       // UI 层无法本地化）。
       orElse: () => throw const EngineException(errModelMissing),
     );
-    if (model.kind != 'text') {
-      throw const EngineException(errModelMissing, {'reason': '暂只支持文本模型连通测试'});
-    }
     if (gateway is! HttpProviderGateway) {
       throw const EngineException(
           errProviderMissing, {'reason': '当前网关不支持连通测试'});
     }
+    final http = gateway as HttpProviderGateway;
     final resolved = ResolvedModel(
       providerId: provider.id,
       protocol: provider.protocol,
@@ -831,7 +829,17 @@ WHERE id=?
       apiKey: provider.apiKey,
       modelId: model.modelId,
     );
-    return (gateway as HttpProviderGateway).testTextModel(resolved);
+    // 分模态测试（照抄 ToonFlow textTest/imageTest/videoTest）：
+    switch (model.kind) {
+      case 'text':
+        return http.testTextModel(resolved);
+      case 'image':
+        return http.testImageModel(resolved);
+      case 'video':
+        return http.testVideoModel(resolved);
+      default:
+        throw const EngineException(errModelMissing, {'reason': '该模态暂不支持连通测试'});
+    }
   }
 
   void _writeSetting(String key, String value) {
