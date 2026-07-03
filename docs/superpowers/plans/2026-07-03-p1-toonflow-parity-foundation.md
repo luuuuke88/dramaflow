@@ -443,3 +443,23 @@ void deleteVisualManual(String stylePath); void deleteDirectorManual(String dire
 - 131 测全绿，analyze 零告警，macOS 启动冒烟通过
 - Agent 对话框（rightChatBox）按 spec 明确归属 P5，P3 不做占位面板（画布内无入口，不构成半成品）
 - 下一步：P3 收尾后按 spec §6 进入 P4（多轨工作台+配音+零 ffmpeg 合成导出）
+
+## P4 进度快照（2026-07-03，审核方维护）
+
+- ✅ P4 引擎层（13ff809）：video_track.dart（视频槽位/候选生成/首个自动选中/手动挑选/
+  冷启动恢复）+ audio_bind.dart（LLM tool-calling 角色↔音频匹配/手动绑定）+
+  compose_episode.dart（按分镜序取选中视频，复用零 ffmpeg VideoComposer 拼接）；
+  新增 stage `video_prompt_gen`、taskClass `video_generation`/`audio_bind`；
+  **顺带修复一个真 bug**：`Engine` 构造函数自 T3 schema 重写起就丢弃 `composer` 参数
+  （从未存成字段，`engine.composer` 实际不存在）——已修复+回归测试锁定；16 测全绿
+- ✅ P4 UI（dc71f30）：工作台（画布摘要节点+全屏页：镜头列表/运镜提示词生成/视频候选
+  网格挑选/合成本集按钮+缺口提示）+ 配音页（角色列表/手动绑定下拉/AI 批量自动匹配）；
+  解禁「配音」菜单；8 个 widget 测试全绿
+- ✅ 真实 E2E 验收：配音 LLM 匹配真跑通过（"清冷孤傲少年"→"清亮少年音"，
+  "威严掌门"→"低沉长者音"，语义判断准确）；macOS 启动冒烟通过
+- 明确不做（执行边界，已文档化非缺陷）：视频编辑器剪辑/转场/滤镜（ToonFlow 用 WebAV
+  AVCanvas，超出零 ffmpeg 顺序拼接定案）；语音合成 TTS（cornerScape 只做绑定，
+  音频素材来自 P2 音频资产上传）；真实视频生成效果（seedance）留 luke 实机验证
+- 156 测全绿，analyze 零告警
+- 下一步：P4 收尾后按 spec §6 进入 P5（Agent 体系+全套设置页+新演示项目填充），
+  这是 v0.3 spec 的最后一批
