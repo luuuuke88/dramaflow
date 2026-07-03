@@ -130,8 +130,8 @@ Status: Partial
 
 Desktop Evidence: `app/test/engine/engine_facade_test.dart`, `app/test/ui_i18n_static_test.dart`, and settings-related engine tests cover provider CRUD, model binding validation, config import/export, prompt seed/update/reset, theme and locale persistence, storage information, and static i18n checks.
 
-Mobile Evidence: No dedicated mobile settings smoke is recorded.
+Mobile Evidence: `app/test/widgets/settings_screen_test.dart` covers a 390px settings flow: theme change, locale change, provider creation, and prompt editor entry.
 
-Known Gaps: Mobile settings navigation, provider modal editing, per-modality test UI, file/data actions, and prompt editor are not all proven by widget tests.
+Known Gaps: Mobile model binding, provider model management, per-modality test UI, file/data actions, and storage clear are not all proven by widget tests.
 
-Next Verification: Add a 390px settings smoke that changes theme/locale, edits a provider, and opens prompt management without overflow.
+Next Verification: Add 390px settings tests for model binding, model management, database info, and clear-data confirmation.
