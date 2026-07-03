@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../api/models.dart';
 import '../state/providers.dart';
-import '../theme.dart';
+import '../theme/theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 

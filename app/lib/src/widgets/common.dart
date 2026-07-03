@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/models.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
-import '../theme.dart';
+import '../theme/theme.dart';
 
 /// 状态 → 视觉语义 的唯一映射，全 App 统一。
 class StatusChip extends StatelessWidget {

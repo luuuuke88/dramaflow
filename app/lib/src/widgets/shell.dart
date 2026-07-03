@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../state/providers.dart';
-import '../theme.dart';
+import '../theme/theme.dart';
 
 /// 全局响应式外壳：
 /// - 宽度 ≥ 840：左侧 NavigationRail（≥1200 展开带文字）

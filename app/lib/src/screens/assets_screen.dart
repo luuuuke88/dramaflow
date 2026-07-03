@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../api/models.dart';
 import '../state/providers.dart';
-import '../theme.dart';
+import '../theme/theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 

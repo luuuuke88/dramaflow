@@ -1,0 +1,382 @@
+import 'package:flutter/material.dart';
+
+import '../theme/theme.dart';
+import '../theme/tokens.dart';
+
+class DFDataColumn {
+  final String label;
+  final bool numeric;
+
+  const DFDataColumn({required this.label, this.numeric = false});
+}
+
+class DFDataRow {
+  final String id;
+  final List<Widget> cells;
+  final VoidCallback? onTap;
+
+  const DFDataRow({required this.id, required this.cells, this.onTap});
+}
+
+class DFPagination {
+  final int page;
+  final int pageSize;
+  final int total;
+
+  const DFPagination({
+    required this.page,
+    required this.pageSize,
+    required this.total,
+  });
+
+  int get pageCount {
+    if (total <= 0 || pageSize <= 0) return 1;
+    return (total / pageSize).ceil();
+  }
+}
+
+typedef DFMobileCardBuilder = Widget Function(
+    BuildContext context, DFDataRow row);
+
+class DFDataTable extends StatelessWidget {
+  static const breakpoint = 840.0;
+
+  final List<DFDataColumn> columns;
+  final List<DFDataRow> rows;
+  final bool selectable;
+  final Set<String>? selectedIds;
+  final ValueChanged<Set<String>>? onSelectionChanged;
+  final DFPagination? pagination;
+  final ValueChanged<int>? onPageChange;
+  final DFMobileCardBuilder mobileCardBuilder;
+
+  const DFDataTable({
+    super.key,
+    required this.columns,
+    required this.rows,
+    this.selectable = false,
+    this.selectedIds,
+    this.onSelectionChanged,
+    this.pagination,
+    this.onPageChange,
+    required this.mobileCardBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth.isFinite
+          ? constraints.maxWidth
+          : MediaQuery.sizeOf(context).width;
+      if (width < breakpoint) {
+        return _MobileRows(
+          rows: rows,
+          selectable: selectable,
+          selectedIds: selectedIds ?? const <String>{},
+          onSelectionChanged: onSelectionChanged,
+          pagination: pagination,
+          onPageChange: onPageChange,
+          mobileCardBuilder: mobileCardBuilder,
+        );
+      }
+      return _DesktopTable(
+        columns: columns,
+        rows: rows,
+        selectable: selectable,
+        selectedIds: selectedIds ?? const <String>{},
+        onSelectionChanged: onSelectionChanged,
+        pagination: pagination,
+        onPageChange: onPageChange,
+      );
+    });
+  }
+}
+
+class _DesktopTable extends StatelessWidget {
+  final List<DFDataColumn> columns;
+  final List<DFDataRow> rows;
+  final bool selectable;
+  final Set<String> selectedIds;
+  final ValueChanged<Set<String>>? onSelectionChanged;
+  final DFPagination? pagination;
+  final ValueChanged<int>? onPageChange;
+
+  const _DesktopTable({
+    required this.columns,
+    required this.rows,
+    required this.selectable,
+    required this.selectedIds,
+    required this.onSelectionChanged,
+    required this.pagination,
+    required this.onPageChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.df;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        border: Border.all(color: colors.stroke),
+        boxShadow: DFTokens.cardRest,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                showCheckboxColumn: selectable,
+                onSelectAll: selectable ? _setAllSelected : null,
+                headingRowColor: WidgetStatePropertyAll(colors.surfaceMuted),
+                dataRowColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.selected)) {
+                    return colors.primarySubtle;
+                  }
+                  return colors.surface;
+                }),
+                headingTextStyle: DFTokens.caption12.copyWith(
+                  color: colors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+                dataTextStyle:
+                    DFTokens.body14.copyWith(color: colors.textPrimary),
+                dividerThickness: 1,
+                columns: [
+                  for (final column in columns)
+                    DataColumn(
+                      numeric: column.numeric,
+                      label: Text(column.label),
+                    ),
+                ],
+                rows: [
+                  for (final row in rows)
+                    DataRow(
+                      key: ValueKey(row.id),
+                      selected: selectedIds.contains(row.id),
+                      onSelectChanged: selectable
+                          ? (selected) =>
+                              _setSelected(row.id, selected ?? false)
+                          : row.onTap == null
+                              ? null
+                              : (_) => row.onTap?.call(),
+                      cells: _cellsFor(row),
+                    ),
+                ],
+              ),
+            ),
+            if (pagination != null)
+              _PaginationBar(
+                pagination: pagination!,
+                onPageChange: onPageChange,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<DataCell> _cellsFor(DFDataRow row) {
+    return [
+      for (var i = 0; i < columns.length; i += 1)
+        DataCell(i < row.cells.length ? row.cells[i] : const SizedBox.shrink()),
+    ];
+  }
+
+  void _setSelected(String id, bool selected) {
+    final next = Set<String>.from(selectedIds);
+    if (selected) {
+      next.add(id);
+    } else {
+      next.remove(id);
+    }
+    onSelectionChanged?.call(next);
+  }
+
+  void _setAllSelected(bool? selected) {
+    final rowIds = rows.map((row) => row.id);
+    final next = Set<String>.from(selectedIds);
+    if (selected ?? false) {
+      next.addAll(rowIds);
+    } else {
+      next.removeAll(rowIds);
+    }
+    onSelectionChanged?.call(next);
+  }
+}
+
+class _MobileRows extends StatelessWidget {
+  final List<DFDataRow> rows;
+  final bool selectable;
+  final Set<String> selectedIds;
+  final ValueChanged<Set<String>>? onSelectionChanged;
+  final DFPagination? pagination;
+  final ValueChanged<int>? onPageChange;
+  final DFMobileCardBuilder mobileCardBuilder;
+
+  const _MobileRows({
+    required this.rows,
+    required this.selectable,
+    required this.selectedIds,
+    required this.onSelectionChanged,
+    required this.pagination,
+    required this.onPageChange,
+    required this.mobileCardBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: rows.length,
+          separatorBuilder: (_, __) => const SizedBox(height: DFTokens.s12),
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            final selected = selectedIds.contains(row.id);
+            return _MobileCardFrame(
+              selected: selected,
+              onTap: selectable ? () => _toggle(row.id, selected) : row.onTap,
+              child: mobileCardBuilder(context, row),
+            );
+          },
+        ),
+        if (pagination != null)
+          Padding(
+            padding: const EdgeInsets.only(top: DFTokens.s12),
+            child: _PaginationBar(
+              pagination: pagination!,
+              onPageChange: onPageChange,
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _toggle(String id, bool selected) {
+    final next = Set<String>.from(selectedIds);
+    if (selected) {
+      next.remove(id);
+    } else {
+      next.add(id);
+    }
+    onSelectionChanged?.call(next);
+  }
+}
+
+class _MobileCardFrame extends StatefulWidget {
+  final bool selected;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  const _MobileCardFrame({
+    required this.selected,
+    required this.onTap,
+    required this.child,
+  });
+
+  @override
+  State<_MobileCardFrame> createState() => _MobileCardFrameState();
+}
+
+class _MobileCardFrameState extends State<_MobileCardFrame> {
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.df;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: DFTokens.fast120,
+        curve: DFTokens.curve,
+        decoration: BoxDecoration(
+          color: widget.selected || _hovered
+              ? colors.primarySubtle
+              : colors.surface,
+          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+          border: Border.all(
+            color: widget.selected ? colors.primary : colors.stroke,
+          ),
+          boxShadow: _hovered ? DFTokens.cardHover : DFTokens.cardRest,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+            child: Padding(
+              padding: const EdgeInsets.all(DFTokens.s16),
+              child: widget.child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaginationBar extends StatelessWidget {
+  final DFPagination pagination;
+  final ValueChanged<int>? onPageChange;
+
+  const _PaginationBar({
+    required this.pagination,
+    required this.onPageChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.df;
+    final page = pagination.page.clamp(1, pagination.pageCount).toInt();
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: DFTokens.s16,
+        vertical: DFTokens.s12,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        border: Border(top: BorderSide(color: colors.stroke)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            '共 ${pagination.total} 条',
+            style: DFTokens.caption12.copyWith(color: colors.textSecondary),
+          ),
+          const SizedBox(width: DFTokens.s16),
+          IconButton(
+            tooltip: '上一页',
+            onPressed: page > 1 ? () => onPageChange?.call(page - 1) : null,
+            icon: const Icon(Icons.chevron_left_rounded),
+          ),
+          Text(
+            '$page / ${pagination.pageCount}',
+            style: DFTokens.caption12.copyWith(
+              color: colors.textPrimary,
+              fontFeatures: DFTokens.tabularFigures,
+            ),
+          ),
+          IconButton(
+            tooltip: '下一页',
+            onPressed: page < pagination.pageCount
+                ? () => onPageChange?.call(page + 1)
+                : null,
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}

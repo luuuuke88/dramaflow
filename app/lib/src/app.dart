@@ -12,7 +12,7 @@ import 'screens/shots_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/settings_screen.dart';
 import 'state/providers.dart';
-import 'theme.dart';
+import 'theme/theme.dart';
 import 'widgets/shell.dart';
 
 /// Web 端从浏览器地址深链启动（刷新/分享链接保持位置）；桌面/移动端从首页启动。
