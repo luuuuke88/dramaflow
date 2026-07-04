@@ -832,6 +832,11 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                   for (final clip in clips)
                     _TimelineAssetClip(
                       clip: clip,
+                      snapAnchors:
+                          _timelineSnapAnchors(engine: engine, clip: clip),
+                      dragPixelsPerTimeStep: _dragPixelsPerTimeStep,
+                      dragTimeStepMs: _dragTimeStepMs,
+                      snapThresholdMs: _snapThresholdMs,
                       onDragCommit: (delta) => _moveClipLayer(clip, delta),
                       onTrimStartCommit: (delta) =>
                           _trimClipLayerStart(clip, delta),
@@ -1183,6 +1188,10 @@ class _TimelineClip extends StatelessWidget {
 
 class _TimelineAssetClip extends StatefulWidget {
   final TimelineClipRow clip;
+  final List<int> snapAnchors;
+  final double dragPixelsPerTimeStep;
+  final int dragTimeStepMs;
+  final int snapThresholdMs;
   final ValueChanged<Offset> onDragCommit;
   final ValueChanged<Offset> onTrimStartCommit;
   final ValueChanged<Offset> onTrimEndCommit;
@@ -1193,6 +1202,10 @@ class _TimelineAssetClip extends StatefulWidget {
 
   const _TimelineAssetClip({
     required this.clip,
+    required this.snapAnchors,
+    required this.dragPixelsPerTimeStep,
+    required this.dragTimeStepMs,
+    required this.snapThresholdMs,
     required this.onDragCommit,
     required this.onTrimStartCommit,
     required this.onTrimEndCommit,
@@ -1208,19 +1221,76 @@ class _TimelineAssetClip extends StatefulWidget {
 
 class _TimelineAssetClipState extends State<_TimelineAssetClip> {
   Offset _dragDelta = Offset.zero;
+  Alignment? _snapGuideAlignment;
+
+  @override
+  void didUpdateWidget(covariant _TimelineAssetClip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.clip.startMs != widget.clip.startMs ||
+        oldWidget.clip.lane != widget.clip.lane ||
+        oldWidget.clip.durationMs != widget.clip.durationMs) {
+      _dragDelta = Offset.zero;
+      _snapGuideAlignment = null;
+    }
+  }
 
   void _resetDrag() {
-    _dragDelta = Offset.zero;
+    setState(() {
+      _dragDelta = Offset.zero;
+      _snapGuideAlignment = null;
+    });
   }
 
   void _accumulateDrag(DragUpdateDetails details) {
-    _dragDelta += details.delta;
+    setState(() {
+      _dragDelta += details.delta;
+      _snapGuideAlignment = _activeSnapGuideAlignment();
+    });
   }
 
   void _commitDrag(ValueChanged<Offset> commit) {
     final delta = _dragDelta;
-    _dragDelta = Offset.zero;
+    _clearDragPreview();
     commit(delta);
+  }
+
+  void _hideSnapGuide() {
+    if (!mounted || _snapGuideAlignment == null) return;
+    setState(() {
+      _snapGuideAlignment = null;
+    });
+  }
+
+  void _hideSnapGuideAfterPointerUp() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _hideSnapGuide());
+  }
+
+  void _clearDragPreview() {
+    if (!mounted) return;
+    setState(() {
+      _dragDelta = Offset.zero;
+      _snapGuideAlignment = null;
+    });
+  }
+
+  Alignment? _activeSnapGuideAlignment() {
+    final timeSteps = (_dragDelta.dx / widget.dragPixelsPerTimeStep).round();
+    if (timeSteps == 0) return null;
+    final duration = widget.clip.durationMs ?? 1000;
+    final candidateStart =
+        widget.clip.startMs + timeSteps * widget.dragTimeStepMs;
+    final candidateEnd = candidateStart + duration;
+    if (_hasNearbySnapAnchor(candidateStart)) return Alignment.centerLeft;
+    if (_hasNearbySnapAnchor(candidateEnd)) return Alignment.centerRight;
+    return null;
+  }
+
+  bool _hasNearbySnapAnchor(int value) {
+    for (final anchor in widget.snapAnchors) {
+      final distance = (value - anchor).abs();
+      if (distance <= widget.snapThresholdMs) return true;
+    }
+    return false;
   }
 
   @override
@@ -1269,14 +1339,44 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
                     ]),
               ),
             ]),
+            if (_snapGuideAlignment != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Align(
+                    alignment: _snapGuideAlignment!,
+                    child: Container(
+                      key: ValueKey('workbench-timeline-snap-guide-${clip.id}'),
+                      width: 2,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        color: df.primary,
+                        borderRadius:
+                            BorderRadius.circular(DFTokens.radiusChip),
+                        boxShadow: [
+                          BoxShadow(
+                            color: df.primary.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             Positioned.fill(
-              child: GestureDetector(
-                key: ValueKey('workbench-timeline-clip-${clip.id}'),
-                behavior: HitTestBehavior.translucent,
-                onPanStart: (_) => _resetDrag(),
-                onPanUpdate: _accumulateDrag,
-                onPanEnd: (_) => _commitDrag(widget.onDragCommit),
-                child: const SizedBox.expand(),
+              child: Listener(
+                onPointerUp: (_) => _hideSnapGuideAfterPointerUp(),
+                onPointerCancel: (_) => _clearDragPreview(),
+                child: GestureDetector(
+                  key: ValueKey('workbench-timeline-clip-${clip.id}'),
+                  behavior: HitTestBehavior.translucent,
+                  onPanStart: (_) => _resetDrag(),
+                  onPanUpdate: _accumulateDrag,
+                  onPanEnd: (_) => _commitDrag(widget.onDragCommit),
+                  onPanCancel: _clearDragPreview,
+                  child: const SizedBox.expand(),
+                ),
               ),
             ),
             _TimelineResizeHandle(

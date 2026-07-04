@@ -739,6 +739,69 @@ void main() {
     expect(find.textContaining('1000ms · 800ms'), findsOneWidget);
   });
 
+  testWidgets('工作台拖拽素材层接近吸附点时显示参考线', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/snap_guide_a.mp4';
+    const relB = 'p/snap_guide_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 9, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 9, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '参考线素材 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '参考线素材 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1500,
+      durationMs: 800,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final clipFinder = find.byKey(ValueKey('workbench-timeline-clip-$clipIdB'));
+    final guideFinder =
+        find.byKey(ValueKey('workbench-timeline-snap-guide-$clipIdB'));
+    expect(clipFinder, findsOneWidget);
+    expect(guideFinder, findsNothing);
+
+    final gesture = await tester.startGesture(tester.getCenter(clipFinder));
+    await gesture.moveBy(const Offset(-48, 0));
+    await tester.pump();
+
+    expect(guideFinder, findsOneWidget);
+
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('工作台拖拽素材层时避免同轨重叠冲突', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
