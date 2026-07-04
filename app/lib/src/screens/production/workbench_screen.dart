@@ -503,6 +503,34 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     });
   }
 
+  Future<void> _moveSelectedClipLayers() async {
+    if (_selectedClipIds.isEmpty || widget.shots.isEmpty) return;
+    final engine = ref.read(engineProvider);
+    final selectedRows = engine
+        .timelineClips(widget.shots.first.scriptId)
+        .where((clip) => _selectedClipIds.contains(clip.id))
+        .toList();
+    if (selectedRows.isEmpty) return;
+    final defaultStartMs = selectedRows
+        .map((clip) => clip.startMs)
+        .reduce((a, b) => a < b ? a : b);
+    final nextStartMs = await showDialog<int>(
+      context: context,
+      builder: (c) => _TimelineClipStartDialog(
+        defaultStartMs: defaultStartMs,
+        title: c.l10n.workbenchTimelineMoveTitle,
+        inputKey: const ValueKey('workbench-timeline-move-start-input'),
+        confirmKey: const ValueKey('workbench-timeline-move-confirm'),
+      ),
+    );
+    if (nextStartMs == null || !mounted) return;
+    engine.moveTimelineClips(
+      clipIds: _selectedClipIds.toList(),
+      deltaStartMs: nextStartMs - defaultStartMs,
+    );
+    setState(() {});
+  }
+
   Future<void> _rippleMoveSelectedClipLayers() async {
     if (_selectedClipIds.isEmpty || widget.shots.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -516,8 +544,11 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         .reduce((a, b) => a < b ? a : b);
     final nextStartMs = await showDialog<int>(
       context: context,
-      builder: (c) => _RippleMoveTimelineClipDialog(
+      builder: (c) => _TimelineClipStartDialog(
         defaultStartMs: defaultStartMs,
+        title: c.l10n.workbenchTimelineRippleMoveTitle,
+        inputKey: const ValueKey('workbench-timeline-ripple-move-start-input'),
+        confirmKey: const ValueKey('workbench-timeline-ripple-move-confirm'),
       ),
     );
     if (nextStartMs == null || !mounted) return;
@@ -1051,8 +1082,11 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   Future<void> _rippleMoveClipLayer(TimelineClipRow clip) async {
     final nextStartMs = await showDialog<int>(
       context: context,
-      builder: (c) => _RippleMoveTimelineClipDialog(
+      builder: (c) => _TimelineClipStartDialog(
         defaultStartMs: clip.startMs,
+        title: c.l10n.workbenchTimelineRippleMoveTitle,
+        inputKey: const ValueKey('workbench-timeline-ripple-move-start-input'),
+        confirmKey: const ValueKey('workbench-timeline-ripple-move-confirm'),
       ),
     );
     if (nextStartMs == null || !mounted) return;
@@ -1353,6 +1387,13 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       : _rippleDuplicateSelectedClipLayers,
                   icon: const Icon(Icons.playlist_add_outlined, size: 16),
                   label: Text(l10n.workbenchTimelineRippleDuplicateSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey('workbench-timeline-move-selected'),
+                  onPressed:
+                      selectedClipCount == 0 ? null : _moveSelectedClipLayers,
+                  icon: const Icon(Icons.swap_horiz_outlined, size: 16),
+                  label: Text(l10n.workbenchTimelineMoveSelected),
                 ),
                 TextButton.icon(
                   key:
@@ -2090,20 +2131,25 @@ class _TimelineClipDurationDialogState
   }
 }
 
-class _RippleMoveTimelineClipDialog extends StatefulWidget {
+class _TimelineClipStartDialog extends StatefulWidget {
   final int defaultStartMs;
+  final String title;
+  final Key inputKey;
+  final Key confirmKey;
 
-  const _RippleMoveTimelineClipDialog({
+  const _TimelineClipStartDialog({
     required this.defaultStartMs,
+    required this.title,
+    required this.inputKey,
+    required this.confirmKey,
   });
 
   @override
-  State<_RippleMoveTimelineClipDialog> createState() =>
-      _RippleMoveTimelineClipDialogState();
+  State<_TimelineClipStartDialog> createState() =>
+      _TimelineClipStartDialogState();
 }
 
-class _RippleMoveTimelineClipDialogState
-    extends State<_RippleMoveTimelineClipDialog> {
+class _TimelineClipStartDialogState extends State<_TimelineClipStartDialog> {
   late final TextEditingController _startCtrl;
 
   @override
@@ -2128,9 +2174,9 @@ class _RippleMoveTimelineClipDialogState
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return AlertDialog(
-      title: Text(l10n.workbenchTimelineRippleMoveTitle),
+      title: Text(widget.title),
       content: TextField(
-        key: const ValueKey('workbench-timeline-ripple-move-start-input'),
+        key: widget.inputKey,
         controller: _startCtrl,
         keyboardType: TextInputType.number,
         decoration: InputDecoration(
@@ -2144,7 +2190,7 @@ class _RippleMoveTimelineClipDialogState
           child: Text(l10n.commonCancel),
         ),
         FilledButton(
-          key: const ValueKey('workbench-timeline-ripple-move-confirm'),
+          key: widget.confirmKey,
           onPressed: _submit,
           child: Text(l10n.commonSave),
         ),

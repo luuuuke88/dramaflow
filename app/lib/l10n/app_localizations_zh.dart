@@ -1659,6 +1659,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineRippleMove => '波纹移动';
 
   @override
+  String get workbenchTimelineMoveTitle => '移动素材层';
+
+  @override
   String get workbenchTimelineRippleMoveTitle => '波纹移动素材层';
 
   @override
@@ -1707,6 +1710,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workbenchTimelineRippleDuplicateSelected => '批量波纹复制';
+
+  @override
+  String get workbenchTimelineMoveSelected => '批量移动';
 
   @override
   String get workbenchTimelineRippleMoveSelected => '批量波纹移动';

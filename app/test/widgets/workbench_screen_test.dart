@@ -1762,6 +1762,117 @@ void main() {
     expect(find.textContaining('700ms · 500ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可选中多个素材层并批量移动到指定起点', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const relA = 'p/batch_move_overlay_a.mp4';
+    const relB = 'p/batch_move_overlay_b.mp4';
+    const relC = 'p/batch_move_overlay_c.mp4';
+    const relD = 'p/batch_move_overlay_d.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 9, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 9, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 9, 3]);
+    File(engine.mediaAbsPath(relD))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([4, 9, 4]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '批量移动 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '批量移动 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '后续 C',
+      relPath: relC,
+    );
+    final clipAssetD = engine.registerClipAsset(
+      projectId: projectId,
+      name: '后续 D',
+      relPath: relD,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 100,
+      durationMs: 400,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 300,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 1,
+      startMs: 1400,
+      durationMs: 300,
+    );
+    final clipIdD = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetD,
+      lane: 2,
+      startMs: 1400,
+      durationMs: 300,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdB')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-move-selected')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-move-start-input')),
+      '500',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-move-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 500);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 1400);
+    expect(clips.singleWhere((c) => c.id == clipIdD).startMs, 1400);
+    expect(find.textContaining('500ms · 400ms'), findsOneWidget);
+    expect(find.textContaining('700ms · 500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可选中多个素材层并批量波纹裁剪尾部', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

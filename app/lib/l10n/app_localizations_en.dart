@@ -1703,6 +1703,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineRippleMove => 'Ripple move';
 
   @override
+  String get workbenchTimelineMoveTitle => 'Move Overlay';
+
+  @override
   String get workbenchTimelineRippleMoveTitle => 'Ripple Move Overlay';
 
   @override
@@ -1752,6 +1755,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get workbenchTimelineRippleDuplicateSelected =>
       'Ripple duplicate selected';
+
+  @override
+  String get workbenchTimelineMoveSelected => 'Move selected';
 
   @override
   String get workbenchTimelineRippleMoveSelected => 'Ripple move selected';

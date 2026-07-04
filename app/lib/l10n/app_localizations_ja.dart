@@ -1670,6 +1670,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineRippleMove => 'リップル移動';
 
   @override
+  String get workbenchTimelineMoveTitle => '素材レイヤーを移動';
+
+  @override
   String get workbenchTimelineRippleMoveTitle => '素材レイヤーをリップル移動';
 
   @override
@@ -1718,6 +1721,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get workbenchTimelineRippleDuplicateSelected => '選択をリップル複製';
+
+  @override
+  String get workbenchTimelineMoveSelected => '選択を移動';
 
   @override
   String get workbenchTimelineRippleMoveSelected => '選択をリップル移動';
