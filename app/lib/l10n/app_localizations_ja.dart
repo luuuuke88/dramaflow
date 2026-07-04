@@ -2746,6 +2746,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get taskClassAssetExtraction => 'アセット抽出';
 
   @override
+  String get taskClassAssetPromptPolish => 'アセットプロンプト調整';
+
+  @override
+  String get taskClassAssetImageGeneration => 'アセット画像生成';
+
+  @override
+  String get taskClassStoryboardGenerate => '絵コンテ生成';
+
+  @override
+  String get taskClassStoryboardImageGeneration => '初期フレーム生成';
+
+  @override
+  String get taskClassVideoGeneration => '動画生成';
+
+  @override
+  String get taskClassAudioBind => '音声マッチング';
+
+  @override
   String get taskClassGeneric => 'タスク';
 
   @override

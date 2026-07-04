@@ -242,6 +242,31 @@ void main() {
     expect(find.textContaining('合成本集'), findsOneWidget);
   });
 
+  testWidgets('移动端离线主链：工作台可直接合成本集', (tester) async {
+    final seed = smoke.seedOfflinePipeline(engine);
+    projectId = seed.projectId;
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(TabBar), const Offset(-280, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(Tab, '工作台'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('打开工作台'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('合成本集'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('合成成功'), findsOneWidget);
+    final clips = engine.getAssets(projectId, type: 'clip').data;
+    expect(clips, hasLength(1));
+    expect(clips.single.filePath, contains('episode_'));
+  });
+
   testWidgets('移动端：Agent 入口打开全屏对话', (tester) async {
     engine.addScript(projectId: projectId, name: '第一集', content: 'x');
     tester.view.physicalSize = const Size(390, 900);

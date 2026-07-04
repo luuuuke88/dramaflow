@@ -5314,6 +5314,42 @@ abstract class AppLocalizations {
   /// **'素材提取'**
   String get taskClassAssetExtraction;
 
+  /// No description provided for @taskClassAssetPromptPolish.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材提示词润色'**
+  String get taskClassAssetPromptPolish;
+
+  /// No description provided for @taskClassAssetImageGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材生图'**
+  String get taskClassAssetImageGeneration;
+
+  /// No description provided for @taskClassStoryboardGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜生成'**
+  String get taskClassStoryboardGenerate;
+
+  /// No description provided for @taskClassStoryboardImageGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'首帧图生成'**
+  String get taskClassStoryboardImageGeneration;
+
+  /// No description provided for @taskClassVideoGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频生成'**
+  String get taskClassVideoGeneration;
+
+  /// No description provided for @taskClassAudioBind.
+  ///
+  /// In zh, this message translates to:
+  /// **'配音匹配'**
+  String get taskClassAudioBind;
+
   /// No description provided for @taskClassGeneric.
   ///
   /// In zh, this message translates to:

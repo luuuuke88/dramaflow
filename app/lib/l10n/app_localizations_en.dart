@@ -2808,6 +2808,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get taskClassAssetExtraction => 'Asset extraction';
 
   @override
+  String get taskClassAssetPromptPolish => 'Asset prompt polish';
+
+  @override
+  String get taskClassAssetImageGeneration => 'Asset image generation';
+
+  @override
+  String get taskClassStoryboardGenerate => 'Storyboard generation';
+
+  @override
+  String get taskClassStoryboardImageGeneration => 'First-frame generation';
+
+  @override
+  String get taskClassVideoGeneration => 'Video generation';
+
+  @override
+  String get taskClassAudioBind => 'Dubbing match';
+
+  @override
   String get taskClassGeneric => 'Task';
 
   @override

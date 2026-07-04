@@ -419,6 +419,12 @@ String _taskClassLabel(AppLocalizations l10n, String taskClass) =>
       'event_generation' => l10n.taskClassEventGeneration,
       'script_generation' => l10n.taskClassScriptGeneration,
       'asset_extraction' => l10n.taskClassAssetExtraction,
+      'asset_prompt_polish' => l10n.taskClassAssetPromptPolish,
+      'asset_image_generation' => l10n.taskClassAssetImageGeneration,
+      'storyboard_generate' => l10n.taskClassStoryboardGenerate,
+      'storyboard_image_generation' => l10n.taskClassStoryboardImageGeneration,
+      'video_generation' => l10n.taskClassVideoGeneration,
+      'audio_bind' => l10n.taskClassAudioBind,
       _ => taskClass.isEmpty ? l10n.taskClassGeneric : taskClass,
     };
 
@@ -426,6 +432,12 @@ IconData _taskIcon(String taskClass) => switch (taskClass) {
       'event_generation' => Icons.auto_awesome_motion_outlined,
       'script_generation' => Icons.article_outlined,
       'asset_extraction' => Icons.category_outlined,
+      'asset_prompt_polish' => Icons.auto_fix_high_outlined,
+      'asset_image_generation' => Icons.image_outlined,
+      'storyboard_generate' => Icons.view_list_outlined,
+      'storyboard_image_generation' => Icons.photo_library_outlined,
+      'video_generation' => Icons.movie_creation_outlined,
+      'audio_bind' => Icons.record_voice_over_outlined,
       _ => Icons.bolt_outlined,
     };
 

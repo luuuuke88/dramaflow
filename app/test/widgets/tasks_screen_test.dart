@@ -109,6 +109,33 @@ void main() {
     expect(find.textContaining('状态:'), findsWidgets);
   });
 
+  testWidgets('任务中心本地化展示全部流水线任务类型', (tester) async {
+    final classes = {
+      'asset_prompt_polish': '素材提示词润色',
+      'asset_image_generation': '素材生图',
+      'storyboard_generate': '分镜生成',
+      'storyboard_image_generation': '首帧图生成',
+      'video_generation': '视频生成',
+      'audio_bind': '配音匹配',
+    };
+    var startTime = 1700000000100;
+    for (final entry in classes.entries) {
+      db.execute(
+        'INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) '
+        'VALUES (?,?,?,?,?)',
+        [entry.key, 'success', projectId, entry.value, startTime++],
+      );
+    }
+
+    await tester.pumpWidget(app());
+    await settle(tester);
+
+    for (final entry in classes.entries) {
+      expect(find.text(entry.value), findsWidgets);
+      expect(find.text(entry.key), findsNothing);
+    }
+  });
+
   testWidgets('按状态筛选：仅失败时只剩素材提取行', (tester) async {
     await tester.pumpWidget(app());
     await settle(tester);
@@ -170,8 +197,9 @@ void main() {
 
     expect(find.textContaining('第二项目分镜失败'), findsOneWidget);
     expect(find.text('素材提取'), findsNothing);
+    expect(find.text('storyboard_generate'), findsNothing);
 
-    await tester.tap(find.text('storyboard_generate').first);
+    await tester.tap(find.text('分镜生成').first);
     await settle(tester);
 
     expect(find.text('任务详情'), findsOneWidget);

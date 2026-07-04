@@ -104,7 +104,7 @@ Next Verification: If dubbing-page layout changes, keep the 390px manual binding
 
 Status: Verified
 
-Desktop Evidence: `app/test/widgets/tasks_screen_test.dart` covers task listing, type filter, status filter, historical task display, and read-only task detail with failure reason/related objects.
+Desktop Evidence: `app/test/widgets/tasks_screen_test.dart` covers task listing, type filter, status filter, historical task display, localized labels for all current pipeline task classes, and read-only task detail with failure reason/related objects.
 
 Mobile Evidence: `app/test/widgets/tasks_screen_test.dart` covers 390px task-center layout, project switching, detail dialog, failed-task retry, and pending-task cancellation with `errCanceled` persisted.
 

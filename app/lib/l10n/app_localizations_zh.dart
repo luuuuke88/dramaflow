@@ -2726,6 +2726,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get taskClassAssetExtraction => '素材提取';
 
   @override
+  String get taskClassAssetPromptPolish => '素材提示词润色';
+
+  @override
+  String get taskClassAssetImageGeneration => '素材生图';
+
+  @override
+  String get taskClassStoryboardGenerate => '分镜生成';
+
+  @override
+  String get taskClassStoryboardImageGeneration => '首帧图生成';
+
+  @override
+  String get taskClassVideoGeneration => '视频生成';
+
+  @override
+  String get taskClassAudioBind => '配音匹配';
+
+  @override
   String get taskClassGeneric => '任务';
 
   @override
