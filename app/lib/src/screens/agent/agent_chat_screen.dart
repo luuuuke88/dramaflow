@@ -992,8 +992,10 @@ class _AgentMemoryPane extends ConsumerWidget {
 
   Future<void> _addMemory(BuildContext context, WidgetRef ref) async {
     final l10n = context.l10n;
-    final draft = await showDialog<_MemoryDraft>(
-      context: context,
+    final draft = await showDFAdaptiveDialog<_MemoryDraft>(
+      context,
+      title: l10n.agentMemoryCreateTitle,
+      desktopWidthFactor: .42,
       builder: (_) => const _AgentMemoryDialog(),
     );
     if (draft == null || !context.mounted) return;
@@ -1018,8 +1020,10 @@ class _AgentMemoryPane extends ConsumerWidget {
     AgentMemoryRecord memory,
   ) async {
     final l10n = context.l10n;
-    final draft = await showDialog<_MemoryDraft>(
-      context: context,
+    final draft = await showDFAdaptiveDialog<_MemoryDraft>(
+      context,
+      title: l10n.agentMemoryEditTitle,
+      desktopWidthFactor: .42,
       builder: (_) => _AgentMemoryDialog(memory: memory),
     );
     if (draft == null || !context.mounted) return;
@@ -1217,44 +1221,54 @@ class _AgentMemoryDialogState extends State<_AgentMemoryDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(widget.memory == null
-          ? l10n.agentMemoryCreateTitle
-          : l10n.agentMemoryEditTitle),
-      content: SizedBox(
-        width: 460,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              key: const ValueKey('agent-memory-name-field'),
-              controller: _name,
-              decoration: InputDecoration(labelText: l10n.agentMemoryName),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('agent-memory-content-field'),
-              controller: _content,
-              minLines: 4,
-              maxLines: 8,
-              decoration: InputDecoration(
-                labelText: l10n.agentMemoryContent,
-                alignLabelWithHint: true,
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  TextField(
+                    key: const ValueKey('agent-memory-name-field'),
+                    controller: _name,
+                    decoration:
+                        InputDecoration(labelText: l10n.agentMemoryName),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('agent-memory-content-field'),
+                    controller: _content,
+                    minLines: 4,
+                    maxLines: 8,
+                    decoration: InputDecoration(
+                      labelText: l10n.agentMemoryContent,
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.commonCancel),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _save,
+                child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          onPressed: _save,
-          child: Text(l10n.commonSave),
-        ),
-      ],
     );
   }
 }

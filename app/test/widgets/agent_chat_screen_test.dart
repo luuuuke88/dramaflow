@@ -429,6 +429,49 @@ void main() {
     expect(find.textContaining('寒山少主李澈'), findsOneWidget);
   });
 
+  testWidgets('移动端 Agent：新增长期记忆使用全屏表单并保存', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'mobile-memory-media')),
+      gateway: _Gateway(),
+      config: EngineConfig(db, isMobile: true),
+    );
+    projectId = engine.addProject(projectType: 'novel', name: '移动记忆测试');
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新增记忆'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('新增长期记忆'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-name-field')),
+      '移动主角设定',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-content-field')),
+      '移动端保存的长期记忆。',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final memories = engine.agentLongTermMemories(projectId);
+    expect(memories, hasLength(1));
+    expect(memories.single.name, '移动主角设定');
+    expect(memories.single.content, '移动端保存的长期记忆。');
+  });
+
   testWidgets('记忆页可编辑已有长期记忆', (tester) async {
     final id = engine.saveAgentMemory(
       projectId,
@@ -461,5 +504,53 @@ void main() {
     expect(memory.name, '主角新设定');
     expect(memory.content, contains('不能写成反派'));
     expect(find.text('主角新设定'), findsOneWidget);
+  });
+
+  testWidgets('移动端 Agent：编辑长期记忆使用全屏表单并保存', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'mobile-memory-edit-media')),
+      gateway: _Gateway(),
+      config: EngineConfig(db, isMobile: true),
+    );
+    projectId = engine.addProject(projectType: 'novel', name: '移动编辑记忆测试');
+    final id = engine.saveAgentMemory(
+      projectId,
+      name: '旧移动设定',
+      content: '旧移动内容',
+    );
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('agent-memory-edit-$id')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('编辑长期记忆'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-name-field')),
+      '移动新设定',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-content-field')),
+      '移动端编辑后的长期记忆。',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final memory = engine.agentLongTermMemories(projectId).single;
+    expect(memory.id, id);
+    expect(memory.name, '移动新设定');
+    expect(memory.content, '移动端编辑后的长期记忆。');
   });
 }

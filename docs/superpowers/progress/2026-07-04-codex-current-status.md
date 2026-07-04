@@ -15,7 +15,7 @@
 2026-07-04 本轮 Codex 接手后重新跑过：
 
 - `cd app && flutter analyze`：通过，0 issues。
-- `cd app && flutter test`：通过，422 tests。
+- `cd app && flutter test`：通过，424 tests。
 - `cd app && dart run tool/e2e_local_smoke.dart`：通过，纯本地、不调用供应商，从章节、剧本、素材、分镜、候选视频、镜头配音走到合成导出 mp4。
 - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`。
 - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`。
@@ -36,7 +36,7 @@
 - 本地 sqlite3 schema、任务队列、供应商配置、提示词模板、模型绑定、媒体存储、错误码/i18n 基建都在 Flutter 工程内。
 - 项目、章节/事件、剧本、素材/画风、制作画布、节点式图片编辑器、工作台、配音、任务中心、Agent 页、设置页都有 engine/widget/platform 测试证据。
 - 离线 smoke 已证明第一版客户端本地链路能从章节走到成片导出。
-- 移动端不是空壳：390px widget tests 已覆盖项目、章节、剧本、素材、制作、工作台入口/重排/素材层添加/素材层属性编辑/媒体库按播放头添加/本镜候选选择/本镜候选视频全屏预览/本镜候选删除确认/本镜时长编辑/清空已选轨道确认/合成成功结果/批量移动起点/批量改轨/批量裁剪尾部/按播放头切分、配音、任务、Agent 入口/技能编辑/自定义技能新增和设置路径。
+- 移动端不是空壳：390px widget tests 已覆盖项目、章节、剧本、素材、制作、工作台入口/重排/素材层添加/素材层属性编辑/媒体库按播放头添加/本镜候选选择/本镜候选视频全屏预览/本镜候选删除确认/本镜时长编辑/清空已选轨道确认/合成成功结果/批量移动起点/批量改轨/批量裁剪尾部/按播放头切分、配音、任务、Agent 入口/技能编辑/自定义技能新增/长期记忆新增编辑和设置路径。
 
 页面 parity 当前状态：
 
