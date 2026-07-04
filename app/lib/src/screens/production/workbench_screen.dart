@@ -526,8 +526,17 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   }
 
   void _addTimelineClipAssetFromDrop(AssetRow asset, Offset globalDropOffset) {
-    final startMs = _timelineDropStartMs(globalDropOffset);
-    _addTimelineClipAsset(asset, startMs: startMs ?? _snapPlayheadMs ?? 0);
+    final engine = ref.read(engineProvider);
+    final scriptId = widget.shots.first.scriptId;
+    final rawStartMs = _timelineDropStartMs(globalDropOffset);
+    final startMs = rawStartMs == null
+        ? _snapPlayheadMs ?? 0
+        : _snapNewTimelineClipStart(
+            engine: engine,
+            scriptId: scriptId,
+            startMs: rawStartMs,
+          );
+    _addTimelineClipAsset(asset, startMs: startMs);
   }
 
   int? _timelineDropStartMs(Offset globalDropOffset) {
@@ -538,6 +547,41 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final trackX = local.dx - _timelineTrackStartX;
     final timeSteps = (trackX / _dragPixelsPerTimeStep).round();
     return (timeSteps < 0 ? 0 : timeSteps) * _dragTimeStepMs;
+  }
+
+  int _snapNewTimelineClipStart({
+    required Engine engine,
+    required int scriptId,
+    required int startMs,
+  }) {
+    final snapped = _snapValue(
+      startMs,
+      _timelineDropSnapAnchors(engine: engine, scriptId: scriptId),
+    );
+    return snapped < 0 ? 0 : snapped;
+  }
+
+  List<int> _timelineDropSnapAnchors({
+    required Engine engine,
+    required int scriptId,
+  }) {
+    final anchors = <int>{0};
+    final playheadMs = _snapPlayheadMs;
+    if (playheadMs != null) anchors.add(playheadMs);
+    var cursorMs = 0;
+    for (final shot in widget.shots.where((s) => s.scriptId == scriptId)) {
+      final track = shot.trackId != null ? engine.track(shot.trackId!) : null;
+      anchors.add(cursorMs);
+      cursorMs += _timelineSeconds(shot, track) * 1000;
+      anchors.add(cursorMs);
+    }
+    for (final clip in engine.timelineClips(scriptId)) {
+      final duration = clip.durationMs ?? _defaultClipDurationMs;
+      anchors
+        ..add(clip.startMs)
+        ..add(clip.startMs + duration);
+    }
+    return anchors.toList();
   }
 
   void _addTimelineClipAsset(AssetRow asset, {required int startMs}) {
