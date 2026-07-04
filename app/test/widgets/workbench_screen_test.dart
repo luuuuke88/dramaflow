@@ -4708,6 +4708,56 @@ void main() {
     expect(find.text('已选'), findsOneWidget);
   });
 
+  testWidgets('移动端工作台：素材库选择候选使用全屏列表并自动选为正片', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '移动镜头');
+    const rel = 'p/mobile_library_clip.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([4, 3, 2, 1]);
+    engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动素材镜头A',
+      relPath: rel,
+    );
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('素材库'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('选择素材视频'), findsOneWidget);
+
+    await tester.tap(find.text('移动素材镜头A'));
+    await tester.pumpAndSettle();
+
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final track = engine.track(trackId)!;
+    expect(engine.storyboards(scriptId).single.id, sbId);
+    expect(track.candidates.single.filePath, rel);
+    expect(track.selectVideoId, track.candidates.single.id);
+    expect(find.byTooltip('已选'), findsOneWidget);
+  });
+
   testWidgets('候选视频可保存到素材库 clip 供后续复用', (tester) async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');

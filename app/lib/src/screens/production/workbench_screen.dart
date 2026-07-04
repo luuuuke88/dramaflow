@@ -3279,40 +3279,11 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
     final engine = ref.read(engineProvider);
     final clips =
         engine.getAssets(widget.projectId, type: 'clip', limit: 100).data;
-    final clip = await showDialog<AssetRow>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l10n.workbenchPickClipTitle),
-        content: SizedBox(
-          width: 420,
-          child: clips.isEmpty
-              ? DFEmpty(text: l10n.workbenchNoClipAssets)
-              : ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: clips.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final row = clips[i];
-                    return ListTile(
-                      leading: const Icon(Icons.video_library_outlined),
-                      title: Text(row.name ?? ''),
-                      subtitle: Text(row.filePath ?? '',
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      enabled: row.filePath?.isNotEmpty == true,
-                      onTap: row.filePath?.isNotEmpty == true
-                          ? () => Navigator.pop(c, row)
-                          : null,
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c),
-            child: Text(l10n.commonCancel),
-          ),
-        ],
-      ),
+    final clip = await showDFAdaptiveDialog<AssetRow>(
+      context,
+      title: l10n.workbenchPickClipTitle,
+      desktopWidthFactor: 0.42,
+      builder: (c) => _PickClipAssetList(clips: clips),
     );
     if (clip == null || !mounted) return;
     try {
@@ -3558,6 +3529,44 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
           ]),
         ),
       ]),
+    );
+  }
+}
+
+class _PickClipAssetList extends StatelessWidget {
+  final List<AssetRow> clips;
+
+  const _PickClipAssetList({required this.clips});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    if (clips.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(DFTokens.s20),
+        child: DFEmpty(text: l10n.workbenchNoClipAssets),
+      );
+    }
+    return ListView.separated(
+      shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(vertical: DFTokens.s8),
+      itemCount: clips.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (_, i) {
+        final row = clips[i];
+        final enabled = row.filePath?.isNotEmpty == true;
+        return ListTile(
+          leading: const Icon(Icons.video_library_outlined),
+          title: Text(row.name ?? ''),
+          subtitle: Text(
+            row.filePath ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          enabled: enabled,
+          onTap: enabled ? () => Navigator.pop(context, row) : null,
+        );
+      },
     );
   }
 }
