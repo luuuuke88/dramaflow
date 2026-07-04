@@ -145,8 +145,11 @@ void main() {
     required int clipId,
     required String actionKey,
   }) async {
-    await tester
-        .tap(find.byKey(ValueKey('workbench-timeline-clip-menu-$clipId')));
+    final menuFinder =
+        find.byKey(ValueKey('workbench-timeline-clip-menu-$clipId'));
+    await tester.ensureVisible(menuFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(menuFinder);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(ValueKey(actionKey)));
     await tester.pumpAndSettle();
@@ -1289,6 +1292,79 @@ void main() {
       clipId: clipId,
       actionKey: 'workbench-timeline-clip-split-at-$clipId',
     );
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-split-playhead-input')),
+      '2200',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-split-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(2));
+    expect(clips[0].id, clipId);
+    expect(clips[0].startMs, 1500);
+    expect(clips[0].durationMs, 700);
+    expect(clips[1].startMs, 2200);
+    expect(clips[1].durationMs, 500);
+    expect(find.textContaining('2200ms · 500ms'), findsOneWidget);
+  });
+
+  testWidgets('移动端工作台：按播放头切分素材层使用全屏表单并保存', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '移动镜头',
+      duration: '4',
+    );
+    const rel = 'p/mobile_playhead_split_overlay_clip.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([5, 6, 8]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动播放头分割素材',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 2,
+      startMs: 1500,
+      durationMs: 1200,
+    );
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipId,
+      actionKey: 'workbench-timeline-clip-split-at-$clipId',
+    );
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('按播放头切分素材层'), findsOneWidget);
+
     await tester.enterText(
       find.byKey(const ValueKey('workbench-timeline-split-playhead-input')),
       '2200',

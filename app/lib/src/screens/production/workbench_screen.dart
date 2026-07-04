@@ -1310,8 +1310,10 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   Future<void> _splitClipLayerAtPlayhead(TimelineClipRow clip) async {
     final duration = clip.durationMs ?? _defaultClipDurationMs;
     if (duration <= _minClipDurationMs * 2) return;
-    final playheadMs = await showDialog<int>(
-      context: context,
+    final playheadMs = await showDFAdaptiveDialog<int>(
+      context,
+      title: context.l10n.workbenchTimelineSplitAtTitle,
+      desktopWidthFactor: 0.36,
       builder: (c) => _SplitTimelineClipDialog(
         defaultPlayheadMs: clip.startMs + duration ~/ 2,
       ),
@@ -2400,28 +2402,44 @@ class _SplitTimelineClipDialogState extends State<_SplitTimelineClipDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(l10n.workbenchTimelineSplitAtTitle),
-      content: TextField(
-        key: const ValueKey('workbench-timeline-split-playhead-input'),
-        controller: _playheadCtrl,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: l10n.workbenchTimelineSplitAtMs,
-        ),
-        onSubmitted: (_) => _submit(),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        DFTokens.s20,
+        DFTokens.s16,
+        DFTokens.s20,
+        DFTokens.s20,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          key: const ValueKey('workbench-timeline-split-confirm'),
-          onPressed: _submit,
-          child: Text(l10n.workbenchTimelineSplit),
-        ),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const ValueKey('workbench-timeline-split-playhead-input'),
+            controller: _playheadCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: l10n.workbenchTimelineSplitAtMs,
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: DFTokens.s20),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: DFTokens.s8,
+            runSpacing: DFTokens.s8,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                key: const ValueKey('workbench-timeline-split-confirm'),
+                onPressed: _submit,
+                child: Text(l10n.workbenchTimelineSplit),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
