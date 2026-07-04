@@ -758,6 +758,7 @@
   "workbenchTimelineLaneSelected": "批量改轨",
   "workbenchTimelineRippleMoveSelected": "批量波纹移动",
   "workbenchTimelineTrimSelected": "批量裁剪",
+  "workbenchTimelineTrimToPlayheadSelected": "裁到播放头",
   "workbenchTimelineTrimTitle": "裁剪素材层尾部",
   "workbenchTimelineRippleTrimSelected": "批量波纹裁剪",
   "workbenchTimelineDeleteSelected": "批量删除",

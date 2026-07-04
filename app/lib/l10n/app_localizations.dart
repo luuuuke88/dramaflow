@@ -3436,6 +3436,12 @@ abstract class AppLocalizations {
   /// **'批量裁剪'**
   String get workbenchTimelineTrimSelected;
 
+  /// No description provided for @workbenchTimelineTrimToPlayheadSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'裁到播放头'**
+  String get workbenchTimelineTrimToPlayheadSelected;
+
   /// No description provided for @workbenchTimelineTrimTitle.
   ///
   /// In zh, this message translates to:

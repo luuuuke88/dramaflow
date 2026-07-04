@@ -631,6 +631,7 @@
   "workbenchTimelineLaneSelected": "Move lane",
   "workbenchTimelineRippleMoveSelected": "Ripple move selected",
   "workbenchTimelineTrimSelected": "Trim selected",
+  "workbenchTimelineTrimToPlayheadSelected": "Trim to playhead",
   "workbenchTimelineTrimTitle": "Trim Overlay End",
   "workbenchTimelineRippleTrimSelected": "Ripple trim selected",
   "workbenchTimelineDeleteSelected": "Delete selected",

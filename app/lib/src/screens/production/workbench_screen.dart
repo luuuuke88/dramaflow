@@ -662,6 +662,36 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  void _trimSelectedClipLayersEndToPlayhead() {
+    final playheadMs = _snapPlayheadMs;
+    if (_selectedClipIds.isEmpty || playheadMs == null || widget.shots.isEmpty) {
+      return;
+    }
+    final engine = ref.read(engineProvider);
+    final selectedRows = engine
+        .timelineClips(widget.shots.first.scriptId)
+        .where((clip) => _selectedClipIds.contains(clip.id))
+        .toList();
+    if (selectedRows.isEmpty) return;
+    for (final clip in selectedRows) {
+      final rawDuration = playheadMs - clip.startMs;
+      final targetDuration =
+          rawDuration < _minClipDurationMs ? _minClipDurationMs : rawDuration;
+      final resolvedDuration = _avoidTimelineClipEndOverlap(
+        engine: engine,
+        clip: clip,
+        durationMs: targetDuration,
+      );
+      engine.updateTimelineClip(
+        clipId: clip.id,
+        lane: clip.lane,
+        startMs: clip.startMs,
+        durationMs: resolvedDuration,
+      );
+    }
+    setState(() {});
+  }
+
   Future<void> _rippleTrimSelectedClipLayersEnd() async {
     if (_selectedClipIds.isEmpty || widget.shots.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -1522,6 +1552,16 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       : _trimSelectedClipLayersEnd,
                   icon: const Icon(Icons.content_cut_outlined, size: 16),
                   label: Text(l10n.workbenchTimelineTrimSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey(
+                      'workbench-timeline-trim-to-playhead-selected'),
+                  onPressed:
+                      selectedClipCount == 0 || _snapPlayheadMs == null
+                          ? null
+                          : _trimSelectedClipLayersEndToPlayhead,
+                  icon: const Icon(Icons.vertical_align_bottom, size: 16),
+                  label: Text(l10n.workbenchTimelineTrimToPlayheadSelected),
                 ),
                 TextButton.icon(
                   key:

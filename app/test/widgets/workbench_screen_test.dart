@@ -1223,6 +1223,103 @@ void main() {
     expect(find.textContaining('700ms · 500ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可选中多个素材层并按播放头批量裁剪尾部', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/batch_trim_to_playhead_overlay_a.mp4';
+    const relB = 'p/batch_trim_to_playhead_overlay_b.mp4';
+    const relC = 'p/batch_trim_to_playhead_overlay_c.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 9, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 9, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 9, 3]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '裁到播放头 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '裁到播放头 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '裁到播放头 C',
+      relPath: relC,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 100,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 300,
+      durationMs: 900,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 3,
+      startMs: 200,
+      durationMs: 400,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '800',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdB')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(
+          const ValueKey('workbench-timeline-trim-to-playhead-selected')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    final trimmedA = clips.singleWhere((c) => c.id == clipIdA);
+    final trimmedB = clips.singleWhere((c) => c.id == clipIdB);
+    final untouchedC = clips.singleWhere((c) => c.id == clipIdC);
+    expect(trimmedA.startMs, 100);
+    expect(trimmedA.durationMs, 700);
+    expect(trimmedB.startMs, 300);
+    expect(trimmedB.durationMs, 500);
+    expect(untouchedC.startMs, 200);
+    expect(untouchedC.durationMs, 400);
+    expect(find.textContaining('100ms · 700ms'), findsOneWidget);
+    expect(find.textContaining('300ms · 500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可选中多个素材层并批量删除', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
