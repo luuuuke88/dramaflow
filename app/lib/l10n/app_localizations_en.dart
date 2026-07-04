@@ -1656,6 +1656,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineAddAtPlayhead => 'Add at playhead';
 
   @override
+  String get workbenchTimelineMediaBin => 'Draggable media';
+
+  @override
+  String workbenchTimelineDraggableClipName(String name) {
+    return 'Drag: $name';
+  }
+
+  @override
   String get workbenchTimelineAddClip => 'Add Overlay';
 
   @override

@@ -577,6 +577,15 @@
   "workbenchTimelineMediaLibrary": "素材ライブラリ",
   "workbenchTimelineMediaLibraryTitle": "タイムライン素材ライブラリ",
   "workbenchTimelineAddAtPlayhead": "再生位置に追加",
+  "workbenchTimelineMediaBin": "ドラッグ素材",
+  "workbenchTimelineDraggableClipName": "ドラッグ: {name}",
+  "@workbenchTimelineDraggableClipName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "workbenchTimelineAddClip": "素材レイヤー追加",
   "workbenchTimelineAddClipTitle": "素材レイヤーを追加",
   "workbenchTimelineAdd": "追加",

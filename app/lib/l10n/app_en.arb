@@ -577,6 +577,15 @@
   "workbenchTimelineMediaLibrary": "Media Library",
   "workbenchTimelineMediaLibraryTitle": "Timeline Media Library",
   "workbenchTimelineAddAtPlayhead": "Add at playhead",
+  "workbenchTimelineMediaBin": "Draggable media",
+  "workbenchTimelineDraggableClipName": "Drag: {name}",
+  "@workbenchTimelineDraggableClipName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "workbenchTimelineAddClip": "Add Overlay",
   "workbenchTimelineAddClipTitle": "Add Overlay Clip",
   "workbenchTimelineAdd": "Add",

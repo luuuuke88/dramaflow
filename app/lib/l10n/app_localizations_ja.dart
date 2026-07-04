@@ -1623,6 +1623,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineAddAtPlayhead => '再生位置に追加';
 
   @override
+  String get workbenchTimelineMediaBin => 'ドラッグ素材';
+
+  @override
+  String workbenchTimelineDraggableClipName(String name) {
+    return 'ドラッグ: $name';
+  }
+
+  @override
   String get workbenchTimelineAddClip => '素材レイヤー追加';
 
   @override

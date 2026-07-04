@@ -431,6 +431,89 @@ void main() {
     expect(find.textContaining('L3 · 1500ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可拖放媒体库素材到时间线并按播放头找空层', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/media_drag_lane_a.mp4';
+    const relB = 'p/media_drag_lane_b.mp4';
+    const relInsert = 'p/media_drag_insert.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 6, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 6, 2]);
+    File(engine.mediaAbsPath(relInsert))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 6, 3]);
+    final insertAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '拖放素材',
+      relPath: relInsert,
+    );
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '拖放占用 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '拖放占用 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 1000,
+      durationMs: 1000,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 1000,
+      durationMs: 1000,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '1300',
+    );
+    await tester.pumpAndSettle();
+
+    final dragSource =
+        find.byKey(ValueKey('workbench-timeline-media-drag-$insertAssetId'));
+    final dropTarget =
+        find.byKey(const ValueKey('workbench-timeline-drop-zone'));
+    expect(dragSource, findsOneWidget);
+    expect(dropTarget, findsOneWidget);
+    await tester.dragFrom(
+      tester.getCenter(dragSource),
+      tester.getCenter(dropTarget) - tester.getCenter(dragSource),
+    );
+    await tester.pumpAndSettle();
+
+    final inserted = engine
+        .timelineClips(scriptId)
+        .singleWhere((clip) => clip.name == '拖放素材');
+    expect(inserted.lane, 3);
+    expect(inserted.startMs, 1300);
+    expect(inserted.durationMs, isNull);
+    expect(find.textContaining('L3 · 1300ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可波纹插入素材层并后移同轨后续片段', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

@@ -3196,6 +3196,18 @@ abstract class AppLocalizations {
   /// **'添加到播放头'**
   String get workbenchTimelineAddAtPlayhead;
 
+  /// No description provided for @workbenchTimelineMediaBin.
+  ///
+  /// In zh, this message translates to:
+  /// **'可拖素材'**
+  String get workbenchTimelineMediaBin;
+
+  /// No description provided for @workbenchTimelineDraggableClipName.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖放：{name}'**
+  String workbenchTimelineDraggableClipName(String name);
+
   /// No description provided for @workbenchTimelineAddClip.
   ///
   /// In zh, this message translates to:

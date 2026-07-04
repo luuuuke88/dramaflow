@@ -1612,6 +1612,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineAddAtPlayhead => '添加到播放头';
 
   @override
+  String get workbenchTimelineMediaBin => '可拖素材';
+
+  @override
+  String workbenchTimelineDraggableClipName(String name) {
+    return '拖放：$name';
+  }
+
+  @override
   String get workbenchTimelineAddClip => '添加素材层';
 
   @override

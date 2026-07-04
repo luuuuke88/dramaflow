@@ -704,6 +704,15 @@
   "workbenchTimelineMediaLibrary": "媒体库",
   "workbenchTimelineMediaLibraryTitle": "时间线媒体库",
   "workbenchTimelineAddAtPlayhead": "添加到播放头",
+  "workbenchTimelineMediaBin": "可拖素材",
+  "workbenchTimelineDraggableClipName": "拖放：{name}",
+  "@workbenchTimelineDraggableClipName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "workbenchTimelineAddClip": "添加素材层",
   "workbenchTimelineAddClipTitle": "添加素材层",
   "workbenchTimelineAdd": "添加",
