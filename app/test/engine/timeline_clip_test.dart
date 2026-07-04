@@ -231,4 +231,37 @@ void main() {
     expect(otherLane.startMs, 1000);
     expect(otherLane.durationMs, 600);
   });
+
+  test('duplicateTimelineClip 复制素材层并避让同轨后续片段', () {
+    final clipA = clipAsset('p/duplicate_a.mp4', 'A');
+    final clipB = clipAsset('p/duplicate_b.mp4', 'B');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 500,
+      durationMs: 600,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 400,
+    );
+
+    final duplicateId = engine.duplicateTimelineClip(clipIdA);
+
+    final clips = engine.timelineClips(scriptId);
+    final duplicate = clips.singleWhere((c) => c.id == duplicateId);
+    expect(duplicate.assetId, clipA);
+    expect(duplicate.name, 'A');
+    expect(duplicate.filePath, 'p/duplicate_a.mp4');
+    expect(duplicate.lane, 1);
+    expect(duplicate.startMs, 1600);
+    expect(duplicate.durationMs, 600);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 1200);
+  });
 }

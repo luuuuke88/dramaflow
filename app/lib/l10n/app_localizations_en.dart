@@ -1674,6 +1674,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineSplitMidpoint => 'Split midpoint';
 
   @override
+  String get workbenchTimelineDuplicate => 'Duplicate overlay';
+
+  @override
   String get workbenchTimelineSplitAt => 'Split at playhead';
 
   @override

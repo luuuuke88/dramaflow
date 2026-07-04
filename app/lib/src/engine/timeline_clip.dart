@@ -207,6 +207,42 @@ extension TimelineClipApi on Engine {
     return db.lastInsertRowId;
   }
 
+  int duplicateTimelineClip(int clipId) {
+    final row = db.select(
+        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
+    if (row == null) {
+      throw const EngineException(errManualInvalid);
+    }
+    final scriptId = (row['scriptId'] as int?) ?? 0;
+    final lane = (row['lane'] as int?) ?? 1;
+    final startMs = (row['startMs'] as int?) ?? 0;
+    final durationMs =
+        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+    final resolvedStart = _avoidTimelineOverlapForward(
+      db: db,
+      scriptId: scriptId,
+      lane: lane,
+      startMs: startMs + durationMs,
+      durationMs: durationMs,
+    );
+    db.execute(
+      'INSERT INTO o_timelineClip '
+      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
+      'VALUES (?,?,?,?,?,?,?,?)',
+      [
+        row['projectId'],
+        scriptId,
+        row['assetId'],
+        row['name'],
+        row['filePath'],
+        lane,
+        resolvedStart,
+        row['durationMs'],
+      ],
+    );
+    return db.lastInsertRowId;
+  }
+
   void deleteTimelineClip(int clipId) {
     db.execute('DELETE FROM o_timelineClip WHERE id=?', [clipId]);
   }
@@ -301,6 +337,40 @@ int _avoidTimelineOverlapOnAdd({
       if (!overlaps) continue;
       candidate = candidate < otherStart ? otherStart - durationMs : otherEnd;
       if (candidate < 0) candidate = 0;
+      changed = true;
+      break;
+    }
+  }
+  return candidate;
+}
+
+int _avoidTimelineOverlapForward({
+  required Database db,
+  required int scriptId,
+  required int lane,
+  required int startMs,
+  required int durationMs,
+}) {
+  var candidate = startMs < 0 ? 0 : startMs;
+  final others = db.select(
+    'SELECT startMs,durationMs FROM o_timelineClip '
+    'WHERE scriptId=? AND lane=? ORDER BY startMs ASC, id ASC',
+    [scriptId, lane < 1 ? 1 : lane],
+  ).toList();
+  var changed = true;
+  var guard = 0;
+  while (changed && guard < others.length + 1) {
+    changed = false;
+    guard += 1;
+    for (final other in others) {
+      final otherStart = (other['startMs'] as int?) ?? 0;
+      final otherDuration =
+          (other['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+      final otherEnd = otherStart + otherDuration;
+      final candidateEnd = candidate + durationMs;
+      final overlaps = candidate < otherEnd && candidateEnd > otherStart;
+      if (!overlaps) continue;
+      candidate = otherEnd;
       changed = true;
       break;
     }

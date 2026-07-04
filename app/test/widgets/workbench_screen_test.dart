@@ -1170,6 +1170,70 @@ void main() {
     expect(find.textContaining('L1 · 1000ms · 500ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可复制素材层到同轨后方并避让冲突', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/duplicate_overlay_a.mp4';
+    const relB = 'p/duplicate_overlay_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 9, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 9, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '复制素材 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '阻挡素材 B',
+      relPath: relB,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 500,
+      durationMs: 600,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 400,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipIdA,
+      actionKey: 'workbench-timeline-clip-duplicate-$clipIdA',
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(3));
+    final duplicate = clips.singleWhere(
+      (c) => c.id != clipIdA && c.assetId == clipAssetA,
+    );
+    expect(duplicate.lane, 1);
+    expect(duplicate.startMs, 1600);
+    expect(duplicate.durationMs, 600);
+    expect(find.textContaining('L1 · 1600ms · 600ms'), findsOneWidget);
+  });
+
   testWidgets('工作台仅上下拖拽素材层时不改变时间点', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

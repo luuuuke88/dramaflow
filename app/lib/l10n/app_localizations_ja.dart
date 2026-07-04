@@ -1641,6 +1641,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineSplitMidpoint => '中央で分割';
 
   @override
+  String get workbenchTimelineDuplicate => '素材レイヤーを複製';
+
+  @override
   String get workbenchTimelineSplitAt => '再生位置で分割';
 
   @override

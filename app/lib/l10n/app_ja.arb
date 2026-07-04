@@ -583,6 +583,7 @@
   "workbenchTimelineDurationMs": "長さ(ms)",
   "workbenchTimelineClipAdded": "素材レイヤーを追加しました",
   "workbenchTimelineSplitMidpoint": "中央で分割",
+  "workbenchTimelineDuplicate": "素材レイヤーを複製",
   "workbenchTimelineSplitAt": "再生位置で分割",
   "workbenchTimelineSplitAtTitle": "再生位置で素材レイヤーを分割",
   "workbenchTimelineSplitAtMs": "再生位置(ms)",

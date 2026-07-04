@@ -3232,6 +3232,12 @@ abstract class AppLocalizations {
   /// **'中点切分'**
   String get workbenchTimelineSplitMidpoint;
 
+  /// No description provided for @workbenchTimelineDuplicate.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制素材层'**
+  String get workbenchTimelineDuplicate;
+
   /// No description provided for @workbenchTimelineSplitAt.
   ///
   /// In zh, this message translates to:

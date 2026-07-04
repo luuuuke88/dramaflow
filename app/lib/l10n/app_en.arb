@@ -583,6 +583,7 @@
   "workbenchTimelineDurationMs": "Duration (ms)",
   "workbenchTimelineClipAdded": "Overlay clip added",
   "workbenchTimelineSplitMidpoint": "Split midpoint",
+  "workbenchTimelineDuplicate": "Duplicate overlay",
   "workbenchTimelineSplitAt": "Split at playhead",
   "workbenchTimelineSplitAtTitle": "Split Overlay at Playhead",
   "workbenchTimelineSplitAtMs": "Playhead (ms)",

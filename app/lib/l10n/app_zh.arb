@@ -710,6 +710,7 @@
   "workbenchTimelineDurationMs": "时长(ms)",
   "workbenchTimelineClipAdded": "素材层已添加",
   "workbenchTimelineSplitMidpoint": "中点切分",
+  "workbenchTimelineDuplicate": "复制素材层",
   "workbenchTimelineSplitAt": "按播放头切分",
   "workbenchTimelineSplitAtTitle": "按播放头切分素材层",
   "workbenchTimelineSplitAtMs": "播放头(ms)",

@@ -731,6 +731,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  void _duplicateClipLayer(TimelineClipRow clip) {
+    final engine = ref.read(engineProvider);
+    engine.duplicateTimelineClip(clip.id);
+    setState(() {});
+  }
+
   Future<void> _splitClipLayerAtPlayhead(TimelineClipRow clip) async {
     final duration = clip.durationMs ?? _defaultClipDurationMs;
     if (duration <= _minClipDurationMs * 2) return;
@@ -919,6 +925,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       onTrimEndCommit: (delta) =>
                           _resizeClipLayerEnd(clip, delta),
                       onSplit: () => _splitClipLayer(clip),
+                      onDuplicate: () => _duplicateClipLayer(clip),
                       onSplitAt: () => _splitClipLayerAtPlayhead(clip),
                       onRippleTrimEnd: () => _rippleTrimClipLayerEnd(clip),
                       onEdit: () => _editClipLayer(clip),
@@ -1360,6 +1367,7 @@ enum _TimelineClipKind { video, audio }
 
 enum _TimelineClipAction {
   split,
+  duplicate,
   splitAt,
   rippleTrimEnd,
   edit,
@@ -1467,6 +1475,7 @@ class _TimelineAssetClip extends StatefulWidget {
   final ValueChanged<Offset> onTrimStartCommit;
   final ValueChanged<Offset> onTrimEndCommit;
   final VoidCallback onSplit;
+  final VoidCallback onDuplicate;
   final VoidCallback onSplitAt;
   final VoidCallback onRippleTrimEnd;
   final VoidCallback onEdit;
@@ -1483,6 +1492,7 @@ class _TimelineAssetClip extends StatefulWidget {
     required this.onTrimStartCommit,
     required this.onTrimEndCommit,
     required this.onSplit,
+    required this.onDuplicate,
     required this.onSplitAt,
     required this.onRippleTrimEnd,
     required this.onEdit,
@@ -1692,6 +1702,9 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
                     case _TimelineClipAction.split:
                       widget.onSplit();
                       break;
+                    case _TimelineClipAction.duplicate:
+                      widget.onDuplicate();
+                      break;
                     case _TimelineClipAction.splitAt:
                       widget.onSplitAt();
                       break;
@@ -1714,6 +1727,12 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
                     key: ValueKey('workbench-timeline-clip-split-${clip.id}'),
                     value: _TimelineClipAction.split,
                     child: Text(context.l10n.workbenchTimelineSplitMidpoint),
+                  ),
+                  PopupMenuItem(
+                    key: ValueKey(
+                        'workbench-timeline-clip-duplicate-${clip.id}'),
+                    value: _TimelineClipAction.duplicate,
+                    child: Text(context.l10n.workbenchTimelineDuplicate),
                   ),
                   PopupMenuItem(
                     key:
