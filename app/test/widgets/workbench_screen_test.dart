@@ -4822,6 +4822,50 @@ void main() {
     expect(engine.track(trackId)!.candidates, isEmpty);
   });
 
+  testWidgets('移动端工作台：候选删除确认使用全屏表单并删除候选', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '移动候选');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    engine.db.execute(
+      'INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)',
+      [trackId, 'p/mobile_candidate_delete.mp4', vtDone],
+    );
+    final videoId = engine.db.lastInsertRowId;
+    engine.selectVideo(trackId, videoId);
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('删除候选'), findsWidgets);
+    expect(find.text('确定删除该候选视频？'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(engine.track(trackId)!.candidates, isEmpty);
+  });
+
   testWidgets('工作台可清空已勾选视频轨道但保留分镜', (tester) async {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头一');

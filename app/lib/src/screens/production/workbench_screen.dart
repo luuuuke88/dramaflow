@@ -3862,19 +3862,15 @@ class _VideoCandidateChip extends ConsumerWidget {
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final l10n = context.l10n;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l10n.workbenchDeleteCandidate),
-        content: Text(l10n.workbenchDeleteCandidateConfirm),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: Text(l10n.commonCancel)),
-          FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: Text(l10n.commonDelete)),
-        ],
+    final ok = await showDFAdaptiveDialog<bool>(
+      context,
+      title: l10n.workbenchDeleteCandidate,
+      desktopWidthFactor: .36,
+      builder: (c) => _ConfirmActionBody(
+        message: l10n.workbenchDeleteCandidateConfirm,
+        confirmLabel: l10n.commonDelete,
+        onCancel: () => Navigator.pop(c, false),
+        onConfirm: () => Navigator.pop(c, true),
       ),
     );
     if (ok == true) ref.read(engineProvider).deleteVideo(video.id);
