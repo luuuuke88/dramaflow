@@ -1722,6 +1722,91 @@ void main() {
     expect(find.textContaining('L1 · 1600ms · 600ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可波纹复制素材层并后移同轨后续片段', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/ripple_duplicate_overlay_a.mp4';
+    const relB = 'p/ripple_duplicate_overlay_b.mp4';
+    const relC = 'p/ripple_duplicate_overlay_c.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 8, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 8, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 8, 3]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹复制素材 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹复制后续 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹复制其他轨 C',
+      relPath: relC,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 500,
+      durationMs: 600,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 400,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 2,
+      startMs: 1200,
+      durationMs: 400,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipIdA,
+      actionKey: 'workbench-timeline-clip-ripple-duplicate-$clipIdA',
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(4));
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 500);
+    final duplicate = clips.singleWhere(
+      (c) => c.id != clipIdA && c.assetId == clipAssetA,
+    );
+    expect(duplicate.lane, 1);
+    expect(duplicate.startMs, 1100);
+    expect(duplicate.durationMs, 600);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 1800);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 1200);
+    expect(find.textContaining('L1 · 1100ms · 600ms'), findsOneWidget);
+    expect(find.textContaining('L1 · 1800ms · 400ms'), findsOneWidget);
+  });
+
   testWidgets('工作台仅上下拖拽素材层时不改变时间点', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

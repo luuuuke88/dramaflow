@@ -1697,6 +1697,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineDuplicate => 'Duplicate overlay';
 
   @override
+  String get workbenchTimelineRippleDuplicate => 'Ripple duplicate';
+
+  @override
   String get workbenchTimelineSplitAt => 'Split at playhead';
 
   @override

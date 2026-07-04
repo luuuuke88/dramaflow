@@ -303,4 +303,52 @@ void main() {
     expect(duplicate.durationMs, 600);
     expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 1200);
   });
+
+  test('duplicateTimelineClipRipple 波纹复制素材层并后移同轨后续片段', () {
+    final clipA = clipAsset('p/ripple_duplicate_a.mp4', 'A');
+    final clipB = clipAsset('p/ripple_duplicate_b.mp4', 'B');
+    final clipC = clipAsset('p/ripple_duplicate_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 500,
+      durationMs: 600,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 400,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 2,
+      startMs: 1200,
+      durationMs: 400,
+    );
+
+    final duplicateId = engine.duplicateTimelineClipRipple(clipIdA);
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 500);
+    final duplicate = clips.singleWhere((c) => c.id == duplicateId);
+    expect(duplicate.assetId, clipA);
+    expect(duplicate.name, 'A');
+    expect(duplicate.filePath, 'p/ripple_duplicate_a.mp4');
+    expect(duplicate.lane, 1);
+    expect(duplicate.startMs, 1100);
+    expect(duplicate.durationMs, 600);
+    final shifted = clips.singleWhere((c) => c.id == clipIdB);
+    expect(shifted.startMs, 1800);
+    expect(shifted.durationMs, 400);
+    final otherLane = clips.singleWhere((c) => c.id == clipIdC);
+    expect(otherLane.startMs, 1200);
+    expect(otherLane.durationMs, 400);
+  });
 }

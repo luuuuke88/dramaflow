@@ -597,6 +597,7 @@
   "workbenchTimelineClipAdded": "Overlay clip added",
   "workbenchTimelineSplitMidpoint": "Split midpoint",
   "workbenchTimelineDuplicate": "Duplicate overlay",
+  "workbenchTimelineRippleDuplicate": "Ripple duplicate",
   "workbenchTimelineSplitAt": "Split at playhead",
   "workbenchTimelineSplitAtTitle": "Split Overlay at Playhead",
   "workbenchTimelineSplitAtMs": "Playhead (ms)",

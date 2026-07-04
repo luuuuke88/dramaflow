@@ -294,6 +294,42 @@ extension TimelineClipApi on Engine {
     return db.lastInsertRowId;
   }
 
+  int duplicateTimelineClipRipple(int clipId) {
+    final row = db.select(
+        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
+    if (row == null) {
+      throw const EngineException(errManualInvalid);
+    }
+    final scriptId = (row['scriptId'] as int?) ?? 0;
+    final lane = (row['lane'] as int?) ?? 1;
+    final startMs = (row['startMs'] as int?) ?? 0;
+    final durationMs =
+        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+    final insertStartMs = startMs + durationMs;
+    db.execute(
+      'UPDATE o_timelineClip '
+      'SET startMs=startMs + ? '
+      'WHERE scriptId=? AND lane=? AND startMs>=?',
+      [durationMs, scriptId, lane, insertStartMs],
+    );
+    db.execute(
+      'INSERT INTO o_timelineClip '
+      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
+      'VALUES (?,?,?,?,?,?,?,?)',
+      [
+        row['projectId'],
+        scriptId,
+        row['assetId'],
+        row['name'],
+        row['filePath'],
+        lane,
+        insertStartMs,
+        row['durationMs'],
+      ],
+    );
+    return db.lastInsertRowId;
+  }
+
   void deleteTimelineClip(int clipId) {
     db.execute('DELETE FROM o_timelineClip WHERE id=?', [clipId]);
   }

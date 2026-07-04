@@ -3274,6 +3274,12 @@ abstract class AppLocalizations {
   /// **'复制素材层'**
   String get workbenchTimelineDuplicate;
 
+  /// No description provided for @workbenchTimelineRippleDuplicate.
+  ///
+  /// In zh, this message translates to:
+  /// **'波纹复制'**
+  String get workbenchTimelineRippleDuplicate;
+
   /// No description provided for @workbenchTimelineSplitAt.
   ///
   /// In zh, this message translates to:

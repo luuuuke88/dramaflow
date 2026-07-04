@@ -1664,6 +1664,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineDuplicate => '素材レイヤーを複製';
 
   @override
+  String get workbenchTimelineRippleDuplicate => 'リップル複製';
+
+  @override
   String get workbenchTimelineSplitAt => '再生位置で分割';
 
   @override
