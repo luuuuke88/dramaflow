@@ -622,6 +622,7 @@
   "workbenchTimelineSplitSelected": "Split selected",
   "workbenchTimelineDuplicateSelected": "Duplicate selected",
   "workbenchTimelineDeleteSelected": "Delete selected",
+  "workbenchTimelineRippleDeleteSelected": "Ripple delete selected",
   "workbenchTimelineUnselected": "No video selected",
   "workbenchTimelineNoAudio": "No voice bound",
   "workbenchReorderShot": "Drag to reorder",

@@ -542,6 +542,58 @@ void main() {
     expect(survivor.startMs, 0);
   });
 
+  test('deleteTimelineClipsRipple 批量波纹删除并前移同轨后续片段', () {
+    final clipA = clipAsset('p/batch_ripple_delete_a.mp4', 'A');
+    final clipB = clipAsset('p/batch_ripple_delete_b.mp4', 'B');
+    final clipC = clipAsset('p/batch_ripple_delete_c.mp4', 'C');
+    final clipD = clipAsset('p/batch_ripple_delete_d.mp4', 'D');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 1,
+      startMs: 700,
+      durationMs: 300,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 400,
+    );
+    final clipIdD = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipD,
+      lane: 2,
+      startMs: 1200,
+      durationMs: 400,
+    );
+
+    engine.deleteTimelineClipsRipple([clipIdA, clipIdB]);
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.map((c) => c.id), isNot(contains(clipIdA)));
+    expect(clips.map((c) => c.id), isNot(contains(clipIdB)));
+    final shifted = clips.singleWhere((c) => c.id == clipIdC);
+    expect(shifted.lane, 1);
+    expect(shifted.startMs, 400);
+    expect(shifted.durationMs, 400);
+    final otherLane = clips.singleWhere((c) => c.id == clipIdD);
+    expect(otherLane.lane, 2);
+    expect(otherLane.startMs, 1200);
+  });
+
   test('moveTimelineClips 批量移动选中素材层并保留相对时间', () {
     final clipA = clipAsset('p/batch_move_a.mp4', 'A');
     final clipB = clipAsset('p/batch_move_b.mp4', 'B');

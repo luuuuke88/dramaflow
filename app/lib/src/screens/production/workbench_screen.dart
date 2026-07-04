@@ -498,6 +498,13 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(_selectedClipIds.clear);
   }
 
+  void _rippleDeleteSelectedClipLayers() {
+    if (_selectedClipIds.isEmpty) return;
+    final engine = ref.read(engineProvider);
+    engine.deleteTimelineClipsRipple(_selectedClipIds.toList());
+    setState(_selectedClipIds.clear);
+  }
+
   Future<void> _addClipLayer() async {
     final l10n = context.l10n;
     final engine = ref.read(engineProvider);
@@ -1248,6 +1255,15 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       selectedClipCount == 0 ? null : _deleteSelectedClipLayers,
                   icon: const Icon(Icons.delete_outline, size: 16),
                   label: Text(l10n.workbenchTimelineDeleteSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey(
+                      'workbench-timeline-ripple-delete-selected'),
+                  onPressed: selectedClipCount == 0
+                      ? null
+                      : _rippleDeleteSelectedClipLayers,
+                  icon: const Icon(Icons.delete_sweep_outlined, size: 16),
+                  label: Text(l10n.workbenchTimelineRippleDeleteSelected),
                 ),
               ]),
           const SizedBox(height: 10),

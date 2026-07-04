@@ -482,6 +482,58 @@ extension TimelineClipApi on Engine {
         'DELETE FROM o_timelineClip WHERE id IN ($placeholders)', clipIds);
   }
 
+  void deleteTimelineClipsRipple(List<int> clipIds) {
+    if (clipIds.isEmpty) return;
+    final placeholders = List.filled(clipIds.length, '?').join(',');
+    final selectedRows = db
+        .select(
+          'SELECT id,scriptId,lane,startMs,durationMs FROM o_timelineClip '
+          'WHERE id IN ($placeholders)',
+          clipIds,
+        )
+        .toList();
+    if (selectedRows.isEmpty) return;
+    final selectedIds = selectedRows.map((row) => row['id'] as int).toSet();
+    final scriptIds = selectedRows
+        .map((row) => (row['scriptId'] as int?) ?? 0)
+        .toSet()
+        .toList();
+    final scriptPlaceholders = List.filled(scriptIds.length, '?').join(',');
+    final otherRows = db.select(
+      'SELECT id,scriptId,lane,startMs FROM o_timelineClip '
+      'WHERE scriptId IN ($scriptPlaceholders) '
+      'AND id NOT IN ($placeholders)',
+      [...scriptIds, ...selectedIds],
+    ).toList();
+    final updates = <List<Object?>>[];
+    for (final other in otherRows) {
+      final scriptId = (other['scriptId'] as int?) ?? 0;
+      final lane = (other['lane'] as int?) ?? 1;
+      final startMs = (other['startMs'] as int?) ?? 0;
+      var shiftMs = 0;
+      for (final selected in selectedRows) {
+        final selectedScriptId = (selected['scriptId'] as int?) ?? 0;
+        final selectedLane = (selected['lane'] as int?) ?? 1;
+        if (selectedScriptId != scriptId || selectedLane != lane) continue;
+        final selectedStart = (selected['startMs'] as int?) ?? 0;
+        final selectedDuration =
+            (selected['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+        final selectedEnd = selectedStart + selectedDuration;
+        if (startMs >= selectedEnd) shiftMs += selectedDuration;
+      }
+      if (shiftMs <= 0) continue;
+      final nextStart = startMs - shiftMs < 0 ? 0 : startMs - shiftMs;
+      updates.add([nextStart, other['id'] as int]);
+    }
+    db.execute(
+      'DELETE FROM o_timelineClip WHERE id IN ($placeholders)',
+      selectedIds.toList(),
+    );
+    for (final update in updates) {
+      db.execute('UPDATE o_timelineClip SET startMs=? WHERE id=?', update);
+    }
+  }
+
   void deleteTimelineClipRipple(int clipId) {
     final row = db.select(
         'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;

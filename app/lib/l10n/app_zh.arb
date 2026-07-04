@@ -749,6 +749,7 @@
   "workbenchTimelineSplitSelected": "批量切分",
   "workbenchTimelineDuplicateSelected": "批量复制",
   "workbenchTimelineDeleteSelected": "批量删除",
+  "workbenchTimelineRippleDeleteSelected": "批量波纹删除",
   "workbenchTimelineUnselected": "未选视频",
   "workbenchTimelineNoAudio": "未绑定配音",
   "workbenchReorderShot": "拖拽调整顺序",

@@ -1311,6 +1311,108 @@ void main() {
         find.byKey(ValueKey('workbench-timeline-clip-$clipIdC')), findsNothing);
   });
 
+  testWidgets('工作台可选中多个素材层并批量波纹删除', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/batch_ripple_delete_overlay_a.mp4';
+    const relB = 'p/batch_ripple_delete_overlay_b.mp4';
+    const relC = 'p/batch_ripple_delete_overlay_c.mp4';
+    const relD = 'p/batch_ripple_delete_overlay_d.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 4, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 4, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 4, 3]);
+    File(engine.mediaAbsPath(relD))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([4, 4, 4]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹删 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹删 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '后续 C',
+      relPath: relC,
+    );
+    final clipAssetD = engine.registerClipAsset(
+      projectId: projectId,
+      name: '其他轨 D',
+      relPath: relD,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 700,
+      durationMs: 300,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 400,
+    );
+    final clipIdD = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetD,
+      lane: 2,
+      startMs: 1200,
+      durationMs: 400,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdB')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-ripple-delete-selected')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.map((c) => c.id), isNot(contains(clipIdA)));
+    expect(clips.map((c) => c.id), isNot(contains(clipIdB)));
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 400);
+    expect(clips.singleWhere((c) => c.id == clipIdD).startMs, 1200);
+    expect(find.textContaining('400ms · 400ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可选中多个素材层并批量复制成相对时间一致的新组', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

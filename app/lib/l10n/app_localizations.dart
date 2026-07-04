@@ -3382,6 +3382,12 @@ abstract class AppLocalizations {
   /// **'批量删除'**
   String get workbenchTimelineDeleteSelected;
 
+  /// No description provided for @workbenchTimelineRippleDeleteSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量波纹删除'**
+  String get workbenchTimelineRippleDeleteSelected;
+
   /// No description provided for @workbenchTimelineUnselected.
   ///
   /// In zh, this message translates to:
