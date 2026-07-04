@@ -5,6 +5,9 @@ import 'package:sqlite3/sqlite3.dart' show Row;
 import 'engine.dart';
 import 'errors.dart';
 
+const _defaultTimelineClipDurationMs = 1000;
+const _minTimelineClipDurationMs = 100;
+
 class TimelineClipRow {
   final int id;
   final int projectId;
@@ -99,6 +102,51 @@ extension TimelineClipApi on Engine {
       'UPDATE o_timelineClip SET lane=?, startMs=?, durationMs=? WHERE id=?',
       [normalizedLane, normalizedStart, normalizedDuration, clipId],
     );
+  }
+
+  int splitTimelineClip({
+    required int clipId,
+    required int offsetMs,
+  }) {
+    final row = db.select(
+        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
+    if (row == null) {
+      throw const EngineException(errManualInvalid);
+    }
+    final duration =
+        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+    var splitOffset = offsetMs;
+    if (splitOffset < _minTimelineClipDurationMs) {
+      splitOffset = _minTimelineClipDurationMs;
+    }
+    if (splitOffset > duration - _minTimelineClipDurationMs) {
+      splitOffset = duration - _minTimelineClipDurationMs;
+    }
+    final secondDuration = duration - splitOffset;
+    if (splitOffset <= 0 || secondDuration <= 0) {
+      throw const EngineException(errManualInvalid);
+    }
+    final startMs = (row['startMs'] as int?) ?? 0;
+    db.execute('UPDATE o_timelineClip SET durationMs=? WHERE id=?', [
+      splitOffset,
+      clipId,
+    ]);
+    db.execute(
+      'INSERT INTO o_timelineClip '
+      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
+      'VALUES (?,?,?,?,?,?,?,?)',
+      [
+        row['projectId'],
+        row['scriptId'],
+        row['assetId'],
+        row['name'],
+        row['filePath'],
+        row['lane'],
+        startMs + splitOffset,
+        secondDuration,
+      ],
+    );
+    return db.lastInsertRowId;
   }
 
   void deleteTimelineClip(int clipId) {

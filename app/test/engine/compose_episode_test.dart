@@ -355,6 +355,46 @@ void main() {
     expect(updated.durationMs, 900);
   });
 
+  test('timelineClip：可按偏移量分割成连续素材段', () {
+    const overlayRel = 'p/overlay-split.mp4';
+    File(engine.mediaAbsPath(overlayRel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([4, 5, 6]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '分割遮罩',
+      relPath: overlayRel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 2,
+      startMs: 1500,
+      durationMs: 1200,
+    );
+
+    final splitId = engine.splitTimelineClip(
+      clipId: clipId,
+      offsetMs: 500,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(2));
+    expect(clips[0].id, clipId);
+    expect(clips[0].lane, 2);
+    expect(clips[0].startMs, 1500);
+    expect(clips[0].durationMs, 500);
+    expect(clips[0].filePath, overlayRel);
+    expect(clips[1].id, splitId);
+    expect(clips[1].assetId, clipAssetId);
+    expect(clips[1].name, '分割遮罩');
+    expect(clips[1].lane, 2);
+    expect(clips[1].startMs, 2000);
+    expect(clips[1].durationMs, 700);
+    expect(clips[1].filePath, overlayRel);
+  });
+
   test('composeEpisode：存在未选中分镜时抛 errPromptMissing 且不拼接', () async {
     engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     expect(

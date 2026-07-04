@@ -527,6 +527,17 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  void _splitClipLayer(TimelineClipRow clip) {
+    final duration = clip.durationMs ?? _defaultClipDurationMs;
+    if (duration <= _minClipDurationMs * 2) return;
+    final engine = ref.read(engineProvider);
+    engine.splitTimelineClip(
+      clipId: clip.id,
+      offsetMs: duration ~/ 2,
+    );
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -625,6 +636,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                           _trimClipLayerStart(clip, delta),
                       onTrimEndCommit: (delta) =>
                           _resizeClipLayerEnd(clip, delta),
+                      onSplit: () => _splitClipLayer(clip),
                     ),
                 ],
               ),
@@ -907,12 +919,14 @@ class _TimelineAssetClip extends StatefulWidget {
   final ValueChanged<Offset> onDragCommit;
   final ValueChanged<Offset> onTrimStartCommit;
   final ValueChanged<Offset> onTrimEndCommit;
+  final VoidCallback onSplit;
 
   const _TimelineAssetClip({
     required this.clip,
     required this.onDragCommit,
     required this.onTrimStartCommit,
     required this.onTrimEndCommit,
+    required this.onSplit,
   });
 
   @override
@@ -942,25 +956,20 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
     final clip = widget.clip;
     final durationSec = ((clip.durationMs ?? 1000) / 1000).ceil();
     final width = (96 + durationSec * 7).clamp(112, 220).toDouble();
-    return Container(
-      key: ValueKey('workbench-timeline-clip-${clip.id}'),
-      width: width,
-      height: 48,
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: df.success.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-        border: Border.all(color: df.success.withValues(alpha: 0.65)),
-      ),
-      child: Stack(children: [
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: (_) => _resetDrag(),
-            onPanUpdate: _accumulateDrag,
-            onPanEnd: (_) => _commitDrag(widget.onDragCommit),
-            child: Row(children: [
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        width: width,
+        height: 48,
+        margin: const EdgeInsets.only(right: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: df.success.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+          border: Border.all(color: df.success.withValues(alpha: 0.65)),
+        ),
+        child: SizedBox.expand(
+          child: Stack(children: [
+            Row(children: [
               Icon(Icons.layers_outlined, size: 16, color: df.success),
               const SizedBox(width: 8),
               Expanded(
@@ -987,27 +996,47 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
                     ]),
               ),
             ]),
-          ),
+            Positioned.fill(
+              child: GestureDetector(
+                key: ValueKey('workbench-timeline-clip-${clip.id}'),
+                behavior: HitTestBehavior.translucent,
+                onPanStart: (_) => _resetDrag(),
+                onPanUpdate: _accumulateDrag,
+                onPanEnd: (_) => _commitDrag(widget.onDragCommit),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            _TimelineResizeHandle(
+              handleKey:
+                  ValueKey('workbench-timeline-clip-resize-start-${clip.id}'),
+              alignment: Alignment.centerLeft,
+              color: df.success,
+              onDragStart: _resetDrag,
+              onDragUpdate: _accumulateDrag,
+              onDragEnd: () => _commitDrag(widget.onTrimStartCommit),
+            ),
+            _TimelineResizeHandle(
+              handleKey:
+                  ValueKey('workbench-timeline-clip-resize-end-${clip.id}'),
+              alignment: Alignment.centerRight,
+              color: df.success,
+              onDragStart: _resetDrag,
+              onDragUpdate: _accumulateDrag,
+              onDragEnd: () => _commitDrag(widget.onTrimEndCommit),
+            ),
+          ]),
         ),
-        _TimelineResizeHandle(
-          handleKey:
-              ValueKey('workbench-timeline-clip-resize-start-${clip.id}'),
-          alignment: Alignment.centerLeft,
-          color: df.success,
-          onDragStart: _resetDrag,
-          onDragUpdate: _accumulateDrag,
-          onDragEnd: () => _commitDrag(widget.onTrimStartCommit),
-        ),
-        _TimelineResizeHandle(
-          handleKey: ValueKey('workbench-timeline-clip-resize-end-${clip.id}'),
-          alignment: Alignment.centerRight,
-          color: df.success,
-          onDragStart: _resetDrag,
-          onDragUpdate: _accumulateDrag,
-          onDragEnd: () => _commitDrag(widget.onTrimEndCommit),
-        ),
-      ]),
-    );
+      ),
+      IconButton(
+        key: ValueKey('workbench-timeline-clip-split-${clip.id}'),
+        constraints: const BoxConstraints.tightFor(width: 28, height: 48),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        icon: Icon(Icons.content_cut_outlined, size: 14, color: df.success),
+        onPressed: widget.onSplit,
+      ),
+      const SizedBox(width: 4),
+    ]);
   }
 }
 

@@ -365,6 +365,52 @@ void main() {
     expect(find.textContaining('1700ms · 1300ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可分割素材层为连续片段', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/split_overlay_clip.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([8, 6, 4]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '分割素材',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 2,
+      startMs: 1500,
+      durationMs: 1200,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final splitButton =
+        find.byKey(ValueKey('workbench-timeline-clip-split-$clipId'));
+    expect(splitButton, findsOneWidget);
+    await tester.tap(splitButton);
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(2));
+    expect(clips[0].id, clipId);
+    expect(clips[0].startMs, 1500);
+    expect(clips[0].durationMs, 600);
+    expect(clips[1].startMs, 2100);
+    expect(clips[1].durationMs, 600);
+    expect(find.textContaining('2100ms · 600ms'), findsOneWidget);
+  });
+
   testWidgets('工作台批量生成只作用于已勾选镜头轨道', (tester) async {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头一');
