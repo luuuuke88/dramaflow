@@ -1614,6 +1614,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineOverlayTrack => '素材レイヤー';
 
   @override
+  String get workbenchTimelineMediaLibrary => '素材ライブラリ';
+
+  @override
+  String get workbenchTimelineMediaLibraryTitle => 'タイムライン素材ライブラリ';
+
+  @override
+  String get workbenchTimelineAddAtPlayhead => '再生位置に追加';
+
+  @override
   String get workbenchTimelineAddClip => '素材レイヤー追加';
 
   @override

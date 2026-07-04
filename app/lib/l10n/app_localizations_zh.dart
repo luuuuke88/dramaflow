@@ -1603,6 +1603,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineOverlayTrack => '素材层';
 
   @override
+  String get workbenchTimelineMediaLibrary => '媒体库';
+
+  @override
+  String get workbenchTimelineMediaLibraryTitle => '时间线媒体库';
+
+  @override
+  String get workbenchTimelineAddAtPlayhead => '添加到播放头';
+
+  @override
   String get workbenchTimelineAddClip => '添加素材层';
 
   @override

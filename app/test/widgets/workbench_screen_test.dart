@@ -354,6 +354,83 @@ void main() {
     expect(find.textContaining('L3 · 200ms · 500ms'), findsOneWidget);
   });
 
+  testWidgets('工作台媒体库可按播放头快捷添加素材层并自动找空层', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/media_library_lane_a.mp4';
+    const relB = 'p/media_library_lane_b.mp4';
+    const relInsert = 'p/media_library_insert.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 5, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 5, 2]);
+    File(engine.mediaAbsPath(relInsert))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 5, 3]);
+    final insertAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '媒体库快捷素材',
+      relPath: relInsert,
+    );
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '媒体库占用 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '媒体库占用 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 1000,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 1200,
+      durationMs: 1000,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '1500',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-timeline-media')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-media-add-$insertAssetId')),
+    );
+    await tester.pumpAndSettle();
+
+    final inserted = engine
+        .timelineClips(scriptId)
+        .singleWhere((clip) => clip.name == '媒体库快捷素材');
+    expect(inserted.lane, 3);
+    expect(inserted.startMs, 1500);
+    expect(inserted.durationMs, isNull);
+    expect(find.textContaining('L3 · 1500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可波纹插入素材层并后移同轨后续片段', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

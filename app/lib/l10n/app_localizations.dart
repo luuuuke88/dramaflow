@@ -3178,6 +3178,24 @@ abstract class AppLocalizations {
   /// **'素材层'**
   String get workbenchTimelineOverlayTrack;
 
+  /// No description provided for @workbenchTimelineMediaLibrary.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体库'**
+  String get workbenchTimelineMediaLibrary;
+
+  /// No description provided for @workbenchTimelineMediaLibraryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间线媒体库'**
+  String get workbenchTimelineMediaLibraryTitle;
+
+  /// No description provided for @workbenchTimelineAddAtPlayhead.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加到播放头'**
+  String get workbenchTimelineAddAtPlayhead;
+
   /// No description provided for @workbenchTimelineAddClip.
   ///
   /// In zh, this message translates to:

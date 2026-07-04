@@ -505,6 +505,35 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     }
   }
 
+  Future<void> _openTimelineMediaLibrary() async {
+    final l10n = context.l10n;
+    final engine = ref.read(engineProvider);
+    final clips =
+        engine.getAssets(widget.projectId, type: 'clip', limit: 100).data;
+    try {
+      final asset = await showDialog<AssetRow>(
+        context: context,
+        builder: (c) => _TimelineMediaLibraryDialog(clips: clips),
+      );
+      if (asset == null || !mounted) return;
+      engine.addTimelineClipFromAssetAutoLane(
+        projectId: widget.projectId,
+        scriptId: widget.shots.first.scriptId,
+        clipAssetId: asset.id,
+        lane: 1,
+        startMs: _snapPlayheadMs ?? 0,
+      );
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.workbenchTimelineClipAdded)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(localizeError(context, e))));
+    }
+  }
+
   void _moveClipLayer(TimelineClipRow clip, Offset dragDelta) {
     final timeSteps = (dragDelta.dx / _dragPixelsPerTimeStep).round();
     final laneSteps = (dragDelta.dy / _dragPixelsPerLaneStep).round();
@@ -877,38 +906,70 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         border: Border.all(color: df.stroke),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(Icons.view_timeline_outlined, size: 18, color: df.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              l10n.workbenchTimelineOverview,
-              style: TextStyle(
-                color: df.textHi,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
+        LayoutBuilder(builder: (context, constraints) {
+          final title = Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.view_timeline_outlined, size: 18, color: df.primary),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                l10n.workbenchTimelineOverview,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: df.textHi,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-          ),
-          SizedBox(
-            width: 132,
-            child: TextField(
-              key: const ValueKey('workbench-timeline-playhead-input'),
-              decoration: InputDecoration(
-                isDense: true,
-                labelText: l10n.workbenchTimelineSplitAtMs,
+          ]);
+          final controls = [
+            SizedBox(
+              width: 132,
+              child: TextField(
+                key: const ValueKey('workbench-timeline-playhead-input'),
+                decoration: InputDecoration(
+                  isDense: true,
+                  labelText: l10n.workbenchTimelineSplitAtMs,
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: _updateSnapPlayhead,
               ),
-              keyboardType: TextInputType.number,
-              onChanged: _updateSnapPlayhead,
             ),
-          ),
-          const SizedBox(width: 8),
-          TextButton.icon(
-            onPressed: widget.shots.isEmpty ? null : _addClipLayer,
-            icon: const Icon(Icons.add_to_photos_outlined, size: 16),
-            label: Text(l10n.workbenchTimelineAddClip),
-          ),
-        ]),
+            TextButton.icon(
+              key: const ValueKey('workbench-timeline-media'),
+              onPressed:
+                  widget.shots.isEmpty ? null : _openTimelineMediaLibrary,
+              icon: const Icon(Icons.video_library_outlined, size: 16),
+              label: Text(l10n.workbenchTimelineMediaLibrary),
+            ),
+            TextButton.icon(
+              onPressed: widget.shots.isEmpty ? null : _addClipLayer,
+              icon: const Icon(Icons.add_to_photos_outlined, size: 16),
+              label: Text(l10n.workbenchTimelineAddClip),
+            ),
+          ];
+          if (constraints.maxWidth < 560) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                title,
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: controls),
+              ],
+            );
+          }
+          return Row(children: [
+            Expanded(child: title),
+            const SizedBox(width: 8),
+            ...[
+              for (var i = 0; i < controls.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                controls[i],
+              ],
+            ],
+          ]);
+        }),
         const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -985,6 +1046,55 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
           ]),
         ),
       ]),
+    );
+  }
+}
+
+class _TimelineMediaLibraryDialog extends StatelessWidget {
+  final List<AssetRow> clips;
+
+  const _TimelineMediaLibraryDialog({required this.clips});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.workbenchTimelineMediaLibraryTitle),
+      content: SizedBox(
+        width: 520,
+        child: clips.isEmpty
+            ? DFEmpty(text: l10n.workbenchNoClipAssets)
+            : ListView.separated(
+                shrinkWrap: true,
+                itemCount: clips.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final row = clips[i];
+                  final enabled = row.filePath?.isNotEmpty == true;
+                  return ListTile(
+                    leading: const Icon(Icons.video_library_outlined),
+                    title: Text(row.name ?? ''),
+                    subtitle: Text(
+                      row.filePath ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: FilledButton(
+                      key: ValueKey('workbench-timeline-media-add-${row.id}'),
+                      onPressed:
+                          enabled ? () => Navigator.of(context).pop(row) : null,
+                      child: Text(l10n.workbenchTimelineAddAtPlayhead),
+                    ),
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+      ],
     );
   }
 }
