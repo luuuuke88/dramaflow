@@ -1762,6 +1762,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineCopyToPlayheadSelected => 'Copy to playhead';
 
   @override
+  String get workbenchTimelineAlignToPlayheadSelected => 'Align to playhead';
+
+  @override
   String get workbenchTimelineRippleDuplicateSelected =>
       'Ripple duplicate selected';
 

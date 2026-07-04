@@ -517,6 +517,28 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     });
   }
 
+  void _alignSelectedClipLayersToPlayhead() {
+    final playheadMs = _snapPlayheadMs;
+    if (_selectedClipIds.isEmpty || playheadMs == null || widget.shots.isEmpty) {
+      return;
+    }
+    final engine = ref.read(engineProvider);
+    final selectedRows = engine
+        .timelineClips(widget.shots.first.scriptId)
+        .where((clip) => _selectedClipIds.contains(clip.id))
+        .toList();
+    if (selectedRows.isEmpty) return;
+    for (final clip in selectedRows) {
+      engine.updateTimelineClip(
+        clipId: clip.id,
+        lane: clip.lane,
+        startMs: playheadMs,
+        durationMs: clip.durationMs,
+      );
+    }
+    setState(() {});
+  }
+
   void _rippleDuplicateSelectedClipLayers() {
     if (_selectedClipIds.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -1450,6 +1472,16 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                           : _copySelectedClipLayersToPlayhead,
                   icon: const Icon(Icons.content_paste_go_outlined, size: 16),
                   label: Text(l10n.workbenchTimelineCopyToPlayheadSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey(
+                      'workbench-timeline-align-to-playhead-selected'),
+                  onPressed:
+                      selectedClipCount == 0 || _snapPlayheadMs == null
+                          ? null
+                          : _alignSelectedClipLayersToPlayhead,
+                  icon: const Icon(Icons.vertical_align_center, size: 16),
+                  label: Text(l10n.workbenchTimelineAlignToPlayheadSelected),
                 ),
                 TextButton.icon(
                   key: const ValueKey(

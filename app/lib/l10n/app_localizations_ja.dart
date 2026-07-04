@@ -1729,6 +1729,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineCopyToPlayheadSelected => '再生位置へ複製';
 
   @override
+  String get workbenchTimelineAlignToPlayheadSelected => '再生位置に揃える';
+
+  @override
   String get workbenchTimelineRippleDuplicateSelected => '選択をリップル複製';
 
   @override

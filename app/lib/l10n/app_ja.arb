@@ -625,6 +625,7 @@
   "workbenchTimelineSplitSelected": "選択を分割",
   "workbenchTimelineDuplicateSelected": "選択を複製",
   "workbenchTimelineCopyToPlayheadSelected": "再生位置へ複製",
+  "workbenchTimelineAlignToPlayheadSelected": "再生位置に揃える",
   "workbenchTimelineRippleDuplicateSelected": "選択をリップル複製",
   "workbenchTimelineMoveSelected": "選択を移動",
   "workbenchTimelineLaneSelected": "選択のレーン移動",

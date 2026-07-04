@@ -3400,6 +3400,12 @@ abstract class AppLocalizations {
   /// **'复制到播放头'**
   String get workbenchTimelineCopyToPlayheadSelected;
 
+  /// No description provided for @workbenchTimelineAlignToPlayheadSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'对齐播放头'**
+  String get workbenchTimelineAlignToPlayheadSelected;
+
   /// No description provided for @workbenchTimelineRippleDuplicateSelected.
   ///
   /// In zh, this message translates to:
