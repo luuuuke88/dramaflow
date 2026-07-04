@@ -983,6 +983,46 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  List<Widget> _timelineOverlayClipWidgets({
+    required Engine engine,
+    required List<TimelineClipRow> clips,
+  }) {
+    final widgets = <Widget>[];
+    var cursorPx = 0.0;
+    for (final clip in clips) {
+      final desiredLeft =
+          clip.startMs * _dragPixelsPerTimeStep / _dragTimeStepMs;
+      final gap = desiredLeft - cursorPx;
+      if (gap > 0) {
+        widgets.add(SizedBox(width: gap));
+      }
+      widgets.add(
+        _TimelineAssetClip(
+          clip: clip,
+          snapAnchors: _timelineSnapAnchors(engine: engine, clip: clip),
+          dragPixelsPerTimeStep: _dragPixelsPerTimeStep,
+          dragTimeStepMs: _dragTimeStepMs,
+          snapThresholdMs: _snapThresholdMs,
+          onDragCommit: (delta) => _moveClipLayer(clip, delta),
+          onTrimStartCommit: (delta) => _trimClipLayerStart(clip, delta),
+          onTrimEndCommit: (delta) => _resizeClipLayerEnd(clip, delta),
+          onSplit: () => _splitClipLayer(clip),
+          onDuplicate: () => _duplicateClipLayer(clip),
+          onRippleDuplicate: () => _rippleDuplicateClipLayer(clip),
+          onRippleMove: () => _rippleMoveClipLayer(clip),
+          onSplitAt: () => _splitClipLayerAtPlayhead(clip),
+          onRippleTrimEnd: () => _rippleTrimClipLayerEnd(clip),
+          onEdit: () => _editClipLayer(clip),
+          onDelete: () => _deleteClipLayer(clip),
+          onRippleDelete: () => _rippleDeleteClipLayer(clip),
+        ),
+      );
+      final clipRight = desiredLeft + _timelineAssetClipWidth(clip) + 8;
+      if (clipRight > cursorPx) cursorPx = clipRight;
+    }
+    return widgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -1149,37 +1189,10 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                           _TimelineLane(
                             label: l10n.workbenchTimelineOverlayTrack,
                             icon: Icons.layers_outlined,
-                            children: [
-                              for (final clip in clips)
-                                _TimelineAssetClip(
-                                  clip: clip,
-                                  snapAnchors: _timelineSnapAnchors(
-                                      engine: engine, clip: clip),
-                                  dragPixelsPerTimeStep: _dragPixelsPerTimeStep,
-                                  dragTimeStepMs: _dragTimeStepMs,
-                                  snapThresholdMs: _snapThresholdMs,
-                                  onDragCommit: (delta) =>
-                                      _moveClipLayer(clip, delta),
-                                  onTrimStartCommit: (delta) =>
-                                      _trimClipLayerStart(clip, delta),
-                                  onTrimEndCommit: (delta) =>
-                                      _resizeClipLayerEnd(clip, delta),
-                                  onSplit: () => _splitClipLayer(clip),
-                                  onDuplicate: () => _duplicateClipLayer(clip),
-                                  onRippleDuplicate: () =>
-                                      _rippleDuplicateClipLayer(clip),
-                                  onRippleMove: () =>
-                                      _rippleMoveClipLayer(clip),
-                                  onSplitAt: () =>
-                                      _splitClipLayerAtPlayhead(clip),
-                                  onRippleTrimEnd: () =>
-                                      _rippleTrimClipLayerEnd(clip),
-                                  onEdit: () => _editClipLayer(clip),
-                                  onDelete: () => _deleteClipLayer(clip),
-                                  onRippleDelete: () =>
-                                      _rippleDeleteClipLayer(clip),
-                                ),
-                            ],
+                            children: _timelineOverlayClipWidgets(
+                              engine: engine,
+                              clips: clips,
+                            ),
                           ),
                         ],
                       ]),
@@ -2004,6 +2017,11 @@ class _TimelineAssetClip extends StatefulWidget {
   State<_TimelineAssetClip> createState() => _TimelineAssetClipState();
 }
 
+double _timelineAssetClipWidth(TimelineClipRow clip) {
+  final durationSec = ((clip.durationMs ?? 1000) / 1000).ceil();
+  return (96 + durationSec * 7).clamp(160, 220).toDouble();
+}
+
 class _TimelineAssetClipState extends State<_TimelineAssetClip> {
   Offset _dragDelta = Offset.zero;
   Alignment? _snapGuideAlignment;
@@ -2082,8 +2100,7 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
   Widget build(BuildContext context) {
     final df = context.df;
     final clip = widget.clip;
-    final durationSec = ((clip.durationMs ?? 1000) / 1000).ceil();
-    final width = (96 + durationSec * 7).clamp(160, 220).toDouble();
+    final width = _timelineAssetClipWidth(clip);
 
     return Container(
       width: width,
