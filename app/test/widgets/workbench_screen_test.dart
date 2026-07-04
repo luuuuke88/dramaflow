@@ -474,6 +474,124 @@ void main() {
     expect(File(engine.mediaAbsPath(relA)).existsSync(), isTrue);
   });
 
+  testWidgets('工作台拖拽素材层接近相邻边缘时自动吸附', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/snap_overlay_a.mp4';
+    const relB = 'p/snap_overlay_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 3, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '吸附素材 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '吸附素材 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1500,
+      durationMs: 800,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final clipFinder = find.byKey(ValueKey('workbench-timeline-clip-$clipIdB'));
+    expect(clipFinder, findsOneWidget);
+    await tester.drag(clipFinder, const Offset(-48, 0));
+    await tester.pumpAndSettle();
+
+    final moved = engine.timelineClips(scriptId).last;
+    expect(moved.id, clipIdB);
+    expect(moved.startMs, 1000);
+    expect(moved.durationMs, 800);
+    expect(find.textContaining('1000ms · 800ms'), findsOneWidget);
+  });
+
+  testWidgets('工作台仅上下拖拽素材层时不改变时间点', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/lane_snap_guard_a.mp4';
+    const relB = 'p/lane_snap_guard_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 4, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 5, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '换轨保护 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '换轨保护 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1050,
+      durationMs: 800,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final clipFinder = find.byKey(ValueKey('workbench-timeline-clip-$clipIdB'));
+    expect(clipFinder, findsOneWidget);
+    await tester.drag(clipFinder, const Offset(0, 40));
+    await tester.pumpAndSettle();
+
+    final moved = engine.timelineClips(scriptId).last;
+    expect(moved.id, clipIdB);
+    expect(moved.lane, 2);
+    expect(moved.startMs, 1050);
+    expect(moved.durationMs, 800);
+  });
+
   testWidgets('工作台批量生成只作用于已勾选镜头轨道', (tester) async {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头一');

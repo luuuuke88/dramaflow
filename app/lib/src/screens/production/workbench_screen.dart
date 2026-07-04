@@ -11,6 +11,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../engine/assets.dart';
 import '../../engine/audio_bind.dart';
 import '../../engine/compose_episode.dart';
+import '../../engine/engine.dart';
 import '../../engine/storyboard.dart';
 import '../../engine/storyboard_audio.dart';
 import '../../engine/timeline_clip.dart';
@@ -443,6 +444,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   static const double _dragPixelsPerLaneStep = 36;
   static const int _defaultClipDurationMs = 1000;
   static const int _minClipDurationMs = 100;
+  static const int _snapThresholdMs = 100;
 
   Future<void> _addClipLayer() async {
     final l10n = context.l10n;
@@ -479,10 +481,20 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final laneSteps = (dragDelta.dy / _dragPixelsPerLaneStep).round();
     if (timeSteps == 0 && laneSteps == 0) return;
     final engine = ref.read(engineProvider);
+    final duration = clip.durationMs ?? _defaultClipDurationMs;
+    final rawStart = clip.startMs + timeSteps * _dragTimeStepMs;
+    final nextStart = timeSteps == 0
+        ? clip.startMs
+        : _snapClipStart(
+            engine: engine,
+            clip: clip,
+            startMs: rawStart,
+            durationMs: duration,
+          );
     engine.updateTimelineClip(
       clipId: clip.id,
       lane: clip.lane + laneSteps,
-      startMs: clip.startMs + timeSteps * _dragTimeStepMs,
+      startMs: nextStart,
       durationMs: clip.durationMs,
     );
     setState(() {});
@@ -492,8 +504,18 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final timeSteps = (dragDelta.dx / _dragPixelsPerTimeStep).round();
     if (timeSteps == 0) return;
     final duration = clip.durationMs ?? _defaultClipDurationMs;
-    final nextDuration = duration + timeSteps * _dragTimeStepMs;
+    final rawDuration = duration + timeSteps * _dragTimeStepMs;
     final engine = ref.read(engineProvider);
+    final rawEnd = clip.startMs +
+        (rawDuration < _minClipDurationMs ? _minClipDurationMs : rawDuration);
+    final snappedEnd = _snapValue(
+      rawEnd,
+      _timelineSnapAnchors(engine: engine, clip: clip),
+    );
+    final snappedDuration = snappedEnd - clip.startMs;
+    final nextDuration = snappedDuration < _minClipDurationMs
+        ? _minClipDurationMs
+        : snappedDuration;
     engine.updateTimelineClip(
       clipId: clip.id,
       lane: clip.lane,
@@ -513,10 +535,17 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       deltaMs = duration - _minClipDurationMs;
     }
     final nextStart = clip.startMs + deltaMs;
-    final normalizedStart = nextStart < 0 ? 0 : nextStart;
+    final engine = ref.read(engineProvider);
+    var normalizedStart = nextStart < 0 ? 0 : nextStart;
+    normalizedStart = _snapValue(
+      normalizedStart,
+      _timelineSnapAnchors(engine: engine, clip: clip),
+    );
+    final maxStart = clip.startMs + duration - _minClipDurationMs;
+    if (normalizedStart > maxStart) normalizedStart = maxStart;
+    if (normalizedStart < 0) normalizedStart = 0;
     final appliedDelta = normalizedStart - clip.startMs;
     final nextDuration = duration - appliedDelta;
-    final engine = ref.read(engineProvider);
     engine.updateTimelineClip(
       clipId: clip.id,
       lane: clip.lane,
@@ -525,6 +554,56 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
           nextDuration < _minClipDurationMs ? _minClipDurationMs : nextDuration,
     );
     setState(() {});
+  }
+
+  int _snapClipStart({
+    required Engine engine,
+    required TimelineClipRow clip,
+    required int startMs,
+    required int durationMs,
+  }) {
+    final anchors = _timelineSnapAnchors(engine: engine, clip: clip);
+    final snappedStart = _snapValue(startMs, anchors);
+    if (snappedStart != startMs) return snappedStart < 0 ? 0 : snappedStart;
+    final snappedEnd = _snapValue(startMs + durationMs, anchors);
+    final nextStart =
+        snappedEnd == startMs + durationMs ? startMs : snappedEnd - durationMs;
+    return nextStart < 0 ? 0 : nextStart;
+  }
+
+  List<int> _timelineSnapAnchors({
+    required Engine engine,
+    required TimelineClipRow clip,
+  }) {
+    final anchors = <int>{0};
+    var cursorMs = 0;
+    for (final shot in widget.shots.where((s) => s.scriptId == clip.scriptId)) {
+      final track = shot.trackId != null ? engine.track(shot.trackId!) : null;
+      anchors.add(cursorMs);
+      cursorMs += _timelineSeconds(shot, track) * 1000;
+      anchors.add(cursorMs);
+    }
+    for (final other in engine.timelineClips(clip.scriptId)) {
+      if (other.id == clip.id) continue;
+      final duration = other.durationMs ?? _defaultClipDurationMs;
+      anchors
+        ..add(other.startMs)
+        ..add(other.startMs + duration);
+    }
+    return anchors.toList();
+  }
+
+  int _snapValue(int value, Iterable<int> anchors) {
+    var snapped = value;
+    var bestDistance = _snapThresholdMs + 1;
+    for (final anchor in anchors) {
+      final distance = (value - anchor).abs();
+      if (distance <= _snapThresholdMs && distance < bestDistance) {
+        snapped = anchor;
+        bestDistance = distance;
+      }
+    }
+    return snapped;
   }
 
   void _splitClipLayer(TimelineClipRow clip) {
