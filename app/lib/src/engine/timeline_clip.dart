@@ -418,6 +418,59 @@ extension TimelineClipApi on Engine {
     return db.lastInsertRowId;
   }
 
+  List<int> duplicateTimelineClips(List<int> clipIds) {
+    if (clipIds.isEmpty) return const [];
+    final placeholders = List.filled(clipIds.length, '?').join(',');
+    final rows = db
+        .select(
+          'SELECT * FROM o_timelineClip WHERE id IN ($placeholders) '
+          'ORDER BY startMs ASC, lane ASC, id ASC',
+          clipIds,
+        )
+        .toList();
+    if (rows.isEmpty) return const [];
+    final selectedIds = rows.map((row) => row['id'] as int).toSet();
+    final scriptId = (rows.first['scriptId'] as int?) ?? 0;
+    final groupStart = rows
+        .map((row) => (row['startMs'] as int?) ?? 0)
+        .reduce((a, b) => a < b ? a : b);
+    final groupEnd = rows.map((row) {
+      final start = (row['startMs'] as int?) ?? 0;
+      final duration =
+          (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+      return start + duration;
+    }).reduce((a, b) => a > b ? a : b);
+    final initialOffset = groupEnd - groupStart;
+    final offset = _timelineGroupDuplicateOffset(
+      db: db,
+      scriptId: scriptId,
+      rows: rows,
+      selectedIds: selectedIds,
+      initialOffset: initialOffset,
+    );
+    final duplicateIds = <int>[];
+    for (final row in rows) {
+      final startMs = (row['startMs'] as int?) ?? 0;
+      db.execute(
+        'INSERT INTO o_timelineClip '
+        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [
+          row['projectId'],
+          row['scriptId'],
+          row['assetId'],
+          row['name'],
+          row['filePath'],
+          row['lane'],
+          startMs + offset,
+          row['durationMs'],
+        ],
+      );
+      duplicateIds.add(db.lastInsertRowId);
+    }
+    return duplicateIds;
+  }
+
   void deleteTimelineClip(int clipId) {
     db.execute('DELETE FROM o_timelineClip WHERE id=?', [clipId]);
   }
@@ -612,4 +665,53 @@ bool _timelineLaneHasSpace({
     ],
   );
   return conflicts.isEmpty;
+}
+
+int _timelineGroupDuplicateOffset({
+  required Database db,
+  required int scriptId,
+  required List<Row> rows,
+  required Set<int> selectedIds,
+  required int initialOffset,
+}) {
+  var offset =
+      initialOffset <= 0 ? _defaultTimelineClipDurationMs : initialOffset;
+  final placeholders = List.filled(selectedIds.length, '?').join(',');
+  final others = db.select(
+    'SELECT id,lane,startMs,durationMs FROM o_timelineClip '
+    'WHERE scriptId=? AND id NOT IN ($placeholders) '
+    'ORDER BY startMs ASC, id ASC',
+    [scriptId, ...selectedIds],
+  ).toList();
+  var guard = 0;
+  while (guard < others.length + rows.length + 4) {
+    guard += 1;
+    int? nextOffset;
+    for (final row in rows) {
+      final lane = (row['lane'] as int?) ?? 1;
+      final start = (row['startMs'] as int?) ?? 0;
+      final duration =
+          (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+      final candidateStart = start + offset;
+      final candidateEnd = candidateStart + duration;
+      for (final other in others) {
+        final otherLane = (other['lane'] as int?) ?? 1;
+        if (otherLane != lane) continue;
+        final otherStart = (other['startMs'] as int?) ?? 0;
+        final otherDuration =
+            (other['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+        final otherEnd = otherStart + otherDuration;
+        final overlaps = candidateStart < otherEnd && candidateEnd > otherStart;
+        if (!overlaps) continue;
+        final shiftedOffset = otherEnd - start;
+        if (shiftedOffset > offset &&
+            (nextOffset == null || shiftedOffset > nextOffset)) {
+          nextOffset = shiftedOffset;
+        }
+      }
+    }
+    if (nextOffset == null) return offset;
+    offset = nextOffset;
+  }
+  return offset;
 }

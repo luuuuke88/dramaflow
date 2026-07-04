@@ -352,6 +352,52 @@ void main() {
     expect(otherLane.durationMs, 400);
   });
 
+  test('duplicateTimelineClips 批量复制选中素材层并保留相对时间', () {
+    final clipA = clipAsset('p/batch_duplicate_a.mp4', 'A');
+    final clipB = clipAsset('p/batch_duplicate_b.mp4', 'B');
+    final clipC = clipAsset('p/batch_duplicate_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 200,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 2,
+      startMs: 900,
+      durationMs: 400,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 1,
+      startMs: 1300,
+      durationMs: 300,
+    );
+
+    final duplicateIds = engine.duplicateTimelineClips([clipIdA, clipIdB]);
+
+    final clips = engine.timelineClips(scriptId);
+    expect(duplicateIds, hasLength(2));
+    final duplicateA = clips.singleWhere((c) => c.id == duplicateIds[0]);
+    final duplicateB = clips.singleWhere((c) => c.id == duplicateIds[1]);
+    expect(duplicateA.assetId, clipA);
+    expect(duplicateA.lane, 1);
+    expect(duplicateA.startMs, 1600);
+    expect(duplicateA.durationMs, 500);
+    expect(duplicateB.assetId, clipB);
+    expect(duplicateB.lane, 2);
+    expect(duplicateB.startMs, 2300);
+    expect(duplicateB.durationMs, 400);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 1300);
+  });
+
   test('moveTimelineClipRipple 波纹移动素材层并移动同轨后续片段', () {
     final clipA = clipAsset('p/ripple_move_a.mp4', 'A');
     final clipB = clipAsset('p/ripple_move_b.mp4', 'B');

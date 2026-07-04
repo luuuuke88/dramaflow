@@ -1714,6 +1714,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineSplitSelected => '選択を分割';
 
   @override
+  String get workbenchTimelineDuplicateSelected => '選択を複製';
+
+  @override
   String get workbenchTimelineDeleteSelected => '選択を削除';
 
   @override

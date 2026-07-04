@@ -620,6 +620,7 @@
     }
   },
   "workbenchTimelineSplitSelected": "Split selected",
+  "workbenchTimelineDuplicateSelected": "Duplicate selected",
   "workbenchTimelineDeleteSelected": "Delete selected",
   "workbenchTimelineUnselected": "No video selected",
   "workbenchTimelineNoAudio": "No voice bound",

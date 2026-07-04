@@ -479,6 +479,18 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  void _duplicateSelectedClipLayers() {
+    if (_selectedClipIds.isEmpty) return;
+    final engine = ref.read(engineProvider);
+    final duplicateIds =
+        engine.duplicateTimelineClips(_selectedClipIds.toList());
+    setState(() {
+      _selectedClipIds
+        ..clear()
+        ..addAll(duplicateIds);
+    });
+  }
+
   void _deleteSelectedClipLayers() {
     if (_selectedClipIds.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -1221,6 +1233,14 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       : _splitSelectedClipsAtPlayhead,
                   icon: const Icon(Icons.call_split_outlined, size: 16),
                   label: Text(l10n.workbenchTimelineSplitSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey('workbench-timeline-duplicate-selected'),
+                  onPressed: selectedClipCount == 0
+                      ? null
+                      : _duplicateSelectedClipLayers,
+                  icon: const Icon(Icons.copy_all_outlined, size: 16),
+                  label: Text(l10n.workbenchTimelineDuplicateSelected),
                 ),
                 TextButton.icon(
                   key: const ValueKey('workbench-timeline-delete-selected'),

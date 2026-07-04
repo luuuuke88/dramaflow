@@ -620,6 +620,7 @@
     }
   },
   "workbenchTimelineSplitSelected": "選択を分割",
+  "workbenchTimelineDuplicateSelected": "選択を複製",
   "workbenchTimelineDeleteSelected": "選択を削除",
   "workbenchTimelineUnselected": "動画未選択",
   "workbenchTimelineNoAudio": "音声未割り当て",

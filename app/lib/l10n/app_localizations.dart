@@ -3370,6 +3370,12 @@ abstract class AppLocalizations {
   /// **'批量切分'**
   String get workbenchTimelineSplitSelected;
 
+  /// No description provided for @workbenchTimelineDuplicateSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量复制'**
+  String get workbenchTimelineDuplicateSelected;
+
   /// No description provided for @workbenchTimelineDeleteSelected.
   ///
   /// In zh, this message translates to:
