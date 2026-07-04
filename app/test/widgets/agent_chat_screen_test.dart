@@ -104,12 +104,77 @@ void main() {
     expect(find.text('记忆已清空'), findsOneWidget);
   });
 
+  testWidgets('移动端 Agent：清空记忆确认使用全屏表单并清空', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'mobile-clear-memory-media')),
+      gateway: _Gateway(),
+      config: EngineConfig(db, isMobile: true),
+    );
+    projectId = engine.addProject(projectType: 'novel', name: '移动清空记忆测试');
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '移动端清空前消息');
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+    expect(engine.agentMessages(projectId), isNotEmpty);
+
+    await tester.tap(find.byIcon(Icons.delete_sweep_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('清空记忆'), findsOneWidget);
+    expect(find.text('确定清空全部对话记录吗？此操作无法撤销。'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(engine.agentMessages(projectId), isEmpty);
+    expect(find.text('记忆已清空'), findsOneWidget);
+  });
+
   testWidgets('内置能力说明弹窗可打开关闭', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.info_outline));
     await tester.pumpAndSettle();
     expect(find.text('内置能力'), findsOneWidget);
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(find.text('内置能力'), findsNothing);
+  });
+
+  testWidgets('移动端 Agent：内置能力说明使用全屏信息页', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'mobile-skills-info-media')),
+      gateway: _Gateway(),
+      config: EngineConfig(db, isMobile: true),
+    );
+    projectId = engine.addProject(projectType: 'novel', name: '移动能力说明测试');
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('内置能力'), findsOneWidget);
+    expect(find.textContaining('已有流水线真实动作'), findsOneWidget);
+
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
     expect(find.text('内置能力'), findsNothing);

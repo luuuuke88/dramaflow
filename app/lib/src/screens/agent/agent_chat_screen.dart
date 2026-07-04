@@ -76,21 +76,11 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
 
   Future<void> _clearMemory() async {
     final l10n = context.l10n;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l10n.agentChatConfirmClearTitle),
-        content: Text(l10n.agentChatConfirmClearBody),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: Text(l10n.commonCancel)),
-          FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
-              onPressed: () => Navigator.pop(c, true),
-              child: Text(l10n.commonDelete)),
-        ],
-      ),
+    final confirmed = await showDFAdaptiveDialog<bool>(
+      context,
+      title: l10n.agentChatConfirmClearTitle,
+      desktopWidthFactor: .36,
+      builder: (c) => const _AgentClearMemoryConfirmBody(),
     );
     if (confirmed != true) return;
     ref.read(engineProvider).clearAgentMemory(widget.projectId);
@@ -103,17 +93,11 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
 
   void _showSkillsInfo() {
     final l10n = context.l10n;
-    showDialog<void>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l10n.agentChatSkillsInfo),
-        content: SizedBox(width: 420, child: Text(l10n.agentChatSkillsBody)),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: Text(l10n.commonConfirm)),
-        ],
-      ),
+    showDFAdaptiveDialog<void>(
+      context,
+      title: l10n.agentChatSkillsInfo,
+      desktopWidthFactor: .38,
+      builder: (_) => const _AgentSkillsInfoBody(),
     );
   }
 
@@ -1264,6 +1248,69 @@ class _AgentMemoryDialogState extends State<_AgentMemoryDialog> {
               FilledButton(
                 onPressed: _save,
                 child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentSkillsInfoBody extends StatelessWidget {
+  const _AgentSkillsInfoBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l10n.agentChatSkillsBody),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.commonConfirm),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentClearMemoryConfirmBody extends StatelessWidget {
+  const _AgentClearMemoryConfirmBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l10n.agentChatConfirmClearBody),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(l10n.commonCancel),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                style:
+                    FilledButton.styleFrom(backgroundColor: context.df.danger),
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(l10n.commonDelete),
               ),
             ],
           ),
