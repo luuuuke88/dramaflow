@@ -3321,10 +3321,11 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
   /// 手动编辑运镜提示词（懒建轨道后写入 o_videoTrack.prompt）。
   Future<void> _editPrompt(String current) async {
     final l10n = context.l10n;
-    final saved = await showDialog<String>(
-      context: context,
+    final saved = await showDFAdaptiveDialog<String>(
+      context,
+      title: l10n.workbenchEditPromptTitle,
+      desktopWidthFactor: 0.42,
       builder: (c) => _TextEditDialog(
-        title: l10n.workbenchEditPromptTitle,
         initial: current,
         hint: l10n.workbenchPromptFieldHint,
         multiline: true,
@@ -3340,10 +3341,11 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
   /// 编辑本镜时长（秒）。保存时空/非正值清空为未设置；取消不改动。
   Future<void> _editDuration(int? current) async {
     final l10n = context.l10n;
-    final saved = await showDialog<String>(
-      context: context,
+    final saved = await showDFAdaptiveDialog<String>(
+      context,
+      title: l10n.workbenchEditDurationTitle,
+      desktopWidthFactor: 0.36,
       builder: (c) => _TextEditDialog(
-        title: l10n.workbenchEditDurationTitle,
         initial: current != null ? '$current' : '',
         label: l10n.workbenchDurationFieldLabel,
         numeric: true,
@@ -3690,18 +3692,16 @@ class _NleOptionChip extends StatelessWidget {
   }
 }
 
-/// 通用文本编辑弹窗（自持 TextEditingController，在自身 dispose 里释放，避免
+/// 通用文本编辑表单（自持 TextEditingController，在自身 dispose 里释放，避免
 /// 在外层 await 后同步 dispose 导致退场动画期间控制器被误用的崩溃）。返回 trim 前的
 /// 原文（保存）或 null（取消）。
 class _TextEditDialog extends StatefulWidget {
-  final String title;
   final String initial;
   final String? hint;
   final String? label;
   final bool multiline;
   final bool numeric;
   const _TextEditDialog({
-    required this.title,
     required this.initial,
     this.hint,
     this.label,
@@ -3726,28 +3726,46 @@ class _TextEditDialogState extends State<_TextEditDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        key: const ValueKey('workbench-text-edit-input'),
-        controller: _controller,
-        autofocus: true,
-        maxLines: widget.multiline ? 5 : 1,
-        minLines: widget.multiline ? 3 : 1,
-        keyboardType: widget.numeric ? TextInputType.number : null,
-        decoration: InputDecoration(
-          hintText: widget.hint,
-          labelText: widget.label,
-        ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        DFTokens.s20,
+        DFTokens.s16,
+        DFTokens.s20,
+        DFTokens.s20,
       ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.commonCancel)),
-        FilledButton(
-            onPressed: () => Navigator.pop(context, _controller.text),
-            child: Text(l10n.commonSave)),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const ValueKey('workbench-text-edit-input'),
+            controller: _controller,
+            autofocus: true,
+            maxLines: widget.multiline ? 5 : 1,
+            minLines: widget.multiline ? 3 : 1,
+            keyboardType: widget.numeric ? TextInputType.number : null,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              labelText: widget.label,
+            ),
+          ),
+          const SizedBox(height: DFTokens.s20),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: DFTokens.s8,
+            runSpacing: DFTokens.s8,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, _controller.text),
+                child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

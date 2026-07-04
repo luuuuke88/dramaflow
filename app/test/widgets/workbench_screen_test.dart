@@ -4893,6 +4893,52 @@ void main() {
     expect(find.text('7 秒'), findsOneWidget);
   });
 
+  testWidgets('移动端工作台：本镜时长编辑使用全屏表单并保存', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '移动镜头',
+    );
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('未设置'), findsOneWidget);
+    await tester.tap(find.text('未设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('编辑本镜时长'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-text-edit-input')),
+      '7',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    expect(engine.track(trackId)!.duration, 7);
+    expect(find.text('7 秒'), findsOneWidget);
+  });
+
   testWidgets('每镜转场和滤镜可编辑并写入视频轨', (tester) async {
     engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
 
