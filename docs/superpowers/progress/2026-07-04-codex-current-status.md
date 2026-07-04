@@ -15,16 +15,17 @@
 Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 
 - `git status --short --branch`：`## master`，工作树干净。
-- `git log -1 --oneline`：`1777b1b feat(agent): adapt topbar dialogs for mobile`。
+- `git log -1 --oneline`：`88bf7eb feat(agent): configure memory rag limit`。
+- `cd app && flutter analyze`：通过，0 issues。
+- `cd app && flutter test`：通过，430 tests。
 - `cd app && dart run tool/e2e_local_smoke.dart`：通过，纯本地从章节、剧本、素材、分镜、候选视频、镜头配音走到合成导出 mp4。
 - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`。
 - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`。
 - `cd app && flutter build apk --debug`：通过，产物 `build/app/outputs/flutter-apk/app-debug.apk`。
 - `cd app && flutter build web`：通过，产物 `build/web`；仍只代表 Web 预览入口可构建，不代表 H5 完整本地流程。
-- `cd app && flutter test test/docs/production_visual_parity_test.dart`：通过，锁定制作画布视觉 evidence 文档与截图存在。
-- `cd app && flutter test test/docs/page_parity_checklist_test.dart`：通过，页面 parity 清单格式仍完整。
+- Claude 遗留的 `.claude/worktrees/agent-a0a8eaa3ee84e1075` 上有旧 i18n 未提交 diff，但该分支是当前 `master` 的祖先；`commonClear`、settings storage 等相关 l10n key 和 `df_search_field.dart` 的本地化改动已经存在于 `master`。不要把那个旧 worktree 的 diff 当成必须合入的最新补丁。
 
-这次验证没有改变功能代码；它只把当前可构建、可 smoke 的状态重新钉住。
+这次验证没有改变功能代码；它只把当前可构建、可 smoke 的状态重新钉住，并澄清旧 worktree 状态。
 
 ## 刚完成的验证
 
