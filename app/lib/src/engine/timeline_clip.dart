@@ -700,6 +700,21 @@ extension TimelineClipApi on Engine {
     );
   }
 
+  void resizeTimelineClipsEnd({
+    required List<int> clipIds,
+    required int durationMs,
+  }) {
+    if (clipIds.isEmpty) return;
+    final nextDurationMs = durationMs < _minTimelineClipDurationMs
+        ? _minTimelineClipDurationMs
+        : durationMs;
+    final placeholders = List.filled(clipIds.length, '?').join(',');
+    db.execute(
+      'UPDATE o_timelineClip SET durationMs=? WHERE id IN ($placeholders)',
+      [nextDurationMs, ...clipIds],
+    );
+  }
+
   void resizeTimelineClipsEndRipple({
     required List<int> clipIds,
     required int durationMs,

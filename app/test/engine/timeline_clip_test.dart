@@ -240,6 +240,56 @@ void main() {
     expect(clips.singleWhere((c) => c.id == clipIdE).startMs, 900);
   });
 
+  test('resizeTimelineClipsEnd 批量裁剪尾部但不移动后续素材层', () {
+    final clipA = clipAsset('p/batch_trim_a.mp4', 'A');
+    final clipB = clipAsset('p/batch_trim_b.mp4', 'B');
+    final clipC = clipAsset('p/batch_trim_c.mp4', 'C');
+    final clipD = clipAsset('p/batch_trim_d.mp4', 'D');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 100,
+      durationMs: 400,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 2,
+      startMs: 300,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 1,
+      startMs: 900,
+      durationMs: 300,
+    );
+    final clipIdD = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipD,
+      lane: 2,
+      startMs: 900,
+      durationMs: 300,
+    );
+
+    engine.resizeTimelineClipsEnd(
+      clipIds: [clipIdA, clipIdB],
+      durationMs: 700,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).durationMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdB).durationMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 900);
+    expect(clips.singleWhere((c) => c.id == clipIdD).startMs, 900);
+  });
+
   test('addTimelineClipFromAssetRipple 插入素材层并后移同轨后续片段', () {
     final clipA = clipAsset('p/ripple_insert_a.mp4', 'A');
     final clipB = clipAsset('p/ripple_insert_b.mp4', 'B');

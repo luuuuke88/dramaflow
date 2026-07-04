@@ -750,6 +750,8 @@
   "workbenchTimelineDuplicateSelected": "批量复制",
   "workbenchTimelineRippleDuplicateSelected": "批量波纹复制",
   "workbenchTimelineRippleMoveSelected": "批量波纹移动",
+  "workbenchTimelineTrimSelected": "批量裁剪",
+  "workbenchTimelineTrimTitle": "裁剪素材层尾部",
   "workbenchTimelineRippleTrimSelected": "批量波纹裁剪",
   "workbenchTimelineDeleteSelected": "批量删除",
   "workbenchTimelineRippleDeleteSelected": "批量波纹删除",

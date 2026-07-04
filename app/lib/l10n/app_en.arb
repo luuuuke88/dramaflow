@@ -623,6 +623,8 @@
   "workbenchTimelineDuplicateSelected": "Duplicate selected",
   "workbenchTimelineRippleDuplicateSelected": "Ripple duplicate selected",
   "workbenchTimelineRippleMoveSelected": "Ripple move selected",
+  "workbenchTimelineTrimSelected": "Trim selected",
+  "workbenchTimelineTrimTitle": "Trim Overlay End",
   "workbenchTimelineRippleTrimSelected": "Ripple trim selected",
   "workbenchTimelineDeleteSelected": "Delete selected",
   "workbenchTimelineRippleDeleteSelected": "Ripple delete selected",

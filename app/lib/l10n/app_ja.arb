@@ -623,6 +623,8 @@
   "workbenchTimelineDuplicateSelected": "選択を複製",
   "workbenchTimelineRippleDuplicateSelected": "選択をリップル複製",
   "workbenchTimelineRippleMoveSelected": "選択をリップル移動",
+  "workbenchTimelineTrimSelected": "選択をトリム",
+  "workbenchTimelineTrimTitle": "素材レイヤー末尾をトリム",
   "workbenchTimelineRippleTrimSelected": "選択をリップルトリム",
   "workbenchTimelineDeleteSelected": "選択を削除",
   "workbenchTimelineRippleDeleteSelected": "選択をリップル削除",

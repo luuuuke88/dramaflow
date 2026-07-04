@@ -528,6 +528,33 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  Future<void> _trimSelectedClipLayersEnd() async {
+    if (_selectedClipIds.isEmpty || widget.shots.isEmpty) return;
+    final engine = ref.read(engineProvider);
+    final selectedRows = engine
+        .timelineClips(widget.shots.first.scriptId)
+        .where((clip) => _selectedClipIds.contains(clip.id))
+        .toList();
+    if (selectedRows.isEmpty) return;
+    final defaultDurationMs =
+        selectedRows.first.durationMs ?? _defaultClipDurationMs;
+    final nextDurationMs = await showDialog<int>(
+      context: context,
+      builder: (c) => _TimelineClipDurationDialog(
+        defaultDurationMs: defaultDurationMs,
+        title: c.l10n.workbenchTimelineTrimTitle,
+        inputKey: const ValueKey('workbench-timeline-trim-duration-input'),
+        confirmKey: const ValueKey('workbench-timeline-trim-confirm'),
+      ),
+    );
+    if (nextDurationMs == null || !mounted) return;
+    engine.resizeTimelineClipsEnd(
+      clipIds: _selectedClipIds.toList(),
+      durationMs: nextDurationMs,
+    );
+    setState(() {});
+  }
+
   Future<void> _rippleTrimSelectedClipLayersEnd() async {
     if (_selectedClipIds.isEmpty || widget.shots.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -540,8 +567,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         selectedRows.first.durationMs ?? _defaultClipDurationMs;
     final nextDurationMs = await showDialog<int>(
       context: context,
-      builder: (c) => _RippleTrimTimelineClipDialog(
+      builder: (c) => _TimelineClipDurationDialog(
         defaultDurationMs: defaultDurationMs,
+        title: c.l10n.workbenchTimelineRippleTrimTitle,
+        inputKey:
+            const ValueKey('workbench-timeline-ripple-trim-duration-input'),
+        confirmKey: const ValueKey('workbench-timeline-ripple-trim-confirm'),
       ),
     );
     if (nextDurationMs == null || !mounted) return;
@@ -1052,8 +1083,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final duration = clip.durationMs ?? _defaultClipDurationMs;
     final nextDurationMs = await showDialog<int>(
       context: context,
-      builder: (c) => _RippleTrimTimelineClipDialog(
+      builder: (c) => _TimelineClipDurationDialog(
         defaultDurationMs: duration,
+        title: c.l10n.workbenchTimelineRippleTrimTitle,
+        inputKey:
+            const ValueKey('workbench-timeline-ripple-trim-duration-input'),
+        confirmKey: const ValueKey('workbench-timeline-ripple-trim-confirm'),
       ),
     );
     if (nextDurationMs == null || !mounted) return;
@@ -1327,6 +1362,14 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       : _rippleMoveSelectedClipLayers,
                   icon: const Icon(Icons.open_with_outlined, size: 16),
                   label: Text(l10n.workbenchTimelineRippleMoveSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey('workbench-timeline-trim-selected'),
+                  onPressed: selectedClipCount == 0
+                      ? null
+                      : _trimSelectedClipLayersEnd,
+                  icon: const Icon(Icons.content_cut_outlined, size: 16),
+                  label: Text(l10n.workbenchTimelineTrimSelected),
                 ),
                 TextButton.icon(
                   key:
@@ -1977,20 +2020,26 @@ class _SplitTimelineClipDialogState extends State<_SplitTimelineClipDialog> {
   }
 }
 
-class _RippleTrimTimelineClipDialog extends StatefulWidget {
+class _TimelineClipDurationDialog extends StatefulWidget {
   final int defaultDurationMs;
+  final String title;
+  final Key inputKey;
+  final Key confirmKey;
 
-  const _RippleTrimTimelineClipDialog({
+  const _TimelineClipDurationDialog({
     required this.defaultDurationMs,
+    required this.title,
+    required this.inputKey,
+    required this.confirmKey,
   });
 
   @override
-  State<_RippleTrimTimelineClipDialog> createState() =>
-      _RippleTrimTimelineClipDialogState();
+  State<_TimelineClipDurationDialog> createState() =>
+      _TimelineClipDurationDialogState();
 }
 
-class _RippleTrimTimelineClipDialogState
-    extends State<_RippleTrimTimelineClipDialog> {
+class _TimelineClipDurationDialogState
+    extends State<_TimelineClipDurationDialog> {
   late final TextEditingController _durationCtrl;
 
   @override
@@ -2016,9 +2065,9 @@ class _RippleTrimTimelineClipDialogState
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return AlertDialog(
-      title: Text(l10n.workbenchTimelineRippleTrimTitle),
+      title: Text(widget.title),
       content: TextField(
-        key: const ValueKey('workbench-timeline-ripple-trim-duration-input'),
+        key: widget.inputKey,
         controller: _durationCtrl,
         keyboardType: TextInputType.number,
         decoration: InputDecoration(
@@ -2032,7 +2081,7 @@ class _RippleTrimTimelineClipDialogState
           child: Text(l10n.commonCancel),
         ),
         FilledButton(
-          key: const ValueKey('workbench-timeline-ripple-trim-confirm'),
+          key: widget.confirmKey,
           onPressed: _submit,
           child: Text(l10n.commonSave),
         ),
