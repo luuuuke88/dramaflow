@@ -511,6 +511,66 @@ void main() {
     expect(otherLane.durationMs, 400);
   });
 
+  test('moveTimelineClipsRipple 批量波纹移动并后移受影响轨道', () {
+    final clipA = clipAsset('p/batch_ripple_move_a.mp4', 'A');
+    final clipB = clipAsset('p/batch_ripple_move_b.mp4', 'B');
+    final clipC = clipAsset('p/batch_ripple_move_c.mp4', 'C');
+    final clipD = clipAsset('p/batch_ripple_move_d.mp4', 'D');
+    final clipE = clipAsset('p/batch_ripple_move_e.mp4', 'E');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 100,
+      durationMs: 400,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 2,
+      startMs: 300,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 1,
+      startMs: 900,
+      durationMs: 300,
+    );
+    final clipIdD = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipD,
+      lane: 2,
+      startMs: 900,
+      durationMs: 300,
+    );
+    final clipIdE = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipE,
+      lane: 3,
+      startMs: 900,
+      durationMs: 300,
+    );
+
+    engine.moveTimelineClipsRipple(
+      clipIds: [clipIdA, clipIdB],
+      startMs: 500,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 500);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 1300);
+    expect(clips.singleWhere((c) => c.id == clipIdD).startMs, 1300);
+    expect(clips.singleWhere((c) => c.id == clipIdE).startMs, 900);
+  });
+
   test('splitTimelineClipsAt 批量按播放头切分命中的素材层', () {
     final clipA = clipAsset('p/batch_split_a.mp4', 'A');
     final clipB = clipAsset('p/batch_split_b.mp4', 'B');

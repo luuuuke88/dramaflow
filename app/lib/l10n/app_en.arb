@@ -622,6 +622,7 @@
   "workbenchTimelineSplitSelected": "Split selected",
   "workbenchTimelineDuplicateSelected": "Duplicate selected",
   "workbenchTimelineRippleDuplicateSelected": "Ripple duplicate selected",
+  "workbenchTimelineRippleMoveSelected": "Ripple move selected",
   "workbenchTimelineDeleteSelected": "Delete selected",
   "workbenchTimelineRippleDeleteSelected": "Ripple delete selected",
   "workbenchTimelineUnselected": "No video selected",

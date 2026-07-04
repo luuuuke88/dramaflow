@@ -1754,6 +1754,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Ripple duplicate selected';
 
   @override
+  String get workbenchTimelineRippleMoveSelected => 'Ripple move selected';
+
+  @override
   String get workbenchTimelineDeleteSelected => 'Delete selected';
 
   @override
