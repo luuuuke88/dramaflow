@@ -21,6 +21,8 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`。
 - `cd app && flutter build apk --debug`：通过，产物 `build/app/outputs/flutter-apk/app-debug.apk`。
 - `cd app && flutter build web`：通过，产物 `build/web`；仍只代表 Web 预览入口可构建，不代表 H5 完整本地流程。
+- `cd app && flutter test test/docs/production_visual_parity_test.dart`：通过，锁定制作画布视觉 evidence 文档与截图存在。
+- `cd app && flutter test test/docs/page_parity_checklist_test.dart`：通过，页面 parity 清单格式仍完整。
 
 这次验证没有改变功能代码；它只把当前可构建、可 smoke 的状态重新钉住。
 
@@ -29,7 +31,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 2026-07-04 本轮 Codex 接手后重新跑过：
 
 - `cd app && flutter analyze`：通过，0 issues。
-- `cd app && flutter test`：通过，426 tests。
+- `cd app && flutter test`：通过，427 tests。
 - `cd app && dart run tool/e2e_local_smoke.dart`：通过，纯本地、不调用供应商，从章节、剧本、素材、分镜、候选视频、镜头配音走到合成导出 mp4。
 - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`。
 - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`。
@@ -55,7 +57,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 页面 parity 当前状态：
 
 - `Verified`：项目列表 + 新建向导、章节管理 + 事件、剧本、素材库、节点式图片编辑器、配音、任务中心、全套设置。
-- `Partial`：制作画布、多轨工作台、Agent 体系页。
+- `Partial`：制作画布、多轨工作台、Agent 体系页。制作画布已新增 source-anchored visual evidence；如严格要求 live ToonFlow 浏览器并排截图，仍需补该环境证据。
 
 ## 仍不能称为“完全复刻”的部分
 
