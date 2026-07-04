@@ -1619,6 +1619,21 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get workbenchTimelineOverview => 'Timeline Overview';
+
+  @override
+  String get workbenchTimelineVideoTrack => 'Video Track';
+
+  @override
+  String get workbenchTimelineAudioTrack => 'Audio Track';
+
+  @override
+  String get workbenchTimelineUnselected => 'No video selected';
+
+  @override
+  String get workbenchTimelineNoAudio => 'No voice bound';
+
+  @override
   String get workbenchReorderShot => 'Drag to reorder';
 
   @override

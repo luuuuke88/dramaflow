@@ -565,6 +565,11 @@
       }
     }
   },
+  "workbenchTimelineOverview": "タイムライン概要",
+  "workbenchTimelineVideoTrack": "動画トラック",
+  "workbenchTimelineAudioTrack": "音声トラック",
+  "workbenchTimelineUnselected": "動画未選択",
+  "workbenchTimelineNoAudio": "音声未割り当て",
   "workbenchReorderShot": "ドラッグして並べ替え",
   "cornerScapeTitle": "配音",
   "cornerScapeAutoMatch": "AI自動マッチング",

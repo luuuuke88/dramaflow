@@ -1586,6 +1586,21 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get workbenchTimelineOverview => 'タイムライン概要';
+
+  @override
+  String get workbenchTimelineVideoTrack => '動画トラック';
+
+  @override
+  String get workbenchTimelineAudioTrack => '音声トラック';
+
+  @override
+  String get workbenchTimelineUnselected => '動画未選択';
+
+  @override
+  String get workbenchTimelineNoAudio => '音声未割り当て';
+
+  @override
   String get workbenchReorderShot => 'ドラッグして並べ替え';
 
   @override

@@ -3124,6 +3124,36 @@ abstract class AppLocalizations {
   /// **'已保存到素材库（素材 #{assetId}）'**
   String workbenchSavedToAssets(int assetId);
 
+  /// No description provided for @workbenchTimelineOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间线总览'**
+  String get workbenchTimelineOverview;
+
+  /// No description provided for @workbenchTimelineVideoTrack.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频轨'**
+  String get workbenchTimelineVideoTrack;
+
+  /// No description provided for @workbenchTimelineAudioTrack.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频轨'**
+  String get workbenchTimelineAudioTrack;
+
+  /// No description provided for @workbenchTimelineUnselected.
+  ///
+  /// In zh, this message translates to:
+  /// **'未选视频'**
+  String get workbenchTimelineUnselected;
+
+  /// No description provided for @workbenchTimelineNoAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'未绑定配音'**
+  String get workbenchTimelineNoAudio;
+
   /// No description provided for @workbenchReorderShot.
   ///
   /// In zh, this message translates to:

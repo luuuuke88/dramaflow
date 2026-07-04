@@ -11,6 +11,7 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/storyboard_audio.dart';
 import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:dramaflow/src/screens/production/workbench_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
@@ -137,6 +138,74 @@ void main() {
 
     expect(find.text('S1'), findsOneWidget);
     expect(find.textContaining('合成本集'), findsOneWidget);
+  });
+
+  testWidgets('工作台显示视频轨和音频轨时间线总览', (tester) async {
+    final s1 = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    final s2 = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头二',
+      duration: '6',
+    );
+    final t1 = engine.ensureTrackForStoryboard(s1);
+    final t2 = engine.ensureTrackForStoryboard(s2);
+    engine.updateVideoDuration(t1, 5);
+    engine.db.execute(
+      "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+      [t1, 'p/vid_1.mp4', vtDone],
+    );
+    engine.selectVideo(t1, engine.db.lastInsertRowId);
+    engine.db.execute(
+      "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+      [t2, 'p/vid_2.mp4', vtDone],
+    );
+    engine.selectVideo(t2, engine.db.lastInsertRowId);
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '旁白音色',
+      sex: '女',
+      describe: '温柔',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '这里绑定到第二镜。',
+          name: '旁白音色-样例',
+          describe: '轻声',
+          existingImageId: null,
+        ),
+      ],
+    );
+    engine.bindStoryboardAudio(storyboardId: s2, audioAssetId: audioId);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('时间线总览'), findsOneWidget);
+    expect(find.text('视频轨'), findsOneWidget);
+    expect(find.text('音频轨'), findsOneWidget);
+    expect(
+        find.byKey(ValueKey('workbench-timeline-video-$s1')), findsOneWidget);
+    expect(
+        find.byKey(ValueKey('workbench-timeline-video-$s2')), findsOneWidget);
+    expect(
+        find.byKey(ValueKey('workbench-timeline-audio-$s2')), findsOneWidget);
+    expect(find.text('5 秒'), findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byKey(ValueKey('workbench-timeline-audio-$s2')),
+        matching: find.text('旁白音色'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('点击生成运镜提示词按钮不崩溃且写入轨道', (tester) async {

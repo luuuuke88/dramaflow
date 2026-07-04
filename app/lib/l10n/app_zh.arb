@@ -692,6 +692,11 @@
       }
     }
   },
+  "workbenchTimelineOverview": "时间线总览",
+  "workbenchTimelineVideoTrack": "视频轨",
+  "workbenchTimelineAudioTrack": "音频轨",
+  "workbenchTimelineUnselected": "未选视频",
+  "workbenchTimelineNoAudio": "未绑定配音",
   "workbenchReorderShot": "拖拽调整顺序",
   "cornerScapeTitle": "配音",
   "cornerScapeAutoMatch": "AI 自动匹配",

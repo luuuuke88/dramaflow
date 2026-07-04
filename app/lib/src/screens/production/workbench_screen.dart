@@ -225,37 +225,269 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       ),
       body: shots.isEmpty
           ? Center(child: DFEmpty(text: l10n.workbenchNoShots))
-          : ReorderableListView.builder(
-              padding: const EdgeInsets.all(16),
-              buildDefaultDragHandles: false,
-              onReorderItem: (oldIndex, newIndex) =>
-                  _reorderShots(shots, oldIndex, newIndex),
-              itemCount: shots.length,
-              itemBuilder: (c, i) {
-                final shot = shots[i];
-                return Padding(
-                  key: ValueKey('workbench-shot-item-${shot.id}'),
-                  padding:
-                      EdgeInsets.only(bottom: i == shots.length - 1 ? 0 : 12),
-                  child: _ShotRow(
-                    projectId: widget.projectId,
-                    shot: shot,
-                    index: i,
-                    dragHandle: ReorderableDragStartListener(
-                      key: ValueKey('workbench-reorder-handle-${shot.id}'),
-                      index: i,
-                      child: Tooltip(
-                        message: l10n.workbenchReorderShot,
-                        child: Icon(Icons.drag_indicator_rounded,
-                            color: context.df.textTertiary),
-                      ),
-                    ),
+          : Column(
+              children: [
+                _TimelineOverview(projectId: widget.projectId, shots: shots),
+                Expanded(
+                  child: ReorderableListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    buildDefaultDragHandles: false,
+                    onReorderItem: (oldIndex, newIndex) =>
+                        _reorderShots(shots, oldIndex, newIndex),
+                    itemCount: shots.length,
+                    itemBuilder: (c, i) {
+                      final shot = shots[i];
+                      return Padding(
+                        key: ValueKey('workbench-shot-item-${shot.id}'),
+                        padding: EdgeInsets.only(
+                            bottom: i == shots.length - 1 ? 0 : 12),
+                        child: _ShotRow(
+                          projectId: widget.projectId,
+                          shot: shot,
+                          index: i,
+                          dragHandle: ReorderableDragStartListener(
+                            key:
+                                ValueKey('workbench-reorder-handle-${shot.id}'),
+                            index: i,
+                            child: Tooltip(
+                              message: l10n.workbenchReorderShot,
+                              child: Icon(Icons.drag_indicator_rounded,
+                                  color: context.df.textTertiary),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+              ],
             ),
     );
   }
+}
+
+class _TimelineOverview extends ConsumerWidget {
+  final int projectId;
+  final List<StoryboardRow> shots;
+
+  const _TimelineOverview({required this.projectId, required this.shots});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final engine = ref.watch(engineProvider);
+    final audioNames = {
+      for (final audio in engine.audioPool(projectId)) audio.id: audio.name,
+    };
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: df.surface,
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        border: Border.all(color: df.stroke),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.view_timeline_outlined, size: 18, color: df.primary),
+          const SizedBox(width: 8),
+          Text(
+            l10n.workbenchTimelineOverview,
+            style: TextStyle(
+              color: df.textHi,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _TimelineLane(
+              label: l10n.workbenchTimelineVideoTrack,
+              icon: Icons.movie_outlined,
+              children: [
+                for (var i = 0; i < shots.length; i++)
+                  _TimelineClip(
+                    key: ValueKey('workbench-timeline-video-${shots[i].id}'),
+                    index: i,
+                    shot: shots[i],
+                    track: shots[i].trackId != null
+                        ? engine.track(shots[i].trackId!)
+                        : null,
+                    kind: _TimelineClipKind.video,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _TimelineLane(
+              label: l10n.workbenchTimelineAudioTrack,
+              icon: Icons.graphic_eq_outlined,
+              children: [
+                for (var i = 0; i < shots.length; i++)
+                  _TimelineClip(
+                    key: ValueKey('workbench-timeline-audio-${shots[i].id}'),
+                    index: i,
+                    shot: shots[i],
+                    track: shots[i].trackId != null
+                        ? engine.track(shots[i].trackId!)
+                        : null,
+                    kind: _TimelineClipKind.audio,
+                    audioName: shots[i].audioAssetId != null
+                        ? audioNames[shots[i].audioAssetId]
+                        : null,
+                  ),
+              ],
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _TimelineLane extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final List<Widget> children;
+
+  const _TimelineLane({
+    required this.label,
+    required this.icon,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      SizedBox(
+        width: 84,
+        child: Row(children: [
+          Icon(icon, size: 14, color: df.textTertiary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: df.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ]),
+      ),
+      const SizedBox(width: 8),
+      Row(children: children),
+    ]);
+  }
+}
+
+enum _TimelineClipKind { video, audio }
+
+class _TimelineClip extends StatelessWidget {
+  final int index;
+  final StoryboardRow shot;
+  final VideoTrackRow? track;
+  final _TimelineClipKind kind;
+  final String? audioName;
+
+  const _TimelineClip({
+    super.key,
+    required this.index,
+    required this.shot,
+    required this.track,
+    required this.kind,
+    this.audioName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final seconds = _timelineSeconds(shot, track);
+    final width = (72 + seconds * 7).clamp(96, 184).toDouble();
+    final hasVideo = track?.selectVideoId != null;
+    final hasAudio = audioName?.isNotEmpty == true;
+    final isVideo = kind == _TimelineClipKind.video;
+    final active = isVideo ? hasVideo : hasAudio;
+    final label = isVideo
+        ? (hasVideo ? l10n.workbenchSelected : l10n.workbenchTimelineUnselected)
+        : (audioName ?? l10n.workbenchTimelineNoAudio);
+
+    return Container(
+      width: width,
+      height: isVideo ? 48 : 36,
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: active ? df.primarySubtle : df.surfaceMuted,
+        borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+        border: Border.all(color: active ? df.primary : df.stroke),
+      ),
+      child: Row(children: [
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active
+                ? df.primary.withValues(alpha: 0.14)
+                : df.stroke.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+          ),
+          child: Text(
+            '${index + 1}',
+            style: TextStyle(
+              color: active ? df.primary : df.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: active ? df.textHi : df.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (isVideo) ...[
+              const SizedBox(height: 2),
+              Text(
+                l10n.workbenchDurationSeconds(seconds),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: df.textTertiary, fontSize: 10),
+              ),
+            ],
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+int _timelineSeconds(StoryboardRow shot, VideoTrackRow? track) {
+  final fromTrack = track?.duration;
+  if (fromTrack != null && fromTrack > 0) return fromTrack;
+  final fromShot = int.tryParse((shot.duration ?? '').trim());
+  if (fromShot != null && fromShot > 0) return fromShot;
+  return 4;
 }
 
 class _ShotRow extends ConsumerStatefulWidget {

@@ -565,6 +565,11 @@
       }
     }
   },
+  "workbenchTimelineOverview": "Timeline Overview",
+  "workbenchTimelineVideoTrack": "Video Track",
+  "workbenchTimelineAudioTrack": "Audio Track",
+  "workbenchTimelineUnselected": "No video selected",
+  "workbenchTimelineNoAudio": "No voice bound",
   "workbenchReorderShot": "Drag to reorder",
   "cornerScapeTitle": "Voice",
   "cornerScapeAutoMatch": "AI Auto-Match",

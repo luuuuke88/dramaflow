@@ -1575,6 +1575,21 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get workbenchTimelineOverview => '时间线总览';
+
+  @override
+  String get workbenchTimelineVideoTrack => '视频轨';
+
+  @override
+  String get workbenchTimelineAudioTrack => '音频轨';
+
+  @override
+  String get workbenchTimelineUnselected => '未选视频';
+
+  @override
+  String get workbenchTimelineNoAudio => '未绑定配音';
+
+  @override
   String get workbenchReorderShot => '拖拽调整顺序';
 
   @override
