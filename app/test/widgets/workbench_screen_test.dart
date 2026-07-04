@@ -973,6 +973,53 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('工作台拖拽素材层接近播放头时自动吸附', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const rel = 'p/playhead_snap_overlay.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 2, 0]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '播放头吸附素材',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 1,
+      startMs: 1500,
+      durationMs: 500,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '2200',
+    );
+    await tester.pumpAndSettle();
+
+    final clipFinder = find.byKey(ValueKey('workbench-timeline-clip-$clipId'));
+    expect(clipFinder, findsOneWidget);
+    await tester.drag(clipFinder, const Offset(72, 0));
+    await tester.pumpAndSettle();
+
+    final moved = engine.timelineClips(scriptId).single;
+    expect(moved.startMs, 2200);
+    expect(moved.durationMs, 500);
+    expect(find.textContaining('2200ms · 500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台拖拽素材层时避免同轨重叠冲突', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
@@ -1342,7 +1389,10 @@ void main() {
     await tester.tap(find.text('未设置'));
     await tester.pumpAndSettle();
     expect(find.text('编辑本镜时长'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), '7');
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-text-edit-input')),
+      '7',
+    );
     await tester.tap(find.widgetWithText(FilledButton, '保存'));
     await tester.pumpAndSettle();
 
@@ -1392,7 +1442,10 @@ void main() {
     await tester.tap(find.text('暂无运镜提示词，点击生成或编辑'));
     await tester.pumpAndSettle();
     expect(find.text('编辑运镜提示词'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), '缓慢推近特写');
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-text-edit-input')),
+      '缓慢推近特写',
+    );
     await tester.tap(find.widgetWithText(FilledButton, '保存'));
     await tester.pumpAndSettle();
 

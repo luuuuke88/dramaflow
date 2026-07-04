@@ -446,6 +446,15 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   static const int _minClipDurationMs = 100;
   static const int _snapThresholdMs = 100;
 
+  int? _snapPlayheadMs;
+
+  void _updateSnapPlayhead(String value) {
+    final parsed = int.tryParse(value.trim());
+    setState(() {
+      _snapPlayheadMs = parsed != null && parsed >= 0 ? parsed : null;
+    });
+  }
+
   Future<void> _addClipLayer() async {
     final l10n = context.l10n;
     final engine = ref.read(engineProvider);
@@ -679,6 +688,8 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     required TimelineClipRow clip,
   }) {
     final anchors = <int>{0};
+    final playheadMs = _snapPlayheadMs;
+    if (playheadMs != null) anchors.add(playheadMs);
     var cursorMs = 0;
     for (final shot in widget.shots.where((s) => s.scriptId == clip.scriptId)) {
       final track = shot.trackId != null ? engine.track(shot.trackId!) : null;
@@ -802,6 +813,19 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
               ),
             ),
           ),
+          SizedBox(
+            width: 132,
+            child: TextField(
+              key: const ValueKey('workbench-timeline-playhead-input'),
+              decoration: InputDecoration(
+                isDense: true,
+                labelText: l10n.workbenchTimelineSplitAtMs,
+              ),
+              keyboardType: TextInputType.number,
+              onChanged: _updateSnapPlayhead,
+            ),
+          ),
+          const SizedBox(width: 8),
           TextButton.icon(
             onPressed: widget.shots.isEmpty ? null : _addClipLayer,
             icon: const Icon(Icons.add_to_photos_outlined, size: 16),
@@ -2118,6 +2142,7 @@ class _TextEditDialogState extends State<_TextEditDialog> {
     return AlertDialog(
       title: Text(widget.title),
       content: TextField(
+        key: const ValueKey('workbench-text-edit-input'),
         controller: _controller,
         autofocus: true,
         maxLines: widget.multiline ? 5 : 1,
