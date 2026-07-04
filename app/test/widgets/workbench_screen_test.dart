@@ -270,6 +270,48 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('工作台可拖拽素材层调整时间线位置', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/drag_overlay_clip.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([7, 8, 9]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '拖动素材',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 2,
+      startMs: 1500,
+      durationMs: 1200,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final clipFinder = find.byKey(ValueKey('workbench-timeline-clip-$clipId'));
+    expect(clipFinder, findsOneWidget);
+    await tester.drag(clipFinder, const Offset(48, 40));
+    await tester.pumpAndSettle();
+
+    final updated = engine.timelineClips(scriptId).single;
+    expect(updated.lane, 3);
+    expect(updated.startMs, 1900);
+    expect(updated.durationMs, 1200);
+    expect(find.textContaining('L3 · 1900ms'), findsOneWidget);
+  });
+
   testWidgets('工作台批量生成只作用于已勾选镜头轨道', (tester) async {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头一');

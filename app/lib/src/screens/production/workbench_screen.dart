@@ -438,6 +438,10 @@ class _TimelineOverview extends ConsumerStatefulWidget {
 }
 
 class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
+  static const double _dragPixelsPerTimeStep = 12;
+  static const int _dragTimeStepMs = 100;
+  static const double _dragPixelsPerLaneStep = 36;
+
   Future<void> _addClipLayer() async {
     final l10n = context.l10n;
     final engine = ref.read(engineProvider);
@@ -466,6 +470,20 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(localizeError(context, e))));
     }
+  }
+
+  void _moveClipLayer(TimelineClipRow clip, Offset dragDelta) {
+    final timeSteps = (dragDelta.dx / _dragPixelsPerTimeStep).round();
+    final laneSteps = (dragDelta.dy / _dragPixelsPerLaneStep).round();
+    if (timeSteps == 0 && laneSteps == 0) return;
+    final engine = ref.read(engineProvider);
+    engine.updateTimelineClip(
+      clipId: clip.id,
+      lane: clip.lane + laneSteps,
+      startMs: clip.startMs + timeSteps * _dragTimeStepMs,
+      durationMs: clip.durationMs,
+    );
+    setState(() {});
   }
 
   @override
@@ -558,7 +576,11 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                 label: l10n.workbenchTimelineOverlayTrack,
                 icon: Icons.layers_outlined,
                 children: [
-                  for (final clip in clips) _TimelineAssetClip(clip: clip),
+                  for (final clip in clips)
+                    _TimelineAssetClip(
+                      clip: clip,
+                      onDragCommit: (delta) => _moveClipLayer(clip, delta),
+                    ),
                 ],
               ),
             ],
@@ -835,53 +857,71 @@ class _TimelineClip extends StatelessWidget {
   }
 }
 
-class _TimelineAssetClip extends StatelessWidget {
+class _TimelineAssetClip extends StatefulWidget {
   final TimelineClipRow clip;
+  final ValueChanged<Offset> onDragCommit;
 
-  const _TimelineAssetClip({required this.clip});
+  const _TimelineAssetClip({
+    required this.clip,
+    required this.onDragCommit,
+  });
+
+  @override
+  State<_TimelineAssetClip> createState() => _TimelineAssetClipState();
+}
+
+class _TimelineAssetClipState extends State<_TimelineAssetClip> {
+  Offset _dragDelta = Offset.zero;
 
   @override
   Widget build(BuildContext context) {
     final df = context.df;
+    final clip = widget.clip;
     final durationSec = ((clip.durationMs ?? 1000) / 1000).ceil();
     final width = (96 + durationSec * 7).clamp(112, 220).toDouble();
-    return Container(
-      key: ValueKey('workbench-timeline-clip-${clip.id}'),
-      width: width,
-      height: 48,
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: df.success.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-        border: Border.all(color: df.success.withValues(alpha: 0.65)),
-      ),
-      child: Row(children: [
-        Icon(Icons.layers_outlined, size: 16, color: df.success),
-        const SizedBox(width: 8),
-        Expanded(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(
-              clip.name ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: df.textHi,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            Text(
-              'L${clip.lane} · ${clip.startMs}ms'
-              '${clip.durationMs != null ? ' · ${clip.durationMs}ms' : ''}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: df.textTertiary, fontSize: 10),
-            ),
-          ]),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) => _dragDelta = Offset.zero,
+      onPanUpdate: (details) => _dragDelta += details.delta,
+      onPanEnd: (_) => widget.onDragCommit(_dragDelta),
+      child: Container(
+        key: ValueKey('workbench-timeline-clip-${clip.id}'),
+        width: width,
+        height: 48,
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: df.success.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+          border: Border.all(color: df.success.withValues(alpha: 0.65)),
         ),
-      ]),
+        child: Row(children: [
+          Icon(Icons.layers_outlined, size: 16, color: df.success),
+          const SizedBox(width: 8),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                clip.name ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: df.textHi,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                'L${clip.lane} · ${clip.startMs}ms'
+                '${clip.durationMs != null ? ' · ${clip.durationMs}ms' : ''}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: df.textTertiary, fontSize: 10),
+              ),
+            ]),
+          ),
+        ]),
+      ),
     );
   }
 }

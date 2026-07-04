@@ -310,6 +310,51 @@ void main() {
     expect(composed[1].durationMs, 1200);
   });
 
+  test('timelineClip：可更新时间线位置并夹住非法值', () {
+    const overlayRel = 'p/overlay-edit.mp4';
+    File(engine.mediaAbsPath(overlayRel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '云雾遮罩',
+      relPath: overlayRel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 2,
+      startMs: 1500,
+      durationMs: 1200,
+    );
+
+    engine.updateTimelineClip(
+      clipId: clipId,
+      lane: -3,
+      startMs: -200,
+      durationMs: -1,
+    );
+
+    final clip = engine.timelineClips(scriptId).single;
+    expect(clip.id, clipId);
+    expect(clip.lane, 1);
+    expect(clip.startMs, 0);
+    expect(clip.durationMs, isNull);
+
+    engine.updateTimelineClip(
+      clipId: clipId,
+      lane: 4,
+      startMs: 2300,
+      durationMs: 900,
+    );
+
+    final updated = engine.timelineClips(scriptId).single;
+    expect(updated.lane, 4);
+    expect(updated.startMs, 2300);
+    expect(updated.durationMs, 900);
+  });
+
   test('composeEpisode：存在未选中分镜时抛 errPromptMissing 且不拼接', () async {
     engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     expect(

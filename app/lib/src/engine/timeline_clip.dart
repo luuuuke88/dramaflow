@@ -85,6 +85,22 @@ extension TimelineClipApi on Engine {
         .toList();
   }
 
+  void updateTimelineClip({
+    required int clipId,
+    required int lane,
+    required int startMs,
+    int? durationMs,
+  }) {
+    final normalizedLane = lane < 1 ? 1 : lane;
+    final normalizedStart = startMs < 0 ? 0 : startMs;
+    final normalizedDuration =
+        durationMs != null && durationMs > 0 ? durationMs : null;
+    db.execute(
+      'UPDATE o_timelineClip SET lane=?, startMs=?, durationMs=? WHERE id=?',
+      [normalizedLane, normalizedStart, normalizedDuration, clipId],
+    );
+  }
+
   void deleteTimelineClip(int clipId) {
     db.execute('DELETE FROM o_timelineClip WHERE id=?', [clipId]);
   }
