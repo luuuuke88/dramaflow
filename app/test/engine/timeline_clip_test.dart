@@ -232,6 +232,45 @@ void main() {
     expect(otherLane.durationMs, 600);
   });
 
+  test('addTimelineClipFromAssetAutoLane 在同一时间寻找空素材层', () {
+    final clipA = clipAsset('p/auto_lane_a.mp4', 'A');
+    final clipB = clipAsset('p/auto_lane_b.mp4', 'B');
+    final clipInsert = clipAsset('p/auto_lane_insert.mp4', 'Insert');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 2,
+      startMs: 0,
+      durationMs: 1000,
+    );
+
+    final insertedId = engine.addTimelineClipFromAssetAutoLane(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipInsert,
+      lane: 1,
+      startMs: 200,
+      durationMs: 500,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).lane, 1);
+    expect(clips.singleWhere((c) => c.id == clipIdB).lane, 2);
+    final inserted = clips.singleWhere((c) => c.id == insertedId);
+    expect(inserted.lane, 3);
+    expect(inserted.startMs, 200);
+    expect(inserted.durationMs, 500);
+  });
+
   test('duplicateTimelineClip 复制素材层并避让同轨后续片段', () {
     final clipA = clipAsset('p/duplicate_a.mp4', 'A');
     final clipB = clipAsset('p/duplicate_b.mp4', 'B');

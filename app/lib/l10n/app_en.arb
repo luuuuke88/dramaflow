@@ -577,6 +577,7 @@
   "workbenchTimelineAddClip": "Add Overlay",
   "workbenchTimelineAddClipTitle": "Add Overlay Clip",
   "workbenchTimelineAdd": "Add",
+  "workbenchTimelineAutoLayerAdd": "Auto layer add",
   "workbenchTimelineRippleInsert": "Ripple insert",
   "workbenchTimelineLayer": "Layer",
   "workbenchTimelineStartMs": "Start (ms)",

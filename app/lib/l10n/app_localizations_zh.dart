@@ -1612,6 +1612,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineAdd => '添加';
 
   @override
+  String get workbenchTimelineAutoLayerAdd => '自动层级添加';
+
+  @override
   String get workbenchTimelineRippleInsert => '波纹插入';
 
   @override

@@ -466,7 +466,16 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         builder: (c) => _AddTimelineClipDialog(clips: clips),
       );
       if (draft == null || !mounted) return;
-      if (draft.rippleInsert) {
+      if (draft.autoLane) {
+        engine.addTimelineClipFromAssetAutoLane(
+          projectId: widget.projectId,
+          scriptId: widget.shots.first.scriptId,
+          clipAssetId: draft.asset.id,
+          lane: draft.lane,
+          startMs: draft.startMs,
+          durationMs: draft.durationMs,
+        );
+      } else if (draft.rippleInsert) {
         engine.addTimelineClipFromAssetRipple(
           projectId: widget.projectId,
           scriptId: widget.shots.first.scriptId,
@@ -948,6 +957,7 @@ class _TimelineClipDraft {
   final int startMs;
   final int? durationMs;
   final bool rippleInsert;
+  final bool autoLane;
 
   const _TimelineClipDraft({
     required this.asset,
@@ -955,6 +965,7 @@ class _TimelineClipDraft {
     required this.startMs,
     required this.durationMs,
     required this.rippleInsert,
+    required this.autoLane,
   });
 }
 
@@ -1002,7 +1013,10 @@ class _AddTimelineClipDialogState extends State<_AddTimelineClipDialog> {
     super.dispose();
   }
 
-  _TimelineClipDraft? _draft({required bool rippleInsert}) {
+  _TimelineClipDraft? _draft({
+    required bool rippleInsert,
+    required bool autoLane,
+  }) {
     final selected = _selected;
     if (selected == null) return null;
     return _TimelineClipDraft(
@@ -1011,6 +1025,7 @@ class _AddTimelineClipDialogState extends State<_AddTimelineClipDialog> {
       startMs: int.tryParse(_startCtrl.text.trim()) ?? 0,
       durationMs: int.tryParse(_durationCtrl.text.trim()),
       rippleInsert: rippleInsert,
+      autoLane: autoLane,
     );
   }
 
@@ -1086,13 +1101,28 @@ class _AddTimelineClipDialogState extends State<_AddTimelineClipDialog> {
         FilledButton(
           onPressed: _selected == null
               ? null
-              : () => Navigator.pop(context, _draft(rippleInsert: false)),
+              : () => Navigator.pop(
+                    context,
+                    _draft(rippleInsert: false, autoLane: false),
+                  ),
           child: Text(l10n.workbenchTimelineAdd),
         ),
         FilledButton(
           onPressed: _selected == null
               ? null
-              : () => Navigator.pop(context, _draft(rippleInsert: true)),
+              : () => Navigator.pop(
+                    context,
+                    _draft(rippleInsert: false, autoLane: true),
+                  ),
+          child: Text(l10n.workbenchTimelineAutoLayerAdd),
+        ),
+        FilledButton(
+          onPressed: _selected == null
+              ? null
+              : () => Navigator.pop(
+                    context,
+                    _draft(rippleInsert: true, autoLane: false),
+                  ),
           child: Text(l10n.workbenchTimelineRippleInsert),
         ),
       ],

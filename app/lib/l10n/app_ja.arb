@@ -577,6 +577,7 @@
   "workbenchTimelineAddClip": "素材レイヤー追加",
   "workbenchTimelineAddClipTitle": "素材レイヤーを追加",
   "workbenchTimelineAdd": "追加",
+  "workbenchTimelineAutoLayerAdd": "自動レイヤー追加",
   "workbenchTimelineRippleInsert": "リップル挿入",
   "workbenchTimelineLayer": "レイヤー",
   "workbenchTimelineStartMs": "開始(ms)",

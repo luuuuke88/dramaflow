@@ -135,6 +135,57 @@ extension TimelineClipApi on Engine {
     return db.lastInsertRowId;
   }
 
+  int addTimelineClipFromAssetAutoLane({
+    required int projectId,
+    required int scriptId,
+    required int clipAssetId,
+    int lane = 1,
+    int startMs = 0,
+    int? durationMs,
+  }) {
+    final clipRow = db.select(
+      'SELECT a.name name, a.type type, i.filePath filePath '
+      'FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId '
+      'WHERE a.id=? AND a.projectId=?',
+      [clipAssetId, projectId],
+    ).firstOrNull;
+    final rel = clipRow?['filePath'] as String?;
+    if (clipRow == null ||
+        clipRow['type'] != 'clip' ||
+        rel == null ||
+        rel.isEmpty ||
+        !File(media.absPath(rel)).existsSync()) {
+      throw const EngineException(errFileType, {'type': 'clip'});
+    }
+    final normalizedLane = lane < 1 ? 1 : lane;
+    final normalizedStart = startMs < 0 ? 0 : startMs;
+    final normalizedDuration =
+        durationMs != null && durationMs > 0 ? durationMs : null;
+    final resolvedLane = _findFreeTimelineLane(
+      db: db,
+      scriptId: scriptId,
+      preferredLane: normalizedLane,
+      startMs: normalizedStart,
+      durationMs: normalizedDuration ?? _defaultTimelineClipDurationMs,
+    );
+    db.execute(
+      'INSERT INTO o_timelineClip '
+      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
+      'VALUES (?,?,?,?,?,?,?,?)',
+      [
+        projectId,
+        scriptId,
+        clipAssetId,
+        clipRow['name'],
+        rel,
+        resolvedLane,
+        normalizedStart,
+        normalizedDuration,
+      ],
+    );
+    return db.lastInsertRowId;
+  }
+
   List<TimelineClipRow> timelineClips(int scriptId) {
     return db
         .select(
@@ -376,4 +427,58 @@ int _avoidTimelineOverlapForward({
     }
   }
   return candidate;
+}
+
+int _findFreeTimelineLane({
+  required Database db,
+  required int scriptId,
+  required int preferredLane,
+  required int startMs,
+  required int durationMs,
+}) {
+  var lane = preferredLane < 1 ? 1 : preferredLane;
+  final maxLaneRow = db.select(
+    'SELECT MAX(lane) maxLane FROM o_timelineClip WHERE scriptId=?',
+    [scriptId],
+  ).firstOrNull;
+  final maxLane = (maxLaneRow?['maxLane'] as int?) ?? lane;
+  final guardLimit = maxLane + 2;
+  while (lane <= guardLimit) {
+    if (_timelineLaneHasSpace(
+      db: db,
+      scriptId: scriptId,
+      lane: lane,
+      startMs: startMs,
+      durationMs: durationMs,
+    )) {
+      return lane;
+    }
+    lane += 1;
+  }
+  return guardLimit + 1;
+}
+
+bool _timelineLaneHasSpace({
+  required Database db,
+  required int scriptId,
+  required int lane,
+  required int startMs,
+  required int durationMs,
+}) {
+  final endMs = startMs + durationMs;
+  final conflicts = db.select(
+    'SELECT 1 FROM o_timelineClip '
+    'WHERE scriptId=? AND lane=? '
+    'AND ? < startMs + COALESCE(durationMs, ?) '
+    'AND ? > startMs '
+    'LIMIT 1',
+    [
+      scriptId,
+      lane < 1 ? 1 : lane,
+      startMs,
+      _defaultTimelineClipDurationMs,
+      endMs
+    ],
+  );
+  return conflicts.isEmpty;
 }

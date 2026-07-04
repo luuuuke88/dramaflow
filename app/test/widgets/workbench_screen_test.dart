@@ -282,6 +282,78 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('工作台添加素材层可自动选择同时间空层', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/auto_layer_a.mp4';
+    const relB = 'p/auto_layer_b.mp4';
+    const relInsert = 'p/auto_layer_insert.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 1, 9]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 2, 9]);
+    File(engine.mediaAbsPath(relInsert))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 3, 9]);
+    engine.registerClipAsset(
+      projectId: projectId,
+      name: '自动层素材',
+      relPath: relInsert,
+    );
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '已有素材 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '已有素材 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 0,
+      durationMs: 1000,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('添加素材层'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '层级'), '1');
+    await tester.enterText(find.widgetWithText(TextField, '起点(ms)'), '200');
+    await tester.enterText(find.widgetWithText(TextField, '时长(ms)'), '500');
+    await tester.tap(find.widgetWithText(FilledButton, '自动层级添加'));
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    final inserted = clips.singleWhere((clip) => clip.name == '自动层素材');
+    expect(inserted.lane, 3);
+    expect(inserted.startMs, 200);
+    expect(inserted.durationMs, 500);
+    expect(find.textContaining('L3 · 200ms · 500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可波纹插入素材层并后移同轨后续片段', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

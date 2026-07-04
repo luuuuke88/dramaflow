@@ -3196,6 +3196,12 @@ abstract class AppLocalizations {
   /// **'添加'**
   String get workbenchTimelineAdd;
 
+  /// No description provided for @workbenchTimelineAutoLayerAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动层级添加'**
+  String get workbenchTimelineAutoLayerAdd;
+
   /// No description provided for @workbenchTimelineRippleInsert.
   ///
   /// In zh, this message translates to:
