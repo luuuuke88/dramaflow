@@ -31,7 +31,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 2026-07-04 本轮 Codex 接手后重新跑过：
 
 - `cd app && flutter analyze`：通过，0 issues。
-- `cd app && flutter test`：通过，428 tests。
+- `cd app && flutter test`：通过，430 tests。
 - `cd app && dart run tool/e2e_local_smoke.dart`：通过，纯本地、不调用供应商，从章节、剧本、素材、分镜、候选视频、镜头配音走到合成导出 mp4。
 - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`。
 - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`。
@@ -71,7 +71,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
    - 仍缺完整 WebAV clip editor 级别能力：复杂 snapping、复杂叠放冲突、更多 ripple、多素材自由编排细节、Web 端转场/滤镜真实渲染。
 
 3. Agent 体系仍是瘦身版。
-   - 已有模型部署、技能开关、消息持久化、本地记忆、工具调用、简单 custom-js-agent return 模板。
+   - 已有模型部署、技能开关、消息持久化、本地记忆、RAG 检索条数配置、工具调用、简单 custom-js-agent return 模板。
    - 未完整复刻 ToonFlow/Claude 风格的多层 Agent 编排、向量 RAG 召回/重排、完整 QuickJS/flutter_js 自定义技能运行时。
 
 4. 制作画布 live 浏览器并排截图只是加强证据。

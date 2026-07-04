@@ -311,6 +311,27 @@ void main() {
     expect(gateway.lastSystem, contains('寒山少主李澈'));
   });
 
+  test('长期记忆：ragLimit 设置会限制注入 Agent system prompt 的条数', () async {
+    for (var i = 1; i <= 4; i++) {
+      engine.saveAgentMemory(
+        projectId,
+        name: '寒山记忆$i',
+        content: '寒山线索$i，全部都应该能被检索到。',
+      );
+    }
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['ragLimit', '2'],
+    );
+
+    gateway.turns = [const AgentTurnResult.text('收到')];
+    await engine.sendAgentMessage(projectId, '继续写寒山线索', autoMode: false);
+
+    final injected =
+        RegExp(r'^- ', multiLine: true).allMatches(gateway.lastSystem).length;
+    expect(injected, 2);
+  });
+
   test('长期记忆：写入本地 embedding，搜索旧记录时自动回填', () {
     final id = engine.saveAgentMemory(
       projectId,

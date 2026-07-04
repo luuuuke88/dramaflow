@@ -2083,6 +2083,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentMemoryDeleted => '長期記憶を削除しました';
 
   @override
+  String get agentRagLimitTitle => '検索メモリ件数';
+
+  @override
+  String get agentRagLimitHelp =>
+      'Agent の各返信前に長期記憶から検索して注入する最大件数です。ToonFlow の ragLimit と揃えています。';
+
+  @override
+  String get agentRagLimitSaved => '検索メモリ件数を保存しました';
+
+  @override
+  String get agentRagLimitInvalid => '0-50 の整数を入力してください';
+
+  @override
   String get cornerScapeSearchHint => 'キャラクター名を検索';
 
   @override

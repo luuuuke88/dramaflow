@@ -28,6 +28,7 @@ const agentRoleAssistant = 'assistant';
 const agentRoleTool = 'tool';
 
 const _maxAutoTurns = 5;
+const _defaultAgentRagLimit = 3;
 const _agentMemoryRole = 'agent';
 const _agentMemoryType = 'note';
 
@@ -756,6 +757,16 @@ extension AgentApi on Engine {
     return (row?['value'] as String?) == 'auto';
   }
 
+  int agentRagLimit() => _agentRagLimit();
+
+  void setAgentRagLimit(int limit) {
+    final normalized = limit.clamp(0, 50).toInt();
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['ragLimit', '$normalized'],
+    );
+  }
+
   void setAgentUseMode(bool autoMode) {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
@@ -776,7 +787,9 @@ extension AgentApi on Engine {
         .add(AgentMessage(role: agentRoleUser, content: text, createdAt: now));
     _saveAgentMessages(projectId, messages);
 
-    final system = _agentSystemPrompt(searchAgentMemories(projectId, text));
+    final system = _agentSystemPrompt(
+      searchAgentMemories(projectId, text, limit: _agentRagLimit()),
+    );
 
     for (var turn = 0; turn < (autoMode ? _maxAutoTurns : 1); turn++) {
       final history = [
@@ -838,6 +851,14 @@ extension AgentApi on Engine {
     final raw = args[key];
     if (raw is! List || raw.isEmpty) return null;
     return raw.map((e) => (e as num).toInt()).toList();
+  }
+
+  int _agentRagLimit() {
+    final row = db
+        .select("SELECT value FROM o_setting WHERE key='ragLimit'")
+        .firstOrNull;
+    final parsed = int.tryParse(row?['value'] as String? ?? '');
+    return (parsed ?? _defaultAgentRagLimit).clamp(0, 50).toInt();
   }
 
   Future<String> _runTool(

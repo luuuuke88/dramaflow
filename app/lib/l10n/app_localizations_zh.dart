@@ -2069,6 +2069,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentMemoryDeleted => '长期记忆已删除';
 
   @override
+  String get agentRagLimitTitle => '搜索记忆条数';
+
+  @override
+  String get agentRagLimitHelp =>
+      'Agent 每次回复前从长期记忆中检索并注入的最大条数，对齐 ToonFlow 的 ragLimit。';
+
+  @override
+  String get agentRagLimitSaved => '搜索记忆条数已保存';
+
+  @override
+  String get agentRagLimitInvalid => '请输入 0-50 之间的整数';
+
+  @override
   String get cornerScapeSearchHint => '搜索角色名称';
 
   @override

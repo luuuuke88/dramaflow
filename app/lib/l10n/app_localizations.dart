@@ -4078,6 +4078,30 @@ abstract class AppLocalizations {
   /// **'长期记忆已删除'**
   String get agentMemoryDeleted;
 
+  /// No description provided for @agentRagLimitTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索记忆条数'**
+  String get agentRagLimitTitle;
+
+  /// No description provided for @agentRagLimitHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 每次回复前从长期记忆中检索并注入的最大条数，对齐 ToonFlow 的 ragLimit。'**
+  String get agentRagLimitHelp;
+
+  /// No description provided for @agentRagLimitSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索记忆条数已保存'**
+  String get agentRagLimitSaved;
+
+  /// No description provided for @agentRagLimitInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 0-50 之间的整数'**
+  String get agentRagLimitInvalid;
+
   /// No description provided for @cornerScapeSearchHint.
   ///
   /// In zh, this message translates to:

@@ -494,6 +494,37 @@ void main() {
     expect(find.textContaining('寒山少主李澈'), findsOneWidget);
   });
 
+  testWidgets('记忆页可配置 RAG 搜索记忆条数', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('搜索记忆条数'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('agent-rag-limit-field')),
+        matching: find.text('3'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-rag-limit-field')),
+      '2',
+    );
+    await tester.tap(find.byKey(const ValueKey('agent-rag-limit-save')));
+    await tester.pumpAndSettle();
+
+    expect(
+      engine.db
+          .select("SELECT value FROM o_setting WHERE key='ragLimit'")
+          .single['value'],
+      '2',
+    );
+  });
+
   testWidgets('移动端 Agent：新增长期记忆使用全屏表单并保存', (tester) async {
     engine.dispose();
     final db = openEngineDb(':memory:');

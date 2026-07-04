@@ -1051,6 +1051,8 @@ class _AgentMemoryPane extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _AgentRagLimitCard(onChanged: onChanged),
+        const SizedBox(height: 18),
         Row(children: [
           Expanded(
             child: Text(l10n.agentLongTermMemoryCount(memories.length),
@@ -1157,6 +1159,109 @@ class _AgentMemoryPane extends ConsumerWidget {
               ),
             ),
       ],
+    );
+  }
+}
+
+class _AgentRagLimitCard extends ConsumerStatefulWidget {
+  final VoidCallback onChanged;
+  const _AgentRagLimitCard({required this.onChanged});
+
+  @override
+  ConsumerState<_AgentRagLimitCard> createState() => _AgentRagLimitCardState();
+}
+
+class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
+  late final TextEditingController _limitCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _limitCtrl = TextEditingController(
+      text: ref.read(engineProvider).agentRagLimit().toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _limitCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final l10n = context.l10n;
+    final value = int.tryParse(_limitCtrl.text.trim());
+    if (value == null || value < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.agentRagLimitInvalid)),
+      );
+      return;
+    }
+    await runAction(
+      context,
+      ref,
+      () async {
+        ref.read(engineProvider).setAgentRagLimit(value);
+        _limitCtrl.text = ref.read(engineProvider).agentRagLimit().toString();
+        widget.onChanged();
+      },
+      successMessage: l10n.agentRagLimitSaved,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: df.surface,
+        border: Border.all(color: df.stroke),
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.agentRagLimitTitle,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: df.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l10n.agentRagLimitHelp,
+            style: TextStyle(fontSize: 12, color: df.textTertiary),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 132,
+                child: TextField(
+                  key: const ValueKey('agent-rag-limit-field'),
+                  controller: _limitCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: '0-50',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton(
+                key: const ValueKey('agent-rag-limit-save'),
+                onPressed: _save,
+                child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

@@ -2138,6 +2138,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentMemoryDeleted => 'Long-term memory deleted';
 
   @override
+  String get agentRagLimitTitle => 'RAG search limit';
+
+  @override
+  String get agentRagLimitHelp =>
+      'Maximum long-term memories retrieved and injected before each Agent reply, matching ToonFlow\'s ragLimit.';
+
+  @override
+  String get agentRagLimitSaved => 'RAG search limit saved';
+
+  @override
+  String get agentRagLimitInvalid => 'Enter an integer from 0 to 50';
+
+  @override
   String get cornerScapeSearchHint => 'Search role name';
 
   @override
