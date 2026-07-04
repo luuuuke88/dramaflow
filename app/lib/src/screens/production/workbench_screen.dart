@@ -1,6 +1,7 @@
 // 工作台（照抄 production/components/workbench 语义，见 P4 参照 §3）：
 // 顺序镜头列表（顺序由分镜 index 决定，支持拖拽重排并回写 index）+
 // 每镜视频候选网格（生成/挑选/删除，同 P2/P3 多版本模式）+ 顶部"合成本集"。
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -38,73 +39,122 @@ Future<void> showVideoPlayerDialog(
   BuildContext context, {
   required String absPath,
 }) {
+  final mobile = MediaQuery.sizeOf(context).width < 840;
+  if (mobile) {
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (c) {
+          final l10n = c.l10n;
+          return Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              title: Text(l10n.workbenchPlayVideo),
+            ),
+            body: SafeArea(
+              child: _VideoPlayerSurface(
+                absPath: absPath,
+                expand: true,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.85),
-    builder: (c) => _VideoPlayerDialog(absPath: absPath),
+    builder: (c) => Dialog(
+      backgroundColor: Colors.black,
+      insetPadding: const EdgeInsets.all(DFTokens.s24),
+      child: _VideoPlayerSurface(
+        absPath: absPath,
+        showCloseButton: true,
+      ),
+    ),
   );
 }
 
-class _VideoPlayerDialog extends StatefulWidget {
+class _VideoPlayerSurface extends StatefulWidget {
   final String absPath;
-  const _VideoPlayerDialog({required this.absPath});
+  final bool expand;
+  final bool showCloseButton;
+
+  const _VideoPlayerSurface({
+    required this.absPath,
+    this.expand = false,
+    this.showCloseButton = false,
+  });
 
   @override
-  State<_VideoPlayerDialog> createState() => _VideoPlayerDialogState();
+  State<_VideoPlayerSurface> createState() => _VideoPlayerSurfaceState();
 }
 
-class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
-  late final Player _player;
-  late final VideoController _controller;
+class _VideoPlayerSurfaceState extends State<_VideoPlayerSurface> {
+  Player? _player;
+  VideoController? _controller;
+  StreamSubscription<String>? _errorSub;
   bool _errored = false;
 
   @override
   void initState() {
     super.initState();
-    ensureMediaKit();
-    _player = Player();
-    _controller = VideoController(_player);
-    _player.stream.error.listen((_) {
-      if (mounted) setState(() => _errored = true);
-    });
-    if (File(widget.absPath).existsSync()) {
-      _player.open(Media(widget.absPath));
-    } else {
+    try {
+      if (!File(widget.absPath).existsSync()) {
+        _errored = true;
+        return;
+      }
+      ensureMediaKit();
+      final player = Player();
+      _player = player;
+      _controller = VideoController(player);
+      _errorSub = player.stream.error.listen((_) {
+        if (mounted) setState(() => _errored = true);
+      });
+      player.open(Media(widget.absPath));
+    } catch (_) {
       _errored = true;
     }
   }
 
   @override
   void dispose() {
-    _player.dispose();
+    _errorSub?.cancel();
+    _player?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Dialog(
-      backgroundColor: Colors.black,
-      insetPadding: const EdgeInsets.all(DFTokens.s24),
-      child: Stack(children: [
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: _errored
-              ? Center(
-                  child: Text(l10n.workbenchVideoLoadFailed,
-                      style: const TextStyle(color: Colors.white70)))
-              : Video(controller: _controller),
-        ),
-        Positioned(
-          top: 4,
-          right: 4,
-          child: IconButton(
-            tooltip: l10n.commonConfirm,
-            icon: const Icon(Icons.close_rounded, color: Colors.white),
-            onPressed: () => Navigator.of(context).maybePop(),
+    final controller = _controller;
+    final player = AspectRatio(
+      aspectRatio: 16 / 9,
+      child: _errored || controller == null
+          ? Center(
+              child: Text(l10n.workbenchVideoLoadFailed,
+                  style: const TextStyle(color: Colors.white70)))
+          : Video(controller: controller),
+    );
+    return Stack(
+      key: const ValueKey('workbench-video-player-screen'),
+      children: [
+        widget.expand ? Center(child: player) : player,
+        if (widget.showCloseButton)
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton(
+              tooltip: l10n.commonConfirm,
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
           ),
-        ),
-      ]),
+      ],
     );
   }
 }

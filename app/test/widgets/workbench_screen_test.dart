@@ -4797,6 +4797,46 @@ void main() {
     expect(find.byTooltip('已选'), findsOneWidget);
   });
 
+  testWidgets('移动端工作台：候选视频播放使用全屏预览', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '移动候选播放');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    engine.db.execute(
+      'INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)',
+      [trackId, 'p/mobile_preview_missing.mp4', vtDone],
+    );
+    final videoId = engine.db.lastInsertRowId;
+    engine.selectVideo(trackId, videoId);
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.play_circle_outline));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byKey(const ValueKey('workbench-video-player-screen')),
+        findsOneWidget);
+    expect(find.text('视频加载失败'), findsOneWidget);
+  });
+
   testWidgets('候选视频可保存到素材库 clip 供后续复用', (tester) async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');
