@@ -3358,6 +3358,24 @@ abstract class AppLocalizations {
   /// **'波纹删除'**
   String get workbenchTimelineRippleDelete;
 
+  /// No description provided for @workbenchTimelineSelectedClips.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {count} 个素材层'**
+  String workbenchTimelineSelectedClips(int count);
+
+  /// No description provided for @workbenchTimelineSplitSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量切分'**
+  String get workbenchTimelineSplitSelected;
+
+  /// No description provided for @workbenchTimelineDeleteSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除'**
+  String get workbenchTimelineDeleteSelected;
+
   /// No description provided for @workbenchTimelineUnselected.
   ///
   /// In zh, this message translates to:

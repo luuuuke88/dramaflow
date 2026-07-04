@@ -395,4 +395,104 @@ void main() {
     expect(otherLane.startMs, 1400);
     expect(otherLane.durationMs, 400);
   });
+
+  test('splitTimelineClipsAt 批量按播放头切分命中的素材层', () {
+    final clipA = clipAsset('p/batch_split_a.mp4', 'A');
+    final clipB = clipAsset('p/batch_split_b.mp4', 'B');
+    final clipC = clipAsset('p/batch_split_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 2,
+      startMs: 200,
+      durationMs: 1000,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 3,
+      startMs: 1200,
+      durationMs: 500,
+    );
+
+    final newIds = engine.splitTimelineClipsAt(
+      clipIds: [clipIdA, clipIdB, clipIdC],
+      playheadMs: 700,
+    );
+
+    expect(newIds, hasLength(2));
+    final clips = engine.timelineClips(scriptId);
+    final firstA = clips.singleWhere((c) => c.id == clipIdA);
+    expect(firstA.startMs, 0);
+    expect(firstA.durationMs, 700);
+    final secondA = clips.singleWhere((c) => c.id == newIds[0]);
+    expect(secondA.assetId, clipA);
+    expect(secondA.lane, 1);
+    expect(secondA.startMs, 700);
+    expect(secondA.durationMs, 300);
+
+    final firstB = clips.singleWhere((c) => c.id == clipIdB);
+    expect(firstB.startMs, 200);
+    expect(firstB.durationMs, 500);
+    final secondB = clips.singleWhere((c) => c.id == newIds[1]);
+    expect(secondB.assetId, clipB);
+    expect(secondB.lane, 2);
+    expect(secondB.startMs, 700);
+    expect(secondB.durationMs, 500);
+
+    final untouched = clips.singleWhere((c) => c.id == clipIdC);
+    expect(untouched.startMs, 1200);
+    expect(untouched.durationMs, 500);
+  });
+
+  test('deleteTimelineClips 批量删除选中的素材层且保留未选中片段', () {
+    final clipA = clipAsset('p/batch_delete_a.mp4', 'A');
+    final clipB = clipAsset('p/batch_delete_b.mp4', 'B');
+    final clipC = clipAsset('p/batch_delete_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 2,
+      startMs: 0,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 3,
+      startMs: 0,
+      durationMs: 500,
+    );
+
+    engine.deleteTimelineClips([clipIdA, clipIdC]);
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.map((c) => c.id), isNot(contains(clipIdA)));
+    expect(clips.map((c) => c.id), contains(clipIdB));
+    expect(clips.map((c) => c.id), isNot(contains(clipIdC)));
+    final survivor = clips.singleWhere((c) => c.id == clipIdB);
+    expect(survivor.assetId, clipB);
+    expect(survivor.lane, 2);
+    expect(survivor.startMs, 0);
+  });
 }

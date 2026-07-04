@@ -1695,6 +1695,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineRippleDelete => '波纹删除';
 
   @override
+  String workbenchTimelineSelectedClips(int count) {
+    return '已选 $count 个素材层';
+  }
+
+  @override
+  String get workbenchTimelineSplitSelected => '批量切分';
+
+  @override
+  String get workbenchTimelineDeleteSelected => '批量删除';
+
+  @override
   String get workbenchTimelineUnselected => '未选视频';
 
   @override

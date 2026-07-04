@@ -1739,6 +1739,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineRippleDelete => 'Ripple delete';
 
   @override
+  String workbenchTimelineSelectedClips(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get workbenchTimelineSplitSelected => 'Split selected';
+
+  @override
+  String get workbenchTimelineDeleteSelected => 'Delete selected';
+
+  @override
   String get workbenchTimelineUnselected => 'No video selected';
 
   @override

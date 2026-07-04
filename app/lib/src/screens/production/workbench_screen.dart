@@ -448,6 +448,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   static const int _snapThresholdMs = 100;
 
   final _timelineDropZoneKey = GlobalKey();
+  final _selectedClipIds = <int>{};
   int? _snapPlayheadMs;
 
   void _updateSnapPlayhead(String value) {
@@ -455,6 +456,34 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {
       _snapPlayheadMs = parsed != null && parsed >= 0 ? parsed : null;
     });
+  }
+
+  void _toggleClipSelection(int clipId, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedClipIds.add(clipId);
+      } else {
+        _selectedClipIds.remove(clipId);
+      }
+    });
+  }
+
+  void _splitSelectedClipsAtPlayhead() {
+    final playheadMs = _snapPlayheadMs;
+    if (_selectedClipIds.isEmpty || playheadMs == null) return;
+    final engine = ref.read(engineProvider);
+    engine.splitTimelineClipsAt(
+      clipIds: _selectedClipIds.toList(),
+      playheadMs: playheadMs,
+    );
+    setState(() {});
+  }
+
+  void _deleteSelectedClipLayers() {
+    if (_selectedClipIds.isEmpty) return;
+    final engine = ref.read(engineProvider);
+    engine.deleteTimelineClips(_selectedClipIds.toList());
+    setState(_selectedClipIds.clear);
   }
 
   Future<void> _addClipLayer() async {
@@ -974,13 +1003,17 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   void _deleteClipLayer(TimelineClipRow clip) {
     final engine = ref.read(engineProvider);
     engine.deleteTimelineClip(clip.id);
-    setState(() {});
+    setState(() {
+      _selectedClipIds.remove(clip.id);
+    });
   }
 
   void _rippleDeleteClipLayer(TimelineClipRow clip) {
     final engine = ref.read(engineProvider);
     engine.deleteTimelineClipRipple(clip.id);
-    setState(() {});
+    setState(() {
+      _selectedClipIds.remove(clip.id);
+    });
   }
 
   List<Widget> _timelineOverlayClipWidgets({
@@ -999,10 +1032,13 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       widgets.add(
         _TimelineAssetClip(
           clip: clip,
+          selected: _selectedClipIds.contains(clip.id),
           snapAnchors: _timelineSnapAnchors(engine: engine, clip: clip),
           dragPixelsPerTimeStep: _dragPixelsPerTimeStep,
           dragTimeStepMs: _dragTimeStepMs,
           snapThresholdMs: _snapThresholdMs,
+          onSelectedChanged: (selected) =>
+              _toggleClipSelection(clip.id, selected),
           onDragCommit: (delta) => _moveClipLayer(clip, delta),
           onTrimStartCommit: (delta) => _trimClipLayerStart(clip, delta),
           onTrimEndCommit: (delta) => _resizeClipLayerEnd(clip, delta),
@@ -1068,6 +1104,9 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final clips = widget.shots.isEmpty
         ? <TimelineClipRow>[]
         : engine.timelineClips(widget.shots.first.scriptId);
+    final liveClipIds = clips.map((clip) => clip.id).toSet();
+    _selectedClipIds.removeWhere((id) => !liveClipIds.contains(id));
+    final selectedClipCount = _selectedClipIds.length;
     final mediaClips = engine
         .getAssets(widget.projectId, type: 'clip', limit: 100)
         .data
@@ -1150,6 +1189,38 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         const SizedBox(height: 10),
         if (mediaClips.isNotEmpty) ...[
           _TimelineMediaBin(clips: mediaClips),
+          const SizedBox(height: 10),
+        ],
+        if (clips.isNotEmpty) ...[
+          Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  l10n.workbenchTimelineSelectedClips(selectedClipCount),
+                  style: TextStyle(
+                    color: df.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                TextButton.icon(
+                  key: const ValueKey('workbench-timeline-split-selected'),
+                  onPressed: selectedClipCount == 0 || _snapPlayheadMs == null
+                      ? null
+                      : _splitSelectedClipsAtPlayhead,
+                  icon: const Icon(Icons.call_split_outlined, size: 16),
+                  label: Text(l10n.workbenchTimelineSplitSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey('workbench-timeline-delete-selected'),
+                  onPressed:
+                      selectedClipCount == 0 ? null : _deleteSelectedClipLayers,
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: Text(l10n.workbenchTimelineDeleteSelected),
+                ),
+              ]),
           const SizedBox(height: 10),
         ],
         DragTarget<AssetRow>(
@@ -2006,10 +2077,12 @@ class _TimelineClip extends StatelessWidget {
 
 class _TimelineAssetClip extends StatefulWidget {
   final TimelineClipRow clip;
+  final bool selected;
   final List<int> snapAnchors;
   final double dragPixelsPerTimeStep;
   final int dragTimeStepMs;
   final int snapThresholdMs;
+  final ValueChanged<bool> onSelectedChanged;
   final ValueChanged<Offset> onDragCommit;
   final ValueChanged<Offset> onTrimStartCommit;
   final ValueChanged<Offset> onTrimEndCommit;
@@ -2025,10 +2098,12 @@ class _TimelineAssetClip extends StatefulWidget {
 
   const _TimelineAssetClip({
     required this.clip,
+    required this.selected,
     required this.snapAnchors,
     required this.dragPixelsPerTimeStep,
     required this.dragTimeStepMs,
     required this.snapThresholdMs,
+    required this.onSelectedChanged,
     required this.onDragCommit,
     required this.onTrimStartCommit,
     required this.onTrimEndCommit,
@@ -2144,33 +2219,55 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
       ),
       child: SizedBox.expand(
         child: Stack(children: [
-          Row(children: [
-            Icon(Icons.layers_outlined, size: 16, color: df.success),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      clip.name ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: df.textHi,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+          Padding(
+            padding: const EdgeInsets.only(left: 30),
+            child: Row(children: [
+              Icon(Icons.layers_outlined, size: 16, color: df.success),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        clip.name ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: df.textHi,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'L${clip.lane} · ${clip.startMs}ms'
-                      '${clip.durationMs != null ? ' · ${clip.durationMs}ms' : ''}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: df.textTertiary, fontSize: 10),
-                    ),
-                  ]),
+                      Text(
+                        'L${clip.lane} · ${clip.startMs}ms'
+                        '${clip.durationMs != null ? ' · ${clip.durationMs}ms' : ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: df.textTertiary, fontSize: 10),
+                      ),
+                    ]),
+              ),
+            ]),
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            right: 0,
+            child: Listener(
+              onPointerUp: (_) => _hideSnapGuideAfterPointerUp(),
+              onPointerCancel: (_) => _clearDragPreview(),
+              child: GestureDetector(
+                key: ValueKey('workbench-timeline-clip-${clip.id}'),
+                behavior: HitTestBehavior.translucent,
+                onPanStart: (_) => _resetDrag(),
+                onPanUpdate: _accumulateDrag,
+                onPanEnd: (_) => _commitDrag(widget.onDragCommit),
+                onPanCancel: _clearDragPreview,
+                child: const SizedBox.expand(),
+              ),
             ),
-          ]),
+          ),
           if (_snapGuideAlignment != null)
             Positioned.fill(
               child: IgnorePointer(
@@ -2195,25 +2292,6 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
                 ),
               ),
             ),
-          Positioned(
-            left: 10,
-            top: 0,
-            bottom: 0,
-            right: 76,
-            child: Listener(
-              onPointerUp: (_) => _hideSnapGuideAfterPointerUp(),
-              onPointerCancel: (_) => _clearDragPreview(),
-              child: GestureDetector(
-                key: ValueKey('workbench-timeline-clip-${clip.id}'),
-                behavior: HitTestBehavior.translucent,
-                onPanStart: (_) => _resetDrag(),
-                onPanUpdate: _accumulateDrag,
-                onPanEnd: (_) => _commitDrag(widget.onDragCommit),
-                onPanCancel: _clearDragPreview,
-                child: const SizedBox.expand(),
-              ),
-            ),
-          ),
           _TimelineResizeHandle(
             handleKey:
                 ValueKey('workbench-timeline-clip-resize-start-${clip.id}'),
@@ -2231,6 +2309,26 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
             onDragStart: _resetDrag,
             onDragUpdate: _accumulateDrag,
             onDragEnd: () => _commitDrag(widget.onTrimEndCommit),
+          ),
+          Positioned(
+            left: 18,
+            top: 6,
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: InkWell(
+                key: ValueKey('workbench-timeline-clip-select-${clip.id}'),
+                borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+                onTap: () => widget.onSelectedChanged(!widget.selected),
+                child: Icon(
+                  widget.selected
+                      ? Icons.check_box_rounded
+                      : Icons.check_box_outline_blank_rounded,
+                  size: 18,
+                  color: widget.selected ? df.primary : df.textTertiary,
+                ),
+              ),
+            ),
           ),
           Positioned(
             right: 10,
@@ -2291,8 +2389,7 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
                     key: ValueKey(
                         'workbench-timeline-clip-ripple-duplicate-${clip.id}'),
                     value: _TimelineClipAction.rippleDuplicate,
-                    child:
-                        Text(context.l10n.workbenchTimelineRippleDuplicate),
+                    child: Text(context.l10n.workbenchTimelineRippleDuplicate),
                   ),
                   PopupMenuItem(
                     key: ValueKey(

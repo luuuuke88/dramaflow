@@ -611,6 +611,16 @@
   "workbenchTimelineClipActions": "Overlay actions",
   "workbenchTimelineDelete": "Delete",
   "workbenchTimelineRippleDelete": "Ripple delete",
+  "workbenchTimelineSelectedClips": "{count} selected",
+  "@workbenchTimelineSelectedClips": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchTimelineSplitSelected": "Split selected",
+  "workbenchTimelineDeleteSelected": "Delete selected",
   "workbenchTimelineUnselected": "No video selected",
   "workbenchTimelineNoAudio": "No voice bound",
   "workbenchReorderShot": "Drag to reorder",

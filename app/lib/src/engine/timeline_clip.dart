@@ -288,6 +288,28 @@ extension TimelineClipApi on Engine {
     return db.lastInsertRowId;
   }
 
+  List<int> splitTimelineClipsAt({
+    required List<int> clipIds,
+    required int playheadMs,
+  }) {
+    final newIds = <int>[];
+    for (final clipId in clipIds) {
+      final row = db.select(
+          'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
+      if (row == null) continue;
+      final startMs = (row['startMs'] as int?) ?? 0;
+      final durationMs =
+          (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+      final offsetMs = playheadMs - startMs;
+      if (offsetMs < _minTimelineClipDurationMs ||
+          offsetMs > durationMs - _minTimelineClipDurationMs) {
+        continue;
+      }
+      newIds.add(splitTimelineClip(clipId: clipId, offsetMs: offsetMs));
+    }
+    return newIds;
+  }
+
   int duplicateTimelineClip(int clipId) {
     final row = db.select(
         'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
@@ -362,6 +384,13 @@ extension TimelineClipApi on Engine {
 
   void deleteTimelineClip(int clipId) {
     db.execute('DELETE FROM o_timelineClip WHERE id=?', [clipId]);
+  }
+
+  void deleteTimelineClips(List<int> clipIds) {
+    if (clipIds.isEmpty) return;
+    final placeholders = List.filled(clipIds.length, '?').join(',');
+    db.execute(
+        'DELETE FROM o_timelineClip WHERE id IN ($placeholders)', clipIds);
   }
 
   void deleteTimelineClipRipple(int clipId) {

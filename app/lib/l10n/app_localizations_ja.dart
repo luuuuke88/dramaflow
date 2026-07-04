@@ -1706,6 +1706,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineRippleDelete => 'リップル削除';
 
   @override
+  String workbenchTimelineSelectedClips(int count) {
+    return '$count 件選択中';
+  }
+
+  @override
+  String get workbenchTimelineSplitSelected => '選択を分割';
+
+  @override
+  String get workbenchTimelineDeleteSelected => '選択を削除';
+
+  @override
   String get workbenchTimelineUnselected => '動画未選択';
 
   @override

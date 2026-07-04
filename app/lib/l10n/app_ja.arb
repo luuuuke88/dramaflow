@@ -611,6 +611,16 @@
   "workbenchTimelineClipActions": "素材レイヤー操作",
   "workbenchTimelineDelete": "削除",
   "workbenchTimelineRippleDelete": "リップル削除",
+  "workbenchTimelineSelectedClips": "{count} 件選択中",
+  "@workbenchTimelineSelectedClips": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchTimelineSplitSelected": "選択を分割",
+  "workbenchTimelineDeleteSelected": "選択を削除",
   "workbenchTimelineUnselected": "動画未選択",
   "workbenchTimelineNoAudio": "音声未割り当て",
   "workbenchReorderShot": "ドラッグして並べ替え",

@@ -738,6 +738,16 @@
   "workbenchTimelineClipActions": "素材层操作",
   "workbenchTimelineDelete": "删除",
   "workbenchTimelineRippleDelete": "波纹删除",
+  "workbenchTimelineSelectedClips": "已选 {count} 个素材层",
+  "@workbenchTimelineSelectedClips": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchTimelineSplitSelected": "批量切分",
+  "workbenchTimelineDeleteSelected": "批量删除",
   "workbenchTimelineUnselected": "未选视频",
   "workbenchTimelineNoAudio": "未绑定配音",
   "workbenchReorderShot": "拖拽调整顺序",
