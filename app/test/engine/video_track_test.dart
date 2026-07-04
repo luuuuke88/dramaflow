@@ -113,6 +113,36 @@ void main() {
     expect(seenUser, contains('5'));
   });
 
+  test('generateVideoPrompt 优先使用目标视频模型的专属提示词模板', () async {
+    db.execute(
+      "INSERT OR REPLACE INTO o_setting (key,value) VALUES "
+      "('binding.shot_video','volcengine:doubao-seedance-2-0-mini-260615')",
+    );
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'volcengine',
+        'doubao-seedance-2-0-mini-260615',
+        'video_prompt_gen',
+        'video/seedance2Multi-parameterMode.md',
+        'Seedance 2.0 Mini 专属视频提示词模板',
+      ],
+    );
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '少年御剑飞起');
+
+    String? seenSystem;
+    gateway.textHandler = (system, user) {
+      seenSystem = system;
+      return 'dolly up';
+    };
+
+    await engine.generateVideoPrompt(sbId);
+
+    expect(seenSystem, 'Seedance 2.0 Mini 专属视频提示词模板');
+  });
+
   test('updateVideoPrompt 手动覆盖运镜提示词', () {
     final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     final trackId = engine.ensureTrackForStoryboard(sbId);

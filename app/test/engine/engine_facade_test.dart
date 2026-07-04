@@ -233,12 +233,26 @@ void main() {
     );
     await engine.saveProviderModels(provider.id, [
       {'modelId': 'm1', 'kind': 'text', 'enabled': true},
+      {'modelId': 'seedance-mini', 'kind': 'video', 'enabled': true},
     ]);
     await engine.setBinding('script_gen', provider.id, 'm1');
+    await engine.setBinding('shot_video', provider.id, 'seedance-mini');
     await engine.updatePrompt('eventExtraction', '导出提示词');
+    engine.db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        provider.id,
+        'seedance-mini',
+        'video_prompt_gen',
+        'video/seedance2Multi-parameterMode.md',
+        '导出模型专属提示词',
+      ],
+    );
 
     final data = await engine.exportConfig();
     expect(data['configVersion'], 3);
+    expect(data['modelPrompts'], isA<List>());
     final otherDb = openEngineDb(':memory:');
     final other = Engine(
       db: otherDb,
@@ -255,10 +269,16 @@ void main() {
 
     expect((await other.listProviders()).single.name, '导出供应商');
     expect((await other.getBindings())['script_gen'], '${provider.id}:m1');
+    expect((await other.getBindings())['shot_video'],
+        '${provider.id}:seedance-mini');
     expect(
       (await other.listPrompts()).singleWhere(
           (prompt) => prompt['key'] == 'eventExtraction')['content'],
       '导出提示词',
+    );
+    expect(
+      await other.getPromptForStageModel('video_prompt_gen', 'shot_video'),
+      '导出模型专属提示词',
     );
   });
 

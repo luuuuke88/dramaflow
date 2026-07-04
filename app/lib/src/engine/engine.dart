@@ -984,6 +984,35 @@ WHERE id=?
     return rows.first['data'] as String? ?? '';
   }
 
+  Future<String> getPromptForStageModel(String type, String modelStage) async {
+    final binding = db.select('SELECT value FROM o_setting WHERE key=? LIMIT 1',
+        ['binding.$modelStage']).firstOrNull?['value'] as String?;
+    final parts = binding == null ? const <String>[] : binding.split(':');
+    if (parts.length == 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+      final rows = db.select(
+        '''
+SELECT prompt FROM o_modelPrompt
+WHERE vendorId=? AND model=? AND prompt IS NOT NULL AND trim(prompt)<>''
+ORDER BY
+  CASE
+    WHEN fileName=? THEN 0
+    WHEN path=? THEN 1
+    WHEN path LIKE ? THEN 2
+    ELSE 3
+  END,
+  id DESC
+LIMIT 1
+''',
+        [parts[0], parts[1], type, type, '%/$type%'],
+      );
+      if (rows.isNotEmpty) {
+        final prompt = rows.first['prompt'] as String?;
+        if (prompt != null && prompt.trim().isNotEmpty) return prompt;
+      }
+    }
+    return getPrompt(type);
+  }
+
   Future<void> updatePrompt(String key, String content) async {
     final rows = db.select('SELECT id FROM o_prompt WHERE name=?', [key]);
     if (rows.isEmpty) {
@@ -1026,6 +1055,19 @@ WHERE id=?
         ],
         'bindings': await getBindings(),
         'prompts': await listPrompts(),
+        'modelPrompts': [
+          for (final row in db.select(
+            'SELECT vendorId,model,fileName,path,prompt FROM o_modelPrompt '
+            'ORDER BY id',
+          ))
+            {
+              'vendorId': row['vendorId'],
+              'model': row['model'],
+              'fileName': row['fileName'],
+              'path': row['path'],
+              'prompt': row['prompt'],
+            },
+        ],
       };
 
   Future<void> importConfig(Map<String, dynamic> data) async {
@@ -1076,6 +1118,30 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
         final key = (prompt['key'] ?? '').toString();
         if (key.isEmpty) continue;
         await updatePrompt(key, (prompt['content'] ?? '').toString());
+      }
+    }
+    final modelPrompts = data['modelPrompts'];
+    if (modelPrompts is List) {
+      for (final raw in modelPrompts.whereType<Map>()) {
+        final vendorId = (raw['vendorId'] ?? '').toString();
+        final model = (raw['model'] ?? '').toString();
+        final fileName = (raw['fileName'] ?? '').toString();
+        final path = (raw['path'] ?? '').toString();
+        final prompt = (raw['prompt'] ?? '').toString();
+        if (vendorId.isEmpty || model.isEmpty || prompt.trim().isEmpty) {
+          continue;
+        }
+        db.execute(
+          'DELETE FROM o_modelPrompt '
+          'WHERE vendorId=? AND model=? AND coalesce(fileName,?)=? '
+          'AND coalesce(path,?)=?',
+          [vendorId, model, '', fileName, '', path],
+        );
+        db.execute(
+          'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+          'VALUES (?,?,?,?,?)',
+          [vendorId, model, fileName, path, prompt],
+        );
       }
     }
   }

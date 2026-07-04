@@ -157,7 +157,8 @@ extension VideoTrackApi on Engine {
     final durationText = trackDuration != null
         ? '$trackDuration'
         : (sb['duration'] as String?) ?? '';
-    final system = await getPrompt('video_prompt_gen');
+    final system =
+        await getPromptForStageModel('video_prompt_gen', 'shot_video');
     final user = StringBuffer()
       ..writeln('画面描述：${sb['prompt'] ?? ''}')
       ..writeln('运镜/动作说明：${sb['videoDesc'] ?? ''}');
