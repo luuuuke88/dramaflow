@@ -494,6 +494,102 @@ void main() {
     expect(find.textContaining('L3 · 1500ms'), findsOneWidget);
   });
 
+  testWidgets('移动端工作台：媒体库按播放头添加素材层使用全屏列表', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '移动镜头',
+      duration: '4',
+    );
+    const relA = 'p/mobile_media_library_lane_a.mp4';
+    const relB = 'p/mobile_media_library_lane_b.mp4';
+    const relInsert = 'p/mobile_media_library_insert.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 6, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 6, 2]);
+    File(engine.mediaAbsPath(relInsert))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 6, 3]);
+    final insertAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动媒体库素材',
+      relPath: relInsert,
+    );
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动媒体占用 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动媒体占用 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 1000,
+      durationMs: 900,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 1000,
+      durationMs: 900,
+    );
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '1200',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-timeline-media')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('时间线媒体库'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-media-add-$insertAssetId')),
+    );
+    await tester.pumpAndSettle();
+
+    final inserted = engine
+        .timelineClips(scriptId)
+        .singleWhere((clip) => clip.name == '移动媒体库素材');
+    expect(inserted.lane, 3);
+    expect(inserted.startMs, 1200);
+    expect(inserted.durationMs, isNull);
+    expect(find.textContaining('L3 · 1200ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可拖放媒体库素材到时间线落点并自动找空层', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

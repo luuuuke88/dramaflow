@@ -887,8 +887,10 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final clips =
         engine.getAssets(widget.projectId, type: 'clip', limit: 100).data;
     try {
-      final asset = await showDialog<AssetRow>(
-        context: context,
+      final asset = await showDFAdaptiveDialog<AssetRow>(
+        context,
+        title: context.l10n.workbenchTimelineMediaLibraryTitle,
+        desktopWidthFactor: 0.46,
         builder: (c) => _TimelineMediaLibraryDialog(clips: clips),
       );
       if (asset == null || !mounted) return;
@@ -1925,43 +1927,64 @@ class _TimelineMediaLibraryDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(l10n.workbenchTimelineMediaLibraryTitle),
-      content: SizedBox(
-        width: 520,
-        child: clips.isEmpty
-            ? DFEmpty(text: l10n.workbenchNoClipAssets)
-            : ListView.separated(
-                shrinkWrap: true,
-                itemCount: clips.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (_, i) {
-                  final row = clips[i];
-                  final enabled = row.filePath?.isNotEmpty == true;
-                  return ListTile(
-                    leading: const Icon(Icons.video_library_outlined),
-                    title: Text(row.name ?? ''),
-                    subtitle: Text(
-                      row.filePath ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: FilledButton(
-                      key: ValueKey('workbench-timeline-media-add-${row.id}'),
-                      onPressed:
-                          enabled ? () => Navigator.of(context).pop(row) : null,
-                      child: Text(l10n.workbenchTimelineAddAtPlayhead),
-                    ),
-                  );
-                },
-              ),
+    final compact = MediaQuery.sizeOf(context).width < 840;
+    final content = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        DFTokens.s20,
+        DFTokens.s16,
+        DFTokens.s20,
+        DFTokens.s20,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: clips.isEmpty
+                ? Center(child: DFEmpty(text: l10n.workbenchNoClipAssets))
+                : ListView.separated(
+                    itemCount: clips.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final row = clips[i];
+                      final enabled = row.filePath?.isNotEmpty == true;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.video_library_outlined),
+                        title: Text(row.name ?? ''),
+                        subtitle: Text(
+                          row.filePath ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: FilledButton(
+                          key: ValueKey(
+                            'workbench-timeline-media-add-${row.id}',
+                          ),
+                          onPressed: enabled
+                              ? () => Navigator.of(context).pop(row)
+                              : null,
+                          child: Text(l10n.workbenchTimelineAddAtPlayhead),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: DFTokens.s16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(l10n.commonCancel),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (compact) return content;
+    return SizedBox(
+      height: clips.length <= 3 ? 280 : 520,
+      child: content,
     );
   }
 }
