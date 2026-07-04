@@ -3174,6 +3174,118 @@ void main() {
     expect(find.textContaining('300ms · 700ms'), findsOneWidget);
   });
 
+  testWidgets('移动端工作台：批量裁剪尾部使用全屏表单并保存', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '移动镜头',
+      duration: '5',
+    );
+    const relA = 'p/mobile_batch_trim_overlay_a.mp4';
+    const relB = 'p/mobile_batch_trim_overlay_b.mp4';
+    const relC = 'p/mobile_batch_trim_overlay_c.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 4, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 4, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 4, 3]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动批量裁剪 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动批量裁剪 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动裁剪后续 C',
+      relPath: relC,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 100,
+      durationMs: 400,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 300,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 1,
+      startMs: 900,
+      durationMs: 300,
+    );
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdB')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-trim-selected')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('裁剪素材层尾部'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-trim-duration-input')),
+      '700',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-trim-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).durationMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdB).durationMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 900);
+    expect(find.textContaining('100ms · 700ms'), findsOneWidget);
+    expect(find.textContaining('300ms · 700ms'), findsOneWidget);
+  });
+
   testWidgets('工作台选中多个素材层后拖动其中一个会整组平移', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

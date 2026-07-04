@@ -703,11 +703,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     if (selectedRows.isEmpty) return;
     final defaultDurationMs =
         selectedRows.first.durationMs ?? _defaultClipDurationMs;
-    final nextDurationMs = await showDialog<int>(
-      context: context,
+    final nextDurationMs = await showDFAdaptiveDialog<int>(
+      context,
+      title: context.l10n.workbenchTimelineTrimTitle,
+      desktopWidthFactor: 0.36,
       builder: (c) => _TimelineClipDurationDialog(
         defaultDurationMs: defaultDurationMs,
-        title: c.l10n.workbenchTimelineTrimTitle,
         inputKey: const ValueKey('workbench-timeline-trim-duration-input'),
         confirmKey: const ValueKey('workbench-timeline-trim-confirm'),
       ),
@@ -801,11 +802,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     if (selectedRows.isEmpty) return;
     final defaultDurationMs =
         selectedRows.first.durationMs ?? _defaultClipDurationMs;
-    final nextDurationMs = await showDialog<int>(
-      context: context,
+    final nextDurationMs = await showDFAdaptiveDialog<int>(
+      context,
+      title: context.l10n.workbenchTimelineRippleTrimTitle,
+      desktopWidthFactor: 0.36,
       builder: (c) => _TimelineClipDurationDialog(
         defaultDurationMs: defaultDurationMs,
-        title: c.l10n.workbenchTimelineRippleTrimTitle,
         inputKey:
             const ValueKey('workbench-timeline-ripple-trim-duration-input'),
         confirmKey: const ValueKey('workbench-timeline-ripple-trim-confirm'),
@@ -1325,11 +1327,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
 
   Future<void> _rippleTrimClipLayerEnd(TimelineClipRow clip) async {
     final duration = clip.durationMs ?? _defaultClipDurationMs;
-    final nextDurationMs = await showDialog<int>(
-      context: context,
+    final nextDurationMs = await showDFAdaptiveDialog<int>(
+      context,
+      title: context.l10n.workbenchTimelineRippleTrimTitle,
+      desktopWidthFactor: 0.36,
       builder: (c) => _TimelineClipDurationDialog(
         defaultDurationMs: duration,
-        title: c.l10n.workbenchTimelineRippleTrimTitle,
         inputKey:
             const ValueKey('workbench-timeline-ripple-trim-duration-input'),
         confirmKey: const ValueKey('workbench-timeline-ripple-trim-confirm'),
@@ -2425,13 +2428,11 @@ class _SplitTimelineClipDialogState extends State<_SplitTimelineClipDialog> {
 
 class _TimelineClipDurationDialog extends StatefulWidget {
   final int defaultDurationMs;
-  final String title;
   final Key inputKey;
   final Key confirmKey;
 
   const _TimelineClipDurationDialog({
     required this.defaultDurationMs,
-    required this.title,
     required this.inputKey,
     required this.confirmKey,
   });
@@ -2467,28 +2468,44 @@ class _TimelineClipDurationDialogState
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        key: widget.inputKey,
-        controller: _durationCtrl,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: l10n.workbenchTimelineDurationMs,
-        ),
-        onSubmitted: (_) => _submit(),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        DFTokens.s20,
+        DFTokens.s16,
+        DFTokens.s20,
+        DFTokens.s20,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          key: widget.confirmKey,
-          onPressed: _submit,
-          child: Text(l10n.commonSave),
-        ),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: widget.inputKey,
+            controller: _durationCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: l10n.workbenchTimelineDurationMs,
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: DFTokens.s20),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: DFTokens.s8,
+            runSpacing: DFTokens.s8,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                key: widget.confirmKey,
+                onPressed: _submit,
+                child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
