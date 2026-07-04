@@ -1639,6 +1639,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineSplit => '切分';
 
   @override
+  String get workbenchTimelineRippleTrimEnd => '波纹裁剪尾部';
+
+  @override
+  String get workbenchTimelineRippleTrimTitle => '波纹裁剪素材层尾部';
+
+  @override
   String get workbenchTimelineDelete => '删除';
 
   @override

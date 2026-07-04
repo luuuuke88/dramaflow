@@ -96,4 +96,46 @@ void main() {
     expect(otherLane.startMs, 1400);
     expect(otherLane.durationMs, 600);
   });
+
+  test('resizeTimelineClipEndRipple 波纹裁剪尾部并移动同轨后续片段', () {
+    final clipA = clipAsset('p/ripple_trim_a.mp4', 'A');
+    final clipB = clipAsset('p/ripple_trim_b.mp4', 'B');
+    final clipC = clipAsset('p/ripple_trim_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 1,
+      startMs: 1400,
+      durationMs: 600,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 2,
+      startMs: 1400,
+      durationMs: 600,
+    );
+
+    engine.resizeTimelineClipEndRipple(clipId: clipIdA, durationMs: 600);
+
+    final clips = engine.timelineClips(scriptId);
+    final trimmed = clips.singleWhere((c) => c.id == clipIdA);
+    expect(trimmed.durationMs, 600);
+    final shifted = clips.singleWhere((c) => c.id == clipIdB);
+    expect(shifted.startMs, 1000);
+    expect(shifted.durationMs, 600);
+    final otherLane = clips.singleWhere((c) => c.id == clipIdC);
+    expect(otherLane.startMs, 1400);
+    expect(otherLane.durationMs, 600);
+  });
 }

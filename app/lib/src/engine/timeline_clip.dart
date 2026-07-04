@@ -171,6 +171,36 @@ extension TimelineClipApi on Engine {
       [durationMs, durationMs, scriptId, lane, endMs],
     );
   }
+
+  void resizeTimelineClipEndRipple({
+    required int clipId,
+    required int durationMs,
+  }) {
+    final row = db.select(
+        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
+    if (row == null) return;
+    final scriptId = (row['scriptId'] as int?) ?? 0;
+    final lane = (row['lane'] as int?) ?? 1;
+    final startMs = (row['startMs'] as int?) ?? 0;
+    final oldDurationMs =
+        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+    final nextDurationMs = durationMs < _minTimelineClipDurationMs
+        ? _minTimelineClipDurationMs
+        : durationMs;
+    final deltaMs = nextDurationMs - oldDurationMs;
+    final oldEndMs = startMs + oldDurationMs;
+    db.execute('UPDATE o_timelineClip SET durationMs=? WHERE id=?', [
+      nextDurationMs,
+      clipId,
+    ]);
+    if (deltaMs == 0) return;
+    db.execute(
+      'UPDATE o_timelineClip '
+      'SET startMs=CASE WHEN startMs + ? < 0 THEN 0 ELSE startMs + ? END '
+      'WHERE scriptId=? AND lane=? AND startMs>=?',
+      [deltaMs, deltaMs, scriptId, lane, oldEndMs],
+    );
+  }
 }
 
 TimelineClipRow _timelineClipFromRow(Row row) => TimelineClipRow(

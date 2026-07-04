@@ -3250,6 +3250,18 @@ abstract class AppLocalizations {
   /// **'切分'**
   String get workbenchTimelineSplit;
 
+  /// No description provided for @workbenchTimelineRippleTrimEnd.
+  ///
+  /// In zh, this message translates to:
+  /// **'波纹裁剪尾部'**
+  String get workbenchTimelineRippleTrimEnd;
+
+  /// No description provided for @workbenchTimelineRippleTrimTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'波纹裁剪素材层尾部'**
+  String get workbenchTimelineRippleTrimTitle;
+
   /// No description provided for @workbenchTimelineDelete.
   ///
   /// In zh, this message translates to:

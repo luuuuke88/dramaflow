@@ -713,6 +713,8 @@
   "workbenchTimelineSplitAtTitle": "按播放头切分素材层",
   "workbenchTimelineSplitAtMs": "播放头(ms)",
   "workbenchTimelineSplit": "切分",
+  "workbenchTimelineRippleTrimEnd": "波纹裁剪尾部",
+  "workbenchTimelineRippleTrimTitle": "波纹裁剪素材层尾部",
   "workbenchTimelineDelete": "删除",
   "workbenchTimelineRippleDelete": "波纹删除",
   "workbenchTimelineUnselected": "未选视频",

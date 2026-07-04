@@ -727,6 +727,23 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  Future<void> _rippleTrimClipLayerEnd(TimelineClipRow clip) async {
+    final duration = clip.durationMs ?? _defaultClipDurationMs;
+    final nextDurationMs = await showDialog<int>(
+      context: context,
+      builder: (c) => _RippleTrimTimelineClipDialog(
+        defaultDurationMs: duration,
+      ),
+    );
+    if (nextDurationMs == null || !mounted) return;
+    final engine = ref.read(engineProvider);
+    engine.resizeTimelineClipEndRipple(
+      clipId: clip.id,
+      durationMs: nextDurationMs,
+    );
+    setState(() {});
+  }
+
   void _deleteClipLayer(TimelineClipRow clip) {
     final engine = ref.read(engineProvider);
     engine.deleteTimelineClip(clip.id);
@@ -844,6 +861,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                           _resizeClipLayerEnd(clip, delta),
                       onSplit: () => _splitClipLayer(clip),
                       onSplitAt: () => _splitClipLayerAtPlayhead(clip),
+                      onRippleTrimEnd: () => _rippleTrimClipLayerEnd(clip),
                       onDelete: () => _deleteClipLayer(clip),
                       onRippleDelete: () => _rippleDeleteClipLayer(clip),
                     ),
@@ -1094,6 +1112,70 @@ class _SplitTimelineClipDialogState extends State<_SplitTimelineClipDialog> {
   }
 }
 
+class _RippleTrimTimelineClipDialog extends StatefulWidget {
+  final int defaultDurationMs;
+
+  const _RippleTrimTimelineClipDialog({
+    required this.defaultDurationMs,
+  });
+
+  @override
+  State<_RippleTrimTimelineClipDialog> createState() =>
+      _RippleTrimTimelineClipDialogState();
+}
+
+class _RippleTrimTimelineClipDialogState
+    extends State<_RippleTrimTimelineClipDialog> {
+  late final TextEditingController _durationCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _durationCtrl =
+        TextEditingController(text: widget.defaultDurationMs.toString());
+  }
+
+  @override
+  void dispose() {
+    _durationCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = int.tryParse(_durationCtrl.text.trim());
+    if (value == null) return;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.workbenchTimelineRippleTrimTitle),
+      content: TextField(
+        key: const ValueKey('workbench-timeline-ripple-trim-duration-input'),
+        controller: _durationCtrl,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          labelText: l10n.workbenchTimelineDurationMs,
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          key: const ValueKey('workbench-timeline-ripple-trim-confirm'),
+          onPressed: _submit,
+          child: Text(l10n.commonSave),
+        ),
+      ],
+    );
+  }
+}
+
 enum _TimelineClipKind { video, audio }
 
 class _TimelineClip extends StatelessWidget {
@@ -1197,6 +1279,7 @@ class _TimelineAssetClip extends StatefulWidget {
   final ValueChanged<Offset> onTrimEndCommit;
   final VoidCallback onSplit;
   final VoidCallback onSplitAt;
+  final VoidCallback onRippleTrimEnd;
   final VoidCallback onDelete;
   final VoidCallback onRippleDelete;
 
@@ -1211,6 +1294,7 @@ class _TimelineAssetClip extends StatefulWidget {
     required this.onTrimEndCommit,
     required this.onSplit,
     required this.onSplitAt,
+    required this.onRippleTrimEnd,
     required this.onDelete,
     required this.onRippleDelete,
   });
@@ -1417,6 +1501,15 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
         tooltip: context.l10n.workbenchTimelineSplitAt,
         icon: Icon(Icons.vertical_split_outlined, size: 14, color: df.success),
         onPressed: widget.onSplitAt,
+      ),
+      IconButton(
+        key: ValueKey('workbench-timeline-clip-ripple-trim-end-${clip.id}'),
+        constraints: const BoxConstraints.tightFor(width: 28, height: 48),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        tooltip: context.l10n.workbenchTimelineRippleTrimEnd,
+        icon: Icon(Icons.low_priority_outlined, size: 14, color: df.success),
+        onPressed: widget.onRippleTrimEnd,
       ),
       IconButton(
         key: ValueKey('workbench-timeline-clip-delete-${clip.id}'),

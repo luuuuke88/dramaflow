@@ -40,12 +40,12 @@ Authority:
 
 当前工作台是顺序分镜工作流：候选视频、每镜时长/运镜、配音绑定、转场/滤镜元数据、原生端合成导出。它已经足够支撑第一版短剧流水线，但不是完整多层自由时间线。
 
-2026-07-04 后续接力更新：Apple AVFoundation 与 Android Media3 都已接入 `o_timelineClip` 的 lane/start/duration metadata，并在 native composer 侧渲染 timeline overlay 素材层；工作台 UI 也已补素材层拖拽定位、左右边缘裁剪/缩放、基础吸附、基础吸附参考线、同轨重叠避让、中点分割、按 playhead 任意切点分割、从时间线移除素材层且保留源素材、以及波纹删除。这解决的是“已记录的素材层能调整并进最终成片”，不是完整自由拖拽剪辑器。
+2026-07-04 后续接力更新：Apple AVFoundation 与 Android Media3 都已接入 `o_timelineClip` 的 lane/start/duration metadata，并在 native composer 侧渲染 timeline overlay 素材层；工作台 UI 也已补素材层拖拽定位、左右边缘裁剪/缩放、基础吸附、基础吸附参考线、同轨重叠避让、中点分割、按 playhead 任意切点分割、从时间线移除素材层且保留源素材、波纹删除、以及尾部波纹裁剪。这解决的是“已记录的素材层能调整并进最终成片”，不是完整自由拖拽剪辑器。
 
 缺口仍包括：
 
 - Web 端转场/滤镜实际渲染。
-- 多层素材轨复杂吸附规则、复杂叠放冲突处理、复杂 ripple 编辑。
+- 多层素材轨复杂吸附规则、复杂叠放冲突处理、更多复杂 ripple 编辑。
 - 更接近 ToonFlow WebAV 的 clip editor 行为。
 
 ### 3. Agent 体系仍是瘦身版

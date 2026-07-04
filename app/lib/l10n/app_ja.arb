@@ -586,6 +586,8 @@
   "workbenchTimelineSplitAtTitle": "再生位置で素材レイヤーを分割",
   "workbenchTimelineSplitAtMs": "再生位置(ms)",
   "workbenchTimelineSplit": "分割",
+  "workbenchTimelineRippleTrimEnd": "末尾をリップルトリム",
+  "workbenchTimelineRippleTrimTitle": "素材レイヤー末尾をリップルトリム",
   "workbenchTimelineDelete": "削除",
   "workbenchTimelineRippleDelete": "リップル削除",
   "workbenchTimelineUnselected": "動画未選択",

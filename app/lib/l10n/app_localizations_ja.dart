@@ -1650,6 +1650,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineSplit => '分割';
 
   @override
+  String get workbenchTimelineRippleTrimEnd => '末尾をリップルトリム';
+
+  @override
+  String get workbenchTimelineRippleTrimTitle => '素材レイヤー末尾をリップルトリム';
+
+  @override
   String get workbenchTimelineDelete => '削除';
 
   @override

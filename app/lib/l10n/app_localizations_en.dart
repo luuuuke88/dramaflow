@@ -1683,6 +1683,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineSplit => 'Split';
 
   @override
+  String get workbenchTimelineRippleTrimEnd => 'Ripple trim end';
+
+  @override
+  String get workbenchTimelineRippleTrimTitle => 'Ripple Trim Overlay End';
+
+  @override
   String get workbenchTimelineDelete => 'Delete';
 
   @override

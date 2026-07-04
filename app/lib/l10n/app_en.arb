@@ -586,6 +586,8 @@
   "workbenchTimelineSplitAtTitle": "Split Overlay at Playhead",
   "workbenchTimelineSplitAtMs": "Playhead (ms)",
   "workbenchTimelineSplit": "Split",
+  "workbenchTimelineRippleTrimEnd": "Ripple trim end",
+  "workbenchTimelineRippleTrimTitle": "Ripple Trim Overlay End",
   "workbenchTimelineDelete": "Delete",
   "workbenchTimelineRippleDelete": "Ripple delete",
   "workbenchTimelineUnselected": "No video selected",
