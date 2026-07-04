@@ -1740,7 +1740,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentChatSkillsBody =>
-      '我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。';
+      '我可以调用的能力包括已有流水线真实动作，也可以调用本地自定义技能。流水线动作会在「任务中心」留下可查看、可重试的任务记录；自定义技能目前支持 v1 JS return 模板。';
 
   @override
   String get agentTabChat => '对话';
@@ -1799,6 +1799,40 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentSkillDisabledTag => '已停用';
+
+  @override
+  String get agentCustomSkillAdd => '新增自定义技能';
+
+  @override
+  String get agentCustomSkillCreateTitle => '新增自定义技能';
+
+  @override
+  String get agentCustomSkillEditTitle => '编辑自定义技能';
+
+  @override
+  String get agentCustomSkillId => '工具 ID';
+
+  @override
+  String get agentCustomSkillName => '技能名称';
+
+  @override
+  String get agentCustomSkillSchema => '参数 Schema JSON';
+
+  @override
+  String get agentCustomSkillScript => '脚本';
+
+  @override
+  String get agentCustomSkillScriptHint =>
+      'v1 支持 return 字符串、args.xxx、projectId、JSON.stringify(args) 与模板字符串。';
+
+  @override
+  String get agentCustomSkillInvalidSchema => 'Schema 必须是 JSON 对象';
+
+  @override
+  String get agentCustomSkillSaved => '自定义技能已保存';
+
+  @override
+  String get agentCustomSkillTag => '自定义';
 
   @override
   String agentMemoryCount(int count) {

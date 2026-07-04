@@ -1801,7 +1801,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentChatSkillsBody =>
-      'Every capability I can call is a real pipeline action, and each call leaves a reviewable, retryable task in Task Center: event extraction, asset extraction, storyboard generation, first-frame image generation, video generation, voice matching, compose export. Custom scripted skills are not supported.';
+      'I can call real pipeline actions and local custom skills. Pipeline actions leave reviewable, retryable records in Task Center; custom skills currently support the v1 JS return-template bridge.';
 
   @override
   String get agentTabChat => 'Chat';
@@ -1862,6 +1862,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentSkillDisabledTag => 'Disabled';
+
+  @override
+  String get agentCustomSkillAdd => 'Add custom skill';
+
+  @override
+  String get agentCustomSkillCreateTitle => 'Add custom skill';
+
+  @override
+  String get agentCustomSkillEditTitle => 'Edit custom skill';
+
+  @override
+  String get agentCustomSkillId => 'Tool ID';
+
+  @override
+  String get agentCustomSkillName => 'Skill name';
+
+  @override
+  String get agentCustomSkillSchema => 'Parameter Schema JSON';
+
+  @override
+  String get agentCustomSkillScript => 'Script';
+
+  @override
+  String get agentCustomSkillScriptHint =>
+      'v1 supports return strings, args.xxx, projectId, JSON.stringify(args), and template strings.';
+
+  @override
+  String get agentCustomSkillInvalidSchema => 'Schema must be a JSON object';
+
+  @override
+  String get agentCustomSkillSaved => 'Custom skill saved';
+
+  @override
+  String get agentCustomSkillTag => 'Custom';
 
   @override
   String agentMemoryCount(int count) {

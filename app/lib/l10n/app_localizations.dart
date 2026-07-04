@@ -3445,7 +3445,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentChatSkillsBody.
   ///
   /// In zh, this message translates to:
-  /// **'我可以调用的能力全部是已有流水线的真实动作，每次调用都会在「任务中心」留下可查看、可重试的任务记录：事件提取、资产提取、分镜生成、首帧图生成、视频生成、配音匹配、合成导出。不支持自定义脚本技能。'**
+  /// **'我可以调用的能力包括已有流水线真实动作，也可以调用本地自定义技能。流水线动作会在「任务中心」留下可查看、可重试的任务记录；自定义技能目前支持 v1 JS return 模板。'**
   String get agentChatSkillsBody;
 
   /// No description provided for @agentTabChat.
@@ -3561,6 +3561,72 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已停用'**
   String get agentSkillDisabledTag;
+
+  /// No description provided for @agentCustomSkillAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增自定义技能'**
+  String get agentCustomSkillAdd;
+
+  /// No description provided for @agentCustomSkillCreateTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增自定义技能'**
+  String get agentCustomSkillCreateTitle;
+
+  /// No description provided for @agentCustomSkillEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑自定义技能'**
+  String get agentCustomSkillEditTitle;
+
+  /// No description provided for @agentCustomSkillId.
+  ///
+  /// In zh, this message translates to:
+  /// **'工具 ID'**
+  String get agentCustomSkillId;
+
+  /// No description provided for @agentCustomSkillName.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能名称'**
+  String get agentCustomSkillName;
+
+  /// No description provided for @agentCustomSkillSchema.
+  ///
+  /// In zh, this message translates to:
+  /// **'参数 Schema JSON'**
+  String get agentCustomSkillSchema;
+
+  /// No description provided for @agentCustomSkillScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'脚本'**
+  String get agentCustomSkillScript;
+
+  /// No description provided for @agentCustomSkillScriptHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'v1 支持 return 字符串、args.xxx、projectId、JSON.stringify(args) 与模板字符串。'**
+  String get agentCustomSkillScriptHint;
+
+  /// No description provided for @agentCustomSkillInvalidSchema.
+  ///
+  /// In zh, this message translates to:
+  /// **'Schema 必须是 JSON 对象'**
+  String get agentCustomSkillInvalidSchema;
+
+  /// No description provided for @agentCustomSkillSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义技能已保存'**
+  String get agentCustomSkillSaved;
+
+  /// No description provided for @agentCustomSkillTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get agentCustomSkillTag;
 
   /// No description provided for @agentMemoryCount.
   ///

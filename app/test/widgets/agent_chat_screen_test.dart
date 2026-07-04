@@ -198,6 +198,51 @@ void main() {
     expect(find.text('只处理用户明确选择的章节事件。'), findsOneWidget);
   });
 
+  testWidgets('技能页可新增自定义脚本技能', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('agent-custom-skill-add')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新增自定义技能'), findsWidgets);
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-id-field')),
+      'custom_echo',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-name-field')),
+      '自定义回声',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-description-field')),
+      '返回用户传入的 text。',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-schema-field')),
+      '{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-script-field')),
+      r'return `ok:${args.text}`;',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final skill =
+        engine.agentSkills().singleWhere((item) => item.id == 'custom_echo');
+    expect(skill.name, '自定义回声');
+    expect(skill.description, '返回用户传入的 text。');
+    expect(skill.type, 'custom-js-agent');
+    expect(skill.schema['required'], ['text']);
+    expect(skill.script, r'return `ok:${args.text}`;');
+    await tester.drag(find.byType(ListView).last, const Offset(0, -1000));
+    await tester.pumpAndSettle();
+    expect(find.text('自定义回声'), findsOneWidget);
+  });
+
   testWidgets('部署页可配置阶段模型与 Agent 参数', (tester) async {
     final provider = await engine.createProvider(
       name: 'azt',

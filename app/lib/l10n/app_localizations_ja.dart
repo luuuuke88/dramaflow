@@ -1751,7 +1751,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agentChatSkillsBody =>
-      '私が呼び出せる機能はすべて既存パイプラインの実際の動作で、呼び出すたびにタスクセンターに確認・再試行可能な記録が残ります：イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像生成、動画生成、配音マッチング、合成書き出し。カスタムスクリプト技能には対応していません。';
+      '既存パイプラインの実アクションに加えて、ローカルのカスタム技能も呼び出せます。パイプラインアクションはタスクセンターに確認・再試行可能な記録を残し、カスタム技能は現在 v1 の JS return テンプレートブリッジに対応しています。';
 
   @override
   String get agentTabChat => '対話';
@@ -1811,6 +1811,40 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agentSkillDisabledTag => '無効';
+
+  @override
+  String get agentCustomSkillAdd => 'カスタム技能を追加';
+
+  @override
+  String get agentCustomSkillCreateTitle => 'カスタム技能を追加';
+
+  @override
+  String get agentCustomSkillEditTitle => 'カスタム技能を編集';
+
+  @override
+  String get agentCustomSkillId => 'ツール ID';
+
+  @override
+  String get agentCustomSkillName => '技能名';
+
+  @override
+  String get agentCustomSkillSchema => 'パラメータ Schema JSON';
+
+  @override
+  String get agentCustomSkillScript => 'スクリプト';
+
+  @override
+  String get agentCustomSkillScriptHint =>
+      'v1 は return 文字列、args.xxx、projectId、JSON.stringify(args)、テンプレート文字列をサポートします。';
+
+  @override
+  String get agentCustomSkillInvalidSchema => 'Schema は JSON オブジェクトである必要があります';
+
+  @override
+  String get agentCustomSkillSaved => 'カスタム技能を保存しました';
+
+  @override
+  String get agentCustomSkillTag => 'カスタム';
 
   @override
   String agentMemoryCount(int count) {
