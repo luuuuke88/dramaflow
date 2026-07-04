@@ -202,6 +202,39 @@ void main() {
     expect(gateway.lastTools.map((tool) => tool.name), contains('get_status'));
   });
 
+  test('自定义脚本技能：暴露为 Agent 工具并执行 return 模板', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_echo',
+      name: '自定义回声',
+      description: '返回用户传入的 text，验证自定义技能链路。',
+      script: r'return `项目${projectId}:${args.text}`;',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'text': {'type': 'string'},
+        },
+        'required': ['text'],
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_echo', const {'text': '寒山'})
+    ];
+    await engine.sendAgentMessage(projectId, '调用自定义技能', autoMode: false);
+
+    expect(gateway.lastTools.map((tool) => tool.name), contains('custom_echo'));
+    expect(
+      gateway.lastTools
+          .singleWhere((tool) => tool.name == 'custom_echo')
+          .schema,
+      containsPair('required', ['text']),
+    );
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_echo');
+    expect(msg.content, '项目$projectId:寒山');
+  });
+
   test('Agent 部署配置 seed 自阶段绑定，保存后 resolveAgentStage 优先使用部署模型与参数', () async {
     final provider = await engine.createProvider(
       name: 'azt',

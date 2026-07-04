@@ -60,12 +60,16 @@ class AgentSkill {
   final String description;
   final bool enabled;
   final String type;
+  final Map<String, dynamic> schema;
+  final String script;
   const AgentSkill({
     required this.id,
     required this.name,
     required this.description,
     required this.enabled,
     required this.type,
+    this.schema = const {},
+    this.script = '',
   });
 }
 
@@ -121,6 +125,7 @@ class AgentMemoryRecord {
 }
 
 const _agentSkillType = 'builtin-agent';
+const _customAgentSkillType = 'custom-js-agent';
 const _agentDeploymentType = 'agent-stage';
 const _agentDeploymentKeys = [
   'script_gen',
@@ -231,6 +236,16 @@ final _tools = <AgentToolDef>[
   ),
 ];
 
+Map<String, dynamic> _skillSchema(Object? raw) {
+  if (raw is! String || raw.trim().isEmpty) return const {};
+  try {
+    final decoded = jsonDecode(raw);
+    return decoded is Map ? Map<String, dynamic>.from(decoded) : const {};
+  } catch (_) {
+    return const {};
+  }
+}
+
 extension AgentApi on Engine {
   String _agentMemoryIsolationKey(int projectId) => 'project:$projectId';
 
@@ -244,7 +259,9 @@ extension AgentApi on Engine {
             description: skill.description.isEmpty
                 ? _defaultTool(skill.id)?.description ?? ''
                 : skill.description,
-            schema: _defaultTool(skill.id)?.schema ?? const {},
+            schema: skill.schema.isNotEmpty
+                ? skill.schema
+                : _defaultTool(skill.id)?.schema ?? const {},
           ),
     ];
   }
@@ -285,9 +302,9 @@ extension AgentApi on Engine {
   List<AgentSkill> agentSkills() {
     _ensureAgentSkillsSeeded();
     final rows = db.select(
-      'SELECT id,name,description,state,type FROM o_skillList '
-      'WHERE type=? ORDER BY createTime ASC, id ASC',
-      [_agentSkillType],
+      'SELECT id,name,description,state,type,path,md5 FROM o_skillList '
+      'WHERE type IN (?,?) ORDER BY createTime ASC, id ASC',
+      [_agentSkillType, _customAgentSkillType],
     );
     return [
       for (final row in rows)
@@ -299,8 +316,44 @@ extension AgentApi on Engine {
           description: row['description'] as String? ?? '',
           enabled: (row['state'] as int? ?? 1) != 0,
           type: row['type'] as String? ?? _agentSkillType,
+          script: row['path'] as String? ?? '',
+          schema: _skillSchema(row['md5']),
         ),
     ];
+  }
+
+  void saveCustomAgentSkill({
+    required String id,
+    required String name,
+    required String description,
+    required String script,
+    Map<String, dynamic> schema = const {},
+    bool enabled = true,
+  }) {
+    final normalizedId = id.trim();
+    if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(normalizedId)) {
+      throw EngineException(errLlmFormat, {'reason': '技能 id 只能包含字母、数字和下划线'});
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_skillList '
+      '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        normalizedId,
+        name.trim().isEmpty ? normalizedId : name.trim(),
+        description.trim(),
+        enabled ? 1 : 0,
+        _customAgentSkillType,
+        db.select('SELECT createTime FROM o_skillList WHERE id=?',
+                [normalizedId]).firstOrNull?['createTime'] as int? ??
+            now,
+        now,
+        script,
+        jsonEncode(schema),
+        '',
+      ],
+    );
   }
 
   void updateAgentSkill(
@@ -310,8 +363,9 @@ extension AgentApi on Engine {
   }) {
     _ensureAgentSkillsSeeded();
     final row = db.select(
-      'SELECT id,description,state FROM o_skillList WHERE id=? AND type=?',
-      [id, _agentSkillType],
+      'SELECT id,description,state,type FROM o_skillList '
+      'WHERE id=? AND type IN (?,?)',
+      [id, _agentSkillType, _customAgentSkillType],
     ).firstOrNull;
     if (row == null) {
       throw EngineException(errLlmFormat, {'reason': '技能不存在'});
@@ -324,7 +378,7 @@ extension AgentApi on Engine {
         enabled == null ? row['state'] as int? ?? 1 : (enabled ? 1 : 0),
         DateTime.now().millisecondsSinceEpoch,
         id,
-        _agentSkillType,
+        row['type'],
       ],
     );
   }
@@ -852,6 +906,18 @@ extension AgentApi on Engine {
           return '合成成功：${result.outputRelPath}'
               '${result.durationSec != null ? '（时长 ${result.durationSec!.toStringAsFixed(1)}s）' : ''}。';
         default:
+          final custom = db.select(
+            'SELECT id,path FROM o_skillList WHERE id=? AND type=? AND COALESCE(state,1)!=0',
+            [name, _customAgentSkillType],
+          ).firstOrNull;
+          if (custom != null) {
+            return _runCustomAgentSkill(
+              projectId,
+              name,
+              custom['path'] as String? ?? '',
+              args,
+            );
+          }
           return '未知工具：$name';
       }
     } catch (e) {
@@ -860,6 +926,61 @@ extension AgentApi on Engine {
           : EngineException(errLlmFormat, {'message': '$e'});
       return '执行失败：${ex.errKey}';
     }
+  }
+
+  String _runCustomAgentSkill(
+    int projectId,
+    String name,
+    String script,
+    Map<String, dynamic> args,
+  ) {
+    final result = _evaluateCustomJsReturn(script, projectId, args);
+    return result.isEmpty ? '自定义技能 $name 执行完成。' : result;
+  }
+
+  String _evaluateCustomJsReturn(
+    String script,
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final match =
+        RegExp(r'^\s*return\s+([\s\S]*?);?\s*$').firstMatch(script.trim());
+    if (match == null) {
+      throw EngineException(errLlmFormat, {'reason': 'custom_skill_return'});
+    }
+    final expr = match.group(1)!.trim();
+    if (expr == 'projectId') return '$projectId';
+    if (expr == 'JSON.stringify(args)') return jsonEncode(args);
+
+    final argExpr =
+        RegExp(r'^args\.([A-Za-z_][A-Za-z0-9_]*)$').firstMatch(expr);
+    if (argExpr != null) {
+      return '${args[argExpr.group(1)] ?? ''}';
+    }
+
+    if (expr.length >= 2 &&
+        ((expr.startsWith("'") && expr.endsWith("'")) ||
+            (expr.startsWith('"') && expr.endsWith('"')))) {
+      return expr.substring(1, expr.length - 1);
+    }
+
+    if (expr.length >= 2 && expr.startsWith('`') && expr.endsWith('`')) {
+      final template = expr.substring(1, expr.length - 1);
+      return template.replaceAllMapped(RegExp(r'\$\{([^}]+)\}'), (match) {
+        final item = match.group(1)!.trim();
+        if (item == 'projectId') return '$projectId';
+        if (item == 'JSON.stringify(args)') return jsonEncode(args);
+        final arg =
+            RegExp(r'^args\.([A-Za-z_][A-Za-z0-9_]*)$').firstMatch(item);
+        if (arg != null) return '${args[arg.group(1)] ?? ''}';
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_expression',
+          'expression': item,
+        });
+      });
+    }
+
+    throw EngineException(errLlmFormat, {'reason': 'custom_skill_expression'});
   }
 
   String _statusSummary(int projectId) {
