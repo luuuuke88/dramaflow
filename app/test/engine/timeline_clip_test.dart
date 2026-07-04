@@ -54,6 +54,47 @@ void main() {
     );
   }
 
+  test('addTimelineClipFromAsset 新增素材层时避让同轨已有片段', () {
+    final clipA = clipAsset('p/add_overlap_a.mp4', 'A');
+    final clipB = clipAsset('p/add_overlap_b.mp4', 'B');
+    final clipC = clipAsset('p/add_overlap_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 1000,
+      durationMs: 600,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 2,
+      startMs: 1200,
+      durationMs: 500,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 1000);
+    final avoided = clips.singleWhere((c) => c.id == clipIdB);
+    expect(avoided.lane, 1);
+    expect(avoided.startMs, 1600);
+    expect(avoided.durationMs, 500);
+    final otherLane = clips.singleWhere((c) => c.id == clipIdC);
+    expect(otherLane.lane, 2);
+    expect(otherLane.startMs, 1200);
+    expect(otherLane.durationMs, 500);
+  });
+
   test('deleteTimelineClipRipple 删除素材层并将同轨后续片段前移', () {
     final clipA = clipAsset('p/ripple_a.mp4', 'A');
     final clipB = clipAsset('p/ripple_b.mp4', 'B');

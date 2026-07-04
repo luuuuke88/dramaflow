@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:sqlite3/sqlite3.dart' show Row;
+import 'package:sqlite3/sqlite3.dart' show Database, Row;
 
 import 'engine.dart';
 import 'errors.dart';
@@ -59,6 +59,13 @@ extension TimelineClipApi on Engine {
     final normalizedStart = startMs < 0 ? 0 : startMs;
     final normalizedDuration =
         durationMs != null && durationMs > 0 ? durationMs : null;
+    final resolvedStart = _avoidTimelineOverlapOnAdd(
+      db: db,
+      scriptId: scriptId,
+      lane: normalizedLane,
+      startMs: normalizedStart,
+      durationMs: normalizedDuration ?? _defaultTimelineClipDurationMs,
+    );
     db.execute(
       'INSERT INTO o_timelineClip '
       '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
@@ -70,7 +77,7 @@ extension TimelineClipApi on Engine {
         clipRow['name'],
         rel,
         normalizedLane,
-        normalizedStart,
+        resolvedStart,
         normalizedDuration,
       ],
     );
@@ -265,3 +272,38 @@ TimelineClipRow _timelineClipFromRow(Row row) => TimelineClipRow(
       startMs: (row['startMs'] as int?) ?? 0,
       durationMs: row['durationMs'] as int?,
     );
+
+int _avoidTimelineOverlapOnAdd({
+  required Database db,
+  required int scriptId,
+  required int lane,
+  required int startMs,
+  required int durationMs,
+}) {
+  var candidate = startMs < 0 ? 0 : startMs;
+  final others = db.select(
+    'SELECT startMs,durationMs FROM o_timelineClip '
+    'WHERE scriptId=? AND lane=? ORDER BY startMs ASC, id ASC',
+    [scriptId, lane < 1 ? 1 : lane],
+  ).toList();
+  var changed = true;
+  var guard = 0;
+  while (changed && guard < others.length + 1) {
+    changed = false;
+    guard += 1;
+    for (final other in others) {
+      final otherStart = (other['startMs'] as int?) ?? 0;
+      final otherDuration =
+          (other['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+      final otherEnd = otherStart + otherDuration;
+      final candidateEnd = candidate + durationMs;
+      final overlaps = candidate < otherEnd && candidateEnd > otherStart;
+      if (!overlaps) continue;
+      candidate = candidate < otherStart ? otherStart - durationMs : otherEnd;
+      if (candidate < 0) candidate = 0;
+      changed = true;
+      break;
+    }
+  }
+  return candidate;
+}
