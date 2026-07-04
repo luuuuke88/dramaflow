@@ -16,6 +16,7 @@ import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:dramaflow/src/screens/production/workbench_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +24,21 @@ import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 
 class _NoopGateway implements ProviderGateway {
+  int textCalls = 0;
+  String Function(int call, String system, String user)? textHandler;
+
+  @override
+  Future<TextResult> generateText(String system, String user,
+      {required String stage, CancelToken? cancelToken}) async {
+    expect(stage, 'video_prompt_gen');
+    final handler = textHandler;
+    if (handler == null) {
+      throw StateError('unexpected text call');
+    }
+    textCalls += 1;
+    return TextResult(handler(textCalls, system, user));
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -69,16 +85,18 @@ class _RecordingComposer implements VideoComposer {
 void main() {
   late Directory dir;
   late Engine engine;
+  late _NoopGateway gateway;
   late int projectId;
   late int scriptId;
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('dramaflow-workbench-');
     final db = openEngineDb(':memory:');
+    gateway = _NoopGateway();
     engine = Engine(
       db: db,
       media: MediaStore(p.join(dir.path, 'media')),
-      gateway: _NoopGateway(),
+      gateway: gateway,
       config: EngineConfig(db, isMobile: false),
       composer: _FakeComposer(),
     );
@@ -236,6 +254,34 @@ void main() {
     expect(trackIds, [
       engine.storyboards(scriptId).singleWhere((s) => s.id == s2).trackId,
     ]);
+  });
+
+  testWidgets('工作台批量运镜提示词只写入已勾选镜头轨道', (tester) async {
+    final s1 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头一');
+    final s2 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头二');
+    engine.db.execute(
+      "INSERT INTO o_prompt (name,type,data,useData) VALUES (?,?,?,NULL)",
+      ['video_prompt_gen', 'video_prompt_gen', '运镜系统词'],
+    );
+    gateway.textHandler = (call, system, user) => '批量运镜提示词 #$call';
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('全部生成运镜提示词'));
+    await tester.pumpAndSettle();
+
+    final shot1 = engine.storyboards(scriptId).singleWhere((s) => s.id == s1);
+    final shot2 = engine.storyboards(scriptId).singleWhere((s) => s.id == s2);
+    expect(shot1.trackId, isNull);
+    expect(engine.track(shot2.trackId!)!.prompt, '批量运镜提示词 #1');
+    expect(gateway.textCalls, 1);
   });
 
   testWidgets('点击生成运镜提示词按钮不崩溃且写入轨道', (tester) async {

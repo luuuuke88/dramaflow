@@ -531,6 +531,7 @@
   "workbenchOpen": "ワークベンチを開く",
   "workbenchGenerateVideo": "動画を生成",
   "workbenchGenerateAll": "すべて動画生成",
+  "workbenchGenerateAllPrompts": "すべてカメラワーク生成",
   "workbenchCompose": "話数を合成",
   "workbenchComposing": "合成中...",
   "workbenchComposeSuccess": "合成に成功しました",

@@ -1520,6 +1520,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchGenerateAll => 'すべて動画生成';
 
   @override
+  String get workbenchGenerateAllPrompts => 'すべてカメラワーク生成';
+
+  @override
   String get workbenchCompose => '話数を合成';
 
   @override

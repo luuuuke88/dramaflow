@@ -1509,6 +1509,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchGenerateAll => '全部生成视频';
 
   @override
+  String get workbenchGenerateAllPrompts => '全部生成运镜提示词';
+
+  @override
   String get workbenchCompose => '合成本集';
 
   @override

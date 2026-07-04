@@ -127,6 +127,7 @@ class _WorkbenchPage extends ConsumerStatefulWidget {
 
 class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   bool _composing = false;
+  bool _batchPrompting = false;
   final Set<int> _checkedShotIds = {};
   final Set<int> _knownShotIds = {};
 
@@ -201,6 +202,29 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     _toast(context.l10n.workbenchGenerateVideo);
   }
 
+  Future<void> _generateCheckedPrompts(List<StoryboardRow> shots) async {
+    final selected = [
+      for (final shot in shots)
+        if (_checkedShotIds.contains(shot.id)) shot,
+    ];
+    if (selected.isEmpty || _batchPrompting) return;
+    setState(() => _batchPrompting = true);
+    try {
+      final engine = ref.read(engineProvider);
+      for (final shot in selected) {
+        await engine.generateVideoPrompt(shot.id);
+      }
+      if (mounted) {
+        setState(() {});
+        _toast(context.l10n.workbenchGeneratePrompt);
+      }
+    } catch (e) {
+      if (mounted) _toast(localizeError(context, e));
+    } finally {
+      if (mounted) setState(() => _batchPrompting = false);
+    }
+  }
+
   void _reorderShots(List<StoryboardRow> shots, int oldIndex, int newIndex) {
     if (oldIndex == newIndex) return;
     final targetIndex = newIndex.clamp(0, shots.length - 1);
@@ -214,6 +238,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final compactActions = MediaQuery.sizeOf(context).width < 620;
     ref.watch(jobsGenerationProvider);
     final shots = ref.watch(engineProvider).storyboards(widget.scriptId);
     _syncCheckedShots(shots);
@@ -227,7 +252,45 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       appBar: AppBar(
         title: Text(l10n.workbenchTitle),
         actions: [
-          if (shots.isNotEmpty)
+          if (shots.isNotEmpty && compactActions)
+            PopupMenuButton<_WorkbenchBatchAction>(
+              enabled: _checkedShotIds.isNotEmpty && !_batchPrompting,
+              icon: const Icon(Icons.more_horiz_rounded),
+              onSelected: (action) {
+                switch (action) {
+                  case _WorkbenchBatchAction.prompts:
+                    _generateCheckedPrompts(shots);
+                    break;
+                  case _WorkbenchBatchAction.videos:
+                    _generateChecked(shots);
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _WorkbenchBatchAction.prompts,
+                  child: Text(l10n.workbenchGenerateAllPrompts),
+                ),
+                PopupMenuItem(
+                  value: _WorkbenchBatchAction.videos,
+                  child: Text(l10n.workbenchGenerateAll),
+                ),
+              ],
+            ),
+          if (shots.isNotEmpty && !compactActions)
+            TextButton.icon(
+              onPressed: _checkedShotIds.isEmpty || _batchPrompting
+                  ? null
+                  : () => _generateCheckedPrompts(shots),
+              icon: _batchPrompting
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.auto_awesome_outlined),
+              label: Text(l10n.workbenchGenerateAllPrompts),
+            ),
+          if (shots.isNotEmpty && !compactActions)
             TextButton.icon(
               onPressed: _checkedShotIds.isEmpty
                   ? null
@@ -299,6 +362,8 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     );
   }
 }
+
+enum _WorkbenchBatchAction { prompts, videos }
 
 class _TimelineOverview extends ConsumerWidget {
   final int projectId;

@@ -3004,6 +3004,12 @@ abstract class AppLocalizations {
   /// **'全部生成视频'**
   String get workbenchGenerateAll;
 
+  /// No description provided for @workbenchGenerateAllPrompts.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部生成运镜提示词'**
+  String get workbenchGenerateAllPrompts;
+
   /// No description provided for @workbenchCompose.
   ///
   /// In zh, this message translates to:

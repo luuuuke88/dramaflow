@@ -1552,6 +1552,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchGenerateAll => 'Generate All Videos';
 
   @override
+  String get workbenchGenerateAllPrompts => 'Generate All Motion Prompts';
+
+  @override
   String get workbenchCompose => 'Compose Episode';
 
   @override

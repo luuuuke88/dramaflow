@@ -531,6 +531,7 @@
   "workbenchOpen": "Open Workbench",
   "workbenchGenerateVideo": "Generate Video",
   "workbenchGenerateAll": "Generate All Videos",
+  "workbenchGenerateAllPrompts": "Generate All Motion Prompts",
   "workbenchCompose": "Compose Episode",
   "workbenchComposing": "Composing...",
   "workbenchComposeSuccess": "Composed successfully",

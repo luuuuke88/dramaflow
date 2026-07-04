@@ -651,6 +651,7 @@
   "workbenchOpen": "打开工作台",
   "workbenchGenerateVideo": "生成视频",
   "workbenchGenerateAll": "全部生成视频",
+  "workbenchGenerateAllPrompts": "全部生成运镜提示词",
   "workbenchCompose": "合成本集",
   "workbenchComposing": "合成中...",
   "workbenchComposeSuccess": "合成成功",
