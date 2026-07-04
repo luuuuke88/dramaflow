@@ -627,6 +627,7 @@
   "workbenchTimelineCopyToPlayheadSelected": "Copy to playhead",
   "workbenchTimelineAlignToPlayheadSelected": "Align to playhead",
   "workbenchTimelineAlignEndToPlayheadSelected": "Align end to playhead",
+  "workbenchTimelineAlignCenterToPlayheadSelected": "Center on playhead",
   "workbenchTimelineRippleDuplicateSelected": "Ripple duplicate selected",
   "workbenchTimelineMoveSelected": "Move selected",
   "workbenchTimelineLaneSelected": "Move lane",

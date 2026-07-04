@@ -1398,8 +1398,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(
-      find.byKey(const ValueKey(
-          'workbench-timeline-trim-start-to-playhead-selected')),
+      find.byKey(
+          const ValueKey('workbench-timeline-trim-start-to-playhead-selected')),
     );
     await tester.pumpAndSettle();
 
@@ -1759,7 +1759,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(
-      find.byKey(const ValueKey('workbench-timeline-copy-to-playhead-selected')),
+      find.byKey(
+          const ValueKey('workbench-timeline-copy-to-playhead-selected')),
     );
     await tester.pumpAndSettle();
 
@@ -1981,6 +1982,106 @@ void main() {
     expect(untouchedC.durationMs, 300);
     expect(find.textContaining('800ms · 400ms'), findsOneWidget);
     expect(find.textContaining('700ms · 500ms'), findsOneWidget);
+  });
+
+  testWidgets('工作台可选中多个素材层并将中心对齐到播放头', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const relA = 'p/batch_align_center_playhead_overlay_a.mp4';
+    const relB = 'p/batch_align_center_playhead_overlay_b.mp4';
+    const relC = 'p/batch_align_center_playhead_overlay_c.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 12, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 12, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 12, 3]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '中心对齐播放头 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '中心对齐播放头 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '中心对齐播放头 C',
+      relPath: relC,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 100,
+      durationMs: 400,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 300,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 3,
+      startMs: 900,
+      durationMs: 300,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '1200',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdB')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey(
+          'workbench-timeline-align-center-to-playhead-selected')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    final alignedA = clips.singleWhere((c) => c.id == clipIdA);
+    final alignedB = clips.singleWhere((c) => c.id == clipIdB);
+    final untouchedC = clips.singleWhere((c) => c.id == clipIdC);
+    expect(alignedA.startMs, 1000);
+    expect(alignedA.lane, 1);
+    expect(alignedA.durationMs, 400);
+    expect(alignedB.startMs, 950);
+    expect(alignedB.lane, 2);
+    expect(alignedB.durationMs, 500);
+    expect(untouchedC.startMs, 900);
+    expect(untouchedC.lane, 3);
+    expect(untouchedC.durationMs, 300);
+    expect(find.textContaining('1000ms · 400ms'), findsOneWidget);
+    expect(find.textContaining('950ms · 500ms'), findsOneWidget);
   });
 
   testWidgets('工作台可选中多个素材层并批量波纹复制', (tester) async {

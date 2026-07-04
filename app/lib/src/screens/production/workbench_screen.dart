@@ -519,7 +519,9 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
 
   void _alignSelectedClipLayersToPlayhead() {
     final playheadMs = _snapPlayheadMs;
-    if (_selectedClipIds.isEmpty || playheadMs == null || widget.shots.isEmpty) {
+    if (_selectedClipIds.isEmpty ||
+        playheadMs == null ||
+        widget.shots.isEmpty) {
       return;
     }
     final engine = ref.read(engineProvider);
@@ -541,7 +543,9 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
 
   void _alignSelectedClipLayerEndsToPlayhead() {
     final playheadMs = _snapPlayheadMs;
-    if (_selectedClipIds.isEmpty || playheadMs == null || widget.shots.isEmpty) {
+    if (_selectedClipIds.isEmpty ||
+        playheadMs == null ||
+        widget.shots.isEmpty) {
       return;
     }
     final engine = ref.read(engineProvider);
@@ -553,6 +557,32 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     for (final clip in selectedRows) {
       final duration = clip.durationMs ?? _defaultClipDurationMs;
       final nextStart = playheadMs - duration;
+      engine.updateTimelineClip(
+        clipId: clip.id,
+        lane: clip.lane,
+        startMs: nextStart < 0 ? 0 : nextStart,
+        durationMs: clip.durationMs,
+      );
+    }
+    setState(() {});
+  }
+
+  void _alignSelectedClipLayerCentersToPlayhead() {
+    final playheadMs = _snapPlayheadMs;
+    if (_selectedClipIds.isEmpty ||
+        playheadMs == null ||
+        widget.shots.isEmpty) {
+      return;
+    }
+    final engine = ref.read(engineProvider);
+    final selectedRows = engine
+        .timelineClips(widget.shots.first.scriptId)
+        .where((clip) => _selectedClipIds.contains(clip.id))
+        .toList();
+    if (selectedRows.isEmpty) return;
+    for (final clip in selectedRows) {
+      final duration = clip.durationMs ?? _defaultClipDurationMs;
+      final nextStart = playheadMs - duration ~/ 2;
       engine.updateTimelineClip(
         clipId: clip.id,
         lane: clip.lane,
@@ -688,7 +718,9 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
 
   void _trimSelectedClipLayersEndToPlayhead() {
     final playheadMs = _snapPlayheadMs;
-    if (_selectedClipIds.isEmpty || playheadMs == null || widget.shots.isEmpty) {
+    if (_selectedClipIds.isEmpty ||
+        playheadMs == null ||
+        widget.shots.isEmpty) {
       return;
     }
     final engine = ref.read(engineProvider);
@@ -718,7 +750,9 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
 
   void _trimSelectedClipLayersStartToPlayhead() {
     final playheadMs = _snapPlayheadMs;
-    if (_selectedClipIds.isEmpty || playheadMs == null || widget.shots.isEmpty) {
+    if (_selectedClipIds.isEmpty ||
+        playheadMs == null ||
+        widget.shots.isEmpty) {
       return;
     }
     final engine = ref.read(engineProvider);
@@ -1526,152 +1560,160 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
           TextButtonTheme(
             data: TextButtonThemeData(style: compactBatchButtonStyle),
             child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  l10n.workbenchTimelineSelectedClips(selectedClipCount),
-                  style: TextStyle(
-                    color: df.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    l10n.workbenchTimelineSelectedClips(selectedClipCount),
+                    style: TextStyle(
+                      color: df.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                TextButton.icon(
-                  key: const ValueKey('workbench-timeline-split-selected'),
-                  onPressed: selectedClipCount == 0 || _snapPlayheadMs == null
-                      ? null
-                      : _splitSelectedClipsAtPlayhead,
-                  icon: const Icon(Icons.call_split_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineSplitSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey('workbench-timeline-duplicate-selected'),
-                  onPressed: selectedClipCount == 0
-                      ? null
-                      : _duplicateSelectedClipLayers,
-                  icon: const Icon(Icons.copy_all_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineDuplicateSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey(
-                      'workbench-timeline-copy-to-playhead-selected'),
-                  onPressed:
-                      selectedClipCount == 0 || _snapPlayheadMs == null
-                          ? null
-                          : _copySelectedClipLayersToPlayhead,
-                  icon: const Icon(Icons.content_paste_go_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineCopyToPlayheadSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey(
-                      'workbench-timeline-align-to-playhead-selected'),
-                  onPressed:
-                      selectedClipCount == 0 || _snapPlayheadMs == null
-                          ? null
-                          : _alignSelectedClipLayersToPlayhead,
-                  icon: const Icon(Icons.vertical_align_center, size: 16),
-                  label: Text(l10n.workbenchTimelineAlignToPlayheadSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey(
-                      'workbench-timeline-align-end-to-playhead-selected'),
-                  onPressed:
-                      selectedClipCount == 0 || _snapPlayheadMs == null
-                          ? null
-                          : _alignSelectedClipLayerEndsToPlayhead,
-                  icon: const Icon(Icons.vertical_align_bottom, size: 16),
-                  label:
-                      Text(l10n.workbenchTimelineAlignEndToPlayheadSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey(
-                      'workbench-timeline-ripple-duplicate-selected'),
-                  onPressed: selectedClipCount == 0
-                      ? null
-                      : _rippleDuplicateSelectedClipLayers,
-                  icon: const Icon(Icons.playlist_add_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineRippleDuplicateSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey('workbench-timeline-move-selected'),
-                  onPressed:
-                      selectedClipCount == 0 ? null : _moveSelectedClipLayers,
-                  icon: const Icon(Icons.swap_horiz_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineMoveSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey('workbench-timeline-lane-selected'),
-                  onPressed:
-                      selectedClipCount == 0 ? null : _laneSelectedClipLayers,
-                  icon: const Icon(Icons.layers_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineLaneSelected),
-                ),
-                TextButton.icon(
-                  key:
-                      const ValueKey('workbench-timeline-ripple-move-selected'),
-                  onPressed: selectedClipCount == 0
-                      ? null
-                      : _rippleMoveSelectedClipLayers,
-                  icon: const Icon(Icons.open_with_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineRippleMoveSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey('workbench-timeline-trim-selected'),
-                  onPressed: selectedClipCount == 0
-                      ? null
-                      : _trimSelectedClipLayersEnd,
-                  icon: const Icon(Icons.content_cut_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineTrimSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey(
-                      'workbench-timeline-trim-to-playhead-selected'),
-                  onPressed:
-                      selectedClipCount == 0 || _snapPlayheadMs == null
-                          ? null
-                          : _trimSelectedClipLayersEndToPlayhead,
-                  icon: const Icon(Icons.vertical_align_bottom, size: 16),
-                  label: Text(l10n.workbenchTimelineTrimToPlayheadSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey(
-                      'workbench-timeline-trim-start-to-playhead-selected'),
-                  onPressed:
-                      selectedClipCount == 0 || _snapPlayheadMs == null
-                          ? null
-                          : _trimSelectedClipLayersStartToPlayhead,
-                  icon: const Icon(Icons.vertical_align_top, size: 16),
-                  label:
-                      Text(l10n.workbenchTimelineTrimStartToPlayheadSelected),
-                ),
-                TextButton.icon(
-                  key:
-                      const ValueKey('workbench-timeline-ripple-trim-selected'),
-                  onPressed: selectedClipCount == 0
-                      ? null
-                      : _rippleTrimSelectedClipLayersEnd,
-                  icon: const Icon(Icons.compress_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineRippleTrimSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey('workbench-timeline-delete-selected'),
-                  onPressed:
-                      selectedClipCount == 0 ? null : _deleteSelectedClipLayers,
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: Text(l10n.workbenchTimelineDeleteSelected),
-                ),
-                TextButton.icon(
-                  key: const ValueKey(
-                      'workbench-timeline-ripple-delete-selected'),
-                  onPressed: selectedClipCount == 0
-                      ? null
-                      : _rippleDeleteSelectedClipLayers,
-                  icon: const Icon(Icons.delete_sweep_outlined, size: 16),
-                  label: Text(l10n.workbenchTimelineRippleDeleteSelected),
-                ),
-              ]),
+                  TextButton.icon(
+                    key: const ValueKey('workbench-timeline-split-selected'),
+                    onPressed: selectedClipCount == 0 || _snapPlayheadMs == null
+                        ? null
+                        : _splitSelectedClipsAtPlayhead,
+                    icon: const Icon(Icons.call_split_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineSplitSelected),
+                  ),
+                  TextButton.icon(
+                    key:
+                        const ValueKey('workbench-timeline-duplicate-selected'),
+                    onPressed: selectedClipCount == 0
+                        ? null
+                        : _duplicateSelectedClipLayers,
+                    icon: const Icon(Icons.copy_all_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineDuplicateSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-copy-to-playhead-selected'),
+                    onPressed: selectedClipCount == 0 || _snapPlayheadMs == null
+                        ? null
+                        : _copySelectedClipLayersToPlayhead,
+                    icon: const Icon(Icons.content_paste_go_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineCopyToPlayheadSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-align-to-playhead-selected'),
+                    onPressed: selectedClipCount == 0 || _snapPlayheadMs == null
+                        ? null
+                        : _alignSelectedClipLayersToPlayhead,
+                    icon: const Icon(Icons.vertical_align_center, size: 16),
+                    label: Text(l10n.workbenchTimelineAlignToPlayheadSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-align-end-to-playhead-selected'),
+                    onPressed: selectedClipCount == 0 || _snapPlayheadMs == null
+                        ? null
+                        : _alignSelectedClipLayerEndsToPlayhead,
+                    icon: const Icon(Icons.vertical_align_bottom, size: 16),
+                    label:
+                        Text(l10n.workbenchTimelineAlignEndToPlayheadSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-align-center-to-playhead-selected'),
+                    onPressed: selectedClipCount == 0 || _snapPlayheadMs == null
+                        ? null
+                        : _alignSelectedClipLayerCentersToPlayhead,
+                    icon: const Icon(Icons.center_focus_strong_outlined,
+                        size: 16),
+                    label: Text(
+                        l10n.workbenchTimelineAlignCenterToPlayheadSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-ripple-duplicate-selected'),
+                    onPressed: selectedClipCount == 0
+                        ? null
+                        : _rippleDuplicateSelectedClipLayers,
+                    icon: const Icon(Icons.playlist_add_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineRippleDuplicateSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey('workbench-timeline-move-selected'),
+                    onPressed:
+                        selectedClipCount == 0 ? null : _moveSelectedClipLayers,
+                    icon: const Icon(Icons.swap_horiz_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineMoveSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey('workbench-timeline-lane-selected'),
+                    onPressed:
+                        selectedClipCount == 0 ? null : _laneSelectedClipLayers,
+                    icon: const Icon(Icons.layers_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineLaneSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-ripple-move-selected'),
+                    onPressed: selectedClipCount == 0
+                        ? null
+                        : _rippleMoveSelectedClipLayers,
+                    icon: const Icon(Icons.open_with_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineRippleMoveSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey('workbench-timeline-trim-selected'),
+                    onPressed: selectedClipCount == 0
+                        ? null
+                        : _trimSelectedClipLayersEnd,
+                    icon: const Icon(Icons.content_cut_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineTrimSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-trim-to-playhead-selected'),
+                    onPressed: selectedClipCount == 0 || _snapPlayheadMs == null
+                        ? null
+                        : _trimSelectedClipLayersEndToPlayhead,
+                    icon: const Icon(Icons.vertical_align_bottom, size: 16),
+                    label: Text(l10n.workbenchTimelineTrimToPlayheadSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-trim-start-to-playhead-selected'),
+                    onPressed: selectedClipCount == 0 || _snapPlayheadMs == null
+                        ? null
+                        : _trimSelectedClipLayersStartToPlayhead,
+                    icon: const Icon(Icons.vertical_align_top, size: 16),
+                    label:
+                        Text(l10n.workbenchTimelineTrimStartToPlayheadSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-ripple-trim-selected'),
+                    onPressed: selectedClipCount == 0
+                        ? null
+                        : _rippleTrimSelectedClipLayersEnd,
+                    icon: const Icon(Icons.compress_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineRippleTrimSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey('workbench-timeline-delete-selected'),
+                    onPressed: selectedClipCount == 0
+                        ? null
+                        : _deleteSelectedClipLayers,
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    label: Text(l10n.workbenchTimelineDeleteSelected),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey(
+                        'workbench-timeline-ripple-delete-selected'),
+                    onPressed: selectedClipCount == 0
+                        ? null
+                        : _rippleDeleteSelectedClipLayers,
+                    icon: const Icon(Icons.delete_sweep_outlined, size: 16),
+                    label: Text(l10n.workbenchTimelineRippleDeleteSelected),
+                  ),
+                ]),
           ),
           const SizedBox(height: 10),
         ],

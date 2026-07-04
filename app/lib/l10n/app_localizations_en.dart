@@ -1769,6 +1769,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Align end to playhead';
 
   @override
+  String get workbenchTimelineAlignCenterToPlayheadSelected =>
+      'Center on playhead';
+
+  @override
   String get workbenchTimelineRippleDuplicateSelected =>
       'Ripple duplicate selected';
 
