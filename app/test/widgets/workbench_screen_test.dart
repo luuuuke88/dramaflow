@@ -431,7 +431,7 @@ void main() {
     expect(find.textContaining('L3 · 1500ms'), findsOneWidget);
   });
 
-  testWidgets('工作台可拖放媒体库素材到时间线并按播放头找空层', (tester) async {
+  testWidgets('工作台可拖放媒体库素材到时间线落点并自动找空层', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
       scriptId: scriptId,
@@ -470,7 +470,7 @@ void main() {
       scriptId: scriptId,
       clipAssetId: clipAssetA,
       lane: 1,
-      startMs: 1000,
+      startMs: 2200,
       durationMs: 1000,
     );
     engine.addTimelineClipFromAsset(
@@ -478,7 +478,7 @@ void main() {
       scriptId: scriptId,
       clipAssetId: clipAssetB,
       lane: 2,
-      startMs: 1000,
+      startMs: 2200,
       durationMs: 1000,
     );
 
@@ -499,9 +499,13 @@ void main() {
         find.byKey(const ValueKey('workbench-timeline-drop-zone'));
     expect(dragSource, findsOneWidget);
     expect(dropTarget, findsOneWidget);
+    final dropTopLeft = tester.getTopLeft(dropTarget);
+    final dropSize = tester.getSize(dropTarget);
+    final dropAt2500ms =
+        dropTopLeft + Offset(92 + 25 * 12, dropSize.height / 2);
     await tester.dragFrom(
       tester.getCenter(dragSource),
-      tester.getCenter(dropTarget) - tester.getCenter(dragSource),
+      dropAt2500ms - tester.getCenter(dragSource),
     );
     await tester.pumpAndSettle();
 
@@ -509,9 +513,9 @@ void main() {
         .timelineClips(scriptId)
         .singleWhere((clip) => clip.name == '拖放素材');
     expect(inserted.lane, 3);
-    expect(inserted.startMs, 1300);
+    expect(inserted.startMs, 2500);
     expect(inserted.durationMs, isNull);
-    expect(find.textContaining('L3 · 1300ms'), findsOneWidget);
+    expect(find.textContaining('L3 · 2500ms'), findsOneWidget);
   });
 
   testWidgets('工作台可波纹插入素材层并后移同轨后续片段', (tester) async {

@@ -442,10 +442,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   static const double _dragPixelsPerTimeStep = 12;
   static const int _dragTimeStepMs = 100;
   static const double _dragPixelsPerLaneStep = 36;
+  static const double _timelineTrackStartX = 92;
   static const int _defaultClipDurationMs = 1000;
   static const int _minClipDurationMs = 100;
   static const int _snapThresholdMs = 100;
 
+  final _timelineDropZoneKey = GlobalKey();
   int? _snapPlayheadMs;
 
   void _updateSnapPlayhead(String value) {
@@ -515,7 +517,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         builder: (c) => _TimelineMediaLibraryDialog(clips: clips),
       );
       if (asset == null || !mounted) return;
-      _addTimelineClipAssetAtPlayhead(asset);
+      _addTimelineClipAsset(asset, startMs: _snapPlayheadMs ?? 0);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -523,7 +525,22 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     }
   }
 
-  void _addTimelineClipAssetAtPlayhead(AssetRow asset) {
+  void _addTimelineClipAssetFromDrop(AssetRow asset, Offset globalDropOffset) {
+    final startMs = _timelineDropStartMs(globalDropOffset);
+    _addTimelineClipAsset(asset, startMs: startMs ?? _snapPlayheadMs ?? 0);
+  }
+
+  int? _timelineDropStartMs(Offset globalDropOffset) {
+    final context = _timelineDropZoneKey.currentContext;
+    final renderObject = context?.findRenderObject();
+    if (renderObject is! RenderBox) return null;
+    final local = renderObject.globalToLocal(globalDropOffset);
+    final trackX = local.dx - _timelineTrackStartX;
+    final timeSteps = (trackX / _dragPixelsPerTimeStep).round();
+    return (timeSteps < 0 ? 0 : timeSteps) * _dragTimeStepMs;
+  }
+
+  void _addTimelineClipAsset(AssetRow asset, {required int startMs}) {
     final l10n = context.l10n;
     try {
       ref.read(engineProvider).addTimelineClipFromAssetAutoLane(
@@ -531,7 +548,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
             scriptId: widget.shots.first.scriptId,
             clipAssetId: asset.id,
             lane: 1,
-            startMs: _snapPlayheadMs ?? 0,
+            startMs: startMs,
           );
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
@@ -991,102 +1008,106 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
           const SizedBox(height: 10),
         ],
         DragTarget<AssetRow>(
-          key: const ValueKey('workbench-timeline-drop-zone'),
           onWillAcceptWithDetails: (details) {
-            return details.data.filePath?.isNotEmpty == true;
+            return widget.shots.isNotEmpty &&
+                details.data.filePath?.isNotEmpty == true;
           },
           onAcceptWithDetails: (details) {
-            _addTimelineClipAssetAtPlayhead(details.data);
+            _addTimelineClipAssetFromDrop(details.data, details.offset);
           },
           builder: (context, candidateData, rejectedData) {
             final active = candidateData.isNotEmpty;
-            return AnimatedContainer(
-              duration: DFTokens.fast120,
-              padding: active ? const EdgeInsets.all(6) : EdgeInsets.zero,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-                border: active
-                    ? Border.all(color: df.primary, width: 1.5)
-                    : Border.all(color: Colors.transparent),
-              ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _TimelineLane(
-                        label: l10n.workbenchTimelineVideoTrack,
-                        icon: Icons.movie_outlined,
-                        children: [
-                          for (var i = 0; i < widget.shots.length; i++)
-                            _TimelineClip(
-                              key: ValueKey(
-                                  'workbench-timeline-video-${widget.shots[i].id}'),
-                              index: i,
-                              shot: widget.shots[i],
-                              track: widget.shots[i].trackId != null
-                                  ? engine.track(widget.shots[i].trackId!)
-                                  : null,
-                              kind: _TimelineClipKind.video,
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      _TimelineLane(
-                        label: l10n.workbenchTimelineAudioTrack,
-                        icon: Icons.graphic_eq_outlined,
-                        children: [
-                          for (var i = 0; i < widget.shots.length; i++)
-                            _TimelineClip(
-                              key: ValueKey(
-                                  'workbench-timeline-audio-${widget.shots[i].id}'),
-                              index: i,
-                              shot: widget.shots[i],
-                              track: widget.shots[i].trackId != null
-                                  ? engine.track(widget.shots[i].trackId!)
-                                  : null,
-                              kind: _TimelineClipKind.audio,
-                              audioName: widget.shots[i].audioAssetId != null
-                                  ? audioNames[widget.shots[i].audioAssetId]
-                                  : null,
-                            ),
-                        ],
-                      ),
-                      if (clips.isNotEmpty) ...[
-                        const SizedBox(height: 8),
+            return Container(
+              key: const ValueKey('workbench-timeline-drop-zone'),
+              child: AnimatedContainer(
+                key: _timelineDropZoneKey,
+                duration: DFTokens.fast120,
+                padding: active ? const EdgeInsets.all(6) : EdgeInsets.zero,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+                  border: active
+                      ? Border.all(color: df.primary, width: 1.5)
+                      : Border.all(color: Colors.transparent),
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         _TimelineLane(
-                          label: l10n.workbenchTimelineOverlayTrack,
-                          icon: Icons.layers_outlined,
+                          label: l10n.workbenchTimelineVideoTrack,
+                          icon: Icons.movie_outlined,
                           children: [
-                            for (final clip in clips)
-                              _TimelineAssetClip(
-                                clip: clip,
-                                snapAnchors: _timelineSnapAnchors(
-                                    engine: engine, clip: clip),
-                                dragPixelsPerTimeStep: _dragPixelsPerTimeStep,
-                                dragTimeStepMs: _dragTimeStepMs,
-                                snapThresholdMs: _snapThresholdMs,
-                                onDragCommit: (delta) =>
-                                    _moveClipLayer(clip, delta),
-                                onTrimStartCommit: (delta) =>
-                                    _trimClipLayerStart(clip, delta),
-                                onTrimEndCommit: (delta) =>
-                                    _resizeClipLayerEnd(clip, delta),
-                                onSplit: () => _splitClipLayer(clip),
-                                onDuplicate: () => _duplicateClipLayer(clip),
-                                onSplitAt: () =>
-                                    _splitClipLayerAtPlayhead(clip),
-                                onRippleTrimEnd: () =>
-                                    _rippleTrimClipLayerEnd(clip),
-                                onEdit: () => _editClipLayer(clip),
-                                onDelete: () => _deleteClipLayer(clip),
-                                onRippleDelete: () =>
-                                    _rippleDeleteClipLayer(clip),
+                            for (var i = 0; i < widget.shots.length; i++)
+                              _TimelineClip(
+                                key: ValueKey(
+                                    'workbench-timeline-video-${widget.shots[i].id}'),
+                                index: i,
+                                shot: widget.shots[i],
+                                track: widget.shots[i].trackId != null
+                                    ? engine.track(widget.shots[i].trackId!)
+                                    : null,
+                                kind: _TimelineClipKind.video,
                               ),
                           ],
                         ),
-                      ],
-                    ]),
+                        const SizedBox(height: 8),
+                        _TimelineLane(
+                          label: l10n.workbenchTimelineAudioTrack,
+                          icon: Icons.graphic_eq_outlined,
+                          children: [
+                            for (var i = 0; i < widget.shots.length; i++)
+                              _TimelineClip(
+                                key: ValueKey(
+                                    'workbench-timeline-audio-${widget.shots[i].id}'),
+                                index: i,
+                                shot: widget.shots[i],
+                                track: widget.shots[i].trackId != null
+                                    ? engine.track(widget.shots[i].trackId!)
+                                    : null,
+                                kind: _TimelineClipKind.audio,
+                                audioName: widget.shots[i].audioAssetId != null
+                                    ? audioNames[widget.shots[i].audioAssetId]
+                                    : null,
+                              ),
+                          ],
+                        ),
+                        if (clips.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _TimelineLane(
+                            label: l10n.workbenchTimelineOverlayTrack,
+                            icon: Icons.layers_outlined,
+                            children: [
+                              for (final clip in clips)
+                                _TimelineAssetClip(
+                                  clip: clip,
+                                  snapAnchors: _timelineSnapAnchors(
+                                      engine: engine, clip: clip),
+                                  dragPixelsPerTimeStep: _dragPixelsPerTimeStep,
+                                  dragTimeStepMs: _dragTimeStepMs,
+                                  snapThresholdMs: _snapThresholdMs,
+                                  onDragCommit: (delta) =>
+                                      _moveClipLayer(clip, delta),
+                                  onTrimStartCommit: (delta) =>
+                                      _trimClipLayerStart(clip, delta),
+                                  onTrimEndCommit: (delta) =>
+                                      _resizeClipLayerEnd(clip, delta),
+                                  onSplit: () => _splitClipLayer(clip),
+                                  onDuplicate: () => _duplicateClipLayer(clip),
+                                  onSplitAt: () =>
+                                      _splitClipLayerAtPlayhead(clip),
+                                  onRippleTrimEnd: () =>
+                                      _rippleTrimClipLayerEnd(clip),
+                                  onEdit: () => _editClipLayer(clip),
+                                  onDelete: () => _deleteClipLayer(clip),
+                                  onRippleDelete: () =>
+                                      _rippleDeleteClipLayer(clip),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ]),
+                ),
               ),
             );
           },
@@ -1133,6 +1154,7 @@ class _TimelineMediaBin extends StatelessWidget {
             for (final clip in clips) ...[
               Draggable<AssetRow>(
                 data: clip,
+                dragAnchorStrategy: pointerDragAnchorStrategy,
                 feedback: Material(
                   color: Colors.transparent,
                   child: _TimelineMediaChip(clip: clip, elevated: true),

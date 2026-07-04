@@ -4,7 +4,7 @@
 
 - 分支：`master`
 - 当前代码指针：以 `git log -1` / `git status` 为准；不要把本文档里的历史提交号当作实时 HEAD。
-- 最近接力：`16f83d0 docs(progress): record current flutter parity status` 之后继续推进工作台/NLE 素材层属性编辑、复制、自动放层、纵向拖拽到占用层时自动下探空层、媒体库按播放头快捷添加到时间线，以及媒体库 clip 拖放到时间线并按播放头自动找空层。
+- 最近接力：`16f83d0 docs(progress): record current flutter parity status` 之后继续推进工作台/NLE 素材层属性编辑、复制、自动放层、纵向拖拽到占用层时自动下探空层、媒体库按播放头快捷添加到时间线，以及媒体库 clip 拖放到时间线并按落点坐标自动找空层。
 - 权威目标：`docs/superpowers/specs/2026-07-03-v0.3-toonflow-parity-design.md`
 - 页面证据账本：`docs/superpowers/progress/2026-07-04-page-parity-checklist.md`
 
@@ -51,8 +51,8 @@
    - 真正完整 H5 需要单独 M6：Web 数据库、浏览器文件存储、WebCodecs/Mediabunny 合成器、Web 媒体预览、Web 文件选择。
 
 2. 工作台仍不是完整 ToonFlow WebAV/NLE。
-   - 已有顺序分镜、候选视频、音频绑定、转场/滤镜 metadata、原生端合成、timeline overlay 渲染、overlay 素材层媒体库快捷添加/媒体库拖放/时间线拖拽/裁剪/属性编辑/复制/自动找空层/纵向拖拽占用层自动下探/吸附/分割/删除/ripple/同轨避让。
-   - 仍缺完整 WebAV clip editor 级别能力：复杂 snapping、复杂叠放冲突、更多 ripple、按落点坐标自由放置的媒体库拖放、Web 端转场/滤镜真实渲染。
+   - 已有顺序分镜、候选视频、音频绑定、转场/滤镜 metadata、原生端合成、timeline overlay 渲染、overlay 素材层媒体库快捷添加/媒体库按落点拖放/时间线拖拽/裁剪/属性编辑/复制/自动找空层/纵向拖拽占用层自动下探/吸附/分割/删除/ripple/同轨避让。
+   - 仍缺完整 WebAV clip editor 级别能力：复杂 snapping、复杂叠放冲突、更多 ripple、多素材自由编排细节、Web 端转场/滤镜真实渲染。
 
 3. Agent 体系仍是瘦身版。
    - 已有模型部署、技能开关、消息持久化、本地记忆、工具调用、简单 custom-js-agent return 模板。
@@ -68,7 +68,7 @@
 推荐顺序：
 
 1. 补制作画布视觉 parity 证据，让 11 页清单从 8 Verified / 3 Partial 变为 9 Verified / 2 Partial。
-2. 继续推进工作台 NLE：补桌面按落点坐标自由放置的媒体库拖放、复杂重叠策略或属性面板能力，每次一小片并锁测试。
+2. 继续推进工作台 NLE：补复杂重叠策略、更多 ripple 规则或更完整的属性面板能力，每次一小片并锁测试。
 3. 单独写 M6 Web 架构设计后再动 Web engine。不要在现有 `dart:io + sqlite3 FFI` engine 上直接硬塞 H5。
 4. 如果 luke 坚持“完全复刻 Agent”，先写 Agent/RAG 子系统设计，再实现多层编排和向量检索；不要把当前瘦身版误判为完整。
 
