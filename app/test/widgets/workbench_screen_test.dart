@@ -1165,6 +1165,84 @@ void main() {
     expect(find.textContaining('1000ms · 800ms'), findsOneWidget);
   });
 
+  testWidgets('工作台拖拽素材层到被占用层时自动下探空层', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/drag_auto_lane_a.mp4';
+    const relB = 'p/drag_auto_lane_b.mp4';
+    const relC = 'p/drag_auto_lane_c.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 4, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 4, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 4, 3]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '占用层 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '占用层 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '待移动层 C',
+      relPath: relC,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 4,
+      startMs: 200,
+      durationMs: 500,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final clipFinder = find.byKey(ValueKey('workbench-timeline-clip-$clipIdC'));
+    expect(clipFinder, findsOneWidget);
+    await tester.drag(clipFinder, const Offset(0, -108));
+    await tester.pumpAndSettle();
+
+    final moved = engine.timelineClips(scriptId).singleWhere(
+          (clip) => clip.id == clipIdC,
+        );
+    expect(moved.lane, 3);
+    expect(moved.startMs, 200);
+    expect(moved.durationMs, 500);
+    expect(find.textContaining('L3 · 200ms · 500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可编辑素材层属性并避让同轨重叠', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

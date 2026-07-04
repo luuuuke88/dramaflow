@@ -521,16 +521,27 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
             durationMs: duration,
           );
     final nextLane = clip.lane + laneSteps;
-    final resolvedStart = _avoidTimelineClipOverlap(
-      engine: engine,
-      clip: clip,
-      lane: nextLane,
-      startMs: nextStart,
-      durationMs: duration,
-    );
+    final resolvedLane = laneSteps == 0
+        ? nextLane
+        : _autoTimelineClipLane(
+            engine: engine,
+            clip: clip,
+            preferredLane: nextLane,
+            startMs: nextStart,
+            durationMs: duration,
+          );
+    final resolvedStart = laneSteps == 0
+        ? _avoidTimelineClipOverlap(
+            engine: engine,
+            clip: clip,
+            lane: resolvedLane,
+            startMs: nextStart,
+            durationMs: duration,
+          )
+        : nextStart;
     engine.updateTimelineClip(
       clipId: clip.id,
-      lane: nextLane,
+      lane: resolvedLane,
       startMs: resolvedStart,
       durationMs: clip.durationMs,
     );
@@ -651,6 +662,33 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       }
     }
     return candidate;
+  }
+
+  int _autoTimelineClipLane({
+    required Engine engine,
+    required TimelineClipRow clip,
+    required int preferredLane,
+    required int startMs,
+    required int durationMs,
+  }) {
+    final targetStart = startMs < 0 ? 0 : startMs;
+    final targetEnd = targetStart + durationMs;
+    var lane = preferredLane < 1 ? 1 : preferredLane;
+    final clips = engine.timelineClips(clip.scriptId);
+    final maxLane = clips.fold<int>(lane, (max, row) {
+      return row.lane > max ? row.lane : max;
+    });
+    while (lane <= maxLane + 1) {
+      final hasOverlap = clips.any((other) {
+        if (other.id == clip.id || other.lane != lane) return false;
+        final otherDuration = other.durationMs ?? _defaultClipDurationMs;
+        final otherEnd = other.startMs + otherDuration;
+        return targetStart < otherEnd && targetEnd > other.startMs;
+      });
+      if (!hasOverlap) return lane;
+      lane += 1;
+    }
+    return lane;
   }
 
   int _avoidTimelineClipEndOverlap({
