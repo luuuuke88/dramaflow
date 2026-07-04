@@ -4677,6 +4677,45 @@ void main() {
     expect(find.textContaining('已保存到素材库'), findsOneWidget);
   });
 
+  testWidgets('移动端工作台：合成成功结果使用全屏表单并展示导出信息', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '移动合成');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    engine.db.execute(
+      'INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)',
+      [trackId, 'p/mobile_compose.mp4', vtDone],
+    );
+    engine.selectVideo(trackId, engine.db.lastInsertRowId);
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('合成本集'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('合成成功'), findsOneWidget);
+    expect(find.textContaining('输出路径'), findsOneWidget);
+    expect(find.textContaining('已保存到素材库'), findsOneWidget);
+  });
+
   testWidgets('可从素材库选择 clip 作为本镜候选并自动选为正片', (tester) async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');

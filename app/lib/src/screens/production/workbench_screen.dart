@@ -146,24 +146,11 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
           .read(engineProvider)
           .composeEpisode(widget.projectId, widget.scriptId);
       if (!mounted) return;
-      showDialog<void>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: Text(l10n.workbenchComposeSuccess),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('${l10n.workbenchOutputPath}: ${result.outputRelPath}'),
-            if (result.clipAssetId != null)
-              Text(l10n.workbenchSavedToAssets(result.clipAssetId!)),
-            if (result.durationSec != null)
-              Text(
-                  '${l10n.workbenchDuration}: ${result.durationSec!.toStringAsFixed(1)}s'),
-          ]),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(c),
-                child: Text(l10n.commonConfirm)),
-          ],
-        ),
+      showDFAdaptiveDialog<void>(
+        context,
+        title: l10n.workbenchComposeSuccess,
+        desktopWidthFactor: .42,
+        builder: (c) => _ComposeResultBody(result: result),
       );
     } catch (e) {
       if (mounted) _toast(localizeError(context, e));
@@ -470,6 +457,58 @@ class _ConfirmActionBody extends StatelessWidget {
                 child: Text(confirmLabel),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComposeResultBody extends StatelessWidget {
+  final ComposeResult result;
+
+  const _ComposeResultBody({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        DFTokens.s20,
+        DFTokens.s16,
+        DFTokens.s20,
+        DFTokens.s20,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${l10n.workbenchOutputPath}: ${result.outputRelPath}',
+            style: DFTokens.body14.copyWith(color: df.textSecondary),
+          ),
+          if (result.clipAssetId != null) ...[
+            const SizedBox(height: DFTokens.s8),
+            Text(
+              l10n.workbenchSavedToAssets(result.clipAssetId!),
+              style: DFTokens.body14.copyWith(color: df.textSecondary),
+            ),
+          ],
+          if (result.durationSec != null) ...[
+            const SizedBox(height: DFTokens.s8),
+            Text(
+              '${l10n.workbenchDuration}: ${result.durationSec!.toStringAsFixed(1)}s',
+              style: DFTokens.body14.copyWith(color: df.textSecondary),
+            ),
+          ],
+          const SizedBox(height: DFTokens.s20),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.commonConfirm),
+            ),
           ),
         ],
       ),
