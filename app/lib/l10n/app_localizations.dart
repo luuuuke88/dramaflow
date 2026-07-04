@@ -3388,6 +3388,12 @@ abstract class AppLocalizations {
   /// **'批量波纹移动'**
   String get workbenchTimelineRippleMoveSelected;
 
+  /// No description provided for @workbenchTimelineRippleTrimSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量波纹裁剪'**
+  String get workbenchTimelineRippleTrimSelected;
+
   /// No description provided for @workbenchTimelineDeleteSelected.
   ///
   /// In zh, this message translates to:

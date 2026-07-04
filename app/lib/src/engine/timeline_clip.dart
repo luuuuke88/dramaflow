@@ -608,17 +608,19 @@ extension TimelineClipApi on Engine {
         )
         .toList();
     if (selectedRows.isEmpty) return;
-    final selectedIds = selectedRows.map((row) => row['id'] as int).toSet();
+    final selectedIdList = selectedRows.map((row) => row['id'] as int).toList();
     final scriptIds = selectedRows
         .map((row) => (row['scriptId'] as int?) ?? 0)
         .toSet()
         .toList();
     final scriptPlaceholders = List.filled(scriptIds.length, '?').join(',');
+    final selectedPlaceholders =
+        List.filled(selectedIdList.length, '?').join(',');
     final otherRows = db.select(
       'SELECT id,scriptId,lane,startMs FROM o_timelineClip '
       'WHERE scriptId IN ($scriptPlaceholders) '
-      'AND id NOT IN ($placeholders)',
-      [...scriptIds, ...selectedIds],
+      'AND id NOT IN ($selectedPlaceholders)',
+      [...scriptIds, ...selectedIdList],
     ).toList();
     final updates = <List<Object?>>[];
     for (final other in otherRows) {
@@ -641,8 +643,8 @@ extension TimelineClipApi on Engine {
       updates.add([nextStart, other['id'] as int]);
     }
     db.execute(
-      'DELETE FROM o_timelineClip WHERE id IN ($placeholders)',
-      selectedIds.toList(),
+      'DELETE FROM o_timelineClip WHERE id IN ($selectedPlaceholders)',
+      selectedIdList,
     );
     for (final update in updates) {
       db.execute('UPDATE o_timelineClip SET startMs=? WHERE id=?', update);
@@ -695,6 +697,70 @@ extension TimelineClipApi on Engine {
       'SET startMs=CASE WHEN startMs + ? < 0 THEN 0 ELSE startMs + ? END '
       'WHERE scriptId=? AND lane=? AND startMs>=?',
       [deltaMs, deltaMs, scriptId, lane, oldEndMs],
+    );
+  }
+
+  void resizeTimelineClipsEndRipple({
+    required List<int> clipIds,
+    required int durationMs,
+  }) {
+    if (clipIds.isEmpty) return;
+    final nextDurationMs = durationMs < _minTimelineClipDurationMs
+        ? _minTimelineClipDurationMs
+        : durationMs;
+    final placeholders = List.filled(clipIds.length, '?').join(',');
+    final selectedRows = db
+        .select(
+          'SELECT id,scriptId,lane,startMs,durationMs FROM o_timelineClip '
+          'WHERE id IN ($placeholders)',
+          clipIds,
+        )
+        .toList();
+    if (selectedRows.isEmpty) return;
+    final selectedIdList = selectedRows.map((row) => row['id'] as int).toList();
+    final selectedIds = selectedIdList.toSet();
+    final scriptIds = selectedRows
+        .map((row) => (row['scriptId'] as int?) ?? 0)
+        .toSet()
+        .toList();
+    final scriptPlaceholders = List.filled(scriptIds.length, '?').join(',');
+    final idPlaceholders = List.filled(selectedIds.length, '?').join(',');
+    final otherRows = db.select(
+      'SELECT id,scriptId,lane,startMs FROM o_timelineClip '
+      'WHERE scriptId IN ($scriptPlaceholders) '
+      'AND id NOT IN ($idPlaceholders)',
+      [...scriptIds, ...selectedIds],
+    ).toList();
+    for (final other in otherRows) {
+      final scriptId = (other['scriptId'] as int?) ?? 0;
+      final lane = (other['lane'] as int?) ?? 1;
+      final startMs = (other['startMs'] as int?) ?? 0;
+      var shiftMs = 0;
+      for (final selected in selectedRows) {
+        final selectedScriptId = (selected['scriptId'] as int?) ?? 0;
+        final selectedLane = (selected['lane'] as int?) ?? 1;
+        if (selectedScriptId != scriptId || selectedLane != lane) continue;
+        final selectedStart = (selected['startMs'] as int?) ?? 0;
+        final oldDuration =
+            (selected['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+        final oldEndMs = selectedStart + oldDuration;
+        if (startMs >= oldEndMs) {
+          shiftMs += nextDurationMs - oldDuration;
+        }
+      }
+      if (shiftMs == 0) continue;
+      final nextStart = startMs + shiftMs < 0 ? 0 : startMs + shiftMs;
+      db.execute(
+        'UPDATE o_timelineClip SET startMs=? WHERE id=?',
+        [nextStart, other['id'] as int],
+      );
+    }
+    final selectedPlaceholders =
+        List.filled(selectedIdList.length, '?').join(',');
+    db.execute(
+      'UPDATE o_timelineClip '
+      'SET durationMs=? WHERE id IN ($selectedPlaceholders)',
+      [nextDurationMs, ...selectedIdList],
     );
   }
 }

@@ -1757,6 +1757,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineRippleMoveSelected => 'Ripple move selected';
 
   @override
+  String get workbenchTimelineRippleTrimSelected => 'Ripple trim selected';
+
+  @override
   String get workbenchTimelineDeleteSelected => 'Delete selected';
 
   @override

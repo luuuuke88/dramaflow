@@ -1723,6 +1723,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineRippleMoveSelected => '選択をリップル移動';
 
   @override
+  String get workbenchTimelineRippleTrimSelected => '選択をリップルトリム';
+
+  @override
   String get workbenchTimelineDeleteSelected => '選択を削除';
 
   @override

@@ -528,6 +528,30 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  Future<void> _rippleTrimSelectedClipLayersEnd() async {
+    if (_selectedClipIds.isEmpty || widget.shots.isEmpty) return;
+    final engine = ref.read(engineProvider);
+    final selectedRows = engine
+        .timelineClips(widget.shots.first.scriptId)
+        .where((clip) => _selectedClipIds.contains(clip.id))
+        .toList();
+    if (selectedRows.isEmpty) return;
+    final defaultDurationMs =
+        selectedRows.first.durationMs ?? _defaultClipDurationMs;
+    final nextDurationMs = await showDialog<int>(
+      context: context,
+      builder: (c) => _RippleTrimTimelineClipDialog(
+        defaultDurationMs: defaultDurationMs,
+      ),
+    );
+    if (nextDurationMs == null || !mounted) return;
+    engine.resizeTimelineClipsEndRipple(
+      clipIds: _selectedClipIds.toList(),
+      durationMs: nextDurationMs,
+    );
+    setState(() {});
+  }
+
   void _deleteSelectedClipLayers() {
     if (_selectedClipIds.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -1303,6 +1327,15 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       : _rippleMoveSelectedClipLayers,
                   icon: const Icon(Icons.open_with_outlined, size: 16),
                   label: Text(l10n.workbenchTimelineRippleMoveSelected),
+                ),
+                TextButton.icon(
+                  key:
+                      const ValueKey('workbench-timeline-ripple-trim-selected'),
+                  onPressed: selectedClipCount == 0
+                      ? null
+                      : _rippleTrimSelectedClipLayersEnd,
+                  icon: const Icon(Icons.compress_outlined, size: 16),
+                  label: Text(l10n.workbenchTimelineRippleTrimSelected),
                 ),
                 TextButton.icon(
                   key: const ValueKey('workbench-timeline-delete-selected'),

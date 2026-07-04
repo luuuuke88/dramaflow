@@ -1712,6 +1712,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineRippleMoveSelected => '批量波纹移动';
 
   @override
+  String get workbenchTimelineRippleTrimSelected => '批量波纹裁剪';
+
+  @override
   String get workbenchTimelineDeleteSelected => '批量删除';
 
   @override

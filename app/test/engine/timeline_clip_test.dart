@@ -180,6 +180,66 @@ void main() {
     expect(otherLane.durationMs, 600);
   });
 
+  test('resizeTimelineClipsEndRipple 批量波纹裁剪尾部并移动受影响轨道', () {
+    final clipA = clipAsset('p/batch_ripple_trim_a.mp4', 'A');
+    final clipB = clipAsset('p/batch_ripple_trim_b.mp4', 'B');
+    final clipC = clipAsset('p/batch_ripple_trim_c.mp4', 'C');
+    final clipD = clipAsset('p/batch_ripple_trim_d.mp4', 'D');
+    final clipE = clipAsset('p/batch_ripple_trim_e.mp4', 'E');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 100,
+      durationMs: 400,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 2,
+      startMs: 300,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 1,
+      startMs: 900,
+      durationMs: 300,
+    );
+    final clipIdD = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipD,
+      lane: 2,
+      startMs: 900,
+      durationMs: 300,
+    );
+    final clipIdE = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipE,
+      lane: 3,
+      startMs: 900,
+      durationMs: 300,
+    );
+
+    engine.resizeTimelineClipsEndRipple(
+      clipIds: [clipIdA, clipIdB],
+      durationMs: 700,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).durationMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdB).durationMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 1200);
+    expect(clips.singleWhere((c) => c.id == clipIdD).startMs, 1100);
+    expect(clips.singleWhere((c) => c.id == clipIdE).startMs, 900);
+  });
+
   test('addTimelineClipFromAssetRipple 插入素材层并后移同轨后续片段', () {
     final clipA = clipAsset('p/ripple_insert_a.mp4', 'A');
     final clipB = clipAsset('p/ripple_insert_b.mp4', 'B');
