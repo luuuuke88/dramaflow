@@ -235,21 +235,15 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     ];
     if (selected.isEmpty) return;
     final l10n = context.l10n;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l10n.workbenchClearSelectedTracks),
-        content: Text(l10n.workbenchClearSelectedTracksConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: Text(l10n.commonCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: Text(l10n.workbenchClearTracksAction),
-          ),
-        ],
+    final ok = await showDFAdaptiveDialog<bool>(
+      context,
+      title: l10n.workbenchClearSelectedTracks,
+      desktopWidthFactor: .36,
+      builder: (c) => _ConfirmActionBody(
+        message: l10n.workbenchClearSelectedTracksConfirm,
+        confirmLabel: l10n.workbenchClearTracksAction,
+        onCancel: () => Navigator.pop(c, false),
+        onConfirm: () => Navigator.pop(c, true),
       ),
     );
     if (ok != true || !mounted) return;
@@ -428,6 +422,60 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
 }
 
 enum _WorkbenchBatchAction { prompts, videos, clearTracks }
+
+class _ConfirmActionBody extends StatelessWidget {
+  final String message;
+  final String confirmLabel;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  const _ConfirmActionBody({
+    required this.message,
+    required this.confirmLabel,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        DFTokens.s20,
+        DFTokens.s16,
+        DFTokens.s20,
+        DFTokens.s20,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            message,
+            style: DFTokens.body14.copyWith(color: df.textSecondary),
+          ),
+          const SizedBox(height: DFTokens.s20),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: DFTokens.s8,
+            runSpacing: DFTokens.s8,
+            children: [
+              TextButton(
+                onPressed: onCancel,
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                onPressed: onConfirm,
+                child: Text(confirmLabel),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _TimelineOverview extends ConsumerStatefulWidget {
   final int projectId;
