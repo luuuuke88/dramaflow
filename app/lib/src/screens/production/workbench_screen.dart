@@ -644,11 +644,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     if (selectedRows.isEmpty) return;
     final defaultLane =
         selectedRows.map((clip) => clip.lane).reduce((a, b) => a < b ? a : b);
-    final nextLane = await showDialog<int>(
-      context: context,
+    final nextLane = await showDFAdaptiveDialog<int>(
+      context,
+      title: context.l10n.workbenchTimelineLaneTitle,
+      desktopWidthFactor: 0.36,
       builder: (c) => _TimelineClipLaneDialog(
         defaultLane: defaultLane,
-        title: c.l10n.workbenchTimelineLaneTitle,
         inputKey: const ValueKey('workbench-timeline-lane-input'),
         confirmKey: const ValueKey('workbench-timeline-lane-confirm'),
       ),
@@ -2559,13 +2560,11 @@ class _TimelineClipStartDialogState extends State<_TimelineClipStartDialog> {
 
 class _TimelineClipLaneDialog extends StatefulWidget {
   final int defaultLane;
-  final String title;
   final Key inputKey;
   final Key confirmKey;
 
   const _TimelineClipLaneDialog({
     required this.defaultLane,
-    required this.title,
     required this.inputKey,
     required this.confirmKey,
   });
@@ -2599,28 +2598,44 @@ class _TimelineClipLaneDialogState extends State<_TimelineClipLaneDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        key: widget.inputKey,
-        controller: _laneCtrl,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: l10n.workbenchTimelineLane,
-        ),
-        onSubmitted: (_) => _submit(),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        DFTokens.s20,
+        DFTokens.s16,
+        DFTokens.s20,
+        DFTokens.s20,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          key: widget.confirmKey,
-          onPressed: _submit,
-          child: Text(l10n.commonSave),
-        ),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: widget.inputKey,
+            controller: _laneCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: l10n.workbenchTimelineLane,
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: DFTokens.s20),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: DFTokens.s8,
+            runSpacing: DFTokens.s8,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                key: widget.confirmKey,
+                onPressed: _submit,
+                child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
