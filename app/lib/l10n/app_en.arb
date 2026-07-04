@@ -56,6 +56,9 @@
       }
     }
   },
+  "promptGlobalTemplates": "Global Templates",
+  "promptModelTemplates": "Model-Specific Templates",
+  "promptModelTemplatesEmpty": "No model-specific templates yet. Imported configs or model templates will appear here.",
   "promptEditTitle": "Edit prompt · {title}",
   "@promptEditTitle": {
     "placeholders": {

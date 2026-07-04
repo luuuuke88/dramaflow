@@ -394,6 +394,24 @@ abstract class AppLocalizations {
   /// **'{count} 字符'**
   String promptCharacterCount(int count);
 
+  /// No description provided for @promptGlobalTemplates.
+  ///
+  /// In zh, this message translates to:
+  /// **'全局模板'**
+  String get promptGlobalTemplates;
+
+  /// No description provided for @promptModelTemplates.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型专属模板'**
+  String get promptModelTemplates;
+
+  /// No description provided for @promptModelTemplatesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无模型专属模板。导入配置或模型模板后会显示在这里。'**
+  String get promptModelTemplatesEmpty;
+
   /// No description provided for @promptEditTitle.
   ///
   /// In zh, this message translates to:

@@ -1013,6 +1013,51 @@ LIMIT 1
     return getPrompt(type);
   }
 
+  Future<List<Map<String, dynamic>>> listModelPrompts() async {
+    final providerNames = <String, String>{};
+    final modelLabels = <String, String>{};
+    final modelKinds = <String, String>{};
+    for (final row in db.select('SELECT * FROM o_vendorConfig ORDER BY id')) {
+      final providerId = (row['id'] ?? '').toString();
+      final input = _jsonMap(row['inputValues']);
+      providerNames[providerId] = (input['name'] ?? providerId).toString();
+      for (final model in _models(row)) {
+        final modelId = (model['modelId'] ?? '').toString();
+        if (modelId.isEmpty) continue;
+        final key = '$providerId:$modelId';
+        modelLabels[key] = (model['label'] ?? modelId).toString();
+        modelKinds[key] = (model['kind'] ?? '').toString();
+      }
+    }
+    return [
+      for (final row in db.select(
+        'SELECT id,vendorId,model,fileName,path,prompt FROM o_modelPrompt '
+        'ORDER BY vendorId,model,fileName,path,id',
+      ))
+        {
+          'id': row['id'],
+          'vendorId': row['vendorId'],
+          'providerName': providerNames[(row['vendorId'] ?? '').toString()] ??
+              (row['vendorId'] ?? '').toString(),
+          'model': row['model'],
+          'modelLabel': modelLabels['${row['vendorId']}:${row['model']}'] ??
+              (row['model'] ?? '').toString(),
+          'modelKind': modelKinds['${row['vendorId']}:${row['model']}'] ?? '',
+          'fileName': row['fileName'],
+          'path': row['path'],
+          'prompt': row['prompt'] ?? '',
+        },
+    ];
+  }
+
+  Future<void> updateModelPrompt(int id, String content) async {
+    final rows = db.select('SELECT id FROM o_modelPrompt WHERE id=?', [id]);
+    if (rows.isEmpty) {
+      throw const EngineException(errPromptMissing, {'type': 'modelPrompt'});
+    }
+    db.execute('UPDATE o_modelPrompt SET prompt=? WHERE id=?', [content, id]);
+  }
+
   Future<void> updatePrompt(String key, String content) async {
     final rows = db.select('SELECT id FROM o_prompt WHERE name=?', [key]);
     if (rows.isEmpty) {

@@ -162,6 +162,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get promptGlobalTemplates => 'Global Templates';
+
+  @override
+  String get promptModelTemplates => 'Model-Specific Templates';
+
+  @override
+  String get promptModelTemplatesEmpty =>
+      'No model-specific templates yet. Imported configs or model templates will appear here.';
+
+  @override
   String promptEditTitle(Object title) {
     return 'Edit prompt · $title';
   }

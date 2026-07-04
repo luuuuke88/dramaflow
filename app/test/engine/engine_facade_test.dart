@@ -224,6 +224,53 @@ void main() {
     );
   });
 
+  test('model prompt list/update 支持模型专属模板维护', () async {
+    final provider = await engine.createProvider(
+      name: '火山',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
+      apiKey: 'sk',
+    );
+    await engine.saveProviderModels(provider.id, [
+      {
+        'modelId': 'doubao-seedance-2-0-mini-260615',
+        'label': 'Seedance 2.0 Mini',
+        'kind': 'video',
+        'enabled': true,
+      },
+    ]);
+    await engine.setBinding(
+      'shot_video',
+      provider.id,
+      'doubao-seedance-2-0-mini-260615',
+    );
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        provider.id,
+        'doubao-seedance-2-0-mini-260615',
+        'video_prompt_gen',
+        'video/seedance2Multi-parameterMode.md',
+        '旧模板',
+      ],
+    );
+
+    final rows = await (engine as dynamic).listModelPrompts()
+        as List<Map<String, dynamic>>;
+
+    expect(rows.single['providerName'], '火山');
+    expect(rows.single['modelLabel'], 'Seedance 2.0 Mini');
+    expect(rows.single['prompt'], '旧模板');
+
+    await (engine as dynamic)
+        .updateModelPrompt(rows.single['id'] as int, '新模板');
+
+    expect(
+        await engine.getPromptForStageModel('video_prompt_gen', 'shot_video'),
+        '新模板');
+  });
+
   test('exportConfig/importConfig 往返供应商、绑定、提示词', () async {
     final provider = await engine.createProvider(
       name: '导出供应商',

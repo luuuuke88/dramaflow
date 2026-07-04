@@ -56,6 +56,9 @@
       }
     }
   },
+  "promptGlobalTemplates": "グローバルテンプレート",
+  "promptModelTemplates": "モデル別テンプレート",
+  "promptModelTemplatesEmpty": "モデル別テンプレートはまだありません。設定やモデルテンプレートを読み込むとここに表示されます。",
   "promptEditTitle": "プロンプトを編集 · {title}",
   "@promptEditTitle": {
     "placeholders": {

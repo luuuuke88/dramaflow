@@ -159,6 +159,16 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get promptGlobalTemplates => 'グローバルテンプレート';
+
+  @override
+  String get promptModelTemplates => 'モデル別テンプレート';
+
+  @override
+  String get promptModelTemplatesEmpty =>
+      'モデル別テンプレートはまだありません。設定やモデルテンプレートを読み込むとここに表示されます。';
+
+  @override
   String promptEditTitle(Object title) {
     return 'プロンプトを編集 · $title';
   }

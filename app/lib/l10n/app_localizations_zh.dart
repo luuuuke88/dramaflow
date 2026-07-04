@@ -158,6 +158,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get promptGlobalTemplates => '全局模板';
+
+  @override
+  String get promptModelTemplates => '模型专属模板';
+
+  @override
+  String get promptModelTemplatesEmpty => '暂无模型专属模板。导入配置或模型模板后会显示在这里。';
+
+  @override
   String promptEditTitle(Object title) {
     return '编辑提示词 · $title';
   }

@@ -56,6 +56,9 @@
       }
     }
   },
+  "promptGlobalTemplates": "全局模板",
+  "promptModelTemplates": "模型专属模板",
+  "promptModelTemplatesEmpty": "暂无模型专属模板。导入配置或模型模板后会显示在这里。",
   "promptEditTitle": "编辑提示词 · {title}",
   "@promptEditTitle": {
     "placeholders": {

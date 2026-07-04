@@ -217,6 +217,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.invalidate(providersProvider);
     ref.invalidate(bindingsProvider);
     ref.invalidate(promptsProvider);
+    ref.invalidate(modelPromptsProvider);
     ref.invalidate(settingsProvider);
     ref.invalidate(healthProvider);
     setState(() => _modelRevision++);
@@ -225,6 +226,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _invalidateProvidersAndBindings() {
     ref.invalidate(providersProvider);
     ref.invalidate(bindingsProvider);
+    ref.invalidate(modelPromptsProvider);
     ref.invalidate(healthProvider);
     setState(() => _modelRevision++);
   }
@@ -514,7 +516,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
       if (!changed) throw EngineException(l10n.settingsProviderMissing);
       await ref.read(engineProvider).importConfig(data);
-    }, successMessage: enabled ? l10n.settingsProviderEnabled : l10n.settingsProviderDisabled);
+    },
+        successMessage: enabled
+            ? l10n.settingsProviderEnabled
+            : l10n.settingsProviderDisabled);
     if (!mounted) return;
     _invalidateProvidersAndBindings();
   }
@@ -597,7 +602,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: DropdownButtonFormField<ProviderModelInfo>(
               initialValue: selected,
               isExpanded: true,
-              decoration: InputDecoration(labelText: l10n.settingsProviderTestKind),
+              decoration:
+                  InputDecoration(labelText: l10n.settingsProviderTestKind),
               items: [
                 for (final model in models)
                   DropdownMenuItem(
@@ -734,6 +740,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _promptsPanel() {
     final promptsAsync = ref.watch(promptsProvider);
+    final modelPromptsAsync = ref.watch(modelPromptsProvider);
     return _SettingsCard(
       title: context.l10n.promptPanelTitle,
       child: AsyncView<List<Map<String, dynamic>>>(
@@ -745,13 +752,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (prompt['key'] ?? '').toString(): prompt
           };
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _SubsectionTitle(label: context.l10n.promptGlobalTemplates),
               for (final meta in _promptMetas)
                 _PromptRow(
                   meta: meta,
                   prompt: byKey[meta.key],
                   onOpen: () => _openPromptEditor(meta, byKey[meta.key]),
                 ),
+              const SizedBox(height: 18),
+              _SubsectionTitle(label: context.l10n.promptModelTemplates),
+              AsyncView<List<Map<String, dynamic>>>(
+                value: modelPromptsAsync,
+                onRetry: () => ref.invalidate(modelPromptsProvider),
+                builder: (modelPrompts) => modelPrompts.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        child: Text(
+                          context.l10n.promptModelTemplatesEmpty,
+                          style: TextStyle(color: context.df.textLo),
+                        ),
+                      )
+                    : Column(
+                        children: [
+                          for (final prompt in modelPrompts)
+                            _ModelPromptRow(
+                              prompt: prompt,
+                              onOpen: () => _openModelPromptEditor(prompt),
+                            ),
+                        ],
+                      ),
+              ),
             ],
           );
         },
@@ -772,6 +804,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     if (saved == true && mounted) {
       ref.invalidate(promptsProvider);
+    }
+  }
+
+  Future<void> _openModelPromptEditor(Map<String, dynamic> prompt) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _ModelPromptEditorPage(prompt: prompt),
+        fullscreenDialog: true,
+      ),
+    );
+    if (saved == true && mounted) {
+      ref.invalidate(modelPromptsProvider);
     }
   }
 
@@ -914,7 +958,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onPressed: _clearAllData,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: context.df.red,
-                  side: BorderSide(color: context.df.red.withValues(alpha: 0.5)),
+                  side:
+                      BorderSide(color: context.df.red.withValues(alpha: 0.5)),
                 ),
                 icon: const Icon(Icons.delete_forever_outlined, size: 18),
                 label: Text(context.l10n.settingsStorageClear),
@@ -1148,15 +1193,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _KeyValueLine(label: l10n.settingsAboutAppName, value: 'DramaFlow'),
-          _KeyValueLine(
-              label: l10n.settingsAboutVersion, value: _appVersion),
-          _KeyValueLine(
-              label: l10n.settingsAboutEngine, value: engineVersion),
+          _KeyValueLine(label: l10n.settingsAboutVersion, value: _appVersion),
+          _KeyValueLine(label: l10n.settingsAboutEngine, value: engineVersion),
           const SizedBox(height: 12),
           Text(
             l10n.settingsAboutDescription,
-            style: TextStyle(
-                color: context.df.textLo, fontSize: 12, height: 1.5),
+            style:
+                TextStyle(color: context.df.textLo, fontSize: 12, height: 1.5),
           ),
         ],
       ),
@@ -1854,7 +1897,8 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return AlertDialog(
-      title: Text(_editing ? l10n.settingsEditProvider : l10n.settingsAddProvider),
+      title:
+          Text(_editing ? l10n.settingsEditProvider : l10n.settingsAddProvider),
       content: SizedBox(
         width: 460,
         child: SingleChildScrollView(
@@ -1893,8 +1937,9 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
                 controller: _baseUrl,
                 decoration: InputDecoration(
                   labelText: l10n.settingsProviderColumnBaseUrl,
-                  hintText:
-                      _editing ? l10n.settingsKeepEmptyUnchanged : 'https://...',
+                  hintText: _editing
+                      ? l10n.settingsKeepEmptyUnchanged
+                      : 'https://...',
                 ),
               ),
               const SizedBox(height: 12),
@@ -2574,6 +2619,112 @@ class _PromptRow extends StatelessWidget {
   }
 }
 
+class _SubsectionTitle extends StatelessWidget {
+  final String label;
+
+  const _SubsectionTitle({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: context.df.textHi,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _ModelPromptRow extends StatelessWidget {
+  final Map<String, dynamic> prompt;
+  final VoidCallback onOpen;
+
+  const _ModelPromptRow({
+    required this.prompt,
+    required this.onOpen,
+  });
+
+  String get _title {
+    final provider = (prompt['providerName'] ?? '').toString();
+    final model = (prompt['modelLabel'] ?? prompt['model'] ?? '').toString();
+    final key = ((prompt['fileName'] ?? '').toString().isNotEmpty
+            ? prompt['fileName']
+            : prompt['path'])
+        .toString();
+    return [provider, model, key].where((v) => v.isNotEmpty).join(' · ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final content = (prompt['prompt'] ?? '').toString();
+    final preview = content.trim().replaceAll(r'\n', ' ').replaceAll('\n', ' ');
+    final path = (prompt['path'] ?? '').toString();
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: context.df.stroke)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _title,
+                      style: TextStyle(
+                        color: context.df.textHi,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (path.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        path,
+                        style:
+                            TextStyle(color: context.df.textLo, fontSize: 12),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      preview.isEmpty ? l10n.promptUnset : preview,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: preview.isEmpty
+                            ? context.df.textLo
+                            : context.df.textMid,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.promptCharacterCount(content.length),
+                      style: TextStyle(color: context.df.textLo, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(Icons.chevron_right_rounded, color: context.df.textLo),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PromptOverrideBadge extends StatelessWidget {
   final String label;
 
@@ -2594,6 +2745,112 @@ class _PromptOverrideBadge extends StatelessWidget {
           color: context.df.primary,
           fontSize: 11,
           fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _ModelPromptEditorPage extends ConsumerStatefulWidget {
+  final Map<String, dynamic> prompt;
+
+  const _ModelPromptEditorPage({required this.prompt});
+
+  @override
+  ConsumerState<_ModelPromptEditorPage> createState() =>
+      _ModelPromptEditorPageState();
+}
+
+class _ModelPromptEditorPageState
+    extends ConsumerState<_ModelPromptEditorPage> {
+  late final TextEditingController _controller;
+
+  String get _title {
+    final provider = (widget.prompt['providerName'] ?? '').toString();
+    final model = (widget.prompt['modelLabel'] ?? widget.prompt['model'] ?? '')
+        .toString();
+    final key = ((widget.prompt['fileName'] ?? '').toString().isNotEmpty
+            ? widget.prompt['fileName']
+            : widget.prompt['path'])
+        .toString();
+    return [provider, model, key].where((v) => v.isNotEmpty).join(' · ');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        TextEditingController(text: (widget.prompt['prompt'] ?? '').toString());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final l10n = context.l10n;
+    await runAction(context, ref, () async {
+      await ref
+          .read(engineProvider)
+          .updateModelPrompt(widget.prompt['id'] as int, _controller.text);
+    }, successMessage: l10n.promptSaved);
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.promptEditTitle(_title)),
+        actions: [
+          FilledButton.icon(
+            onPressed: _save,
+            icon: const Icon(Icons.save_outlined, size: 18),
+            label: Text(l10n.commonSave),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
+      body: PageContainer(
+        maxWidth: 1040,
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                expands: true,
+                maxLines: null,
+                minLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                keyboardType: TextInputType.multiline,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  color: context.df.textHi,
+                  height: 1.45,
+                ),
+                decoration: InputDecoration(
+                  alignLabelWithHint: true,
+                  labelText: l10n.settingsPromptContent,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) => Text(
+                  l10n.promptCharacterCount(_controller.text.length),
+                  style: TextStyle(color: context.df.textLo, fontSize: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
     );

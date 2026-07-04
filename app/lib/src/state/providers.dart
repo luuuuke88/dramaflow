@@ -185,6 +185,11 @@ final promptsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
   (ref) => ref.watch(engineProvider).listPrompts(),
 );
 
+final modelPromptsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+  (ref) => ref.watch(engineProvider).listModelPrompts(),
+);
+
 /// 当前选中项目（对应 ToonFlow projectStore.currentProject）。
 /// 深链/刷新时可用 ensure(pid) 从引擎按 id 回填。
 class CurrentProjectNotifier extends Notifier<ProjectRow?> {

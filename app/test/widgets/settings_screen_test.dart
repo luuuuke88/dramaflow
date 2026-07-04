@@ -152,6 +152,61 @@ void main() {
     expect(find.text('設定'), findsOneWidget);
   });
 
+  testWidgets('移动端设置页：可编辑模型专属提示词模板', (tester) async {
+    final provider = await engine.createProvider(
+      name: 'Volcengine',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
+      apiKey: 'sk',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'doubao-seedance-2-0-mini-260615',
+        'label': 'Seedance Mini',
+        'kind': 'video',
+        'enabled': true,
+      },
+    ]);
+    engine.db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        provider.id,
+        'doubao-seedance-2-0-mini-260615',
+        'video_prompt_gen',
+        'video/seedance2Multi-parameterMode.md',
+        '旧 Seedance 模板',
+      ],
+    );
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '提示词');
+    expect(find.text('模型专属模板'), findsOneWidget);
+    expect(find.textContaining('Volcengine · Seedance Mini'), findsOneWidget);
+
+    await tester
+        .ensureVisible(find.textContaining('Volcengine · Seedance Mini'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Volcengine · Seedance Mini'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('编辑提示词 · Volcengine · Seedance Mini'),
+        findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, '新 Seedance 模板');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final prompt = engine.db.select(
+        'SELECT prompt FROM o_modelPrompt WHERE vendorId=?',
+        [provider.id]).single['prompt'];
+    expect(prompt, '新 Seedance 模板');
+  });
+
   testWidgets('移动端设置页：模型管理、模型绑定与数据库信息可用', (tester) async {
     final provider = await engine.createProvider(
       name: 'Local Gateway',
