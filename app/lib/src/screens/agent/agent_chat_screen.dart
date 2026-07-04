@@ -15,6 +15,7 @@ import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/common.dart';
+import '../../widgets/df_adaptive_dialog.dart';
 
 class AgentChatScreen extends ConsumerStatefulWidget {
   final int projectId;
@@ -549,8 +550,10 @@ class _AgentSkillsPane extends ConsumerWidget {
     if (skill.type == 'custom-js-agent') {
       return _openCustomSkillDialog(context, ref, skill: skill);
     }
-    return showDialog<void>(
-      context: context,
+    return showDFAdaptiveDialog<void>(
+      context,
+      title: context.l10n.agentSkillEditTitle,
+      desktopWidthFactor: .42,
       builder: (_) => _AgentSkillDialog(
         skill: skill,
         onSave: (description, enabled) {
@@ -571,8 +574,12 @@ class _AgentSkillsPane extends ConsumerWidget {
     AgentSkill? skill,
   }) async {
     final l10n = context.l10n;
-    final draft = await showDialog<_CustomSkillDraft>(
-      context: context,
+    final draft = await showDFAdaptiveDialog<_CustomSkillDraft>(
+      context,
+      title: skill == null
+          ? l10n.agentCustomSkillCreateTitle
+          : l10n.agentCustomSkillEditTitle,
+      desktopWidthFactor: .5,
       builder: (_) => _AgentCustomSkillDialog(skill: skill),
     );
     if (draft == null || !context.mounted) return;
@@ -785,90 +792,97 @@ class _AgentCustomSkillDialogState extends State<_AgentCustomSkillDialog> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final editing = widget.skill != null;
-    return AlertDialog(
-      title: Text(editing
-          ? l10n.agentCustomSkillEditTitle
-          : l10n.agentCustomSkillCreateTitle),
-      content: SingleChildScrollView(
-        child: SizedBox(
-          width: 540,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  TextField(
+                    key: const ValueKey('agent-custom-skill-id-field'),
+                    controller: _id,
+                    readOnly: editing,
+                    decoration: InputDecoration(
+                      labelText: l10n.agentCustomSkillId,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('agent-custom-skill-name-field'),
+                    controller: _name,
+                    decoration: InputDecoration(
+                      labelText: l10n.agentCustomSkillName,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('agent-custom-skill-description-field'),
+                    controller: _description,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: l10n.agentSkillDescription,
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('agent-custom-skill-schema-field'),
+                    controller: _schema,
+                    minLines: 3,
+                    maxLines: 6,
+                    style: const TextStyle(fontFamily: 'monospace'),
+                    decoration: InputDecoration(
+                      labelText: l10n.agentCustomSkillSchema,
+                      alignLabelWithHint: true,
+                      errorText: _schemaError,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('agent-custom-skill-script-field'),
+                    controller: _script,
+                    minLines: 4,
+                    maxLines: 8,
+                    style: const TextStyle(fontFamily: 'monospace'),
+                    decoration: InputDecoration(
+                      labelText: l10n.agentCustomSkillScript,
+                      helperText: l10n.agentCustomSkillScriptHint,
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _enabled,
+                    onChanged: (value) => setState(() => _enabled = value),
+                    title: Text(l10n.agentSkillEnabled),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextField(
-                key: const ValueKey('agent-custom-skill-id-field'),
-                controller: _id,
-                readOnly: editing,
-                decoration: InputDecoration(
-                  labelText: l10n.agentCustomSkillId,
-                ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.commonCancel),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('agent-custom-skill-name-field'),
-                controller: _name,
-                decoration: InputDecoration(
-                  labelText: l10n.agentCustomSkillName,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('agent-custom-skill-description-field'),
-                controller: _description,
-                minLines: 2,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: l10n.agentSkillDescription,
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('agent-custom-skill-schema-field'),
-                controller: _schema,
-                minLines: 3,
-                maxLines: 6,
-                style: const TextStyle(fontFamily: 'monospace'),
-                decoration: InputDecoration(
-                  labelText: l10n.agentCustomSkillSchema,
-                  alignLabelWithHint: true,
-                  errorText: _schemaError,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('agent-custom-skill-script-field'),
-                controller: _script,
-                minLines: 4,
-                maxLines: 8,
-                style: const TextStyle(fontFamily: 'monospace'),
-                decoration: InputDecoration(
-                  labelText: l10n.agentCustomSkillScript,
-                  helperText: l10n.agentCustomSkillScriptHint,
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _enabled,
-                onChanged: (value) => setState(() => _enabled = value),
-                title: Text(l10n.agentSkillEnabled),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _save,
+                child: Text(l10n.commonSave),
               ),
             ],
           ),
-        ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          onPressed: _save,
-          child: Text(l10n.commonSave),
-        ),
-      ],
     );
   }
 }
@@ -902,53 +916,62 @@ class _AgentSkillDialogState extends State<_AgentSkillDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(l10n.agentSkillEditTitle),
-      content: SingleChildScrollView(
-        child: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.skill.name,
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('agent-skill-description-field'),
-                controller: _description,
-                minLines: 4,
-                maxLines: 8,
-                decoration: InputDecoration(
-                  labelText: l10n.agentSkillDescription,
-                  alignLabelWithHint: true,
-                ),
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.skill.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('agent-skill-description-field'),
+                    controller: _description,
+                    minLines: 4,
+                    maxLines: 8,
+                    decoration: InputDecoration(
+                      labelText: l10n.agentSkillDescription,
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    key: const ValueKey('agent-skill-enabled-switch'),
+                    contentPadding: EdgeInsets.zero,
+                    value: _enabled,
+                    onChanged: (value) => setState(() => _enabled = value),
+                    title: Text(l10n.agentSkillEnabled),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                key: const ValueKey('agent-skill-enabled-switch'),
-                contentPadding: EdgeInsets.zero,
-                value: _enabled,
-                onChanged: (value) => setState(() => _enabled = value),
-                title: Text(l10n.agentSkillEnabled),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.commonCancel),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () {
+                  widget.onSave(_description.text.trim(), _enabled);
+                  Navigator.pop(context);
+                },
+                child: Text(l10n.commonSave),
               ),
             ],
           ),
-        ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          onPressed: () {
-            widget.onSave(_description.text.trim(), _enabled);
-            Navigator.pop(context);
-          },
-          child: Text(l10n.commonSave),
-        ),
-      ],
     );
   }
 }

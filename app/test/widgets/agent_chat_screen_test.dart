@@ -198,6 +198,50 @@ void main() {
     expect(find.text('只处理用户明确选择的章节事件。'), findsOneWidget);
   });
 
+  testWidgets('移动端 Agent：技能编辑使用全屏表单并保存', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'mobile-media')),
+      gateway: _Gateway(),
+      config: EngineConfig(db, isMobile: true),
+    );
+    projectId = engine.addProject(projectType: 'novel', name: '移动Agent页测试');
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('agent-skill-edit-generate_events')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('编辑技能'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-skill-description-field')),
+      '移动端也能编辑技能。',
+    );
+    await tester.tap(find.byKey(const ValueKey('agent-skill-enabled-switch')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final skill = engine
+        .agentSkills()
+        .singleWhere((item) => item.id == 'generate_events');
+    expect(skill.description, '移动端也能编辑技能。');
+    expect(skill.enabled, isFalse);
+    expect(find.text('移动端也能编辑技能。'), findsOneWidget);
+  });
+
   testWidgets('技能页可新增自定义脚本技能', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
@@ -241,6 +285,63 @@ void main() {
     await tester.drag(find.byType(ListView).last, const Offset(0, -1000));
     await tester.pumpAndSettle();
     expect(find.text('自定义回声'), findsOneWidget);
+  });
+
+  testWidgets('移动端 Agent：新增自定义技能使用全屏表单并保存', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'mobile-custom-skill-media')),
+      gateway: _Gateway(),
+      config: EngineConfig(db, isMobile: true),
+    );
+    projectId = engine.addProject(projectType: 'novel', name: '移动自定义技能测试');
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('agent-custom-skill-add')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('新增自定义技能'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-id-field')),
+      'mobile_echo',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-name-field')),
+      '移动回声',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-description-field')),
+      '移动端创建的自定义技能。',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-schema-field')),
+      '{"type":"object","properties":{"text":{"type":"string"}}}',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-script-field')),
+      r'return args.text;',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final skill =
+        engine.agentSkills().singleWhere((item) => item.id == 'mobile_echo');
+    expect(skill.name, '移动回声');
+    expect(skill.description, '移动端创建的自定义技能。');
+    expect(skill.type, 'custom-js-agent');
+    expect(skill.script, r'return args.text;');
   });
 
   testWidgets('部署页可配置阶段模型与 Agent 参数', (tester) async {
