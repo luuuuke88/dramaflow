@@ -282,6 +282,69 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('移动端工作台：添加素材层使用全屏单列表单并可保存', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '移动镜头',
+      duration: '4',
+    );
+    const rel = 'p/mobile_overlay_add.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([7, 7, 7]);
+    engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动新增素材层',
+      relPath: rel,
+    );
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('添加素材层'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    final laneTop = tester.getTopLeft(find.widgetWithText(TextField, '层级')).dy;
+    final startTop =
+        tester.getTopLeft(find.widgetWithText(TextField, '起点(ms)')).dy;
+    final durationTop =
+        tester.getTopLeft(find.widgetWithText(TextField, '时长(ms)')).dy;
+    expect(startTop, greaterThan(laneTop));
+    expect(durationTop, greaterThan(startTop));
+
+    await tester.enterText(find.widgetWithText(TextField, '层级'), '2');
+    await tester.enterText(find.widgetWithText(TextField, '起点(ms)'), '600');
+    await tester.enterText(find.widgetWithText(TextField, '时长(ms)'), '1100');
+    await tester.tap(find.widgetWithText(FilledButton, '添加'));
+    await tester.pumpAndSettle();
+
+    final clip = engine.timelineClips(scriptId).single;
+    expect(clip.name, '移动新增素材层');
+    expect(clip.lane, 2);
+    expect(clip.startMs, 600);
+    expect(clip.durationMs, 1100);
+    expect(find.textContaining('L2 · 600ms · 1100ms'), findsOneWidget);
+  });
+
   testWidgets('工作台添加素材层可自动选择同时间空层', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

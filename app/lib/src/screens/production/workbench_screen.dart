@@ -836,8 +836,10 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final clips =
         engine.getAssets(widget.projectId, type: 'clip', limit: 100).data;
     try {
-      final draft = await showDialog<_TimelineClipDraft>(
-        context: context,
+      final draft = await showDFAdaptiveDialog<_TimelineClipDraft>(
+        context,
+        title: l10n.workbenchTimelineAddClipTitle,
+        desktopWidthFactor: 0.42,
         builder: (c) => _AddTimelineClipDialog(clips: clips),
       );
       if (draft == null || !mounted) return;
@@ -2047,16 +2049,36 @@ class _AddTimelineClipDialogState extends State<_AddTimelineClipDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(l10n.workbenchTimelineAddClipTitle),
-      content: SizedBox(
-        width: 460,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
+    final compact = MediaQuery.sizeOf(context).width < 480;
+    final fields = [
+      TextField(
+        controller: _laneCtrl,
+        decoration: InputDecoration(labelText: l10n.workbenchTimelineLayer),
+        keyboardType: TextInputType.number,
+      ),
+      TextField(
+        controller: _startCtrl,
+        decoration: InputDecoration(labelText: l10n.workbenchTimelineStartMs),
+        keyboardType: TextInputType.number,
+      ),
+      TextField(
+        controller: _durationCtrl,
+        decoration:
+            InputDecoration(labelText: l10n.workbenchTimelineDurationMs),
+        keyboardType: TextInputType.number,
+      ),
+    ];
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           if (widget.clips.isEmpty)
             DFEmpty(text: l10n.workbenchNoClipAssets)
           else
             SizedBox(
-              height: 160,
+              height: compact ? 220 : 160,
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: widget.clips.length,
@@ -2078,69 +2100,64 @@ class _AddTimelineClipDialogState extends State<_AddTimelineClipDialog> {
               ),
             ),
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _laneCtrl,
-                decoration:
-                    InputDecoration(labelText: l10n.workbenchTimelineLayer),
-                keyboardType: TextInputType.number,
+          if (compact)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < fields.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  fields[i],
+                ],
+              ],
+            )
+          else
+            Row(children: [
+              for (var i = 0; i < fields.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: fields[i]),
+              ],
+            ]),
+          const SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.commonCancel),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _startCtrl,
-                decoration:
-                    InputDecoration(labelText: l10n.workbenchTimelineStartMs),
-                keyboardType: TextInputType.number,
+              FilledButton(
+                onPressed: _selected == null
+                    ? null
+                    : () => Navigator.pop(
+                          context,
+                          _draft(rippleInsert: false, autoLane: false),
+                        ),
+                child: Text(l10n.workbenchTimelineAdd),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _durationCtrl,
-                decoration: InputDecoration(
-                    labelText: l10n.workbenchTimelineDurationMs),
-                keyboardType: TextInputType.number,
+              FilledButton(
+                onPressed: _selected == null
+                    ? null
+                    : () => Navigator.pop(
+                          context,
+                          _draft(rippleInsert: false, autoLane: true),
+                        ),
+                child: Text(l10n.workbenchTimelineAutoLayerAdd),
               ),
-            ),
-          ]),
-        ]),
+              FilledButton(
+                onPressed: _selected == null
+                    ? null
+                    : () => Navigator.pop(
+                          context,
+                          _draft(rippleInsert: true, autoLane: false),
+                        ),
+                child: Text(l10n.workbenchTimelineRippleInsert),
+              ),
+            ],
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          onPressed: _selected == null
-              ? null
-              : () => Navigator.pop(
-                    context,
-                    _draft(rippleInsert: false, autoLane: false),
-                  ),
-          child: Text(l10n.workbenchTimelineAdd),
-        ),
-        FilledButton(
-          onPressed: _selected == null
-              ? null
-              : () => Navigator.pop(
-                    context,
-                    _draft(rippleInsert: false, autoLane: true),
-                  ),
-          child: Text(l10n.workbenchTimelineAutoLayerAdd),
-        ),
-        FilledButton(
-          onPressed: _selected == null
-              ? null
-              : () => Navigator.pop(
-                    context,
-                    _draft(rippleInsert: true, autoLane: false),
-                  ),
-          child: Text(l10n.workbenchTimelineRippleInsert),
-        ),
-      ],
     );
   }
 }
