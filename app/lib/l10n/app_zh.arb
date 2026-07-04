@@ -751,6 +751,7 @@
   },
   "workbenchTimelineSplitSelected": "批量切分",
   "workbenchTimelineDuplicateSelected": "批量复制",
+  "workbenchTimelineCopyToPlayheadSelected": "复制到播放头",
   "workbenchTimelineRippleDuplicateSelected": "批量波纹复制",
   "workbenchTimelineMoveSelected": "批量移动",
   "workbenchTimelineLaneSelected": "批量改轨",

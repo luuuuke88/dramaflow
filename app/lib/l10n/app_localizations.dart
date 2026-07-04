@@ -3394,6 +3394,12 @@ abstract class AppLocalizations {
   /// **'批量复制'**
   String get workbenchTimelineDuplicateSelected;
 
+  /// No description provided for @workbenchTimelineCopyToPlayheadSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制到播放头'**
+  String get workbenchTimelineCopyToPlayheadSelected;
+
   /// No description provided for @workbenchTimelineRippleDuplicateSelected.
   ///
   /// In zh, this message translates to:

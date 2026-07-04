@@ -491,6 +491,32 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     });
   }
 
+  void _copySelectedClipLayersToPlayhead() {
+    final playheadMs = _snapPlayheadMs;
+    if (_selectedClipIds.isEmpty || playheadMs == null) return;
+    final engine = ref.read(engineProvider);
+    final duplicateIds =
+        engine.duplicateTimelineClips(_selectedClipIds.toList());
+    if (duplicateIds.isEmpty) return;
+    final duplicateRows = engine
+        .timelineClips(widget.shots.first.scriptId)
+        .where((clip) => duplicateIds.contains(clip.id))
+        .toList();
+    if (duplicateRows.isEmpty) return;
+    final duplicateStart = duplicateRows
+        .map((clip) => clip.startMs)
+        .reduce((a, b) => a < b ? a : b);
+    engine.moveTimelineClips(
+      clipIds: duplicateIds,
+      deltaStartMs: playheadMs - duplicateStart,
+    );
+    setState(() {
+      _selectedClipIds
+        ..clear()
+        ..addAll(duplicateIds);
+    });
+  }
+
   void _rippleDuplicateSelectedClipLayers() {
     if (_selectedClipIds.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -1293,6 +1319,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final liveClipIds = clips.map((clip) => clip.id).toSet();
     _selectedClipIds.removeWhere((id) => !liveClipIds.contains(id));
     final selectedClipCount = _selectedClipIds.length;
+    final compactBatchButtonStyle = TextButton.styleFrom(
+      minimumSize: const Size(0, 32),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+    );
     final mediaClips = engine
         .getAssets(widget.projectId, type: 'clip', limit: 100)
         .data
@@ -1378,7 +1410,9 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
           const SizedBox(height: 10),
         ],
         if (clips.isNotEmpty) ...[
-          Wrap(
+          TextButtonTheme(
+            data: TextButtonThemeData(style: compactBatchButtonStyle),
+            child: Wrap(
               spacing: 8,
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -1406,6 +1440,16 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       : _duplicateSelectedClipLayers,
                   icon: const Icon(Icons.copy_all_outlined, size: 16),
                   label: Text(l10n.workbenchTimelineDuplicateSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey(
+                      'workbench-timeline-copy-to-playhead-selected'),
+                  onPressed:
+                      selectedClipCount == 0 || _snapPlayheadMs == null
+                          ? null
+                          : _copySelectedClipLayersToPlayhead,
+                  icon: const Icon(Icons.content_paste_go_outlined, size: 16),
+                  label: Text(l10n.workbenchTimelineCopyToPlayheadSelected),
                 ),
                 TextButton.icon(
                   key: const ValueKey(
@@ -1473,6 +1517,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                   label: Text(l10n.workbenchTimelineRippleDeleteSelected),
                 ),
               ]),
+          ),
           const SizedBox(height: 10),
         ],
         DragTarget<AssetRow>(

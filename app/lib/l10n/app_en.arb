@@ -624,6 +624,7 @@
   },
   "workbenchTimelineSplitSelected": "Split selected",
   "workbenchTimelineDuplicateSelected": "Duplicate selected",
+  "workbenchTimelineCopyToPlayheadSelected": "Copy to playhead",
   "workbenchTimelineRippleDuplicateSelected": "Ripple duplicate selected",
   "workbenchTimelineMoveSelected": "Move selected",
   "workbenchTimelineLaneSelected": "Move lane",

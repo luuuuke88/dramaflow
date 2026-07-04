@@ -1504,6 +1504,91 @@ void main() {
     expect(find.textContaining('2300ms · 400ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可选中多个素材层并复制到播放头', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const relA = 'p/batch_copy_playhead_overlay_a.mp4';
+    const relB = 'p/batch_copy_playhead_overlay_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 7, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 7, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '复制播放头 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '复制播放头 B',
+      relPath: relB,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 100,
+      durationMs: 400,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 300,
+      durationMs: 500,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '1200',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdB')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-copy-to-playhead-selected')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(4));
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 100);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 300);
+    final copiedA = clips.singleWhere(
+      (c) => c.id != clipIdA && c.assetId == clipAssetA,
+    );
+    final copiedB = clips.singleWhere(
+      (c) => c.id != clipIdB && c.assetId == clipAssetB,
+    );
+    expect(copiedA.startMs, 1200);
+    expect(copiedB.startMs, 1400);
+    expect(find.textContaining('1200ms · 400ms'), findsOneWidget);
+    expect(find.textContaining('1400ms · 500ms'), findsOneWidget);
+    expect(find.byKey(ValueKey('workbench-timeline-clip-${copiedA.id}')),
+        findsOneWidget);
+    expect(find.byKey(ValueKey('workbench-timeline-clip-${copiedB.id}')),
+        findsOneWidget);
+  });
+
   testWidgets('工作台可选中多个素材层并批量波纹复制', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
