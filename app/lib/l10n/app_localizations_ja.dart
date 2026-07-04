@@ -1659,6 +1659,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineRippleTrimTitle => '素材レイヤー末尾をリップルトリム';
 
   @override
+  String get workbenchTimelineEditClip => '素材レイヤー属性を編集';
+
+  @override
+  String get workbenchTimelineEditClipTitle => '素材レイヤー属性を編集';
+
+  @override
+  String get workbenchTimelineClipActions => '素材レイヤー操作';
+
+  @override
   String get workbenchTimelineDelete => '削除';
 
   @override

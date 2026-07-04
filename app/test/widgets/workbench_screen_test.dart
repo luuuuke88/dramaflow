@@ -140,6 +140,18 @@ void main() {
     );
   }
 
+  Future<void> tapTimelineClipAction(
+    WidgetTester tester, {
+    required int clipId,
+    required String actionKey,
+  }) async {
+    await tester
+        .tap(find.byKey(ValueKey('workbench-timeline-clip-menu-$clipId')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey(actionKey)));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('无分镜时显示空态', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
@@ -544,11 +556,11 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    final splitButton =
-        find.byKey(ValueKey('workbench-timeline-clip-split-$clipId'));
-    expect(splitButton, findsOneWidget);
-    await tester.tap(splitButton);
-    await tester.pumpAndSettle();
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipId,
+      actionKey: 'workbench-timeline-clip-split-$clipId',
+    );
 
     final clips = engine.timelineClips(scriptId);
     expect(clips, hasLength(2));
@@ -590,11 +602,11 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    final splitAtButton =
-        find.byKey(ValueKey('workbench-timeline-clip-split-at-$clipId'));
-    expect(splitAtButton, findsOneWidget);
-    await tester.tap(splitAtButton);
-    await tester.pumpAndSettle();
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipId,
+      actionKey: 'workbench-timeline-clip-split-at-$clipId',
+    );
     await tester.enterText(
       find.byKey(const ValueKey('workbench-timeline-split-playhead-input')),
       '2200',
@@ -661,11 +673,11 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    final deleteButton =
-        find.byKey(ValueKey('workbench-timeline-clip-delete-$clipIdA'));
-    expect(deleteButton, findsOneWidget);
-    await tester.tap(deleteButton);
-    await tester.pumpAndSettle();
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipIdA,
+      actionKey: 'workbench-timeline-clip-delete-$clipIdA',
+    );
 
     final clips = engine.timelineClips(scriptId);
     expect(clips, hasLength(1));
@@ -741,11 +753,11 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    final rippleDeleteButton =
-        find.byKey(ValueKey('workbench-timeline-clip-ripple-delete-$clipIdA'));
-    expect(rippleDeleteButton, findsOneWidget);
-    await tester.tap(rippleDeleteButton);
-    await tester.pumpAndSettle();
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipIdA,
+      actionKey: 'workbench-timeline-clip-ripple-delete-$clipIdA',
+    );
 
     final clips = engine.timelineClips(scriptId);
     expect(clips.map((c) => c.id), isNot(contains(clipIdA)));
@@ -822,11 +834,11 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    final rippleTrimButton = find
-        .byKey(ValueKey('workbench-timeline-clip-ripple-trim-end-$clipIdA'));
-    expect(rippleTrimButton, findsOneWidget);
-    await tester.tap(rippleTrimButton);
-    await tester.pumpAndSettle();
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipIdA,
+      actionKey: 'workbench-timeline-clip-ripple-trim-end-$clipIdA',
+    );
 
     await tester.enterText(
       find.byKey(
@@ -1079,6 +1091,83 @@ void main() {
     expect(moved.startMs, 1000);
     expect(moved.durationMs, 800);
     expect(find.textContaining('1000ms · 800ms'), findsOneWidget);
+  });
+
+  testWidgets('工作台可编辑素材层属性并避让同轨重叠', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/property_edit_a.mp4';
+    const relB = 'p/property_edit_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 8, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 8, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '属性素材 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '属性素材 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 1800,
+      durationMs: 700,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipIdB,
+      actionKey: 'workbench-timeline-clip-edit-$clipIdB',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-edit-lane-input')),
+      '1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-edit-start-input')),
+      '400',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-edit-duration-input')),
+      '500',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-edit-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    final edited = clips.singleWhere((c) => c.id == clipIdB);
+    expect(edited.lane, 1);
+    expect(edited.startMs, 1000);
+    expect(edited.durationMs, 500);
+    expect(find.textContaining('L1 · 1000ms · 500ms'), findsOneWidget);
   });
 
   testWidgets('工作台仅上下拖拽素材层时不改变时间点', (tester) async {

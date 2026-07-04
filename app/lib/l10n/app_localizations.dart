@@ -3268,6 +3268,24 @@ abstract class AppLocalizations {
   /// **'波纹裁剪素材层尾部'**
   String get workbenchTimelineRippleTrimTitle;
 
+  /// No description provided for @workbenchTimelineEditClip.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑素材层属性'**
+  String get workbenchTimelineEditClip;
+
+  /// No description provided for @workbenchTimelineEditClipTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑素材层属性'**
+  String get workbenchTimelineEditClipTitle;
+
+  /// No description provided for @workbenchTimelineClipActions.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材层操作'**
+  String get workbenchTimelineClipActions;
+
   /// No description provided for @workbenchTimelineDelete.
   ///
   /// In zh, this message translates to:

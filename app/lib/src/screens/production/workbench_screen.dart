@@ -766,6 +766,30 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  Future<void> _editClipLayer(TimelineClipRow clip) async {
+    final draft = await showDialog<_TimelineClipPropertyDraft>(
+      context: context,
+      builder: (c) => _EditTimelineClipDialog(clip: clip),
+    );
+    if (draft == null || !mounted) return;
+    final duration = draft.durationMs ?? _defaultClipDurationMs;
+    final engine = ref.read(engineProvider);
+    final resolvedStart = _avoidTimelineClipOverlap(
+      engine: engine,
+      clip: clip,
+      lane: draft.lane,
+      startMs: draft.startMs,
+      durationMs: duration,
+    );
+    engine.updateTimelineClip(
+      clipId: clip.id,
+      lane: draft.lane,
+      startMs: resolvedStart,
+      durationMs: draft.durationMs,
+    );
+    setState(() {});
+  }
+
   void _deleteClipLayer(TimelineClipRow clip) {
     final engine = ref.read(engineProvider);
     engine.deleteTimelineClip(clip.id);
@@ -897,6 +921,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       onSplit: () => _splitClipLayer(clip),
                       onSplitAt: () => _splitClipLayerAtPlayhead(clip),
                       onRippleTrimEnd: () => _rippleTrimClipLayerEnd(clip),
+                      onEdit: () => _editClipLayer(clip),
                       onDelete: () => _deleteClipLayer(clip),
                       onRippleDelete: () => _rippleDeleteClipLayer(clip),
                     ),
@@ -923,6 +948,18 @@ class _TimelineClipDraft {
     required this.startMs,
     required this.durationMs,
     required this.rippleInsert,
+  });
+}
+
+class _TimelineClipPropertyDraft {
+  final int lane;
+  final int startMs;
+  final int? durationMs;
+
+  const _TimelineClipPropertyDraft({
+    required this.lane,
+    required this.startMs,
+    required this.durationMs,
   });
 }
 
@@ -1050,6 +1087,102 @@ class _AddTimelineClipDialogState extends State<_AddTimelineClipDialog> {
               ? null
               : () => Navigator.pop(context, _draft(rippleInsert: true)),
           child: Text(l10n.workbenchTimelineRippleInsert),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditTimelineClipDialog extends StatefulWidget {
+  final TimelineClipRow clip;
+
+  const _EditTimelineClipDialog({required this.clip});
+
+  @override
+  State<_EditTimelineClipDialog> createState() =>
+      _EditTimelineClipDialogState();
+}
+
+class _EditTimelineClipDialogState extends State<_EditTimelineClipDialog> {
+  late final TextEditingController _laneCtrl;
+  late final TextEditingController _startCtrl;
+  late final TextEditingController _durationCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _laneCtrl = TextEditingController(text: widget.clip.lane.toString());
+    _startCtrl = TextEditingController(text: widget.clip.startMs.toString());
+    _durationCtrl = TextEditingController(
+      text: widget.clip.durationMs?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _laneCtrl.dispose();
+    _startCtrl.dispose();
+    _durationCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(_TimelineClipPropertyDraft(
+      lane: int.tryParse(_laneCtrl.text.trim()) ?? widget.clip.lane,
+      startMs: int.tryParse(_startCtrl.text.trim()) ?? widget.clip.startMs,
+      durationMs: int.tryParse(_durationCtrl.text.trim()),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.workbenchTimelineEditClipTitle),
+      content: SizedBox(
+        width: 460,
+        child: Row(children: [
+          Expanded(
+            child: TextField(
+              key: const ValueKey('workbench-timeline-edit-lane-input'),
+              controller: _laneCtrl,
+              decoration:
+                  InputDecoration(labelText: l10n.workbenchTimelineLayer),
+              keyboardType: TextInputType.number,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              key: const ValueKey('workbench-timeline-edit-start-input'),
+              controller: _startCtrl,
+              decoration:
+                  InputDecoration(labelText: l10n.workbenchTimelineStartMs),
+              keyboardType: TextInputType.number,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              key: const ValueKey('workbench-timeline-edit-duration-input'),
+              controller: _durationCtrl,
+              decoration:
+                  InputDecoration(labelText: l10n.workbenchTimelineDurationMs),
+              keyboardType: TextInputType.number,
+              onSubmitted: (_) => _submit(),
+            ),
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          key: const ValueKey('workbench-timeline-edit-confirm'),
+          onPressed: _submit,
+          child: Text(l10n.commonSave),
         ),
       ],
     );
@@ -1225,6 +1358,15 @@ class _RippleTrimTimelineClipDialogState
 
 enum _TimelineClipKind { video, audio }
 
+enum _TimelineClipAction {
+  split,
+  splitAt,
+  rippleTrimEnd,
+  edit,
+  delete,
+  rippleDelete,
+}
+
 class _TimelineClip extends StatelessWidget {
   final int index;
   final StoryboardRow shot;
@@ -1327,6 +1469,7 @@ class _TimelineAssetClip extends StatefulWidget {
   final VoidCallback onSplit;
   final VoidCallback onSplitAt;
   final VoidCallback onRippleTrimEnd;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onRippleDelete;
 
@@ -1342,6 +1485,7 @@ class _TimelineAssetClip extends StatefulWidget {
     required this.onSplit,
     required this.onSplitAt,
     required this.onRippleTrimEnd,
+    required this.onEdit,
     required this.onDelete,
     required this.onRippleDelete,
   });
@@ -1429,155 +1573,183 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
     final df = context.df;
     final clip = widget.clip;
     final durationSec = ((clip.durationMs ?? 1000) / 1000).ceil();
-    final width = (96 + durationSec * 7).clamp(112, 220).toDouble();
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        width: width,
-        height: 48,
-        margin: const EdgeInsets.only(right: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: df.success.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-          border: Border.all(color: df.success.withValues(alpha: 0.65)),
-        ),
-        child: SizedBox.expand(
-          child: Stack(children: [
-            Row(children: [
-              Icon(Icons.layers_outlined, size: 16, color: df.success),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        clip.name ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: df.textHi,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
+    final width = (96 + durationSec * 7).clamp(160, 220).toDouble();
+
+    return Container(
+      width: width,
+      height: 48,
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: df.success.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+        border: Border.all(color: df.success.withValues(alpha: 0.65)),
+      ),
+      child: SizedBox.expand(
+        child: Stack(children: [
+          Row(children: [
+            Icon(Icons.layers_outlined, size: 16, color: df.success),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      clip.name ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: df.textHi,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'L${clip.lane} · ${clip.startMs}ms'
+                      '${clip.durationMs != null ? ' · ${clip.durationMs}ms' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: df.textTertiary, fontSize: 10),
+                    ),
+                  ]),
+            ),
+          ]),
+          if (_snapGuideAlignment != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Align(
+                  alignment: _snapGuideAlignment!,
+                  child: Container(
+                    key: ValueKey('workbench-timeline-snap-guide-${clip.id}'),
+                    width: 2,
+                    height: double.infinity,
+                    decoration: BoxDecoration(
+                      color: df.primary,
+                      borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+                      boxShadow: [
+                        BoxShadow(
+                          color: df.primary.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          spreadRadius: 1,
                         ),
-                      ),
-                      Text(
-                        'L${clip.lane} · ${clip.startMs}ms'
-                        '${clip.durationMs != null ? ' · ${clip.durationMs}ms' : ''}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: df.textTertiary, fontSize: 10),
-                      ),
-                    ]),
-              ),
-            ]),
-            if (_snapGuideAlignment != null)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Align(
-                    alignment: _snapGuideAlignment!,
-                    child: Container(
-                      key: ValueKey('workbench-timeline-snap-guide-${clip.id}'),
-                      width: 2,
-                      height: double.infinity,
-                      decoration: BoxDecoration(
-                        color: df.primary,
-                        borderRadius:
-                            BorderRadius.circular(DFTokens.radiusChip),
-                        boxShadow: [
-                          BoxShadow(
-                            color: df.primary.withValues(alpha: 0.35),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            Positioned.fill(
-              child: Listener(
-                onPointerUp: (_) => _hideSnapGuideAfterPointerUp(),
-                onPointerCancel: (_) => _clearDragPreview(),
-                child: GestureDetector(
-                  key: ValueKey('workbench-timeline-clip-${clip.id}'),
-                  behavior: HitTestBehavior.translucent,
-                  onPanStart: (_) => _resetDrag(),
-                  onPanUpdate: _accumulateDrag,
-                  onPanEnd: (_) => _commitDrag(widget.onDragCommit),
-                  onPanCancel: _clearDragPreview,
-                  child: const SizedBox.expand(),
-                ),
+            ),
+          Positioned(
+            left: 10,
+            top: 0,
+            bottom: 0,
+            right: 76,
+            child: Listener(
+              onPointerUp: (_) => _hideSnapGuideAfterPointerUp(),
+              onPointerCancel: (_) => _clearDragPreview(),
+              child: GestureDetector(
+                key: ValueKey('workbench-timeline-clip-${clip.id}'),
+                behavior: HitTestBehavior.translucent,
+                onPanStart: (_) => _resetDrag(),
+                onPanUpdate: _accumulateDrag,
+                onPanEnd: (_) => _commitDrag(widget.onDragCommit),
+                onPanCancel: _clearDragPreview,
+                child: const SizedBox.expand(),
               ),
             ),
-            _TimelineResizeHandle(
-              handleKey:
-                  ValueKey('workbench-timeline-clip-resize-start-${clip.id}'),
-              alignment: Alignment.centerLeft,
-              color: df.success,
-              onDragStart: _resetDrag,
-              onDragUpdate: _accumulateDrag,
-              onDragEnd: () => _commitDrag(widget.onTrimStartCommit),
+          ),
+          _TimelineResizeHandle(
+            handleKey:
+                ValueKey('workbench-timeline-clip-resize-start-${clip.id}'),
+            alignment: Alignment.centerLeft,
+            color: df.success,
+            onDragStart: _resetDrag,
+            onDragUpdate: _accumulateDrag,
+            onDragEnd: () => _commitDrag(widget.onTrimStartCommit),
+          ),
+          _TimelineResizeHandle(
+            handleKey:
+                ValueKey('workbench-timeline-clip-resize-end-${clip.id}'),
+            alignment: Alignment.centerRight,
+            color: df.success,
+            onDragStart: _resetDrag,
+            onDragUpdate: _accumulateDrag,
+            onDragEnd: () => _commitDrag(widget.onTrimEndCommit),
+          ),
+          Positioned(
+            right: 10,
+            bottom: 0,
+            child: SizedBox(
+              width: 28,
+              height: 24,
+              child: PopupMenuButton<_TimelineClipAction>(
+                key: ValueKey('workbench-timeline-clip-menu-${clip.id}'),
+                padding: EdgeInsets.zero,
+                tooltip: context.l10n.workbenchTimelineClipActions,
+                icon:
+                    Icon(Icons.more_horiz_rounded, size: 16, color: df.success),
+                onSelected: (action) {
+                  switch (action) {
+                    case _TimelineClipAction.split:
+                      widget.onSplit();
+                      break;
+                    case _TimelineClipAction.splitAt:
+                      widget.onSplitAt();
+                      break;
+                    case _TimelineClipAction.rippleTrimEnd:
+                      widget.onRippleTrimEnd();
+                      break;
+                    case _TimelineClipAction.edit:
+                      widget.onEdit();
+                      break;
+                    case _TimelineClipAction.delete:
+                      widget.onDelete();
+                      break;
+                    case _TimelineClipAction.rippleDelete:
+                      widget.onRippleDelete();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    key: ValueKey('workbench-timeline-clip-split-${clip.id}'),
+                    value: _TimelineClipAction.split,
+                    child: Text(context.l10n.workbenchTimelineSplitMidpoint),
+                  ),
+                  PopupMenuItem(
+                    key:
+                        ValueKey('workbench-timeline-clip-split-at-${clip.id}'),
+                    value: _TimelineClipAction.splitAt,
+                    child: Text(context.l10n.workbenchTimelineSplitAt),
+                  ),
+                  PopupMenuItem(
+                    key: ValueKey(
+                        'workbench-timeline-clip-ripple-trim-end-${clip.id}'),
+                    value: _TimelineClipAction.rippleTrimEnd,
+                    child: Text(context.l10n.workbenchTimelineRippleTrimEnd),
+                  ),
+                  PopupMenuItem(
+                    key: ValueKey('workbench-timeline-clip-edit-${clip.id}'),
+                    value: _TimelineClipAction.edit,
+                    child: Text(context.l10n.workbenchTimelineEditClip),
+                  ),
+                  PopupMenuItem(
+                    key: ValueKey('workbench-timeline-clip-delete-${clip.id}'),
+                    value: _TimelineClipAction.delete,
+                    child: Text(context.l10n.workbenchTimelineDelete),
+                  ),
+                  PopupMenuItem(
+                    key: ValueKey(
+                        'workbench-timeline-clip-ripple-delete-${clip.id}'),
+                    value: _TimelineClipAction.rippleDelete,
+                    child: Text(context.l10n.workbenchTimelineRippleDelete),
+                  ),
+                ],
+              ),
             ),
-            _TimelineResizeHandle(
-              handleKey:
-                  ValueKey('workbench-timeline-clip-resize-end-${clip.id}'),
-              alignment: Alignment.centerRight,
-              color: df.success,
-              onDragStart: _resetDrag,
-              onDragUpdate: _accumulateDrag,
-              onDragEnd: () => _commitDrag(widget.onTrimEndCommit),
-            ),
-          ]),
-        ),
+          ),
+        ]),
       ),
-      IconButton(
-        key: ValueKey('workbench-timeline-clip-split-${clip.id}'),
-        constraints: const BoxConstraints.tightFor(width: 28, height: 48),
-        padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
-        tooltip: context.l10n.workbenchTimelineSplitMidpoint,
-        icon: Icon(Icons.content_cut_outlined, size: 14, color: df.success),
-        onPressed: widget.onSplit,
-      ),
-      IconButton(
-        key: ValueKey('workbench-timeline-clip-split-at-${clip.id}'),
-        constraints: const BoxConstraints.tightFor(width: 28, height: 48),
-        padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
-        tooltip: context.l10n.workbenchTimelineSplitAt,
-        icon: Icon(Icons.vertical_split_outlined, size: 14, color: df.success),
-        onPressed: widget.onSplitAt,
-      ),
-      IconButton(
-        key: ValueKey('workbench-timeline-clip-ripple-trim-end-${clip.id}'),
-        constraints: const BoxConstraints.tightFor(width: 28, height: 48),
-        padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
-        tooltip: context.l10n.workbenchTimelineRippleTrimEnd,
-        icon: Icon(Icons.low_priority_outlined, size: 14, color: df.success),
-        onPressed: widget.onRippleTrimEnd,
-      ),
-      IconButton(
-        key: ValueKey('workbench-timeline-clip-delete-${clip.id}'),
-        constraints: const BoxConstraints.tightFor(width: 28, height: 48),
-        padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
-        tooltip: context.l10n.workbenchTimelineDelete,
-        icon: Icon(Icons.delete_outline, size: 15, color: df.danger),
-        onPressed: widget.onDelete,
-      ),
-      IconButton(
-        key: ValueKey('workbench-timeline-clip-ripple-delete-${clip.id}'),
-        constraints: const BoxConstraints.tightFor(width: 28, height: 48),
-        padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
-        tooltip: context.l10n.workbenchTimelineRippleDelete,
-        icon: Icon(Icons.delete_sweep_outlined, size: 15, color: df.danger),
-        onPressed: widget.onRippleDelete,
-      ),
-      const SizedBox(width: 4),
-    ]);
+    );
   }
 }
 

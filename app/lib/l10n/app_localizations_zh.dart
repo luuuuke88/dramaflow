@@ -1648,6 +1648,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineRippleTrimTitle => '波纹裁剪素材层尾部';
 
   @override
+  String get workbenchTimelineEditClip => '编辑素材层属性';
+
+  @override
+  String get workbenchTimelineEditClipTitle => '编辑素材层属性';
+
+  @override
+  String get workbenchTimelineClipActions => '素材层操作';
+
+  @override
   String get workbenchTimelineDelete => '删除';
 
   @override

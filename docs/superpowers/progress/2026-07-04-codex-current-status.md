@@ -3,8 +3,8 @@
 ## 当前基线
 
 - 分支：`master`
-- 当前提交：`fba0024 feat(workbench): avoid overlap when adding overlay clips`
-- 工作树：干净
+- 当前代码指针：以 `git log -1` / `git status` 为准；不要把本文档里的历史提交号当作实时 HEAD。
+- 最近接力：`16f83d0 docs(progress): record current flutter parity status` 之后继续推进工作台/NLE 素材层属性编辑。
 - 权威目标：`docs/superpowers/specs/2026-07-03-v0.3-toonflow-parity-design.md`
 - 页面证据账本：`docs/superpowers/progress/2026-07-04-page-parity-checklist.md`
 
@@ -51,7 +51,7 @@
    - 真正完整 H5 需要单独 M6：Web 数据库、浏览器文件存储、WebCodecs/Mediabunny 合成器、Web 媒体预览、Web 文件选择。
 
 2. 工作台仍不是完整 ToonFlow WebAV/NLE。
-   - 已有顺序分镜、候选视频、音频绑定、转场/滤镜 metadata、原生端合成、timeline overlay 渲染、overlay 素材层拖拽/裁剪/吸附/分割/删除/ripple/同轨避让。
+   - 已有顺序分镜、候选视频、音频绑定、转场/滤镜 metadata、原生端合成、timeline overlay 渲染、overlay 素材层拖拽/裁剪/属性编辑/吸附/分割/删除/ripple/同轨避让。
    - 仍缺完整 WebAV clip editor 级别能力：复杂 snapping、复杂叠放冲突、更多 ripple、全自由媒体库拖放、Web 端转场/滤镜真实渲染。
 
 3. Agent 体系仍是瘦身版。
