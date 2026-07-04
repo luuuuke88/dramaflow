@@ -10,6 +10,20 @@
 
 本文件记录当前事实，避免后续接力时误读旧的 `238 tests`、`268 tests` 或 `342 tests` 阶段记录。
 
+## 2026-07-05 接力验证
+
+Codex 接上 Claude/Codex 交替开发后的最新实测基线：
+
+- `git status --short --branch`：`## master`，工作树干净。
+- `git log -1 --oneline`：`1777b1b feat(agent): adapt topbar dialogs for mobile`。
+- `cd app && dart run tool/e2e_local_smoke.dart`：通过，纯本地从章节、剧本、素材、分镜、候选视频、镜头配音走到合成导出 mp4。
+- `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`。
+- `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`。
+- `cd app && flutter build apk --debug`：通过，产物 `build/app/outputs/flutter-apk/app-debug.apk`。
+- `cd app && flutter build web`：通过，产物 `build/web`；仍只代表 Web 预览入口可构建，不代表 H5 完整本地流程。
+
+这次验证没有改变功能代码；它只把当前可构建、可 smoke 的状态重新钉住。
+
 ## 刚完成的验证
 
 2026-07-04 本轮 Codex 接手后重新跑过：
