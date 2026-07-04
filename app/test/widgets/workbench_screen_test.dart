@@ -208,6 +208,36 @@ void main() {
     );
   });
 
+  testWidgets('工作台批量生成只作用于已勾选镜头轨道', (tester) async {
+    final s1 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头一');
+    final s2 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头二');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('全部生成视频'));
+    await tester.pumpAndSettle();
+
+    final task = engine.db
+        .select(
+          "SELECT relatedObjects FROM o_tasks WHERE taskClass='video_generation'",
+        )
+        .single;
+    final related =
+        jsonDecode(task['relatedObjects'] as String) as Map<String, dynamic>;
+    final trackIds =
+        (related['trackIds'] as List).map((e) => (e as num).toInt()).toList();
+    expect(trackIds, [
+      engine.storyboards(scriptId).singleWhere((s) => s.id == s2).trackId,
+    ]);
+  });
+
   testWidgets('点击生成运镜提示词按钮不崩溃且写入轨道', (tester) async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');

@@ -127,6 +127,8 @@ class _WorkbenchPage extends ConsumerStatefulWidget {
 
 class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   bool _composing = false;
+  final Set<int> _checkedShotIds = {};
+  final Set<int> _knownShotIds = {};
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -166,10 +168,36 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     }
   }
 
-  void _generateAll(List<StoryboardRow> shots) {
+  void _syncCheckedShots(List<StoryboardRow> shots) {
+    final currentIds = {for (final shot in shots) shot.id};
+    _checkedShotIds.removeWhere((id) => !currentIds.contains(id));
+    _knownShotIds.removeWhere((id) => !currentIds.contains(id));
+    for (final id in currentIds) {
+      if (_knownShotIds.add(id)) {
+        _checkedShotIds.add(id);
+      }
+    }
+  }
+
+  void _toggleShotSelection(int shotId, bool selected) {
+    setState(() {
+      if (selected) {
+        _checkedShotIds.add(shotId);
+      } else {
+        _checkedShotIds.remove(shotId);
+      }
+    });
+  }
+
+  void _generateChecked(List<StoryboardRow> shots) {
+    final selected = [
+      for (final shot in shots)
+        if (_checkedShotIds.contains(shot.id)) shot,
+    ];
+    if (selected.isEmpty) return;
     final engine = ref.read(engineProvider);
     engine.batchGenerateVideos(
-        widget.projectId, shots.map((s) => s.id).toList());
+        widget.projectId, selected.map((s) => s.id).toList());
     _toast(context.l10n.workbenchGenerateVideo);
   }
 
@@ -188,6 +216,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     final l10n = context.l10n;
     ref.watch(jobsGenerationProvider);
     final shots = ref.watch(engineProvider).storyboards(widget.scriptId);
+    _syncCheckedShots(shots);
     final missing = ref
         .watch(engineProvider)
         .orderedSelectedVideoPaths(widget.scriptId)
@@ -200,7 +229,9 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
         actions: [
           if (shots.isNotEmpty)
             TextButton.icon(
-              onPressed: () => _generateAll(shots),
+              onPressed: _checkedShotIds.isEmpty
+                  ? null
+                  : () => _generateChecked(shots),
               icon: const Icon(Icons.movie_creation_outlined),
               label: Text(l10n.workbenchGenerateAll),
             ),
@@ -245,6 +276,9 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
                           projectId: widget.projectId,
                           shot: shot,
                           index: i,
+                          selected: _checkedShotIds.contains(shot.id),
+                          onSelected: (value) =>
+                              _toggleShotSelection(shot.id, value),
                           dragHandle: ReorderableDragStartListener(
                             key:
                                 ValueKey('workbench-reorder-handle-${shot.id}'),
@@ -494,12 +528,17 @@ class _ShotRow extends ConsumerStatefulWidget {
   final int projectId;
   final StoryboardRow shot;
   final int index;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
   final Widget dragHandle;
-  const _ShotRow(
-      {required this.projectId,
-      required this.shot,
-      required this.index,
-      required this.dragHandle});
+  const _ShotRow({
+    required this.projectId,
+    required this.shot,
+    required this.index,
+    required this.selected,
+    required this.onSelected,
+    required this.dragHandle,
+  });
 
   @override
   ConsumerState<_ShotRow> createState() => _ShotRowState();
@@ -686,7 +725,20 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         SizedBox(
-            width: 28, height: 100, child: Center(child: widget.dragHandle)),
+          width: 60,
+          height: 100,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Checkbox(
+                key: ValueKey('workbench-shot-check-${widget.shot.id}'),
+                value: widget.selected,
+                onChanged: (value) => widget.onSelected(value ?? false),
+              ),
+              widget.dragHandle,
+            ],
+          ),
+        ),
         const SizedBox(width: 8),
         Container(
           width: 100,
@@ -1078,6 +1130,7 @@ class _VideoCandidateChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final df = context.df;
+    final compact = MediaQuery.sizeOf(context).width < 480;
     Widget label;
     switch (video.state) {
       case vtGenerating:
@@ -1116,8 +1169,11 @@ class _VideoCandidateChip extends ConsumerWidget {
         if (canPlay)
           IconButton(
             visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 28),
             padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             tooltip: l10n.workbenchPlayVideo,
             icon: Icon(Icons.play_circle_outline, size: 18, color: df.primary),
             onPressed: () => showVideoPlayerDialog(
@@ -1128,28 +1184,57 @@ class _VideoCandidateChip extends ConsumerWidget {
         if (canPlay)
           IconButton(
             visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 28),
             padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             tooltip: l10n.workbenchSaveCandidateToAssets,
             icon: Icon(Icons.library_add_outlined, size: 17, color: df.primary),
             onPressed: () => _saveToAssets(context, ref),
           ),
-        // 选为正片（原 InkWell 语义保留）
-        InkWell(
-          onTap: video.state == vtDone
-              ? () => ref.read(engineProvider).selectVideo(trackId, video.id)
-              : null,
-          borderRadius: BorderRadius.circular(DFTokens.radiusChip),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: label,
+        // 选为正片（窄屏用图标避免候选 chip 横向溢出）。
+        if (compact)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 28),
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            tooltip: selected
+                ? l10n.workbenchSelected
+                : l10n.workbenchSelectCandidate,
+            icon: Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              size: 16,
+              color: selected ? df.primary : df.textTertiary,
+            ),
+            onPressed: video.state == vtDone
+                ? () => ref.read(engineProvider).selectVideo(trackId, video.id)
+                : null,
+          )
+        else
+          InkWell(
+            onTap: video.state == vtDone
+                ? () => ref.read(engineProvider).selectVideo(trackId, video.id)
+                : null,
+            borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: label,
+            ),
           ),
-        ),
         // 显式删除按钮（此前只有隐藏的 onLongPress）
         IconButton(
           visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          constraints: const BoxConstraints(minWidth: 24, minHeight: 28),
           padding: EdgeInsets.zero,
+          style: IconButton.styleFrom(
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           tooltip: l10n.workbenchDeleteCandidate,
           icon: Icon(Icons.delete_outline, size: 16, color: df.textTertiary),
           onPressed: () => _confirmDelete(context, ref),
