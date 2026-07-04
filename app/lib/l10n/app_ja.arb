@@ -594,6 +594,7 @@
   "workbenchTimelineLayer": "レイヤー",
   "workbenchTimelineStartMs": "開始(ms)",
   "workbenchTimelineDurationMs": "長さ(ms)",
+  "workbenchTimelineOpacity": "不透明度(%)",
   "workbenchTimelineClipAdded": "素材レイヤーを追加しました",
   "workbenchTimelineSplitMidpoint": "中央で分割",
   "workbenchTimelineDuplicate": "素材レイヤーを複製",

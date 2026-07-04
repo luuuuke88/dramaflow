@@ -90,6 +90,7 @@ class MainActivity : FlutterActivity() {
                 lane = intValue(it["lane"]) ?: 0,
                 startMs = intValue(it["startMs"]),
                 durationMs = intValue(it["durationMs"]),
+                opacity = doubleValue(it["opacity"]) ?: 1.0,
             )
         }
         composeInputs(inputs, output)
@@ -321,6 +322,7 @@ class MainActivity : FlutterActivity() {
                         startUs = startUs,
                         durationUs = overlayDurationUs,
                         lane = segment.lane,
+                        opacity = segment.opacity.toFloat().coerceIn(0f, 1f),
                     ),
                 )
             }
@@ -906,6 +908,15 @@ class MainActivity : FlutterActivity() {
             is String -> value.toIntOrNull()
             else -> null
         }
+
+    private fun doubleValue(value: Any?): Double? =
+        when (value) {
+            is Double -> value
+            is Float -> value.toDouble()
+            is Number -> value.toDouble()
+            is String -> value.toDoubleOrNull()
+            else -> null
+        }
 }
 
 private data class TrackInspection(
@@ -930,6 +941,7 @@ private data class ComposeSegmentInput(
     val lane: Int = 0,
     val startMs: Int? = null,
     val durationMs: Int? = null,
+    val opacity: Double = 1.0,
 ) {
     val hasNleMetadata: Boolean
         get() = transition != null || filterPreset != null
@@ -966,6 +978,7 @@ private data class TimelineOverlay(
     val startUs: Long,
     val durationUs: Long,
     val lane: Int,
+    val opacity: Float,
 )
 
 private data class DissolveCompositionPlan(
@@ -1006,7 +1019,7 @@ private class TimelineVideoCompositorSettings(
         val overlay = overlays.getOrNull(inputId - 1) ?: return AlphaOverlaySettings(0f)
         val isVisible = presentationTimeUs >= overlay.startUs &&
             presentationTimeUs < overlay.startUs + overlay.durationUs
-        return AlphaOverlaySettings(if (isVisible) 1f else 0f)
+        return AlphaOverlaySettings(if (isVisible) overlay.opacity else 0f)
     }
 }
 

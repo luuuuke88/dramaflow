@@ -1644,6 +1644,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineDurationMs => '时长(ms)';
 
   @override
+  String get workbenchTimelineOpacity => '透明度(%)';
+
+  @override
   String get workbenchTimelineClipAdded => '素材层已添加';
 
   @override

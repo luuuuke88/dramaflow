@@ -3256,6 +3256,12 @@ abstract class AppLocalizations {
   /// **'时长(ms)'**
   String get workbenchTimelineDurationMs;
 
+  /// No description provided for @workbenchTimelineOpacity.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明度(%)'**
+  String get workbenchTimelineOpacity;
+
   /// No description provided for @workbenchTimelineClipAdded.
   ///
   /// In zh, this message translates to:

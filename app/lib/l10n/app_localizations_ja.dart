@@ -1655,6 +1655,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineDurationMs => '長さ(ms)';
 
   @override
+  String get workbenchTimelineOpacity => '不透明度(%)';
+
+  @override
   String get workbenchTimelineClipAdded => '素材レイヤーを追加しました';
 
   @override

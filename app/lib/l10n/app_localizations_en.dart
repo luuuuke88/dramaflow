@@ -1688,6 +1688,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineDurationMs => 'Duration (ms)';
 
   @override
+  String get workbenchTimelineOpacity => 'Opacity (%)';
+
+  @override
   String get workbenchTimelineClipAdded => 'Overlay clip added';
 
   @override

@@ -7,6 +7,7 @@ import 'errors.dart';
 
 const _defaultTimelineClipDurationMs = 1000;
 const _minTimelineClipDurationMs = 100;
+const _defaultTimelineClipOpacity = 1.0;
 
 class TimelineClipRow {
   final int id;
@@ -18,6 +19,7 @@ class TimelineClipRow {
   final int lane;
   final int startMs;
   final int? durationMs;
+  final double opacity;
 
   const TimelineClipRow({
     required this.id,
@@ -29,6 +31,7 @@ class TimelineClipRow {
     required this.lane,
     required this.startMs,
     required this.durationMs,
+    required this.opacity,
   });
 }
 
@@ -202,14 +205,26 @@ extension TimelineClipApi on Engine {
     required int lane,
     required int startMs,
     int? durationMs,
+    double? opacity,
   }) {
     final normalizedLane = lane < 1 ? 1 : lane;
     final normalizedStart = startMs < 0 ? 0 : startMs;
     final normalizedDuration =
         durationMs != null && durationMs > 0 ? durationMs : null;
+    final normalizedOpacity =
+        opacity == null ? null : _normalizeTimelineClipOpacity(opacity);
     db.execute(
-      'UPDATE o_timelineClip SET lane=?, startMs=?, durationMs=? WHERE id=?',
-      [normalizedLane, normalizedStart, normalizedDuration, clipId],
+      'UPDATE o_timelineClip '
+      'SET lane=?, startMs=?, durationMs=?, opacity=COALESCE(?, opacity, ?) '
+      'WHERE id=?',
+      [
+        normalizedLane,
+        normalizedStart,
+        normalizedDuration,
+        normalizedOpacity,
+        _defaultTimelineClipOpacity,
+        clipId,
+      ],
     );
   }
 
@@ -365,8 +380,8 @@ extension TimelineClipApi on Engine {
     ]);
     db.execute(
       'INSERT INTO o_timelineClip '
-      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
-      'VALUES (?,?,?,?,?,?,?,?)',
+      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
+      'VALUES (?,?,?,?,?,?,?,?,?)',
       [
         row['projectId'],
         row['scriptId'],
@@ -376,6 +391,7 @@ extension TimelineClipApi on Engine {
         row['lane'],
         startMs + splitOffset,
         secondDuration,
+        _normalizeTimelineClipOpacity(row['opacity'] as num?),
       ],
     );
     return db.lastInsertRowId;
@@ -423,8 +439,8 @@ extension TimelineClipApi on Engine {
     );
     db.execute(
       'INSERT INTO o_timelineClip '
-      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
-      'VALUES (?,?,?,?,?,?,?,?)',
+      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
+      'VALUES (?,?,?,?,?,?,?,?,?)',
       [
         row['projectId'],
         scriptId,
@@ -434,6 +450,7 @@ extension TimelineClipApi on Engine {
         lane,
         resolvedStart,
         row['durationMs'],
+        _normalizeTimelineClipOpacity(row['opacity'] as num?),
       ],
     );
     return db.lastInsertRowId;
@@ -459,8 +476,8 @@ extension TimelineClipApi on Engine {
     );
     db.execute(
       'INSERT INTO o_timelineClip '
-      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
-      'VALUES (?,?,?,?,?,?,?,?)',
+      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
+      'VALUES (?,?,?,?,?,?,?,?,?)',
       [
         row['projectId'],
         scriptId,
@@ -470,6 +487,7 @@ extension TimelineClipApi on Engine {
         lane,
         insertStartMs,
         row['durationMs'],
+        _normalizeTimelineClipOpacity(row['opacity'] as num?),
       ],
     );
     return db.lastInsertRowId;
@@ -510,8 +528,8 @@ extension TimelineClipApi on Engine {
       final startMs = (row['startMs'] as int?) ?? 0;
       db.execute(
         'INSERT INTO o_timelineClip '
-        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
-        'VALUES (?,?,?,?,?,?,?,?)',
+        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
+        'VALUES (?,?,?,?,?,?,?,?,?)',
         [
           row['projectId'],
           row['scriptId'],
@@ -521,6 +539,7 @@ extension TimelineClipApi on Engine {
           row['lane'],
           startMs + offset,
           row['durationMs'],
+          _normalizeTimelineClipOpacity(row['opacity'] as num?),
         ],
       );
       duplicateIds.add(db.lastInsertRowId);
@@ -568,8 +587,8 @@ extension TimelineClipApi on Engine {
       final startMs = (row['startMs'] as int?) ?? 0;
       db.execute(
         'INSERT INTO o_timelineClip '
-        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
-        'VALUES (?,?,?,?,?,?,?,?)',
+        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
+        'VALUES (?,?,?,?,?,?,?,?,?)',
         [
           row['projectId'],
           row['scriptId'],
@@ -579,6 +598,7 @@ extension TimelineClipApi on Engine {
           row['lane'],
           startMs + groupDuration,
           row['durationMs'],
+          _normalizeTimelineClipOpacity(row['opacity'] as num?),
         ],
       );
       duplicateIds.add(db.lastInsertRowId);
@@ -790,7 +810,15 @@ TimelineClipRow _timelineClipFromRow(Row row) => TimelineClipRow(
       lane: (row['lane'] as int?) ?? 1,
       startMs: (row['startMs'] as int?) ?? 0,
       durationMs: row['durationMs'] as int?,
+      opacity: _normalizeTimelineClipOpacity(row['opacity'] as num?),
     );
+
+double _normalizeTimelineClipOpacity(num? value) {
+  final resolved = value?.toDouble() ?? _defaultTimelineClipOpacity;
+  if (resolved < 0) return 0;
+  if (resolved > 1) return 1;
+  return resolved;
+}
 
 int _avoidTimelineOverlapOnAdd({
   required Database db,

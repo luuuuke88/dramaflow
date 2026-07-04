@@ -97,6 +97,7 @@ extension ComposeEpisodeApi on Engine {
           lane: clip.lane,
           startMs: clip.startMs,
           durationMs: clip.durationMs,
+          opacity: clip.opacity,
         ),
       ));
     }

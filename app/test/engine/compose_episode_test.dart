@@ -276,12 +276,20 @@ void main() {
       startMs: 1500,
       durationMs: 1200,
     );
+    engine.updateTimelineClip(
+      clipId: clipId,
+      lane: 1,
+      startMs: 1500,
+      durationMs: 1200,
+      opacity: 0.42,
+    );
 
     final clips = engine.timelineClips(scriptId);
     expect(clips.single.id, clipId);
     expect(clips.single.lane, 1);
     expect(clips.single.startMs, 1500);
     expect(clips.single.durationMs, 1200);
+    expect(clips.single.opacity, 0.42);
     expect(clips.single.filePath, overlayRel);
 
     final segments = engine.orderedComposeSegments(scriptId);
@@ -294,6 +302,7 @@ void main() {
     expect(segments[1]!.lane, 1);
     expect(segments[1]!.startMs, 1500);
     expect(segments[1]!.durationMs, 1200);
+    expect(segments[1]!.opacity, 0.42);
     expect(segments[1]!.videoAbsPath, engine.mediaAbsPath(overlayRel));
     expect(segments[2]!.timelineKind, 'storyboard');
     expect(segments[2]!.startMs, 3000);
@@ -308,6 +317,7 @@ void main() {
     expect(composed[1].lane, 1);
     expect(composed[1].startMs, 1500);
     expect(composed[1].durationMs, 1200);
+    expect(composed[1].opacity, 0.42);
   });
 
   test('timelineClip：可更新时间线位置并夹住非法值', () {

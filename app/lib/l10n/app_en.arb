@@ -594,6 +594,7 @@
   "workbenchTimelineLayer": "Layer",
   "workbenchTimelineStartMs": "Start (ms)",
   "workbenchTimelineDurationMs": "Duration (ms)",
+  "workbenchTimelineOpacity": "Opacity (%)",
   "workbenchTimelineClipAdded": "Overlay clip added",
   "workbenchTimelineSplitMidpoint": "Split midpoint",
   "workbenchTimelineDuplicate": "Duplicate overlay",

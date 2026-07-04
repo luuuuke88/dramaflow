@@ -164,6 +164,8 @@ void main() {
     expect(activitySource, contains('val lane: Int'));
     expect(activitySource, contains('val startMs: Int?'));
     expect(activitySource, contains('val durationMs: Int?'));
+    expect(activitySource, contains('val opacity: Double'));
+    expect(activitySource, contains('opacity = doubleValue(it["opacity"])'));
     expect(activitySource, contains('hasTimelineMetadata'));
     expect(activitySource, contains('isOverlayClip'));
     expect(activitySource, contains('hasTimelineOverlays'));
@@ -171,6 +173,7 @@ void main() {
     expect(activitySource, contains('primaryTimelineSegments'));
     expect(activitySource, contains('timelineOverlaySegments'));
     expect(activitySource, contains('TimelineOverlay'));
+    expect(activitySource, contains('overlay.opacity'));
     expect(activitySource, contains('TimelineVideoCompositorSettings'));
     expect(activitySource, contains('timeUsFromMs'));
     expect(activitySource, contains('addGap(startUs)'));

@@ -36,7 +36,7 @@ const toonflowTables = [
 ];
 
 void main() {
-  group('schema v6', () {
+  group('schema v7', () {
     test('新库 user_version==schemaVersion 且 ToonFlow 表齐全', () {
       final db = openEngineDb(':memory:');
       addTearDown(db.close);
@@ -115,6 +115,7 @@ void main() {
             'lane',
             'startMs',
             'durationMs',
+            'opacity',
           ]));
     });
 

@@ -1355,6 +1355,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       lane: draft.lane,
       startMs: resolvedStart,
       durationMs: draft.durationMs,
+      opacity: draft.opacity,
     );
     setState(() {});
   }
@@ -1982,11 +1983,13 @@ class _TimelineClipPropertyDraft {
   final int lane;
   final int startMs;
   final int? durationMs;
+  final double opacity;
 
   const _TimelineClipPropertyDraft({
     required this.lane,
     required this.startMs,
     required this.durationMs,
+    required this.opacity,
   });
 }
 
@@ -2153,6 +2156,7 @@ class _EditTimelineClipDialogState extends State<_EditTimelineClipDialog> {
   late final TextEditingController _laneCtrl;
   late final TextEditingController _startCtrl;
   late final TextEditingController _durationCtrl;
+  late final TextEditingController _opacityCtrl;
 
   @override
   void initState() {
@@ -2162,6 +2166,9 @@ class _EditTimelineClipDialogState extends State<_EditTimelineClipDialog> {
     _durationCtrl = TextEditingController(
       text: widget.clip.durationMs?.toString() ?? '',
     );
+    _opacityCtrl = TextEditingController(
+      text: (widget.clip.opacity * 100).round().toString(),
+    );
   }
 
   @override
@@ -2169,14 +2176,20 @@ class _EditTimelineClipDialogState extends State<_EditTimelineClipDialog> {
     _laneCtrl.dispose();
     _startCtrl.dispose();
     _durationCtrl.dispose();
+    _opacityCtrl.dispose();
     super.dispose();
   }
 
   void _submit() {
+    final opacityPercent =
+        (double.tryParse(_opacityCtrl.text.trim()) ?? widget.clip.opacity * 100)
+            .clamp(0, 100)
+            .toDouble();
     Navigator.of(context).pop(_TimelineClipPropertyDraft(
       lane: int.tryParse(_laneCtrl.text.trim()) ?? widget.clip.lane,
       startMs: int.tryParse(_startCtrl.text.trim()) ?? widget.clip.startMs,
       durationMs: int.tryParse(_durationCtrl.text.trim()),
+      opacity: opacityPercent / 100,
     ));
   }
 
@@ -2187,36 +2200,47 @@ class _EditTimelineClipDialogState extends State<_EditTimelineClipDialog> {
       title: Text(l10n.workbenchTimelineEditClipTitle),
       content: SizedBox(
         width: 460,
-        child: Row(children: [
-          Expanded(
-            child: TextField(
-              key: const ValueKey('workbench-timeline-edit-lane-input'),
-              controller: _laneCtrl,
-              decoration:
-                  InputDecoration(labelText: l10n.workbenchTimelineLayer),
-              keyboardType: TextInputType.number,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
+            Expanded(
+              child: TextField(
+                key: const ValueKey('workbench-timeline-edit-lane-input'),
+                controller: _laneCtrl,
+                decoration:
+                    InputDecoration(labelText: l10n.workbenchTimelineLayer),
+                keyboardType: TextInputType.number,
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              key: const ValueKey('workbench-timeline-edit-start-input'),
-              controller: _startCtrl,
-              decoration:
-                  InputDecoration(labelText: l10n.workbenchTimelineStartMs),
-              keyboardType: TextInputType.number,
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                key: const ValueKey('workbench-timeline-edit-start-input'),
+                controller: _startCtrl,
+                decoration:
+                    InputDecoration(labelText: l10n.workbenchTimelineStartMs),
+                keyboardType: TextInputType.number,
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              key: const ValueKey('workbench-timeline-edit-duration-input'),
-              controller: _durationCtrl,
-              decoration:
-                  InputDecoration(labelText: l10n.workbenchTimelineDurationMs),
-              keyboardType: TextInputType.number,
-              onSubmitted: (_) => _submit(),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                key: const ValueKey('workbench-timeline-edit-duration-input'),
+                controller: _durationCtrl,
+                decoration: InputDecoration(
+                    labelText: l10n.workbenchTimelineDurationMs),
+                keyboardType: TextInputType.number,
+                onSubmitted: (_) => _submit(),
+              ),
             ),
+          ]),
+          const SizedBox(height: 10),
+          TextField(
+            key: const ValueKey('workbench-timeline-edit-opacity-input'),
+            controller: _opacityCtrl,
+            decoration:
+                InputDecoration(labelText: l10n.workbenchTimelineOpacity),
+            keyboardType: TextInputType.number,
+            onSubmitted: (_) => _submit(),
           ),
         ]),
       ),
@@ -2779,6 +2803,8 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
     final df = context.df;
     final clip = widget.clip;
     final width = _timelineAssetClipWidth(clip);
+    final opacityPercent = (clip.opacity * 100).round();
+    final opacitySuffix = opacityPercent >= 100 ? '' : ' · $opacityPercent%';
 
     return Container(
       width: width,
@@ -2813,7 +2839,8 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
                       ),
                       Text(
                         'L${clip.lane} · ${clip.startMs}ms'
-                        '${clip.durationMs != null ? ' · ${clip.durationMs}ms' : ''}',
+                        '${clip.durationMs != null ? ' · ${clip.durationMs}ms' : ''}'
+                        '$opacitySuffix',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: df.textTertiary, fontSize: 10),

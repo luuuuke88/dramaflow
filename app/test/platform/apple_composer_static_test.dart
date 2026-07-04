@@ -172,6 +172,7 @@ void main() {
     expect(first['lane'], 2);
     expect(first['startMs'], 1500);
     expect(first['durationMs'], 1200);
+    expect(first['opacity'], 1.0);
   });
 
   test('Apple composer routes timeline clip layers into AVFoundation overlays',
@@ -186,6 +187,8 @@ void main() {
       expect(source, contains('let lane: Int'));
       expect(source, contains('let startMs: Int?'));
       expect(source, contains('let durationMs: Int?'));
+      expect(source, contains('let opacity: Double'));
+      expect(source, contains('opacity: doubleValue(value["opacity"])'));
       expect(source, contains('hasTimelineMetadata'));
       expect(source, contains('isOverlayClip'));
       expect(source, contains('hasTimelineOverlays'));
@@ -196,6 +199,7 @@ void main() {
       expect(source, contains('makeTimelineVideoComposition'));
       expect(source, contains('timelineLayeredInstructions'));
       expect(source, contains('timeFromMilliseconds'));
+      expect(source, contains('layer.setOpacity(Float(overlay.opacity)'));
       expect(
         source,
         contains(

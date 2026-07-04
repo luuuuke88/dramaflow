@@ -721,6 +721,7 @@
   "workbenchTimelineLayer": "层级",
   "workbenchTimelineStartMs": "起点(ms)",
   "workbenchTimelineDurationMs": "时长(ms)",
+  "workbenchTimelineOpacity": "透明度(%)",
   "workbenchTimelineClipAdded": "素材层已添加",
   "workbenchTimelineSplitMidpoint": "中点切分",
   "workbenchTimelineDuplicate": "复制素材层",

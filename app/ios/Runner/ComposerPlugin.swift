@@ -49,6 +49,7 @@ private struct ComposeSegment {
   let lane: Int
   let startMs: Int?
   let durationMs: Int?
+  let opacity: Double
 
   init(
     videoPath: String,
@@ -58,7 +59,8 @@ private struct ComposeSegment {
     timelineKind: String = "storyboard",
     lane: Int = 0,
     startMs: Int? = nil,
-    durationMs: Int? = nil
+    durationMs: Int? = nil,
+    opacity: Double = 1.0
   ) {
     self.videoPath = videoPath
     self.audioPath = audioPath
@@ -68,6 +70,7 @@ private struct ComposeSegment {
     self.lane = lane
     self.startMs = startMs
     self.durationMs = durationMs
+    self.opacity = min(max(opacity, 0.0), 1.0)
   }
 
   var hasTimelineMetadata: Bool {
@@ -91,6 +94,7 @@ private struct TimelineOverlaySegment: @unchecked Sendable {
   let videoTrack: AVMutableCompositionTrack
   let timeRange: CMTimeRange
   let lane: Int
+  let opacity: Double
 }
 
 final class ComposerPlugin {
@@ -377,7 +381,8 @@ final class ComposerPlugin {
     return TimelineOverlaySegment(
       videoTrack: overlayTrack,
       timeRange: CMTimeRange(start: start, duration: overlayDuration),
-      lane: segment.lane)
+      lane: segment.lane,
+      opacity: segment.opacity)
   }
 
   private func renderFilteredSegmentToTemp(
@@ -786,7 +791,7 @@ final class ComposerPlugin {
       return CMTimeCompare(lhs.timeRange.start, rhs.timeRange.start) < 0
     }.map { overlay -> AVMutableVideoCompositionLayerInstruction in
       let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: overlay.videoTrack)
-      layer.setOpacity(1.0, at: overlay.timeRange.start)
+      layer.setOpacity(Float(overlay.opacity), at: overlay.timeRange.start)
       return layer
     }
     instruction.layerInstructions = overlayLayers + [primaryLayer]
@@ -999,13 +1004,20 @@ final class ComposerPlugin {
         timelineKind: timelineKind,
         lane: intValue(value["lane"]) ?? 0,
         startMs: intValue(value["startMs"]),
-        durationMs: intValue(value["durationMs"]))
+        durationMs: intValue(value["durationMs"]),
+        opacity: doubleValue(value["opacity"]) ?? 1.0)
     }
   }
 
   private func intValue(_ value: Any?) -> Int? {
     if let int = value as? Int { return int }
     if let number = value as? NSNumber { return number.intValue }
+    return nil
+  }
+
+  private func doubleValue(_ value: Any?) -> Double? {
+    if let double = value as? Double { return double }
+    if let number = value as? NSNumber { return number.doubleValue }
     return nil
   }
 

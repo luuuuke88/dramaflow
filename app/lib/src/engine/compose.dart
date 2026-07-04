@@ -9,6 +9,7 @@ class ComposeSegment {
   final int lane;
   final int? startMs;
   final int? durationMs;
+  final double opacity;
 
   const ComposeSegment({
     required this.videoAbsPath,
@@ -19,6 +20,7 @@ class ComposeSegment {
     this.lane = 0,
     this.startMs,
     this.durationMs,
+    this.opacity = 1.0,
   });
 
   bool get hasAudio => audioAbsPath != null && audioAbsPath!.isNotEmpty;
@@ -27,7 +29,8 @@ class ComposeSegment {
       timelineKind != 'storyboard' ||
       lane != 0 ||
       startMs != null ||
-      durationMs != null;
+      durationMs != null ||
+      opacity != 1.0;
 }
 
 abstract class VideoComposer {

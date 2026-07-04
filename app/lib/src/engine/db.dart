@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 6;
+const schemaVersion = 7;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
@@ -252,6 +252,7 @@ CREATE TABLE IF NOT EXISTS o_timelineClip (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   lane INTEGER,
   name TEXT,
+  opacity REAL DEFAULT 1.0,
   projectId INTEGER,
   scriptId INTEGER,
   startMs INTEGER

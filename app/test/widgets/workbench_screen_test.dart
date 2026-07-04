@@ -3581,6 +3581,58 @@ void main() {
     expect(find.textContaining('L1 · 1000ms · 500ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可编辑素材层透明度并显示百分比', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/property_opacity_clip.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 10, 1]);
+    final clipAsset = engine.registerClipAsset(
+      projectId: projectId,
+      name: '透明度素材',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAsset,
+      lane: 2,
+      startMs: 700,
+      durationMs: 900,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipId,
+      actionKey: 'workbench-timeline-clip-edit-$clipId',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-edit-opacity-input')),
+      '60',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-edit-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    final opacity = engine.db.select(
+      'SELECT opacity FROM o_timelineClip WHERE id=?',
+      [clipId],
+    ).single['opacity'] as double?;
+    expect(opacity, 0.6);
+    expect(find.textContaining('60%'), findsOneWidget);
+  });
+
   testWidgets('工作台可复制素材层到同轨后方并避让冲突', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

@@ -75,6 +75,7 @@ class AVFoundationComposer implements VideoComposer {
               'lane': segment.lane,
               'startMs': segment.startMs,
               'durationMs': segment.durationMs,
+              'opacity': segment.opacity,
             },
         ],
         'output': outputAbsPath,
