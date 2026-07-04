@@ -9,7 +9,8 @@ import '../engine/engine.dart';
 import '../engine/queue.dart';
 
 final engineProvider = Provider<Engine>(
-  (_) => throw UnimplementedError('engineProvider 由 main() 注入'),
+  (_) =>
+      throw UnimplementedError('engineProvider must be overridden by main()'),
 );
 
 ThemeMode _themeModeFromString(String value) => switch (value) {
