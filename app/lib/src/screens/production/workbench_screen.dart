@@ -617,11 +617,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final defaultStartMs = selectedRows
         .map((clip) => clip.startMs)
         .reduce((a, b) => a < b ? a : b);
-    final nextStartMs = await showDialog<int>(
-      context: context,
+    final nextStartMs = await showDFAdaptiveDialog<int>(
+      context,
+      title: context.l10n.workbenchTimelineMoveTitle,
+      desktopWidthFactor: 0.36,
       builder: (c) => _TimelineClipStartDialog(
         defaultStartMs: defaultStartMs,
-        title: c.l10n.workbenchTimelineMoveTitle,
         inputKey: const ValueKey('workbench-timeline-move-start-input'),
         confirmKey: const ValueKey('workbench-timeline-move-confirm'),
       ),
@@ -674,11 +675,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final defaultStartMs = selectedRows
         .map((clip) => clip.startMs)
         .reduce((a, b) => a < b ? a : b);
-    final nextStartMs = await showDialog<int>(
-      context: context,
+    final nextStartMs = await showDFAdaptiveDialog<int>(
+      context,
+      title: context.l10n.workbenchTimelineRippleMoveTitle,
+      desktopWidthFactor: 0.36,
       builder: (c) => _TimelineClipStartDialog(
         defaultStartMs: defaultStartMs,
-        title: c.l10n.workbenchTimelineRippleMoveTitle,
         inputKey: const ValueKey('workbench-timeline-ripple-move-start-input'),
         confirmKey: const ValueKey('workbench-timeline-ripple-move-confirm'),
       ),
@@ -1287,11 +1289,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   }
 
   Future<void> _rippleMoveClipLayer(TimelineClipRow clip) async {
-    final nextStartMs = await showDialog<int>(
-      context: context,
+    final nextStartMs = await showDFAdaptiveDialog<int>(
+      context,
+      title: context.l10n.workbenchTimelineRippleMoveTitle,
+      desktopWidthFactor: 0.36,
       builder: (c) => _TimelineClipStartDialog(
         defaultStartMs: clip.startMs,
-        title: c.l10n.workbenchTimelineRippleMoveTitle,
         inputKey: const ValueKey('workbench-timeline-ripple-move-start-input'),
         confirmKey: const ValueKey('workbench-timeline-ripple-move-confirm'),
       ),
@@ -2492,13 +2495,11 @@ class _TimelineClipDurationDialogState
 
 class _TimelineClipStartDialog extends StatefulWidget {
   final int defaultStartMs;
-  final String title;
   final Key inputKey;
   final Key confirmKey;
 
   const _TimelineClipStartDialog({
     required this.defaultStartMs,
-    required this.title,
     required this.inputKey,
     required this.confirmKey,
   });
@@ -2532,28 +2533,44 @@ class _TimelineClipStartDialogState extends State<_TimelineClipStartDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        key: widget.inputKey,
-        controller: _startCtrl,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: l10n.workbenchTimelineStartMs,
-        ),
-        onSubmitted: (_) => _submit(),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        DFTokens.s20,
+        DFTokens.s16,
+        DFTokens.s20,
+        DFTokens.s20,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          key: widget.confirmKey,
-          onPressed: _submit,
-          child: Text(l10n.commonSave),
-        ),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: widget.inputKey,
+            controller: _startCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: l10n.workbenchTimelineStartMs,
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: DFTokens.s20),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: DFTokens.s8,
+            runSpacing: DFTokens.s8,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                key: widget.confirmKey,
+                onPressed: _submit,
+                child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
