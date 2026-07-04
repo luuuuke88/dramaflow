@@ -586,6 +586,8 @@
   "workbenchTimelineSplitAtTitle": "Split Overlay at Playhead",
   "workbenchTimelineSplitAtMs": "Playhead (ms)",
   "workbenchTimelineSplit": "Split",
+  "workbenchTimelineDelete": "Delete",
+  "workbenchTimelineRippleDelete": "Ripple delete",
   "workbenchTimelineUnselected": "No video selected",
   "workbenchTimelineNoAudio": "No voice bound",
   "workbenchReorderShot": "Drag to reorder",

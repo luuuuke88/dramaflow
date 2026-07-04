@@ -599,6 +599,87 @@ void main() {
     expect(File(engine.mediaAbsPath(relA)).existsSync(), isTrue);
   });
 
+  testWidgets('工作台可波纹删除素材层并前移同轨后续片段', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const relA = 'p/ripple_delete_a.mp4';
+    const relB = 'p/ripple_delete_b.mp4';
+    const relC = 'p/ripple_delete_c.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 3, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 4, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 5, 3]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹删除 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹删除 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹删除 C',
+      relPath: relC,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1400,
+      durationMs: 700,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 2,
+      startMs: 1400,
+      durationMs: 700,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final rippleDeleteButton =
+        find.byKey(ValueKey('workbench-timeline-clip-ripple-delete-$clipIdA'));
+    expect(rippleDeleteButton, findsOneWidget);
+    await tester.tap(rippleDeleteButton);
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.map((c) => c.id), isNot(contains(clipIdA)));
+    final shifted = clips.singleWhere((c) => c.id == clipIdB);
+    expect(shifted.startMs, 400);
+    expect(shifted.durationMs, 700);
+    final otherLane = clips.singleWhere((c) => c.id == clipIdC);
+    expect(otherLane.startMs, 1400);
+    expect(otherLane.durationMs, 700);
+    expect(find.textContaining('L1 · 400ms · 700ms'), findsOneWidget);
+  });
+
   testWidgets('工作台拖拽素材层接近相邻边缘时自动吸附', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

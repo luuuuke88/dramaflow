@@ -1650,6 +1650,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineSplit => '分割';
 
   @override
+  String get workbenchTimelineDelete => '削除';
+
+  @override
+  String get workbenchTimelineRippleDelete => 'リップル削除';
+
+  @override
   String get workbenchTimelineUnselected => '動画未選択';
 
   @override

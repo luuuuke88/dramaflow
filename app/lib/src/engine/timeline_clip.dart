@@ -152,6 +152,25 @@ extension TimelineClipApi on Engine {
   void deleteTimelineClip(int clipId) {
     db.execute('DELETE FROM o_timelineClip WHERE id=?', [clipId]);
   }
+
+  void deleteTimelineClipRipple(int clipId) {
+    final row = db.select(
+        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
+    if (row == null) return;
+    final scriptId = (row['scriptId'] as int?) ?? 0;
+    final lane = (row['lane'] as int?) ?? 1;
+    final startMs = (row['startMs'] as int?) ?? 0;
+    final durationMs =
+        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+    final endMs = startMs + durationMs;
+    db.execute('DELETE FROM o_timelineClip WHERE id=?', [clipId]);
+    db.execute(
+      'UPDATE o_timelineClip '
+      'SET startMs=CASE WHEN startMs - ? < 0 THEN 0 ELSE startMs - ? END '
+      'WHERE scriptId=? AND lane=? AND startMs>=?',
+      [durationMs, durationMs, scriptId, lane, endMs],
+    );
+  }
 }
 
 TimelineClipRow _timelineClipFromRow(Row row) => TimelineClipRow(

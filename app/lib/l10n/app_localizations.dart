@@ -3250,6 +3250,18 @@ abstract class AppLocalizations {
   /// **'切分'**
   String get workbenchTimelineSplit;
 
+  /// No description provided for @workbenchTimelineDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get workbenchTimelineDelete;
+
+  /// No description provided for @workbenchTimelineRippleDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'波纹删除'**
+  String get workbenchTimelineRippleDelete;
+
   /// No description provided for @workbenchTimelineUnselected.
   ///
   /// In zh, this message translates to:

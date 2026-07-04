@@ -733,6 +733,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  void _rippleDeleteClipLayer(TimelineClipRow clip) {
+    final engine = ref.read(engineProvider);
+    engine.deleteTimelineClipRipple(clip.id);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -834,6 +840,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       onSplit: () => _splitClipLayer(clip),
                       onSplitAt: () => _splitClipLayerAtPlayhead(clip),
                       onDelete: () => _deleteClipLayer(clip),
+                      onRippleDelete: () => _rippleDeleteClipLayer(clip),
                     ),
                 ],
               ),
@@ -1182,6 +1189,7 @@ class _TimelineAssetClip extends StatefulWidget {
   final VoidCallback onSplit;
   final VoidCallback onSplitAt;
   final VoidCallback onDelete;
+  final VoidCallback onRippleDelete;
 
   const _TimelineAssetClip({
     required this.clip,
@@ -1191,6 +1199,7 @@ class _TimelineAssetClip extends StatefulWidget {
     required this.onSplit,
     required this.onSplitAt,
     required this.onDelete,
+    required this.onRippleDelete,
   });
 
   @override
@@ -1314,8 +1323,18 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
         constraints: const BoxConstraints.tightFor(width: 28, height: 48),
         padding: EdgeInsets.zero,
         visualDensity: VisualDensity.compact,
+        tooltip: context.l10n.workbenchTimelineDelete,
         icon: Icon(Icons.delete_outline, size: 15, color: df.danger),
         onPressed: widget.onDelete,
+      ),
+      IconButton(
+        key: ValueKey('workbench-timeline-clip-ripple-delete-${clip.id}'),
+        constraints: const BoxConstraints.tightFor(width: 28, height: 48),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        tooltip: context.l10n.workbenchTimelineRippleDelete,
+        icon: Icon(Icons.delete_sweep_outlined, size: 15, color: df.danger),
+        onPressed: widget.onRippleDelete,
       ),
       const SizedBox(width: 4),
     ]);

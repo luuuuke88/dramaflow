@@ -1639,6 +1639,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineSplit => '切分';
 
   @override
+  String get workbenchTimelineDelete => '删除';
+
+  @override
+  String get workbenchTimelineRippleDelete => '波纹删除';
+
+  @override
   String get workbenchTimelineUnselected => '未选视频';
 
   @override
