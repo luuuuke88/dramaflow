@@ -471,6 +471,64 @@ extension TimelineClipApi on Engine {
     return duplicateIds;
   }
 
+  List<int> duplicateTimelineClipsRipple(List<int> clipIds) {
+    if (clipIds.isEmpty) return const [];
+    final placeholders = List.filled(clipIds.length, '?').join(',');
+    final rows = db
+        .select(
+          'SELECT * FROM o_timelineClip WHERE id IN ($placeholders) '
+          'ORDER BY startMs ASC, lane ASC, id ASC',
+          clipIds,
+        )
+        .toList();
+    if (rows.isEmpty) return const [];
+    final selectedIds = rows.map((row) => row['id'] as int).toList();
+    final scriptId = (rows.first['scriptId'] as int?) ?? 0;
+    final groupStart = rows
+        .map((row) => (row['startMs'] as int?) ?? 0)
+        .reduce((a, b) => a < b ? a : b);
+    final groupEnd = rows.map((row) {
+      final start = (row['startMs'] as int?) ?? 0;
+      final duration =
+          (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+      return start + duration;
+    }).reduce((a, b) => a > b ? a : b);
+    final groupDuration = groupEnd - groupStart <= 0
+        ? _defaultTimelineClipDurationMs
+        : groupEnd - groupStart;
+    final lanes = rows.map((row) => (row['lane'] as int?) ?? 1).toSet().toList()
+      ..sort();
+    final lanePlaceholders = List.filled(lanes.length, '?').join(',');
+    final idPlaceholders = List.filled(selectedIds.length, '?').join(',');
+    db.execute(
+      'UPDATE o_timelineClip SET startMs=startMs + ? '
+      'WHERE scriptId=? AND lane IN ($lanePlaceholders) AND startMs>=? '
+      'AND id NOT IN ($idPlaceholders)',
+      [groupDuration, scriptId, ...lanes, groupEnd, ...selectedIds],
+    );
+    final duplicateIds = <int>[];
+    for (final row in rows) {
+      final startMs = (row['startMs'] as int?) ?? 0;
+      db.execute(
+        'INSERT INTO o_timelineClip '
+        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [
+          row['projectId'],
+          row['scriptId'],
+          row['assetId'],
+          row['name'],
+          row['filePath'],
+          row['lane'],
+          startMs + groupDuration,
+          row['durationMs'],
+        ],
+      );
+      duplicateIds.add(db.lastInsertRowId);
+    }
+    return duplicateIds;
+  }
+
   void deleteTimelineClip(int clipId) {
     db.execute('DELETE FROM o_timelineClip WHERE id=?', [clipId]);
   }

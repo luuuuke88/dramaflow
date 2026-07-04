@@ -491,6 +491,18 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     });
   }
 
+  void _rippleDuplicateSelectedClipLayers() {
+    if (_selectedClipIds.isEmpty) return;
+    final engine = ref.read(engineProvider);
+    final duplicateIds =
+        engine.duplicateTimelineClipsRipple(_selectedClipIds.toList());
+    setState(() {
+      _selectedClipIds
+        ..clear()
+        ..addAll(duplicateIds);
+    });
+  }
+
   void _deleteSelectedClipLayers() {
     if (_selectedClipIds.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -1248,6 +1260,15 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       : _duplicateSelectedClipLayers,
                   icon: const Icon(Icons.copy_all_outlined, size: 16),
                   label: Text(l10n.workbenchTimelineDuplicateSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey(
+                      'workbench-timeline-ripple-duplicate-selected'),
+                  onPressed: selectedClipCount == 0
+                      ? null
+                      : _rippleDuplicateSelectedClipLayers,
+                  icon: const Icon(Icons.playlist_add_outlined, size: 16),
+                  label: Text(l10n.workbenchTimelineRippleDuplicateSelected),
                 ),
                 TextButton.icon(
                   key: const ValueKey('workbench-timeline-delete-selected'),

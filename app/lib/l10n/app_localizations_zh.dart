@@ -1706,6 +1706,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineDuplicateSelected => '批量复制';
 
   @override
+  String get workbenchTimelineRippleDuplicateSelected => '批量波纹复制';
+
+  @override
   String get workbenchTimelineDeleteSelected => '批量删除';
 
   @override

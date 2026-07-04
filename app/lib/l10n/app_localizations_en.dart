@@ -1750,6 +1750,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineDuplicateSelected => 'Duplicate selected';
 
   @override
+  String get workbenchTimelineRippleDuplicateSelected =>
+      'Ripple duplicate selected';
+
+  @override
   String get workbenchTimelineDeleteSelected => 'Delete selected';
 
   @override

@@ -621,6 +621,7 @@
   },
   "workbenchTimelineSplitSelected": "選択を分割",
   "workbenchTimelineDuplicateSelected": "選択を複製",
+  "workbenchTimelineRippleDuplicateSelected": "選択をリップル複製",
   "workbenchTimelineDeleteSelected": "選択を削除",
   "workbenchTimelineRippleDeleteSelected": "選択をリップル削除",
   "workbenchTimelineUnselected": "動画未選択",
