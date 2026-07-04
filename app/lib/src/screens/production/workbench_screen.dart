@@ -538,6 +538,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  void _deleteClipLayer(TimelineClipRow clip) {
+    final engine = ref.read(engineProvider);
+    engine.deleteTimelineClip(clip.id);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -637,6 +643,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                       onTrimEndCommit: (delta) =>
                           _resizeClipLayerEnd(clip, delta),
                       onSplit: () => _splitClipLayer(clip),
+                      onDelete: () => _deleteClipLayer(clip),
                     ),
                 ],
               ),
@@ -920,6 +927,7 @@ class _TimelineAssetClip extends StatefulWidget {
   final ValueChanged<Offset> onTrimStartCommit;
   final ValueChanged<Offset> onTrimEndCommit;
   final VoidCallback onSplit;
+  final VoidCallback onDelete;
 
   const _TimelineAssetClip({
     required this.clip,
@@ -927,6 +935,7 @@ class _TimelineAssetClip extends StatefulWidget {
     required this.onTrimStartCommit,
     required this.onTrimEndCommit,
     required this.onSplit,
+    required this.onDelete,
   });
 
   @override
@@ -1034,6 +1043,14 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
         visualDensity: VisualDensity.compact,
         icon: Icon(Icons.content_cut_outlined, size: 14, color: df.success),
         onPressed: widget.onSplit,
+      ),
+      IconButton(
+        key: ValueKey('workbench-timeline-clip-delete-${clip.id}'),
+        constraints: const BoxConstraints.tightFor(width: 28, height: 48),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        icon: Icon(Icons.delete_outline, size: 15, color: df.danger),
+        onPressed: widget.onDelete,
       ),
       const SizedBox(width: 4),
     ]);

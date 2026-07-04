@@ -411,6 +411,69 @@ void main() {
     expect(find.textContaining('2100ms · 600ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可从时间线删除素材层且保留源素材', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/delete_overlay_a.mp4';
+    const relB = 'p/delete_overlay_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 1, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 2, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '删除素材 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '保留素材 B',
+      relPath: relB,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 800,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final deleteButton =
+        find.byKey(ValueKey('workbench-timeline-clip-delete-$clipIdA'));
+    expect(deleteButton, findsOneWidget);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(1));
+    expect(clips.single.id, clipIdB);
+    expect(
+        find.byKey(ValueKey('workbench-timeline-clip-$clipIdA')), findsNothing);
+    expect(find.byKey(ValueKey('workbench-timeline-clip-$clipIdB')),
+        findsOneWidget);
+    expect(File(engine.mediaAbsPath(relA)).existsSync(), isTrue);
+  });
+
   testWidgets('工作台批量生成只作用于已勾选镜头轨道', (tester) async {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头一');
