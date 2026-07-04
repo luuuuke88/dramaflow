@@ -37,4 +37,41 @@ void main() {
           reason: '$section next verification');
     }
   });
+
+  test('page parity checklist keeps current verified and partial status split',
+      () {
+    final file = File(
+      '../docs/superpowers/progress/2026-07-04-page-parity-checklist.md',
+    );
+    final text = file.readAsStringSync();
+
+    final expectedVerified = [
+      '项目列表 + 新建向导',
+      '章节管理 + 事件',
+      '剧本',
+      '素材库',
+      '制作画布',
+      '节点式图片编辑器',
+      '配音',
+      '任务中心',
+      '全套设置',
+    ];
+    final expectedPartial = ['多轨工作台', 'Agent 体系页'];
+
+    for (final section in expectedVerified) {
+      expect(_sectionBlock(text, section), contains('Status: Verified'),
+          reason: section);
+    }
+    for (final section in expectedPartial) {
+      expect(_sectionBlock(text, section), contains('Status: Partial'),
+          reason: section);
+    }
+  });
+}
+
+String _sectionBlock(String text, String section) {
+  final start = text.indexOf('## $section');
+  expect(start, isNonNegative, reason: section);
+  final next = text.indexOf('\n## ', start + 1);
+  return text.substring(start, next == -1 ? text.length : next);
 }

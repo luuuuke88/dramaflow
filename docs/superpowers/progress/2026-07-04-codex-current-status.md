@@ -31,7 +31,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 2026-07-04 本轮 Codex 接手后重新跑过：
 
 - `cd app && flutter analyze`：通过，0 issues。
-- `cd app && flutter test`：通过，427 tests。
+- `cd app && flutter test`：通过，428 tests。
 - `cd app && dart run tool/e2e_local_smoke.dart`：通过，纯本地、不调用供应商，从章节、剧本、素材、分镜、候选视频、镜头配音走到合成导出 mp4。
 - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`。
 - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`。
@@ -56,8 +56,8 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 
 页面 parity 当前状态：
 
-- `Verified`：项目列表 + 新建向导、章节管理 + 事件、剧本、素材库、节点式图片编辑器、配音、任务中心、全套设置。
-- `Partial`：制作画布、多轨工作台、Agent 体系页。制作画布已新增 source-anchored visual evidence；如严格要求 live ToonFlow 浏览器并排截图，仍需补该环境证据。
+- `Verified`：项目列表 + 新建向导、章节管理 + 事件、剧本、素材库、制作画布、节点式图片编辑器、配音、任务中心、全套设置。
+- `Partial`：多轨工作台、Agent 体系页。制作画布已进入 `Verified`：有 source-anchored visual evidence、桌面/移动截图、生产页 widget 覆盖；如严格要求 live ToonFlow 浏览器并排截图，仍可作为加强证据补充。
 
 ## 仍不能称为“完全复刻”的部分
 
@@ -74,8 +74,8 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
    - 已有模型部署、技能开关、消息持久化、本地记忆、工具调用、简单 custom-js-agent return 模板。
    - 未完整复刻 ToonFlow/Claude 风格的多层 Agent 编排、向量 RAG 召回/重排、完整 QuickJS/flutter_js 自定义技能运行时。
 
-4. 制作画布缺并排视觉证据。
-   - 功能和测试覆盖不少，但 `page-parity-checklist.md` 仍标记为 `Partial`，原因是缺 ToonFlow 并排截图清单。
+4. 制作画布 live 浏览器并排截图只是加强证据。
+   - 当前 `page-parity-checklist.md` 已用 source-anchored visual evidence 和 committed PNG 截图把制作画布页收为 `Verified`；若后续验收坚持 live ToonFlow 运行截图，再补该环境证据。
 
 ## 接力建议
 
@@ -83,10 +83,9 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 
 推荐顺序：
 
-1. 补制作画布视觉 parity 证据，让 11 页清单从 8 Verified / 3 Partial 变为 9 Verified / 2 Partial。
-2. 继续推进工作台 NLE：补复杂重叠策略、更多 ripple 规则或更完整的属性面板能力，每次一小片并锁测试。
-3. 单独写 M6 Web 架构设计后再动 Web engine。不要在现有 `dart:io + sqlite3 FFI` engine 上直接硬塞 H5。
-4. 如果 luke 坚持“完全复刻 Agent”，先写 Agent/RAG 子系统设计，再实现多层编排和向量检索；不要把当前瘦身版误判为完整。
+1. 继续推进工作台 NLE：补复杂重叠策略、更多 ripple 规则或更完整的属性面板能力，每次一小片并锁测试。
+2. 单独写 M6 Web 架构设计后再动 Web engine。不要在现有 `dart:io + sqlite3 FFI` engine 上直接硬塞 H5。
+3. 如果 luke 坚持“完全复刻 Agent”，先写 Agent/RAG 子系统设计，再实现多层编排和向量检索；不要把当前瘦身版误判为完整。
 
 ## 不要误踩的边界
 
