@@ -21,6 +21,7 @@ import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_empty.dart';
 
 /// media_kit 一次性初始化。放懒调用（工作台/配音页首次进入时），避免侵入未持有的
@@ -1336,8 +1337,10 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   }
 
   Future<void> _editClipLayer(TimelineClipRow clip) async {
-    final draft = await showDialog<_TimelineClipPropertyDraft>(
-      context: context,
+    final draft = await showDFAdaptiveDialog<_TimelineClipPropertyDraft>(
+      context,
+      title: context.l10n.workbenchTimelineEditClipTitle,
+      desktopWidthFactor: 0.42,
       builder: (c) => _EditTimelineClipDialog(clip: clip),
     );
     if (draft == null || !mounted) return;
@@ -2196,43 +2199,52 @@ class _EditTimelineClipDialogState extends State<_EditTimelineClipDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(l10n.workbenchTimelineEditClipTitle),
-      content: SizedBox(
-        width: 460,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            Expanded(
-              child: TextField(
-                key: const ValueKey('workbench-timeline-edit-lane-input'),
-                controller: _laneCtrl,
-                decoration:
-                    InputDecoration(labelText: l10n.workbenchTimelineLayer),
-                keyboardType: TextInputType.number,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                key: const ValueKey('workbench-timeline-edit-start-input'),
-                controller: _startCtrl,
-                decoration:
-                    InputDecoration(labelText: l10n.workbenchTimelineStartMs),
-                keyboardType: TextInputType.number,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                key: const ValueKey('workbench-timeline-edit-duration-input'),
-                controller: _durationCtrl,
-                decoration: InputDecoration(
-                    labelText: l10n.workbenchTimelineDurationMs),
-                keyboardType: TextInputType.number,
-                onSubmitted: (_) => _submit(),
-              ),
-            ),
-          ]),
+    final compact = MediaQuery.sizeOf(context).width < 480;
+    final fields = [
+      TextField(
+        key: const ValueKey('workbench-timeline-edit-lane-input'),
+        controller: _laneCtrl,
+        decoration: InputDecoration(labelText: l10n.workbenchTimelineLayer),
+        keyboardType: TextInputType.number,
+      ),
+      TextField(
+        key: const ValueKey('workbench-timeline-edit-start-input'),
+        controller: _startCtrl,
+        decoration: InputDecoration(labelText: l10n.workbenchTimelineStartMs),
+        keyboardType: TextInputType.number,
+      ),
+      TextField(
+        key: const ValueKey('workbench-timeline-edit-duration-input'),
+        controller: _durationCtrl,
+        decoration:
+            InputDecoration(labelText: l10n.workbenchTimelineDurationMs),
+        keyboardType: TextInputType.number,
+        onSubmitted: (_) => _submit(),
+      ),
+    ];
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (compact)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < fields.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  fields[i],
+                ],
+              ],
+            )
+          else
+            Row(children: [
+              for (var i = 0; i < fields.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: fields[i]),
+              ],
+            ]),
           const SizedBox(height: 10),
           TextField(
             key: const ValueKey('workbench-timeline-edit-opacity-input'),
@@ -2242,19 +2254,24 @@ class _EditTimelineClipDialogState extends State<_EditTimelineClipDialog> {
             keyboardType: TextInputType.number,
             onSubmitted: (_) => _submit(),
           ),
-        ]),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l10n.commonCancel),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                key: const ValueKey('workbench-timeline-edit-confirm'),
+                onPressed: _submit,
+                child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          key: const ValueKey('workbench-timeline-edit-confirm'),
-          onPressed: _submit,
-          child: Text(l10n.commonSave),
-        ),
-      ],
     );
   }
 }

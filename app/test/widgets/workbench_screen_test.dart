@@ -3929,6 +3929,86 @@ void main() {
     expect(moved.durationMs, 800);
   });
 
+  testWidgets('移动端工作台：素材层编辑使用全屏单列表单并可保存', (tester) async {
+    final db = engine.db;
+    final media = engine.media;
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: true),
+      composer: _FakeComposer(),
+    );
+    engine.installVideoTrackPipeline();
+
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '移动镜头',
+      duration: '4',
+    );
+    const rel = 'p/mobile_overlay_edit.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([6, 6, 6]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '移动素材层',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 1,
+      startMs: 0,
+      durationMs: 900,
+    );
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipId,
+      actionKey: 'workbench-timeline-clip-edit-$clipId',
+    );
+
+    expect(find.byType(AlertDialog), findsNothing);
+    final laneTop = tester
+        .getTopLeft(
+            find.byKey(const ValueKey('workbench-timeline-edit-lane-input')))
+        .dy;
+    final startTop = tester
+        .getTopLeft(
+            find.byKey(const ValueKey('workbench-timeline-edit-start-input')))
+        .dy;
+    final durationTop = tester
+        .getTopLeft(find
+            .byKey(const ValueKey('workbench-timeline-edit-duration-input')))
+        .dy;
+    expect(startTop, greaterThan(laneTop));
+    expect(durationTop, greaterThan(startTop));
+
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-edit-opacity-input')),
+      '65',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    final row = engine.db.select(
+        'SELECT opacity FROM o_timelineClip WHERE id=?', [clipId]).single;
+    expect(row['opacity'] as double, closeTo(0.65, 0.001));
+    expect(find.textContaining('65%'), findsOneWidget);
+  });
+
   testWidgets('工作台批量生成只作用于已勾选镜头轨道', (tester) async {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头一');
