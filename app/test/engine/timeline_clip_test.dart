@@ -495,4 +495,44 @@ void main() {
     expect(survivor.lane, 2);
     expect(survivor.startMs, 0);
   });
+
+  test('moveTimelineClips 批量移动选中素材层并保留相对时间', () {
+    final clipA = clipAsset('p/batch_move_a.mp4', 'A');
+    final clipB = clipAsset('p/batch_move_b.mp4', 'B');
+    final clipC = clipAsset('p/batch_move_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 200,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 2,
+      startMs: 900,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 3,
+      startMs: 900,
+      durationMs: 500,
+    );
+
+    engine.moveTimelineClips(
+      clipIds: [clipIdA, clipIdB],
+      deltaStartMs: 300,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 500);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 1200);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 900);
+  });
 }

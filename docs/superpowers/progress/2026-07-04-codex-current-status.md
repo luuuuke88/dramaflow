@@ -4,7 +4,7 @@
 
 - 分支：`master`
 - 当前代码指针：以 `git log -1` / `git status` 为准；不要把本文档里的历史提交号当作实时 HEAD。
-- 最近接力：`16f83d0 docs(progress): record current flutter parity status` 之后继续推进工作台/NLE 素材层属性编辑、复制、波纹复制、波纹移动、按时间起点可视拉开、按 lane 可视分轨、选中多素材层后按播放头批量切分/批量删除、自动放层、纵向拖拽到占用层时自动下探空层、媒体库按播放头快捷添加到时间线、媒体库 clip 按落点坐标拖放到时间线，以及媒体库拖放起点/尾部接近锚点时自动吸附。
+- 最近接力：`16f83d0 docs(progress): record current flutter parity status` 之后继续推进工作台/NLE 素材层属性编辑、复制、波纹复制、波纹移动、按时间起点可视拉开、按 lane 可视分轨、选中多素材层后按播放头批量切分/批量删除/整组拖拽平移、自动放层、纵向拖拽到占用层时自动下探空层、媒体库按播放头快捷添加到时间线、媒体库 clip 按落点坐标拖放到时间线，以及媒体库拖放起点/尾部接近锚点时自动吸附。
 - 权威目标：`docs/superpowers/specs/2026-07-03-v0.3-toonflow-parity-design.md`
 - 页面证据账本：`docs/superpowers/progress/2026-07-04-page-parity-checklist.md`
 
@@ -15,7 +15,7 @@
 2026-07-04 本轮 Codex 接手后重新跑过：
 
 - `cd app && flutter analyze`：通过，0 issues。
-- `cd app && flutter test`：通过，382 tests。
+- `cd app && flutter test`：通过，384 tests。
 - `cd app && dart run tool/e2e_local_smoke.dart`：通过，纯本地、不调用供应商，从章节、剧本、素材、分镜、候选视频、镜头配音走到合成导出 mp4。
 - `cd app && flutter build macos --debug`：通过，产物 `build/macos/Build/Products/Debug/dramaflow.app`。
 - `cd app && flutter build ios --simulator --debug`：通过，产物 `build/ios/iphonesimulator/Runner.app`。
@@ -51,7 +51,7 @@
    - 真正完整 H5 需要单独 M6：Web 数据库、浏览器文件存储、WebCodecs/Mediabunny 合成器、Web 媒体预览、Web 文件选择。
 
 2. 工作台仍不是完整 ToonFlow WebAV/NLE。
-   - 已有顺序分镜、候选视频、音频绑定、转场/滤镜 metadata、原生端合成、timeline overlay 渲染、overlay 素材层按时间起点可视拉开、按 lane 可视分轨、媒体库快捷添加/媒体库按落点拖放并支持起点与尾部吸附/时间线拖拽/裁剪/属性编辑/复制/波纹复制/波纹移动/自动找空层/纵向拖拽占用层自动下探/吸附/分割/按播放头批量切分/删除/批量删除/ripple/同轨避让。
+   - 已有顺序分镜、候选视频、音频绑定、转场/滤镜 metadata、原生端合成、timeline overlay 渲染、overlay 素材层按时间起点可视拉开、按 lane 可视分轨、媒体库快捷添加/媒体库按落点拖放并支持起点与尾部吸附/时间线拖拽/裁剪/属性编辑/复制/波纹复制/波纹移动/自动找空层/纵向拖拽占用层自动下探/吸附/分割/按播放头批量切分/删除/批量删除/多选整组拖拽平移/ripple/同轨避让。
    - 仍缺完整 WebAV clip editor 级别能力：复杂 snapping、复杂叠放冲突、更多 ripple、多素材自由编排细节、Web 端转场/滤镜真实渲染。
 
 3. Agent 体系仍是瘦身版。

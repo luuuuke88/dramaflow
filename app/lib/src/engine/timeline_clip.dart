@@ -213,6 +213,42 @@ extension TimelineClipApi on Engine {
     );
   }
 
+  void moveTimelineClips({
+    required List<int> clipIds,
+    required int deltaStartMs,
+    int deltaLane = 0,
+  }) {
+    if (clipIds.isEmpty) return;
+    final placeholders = List.filled(clipIds.length, '?').join(',');
+    final rows = db
+        .select(
+          'SELECT id,startMs,lane FROM o_timelineClip '
+          'WHERE id IN ($placeholders)',
+          clipIds,
+        )
+        .toList();
+    if (rows.isEmpty) return;
+    final minStart = rows
+        .map((row) => (row['startMs'] as int?) ?? 0)
+        .reduce((a, b) => a < b ? a : b);
+    final minLane = rows
+        .map((row) => (row['lane'] as int?) ?? 1)
+        .reduce((a, b) => a < b ? a : b);
+    final appliedStartDelta =
+        deltaStartMs < -minStart ? -minStart : deltaStartMs;
+    final appliedLaneDelta = deltaLane < 1 - minLane ? 1 - minLane : deltaLane;
+    if (appliedStartDelta == 0 && appliedLaneDelta == 0) return;
+    for (final row in rows) {
+      final id = row['id'] as int;
+      final nextStart = ((row['startMs'] as int?) ?? 0) + appliedStartDelta;
+      final nextLane = ((row['lane'] as int?) ?? 1) + appliedLaneDelta;
+      db.execute(
+        'UPDATE o_timelineClip SET startMs=?, lane=? WHERE id=?',
+        [nextStart, nextLane, id],
+      );
+    }
+  }
+
   void moveTimelineClipRipple({
     required int clipId,
     required int startMs,

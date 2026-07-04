@@ -659,6 +659,15 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
             durationMs: duration,
           );
     final nextLane = clip.lane + laneSteps;
+    if (_selectedClipIds.length > 1 && _selectedClipIds.contains(clip.id)) {
+      engine.moveTimelineClips(
+        clipIds: _selectedClipIds.toList(),
+        deltaStartMs: nextStart - clip.startMs,
+        deltaLane: laneSteps,
+      );
+      setState(() {});
+      return;
+    }
     final resolvedLane = laneSteps == 0
         ? nextLane
         : _autoTimelineClipLane(
