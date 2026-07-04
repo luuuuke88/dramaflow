@@ -1732,6 +1732,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineAlignToPlayheadSelected => '再生位置に揃える';
 
   @override
+  String get workbenchTimelineAlignEndToPlayheadSelected => '末尾を再生位置に揃える';
+
+  @override
   String get workbenchTimelineRippleDuplicateSelected => '選択をリップル複製';
 
   @override

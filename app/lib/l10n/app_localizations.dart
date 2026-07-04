@@ -3406,6 +3406,12 @@ abstract class AppLocalizations {
   /// **'对齐播放头'**
   String get workbenchTimelineAlignToPlayheadSelected;
 
+  /// No description provided for @workbenchTimelineAlignEndToPlayheadSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'尾部对齐播放头'**
+  String get workbenchTimelineAlignEndToPlayheadSelected;
+
   /// No description provided for @workbenchTimelineRippleDuplicateSelected.
   ///
   /// In zh, this message translates to:

@@ -1721,6 +1721,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineAlignToPlayheadSelected => '对齐播放头';
 
   @override
+  String get workbenchTimelineAlignEndToPlayheadSelected => '尾部对齐播放头';
+
+  @override
   String get workbenchTimelineRippleDuplicateSelected => '批量波纹复制';
 
   @override
