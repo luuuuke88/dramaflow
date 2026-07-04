@@ -868,6 +868,63 @@ void main() {
     expect(secondLeft.dx - firstLeft.dx, greaterThanOrEqualTo(350));
   });
 
+  testWidgets('工作台素材层按 lane 分成可视多轨且同起点对齐', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const relA = 'p/visual_lane_overlay_a.mp4';
+    const relB = 'p/visual_lane_overlay_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 5, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 5, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '视觉轨道 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '视觉轨道 B',
+      relPath: relB,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 0,
+      durationMs: 1000,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final firstLeft = tester.getTopLeft(
+      find.byKey(ValueKey('workbench-timeline-clip-$clipIdA')),
+    );
+    final secondLeft = tester.getTopLeft(
+      find.byKey(ValueKey('workbench-timeline-clip-$clipIdB')),
+    );
+    expect((secondLeft.dx - firstLeft.dx).abs(), lessThanOrEqualTo(4));
+    expect(secondLeft.dy - firstLeft.dy, greaterThanOrEqualTo(50));
+  });
+
   testWidgets('工作台可拖拽素材层边缘裁剪时长', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

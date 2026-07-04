@@ -1023,6 +1023,39 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     return widgets;
   }
 
+  List<Widget> _timelineOverlayLaneWidgets({
+    required Engine engine,
+    required List<TimelineClipRow> clips,
+    required String label,
+  }) {
+    final byLane = <int, List<TimelineClipRow>>{};
+    for (final clip in clips) {
+      (byLane[clip.lane] ??= <TimelineClipRow>[]).add(clip);
+    }
+    final laneIds = byLane.keys.toList()..sort();
+    final rows = <Widget>[];
+    for (var i = 0; i < laneIds.length; i++) {
+      final lane = laneIds[i];
+      final laneClips = byLane[lane]!
+        ..sort((a, b) {
+          final byStart = a.startMs.compareTo(b.startMs);
+          return byStart != 0 ? byStart : a.id.compareTo(b.id);
+        });
+      if (i > 0) rows.add(const SizedBox(height: 8));
+      rows.add(
+        _TimelineLane(
+          label: i == 0 ? label : '$label L$lane',
+          icon: Icons.layers_outlined,
+          children: _timelineOverlayClipWidgets(
+            engine: engine,
+            clips: laneClips,
+          ),
+        ),
+      );
+    }
+    return rows;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -1186,13 +1219,10 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                         ),
                         if (clips.isNotEmpty) ...[
                           const SizedBox(height: 8),
-                          _TimelineLane(
+                          ..._timelineOverlayLaneWidgets(
+                            engine: engine,
+                            clips: clips,
                             label: l10n.workbenchTimelineOverlayTrack,
-                            icon: Icons.layers_outlined,
-                            children: _timelineOverlayClipWidgets(
-                              engine: engine,
-                              clips: clips,
-                            ),
                           ),
                         ],
                       ]),
