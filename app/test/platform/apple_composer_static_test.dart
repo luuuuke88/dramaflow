@@ -173,4 +173,36 @@ void main() {
     expect(first['startMs'], 1500);
     expect(first['durationMs'], 1200);
   });
+
+  test('Apple composer routes timeline clip layers into AVFoundation overlays',
+      () {
+    final macosSource =
+        File('macos/Runner/ComposerPlugin.swift').readAsStringSync();
+    final iosSource =
+        File('ios/Runner/ComposerPlugin.swift').readAsStringSync();
+
+    for (final source in [macosSource, iosSource]) {
+      expect(source, contains('let timelineKind: String'));
+      expect(source, contains('let lane: Int'));
+      expect(source, contains('let startMs: Int?'));
+      expect(source, contains('let durationMs: Int?'));
+      expect(source, contains('hasTimelineMetadata'));
+      expect(source, contains('isOverlayClip'));
+      expect(source, contains('hasTimelineOverlays'));
+      expect(source, contains('composeWithTimelineOverlays'));
+      expect(source, contains('primaryTimelineSegments'));
+      expect(source, contains('timelineOverlaySegments'));
+      expect(source, contains('insertTimelineOverlay'));
+      expect(source, contains('makeTimelineVideoComposition'));
+      expect(source, contains('timelineLayeredInstructions'));
+      expect(source, contains('timeFromMilliseconds'));
+      expect(
+        source,
+        contains(
+            'AVMutableVideoCompositionLayerInstruction(assetTrack: overlay.videoTrack)'),
+        reason:
+            'Timeline overlay clips must become visible AVFoundation layers.',
+      );
+    }
+  });
 }

@@ -45,6 +45,38 @@ private struct ComposeSegment {
   let audioPath: String?
   let transition: String?
   let filterPreset: String?
+  let timelineKind: String
+  let lane: Int
+  let startMs: Int?
+  let durationMs: Int?
+
+  init(
+    videoPath: String,
+    audioPath: String?,
+    transition: String?,
+    filterPreset: String?,
+    timelineKind: String = "storyboard",
+    lane: Int = 0,
+    startMs: Int? = nil,
+    durationMs: Int? = nil
+  ) {
+    self.videoPath = videoPath
+    self.audioPath = audioPath
+    self.transition = transition
+    self.filterPreset = filterPreset
+    self.timelineKind = timelineKind
+    self.lane = lane
+    self.startMs = startMs
+    self.durationMs = durationMs
+  }
+
+  var hasTimelineMetadata: Bool {
+    timelineKind != "storyboard" || lane != 0 || startMs != nil || durationMs != nil
+  }
+
+  var isOverlayClip: Bool {
+    timelineKind == "clip" || lane > 0
+  }
 }
 
 private struct RenderSegment: @unchecked Sendable {
@@ -53,6 +85,12 @@ private struct RenderSegment: @unchecked Sendable {
   let dissolveDuration: CMTime
   let transition: String?
   let filterPreset: String?
+}
+
+private struct TimelineOverlaySegment: @unchecked Sendable {
+  let videoTrack: AVMutableCompositionTrack
+  let timeRange: CMTimeRange
+  let lane: Int
 }
 
 final class ComposerPlugin {
@@ -164,6 +202,23 @@ final class ComposerPlugin {
     hasDissolveTransition(segments) || hasWhipPanTransition(segments)
   }
 
+  private func hasTimelineOverlays(_ segments: [ComposeSegment]) -> Bool {
+    segments.contains { $0.hasTimelineMetadata && $0.isOverlayClip }
+  }
+
+  private func primaryTimelineSegments(_ segments: [ComposeSegment]) -> [ComposeSegment] {
+    segments.filter { !$0.isOverlayClip }
+  }
+
+  private func timelineOverlaySegments(_ segments: [ComposeSegment]) -> [ComposeSegment] {
+    segments.filter { $0.isOverlayClip }.sorted { lhs, rhs in
+      let lhsStart = lhs.startMs ?? 0
+      let rhsStart = rhs.startMs ?? 0
+      if lhsStart != rhsStart { return lhsStart < rhsStart }
+      return lhs.lane < rhs.lane
+    }
+  }
+
   private func hasDissolveTransition(_ segments: [ComposeSegment]) -> Bool {
     segments.contains { $0.transition == "dissolve" }
   }
@@ -199,10 +254,130 @@ final class ComposerPlugin {
           videoPath: tempURL.path,
           audioPath: segment.audioPath,
           transition: segment.transition,
-          filterPreset: nil))
+          filterPreset: nil,
+          timelineKind: segment.timelineKind,
+          lane: segment.lane,
+          startMs: segment.startMs,
+          durationMs: segment.durationMs))
     }
 
     try await compose(segments: renderedSegments, output: output)
+  }
+
+  private func composeWithTimelineOverlays(
+    segments: [ComposeSegment],
+    output: String
+  ) async throws {
+    let primarySegments = primaryTimelineSegments(segments)
+    let overlaySegments = timelineOverlaySegments(segments)
+    if primarySegments.isEmpty || overlaySegments.isEmpty {
+      throw ComposerPluginError.invalidArguments
+    }
+
+    let outputURL = URL(fileURLWithPath: output)
+    let tempDirectory = outputURL.deletingLastPathComponent()
+    try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+    let baseURL = tempDirectory.appendingPathComponent("dramaflow_timeline_base_\(UUID().uuidString).mp4")
+    defer {
+      if FileManager.default.fileExists(atPath: baseURL.path) {
+        try? FileManager.default.removeItem(at: baseURL)
+      }
+    }
+
+    try await compose(segments: primarySegments, output: baseURL.path)
+    try ensureFileExists(baseURL.path)
+    let baseAsset = AVAsset(url: baseURL)
+    let baseDuration = try await loadDuration(baseAsset)
+    if !CMTimeGetSeconds(baseDuration).isFinite || CMTimeCompare(baseDuration, .zero) <= 0 {
+      throw ComposerPluginError.invalidDuration(baseURL.path)
+    }
+    guard let baseVideoTrack = baseAsset.tracks(withMediaType: .video).first else {
+      throw ComposerPluginError.noVideoTrack(baseURL.path)
+    }
+
+    let composition = AVMutableComposition()
+    guard let baseCompositionVideoTrack = composition.addMutableTrack(
+      withMediaType: .video,
+      preferredTrackID: kCMPersistentTrackID_Invalid)
+    else {
+      throw ComposerPluginError.exportSessionUnavailable
+    }
+    baseCompositionVideoTrack.preferredTransform = baseVideoTrack.preferredTransform
+    try baseCompositionVideoTrack.insertTimeRange(
+      CMTimeRange(start: .zero, duration: baseDuration),
+      of: baseVideoTrack,
+      at: .zero)
+
+    if let baseAudioSourceTrack = baseAsset.tracks(withMediaType: .audio).first {
+      guard let baseCompositionAudioTrack = composition.addMutableTrack(
+        withMediaType: .audio,
+        preferredTrackID: kCMPersistentTrackID_Invalid)
+      else {
+        throw ComposerPluginError.exportSessionUnavailable
+      }
+      try baseCompositionAudioTrack.insertTimeRange(
+        CMTimeRange(start: .zero, duration: baseDuration),
+        of: baseAudioSourceTrack,
+        at: .zero)
+    }
+
+    var timelineOverlays: [TimelineOverlaySegment] = []
+    for segment in overlaySegments {
+      timelineOverlays.append(try await insertTimelineOverlay(segment, into: composition))
+    }
+
+    if FileManager.default.fileExists(atPath: outputURL.path) {
+      try FileManager.default.removeItem(at: outputURL)
+    }
+    guard let exportSession = AVAssetExportSession(
+      asset: composition,
+      presetName: AVAssetExportPreset1280x720)
+    else {
+      throw ComposerPluginError.exportSessionUnavailable
+    }
+    exportSession.outputURL = outputURL
+    exportSession.outputFileType = .mp4
+    exportSession.shouldOptimizeForNetworkUse = true
+    exportSession.videoComposition = makeTimelineVideoComposition(
+      primaryTrack: baseCompositionVideoTrack,
+      overlays: timelineOverlays,
+      renderSize: naturalRenderSize(for: baseVideoTrack),
+      duration: maxTimelineDuration(baseDuration, overlays: timelineOverlays))
+    try await export(exportSession)
+  }
+
+  private func insertTimelineOverlay(
+    _ segment: ComposeSegment,
+    into composition: AVMutableComposition
+  ) async throws -> TimelineOverlaySegment {
+    try ensureFileExists(segment.videoPath)
+    let asset = AVAsset(url: URL(fileURLWithPath: segment.videoPath))
+    let assetDuration = try await loadDuration(asset)
+    if !CMTimeGetSeconds(assetDuration).isFinite || CMTimeCompare(assetDuration, .zero) <= 0 {
+      throw ComposerPluginError.invalidDuration(segment.videoPath)
+    }
+    guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+      throw ComposerPluginError.noVideoTrack(segment.videoPath)
+    }
+    guard let overlayTrack = composition.addMutableTrack(
+      withMediaType: .video,
+      preferredTrackID: kCMPersistentTrackID_Invalid)
+    else {
+      throw ComposerPluginError.exportSessionUnavailable
+    }
+    overlayTrack.preferredTransform = videoTrack.preferredTransform
+    let requestedDuration = segment.durationMs.map(timeFromMilliseconds) ?? assetDuration
+    let overlayDuration = minTime(requestedDuration, assetDuration)
+    if CMTimeCompare(overlayDuration, .zero) <= 0 {
+      throw ComposerPluginError.invalidDuration(segment.videoPath)
+    }
+    let start = timeFromMilliseconds(segment.startMs ?? 0)
+    let timeRange = CMTimeRange(start: .zero, duration: overlayDuration)
+    try overlayTrack.insertTimeRange(timeRange, of: videoTrack, at: start)
+    return TimelineOverlaySegment(
+      videoTrack: overlayTrack,
+      timeRange: CMTimeRange(start: start, duration: overlayDuration),
+      lane: segment.lane)
   }
 
   private func renderFilteredSegmentToTemp(
@@ -260,6 +435,10 @@ final class ComposerPlugin {
 
   private func compose(segments: [ComposeSegment], output: String) async throws {
     if segments.isEmpty { throw ComposerPluginError.invalidArguments }
+    if hasTimelineOverlays(segments) {
+      try await composeWithTimelineOverlays(segments: segments, output: output)
+      return
+    }
     if requiresPreRenderedFilterComposition(segments) {
       try await composeWithPreRenderedFiltersForLayeredComposition(segments: segments, output: output)
       return
@@ -575,6 +754,45 @@ final class ComposerPlugin {
     segments.first { CMTimeRangeContainsTime($0.timeRange, time: time) }
   }
 
+  private func makeTimelineVideoComposition(
+    primaryTrack: AVMutableCompositionTrack,
+    overlays: [TimelineOverlaySegment],
+    renderSize: CGSize,
+    duration: CMTime
+  ) -> AVMutableVideoComposition? {
+    if overlays.isEmpty { return nil }
+    let videoComposition = AVMutableVideoComposition()
+    videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+    videoComposition.renderSize = renderSize
+    videoComposition.instructions = timelineLayeredInstructions(
+      primaryTrack: primaryTrack,
+      overlays: overlays,
+      duration: duration)
+    return videoComposition
+  }
+
+  private func timelineLayeredInstructions(
+    primaryTrack: AVMutableCompositionTrack,
+    overlays: [TimelineOverlaySegment],
+    duration: CMTime
+  ) -> [AVVideoCompositionInstructionProtocol] {
+    let instruction = AVMutableVideoCompositionInstruction()
+    instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
+
+    let primaryLayer = AVMutableVideoCompositionLayerInstruction(assetTrack: primaryTrack)
+    primaryLayer.setOpacity(1.0, at: .zero)
+    let overlayLayers = overlays.sorted { lhs, rhs in
+      if lhs.lane != rhs.lane { return lhs.lane > rhs.lane }
+      return CMTimeCompare(lhs.timeRange.start, rhs.timeRange.start) < 0
+    }.map { overlay -> AVMutableVideoCompositionLayerInstruction in
+      let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: overlay.videoTrack)
+      layer.setOpacity(1.0, at: overlay.timeRange.start)
+      return layer
+    }
+    instruction.layerInstructions = overlayLayers + [primaryLayer]
+    return [instruction]
+  }
+
   private func filterImage(_ image: CIImage, preset: String?) -> CIImage {
     guard let preset = preset, !preset.isEmpty else { return image }
     switch preset {
@@ -674,6 +892,24 @@ final class ComposerPlugin {
     CMTimeCompare(lhs, rhs) <= 0 ? lhs : rhs
   }
 
+  private func maxTime(_ lhs: CMTime, _ rhs: CMTime) -> CMTime {
+    CMTimeCompare(lhs, rhs) >= 0 ? lhs : rhs
+  }
+
+  private func maxTimelineDuration(
+    _ baseDuration: CMTime,
+    overlays: [TimelineOverlaySegment]
+  ) -> CMTime {
+    overlays.reduce(baseDuration) { current, overlay in
+      maxTime(current, CMTimeRangeGetEnd(overlay.timeRange))
+    }
+  }
+
+  private func timeFromMilliseconds(_ milliseconds: Int) -> CMTime {
+    let clamped = max(0, milliseconds)
+    return CMTime(value: CMTimeValue(clamped), timescale: 1000)
+  }
+
   private func loadDuration(_ asset: AVAsset) async throws -> CMTime {
     if #available(macOS 12.0, iOS 15.0, *) {
       return try await asset.load(.duration)
@@ -753,12 +989,24 @@ final class ComposerPlugin {
       let transition = rawTransition?.isEmpty == true ? nil : rawTransition
       let rawFilterPreset = value["filterPreset"] as? String
       let filterPreset = rawFilterPreset?.isEmpty == true ? nil : rawFilterPreset
+      let rawTimelineKind = value["timelineKind"] as? String
+      let timelineKind = rawTimelineKind?.isEmpty == true ? "storyboard" : (rawTimelineKind ?? "storyboard")
       return ComposeSegment(
         videoPath: videoPath,
         audioPath: audioPath,
         transition: transition,
-        filterPreset: filterPreset)
+        filterPreset: filterPreset,
+        timelineKind: timelineKind,
+        lane: intValue(value["lane"]) ?? 0,
+        startMs: intValue(value["startMs"]),
+        durationMs: intValue(value["durationMs"]))
     }
+  }
+
+  private func intValue(_ value: Any?) -> Int? {
+    if let int = value as? Int { return int }
+    if let number = value as? NSNumber { return number.intValue }
+    return nil
   }
 
   private func flutterError(_ error: Error) -> FlutterError {
