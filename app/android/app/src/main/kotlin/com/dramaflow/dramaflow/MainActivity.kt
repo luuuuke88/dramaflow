@@ -61,7 +61,7 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "compose" -> {
-                        val segments = call.argument<List<Map<String, String?>>>("segments")
+                        val segments = call.argument<List<Map<String, Any?>>>("segments")
                             ?: throw ComposerException("视频片段不能为空")
                         val output = call.argument<String>("output")
                             ?: throw ComposerException("输出路径不能为空")
@@ -76,15 +76,30 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun compose(segments: List<Map<String, String?>>, output: String) {
+    private fun compose(segments: List<Map<String, Any?>>, output: String) {
         if (segments.isEmpty()) throw ComposerException("视频片段不能为空")
         val inputs = segments.map {
             ComposeSegmentInput(
-                videoPath = it["videoPath"] ?: throw ComposerException("视频路径不能为空"),
-                audioPath = it["audioPath"]?.takeIf { path -> path.isNotBlank() },
-                transition = it["transition"]?.takeIf { value -> value.isNotBlank() },
-                filterPreset = it["filterPreset"]?.takeIf { value -> value.isNotBlank() },
+                videoPath = stringValue(it["videoPath"]) ?: throw ComposerException("视频路径不能为空"),
+                audioPath = stringValue(it["audioPath"])?.takeIf { path -> path.isNotBlank() },
+                transition = stringValue(it["transition"])?.takeIf { value -> value.isNotBlank() },
+                filterPreset = stringValue(it["filterPreset"])?.takeIf { value -> value.isNotBlank() },
+                timelineKind = stringValue(it["timelineKind"])
+                    ?.takeIf { value -> value.isNotBlank() }
+                    ?: "storyboard",
+                lane = intValue(it["lane"]) ?: 0,
+                startMs = intValue(it["startMs"]),
+                durationMs = intValue(it["durationMs"]),
             )
+        }
+        composeInputs(inputs, output)
+    }
+
+    private fun composeInputs(inputs: List<ComposeSegmentInput>, output: String) {
+        if (inputs.isEmpty()) throw ComposerException("视频片段不能为空")
+        if (hasTimelineOverlays(inputs)) {
+            composeWithTimelineOverlays(inputs, output)
+            return
         }
         if (inputs.none { it.audioPath != null || it.hasNleMetadata }) {
             concat(inputs.map { it.videoPath }, output)
@@ -100,6 +115,17 @@ class MainActivity : FlutterActivity() {
         }
         composeWithExternalAudio(inputs, output)
     }
+
+    private fun hasTimelineOverlays(segments: List<ComposeSegmentInput>): Boolean =
+        segments.any { it.hasTimelineMetadata && it.isOverlayClip }
+
+    private fun primaryTimelineSegments(segments: List<ComposeSegmentInput>): List<ComposeSegmentInput> =
+        segments.filter { !it.isOverlayClip }
+
+    private fun timelineOverlaySegments(segments: List<ComposeSegmentInput>): List<ComposeSegmentInput> =
+        segments.filter { it.isOverlayClip }.sortedWith(
+            compareBy<ComposeSegmentInput> { it.startMs ?: 0 }.thenBy { it.lane },
+        )
 
     private fun probeDuration(path: String): Double? {
         ensureFile(path)
@@ -236,6 +262,78 @@ class MainActivity : FlutterActivity() {
         } finally {
             if (started) muxer.stop()
             muxer.release()
+        }
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun composeWithTimelineOverlays(
+        segments: List<ComposeSegmentInput>,
+        output: String,
+    ) {
+        val primarySegments = primaryTimelineSegments(segments)
+        val overlaySegments = timelineOverlaySegments(segments)
+        if (primarySegments.isEmpty() || overlaySegments.isEmpty()) {
+            throw ComposerException("时间线素材层参数无效")
+        }
+
+        val outputParent = File(output).parentFile ?: cacheDir
+        outputParent.mkdirs()
+        val baseFile = File.createTempFile("dramaflow_timeline_base_", ".mp4", outputParent)
+        if (baseFile.exists()) baseFile.delete()
+        try {
+            composeInputs(primarySegments, baseFile.absolutePath)
+            ensureFile(baseFile.absolutePath)
+
+            val primarySequence = EditedMediaItemSequence.withAudioAndVideoFrom(
+                listOf(
+                    EditedMediaItem.Builder(
+                        MediaItem.fromUri(Uri.fromFile(baseFile)),
+                    ).build(),
+                ),
+            )
+            val sequences = mutableListOf(primarySequence)
+            val timelineOverlays = mutableListOf<TimelineOverlay>()
+
+            for (segment in overlaySegments) {
+                ensureFile(segment.videoPath)
+                val sourceDurationUs = durationUs(segment.videoPath)
+                val requestedDurationUs = segment.durationMs?.let(::timeUsFromMs) ?: sourceDurationUs
+                val overlayDurationUs = min(requestedDurationUs, sourceDurationUs)
+                if (overlayDurationUs <= 0L) {
+                    throw ComposerException("时间线素材层时长无效：${segment.videoPath}")
+                }
+                val startUs = timeUsFromMs(segment.startMs ?: 0)
+                val overlayBuilder = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_VIDEO))
+                if (startUs > 0L) {
+                    overlayBuilder.addGap(startUs)
+                }
+                overlayBuilder.addItem(
+                    buildNleEditedMediaItem(
+                        segment.copy(audioPath = null, transition = null),
+                        overlayDurationUs,
+                        clipStartUs = 0L,
+                        clipEndUs = overlayDurationUs,
+                    ),
+                )
+                sequences.add(overlayBuilder.build())
+                timelineOverlays.add(
+                    TimelineOverlay(
+                        startUs = startUs,
+                        durationUs = overlayDurationUs,
+                        lane = segment.lane,
+                    ),
+                )
+            }
+
+            val outputFile = File(output)
+            outputFile.parentFile?.mkdirs()
+            if (outputFile.exists()) outputFile.delete()
+            val composition = Composition.Builder(sequences)
+                .setVideoCompositorSettings(TimelineVideoCompositorSettings(timelineOverlays))
+                .build()
+            exportNleComposition(composition, output, "Android 时间线素材层合成")
+        } finally {
+            if (baseFile.exists()) baseFile.delete()
         }
     }
 
@@ -795,6 +893,19 @@ class MainActivity : FlutterActivity() {
     private fun ensureFile(path: String) {
         if (!File(path).isFile) throw ComposerException("视频文件不存在：$path")
     }
+
+    private fun stringValue(value: Any?): String? = value as? String
+
+    private fun intValue(value: Any?): Int? =
+        when (value) {
+            is Int -> value
+            is Long -> value.toInt()
+            is Double -> value.toInt()
+            is Float -> value.toInt()
+            is Number -> value.toInt()
+            is String -> value.toIntOrNull()
+            else -> null
+        }
 }
 
 private data class TrackInspection(
@@ -815,9 +926,19 @@ private data class ComposeSegmentInput(
     val audioPath: String?,
     val transition: String?,
     val filterPreset: String?,
+    val timelineKind: String = "storyboard",
+    val lane: Int = 0,
+    val startMs: Int? = null,
+    val durationMs: Int? = null,
 ) {
     val hasNleMetadata: Boolean
         get() = transition != null || filterPreset != null
+
+    val hasTimelineMetadata: Boolean
+        get() = timelineKind != "storyboard" || lane != 0 || startMs != null || durationMs != null
+
+    val isOverlayClip: Boolean
+        get() = timelineKind == "clip" || lane > 0
 }
 
 private data class ComposeInspection(
@@ -839,6 +960,12 @@ private data class TimelineAudioSegment(
 private data class DissolveOverlay(
     val startUs: Long,
     val durationUs: Long,
+)
+
+private data class TimelineOverlay(
+    val startUs: Long,
+    val durationUs: Long,
+    val lane: Int,
 )
 
 private data class DissolveCompositionPlan(
@@ -868,6 +995,21 @@ private class DissolveVideoCompositorSettings(
     }
 }
 
+private class TimelineVideoCompositorSettings(
+    private val overlays: List<TimelineOverlay>,
+) : VideoCompositorSettings {
+    override fun getOutputSize(inputSizes: MutableList<Size>): Size =
+        inputSizes.firstOrNull { it != Size.UNKNOWN && it != Size.ZERO } ?: Size.UNKNOWN
+
+    override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
+        if (inputId == 0) return AlphaOverlaySettings(1f)
+        val overlay = overlays.getOrNull(inputId - 1) ?: return AlphaOverlaySettings(0f)
+        val isVisible = presentationTimeUs >= overlay.startUs &&
+            presentationTimeUs < overlay.startUs + overlay.durationUs
+        return AlphaOverlaySettings(if (isVisible) 1f else 0f)
+    }
+}
+
 private data class AlphaOverlaySettings(private val alphaScale: Float) : OverlaySettings {
     override fun getAlphaScale(): Float = alphaScale
 }
@@ -877,6 +1019,8 @@ private fun dissolveAlpha(presentationTimeUs: Long, startUs: Long, durationUs: L
     if (presentationTimeUs >= startUs + durationUs) return 1f
     return ((presentationTimeUs - startUs).toFloat() / durationUs.toFloat()).coerceIn(0f, 1f)
 }
+
+private fun timeUsFromMs(milliseconds: Int): Long = max(0L, milliseconds.toLong()) * 1000L
 
 private class WhipPanTransformation(private val durationUs: Long) : MatrixTransformation {
     override fun getMatrix(presentationTimeUs: Long): Matrix =

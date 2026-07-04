@@ -4,14 +4,14 @@ Authority:
 
 - Product target: `docs/superpowers/specs/2026-07-03-v0.3-toonflow-parity-design.md`
 - Page evidence tracker: `docs/superpowers/progress/2026-07-04-page-parity-checklist.md`
-- Current repo state: `master` at `5e55f85 feat(settings): edit model prompt templates`
+- Current repo state: `master` at `d1e0829 feat(composer): render apple timeline overlays` before this follow-up Android overlay slice.
 
 ## 当前验证
 
 本次接手后重新跑过：
 
 - `cd app && flutter analyze`：通过，0 issues。
-- `cd app && flutter test`：通过，331 tests。
+- `cd app && flutter test`：通过，342 tests。
 - `cd app && dart run tool/e2e_local_smoke.dart`：通过，纯本地串起章节、剧本、素材、分镜、候选视频、镜头配音、合成导出。
 - `cd app && flutter build web`：通过，但只证明 Web 预览入口可构建。
 
@@ -39,6 +39,8 @@ Authority:
 ### 2. 工作台还不是 ToonFlow 完整 NLE/WebAV
 
 当前工作台是顺序分镜工作流：候选视频、每镜时长/运镜、配音绑定、转场/滤镜元数据、原生端合成导出。它已经足够支撑第一版短剧流水线，但不是完整多层自由时间线。
+
+2026-07-04 后续接力更新：Apple AVFoundation 与 Android Media3 都已接入 `o_timelineClip` 的 lane/start/duration metadata，并在 native composer 侧渲染 timeline overlay 素材层；这解决的是“已记录的素材层能进最终成片”，不是完整自由拖拽剪辑器。
 
 缺口仍包括：
 
