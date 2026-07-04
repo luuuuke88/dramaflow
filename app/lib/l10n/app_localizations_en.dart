@@ -1668,6 +1668,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineClipAdded => 'Overlay clip added';
 
   @override
+  String get workbenchTimelineSplitMidpoint => 'Split midpoint';
+
+  @override
+  String get workbenchTimelineSplitAt => 'Split at playhead';
+
+  @override
+  String get workbenchTimelineSplitAtTitle => 'Split Overlay at Playhead';
+
+  @override
+  String get workbenchTimelineSplitAtMs => 'Playhead (ms)';
+
+  @override
+  String get workbenchTimelineSplit => 'Split';
+
+  @override
   String get workbenchTimelineUnselected => 'No video selected';
 
   @override

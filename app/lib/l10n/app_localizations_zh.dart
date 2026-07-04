@@ -1624,6 +1624,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineClipAdded => '素材层已添加';
 
   @override
+  String get workbenchTimelineSplitMidpoint => '中点切分';
+
+  @override
+  String get workbenchTimelineSplitAt => '按播放头切分';
+
+  @override
+  String get workbenchTimelineSplitAtTitle => '按播放头切分素材层';
+
+  @override
+  String get workbenchTimelineSplitAtMs => '播放头(ms)';
+
+  @override
+  String get workbenchTimelineSplit => '切分';
+
+  @override
   String get workbenchTimelineUnselected => '未选视频';
 
   @override

@@ -411,6 +411,60 @@ void main() {
     expect(find.textContaining('2100ms · 600ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可按播放头切分素材层', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/playhead_split_overlay_clip.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([5, 6, 7]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '播放头分割素材',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 2,
+      startMs: 1500,
+      durationMs: 1200,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final splitAtButton =
+        find.byKey(ValueKey('workbench-timeline-clip-split-at-$clipId'));
+    expect(splitAtButton, findsOneWidget);
+    await tester.tap(splitAtButton);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-split-playhead-input')),
+      '2200',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-split-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(2));
+    expect(clips[0].id, clipId);
+    expect(clips[0].startMs, 1500);
+    expect(clips[0].durationMs, 700);
+    expect(clips[1].startMs, 2200);
+    expect(clips[1].durationMs, 500);
+    expect(find.textContaining('2200ms · 500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可从时间线删除素材层且保留源素材', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

@@ -1635,6 +1635,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineClipAdded => '素材レイヤーを追加しました';
 
   @override
+  String get workbenchTimelineSplitMidpoint => '中央で分割';
+
+  @override
+  String get workbenchTimelineSplitAt => '再生位置で分割';
+
+  @override
+  String get workbenchTimelineSplitAtTitle => '再生位置で素材レイヤーを分割';
+
+  @override
+  String get workbenchTimelineSplitAtMs => '再生位置(ms)';
+
+  @override
+  String get workbenchTimelineSplit => '分割';
+
+  @override
   String get workbenchTimelineUnselected => '動画未選択';
 
   @override

@@ -3220,6 +3220,36 @@ abstract class AppLocalizations {
   /// **'素材层已添加'**
   String get workbenchTimelineClipAdded;
 
+  /// No description provided for @workbenchTimelineSplitMidpoint.
+  ///
+  /// In zh, this message translates to:
+  /// **'中点切分'**
+  String get workbenchTimelineSplitMidpoint;
+
+  /// No description provided for @workbenchTimelineSplitAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'按播放头切分'**
+  String get workbenchTimelineSplitAt;
+
+  /// No description provided for @workbenchTimelineSplitAtTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'按播放头切分素材层'**
+  String get workbenchTimelineSplitAtTitle;
+
+  /// No description provided for @workbenchTimelineSplitAtMs.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放头(ms)'**
+  String get workbenchTimelineSplitAtMs;
+
+  /// No description provided for @workbenchTimelineSplit.
+  ///
+  /// In zh, this message translates to:
+  /// **'切分'**
+  String get workbenchTimelineSplit;
+
   /// No description provided for @workbenchTimelineUnselected.
   ///
   /// In zh, this message translates to:
