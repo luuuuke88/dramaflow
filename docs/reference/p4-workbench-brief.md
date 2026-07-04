@@ -2,7 +2,7 @@
 
 > 2026-07-04 接力更新：本文的「视频编辑器不做」是 P4 当时的阶段性边界。
 > 当前长期目标已恢复为完整 ToonFlow 复刻，因此 editVideo/NLE/WebAV parity 重新打开。
-> 现有实现已补 `o_timelineClip` 式素材层记录、compose metadata handoff、Apple AVFoundation overlay 渲染、Android Media3 overlay 渲染、以及素材层基础拖拽定位；完整裁剪/缩放型非线编与 WebAV parity 仍按后续切片推进。
+> 现有实现已补 `o_timelineClip` 式素材层记录、compose metadata handoff、Apple AVFoundation overlay 渲染、Android Media3 overlay 渲染、素材层基础拖拽定位、以及素材层左右边缘裁剪/缩放；完整分割/吸附/多轨自由非线编与 WebAV parity 仍按后续切片推进。
 
 来源：Toonflow-web/src/views/production/components/workbench/*（index/preview/editVideo/generate/*）
 + views/cornerScape/index.vue + Toonflow-app/src/routes/production/workbench/* + routes/cornerScape/*。

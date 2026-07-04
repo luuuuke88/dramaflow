@@ -312,6 +312,59 @@ void main() {
     expect(find.textContaining('L3 · 1900ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可拖拽素材层边缘裁剪时长', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/trim_overlay_clip.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 2, 1]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '裁剪素材',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 2,
+      startMs: 1500,
+      durationMs: 1200,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final endHandle =
+        find.byKey(ValueKey('workbench-timeline-clip-resize-end-$clipId'));
+    expect(endHandle, findsOneWidget);
+    await tester.drag(endHandle, const Offset(36, 0));
+    await tester.pumpAndSettle();
+
+    var updated = engine.timelineClips(scriptId).single;
+    expect(updated.startMs, 1500);
+    expect(updated.durationMs, 1500);
+    expect(find.textContaining('1500ms · 1500ms'), findsOneWidget);
+
+    final startHandle =
+        find.byKey(ValueKey('workbench-timeline-clip-resize-start-$clipId'));
+    expect(startHandle, findsOneWidget);
+    await tester.drag(startHandle, const Offset(24, 0));
+    await tester.pumpAndSettle();
+
+    updated = engine.timelineClips(scriptId).single;
+    expect(updated.startMs, 1700);
+    expect(updated.durationMs, 1300);
+    expect(find.textContaining('1700ms · 1300ms'), findsOneWidget);
+  });
+
   testWidgets('工作台批量生成只作用于已勾选镜头轨道', (tester) async {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头一');
