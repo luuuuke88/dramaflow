@@ -222,7 +222,7 @@ extension TimelineClipApi on Engine {
     final placeholders = List.filled(clipIds.length, '?').join(',');
     final rows = db
         .select(
-          'SELECT id,startMs,lane FROM o_timelineClip '
+          'SELECT id,scriptId,startMs,lane,durationMs FROM o_timelineClip '
           'WHERE id IN ($placeholders)',
           clipIds,
         )
@@ -238,9 +238,17 @@ extension TimelineClipApi on Engine {
         deltaStartMs < -minStart ? -minStart : deltaStartMs;
     final appliedLaneDelta = deltaLane < 1 - minLane ? 1 - minLane : deltaLane;
     if (appliedStartDelta == 0 && appliedLaneDelta == 0) return;
+    final selectedIds = rows.map((row) => row['id'] as int).toSet();
+    final resolvedStartDelta = _timelineGroupMoveOffset(
+      db: db,
+      rows: rows,
+      selectedIds: selectedIds,
+      deltaStartMs: appliedStartDelta,
+      deltaLane: appliedLaneDelta,
+    );
     for (final row in rows) {
       final id = row['id'] as int;
-      final nextStart = ((row['startMs'] as int?) ?? 0) + appliedStartDelta;
+      final nextStart = ((row['startMs'] as int?) ?? 0) + resolvedStartDelta;
       final nextLane = ((row['lane'] as int?) ?? 1) + appliedLaneDelta;
       db.execute(
         'UPDATE o_timelineClip SET startMs=?, lane=? WHERE id=?',
@@ -807,6 +815,60 @@ int _timelineGroupDuplicateOffset({
       for (final other in others) {
         final otherLane = (other['lane'] as int?) ?? 1;
         if (otherLane != lane) continue;
+        final otherStart = (other['startMs'] as int?) ?? 0;
+        final otherDuration =
+            (other['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+        final otherEnd = otherStart + otherDuration;
+        final overlaps = candidateStart < otherEnd && candidateEnd > otherStart;
+        if (!overlaps) continue;
+        final shiftedOffset = otherEnd - start;
+        if (shiftedOffset > offset &&
+            (nextOffset == null || shiftedOffset > nextOffset)) {
+          nextOffset = shiftedOffset;
+        }
+      }
+    }
+    if (nextOffset == null) return offset;
+    offset = nextOffset;
+  }
+  return offset;
+}
+
+int _timelineGroupMoveOffset({
+  required Database db,
+  required List<Row> rows,
+  required Set<int> selectedIds,
+  required int deltaStartMs,
+  required int deltaLane,
+}) {
+  var offset = deltaStartMs;
+  final scriptIds =
+      rows.map((row) => (row['scriptId'] as int?) ?? 0).toSet().toList();
+  final scriptPlaceholders = List.filled(scriptIds.length, '?').join(',');
+  final selectedPlaceholders = List.filled(selectedIds.length, '?').join(',');
+  final others = db.select(
+    'SELECT id,scriptId,lane,startMs,durationMs FROM o_timelineClip '
+    'WHERE scriptId IN ($scriptPlaceholders) '
+    'AND id NOT IN ($selectedPlaceholders) '
+    'ORDER BY startMs ASC, id ASC',
+    [...scriptIds, ...selectedIds],
+  ).toList();
+  var guard = 0;
+  while (guard < others.length + rows.length + 4) {
+    guard += 1;
+    int? nextOffset;
+    for (final row in rows) {
+      final scriptId = (row['scriptId'] as int?) ?? 0;
+      final lane = ((row['lane'] as int?) ?? 1) + deltaLane;
+      final start = (row['startMs'] as int?) ?? 0;
+      final duration =
+          (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+      final candidateStart = start + offset;
+      final candidateEnd = candidateStart + duration;
+      for (final other in others) {
+        final otherScriptId = (other['scriptId'] as int?) ?? 0;
+        final otherLane = (other['lane'] as int?) ?? 1;
+        if (otherScriptId != scriptId || otherLane != lane) continue;
         final otherStart = (other['startMs'] as int?) ?? 0;
         final otherDuration =
             (other['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;

@@ -702,4 +702,44 @@ void main() {
     expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 1200);
     expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 900);
   });
+
+  test('moveTimelineClips 批量移动遇到同轨未选素材时整体后移避让', () {
+    final clipA = clipAsset('p/batch_move_avoid_a.mp4', 'A');
+    final clipB = clipAsset('p/batch_move_avoid_b.mp4', 'B');
+    final clipC = clipAsset('p/batch_move_avoid_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 200,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 2,
+      startMs: 900,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 1,
+      startMs: 800,
+      durationMs: 400,
+    );
+
+    engine.moveTimelineClips(
+      clipIds: [clipIdA, clipIdB],
+      deltaStartMs: 300,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 1200);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 1900);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 800);
+  });
 }

@@ -1717,6 +1717,92 @@ void main() {
     expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 900);
   });
 
+  testWidgets('工作台多选拖拽遇到同轨未选素材时整组后移避让', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const relA = 'p/group_move_avoid_overlay_a.mp4';
+    const relB = 'p/group_move_avoid_overlay_b.mp4';
+    const relC = 'p/group_move_avoid_overlay_c.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 9, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 9, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 9, 3]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '组避让 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '组避让 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '阻挡 C',
+      relPath: relC,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 200,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 900,
+      durationMs: 500,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 1,
+      startMs: 800,
+      durationMs: 400,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdB')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(ValueKey('workbench-timeline-clip-$clipIdA')),
+      const Offset(48, 0),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 1200);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 1900);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 800);
+    expect(find.textContaining('1200ms · 500ms'), findsOneWidget);
+    expect(find.textContaining('1900ms · 500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可从时间线删除素材层且保留源素材', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
