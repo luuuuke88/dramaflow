@@ -13,6 +13,7 @@ import '../../engine/audio_bind.dart';
 import '../../engine/compose_episode.dart';
 import '../../engine/storyboard.dart';
 import '../../engine/storyboard_audio.dart';
+import '../../engine/timeline_clip.dart';
 import '../../engine/video_track.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
@@ -426,20 +427,59 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
 
 enum _WorkbenchBatchAction { prompts, videos, clearTracks }
 
-class _TimelineOverview extends ConsumerWidget {
+class _TimelineOverview extends ConsumerStatefulWidget {
   final int projectId;
   final List<StoryboardRow> shots;
 
   const _TimelineOverview({required this.projectId, required this.shots});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TimelineOverview> createState() => _TimelineOverviewState();
+}
+
+class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
+  Future<void> _addClipLayer() async {
+    final l10n = context.l10n;
+    final engine = ref.read(engineProvider);
+    final clips =
+        engine.getAssets(widget.projectId, type: 'clip', limit: 100).data;
+    try {
+      final draft = await showDialog<_TimelineClipDraft>(
+        context: context,
+        builder: (c) => _AddTimelineClipDialog(clips: clips),
+      );
+      if (draft == null || !mounted) return;
+      engine.addTimelineClipFromAsset(
+        projectId: widget.projectId,
+        scriptId: widget.shots.first.scriptId,
+        clipAssetId: draft.asset.id,
+        lane: draft.lane,
+        startMs: draft.startMs,
+        durationMs: draft.durationMs,
+      );
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.workbenchTimelineClipAdded)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(localizeError(context, e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
     final engine = ref.watch(engineProvider);
     final audioNames = {
-      for (final audio in engine.audioPool(projectId)) audio.id: audio.name,
+      for (final audio in engine.audioPool(widget.projectId))
+        audio.id: audio.name,
     };
+    final clips = widget.shots.isEmpty
+        ? <TimelineClipRow>[]
+        : engine.timelineClips(widget.shots.first.scriptId);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -453,13 +493,20 @@ class _TimelineOverview extends ConsumerWidget {
         Row(children: [
           Icon(Icons.view_timeline_outlined, size: 18, color: df.primary),
           const SizedBox(width: 8),
-          Text(
-            l10n.workbenchTimelineOverview,
-            style: TextStyle(
-              color: df.textHi,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
+          Expanded(
+            child: Text(
+              l10n.workbenchTimelineOverview,
+              style: TextStyle(
+                color: df.textHi,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
             ),
+          ),
+          TextButton.icon(
+            onPressed: widget.shots.isEmpty ? null : _addClipLayer,
+            icon: const Icon(Icons.add_to_photos_outlined, size: 16),
+            label: Text(l10n.workbenchTimelineAddClip),
           ),
         ]),
         const SizedBox(height: 10),
@@ -471,13 +518,14 @@ class _TimelineOverview extends ConsumerWidget {
               label: l10n.workbenchTimelineVideoTrack,
               icon: Icons.movie_outlined,
               children: [
-                for (var i = 0; i < shots.length; i++)
+                for (var i = 0; i < widget.shots.length; i++)
                   _TimelineClip(
-                    key: ValueKey('workbench-timeline-video-${shots[i].id}'),
+                    key: ValueKey(
+                        'workbench-timeline-video-${widget.shots[i].id}'),
                     index: i,
-                    shot: shots[i],
-                    track: shots[i].trackId != null
-                        ? engine.track(shots[i].trackId!)
+                    shot: widget.shots[i],
+                    track: widget.shots[i].trackId != null
+                        ? engine.track(widget.shots[i].trackId!)
                         : null,
                     kind: _TimelineClipKind.video,
                   ),
@@ -488,24 +536,169 @@ class _TimelineOverview extends ConsumerWidget {
               label: l10n.workbenchTimelineAudioTrack,
               icon: Icons.graphic_eq_outlined,
               children: [
-                for (var i = 0; i < shots.length; i++)
+                for (var i = 0; i < widget.shots.length; i++)
                   _TimelineClip(
-                    key: ValueKey('workbench-timeline-audio-${shots[i].id}'),
+                    key: ValueKey(
+                        'workbench-timeline-audio-${widget.shots[i].id}'),
                     index: i,
-                    shot: shots[i],
-                    track: shots[i].trackId != null
-                        ? engine.track(shots[i].trackId!)
+                    shot: widget.shots[i],
+                    track: widget.shots[i].trackId != null
+                        ? engine.track(widget.shots[i].trackId!)
                         : null,
                     kind: _TimelineClipKind.audio,
-                    audioName: shots[i].audioAssetId != null
-                        ? audioNames[shots[i].audioAssetId]
+                    audioName: widget.shots[i].audioAssetId != null
+                        ? audioNames[widget.shots[i].audioAssetId]
                         : null,
                   ),
               ],
             ),
+            if (clips.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _TimelineLane(
+                label: l10n.workbenchTimelineOverlayTrack,
+                icon: Icons.layers_outlined,
+                children: [
+                  for (final clip in clips) _TimelineAssetClip(clip: clip),
+                ],
+              ),
+            ],
           ]),
         ),
       ]),
+    );
+  }
+}
+
+class _TimelineClipDraft {
+  final AssetRow asset;
+  final int lane;
+  final int startMs;
+  final int? durationMs;
+
+  const _TimelineClipDraft({
+    required this.asset,
+    required this.lane,
+    required this.startMs,
+    required this.durationMs,
+  });
+}
+
+class _AddTimelineClipDialog extends StatefulWidget {
+  final List<AssetRow> clips;
+
+  const _AddTimelineClipDialog({required this.clips});
+
+  @override
+  State<_AddTimelineClipDialog> createState() => _AddTimelineClipDialogState();
+}
+
+class _AddTimelineClipDialogState extends State<_AddTimelineClipDialog> {
+  late final TextEditingController _laneCtrl;
+  late final TextEditingController _startCtrl;
+  late final TextEditingController _durationCtrl;
+  AssetRow? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _laneCtrl = TextEditingController(text: '1');
+    _startCtrl = TextEditingController(text: '0');
+    _durationCtrl = TextEditingController();
+    _selected = widget.clips.where((clip) => clip.filePath != null).firstOrNull;
+  }
+
+  @override
+  void dispose() {
+    _laneCtrl.dispose();
+    _startCtrl.dispose();
+    _durationCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.workbenchTimelineAddClipTitle),
+      content: SizedBox(
+        width: 460,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (widget.clips.isEmpty)
+            DFEmpty(text: l10n.workbenchNoClipAssets)
+          else
+            SizedBox(
+              height: 160,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: widget.clips.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final row = widget.clips[i];
+                  final enabled = row.filePath?.isNotEmpty == true;
+                  return ListTile(
+                    leading: const Icon(Icons.video_library_outlined),
+                    title: Text(row.name ?? ''),
+                    subtitle: Text(row.filePath ?? '',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    selected: _selected?.id == row.id,
+                    enabled: enabled,
+                    onTap:
+                        enabled ? () => setState(() => _selected = row) : null,
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _laneCtrl,
+                decoration:
+                    InputDecoration(labelText: l10n.workbenchTimelineLayer),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _startCtrl,
+                decoration:
+                    InputDecoration(labelText: l10n.workbenchTimelineStartMs),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _durationCtrl,
+                decoration: InputDecoration(
+                    labelText: l10n.workbenchTimelineDurationMs),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+          ]),
+        ]),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: _selected == null
+              ? null
+              : () => Navigator.pop(
+                    context,
+                    _TimelineClipDraft(
+                      asset: _selected!,
+                      lane: int.tryParse(_laneCtrl.text.trim()) ?? 1,
+                      startMs: int.tryParse(_startCtrl.text.trim()) ?? 0,
+                      durationMs: int.tryParse(_durationCtrl.text.trim()),
+                    ),
+                  ),
+          child: Text(l10n.workbenchTimelineAdd),
+        ),
+      ],
     );
   }
 }
@@ -635,6 +828,57 @@ class _TimelineClip extends StatelessWidget {
                 style: TextStyle(color: df.textTertiary, fontSize: 10),
               ),
             ],
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _TimelineAssetClip extends StatelessWidget {
+  final TimelineClipRow clip;
+
+  const _TimelineAssetClip({required this.clip});
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final durationSec = ((clip.durationMs ?? 1000) / 1000).ceil();
+    final width = (96 + durationSec * 7).clamp(112, 220).toDouble();
+    return Container(
+      key: ValueKey('workbench-timeline-clip-${clip.id}'),
+      width: width,
+      height: 48,
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: df.success.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+        border: Border.all(color: df.success.withValues(alpha: 0.65)),
+      ),
+      child: Row(children: [
+        Icon(Icons.layers_outlined, size: 16, color: df.success),
+        const SizedBox(width: 8),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              clip.name ?? '',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: df.textHi,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              'L${clip.lane} · ${clip.startMs}ms'
+              '${clip.durationMs != null ? ' · ${clip.durationMs}ms' : ''}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: df.textTertiary, fontSize: 10),
+            ),
           ]),
         ),
       ]),

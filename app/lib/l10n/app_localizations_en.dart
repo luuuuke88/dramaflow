@@ -1644,6 +1644,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineAudioTrack => 'Audio Track';
 
   @override
+  String get workbenchTimelineOverlayTrack => 'Overlay';
+
+  @override
+  String get workbenchTimelineAddClip => 'Add Overlay';
+
+  @override
+  String get workbenchTimelineAddClipTitle => 'Add Overlay Clip';
+
+  @override
+  String get workbenchTimelineAdd => 'Add';
+
+  @override
+  String get workbenchTimelineLayer => 'Layer';
+
+  @override
+  String get workbenchTimelineStartMs => 'Start (ms)';
+
+  @override
+  String get workbenchTimelineDurationMs => 'Duration (ms)';
+
+  @override
+  String get workbenchTimelineClipAdded => 'Overlay clip added';
+
+  @override
   String get workbenchTimelineUnselected => 'No video selected';
 
   @override

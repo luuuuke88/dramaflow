@@ -3172,6 +3172,54 @@ abstract class AppLocalizations {
   /// **'音频轨'**
   String get workbenchTimelineAudioTrack;
 
+  /// No description provided for @workbenchTimelineOverlayTrack.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材层'**
+  String get workbenchTimelineOverlayTrack;
+
+  /// No description provided for @workbenchTimelineAddClip.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加素材层'**
+  String get workbenchTimelineAddClip;
+
+  /// No description provided for @workbenchTimelineAddClipTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加素材层'**
+  String get workbenchTimelineAddClipTitle;
+
+  /// No description provided for @workbenchTimelineAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加'**
+  String get workbenchTimelineAdd;
+
+  /// No description provided for @workbenchTimelineLayer.
+  ///
+  /// In zh, this message translates to:
+  /// **'层级'**
+  String get workbenchTimelineLayer;
+
+  /// No description provided for @workbenchTimelineStartMs.
+  ///
+  /// In zh, this message translates to:
+  /// **'起点(ms)'**
+  String get workbenchTimelineStartMs;
+
+  /// No description provided for @workbenchTimelineDurationMs.
+  ///
+  /// In zh, this message translates to:
+  /// **'时长(ms)'**
+  String get workbenchTimelineDurationMs;
+
+  /// No description provided for @workbenchTimelineClipAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'素材层已添加'**
+  String get workbenchTimelineClipAdded;
+
   /// No description provided for @workbenchTimelineUnselected.
   ///
   /// In zh, this message translates to:

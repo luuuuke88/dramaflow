@@ -2,13 +2,13 @@ import 'package:dramaflow/src/engine/db.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('重复初始化保持 user_version 5', () {
+  test('重复初始化保持当前 user_version', () {
     final db = openEngineDb(':memory:');
     addTearDown(db.close);
 
     initSchema(db);
 
-    expect(db.select('PRAGMA user_version').first.values.first, 5);
+    expect(db.select('PRAGMA user_version').first.values.first, schemaVersion);
   });
 
   test('nowIso 是 ISO8601 UTC', () {

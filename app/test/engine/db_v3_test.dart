@@ -28,6 +28,7 @@ const toonflowTables = [
   'o_skillList',
   'o_storyboard',
   'o_tasks',
+  'o_timelineClip',
   'o_user',
   'o_vendorConfig',
   'o_video',
@@ -35,8 +36,8 @@ const toonflowTables = [
 ];
 
 void main() {
-  group('schema v5', () {
-    test('新库 user_version==5 且 ToonFlow 表齐全', () {
+  group('schema v6', () {
+    test('新库 user_version==schemaVersion 且 ToonFlow 表齐全', () {
       final db = openEngineDb(':memory:');
       addTearDown(db.close);
 
@@ -46,7 +47,7 @@ void main() {
           .map((row) => row['name'] as String)
           .toSet();
 
-      expect(version, 5);
+      expect(version, schemaVersion);
       expect(tables, containsAll(toonflowTables));
       expect(tables.length, greaterThanOrEqualTo(toonflowTables.length));
     });
@@ -102,6 +103,19 @@ void main() {
             'transition',
             'filterPreset',
           ]));
+
+      final timelineClipColumns = _columns(db, 'o_timelineClip');
+      expect(
+          timelineClipColumns.keys,
+          containsAll([
+            'projectId',
+            'scriptId',
+            'assetId',
+            'filePath',
+            'lane',
+            'startMs',
+            'durationMs',
+          ]));
     });
 
     test('计划指定索引存在', () {
@@ -121,11 +135,12 @@ void main() {
             'idx_o_eventChapter_novel',
             'idx_o_scriptAssets_script',
             'idx_o_tasks_project_state',
+            'idx_o_timelineClip_script',
           ]));
     });
 
     test('打开旧版本磁盘库会删库重建但不碰 media 目录', () {
-      final dir = Directory.systemTemp.createTempSync('dramaflow-db-v5-');
+      final dir = Directory.systemTemp.createTempSync('dramaflow-db-v6-');
       addTearDown(() {
         if (dir.existsSync()) dir.deleteSync(recursive: true);
       });
@@ -145,7 +160,8 @@ void main() {
       final db = openEngineDb(dbPath);
       addTearDown(db.close);
 
-      expect(db.select('PRAGMA user_version').first.values.first, 5);
+      expect(
+          db.select('PRAGMA user_version').first.values.first, schemaVersion);
       expect(
         db.select(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='legacy_data'",

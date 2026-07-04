@@ -87,7 +87,8 @@ void main() {
       expect(
         source,
         contains('filterPreset: nil'),
-        reason: 'Rendered segments must clear filters to avoid recursive pre-rendering.',
+        reason:
+            'Rendered segments must clear filters to avoid recursive pre-rendering.',
       );
     }
   });
@@ -153,6 +154,10 @@ void main() {
           audioAbsPath: '/tmp/a.m4a',
           transition: 'fade',
           filter: 'cinematic',
+          timelineKind: 'clip',
+          lane: 2,
+          startMs: 1500,
+          durationMs: 1200,
         ),
       ],
       '/tmp/out.mp4',
@@ -163,5 +168,9 @@ void main() {
     final first = segments.single as Map<Object?, Object?>;
     expect(first['transition'], 'fade');
     expect(first['filterPreset'], 'cinematic');
+    expect(first['timelineKind'], 'clip');
+    expect(first['lane'], 2);
+    expect(first['startMs'], 1500);
+    expect(first['durationMs'], 1200);
   });
 }

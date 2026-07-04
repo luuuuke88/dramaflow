@@ -1611,6 +1611,30 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineAudioTrack => '音声トラック';
 
   @override
+  String get workbenchTimelineOverlayTrack => '素材レイヤー';
+
+  @override
+  String get workbenchTimelineAddClip => '素材レイヤー追加';
+
+  @override
+  String get workbenchTimelineAddClipTitle => '素材レイヤーを追加';
+
+  @override
+  String get workbenchTimelineAdd => '追加';
+
+  @override
+  String get workbenchTimelineLayer => 'レイヤー';
+
+  @override
+  String get workbenchTimelineStartMs => '開始(ms)';
+
+  @override
+  String get workbenchTimelineDurationMs => '長さ(ms)';
+
+  @override
+  String get workbenchTimelineClipAdded => '素材レイヤーを追加しました';
+
+  @override
   String get workbenchTimelineUnselected => '動画未選択';
 
   @override

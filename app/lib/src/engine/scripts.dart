@@ -344,6 +344,7 @@ ORDER BY MIN(n.chapterIndex), e.id
     }
     db.execute('DELETE FROM o_video WHERE scriptId IN ($ph)', ids);
     db.execute('DELETE FROM o_videoTrack WHERE scriptId IN ($ph)', ids);
+    db.execute('DELETE FROM o_timelineClip WHERE scriptId IN ($ph)', ids);
     db.execute('DELETE FROM o_script WHERE id IN ($ph)', ids);
   }
 

@@ -372,6 +372,11 @@ void main() {
     expect(vidFile.existsSync(), isTrue);
     expect(db.select('SELECT id FROM o_videoTrack WHERE id=?', [trackId]),
         isNotEmpty);
+    db.execute(
+      'INSERT INTO o_timelineClip (projectId,scriptId,filePath,lane,startMs) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, 'p/overlay.mp4', 1, 500],
+    );
 
     engine.deleteScripts([scriptId]);
 
@@ -381,6 +386,10 @@ void main() {
         reason: 'o_videoTrack 行必须随剧本级联删除');
     expect(db.select('SELECT id FROM o_video WHERE scriptId=?', [scriptId]),
         isEmpty);
+    expect(
+        db.select('SELECT id FROM o_timelineClip WHERE scriptId=?', [scriptId]),
+        isEmpty,
+        reason: '时间线素材层必须随剧本删除');
     expect(vidFile.existsSync(), isFalse, reason: '视频磁盘文件必须一并清除');
   });
 

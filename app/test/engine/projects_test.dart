@@ -156,6 +156,7 @@ void main() {
       'o_image',
       'o_assets',
       'o_tasks',
+      'o_timelineClip',
       'o_videoTrack',
       'o_video',
     ]) {
@@ -260,6 +261,11 @@ void _insertCascadeGraph(Database db, int projectId) {
   db.execute(
     'INSERT INTO o_video (projectId,scriptId,videoTrackId,state) VALUES (?,?,?,?)',
     [projectId, scriptId, trackId, 'success'],
+  );
+  db.execute(
+    'INSERT INTO o_timelineClip (projectId,scriptId,filePath,lane,startMs) '
+    'VALUES (?,?,?,?,?)',
+    [projectId, scriptId, '$projectId/overlay.mp4', 1, 0],
   );
   db.execute(
     'INSERT INTO memories (id,content,createTime,isolationKey,type) VALUES (?,?,?,?,?)',

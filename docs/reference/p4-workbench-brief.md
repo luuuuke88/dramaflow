@@ -1,5 +1,9 @@
 # P4 多轨工作台 + 配音 + 合成导出移植参照（源码取材固化版，2026-07-03）
 
+> 2026-07-04 接力更新：本文的「视频编辑器不做」是 P4 当时的阶段性边界。
+> 当前长期目标已恢复为完整 ToonFlow 复刻，因此 editVideo/NLE/WebAV parity 重新打开。
+> 现有实现已开始补 `o_timelineClip` 式素材层记录与 compose metadata handoff；完整拖拽非线编和原生 overlay 渲染仍按后续切片推进。
+
 来源：Toonflow-web/src/views/production/components/workbench/*（index/preview/editVideo/generate/*）
 + views/cornerScape/index.vue + Toonflow-app/src/routes/production/workbench/* + routes/cornerScape/*。
 

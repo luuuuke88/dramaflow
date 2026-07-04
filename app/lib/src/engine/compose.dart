@@ -5,15 +5,29 @@ class ComposeSegment {
   final String? audioAbsPath;
   final String? transition;
   final String? filter;
+  final String timelineKind;
+  final int lane;
+  final int? startMs;
+  final int? durationMs;
 
   const ComposeSegment({
     required this.videoAbsPath,
     this.audioAbsPath,
     this.transition,
     this.filter,
+    this.timelineKind = 'storyboard',
+    this.lane = 0,
+    this.startMs,
+    this.durationMs,
   });
 
   bool get hasAudio => audioAbsPath != null && audioAbsPath!.isNotEmpty;
+
+  bool get hasTimelineMetadata =>
+      timelineKind != 'storyboard' ||
+      lane != 0 ||
+      startMs != null ||
+      durationMs != null;
 }
 
 abstract class VideoComposer {

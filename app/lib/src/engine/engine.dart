@@ -694,6 +694,7 @@ WHERE id=?
       );
       db.execute('DELETE FROM o_assets WHERE projectId=?', [id]);
       db.execute('DELETE FROM o_tasks WHERE projectId=?', [id]);
+      db.execute('DELETE FROM o_timelineClip WHERE projectId=?', [id]);
       db.execute('DELETE FROM o_videoTrack WHERE projectId=?', [id]);
       db.execute('DELETE FROM o_video WHERE projectId=?', [id]);
       db.execute('DELETE FROM memories WHERE isolationKey LIKE ?', ['$id:%']);

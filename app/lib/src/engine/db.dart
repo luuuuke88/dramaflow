@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 5;
+const schemaVersion = 6;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
@@ -245,6 +245,17 @@ CREATE TABLE IF NOT EXISTS o_tasks (
   state TEXT,
   taskClass TEXT
 );
+CREATE TABLE IF NOT EXISTS o_timelineClip (
+  assetId INTEGER,
+  durationMs INTEGER,
+  filePath TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  lane INTEGER,
+  name TEXT,
+  projectId INTEGER,
+  scriptId INTEGER,
+  startMs INTEGER
+);
 CREATE TABLE IF NOT EXISTS o_user (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT,
@@ -284,6 +295,7 @@ CREATE INDEX IF NOT EXISTS idx_o_eventChapter_event ON o_eventChapter(eventId);
 CREATE INDEX IF NOT EXISTS idx_o_eventChapter_novel ON o_eventChapter(novelId);
 CREATE INDEX IF NOT EXISTS idx_o_scriptAssets_script ON o_scriptAssets(scriptId);
 CREATE INDEX IF NOT EXISTS idx_o_tasks_project_state ON o_tasks(projectId, state);
+CREATE INDEX IF NOT EXISTS idx_o_timelineClip_script ON o_timelineClip(scriptId, startMs, lane);
 ''');
   db.execute('PRAGMA user_version = $schemaVersion');
 }

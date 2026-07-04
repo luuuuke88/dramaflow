@@ -12,6 +12,7 @@ import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:dramaflow/src/engine/storyboard_audio.dart';
+import 'package:dramaflow/src/engine/timeline_clip.dart';
 import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:dramaflow/src/screens/production/workbench_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
@@ -224,6 +225,49 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('工作台可从素材库添加多层时间线素材段', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/overlay_clip.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([4, 5, 6]);
+    engine.registerClipAsset(
+      projectId: projectId,
+      name: '法阵叠加',
+      relPath: rel,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('添加素材层'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('法阵叠加'));
+    await tester.enterText(find.widgetWithText(TextField, '层级'), '2');
+    await tester.enterText(find.widgetWithText(TextField, '起点(ms)'), '1500');
+    await tester.enterText(find.widgetWithText(TextField, '时长(ms)'), '1200');
+    await tester.tap(find.widgetWithText(FilledButton, '添加'));
+    await tester.pumpAndSettle();
+
+    final clip = engine.timelineClips(scriptId).single;
+    expect(clip.name, '法阵叠加');
+    expect(clip.filePath, rel);
+    expect(clip.lane, 2);
+    expect(clip.startMs, 1500);
+    expect(clip.durationMs, 1200);
+    expect(find.text('素材层'), findsOneWidget);
+    expect(find.text('法阵叠加'), findsOneWidget);
+    expect(find.byKey(ValueKey('workbench-timeline-clip-${clip.id}')),
+        findsOneWidget);
   });
 
   testWidgets('工作台批量生成只作用于已勾选镜头轨道', (tester) async {

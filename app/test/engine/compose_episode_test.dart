@@ -14,6 +14,7 @@ import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:dramaflow/src/engine/storyboard_audio.dart';
+import 'package:dramaflow/src/engine/timeline_clip.dart';
 import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -240,6 +241,73 @@ void main() {
     final segment = engine.orderedComposeSegments(scriptId).single!;
     expect(segment.transition, 'fade');
     expect(segment.filter, 'cinematic');
+  });
+
+  test('composeEpisode：额外素材 clip 作为多层时间线段参与合成', () async {
+    final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final sb2 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final track1 = engine.ensureTrackForStoryboard(sb1);
+    final track2 = engine.ensureTrackForStoryboard(sb2);
+    db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [track1, 'p/vid_1.mp4', vtDone]);
+    engine.selectVideo(track1, db.lastInsertRowId);
+    db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [track2, 'p/vid_2.mp4', vtDone]);
+    engine.selectVideo(track2, db.lastInsertRowId);
+    engine.updateVideoDuration(track1, 3);
+    engine.updateVideoDuration(track2, 5);
+
+    const overlayRel = 'p/overlay.mp4';
+    File(engine.mediaAbsPath(overlayRel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([9, 9, 9]);
+    final clipAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '法阵叠加',
+      relPath: overlayRel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetId,
+      lane: 1,
+      startMs: 1500,
+      durationMs: 1200,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.single.id, clipId);
+    expect(clips.single.lane, 1);
+    expect(clips.single.startMs, 1500);
+    expect(clips.single.durationMs, 1200);
+    expect(clips.single.filePath, overlayRel);
+
+    final segments = engine.orderedComposeSegments(scriptId);
+    expect(segments, hasLength(3));
+    expect(segments[0]!.timelineKind, 'storyboard');
+    expect(segments[0]!.lane, 0);
+    expect(segments[0]!.startMs, 0);
+    expect(segments[0]!.durationMs, 3000);
+    expect(segments[1]!.timelineKind, 'clip');
+    expect(segments[1]!.lane, 1);
+    expect(segments[1]!.startMs, 1500);
+    expect(segments[1]!.durationMs, 1200);
+    expect(segments[1]!.videoAbsPath, engine.mediaAbsPath(overlayRel));
+    expect(segments[2]!.timelineKind, 'storyboard');
+    expect(segments[2]!.startMs, 3000);
+    expect(segments[2]!.durationMs, 5000);
+
+    final result = await engine.composeEpisode(projectId, scriptId);
+
+    expect(result.segmentCount, 3);
+    expect(composer.concatCalls, isEmpty);
+    final composed = composer.composeCalls.single;
+    expect(composed[1].timelineKind, 'clip');
+    expect(composed[1].lane, 1);
+    expect(composed[1].startMs, 1500);
+    expect(composed[1].durationMs, 1200);
   });
 
   test('composeEpisode：存在未选中分镜时抛 errPromptMissing 且不拼接', () async {

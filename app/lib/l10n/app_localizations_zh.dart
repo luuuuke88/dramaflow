@@ -1600,6 +1600,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineAudioTrack => '音频轨';
 
   @override
+  String get workbenchTimelineOverlayTrack => '素材层';
+
+  @override
+  String get workbenchTimelineAddClip => '添加素材层';
+
+  @override
+  String get workbenchTimelineAddClipTitle => '添加素材层';
+
+  @override
+  String get workbenchTimelineAdd => '添加';
+
+  @override
+  String get workbenchTimelineLayer => '层级';
+
+  @override
+  String get workbenchTimelineStartMs => '起点(ms)';
+
+  @override
+  String get workbenchTimelineDurationMs => '时长(ms)';
+
+  @override
+  String get workbenchTimelineClipAdded => '素材层已添加';
+
+  @override
   String get workbenchTimelineUnselected => '未选视频';
 
   @override
