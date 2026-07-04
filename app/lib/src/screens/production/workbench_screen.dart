@@ -554,11 +554,20 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     required int scriptId,
     required int startMs,
   }) {
-    final snapped = _snapValue(
+    final anchors =
+        _timelineDropSnapAnchors(engine: engine, scriptId: scriptId);
+    final snappedStart = _snapValue(
       startMs,
-      _timelineDropSnapAnchors(engine: engine, scriptId: scriptId),
+      anchors,
     );
-    return snapped < 0 ? 0 : snapped;
+    if (snappedStart != startMs) {
+      return snappedStart < 0 ? 0 : snappedStart;
+    }
+    final snappedEnd = _snapValue(startMs + _defaultClipDurationMs, anchors);
+    final nextStart = snappedEnd == startMs + _defaultClipDurationMs
+        ? startMs
+        : snappedEnd - _defaultClipDurationMs;
+    return nextStart < 0 ? 0 : nextStart;
   }
 
   List<int> _timelineDropSnapAnchors({

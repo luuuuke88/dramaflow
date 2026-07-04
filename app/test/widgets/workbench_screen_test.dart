@@ -605,6 +605,93 @@ void main() {
     expect(find.textContaining('L3 · 2600ms'), findsOneWidget);
   });
 
+  testWidgets('工作台拖放媒体库素材尾部接近锚点时自动吸附', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/media_drag_end_snap_lane_a.mp4';
+    const relB = 'p/media_drag_end_snap_lane_b.mp4';
+    const relInsert = 'p/media_drag_end_snap_insert.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([8, 6, 8]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([9, 6, 9]);
+    File(engine.mediaAbsPath(relInsert))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([7, 6, 7]);
+    final insertAssetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '拖放尾部吸附素材',
+      relPath: relInsert,
+    );
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '拖放尾部吸附占用 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '拖放尾部吸附占用 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 2200,
+      durationMs: 1000,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 2200,
+      durationMs: 1000,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '3500',
+    );
+    await tester.pumpAndSettle();
+
+    final dragSource =
+        find.byKey(ValueKey('workbench-timeline-media-drag-$insertAssetId'));
+    final dropTarget =
+        find.byKey(const ValueKey('workbench-timeline-drop-zone'));
+    expect(dragSource, findsOneWidget);
+    expect(dropTarget, findsOneWidget);
+    final dropTopLeft = tester.getTopLeft(dropTarget);
+    final dropSize = tester.getSize(dropTarget);
+    final dropNear3500msEnd =
+        dropTopLeft + Offset(92 + 25.5 * 12, dropSize.height / 2);
+    await tester.dragFrom(
+      tester.getCenter(dragSource),
+      dropNear3500msEnd - tester.getCenter(dragSource),
+    );
+    await tester.pumpAndSettle();
+
+    final inserted = engine
+        .timelineClips(scriptId)
+        .singleWhere((clip) => clip.name == '拖放尾部吸附素材');
+    expect(inserted.lane, 3);
+    expect(inserted.startMs, 2500);
+    expect(inserted.durationMs, isNull);
+    expect(find.textContaining('L3 · 2500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可波纹插入素材层并后移同轨后续片段', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
