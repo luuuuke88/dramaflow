@@ -1662,7 +1662,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineMoveTitle => '移动素材层';
 
   @override
+  String get workbenchTimelineLaneTitle => '移动素材层轨道';
+
+  @override
   String get workbenchTimelineRippleMoveTitle => '波纹移动素材层';
+
+  @override
+  String get workbenchTimelineLane => '轨道';
 
   @override
   String get workbenchTimelineSplitAt => '按播放头切分';
@@ -1713,6 +1719,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workbenchTimelineMoveSelected => '批量移动';
+
+  @override
+  String get workbenchTimelineLaneSelected => '批量改轨';
 
   @override
   String get workbenchTimelineRippleMoveSelected => '批量波纹移动';

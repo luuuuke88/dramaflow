@@ -3292,11 +3292,23 @@ abstract class AppLocalizations {
   /// **'移动素材层'**
   String get workbenchTimelineMoveTitle;
 
+  /// No description provided for @workbenchTimelineLaneTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'移动素材层轨道'**
+  String get workbenchTimelineLaneTitle;
+
   /// No description provided for @workbenchTimelineRippleMoveTitle.
   ///
   /// In zh, this message translates to:
   /// **'波纹移动素材层'**
   String get workbenchTimelineRippleMoveTitle;
+
+  /// No description provided for @workbenchTimelineLane.
+  ///
+  /// In zh, this message translates to:
+  /// **'轨道'**
+  String get workbenchTimelineLane;
 
   /// No description provided for @workbenchTimelineSplitAt.
   ///
@@ -3393,6 +3405,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'批量移动'**
   String get workbenchTimelineMoveSelected;
+
+  /// No description provided for @workbenchTimelineLaneSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量改轨'**
+  String get workbenchTimelineLaneSelected;
 
   /// No description provided for @workbenchTimelineRippleMoveSelected.
   ///

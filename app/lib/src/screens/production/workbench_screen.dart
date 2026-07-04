@@ -531,6 +531,34 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  Future<void> _laneSelectedClipLayers() async {
+    if (_selectedClipIds.isEmpty || widget.shots.isEmpty) return;
+    final engine = ref.read(engineProvider);
+    final selectedRows = engine
+        .timelineClips(widget.shots.first.scriptId)
+        .where((clip) => _selectedClipIds.contains(clip.id))
+        .toList();
+    if (selectedRows.isEmpty) return;
+    final defaultLane =
+        selectedRows.map((clip) => clip.lane).reduce((a, b) => a < b ? a : b);
+    final nextLane = await showDialog<int>(
+      context: context,
+      builder: (c) => _TimelineClipLaneDialog(
+        defaultLane: defaultLane,
+        title: c.l10n.workbenchTimelineLaneTitle,
+        inputKey: const ValueKey('workbench-timeline-lane-input'),
+        confirmKey: const ValueKey('workbench-timeline-lane-confirm'),
+      ),
+    );
+    if (nextLane == null || !mounted) return;
+    engine.moveTimelineClips(
+      clipIds: _selectedClipIds.toList(),
+      deltaStartMs: 0,
+      deltaLane: nextLane - defaultLane,
+    );
+    setState(() {});
+  }
+
   Future<void> _rippleMoveSelectedClipLayers() async {
     if (_selectedClipIds.isEmpty || widget.shots.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -1396,6 +1424,13 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                   label: Text(l10n.workbenchTimelineMoveSelected),
                 ),
                 TextButton.icon(
+                  key: const ValueKey('workbench-timeline-lane-selected'),
+                  onPressed:
+                      selectedClipCount == 0 ? null : _laneSelectedClipLayers,
+                  icon: const Icon(Icons.layers_outlined, size: 16),
+                  label: Text(l10n.workbenchTimelineLaneSelected),
+                ),
+                TextButton.icon(
                   key:
                       const ValueKey('workbench-timeline-ripple-move-selected'),
                   onPressed: selectedClipCount == 0
@@ -2181,6 +2216,74 @@ class _TimelineClipStartDialogState extends State<_TimelineClipStartDialog> {
         keyboardType: TextInputType.number,
         decoration: InputDecoration(
           labelText: l10n.workbenchTimelineStartMs,
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          key: widget.confirmKey,
+          onPressed: _submit,
+          child: Text(l10n.commonSave),
+        ),
+      ],
+    );
+  }
+}
+
+class _TimelineClipLaneDialog extends StatefulWidget {
+  final int defaultLane;
+  final String title;
+  final Key inputKey;
+  final Key confirmKey;
+
+  const _TimelineClipLaneDialog({
+    required this.defaultLane,
+    required this.title,
+    required this.inputKey,
+    required this.confirmKey,
+  });
+
+  @override
+  State<_TimelineClipLaneDialog> createState() =>
+      _TimelineClipLaneDialogState();
+}
+
+class _TimelineClipLaneDialogState extends State<_TimelineClipLaneDialog> {
+  late final TextEditingController _laneCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _laneCtrl = TextEditingController(text: widget.defaultLane.toString());
+  }
+
+  @override
+  void dispose() {
+    _laneCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = int.tryParse(_laneCtrl.text.trim());
+    if (value == null) return;
+    Navigator.of(context).pop(value < 1 ? 1 : value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        key: widget.inputKey,
+        controller: _laneCtrl,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          labelText: l10n.workbenchTimelineLane,
         ),
         onSubmitted: (_) => _submit(),
       ),

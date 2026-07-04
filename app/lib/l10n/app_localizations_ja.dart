@@ -1673,7 +1673,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineMoveTitle => '素材レイヤーを移動';
 
   @override
+  String get workbenchTimelineLaneTitle => '素材レイヤーのレーンを移動';
+
+  @override
   String get workbenchTimelineRippleMoveTitle => '素材レイヤーをリップル移動';
+
+  @override
+  String get workbenchTimelineLane => 'レーン';
 
   @override
   String get workbenchTimelineSplitAt => '再生位置で分割';
@@ -1724,6 +1730,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get workbenchTimelineMoveSelected => '選択を移動';
+
+  @override
+  String get workbenchTimelineLaneSelected => '選択のレーン移動';
 
   @override
   String get workbenchTimelineRippleMoveSelected => '選択をリップル移動';

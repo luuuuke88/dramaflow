@@ -1706,7 +1706,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineMoveTitle => 'Move Overlay';
 
   @override
+  String get workbenchTimelineLaneTitle => 'Move Overlay Lane';
+
+  @override
   String get workbenchTimelineRippleMoveTitle => 'Ripple Move Overlay';
+
+  @override
+  String get workbenchTimelineLane => 'Lane';
 
   @override
   String get workbenchTimelineSplitAt => 'Split at playhead';
@@ -1758,6 +1764,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workbenchTimelineMoveSelected => 'Move selected';
+
+  @override
+  String get workbenchTimelineLaneSelected => 'Move lane';
 
   @override
   String get workbenchTimelineRippleMoveSelected => 'Ripple move selected';
