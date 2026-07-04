@@ -598,6 +598,8 @@
   "workbenchTimelineSplitMidpoint": "中央で分割",
   "workbenchTimelineDuplicate": "素材レイヤーを複製",
   "workbenchTimelineRippleDuplicate": "リップル複製",
+  "workbenchTimelineRippleMove": "リップル移動",
+  "workbenchTimelineRippleMoveTitle": "素材レイヤーをリップル移動",
   "workbenchTimelineSplitAt": "再生位置で分割",
   "workbenchTimelineSplitAtTitle": "再生位置で素材レイヤーを分割",
   "workbenchTimelineSplitAtMs": "再生位置(ms)",

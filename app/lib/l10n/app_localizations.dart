@@ -3280,6 +3280,18 @@ abstract class AppLocalizations {
   /// **'波纹复制'**
   String get workbenchTimelineRippleDuplicate;
 
+  /// No description provided for @workbenchTimelineRippleMove.
+  ///
+  /// In zh, this message translates to:
+  /// **'波纹移动'**
+  String get workbenchTimelineRippleMove;
+
+  /// No description provided for @workbenchTimelineRippleMoveTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'波纹移动素材层'**
+  String get workbenchTimelineRippleMoveTitle;
+
   /// No description provided for @workbenchTimelineSplitAt.
   ///
   /// In zh, this message translates to:

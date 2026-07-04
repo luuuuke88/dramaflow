@@ -899,6 +899,19 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  Future<void> _rippleMoveClipLayer(TimelineClipRow clip) async {
+    final nextStartMs = await showDialog<int>(
+      context: context,
+      builder: (c) => _RippleMoveTimelineClipDialog(
+        defaultStartMs: clip.startMs,
+      ),
+    );
+    if (nextStartMs == null || !mounted) return;
+    final engine = ref.read(engineProvider);
+    engine.moveTimelineClipRipple(clipId: clip.id, startMs: nextStartMs);
+    setState(() {});
+  }
+
   Future<void> _splitClipLayerAtPlayhead(TimelineClipRow clip) async {
     final duration = clip.durationMs ?? _defaultClipDurationMs;
     if (duration <= _minClipDurationMs * 2) return;
@@ -1155,6 +1168,8 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                                   onDuplicate: () => _duplicateClipLayer(clip),
                                   onRippleDuplicate: () =>
                                       _rippleDuplicateClipLayer(clip),
+                                  onRippleMove: () =>
+                                      _rippleMoveClipLayer(clip),
                                   onSplitAt: () =>
                                       _splitClipLayerAtPlayhead(clip),
                                   onRippleTrimEnd: () =>
@@ -1779,12 +1794,76 @@ class _RippleTrimTimelineClipDialogState
   }
 }
 
+class _RippleMoveTimelineClipDialog extends StatefulWidget {
+  final int defaultStartMs;
+
+  const _RippleMoveTimelineClipDialog({
+    required this.defaultStartMs,
+  });
+
+  @override
+  State<_RippleMoveTimelineClipDialog> createState() =>
+      _RippleMoveTimelineClipDialogState();
+}
+
+class _RippleMoveTimelineClipDialogState
+    extends State<_RippleMoveTimelineClipDialog> {
+  late final TextEditingController _startCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCtrl = TextEditingController(text: widget.defaultStartMs.toString());
+  }
+
+  @override
+  void dispose() {
+    _startCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = int.tryParse(_startCtrl.text.trim());
+    if (value == null) return;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.workbenchTimelineRippleMoveTitle),
+      content: TextField(
+        key: const ValueKey('workbench-timeline-ripple-move-start-input'),
+        controller: _startCtrl,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          labelText: l10n.workbenchTimelineStartMs,
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          key: const ValueKey('workbench-timeline-ripple-move-confirm'),
+          onPressed: _submit,
+          child: Text(l10n.commonSave),
+        ),
+      ],
+    );
+  }
+}
+
 enum _TimelineClipKind { video, audio }
 
 enum _TimelineClipAction {
   split,
   duplicate,
   rippleDuplicate,
+  rippleMove,
   splitAt,
   rippleTrimEnd,
   edit,
@@ -1894,6 +1973,7 @@ class _TimelineAssetClip extends StatefulWidget {
   final VoidCallback onSplit;
   final VoidCallback onDuplicate;
   final VoidCallback onRippleDuplicate;
+  final VoidCallback onRippleMove;
   final VoidCallback onSplitAt;
   final VoidCallback onRippleTrimEnd;
   final VoidCallback onEdit;
@@ -1912,6 +1992,7 @@ class _TimelineAssetClip extends StatefulWidget {
     required this.onSplit,
     required this.onDuplicate,
     required this.onRippleDuplicate,
+    required this.onRippleMove,
     required this.onSplitAt,
     required this.onRippleTrimEnd,
     required this.onEdit,
@@ -2127,6 +2208,9 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
                     case _TimelineClipAction.rippleDuplicate:
                       widget.onRippleDuplicate();
                       break;
+                    case _TimelineClipAction.rippleMove:
+                      widget.onRippleMove();
+                      break;
                     case _TimelineClipAction.splitAt:
                       widget.onSplitAt();
                       break;
@@ -2162,6 +2246,12 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
                     value: _TimelineClipAction.rippleDuplicate,
                     child:
                         Text(context.l10n.workbenchTimelineRippleDuplicate),
+                  ),
+                  PopupMenuItem(
+                    key: ValueKey(
+                        'workbench-timeline-clip-ripple-move-${clip.id}'),
+                    value: _TimelineClipAction.rippleMove,
+                    child: Text(context.l10n.workbenchTimelineRippleMove),
                   ),
                   PopupMenuItem(
                     key:

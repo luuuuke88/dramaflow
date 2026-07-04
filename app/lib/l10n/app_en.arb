@@ -598,6 +598,8 @@
   "workbenchTimelineSplitMidpoint": "Split midpoint",
   "workbenchTimelineDuplicate": "Duplicate overlay",
   "workbenchTimelineRippleDuplicate": "Ripple duplicate",
+  "workbenchTimelineRippleMove": "Ripple move",
+  "workbenchTimelineRippleMoveTitle": "Ripple Move Overlay",
   "workbenchTimelineSplitAt": "Split at playhead",
   "workbenchTimelineSplitAtTitle": "Split Overlay at Playhead",
   "workbenchTimelineSplitAtMs": "Playhead (ms)",

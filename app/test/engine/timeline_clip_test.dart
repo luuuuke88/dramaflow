@@ -351,4 +351,48 @@ void main() {
     expect(otherLane.startMs, 1200);
     expect(otherLane.durationMs, 400);
   });
+
+  test('moveTimelineClipRipple 波纹移动素材层并移动同轨后续片段', () {
+    final clipA = clipAsset('p/ripple_move_a.mp4', 'A');
+    final clipB = clipAsset('p/ripple_move_b.mp4', 'B');
+    final clipC = clipAsset('p/ripple_move_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 500,
+      durationMs: 600,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 1,
+      startMs: 1400,
+      durationMs: 400,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 2,
+      startMs: 1400,
+      durationMs: 400,
+    );
+
+    engine.moveTimelineClipRipple(clipId: clipIdA, startMs: 900);
+
+    final clips = engine.timelineClips(scriptId);
+    final moved = clips.singleWhere((c) => c.id == clipIdA);
+    expect(moved.lane, 1);
+    expect(moved.startMs, 900);
+    expect(moved.durationMs, 600);
+    final shifted = clips.singleWhere((c) => c.id == clipIdB);
+    expect(shifted.startMs, 1800);
+    expect(shifted.durationMs, 400);
+    final otherLane = clips.singleWhere((c) => c.id == clipIdC);
+    expect(otherLane.startMs, 1400);
+    expect(otherLane.durationMs, 400);
+  });
 }

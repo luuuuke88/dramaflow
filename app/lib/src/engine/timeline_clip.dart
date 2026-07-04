@@ -213,6 +213,36 @@ extension TimelineClipApi on Engine {
     );
   }
 
+  void moveTimelineClipRipple({
+    required int clipId,
+    required int startMs,
+  }) {
+    final row = db.select(
+        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
+    if (row == null) {
+      throw const EngineException(errManualInvalid);
+    }
+    final scriptId = (row['scriptId'] as int?) ?? 0;
+    final lane = (row['lane'] as int?) ?? 1;
+    final oldStartMs = (row['startMs'] as int?) ?? 0;
+    final durationMs =
+        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+    final oldEndMs = oldStartMs + durationMs;
+    final nextStartMs = startMs < 0 ? 0 : startMs;
+    final deltaMs = nextStartMs - oldStartMs;
+    db.execute('UPDATE o_timelineClip SET startMs=? WHERE id=?', [
+      nextStartMs,
+      clipId,
+    ]);
+    if (deltaMs == 0) return;
+    db.execute(
+      'UPDATE o_timelineClip '
+      'SET startMs=CASE WHEN startMs + ? < 0 THEN 0 ELSE startMs + ? END '
+      'WHERE scriptId=? AND lane=? AND id<>? AND startMs>=?',
+      [deltaMs, deltaMs, scriptId, lane, clipId, oldEndMs],
+    );
+  }
+
   int splitTimelineClip({
     required int clipId,
     required int offsetMs,

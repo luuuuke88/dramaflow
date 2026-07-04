@@ -1700,6 +1700,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineRippleDuplicate => 'Ripple duplicate';
 
   @override
+  String get workbenchTimelineRippleMove => 'Ripple move';
+
+  @override
+  String get workbenchTimelineRippleMoveTitle => 'Ripple Move Overlay';
+
+  @override
   String get workbenchTimelineSplitAt => 'Split at playhead';
 
   @override

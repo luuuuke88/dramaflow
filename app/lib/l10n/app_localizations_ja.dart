@@ -1667,6 +1667,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineRippleDuplicate => 'リップル複製';
 
   @override
+  String get workbenchTimelineRippleMove => 'リップル移動';
+
+  @override
+  String get workbenchTimelineRippleMoveTitle => '素材レイヤーをリップル移動';
+
+  @override
   String get workbenchTimelineSplitAt => '再生位置で分割';
 
   @override

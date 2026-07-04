@@ -1656,6 +1656,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineRippleDuplicate => '波纹复制';
 
   @override
+  String get workbenchTimelineRippleMove => '波纹移动';
+
+  @override
+  String get workbenchTimelineRippleMoveTitle => '波纹移动素材层';
+
+  @override
   String get workbenchTimelineSplitAt => '按播放头切分';
 
   @override

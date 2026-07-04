@@ -1807,6 +1807,94 @@ void main() {
     expect(find.textContaining('L1 · 1800ms · 400ms'), findsOneWidget);
   });
 
+  testWidgets('工作台可波纹移动素材层并移动同轨后续片段', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/ripple_move_overlay_a.mp4';
+    const relB = 'p/ripple_move_overlay_b.mp4';
+    const relC = 'p/ripple_move_overlay_c.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 7, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 7, 2]);
+    File(engine.mediaAbsPath(relC))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 7, 3]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹移动素材 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹移动后续 B',
+      relPath: relB,
+    );
+    final clipAssetC = engine.registerClipAsset(
+      projectId: projectId,
+      name: '波纹移动其他轨 C',
+      relPath: relC,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 500,
+      durationMs: 600,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1400,
+      durationMs: 400,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetC,
+      lane: 2,
+      startMs: 1400,
+      durationMs: 400,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tapTimelineClipAction(
+      tester,
+      clipId: clipIdA,
+      actionKey: 'workbench-timeline-clip-ripple-move-$clipIdA',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-ripple-move-start-input')),
+      '900',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-ripple-move-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    final moved = clips.singleWhere((c) => c.id == clipIdA);
+    expect(moved.startMs, 900);
+    expect(moved.durationMs, 600);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 1800);
+    expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 1400);
+    expect(find.textContaining('L1 · 900ms · 600ms'), findsOneWidget);
+    expect(find.textContaining('L1 · 1800ms · 400ms'), findsOneWidget);
+  });
+
   testWidgets('工作台仅上下拖拽素材层时不改变时间点', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
