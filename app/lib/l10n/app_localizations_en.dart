@@ -1555,6 +1555,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchGenerateAllPrompts => 'Generate All Motion Prompts';
 
   @override
+  String get workbenchClearSelectedTracks => 'Clear Selected Tracks';
+
+  @override
+  String get workbenchClearSelectedTracksConfirm =>
+      'This clears video tracks and candidate videos for the checked shots. Storyboard rows are kept.';
+
+  @override
+  String get workbenchClearTracksAction => 'Clear';
+
+  @override
+  String get workbenchClearSelectedTracksDone => 'Selected tracks cleared';
+
+  @override
   String get workbenchCompose => 'Compose Episode';
 
   @override

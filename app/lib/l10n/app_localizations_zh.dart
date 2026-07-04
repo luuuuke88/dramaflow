@@ -1512,6 +1512,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchGenerateAllPrompts => '全部生成运镜提示词';
 
   @override
+  String get workbenchClearSelectedTracks => '清空已选轨道';
+
+  @override
+  String get workbenchClearSelectedTracksConfirm =>
+      '将清空已勾选镜头的视频轨道与候选视频，分镜本身会保留。';
+
+  @override
+  String get workbenchClearTracksAction => '清空';
+
+  @override
+  String get workbenchClearSelectedTracksDone => '已清空已选轨道';
+
+  @override
   String get workbenchCompose => '合成本集';
 
   @override

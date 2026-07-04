@@ -225,6 +225,40 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     }
   }
 
+  Future<void> _clearCheckedTracks(List<StoryboardRow> shots) async {
+    final selected = [
+      for (final shot in shots)
+        if (_checkedShotIds.contains(shot.id) && shot.trackId != null) shot,
+    ];
+    if (selected.isEmpty) return;
+    final l10n = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l10n.workbenchClearSelectedTracks),
+        content: Text(l10n.workbenchClearSelectedTracksConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(l10n.workbenchClearTracksAction),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final engine = ref.read(engineProvider);
+    for (final shot in selected) {
+      final trackId = shot.trackId;
+      if (trackId != null) engine.deleteVideoTrack(trackId);
+    }
+    setState(() {});
+    _toast(l10n.workbenchClearSelectedTracksDone);
+  }
+
   void _reorderShots(List<StoryboardRow> shots, int oldIndex, int newIndex) {
     if (oldIndex == newIndex) return;
     final targetIndex = newIndex.clamp(0, shots.length - 1);
@@ -247,6 +281,14 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
         .orderedSelectedVideoPaths(widget.scriptId)
         .where((p) => p == null || p.isEmpty)
         .length;
+    final toolbarTextButtonStyle = TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      visualDensity: VisualDensity.compact,
+    );
+    final toolbarFilledButtonStyle = FilledButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      visualDensity: VisualDensity.compact,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -264,6 +306,9 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
                   case _WorkbenchBatchAction.videos:
                     _generateChecked(shots);
                     break;
+                  case _WorkbenchBatchAction.clearTracks:
+                    _clearCheckedTracks(shots);
+                    break;
                 }
               },
               itemBuilder: (context) => [
@@ -275,10 +320,15 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
                   value: _WorkbenchBatchAction.videos,
                   child: Text(l10n.workbenchGenerateAll),
                 ),
+                PopupMenuItem(
+                  value: _WorkbenchBatchAction.clearTracks,
+                  child: Text(l10n.workbenchClearSelectedTracks),
+                ),
               ],
             ),
           if (shots.isNotEmpty && !compactActions)
             TextButton.icon(
+              style: toolbarTextButtonStyle,
               onPressed: _checkedShotIds.isEmpty || _batchPrompting
                   ? null
                   : () => _generateCheckedPrompts(shots),
@@ -292,15 +342,26 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
             ),
           if (shots.isNotEmpty && !compactActions)
             TextButton.icon(
+              style: toolbarTextButtonStyle,
               onPressed: _checkedShotIds.isEmpty
                   ? null
                   : () => _generateChecked(shots),
               icon: const Icon(Icons.movie_creation_outlined),
               label: Text(l10n.workbenchGenerateAll),
             ),
+          if (shots.isNotEmpty && !compactActions)
+            TextButton.icon(
+              style: toolbarTextButtonStyle,
+              onPressed: _checkedShotIds.isEmpty
+                  ? null
+                  : () => _clearCheckedTracks(shots),
+              icon: const Icon(Icons.layers_clear_outlined),
+              label: Text(l10n.workbenchClearSelectedTracks),
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FilledButton.icon(
+              style: toolbarFilledButtonStyle,
               onPressed: _composing || shots.isEmpty ? null : _compose,
               icon: _composing
                   ? const SizedBox(
@@ -363,7 +424,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   }
 }
 
-enum _WorkbenchBatchAction { prompts, videos }
+enum _WorkbenchBatchAction { prompts, videos, clearTracks }
 
 class _TimelineOverview extends ConsumerWidget {
   final int projectId;

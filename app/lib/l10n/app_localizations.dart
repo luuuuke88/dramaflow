@@ -3010,6 +3010,30 @@ abstract class AppLocalizations {
   /// **'全部生成运镜提示词'**
   String get workbenchGenerateAllPrompts;
 
+  /// No description provided for @workbenchClearSelectedTracks.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空已选轨道'**
+  String get workbenchClearSelectedTracks;
+
+  /// No description provided for @workbenchClearSelectedTracksConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'将清空已勾选镜头的视频轨道与候选视频，分镜本身会保留。'**
+  String get workbenchClearSelectedTracksConfirm;
+
+  /// No description provided for @workbenchClearTracksAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空'**
+  String get workbenchClearTracksAction;
+
+  /// No description provided for @workbenchClearSelectedTracksDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清空已选轨道'**
+  String get workbenchClearSelectedTracksDone;
+
   /// No description provided for @workbenchCompose.
   ///
   /// In zh, this message translates to:

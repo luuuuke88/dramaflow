@@ -1523,6 +1523,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchGenerateAllPrompts => 'すべてカメラワーク生成';
 
   @override
+  String get workbenchClearSelectedTracks => '選択トラックをクリア';
+
+  @override
+  String get workbenchClearSelectedTracksConfirm =>
+      'チェックしたカットの動画トラックと候補動画をクリアします。絵コンテ行は残ります。';
+
+  @override
+  String get workbenchClearTracksAction => 'クリア';
+
+  @override
+  String get workbenchClearSelectedTracksDone => '選択トラックをクリアしました';
+
+  @override
   String get workbenchCompose => '話数を合成';
 
   @override

@@ -426,6 +426,26 @@ extension VideoTrackApi on Engine {
     );
     db.execute('DELETE FROM o_video WHERE id=?', [videoId]);
   }
+
+  /// 删除整条视频轨：保留分镜行本身，但清空 storyboard.trackId，并删除该轨道
+  /// 下所有候选视频。候选文件删除沿用 deleteVideo 的素材库引用保护逻辑。
+  void deleteVideoTrack(int trackId) {
+    final row = db
+        .select('SELECT id FROM o_videoTrack WHERE id=?', [trackId])
+        .firstOrNull;
+    if (row == null) return;
+    final videoIds = db
+        .select('SELECT id FROM o_video WHERE videoTrackId=? ORDER BY id',
+            [trackId])
+        .map((r) => r['id'] as int)
+        .toList();
+    for (final videoId in videoIds) {
+      deleteVideo(videoId);
+    }
+    db.execute('UPDATE o_storyboard SET trackId=NULL WHERE trackId=?',
+        [trackId]);
+    db.execute('DELETE FROM o_videoTrack WHERE id=?', [trackId]);
+  }
 }
 
 String? _nleValue(String? value) {

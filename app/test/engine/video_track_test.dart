@@ -272,6 +272,30 @@ void main() {
         reason: 'deleteVideo 需删除磁盘文件，不能泄漏');
   });
 
+  test('deleteVideoTrack 清空分镜轨道并删除候选视频文件', () {
+    final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    const rel = 'p/track_del.mp4';
+    final videoFile = File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([7, 7, 7]);
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, rel, vtDone],
+    );
+    final videoId = db.lastInsertRowId;
+    engine.selectVideo(trackId, videoId);
+
+    engine.deleteVideoTrack(trackId);
+
+    final shot = engine.storyboards(scriptId).singleWhere((s) => s.id == sbId);
+    expect(shot.trackId, isNull);
+    expect(engine.track(trackId), isNull);
+    expect(db.select('SELECT id FROM o_video WHERE id=?', [videoId]), isEmpty);
+    expect(videoFile.existsSync(), isFalse);
+  });
+
   test('attachClipToTrack 从素材库 clip 创建候选并保护源素材文件', () {
     final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     final trackId = engine.ensureTrackForStoryboard(sbId);

@@ -416,6 +416,52 @@ void main() {
     expect(engine.track(trackId)!.candidates, isEmpty);
   });
 
+  testWidgets('工作台可清空已勾选视频轨道但保留分镜', (tester) async {
+    final s1 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头一');
+    final s2 = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头二');
+    final t1 = engine.ensureTrackForStoryboard(s1);
+    final t2 = engine.ensureTrackForStoryboard(s2);
+    const rel1 = 'p/clear_track_1.mp4';
+    File(engine.mediaAbsPath(rel1))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 1, 1]);
+    engine.db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, t1, rel1, vtDone],
+    );
+    final v1 = engine.db.lastInsertRowId;
+    engine.selectVideo(t1, v1);
+    engine.db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, t2, 'p/clear_track_2.mp4', vtDone],
+    );
+    engine.selectVideo(t2, engine.db.lastInsertRowId);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('清空已选轨道'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '清空'));
+    await tester.pumpAndSettle();
+
+    final shots = engine.storyboards(scriptId);
+    expect(shots, hasLength(2));
+    expect(shots.singleWhere((s) => s.id == s1).trackId, isNull);
+    expect(shots.singleWhere((s) => s.id == s2).trackId, t2);
+    expect(engine.track(t1), isNull);
+    expect(engine.track(t2), isNotNull);
+    expect(File(engine.mediaAbsPath(rel1)).existsSync(), isFalse);
+  });
+
   testWidgets('本镜时长可编辑：点药丸输入秒数写入视频轨', (tester) async {
     engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
 
