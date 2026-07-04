@@ -1739,6 +1739,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchTimelineTrimToPlayheadSelected => '裁到播放头';
 
   @override
+  String get workbenchTimelineTrimStartToPlayheadSelected => '裁开头到播放头';
+
+  @override
   String get workbenchTimelineTrimTitle => '裁剪素材层尾部';
 
   @override

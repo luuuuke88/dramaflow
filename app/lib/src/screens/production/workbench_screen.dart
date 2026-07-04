@@ -692,6 +692,43 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     setState(() {});
   }
 
+  void _trimSelectedClipLayersStartToPlayhead() {
+    final playheadMs = _snapPlayheadMs;
+    if (_selectedClipIds.isEmpty || playheadMs == null || widget.shots.isEmpty) {
+      return;
+    }
+    final engine = ref.read(engineProvider);
+    final selectedRows = engine
+        .timelineClips(widget.shots.first.scriptId)
+        .where((clip) => _selectedClipIds.contains(clip.id))
+        .toList();
+    if (selectedRows.isEmpty) return;
+    for (final clip in selectedRows) {
+      final duration = clip.durationMs ?? _defaultClipDurationMs;
+      final clipEnd = clip.startMs + duration;
+      var targetStart = playheadMs;
+      final maxStart = clipEnd - _minClipDurationMs;
+      if (targetStart > maxStart) targetStart = maxStart;
+      if (targetStart < 0) targetStart = 0;
+      targetStart = _avoidTimelineClipStartOverlap(
+        engine: engine,
+        clip: clip,
+        startMs: targetStart,
+        endMs: clipEnd,
+      );
+      final nextDuration = clipEnd - targetStart;
+      engine.updateTimelineClip(
+        clipId: clip.id,
+        lane: clip.lane,
+        startMs: targetStart,
+        durationMs: nextDuration < _minClipDurationMs
+            ? _minClipDurationMs
+            : nextDuration,
+      );
+    }
+    setState(() {});
+  }
+
   Future<void> _rippleTrimSelectedClipLayersEnd() async {
     if (_selectedClipIds.isEmpty || widget.shots.isEmpty) return;
     final engine = ref.read(engineProvider);
@@ -1562,6 +1599,17 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
                           : _trimSelectedClipLayersEndToPlayhead,
                   icon: const Icon(Icons.vertical_align_bottom, size: 16),
                   label: Text(l10n.workbenchTimelineTrimToPlayheadSelected),
+                ),
+                TextButton.icon(
+                  key: const ValueKey(
+                      'workbench-timeline-trim-start-to-playhead-selected'),
+                  onPressed:
+                      selectedClipCount == 0 || _snapPlayheadMs == null
+                          ? null
+                          : _trimSelectedClipLayersStartToPlayhead,
+                  icon: const Icon(Icons.vertical_align_top, size: 16),
+                  label:
+                      Text(l10n.workbenchTimelineTrimStartToPlayheadSelected),
                 ),
                 TextButton.icon(
                   key:

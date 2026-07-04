@@ -632,6 +632,7 @@
   "workbenchTimelineRippleMoveSelected": "選択をリップル移動",
   "workbenchTimelineTrimSelected": "選択をトリム",
   "workbenchTimelineTrimToPlayheadSelected": "再生位置までトリム",
+  "workbenchTimelineTrimStartToPlayheadSelected": "先頭を再生位置までトリム",
   "workbenchTimelineTrimTitle": "素材レイヤー末尾をトリム",
   "workbenchTimelineRippleTrimSelected": "選択をリップルトリム",
   "workbenchTimelineDeleteSelected": "選択を削除",

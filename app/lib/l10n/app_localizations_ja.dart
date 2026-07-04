@@ -1750,6 +1750,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineTrimToPlayheadSelected => '再生位置までトリム';
 
   @override
+  String get workbenchTimelineTrimStartToPlayheadSelected => '先頭を再生位置までトリム';
+
+  @override
   String get workbenchTimelineTrimTitle => '素材レイヤー末尾をトリム';
 
   @override

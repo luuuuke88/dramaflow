@@ -1784,6 +1784,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineTrimToPlayheadSelected => 'Trim to playhead';
 
   @override
+  String get workbenchTimelineTrimStartToPlayheadSelected =>
+      'Trim start to playhead';
+
+  @override
   String get workbenchTimelineTrimTitle => 'Trim Overlay End';
 
   @override
