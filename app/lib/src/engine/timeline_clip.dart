@@ -77,6 +77,57 @@ extension TimelineClipApi on Engine {
     return db.lastInsertRowId;
   }
 
+  int addTimelineClipFromAssetRipple({
+    required int projectId,
+    required int scriptId,
+    required int clipAssetId,
+    int lane = 1,
+    int startMs = 0,
+    int? durationMs,
+  }) {
+    final clipRow = db.select(
+      'SELECT a.name name, a.type type, i.filePath filePath '
+      'FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId '
+      'WHERE a.id=? AND a.projectId=?',
+      [clipAssetId, projectId],
+    ).firstOrNull;
+    final rel = clipRow?['filePath'] as String?;
+    if (clipRow == null ||
+        clipRow['type'] != 'clip' ||
+        rel == null ||
+        rel.isEmpty ||
+        !File(media.absPath(rel)).existsSync()) {
+      throw const EngineException(errFileType, {'type': 'clip'});
+    }
+    final normalizedLane = lane < 1 ? 1 : lane;
+    final normalizedStart = startMs < 0 ? 0 : startMs;
+    final normalizedDuration =
+        durationMs != null && durationMs > 0 ? durationMs : null;
+    final shiftMs = normalizedDuration ?? _defaultTimelineClipDurationMs;
+    db.execute(
+      'UPDATE o_timelineClip '
+      'SET startMs=startMs + ? '
+      'WHERE scriptId=? AND lane=? AND startMs>=?',
+      [shiftMs, scriptId, normalizedLane, normalizedStart],
+    );
+    db.execute(
+      'INSERT INTO o_timelineClip '
+      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs) '
+      'VALUES (?,?,?,?,?,?,?,?)',
+      [
+        projectId,
+        scriptId,
+        clipAssetId,
+        clipRow['name'],
+        rel,
+        normalizedLane,
+        normalizedStart,
+        normalizedDuration,
+      ],
+    );
+    return db.lastInsertRowId;
+  }
+
   List<TimelineClipRow> timelineClips(int scriptId) {
     return db
         .select(

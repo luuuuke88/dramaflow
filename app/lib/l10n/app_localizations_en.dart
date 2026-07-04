@@ -1656,6 +1656,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchTimelineAdd => 'Add';
 
   @override
+  String get workbenchTimelineRippleInsert => 'Ripple insert';
+
+  @override
   String get workbenchTimelineLayer => 'Layer';
 
   @override

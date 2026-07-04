@@ -270,6 +270,84 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('工作台可波纹插入素材层并后移同轨后续片段', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const relExisting = 'p/ripple_insert_existing.mp4';
+    const relOtherLane = 'p/ripple_insert_other_lane.mp4';
+    const relInsert = 'p/ripple_insert_new.mp4';
+    File(engine.mediaAbsPath(relExisting))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 7, 1]);
+    File(engine.mediaAbsPath(relOtherLane))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 7, 2]);
+    File(engine.mediaAbsPath(relInsert))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 7, 3]);
+    engine.registerClipAsset(
+      projectId: projectId,
+      name: '插入素材',
+      relPath: relInsert,
+    );
+    final existingAsset = engine.registerClipAsset(
+      projectId: projectId,
+      name: '后续素材',
+      relPath: relExisting,
+    );
+    final otherLaneAsset = engine.registerClipAsset(
+      projectId: projectId,
+      name: '异轨素材',
+      relPath: relOtherLane,
+    );
+    final existingClipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: existingAsset,
+      lane: 1,
+      startMs: 1000,
+      durationMs: 600,
+    );
+    final otherLaneClipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: otherLaneAsset,
+      lane: 2,
+      startMs: 1000,
+      durationMs: 600,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('添加素材层'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '层级'), '1');
+    await tester.enterText(find.widgetWithText(TextField, '起点(ms)'), '700');
+    await tester.enterText(find.widgetWithText(TextField, '时长(ms)'), '400');
+    await tester.tap(find.widgetWithText(FilledButton, '波纹插入'));
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    final inserted = clips.singleWhere((clip) => clip.name == '插入素材');
+    expect(inserted.startMs, 700);
+    expect(inserted.durationMs, 400);
+    final shifted = clips.singleWhere((clip) => clip.id == existingClipId);
+    expect(shifted.startMs, 1400);
+    expect(shifted.durationMs, 600);
+    final otherLane = clips.singleWhere((clip) => clip.id == otherLaneClipId);
+    expect(otherLane.startMs, 1000);
+    expect(otherLane.durationMs, 600);
+    expect(find.textContaining('L1 · 700ms · 400ms'), findsOneWidget);
+    expect(find.textContaining('L1 · 1400ms · 600ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可拖拽素材层调整时间线位置', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

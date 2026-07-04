@@ -138,4 +138,56 @@ void main() {
     expect(otherLane.startMs, 1400);
     expect(otherLane.durationMs, 600);
   });
+
+  test('addTimelineClipFromAssetRipple 插入素材层并后移同轨后续片段', () {
+    final clipA = clipAsset('p/ripple_insert_a.mp4', 'A');
+    final clipB = clipAsset('p/ripple_insert_b.mp4', 'B');
+    final clipC = clipAsset('p/ripple_insert_c.mp4', 'C');
+    final clipInsert = clipAsset('p/ripple_insert_new.mp4', 'Insert');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 1,
+      startMs: 1000,
+      durationMs: 600,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 2,
+      startMs: 1000,
+      durationMs: 600,
+    );
+
+    final insertedId = engine.addTimelineClipFromAssetRipple(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipInsert,
+      lane: 1,
+      startMs: 700,
+      durationMs: 400,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 0);
+    final inserted = clips.singleWhere((c) => c.id == insertedId);
+    expect(inserted.startMs, 700);
+    expect(inserted.durationMs, 400);
+    final shifted = clips.singleWhere((c) => c.id == clipIdB);
+    expect(shifted.startMs, 1400);
+    expect(shifted.durationMs, 600);
+    final otherLane = clips.singleWhere((c) => c.id == clipIdC);
+    expect(otherLane.startMs, 1000);
+    expect(otherLane.durationMs, 600);
+  });
 }

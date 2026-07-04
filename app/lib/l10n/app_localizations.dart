@@ -3196,6 +3196,12 @@ abstract class AppLocalizations {
   /// **'添加'**
   String get workbenchTimelineAdd;
 
+  /// No description provided for @workbenchTimelineRippleInsert.
+  ///
+  /// In zh, this message translates to:
+  /// **'波纹插入'**
+  String get workbenchTimelineRippleInsert;
+
   /// No description provided for @workbenchTimelineLayer.
   ///
   /// In zh, this message translates to:

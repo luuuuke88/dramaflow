@@ -1623,6 +1623,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchTimelineAdd => '追加';
 
   @override
+  String get workbenchTimelineRippleInsert => 'リップル挿入';
+
+  @override
   String get workbenchTimelineLayer => 'レイヤー';
 
   @override

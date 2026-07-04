@@ -457,14 +457,25 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         builder: (c) => _AddTimelineClipDialog(clips: clips),
       );
       if (draft == null || !mounted) return;
-      engine.addTimelineClipFromAsset(
-        projectId: widget.projectId,
-        scriptId: widget.shots.first.scriptId,
-        clipAssetId: draft.asset.id,
-        lane: draft.lane,
-        startMs: draft.startMs,
-        durationMs: draft.durationMs,
-      );
+      if (draft.rippleInsert) {
+        engine.addTimelineClipFromAssetRipple(
+          projectId: widget.projectId,
+          scriptId: widget.shots.first.scriptId,
+          clipAssetId: draft.asset.id,
+          lane: draft.lane,
+          startMs: draft.startMs,
+          durationMs: draft.durationMs,
+        );
+      } else {
+        engine.addTimelineClipFromAsset(
+          projectId: widget.projectId,
+          scriptId: widget.shots.first.scriptId,
+          clipAssetId: draft.asset.id,
+          lane: draft.lane,
+          startMs: draft.startMs,
+          durationMs: draft.durationMs,
+        );
+      }
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.workbenchTimelineClipAdded)),
@@ -880,12 +891,14 @@ class _TimelineClipDraft {
   final int lane;
   final int startMs;
   final int? durationMs;
+  final bool rippleInsert;
 
   const _TimelineClipDraft({
     required this.asset,
     required this.lane,
     required this.startMs,
     required this.durationMs,
+    required this.rippleInsert,
   });
 }
 
@@ -919,6 +932,18 @@ class _AddTimelineClipDialogState extends State<_AddTimelineClipDialog> {
     _startCtrl.dispose();
     _durationCtrl.dispose();
     super.dispose();
+  }
+
+  _TimelineClipDraft? _draft({required bool rippleInsert}) {
+    final selected = _selected;
+    if (selected == null) return null;
+    return _TimelineClipDraft(
+      asset: selected,
+      lane: int.tryParse(_laneCtrl.text.trim()) ?? 1,
+      startMs: int.tryParse(_startCtrl.text.trim()) ?? 0,
+      durationMs: int.tryParse(_durationCtrl.text.trim()),
+      rippleInsert: rippleInsert,
+    );
   }
 
   @override
@@ -993,16 +1018,14 @@ class _AddTimelineClipDialogState extends State<_AddTimelineClipDialog> {
         FilledButton(
           onPressed: _selected == null
               ? null
-              : () => Navigator.pop(
-                    context,
-                    _TimelineClipDraft(
-                      asset: _selected!,
-                      lane: int.tryParse(_laneCtrl.text.trim()) ?? 1,
-                      startMs: int.tryParse(_startCtrl.text.trim()) ?? 0,
-                      durationMs: int.tryParse(_durationCtrl.text.trim()),
-                    ),
-                  ),
+              : () => Navigator.pop(context, _draft(rippleInsert: false)),
           child: Text(l10n.workbenchTimelineAdd),
+        ),
+        FilledButton(
+          onPressed: _selected == null
+              ? null
+              : () => Navigator.pop(context, _draft(rippleInsert: true)),
+          child: Text(l10n.workbenchTimelineRippleInsert),
         ),
       ],
     );
