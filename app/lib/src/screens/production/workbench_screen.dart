@@ -491,10 +491,18 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
             startMs: rawStart,
             durationMs: duration,
           );
+    final nextLane = clip.lane + laneSteps;
+    final resolvedStart = _avoidTimelineClipOverlap(
+      engine: engine,
+      clip: clip,
+      lane: nextLane,
+      startMs: nextStart,
+      durationMs: duration,
+    );
     engine.updateTimelineClip(
       clipId: clip.id,
-      lane: clip.lane + laneSteps,
-      startMs: nextStart,
+      lane: nextLane,
+      startMs: resolvedStart,
       durationMs: clip.durationMs,
     );
     setState(() {});
@@ -516,12 +524,16 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final nextDuration = snappedDuration < _minClipDurationMs
         ? _minClipDurationMs
         : snappedDuration;
+    final resolvedDuration = _avoidTimelineClipEndOverlap(
+      engine: engine,
+      clip: clip,
+      durationMs: nextDuration,
+    );
     engine.updateTimelineClip(
       clipId: clip.id,
       lane: clip.lane,
       startMs: clip.startMs,
-      durationMs:
-          nextDuration < _minClipDurationMs ? _minClipDurationMs : nextDuration,
+      durationMs: resolvedDuration,
     );
     setState(() {});
   }
@@ -544,6 +556,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final maxStart = clip.startMs + duration - _minClipDurationMs;
     if (normalizedStart > maxStart) normalizedStart = maxStart;
     if (normalizedStart < 0) normalizedStart = 0;
+    normalizedStart = _avoidTimelineClipStartOverlap(
+      engine: engine,
+      clip: clip,
+      startMs: normalizedStart,
+      endMs: clip.startMs + duration,
+    );
     final appliedDelta = normalizedStart - clip.startMs;
     final nextDuration = duration - appliedDelta;
     engine.updateTimelineClip(
@@ -569,6 +587,80 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final nextStart =
         snappedEnd == startMs + durationMs ? startMs : snappedEnd - durationMs;
     return nextStart < 0 ? 0 : nextStart;
+  }
+
+  int _avoidTimelineClipOverlap({
+    required Engine engine,
+    required TimelineClipRow clip,
+    required int lane,
+    required int startMs,
+    required int durationMs,
+  }) {
+    final targetLane = lane < 1 ? 1 : lane;
+    var candidate = startMs < 0 ? 0 : startMs;
+    final others = engine
+        .timelineClips(clip.scriptId)
+        .where((other) => other.id != clip.id && other.lane == targetLane)
+        .toList()
+      ..sort((a, b) => a.startMs.compareTo(b.startMs));
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < others.length + 1) {
+      changed = false;
+      guard += 1;
+      for (final other in others) {
+        final otherDuration = other.durationMs ?? _defaultClipDurationMs;
+        final otherEnd = other.startMs + otherDuration;
+        final candidateEnd = candidate + durationMs;
+        final overlaps = candidate < otherEnd && candidateEnd > other.startMs;
+        if (!overlaps) continue;
+        candidate =
+            candidate < other.startMs ? other.startMs - durationMs : otherEnd;
+        if (candidate < 0) candidate = 0;
+        changed = true;
+        break;
+      }
+    }
+    return candidate;
+  }
+
+  int _avoidTimelineClipEndOverlap({
+    required Engine engine,
+    required TimelineClipRow clip,
+    required int durationMs,
+  }) {
+    var resolvedDuration = durationMs;
+    final clipStart = clip.startMs;
+    for (final other in engine.timelineClips(clip.scriptId)) {
+      if (other.id == clip.id || other.lane != clip.lane) continue;
+      if (other.startMs <= clipStart) continue;
+      final clipEnd = clipStart + resolvedDuration;
+      if (clipEnd > other.startMs) {
+        resolvedDuration = other.startMs - clipStart;
+      }
+    }
+    return resolvedDuration < _minClipDurationMs
+        ? _minClipDurationMs
+        : resolvedDuration;
+  }
+
+  int _avoidTimelineClipStartOverlap({
+    required Engine engine,
+    required TimelineClipRow clip,
+    required int startMs,
+    required int endMs,
+  }) {
+    var resolvedStart = startMs;
+    for (final other in engine.timelineClips(clip.scriptId)) {
+      if (other.id == clip.id || other.lane != clip.lane) continue;
+      final otherDuration = other.durationMs ?? _defaultClipDurationMs;
+      final otherEnd = other.startMs + otherDuration;
+      if (otherEnd <= resolvedStart || other.startMs >= endMs) continue;
+      if (otherEnd > resolvedStart) resolvedStart = otherEnd;
+    }
+    final maxStart = endMs - _minClipDurationMs;
+    if (resolvedStart > maxStart) return maxStart;
+    return resolvedStart < 0 ? 0 : resolvedStart;
   }
 
   List<int> _timelineSnapAnchors({

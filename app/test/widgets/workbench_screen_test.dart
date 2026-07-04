@@ -365,6 +365,77 @@ void main() {
     expect(find.textContaining('1700ms · 1300ms'), findsOneWidget);
   });
 
+  testWidgets('工作台裁剪素材层边缘时避免同轨重叠冲突', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/trim_overlap_guard_a.mp4';
+    const relB = 'p/trim_overlap_guard_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 9, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 9, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '裁剪冲突 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '裁剪冲突 B',
+      relPath: relB,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1600,
+      durationMs: 800,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final endHandleA =
+        find.byKey(ValueKey('workbench-timeline-clip-resize-end-$clipIdA'));
+    expect(endHandleA, findsOneWidget);
+    await tester.drag(endHandleA, const Offset(96, 0));
+    await tester.pumpAndSettle();
+
+    var clips = engine.timelineClips(scriptId);
+    var first = clips.singleWhere((c) => c.id == clipIdA);
+    expect(first.startMs, 0);
+    expect(first.durationMs, 1600);
+
+    final startHandleB =
+        find.byKey(ValueKey('workbench-timeline-clip-resize-start-$clipIdB'));
+    expect(startHandleB, findsOneWidget);
+    await tester.drag(startHandleB, const Offset(-96, 0));
+    await tester.pumpAndSettle();
+
+    clips = engine.timelineClips(scriptId);
+    final second = clips.singleWhere((c) => c.id == clipIdB);
+    expect(second.startMs, 1600);
+    expect(second.durationMs, 800);
+    expect(find.textContaining('1600ms · 800ms'), findsOneWidget);
+  });
+
   testWidgets('工作台可分割素材层为连续片段', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
@@ -582,6 +653,67 @@ void main() {
 
     final moved = engine.timelineClips(scriptId).last;
     expect(moved.id, clipIdB);
+    expect(moved.startMs, 1000);
+    expect(moved.durationMs, 800);
+    expect(find.textContaining('1000ms · 800ms'), findsOneWidget);
+  });
+
+  testWidgets('工作台拖拽素材层时避免同轨重叠冲突', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const relA = 'p/overlap_guard_a.mp4';
+    const relB = 'p/overlap_guard_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 7, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 8, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '冲突保护 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '冲突保护 B',
+      relPath: relB,
+    );
+    engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 0,
+      durationMs: 1000,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 1,
+      startMs: 1600,
+      durationMs: 800,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final clipFinder = find.byKey(ValueKey('workbench-timeline-clip-$clipIdB'));
+    expect(clipFinder, findsOneWidget);
+    await tester.drag(clipFinder, const Offset(-96, 0));
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(2));
+    final moved = clips.singleWhere((c) => c.id == clipIdB);
+    expect(moved.lane, 1);
     expect(moved.startMs, 1000);
     expect(moved.durationMs, 800);
     expect(find.textContaining('1000ms · 800ms'), findsOneWidget);
