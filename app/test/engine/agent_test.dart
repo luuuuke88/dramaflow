@@ -71,6 +71,57 @@ void main() {
     expect(engine.agentMessages(projectId), isEmpty);
   });
 
+  test('清空 Agent 记忆会同步删除对应 family 的 message 和 summary 上下文', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '2'],
+    );
+    gateway.turns = const [
+      AgentTurnResult.text('剧本规划已记录。'),
+      AgentTurnResult.text('制作规划已记录。'),
+    ];
+    gateway.textResults = const [
+      TextResult('剧本 Agent 摘要。'),
+      TextResult('制作 Agent 摘要。'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '规划前三集',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：生成导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    int memoryCount(String isolationKey) => db.select(
+          'SELECT COUNT(*) AS n FROM memories '
+          'WHERE isolationKey=? AND type IN (?,?)',
+          [isolationKey, 'message', 'summary'],
+        ).single['n'] as int;
+
+    expect(memoryCount('scriptAgent:$projectId'), 3);
+    expect(memoryCount('productionAgent:$projectId'), 3);
+
+    engine.clearAgentMemory(projectId, family: agentFamilyScript);
+
+    expect(engine.agentMessages(projectId, family: agentFamilyScript), isEmpty);
+    expect(memoryCount('scriptAgent:$projectId'), 0);
+    expect(engine.agentMessages(projectId, family: agentFamilyProduction),
+        isNotEmpty);
+    expect(memoryCount('productionAgent:$projectId'), 3);
+
+    engine.clearAgentMemory(projectId);
+
+    expect(engine.agentMessages(projectId, family: agentFamilyProduction),
+        isEmpty);
+    expect(memoryCount('productionAgent:$projectId'), 0);
+  });
+
   test('manual 模式：一次工具调用后停止，等待用户下一句', () async {
     final novelId = engine.addNovels(projectId, const [
       ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),

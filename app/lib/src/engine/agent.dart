@@ -1205,6 +1205,8 @@ extension AgentApi on Engine {
         'AND episodesId IS NULL AND (key=? OR key LIKE ?)',
         [projectId, 'agentChat', 'agentChat:%'],
       );
+      _clearAgentConversationMemory(projectId, family: _scriptAgentFamily);
+      _clearAgentConversationMemory(projectId, family: _productionAgentFamily);
       return;
     }
     db.execute(
@@ -1216,6 +1218,21 @@ extension AgentApi on Engine {
         family,
         _scriptAgentFamily,
         'agentChat',
+      ],
+    );
+    _clearAgentConversationMemory(projectId, family: family);
+  }
+
+  void _clearAgentConversationMemory(
+    int projectId, {
+    required String family,
+  }) {
+    db.execute(
+      'DELETE FROM memories WHERE isolationKey=? AND type IN (?,?)',
+      [
+        _agentConversationIsolationKey(projectId, family: family),
+        agentMemoryTypeMessage,
+        agentMemoryTypeSummary,
       ],
     );
   }
