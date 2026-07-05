@@ -910,6 +910,42 @@ return `项目${projectId}:${text}:${count}:${JSON.stringify(args.items)}`;
     expect(gateway.lastSystem, contains('继续写寒山李澈入山'));
   });
 
+  test('productionAgent 对话记忆使用独立 isolationKey 和摘要阶段', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '2'],
+    );
+    gateway.turns = [const AgentTurnResult.text('制作决策已记录。')];
+    gateway.textResults = const [
+      TextResult('制作 Agent 记住分镜和视频生成策略。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作画布：下一步生成分镜首帧', autoMode: false);
+
+    final productionMessages = db.select(
+      'SELECT role,content,summarized FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['productionAgent:$projectId', 'message'],
+    );
+    expect(productionMessages, hasLength(2));
+    expect(productionMessages.map((row) => row['role']),
+        [agentRoleUser, agentRoleAssistant]);
+    expect(productionMessages.map((row) => row['summarized']), [1, 1]);
+
+    final scriptMessages = db.select(
+      'SELECT id FROM memories WHERE isolationKey=? AND type=?',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    expect(scriptMessages, isEmpty);
+
+    final summary = db.select(
+      'SELECT content FROM memories WHERE isolationKey=? AND type=?',
+      ['productionAgent:$projectId', 'summary'],
+    ).single;
+    expect(summary['content'], '制作 Agent 记住分镜和视频生成策略。');
+    expect(gateway.textStages, ['productionAgent:decisionAgent']);
+  });
+
   test(
       'ScriptAgentOrchestrator uses decision stage and exposes script subagent tools',
       () async {
@@ -1267,6 +1303,7 @@ class _Gateway implements ProviderGateway {
   String lastSystem = '';
   List<Map<String, String>> lastMessages = const [];
   List<String> stages = const [];
+  List<String> textStages = const [];
   List<List<String>> toolNamesByCall = const [];
   int callCount = 0;
   int textCallCount = 0;
@@ -1276,6 +1313,7 @@ class _Gateway implements ProviderGateway {
     _turns = value;
     callCount = 0;
     stages = [];
+    textStages = [];
     toolNamesByCall = [];
   }
 
@@ -1306,6 +1344,7 @@ class _Gateway implements ProviderGateway {
   @override
   Future<TextResult> generateText(String system, String user,
       {required String stage, CancelToken? cancelToken}) async {
+    textStages = [...textStages, stage];
     if (textCallCount < textResults.length) {
       final result = textResults[textCallCount];
       textCallCount++;

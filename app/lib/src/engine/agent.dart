@@ -738,13 +738,21 @@ Never _badMethodArgs(String method) {
 
 extension AgentApi on Engine {
   String _agentMemoryIsolationKey(int projectId) => 'project:$projectId';
-  String _agentConversationIsolationKey(int projectId) =>
-      '$_scriptAgentFamily:$projectId';
+  String _agentConversationIsolationKey(
+    int projectId, {
+    String family = _scriptAgentFamily,
+  }) =>
+      '$family:$projectId';
 
-  AgentMemoryService _agentMemoryService() => AgentMemoryService(
+  AgentMemoryService _agentMemoryService({
+    String family = _scriptAgentFamily,
+  }) =>
+      AgentMemoryService(
         db,
         gateway,
-        summaryStage: 'scriptAgent:decisionAgent',
+        summaryStage: family == _productionAgentFamily
+            ? productionAgentDecisionStage
+            : scriptAgentDecisionStage,
       );
 
   List<AgentToolDef> get agentTools {
@@ -1423,18 +1431,23 @@ extension AgentApi on Engine {
     required bool autoMode,
   }) async {
     final messages = List<AgentMessage>.from(agentMessages(projectId));
+    final agentFamily = _agentFamilyForMessage(text);
     final now = DateTime.now().millisecondsSinceEpoch;
     messages
         .add(AgentMessage(role: agentRoleUser, content: text, createdAt: now));
     _saveAgentMessages(projectId, messages);
     await _recordAgentMemory(
       projectId,
+      family: agentFamily,
       role: agentRoleUser,
       content: text,
     );
 
-    final memoryService = _agentMemoryService();
-    final conversationKey = _agentConversationIsolationKey(projectId);
+    final memoryService = _agentMemoryService(family: agentFamily);
+    final conversationKey = _agentConversationIsolationKey(
+      projectId,
+      family: agentFamily,
+    );
     final system = _agentSystemPrompt(
       searchAgentMemories(projectId, text, limit: _agentRagLimit()),
       context: await memoryService.get(
@@ -1442,7 +1455,6 @@ extension AgentApi on Engine {
         query: text,
       ),
     );
-    final agentFamily = _agentFamilyForMessage(text);
 
     for (var turn = 0; turn < (autoMode ? _maxAutoTurns : 1); turn++) {
       final history = [
@@ -1489,6 +1501,7 @@ extension AgentApi on Engine {
         _saveAgentMessages(projectId, messages);
         await _recordAgentMemory(
           projectId,
+          family: agentFamily,
           role: agentRoleAssistant,
           content: result.text ?? '',
         );
@@ -1496,7 +1509,11 @@ extension AgentApi on Engine {
       }
 
       final summary = await _runTool(
-          projectId, result.toolName!, result.toolArgs ?? const {});
+        projectId,
+        result.toolName!,
+        result.toolArgs ?? const {},
+        agentFamily: agentFamily,
+      );
       messages.add(AgentMessage(
         role: agentRoleTool,
         content: summary,
@@ -1506,6 +1523,7 @@ extension AgentApi on Engine {
       _saveAgentMessages(projectId, messages);
       await _recordAgentMemory(
         projectId,
+        family: agentFamily,
         role: agentRoleTool,
         content: summary,
       );
@@ -1514,12 +1532,16 @@ extension AgentApi on Engine {
 
   Future<void> _recordAgentMemory(
     int projectId, {
+    required String family,
     required String role,
     required String content,
   }) async {
     try {
-      await _agentMemoryService().add(
-        isolationKey: _agentConversationIsolationKey(projectId),
+      await _agentMemoryService(family: family).add(
+        isolationKey: _agentConversationIsolationKey(
+          projectId,
+          family: family,
+        ),
         role: role,
         content: content,
       );
@@ -1588,15 +1610,24 @@ extension AgentApi on Engine {
   }
 
   Future<String> _runTool(
-      int projectId, String name, Map<String, dynamic> args) async {
+    int projectId,
+    String name,
+    Map<String, dynamic> args, {
+    String agentFamily = _scriptAgentFamily,
+  }) async {
     try {
       switch (name) {
         case 'deepRetrieve':
           final keyword =
               (args['keyword'] ?? args['query'] ?? '').toString().trim();
           if (keyword.isEmpty) return '缺少 keyword 参数。';
-          final records = await _agentMemoryService().deepRetrieve(
-            isolationKey: _agentConversationIsolationKey(projectId),
+          final records = await _agentMemoryService(
+            family: agentFamily,
+          ).deepRetrieve(
+            isolationKey: _agentConversationIsolationKey(
+              projectId,
+              family: agentFamily,
+            ),
             keyword: keyword,
           );
           if (records.isEmpty) return '未找到相关历史记忆。';
@@ -2054,6 +2085,7 @@ extension AgentApi on Engine {
         projectId,
         toolName,
         result.toolArgs ?? const {},
+        agentFamily: _scriptAgentFamily,
       );
       history.add({
         'role': 'assistant',
@@ -2470,7 +2502,12 @@ extension AgentApi on Engine {
       }
       final toolArgs = Map<String, dynamic>.from(result.toolArgs ?? const {});
       toolArgs.putIfAbsent('scriptId', () => scriptId);
-      final summary = await _runTool(projectId, toolName, toolArgs);
+      final summary = await _runTool(
+        projectId,
+        toolName,
+        toolArgs,
+        agentFamily: _productionAgentFamily,
+      );
       history.add({
         'role': 'assistant',
         'content': '（工具 $toolName 执行结果：$summary）',
