@@ -631,6 +631,53 @@ return `角色：${names}`;
     expect(msg.content, '角色：李澈、沈微');
   });
 
+  test('自定义脚本技能：支持数组 filter map join 链式表达式', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_filter_runtime',
+      name: '筛选脚本运行时',
+      description: '验证自定义技能可以筛选资产列表并生成 Agent 可读摘要。',
+      script: r'''
+const roles = args.assets
+  .filter(asset => asset.type.includes('role'))
+  .map(asset => asset.name.trim())
+  .join('、');
+return `角色资产：${roles}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_filter_runtime', const {
+        'assets': [
+          {'type': 'role.main', 'name': ' 李澈 '},
+          {'type': 'scene', 'name': '寒山宗门'},
+          {'type': 'role.support', 'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用筛选脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_filter_runtime');
+    expect(msg.content, '角色资产：李澈、沈微');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
@@ -1135,14 +1182,11 @@ return `角色：${names}`;
       );
     }
 
-    insertMessage('msg_summary_1', '用户强调李澈是寒山少主，必须保持正派。', 0,
-        summarized: 1);
-    insertMessage('msg_summary_2', '助手确认李澈不能被写成反派。', 1,
-        summarized: 1);
+    insertMessage('msg_summary_1', '用户强调李澈是寒山少主，必须保持正派。', 0, summarized: 1);
+    insertMessage('msg_summary_2', '助手确认李澈不能被写成反派。', 1, summarized: 1);
     insertMessage('msg_recent_direct', '用户刚补充：李澈救下沈微这一幕也必须保留。', 2,
         summarized: 0);
-    insertMessage('msg_noise_direct', '用户提到宗门远景可以多一点云雾。', 3,
-        summarized: 0);
+    insertMessage('msg_noise_direct', '用户提到宗门远景可以多一点云雾。', 3, summarized: 0);
     db.execute(
       'INSERT INTO memories '
       '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '

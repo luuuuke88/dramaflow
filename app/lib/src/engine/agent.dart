@@ -447,10 +447,20 @@ class _CustomAgentSkillRuntime {
         final mapped = <Object?>[];
         var index = 0;
         for (final item in value) {
-          mapped.add(_evaluateCallback(args.single, item, index));
+          mapped.add(_evaluateCallback(method, args.single, item, index));
           index++;
         }
         return mapped;
+      case 'filter':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final filtered = <Object?>[];
+        var index = 0;
+        for (final item in value) {
+          final keep = _evaluateCallback(method, args.single, item, index);
+          if (_isTruthy(keep)) filtered.add(item);
+          index++;
+        }
+        return filtered;
       case 'join':
         if (args.length > 1 || value is! Iterable) _badMethodArgs(method);
         final separator = args.isEmpty
@@ -465,10 +475,15 @@ class _CustomAgentSkillRuntime {
     }
   }
 
-  Object? _evaluateCallback(String callback, Object? item, int index) {
+  Object? _evaluateCallback(
+    String method,
+    String callback,
+    Object? item,
+    int index,
+  ) {
     final arrow = _findTopLevelArrow(callback);
-    if (arrow < 0) _badMethodArgs('map');
-    final params = _parseCallbackParams(callback.substring(0, arrow), 'map');
+    if (arrow < 0) _badMethodArgs(method);
+    final params = _parseCallbackParams(callback.substring(0, arrow), method);
     final body = callback.substring(arrow + 2).trim();
     return _withScopeBindings(
       {
@@ -477,6 +492,14 @@ class _CustomAgentSkillRuntime {
       },
       () => _evaluate(body),
     );
+  }
+
+  bool _isTruthy(Object? value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) return value.isNotEmpty;
+    return true;
   }
 
   List<String> _parseCallbackParams(String source, String method) {
