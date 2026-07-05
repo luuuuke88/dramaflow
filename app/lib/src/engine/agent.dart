@@ -5812,7 +5812,22 @@ extension AgentApi on Engine {
     if (stage == productionAgentSupervisionStage) {
       return 'assistant:supervision';
     }
-    return 'assistant:execution';
+    switch (stage) {
+      case productionAgentDeriveAssetsStage:
+        return 'assistant:execution:deriveAssets';
+      case productionAgentGenerateAssetsStage:
+        return 'assistant:execution:generateAssets';
+      case productionAgentDirectorPlanStage:
+        return 'assistant:execution:directorPlan';
+      case productionAgentStoryboardGenStage:
+        return 'assistant:execution:storyboardGen';
+      case productionAgentStoryboardPanelStage:
+        return 'assistant:execution:storyboardPanel';
+      case productionAgentStoryboardTableStage:
+        return 'assistant:execution:storyboardTable';
+      default:
+        return 'assistant:execution';
+    }
   }
 
   void _ensureProjectProductionMarkdownSkills(int projectId) {

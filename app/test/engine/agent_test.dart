@@ -5608,7 +5608,7 @@ description: 只属于水墨视觉项目
     expect(nameSchema['enum'], isNot(contains('ink_only_director_skill.md')));
   });
 
-  test('ProductionAgent 子 Agent 输出按 ToonFlow memoryKey 写入记忆', () async {
+  test('ProductionAgent 子 Agent 输出按 ToonFlow 子阶段 memoryKey 写入记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
       ['agent.memory.messagesPerSummary', '20'],
@@ -5631,11 +5631,34 @@ description: 只属于水墨视觉项目
       ['productionAgent:$projectId', 'message'],
     );
 
-    expect(rows.map((row) => row['role']), contains('assistant:execution'));
+    expect(rows.map((row) => row['role']),
+        contains('assistant:execution:directorPlan'));
     final subAgentMemory = rows.singleWhere(
-      (row) => row['role'] == 'assistant:execution',
+      (row) => row['role'] == 'assistant:execution:directorPlan',
     );
     expect(subAgentMemory['content'], '低机位跟拍寒山山门');
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_table',
+        {'prompt': '做寒山分镜表', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<storyboardTable>山门压迫|低机位</storyboardTable>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作分镜表', autoMode: false);
+
+    final updatedRows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['productionAgent:$projectId', 'message'],
+    );
+    expect(updatedRows.map((row) => row['role']),
+        contains('assistant:execution:storyboardTable'));
+    final storyboardTableMemory = updatedRows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:storyboardTable',
+    );
+    expect(storyboardTableMemory['content'], '山门压迫|低机位');
   });
 
   test(
