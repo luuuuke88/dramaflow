@@ -217,12 +217,14 @@ class AgentMemoryService {
   Future<AgentMemoryContext> get({
     required String isolationKey,
     required String query,
+    Set<String>? excludeRelatedIds,
     CancelToken? cancelToken,
   }) async {
     final settings = readSettings();
     final normalized = normalizeMemoryText(query);
     final tokens = memorySearchTokens(normalized);
     final queryEmbedding = embeddingProvider.embeddingFromText(normalized);
+    final excludedRelatedIdFilter = _normalizeIdFilter(excludeRelatedIds);
     final rankedMessages = settings.ragLimit <= 0
         ? const <(int, AgentMemoryEntry)>[]
         : _rankMessageCandidates(
@@ -230,8 +232,9 @@ class AgentMemoryService {
             normalized: normalized,
             tokens: tokens,
             queryEmbedding: queryEmbedding,
+            excludeIds: excludedRelatedIdFilter,
           );
-    final related = await _relatedMessagesForQuery(
+    final relatedRaw = await _relatedMessagesForQuery(
       query: query,
       settings: settings,
       rankedMessages: rankedMessages,
@@ -249,6 +252,7 @@ class AgentMemoryService {
               AgentMemoryEntry.fromRow(row),
           ];
     final summaries = summariesDesc.reversed.toList();
+    final related = _attachSourceSummaries(relatedRaw, summaries);
     final recentDesc = settings.shortTermLimit <= 0
         ? const <AgentMemoryEntry>[]
         : [
@@ -504,6 +508,7 @@ class AgentMemoryService {
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
     bool onlyUnsummarized = false,
+    Set<String>? excludeIds,
   }) {
     if (normalized.isEmpty) return const [];
     final messages = db.select(
@@ -516,6 +521,7 @@ class AgentMemoryService {
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in messages) {
       var entry = AgentMemoryEntry.fromRow(row);
+      if (excludeIds != null && excludeIds.contains(entry.id)) continue;
       if (entry.embedding.trim().isEmpty) {
         final embedding =
             embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
@@ -554,6 +560,25 @@ class AgentMemoryService {
       return b.$2.createdAt.compareTo(a.$2.createdAt);
     });
     return scored;
+  }
+
+  List<AgentMemoryEntry> _attachSourceSummaries(
+    List<AgentMemoryEntry> messages,
+    List<AgentMemoryEntry> summaries,
+  ) {
+    if (messages.isEmpty || summaries.isEmpty) return messages;
+    final summaryIdsByMessageId = <String, List<String>>{};
+    for (final summary in summaries) {
+      for (final messageId in summary.relatedMessageIds) {
+        (summaryIdsByMessageId[messageId] ??= <String>[]).add(summary.id);
+      }
+    }
+    return [
+      for (final message in messages)
+        message.copyWith(
+          sourceSummaryIds: summaryIdsByMessageId[message.id] ?? const [],
+        ),
+    ];
   }
 
   List<(int, AgentMemoryEntry)> _rankSummaryCandidates({

@@ -4990,24 +4990,43 @@ extension AgentApi on Engine {
       if (context.relatedMessages.isNotEmpty) {
         lines.add('相关历史记忆：');
         for (final memory in context.relatedMessages) {
-          lines.add('  ${memory.role}: ${memory.content}');
+          lines.add('  ${_formatAgentMemoryContextEntry('memory', memory)}');
         }
       }
       if (context.summaries.isNotEmpty) {
         lines.add('历史摘要：');
         for (final summary in context.summaries) {
-          lines.add('  ${summary.content}');
+          lines.add('  ${_formatAgentMemoryContextEntry('summary', summary)}');
         }
       }
       if (context.recentMessages.isNotEmpty) {
         lines.add('近期对话：');
         for (final memory in context.recentMessages) {
-          lines.add('  ${memory.role}: ${memory.content}');
+          lines.add('  ${_formatAgentMemoryContextEntry('recent', memory)}');
         }
       }
     }
     if (lines.isEmpty) return promptBase;
     return '$promptBase${lines.join('\n')}';
+  }
+
+  String _formatAgentMemoryContextEntry(
+    String tag,
+    AgentMemoryEntry memory,
+  ) {
+    final attrs = <String>[
+      'id="${_escapeXmlAttr(memory.id)}"',
+      'type="${_escapeXmlAttr(memory.type)}"',
+      if (memory.role.isNotEmpty) 'role="${_escapeXmlAttr(memory.role)}"',
+      if (memory.name.isNotEmpty) 'name="${_escapeXmlAttr(memory.name)}"',
+      'createTime="${memory.createdAt}"',
+      if (memory.sourceSummaryIds.isNotEmpty)
+        'sourceSummaryIds="${_escapeXmlAttr(memory.sourceSummaryIds.join(','))}"',
+      if (memory.relatedMessageIds.isNotEmpty)
+        'relatedMessageIds="${_escapeXmlAttr(memory.relatedMessageIds.join(','))}"',
+      if (memory.score != null) 'score="${memory.score}"',
+    ];
+    return '<$tag ${attrs.join(' ')}>${_escapeXmlText(memory.content)}</$tag>';
   }
 
   String _formatAvailableAgentSkills(List<AgentSkill> skills) {
@@ -5301,6 +5320,7 @@ extension AgentApi on Engine {
         context: await memoryService.get(
           isolationKey: conversationKey,
           query: text,
+          excludeRelatedIds: excludedDeepRetrieveMemoryIds,
         ),
         activatedSkills: _activatedAgentSkillContexts(messages),
         availableSkills: _markdownSkillsForStage(stage, projectId: projectId),

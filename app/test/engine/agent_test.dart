@@ -6547,6 +6547,18 @@ description: >-
     expect(gateway.lastSystem, contains('相关历史记忆'));
     expect(gateway.lastSystem, contains('历史摘要'));
     expect(gateway.lastSystem, contains('近期对话'));
+    expect(gateway.lastSystem, contains('<memory id="prompt_msg_1"'));
+    expect(gateway.lastSystem, contains('type="message"'));
+    expect(gateway.lastSystem, contains('role="user"'));
+    expect(gateway.lastSystem, contains('createTime="$now"'));
+    expect(gateway.lastSystem, contains('sourceSummaryIds="prompt_summary"'));
+    expect(gateway.lastSystem, contains('<summary id="prompt_summary"'));
+    expect(gateway.lastSystem,
+        contains('relatedMessageIds="prompt_msg_1,prompt_msg_2"'));
+    expect(gateway.lastSystem, contains('<recent id="agent_msg_'));
+    final relatedBlock =
+        gateway.lastSystem.split('历史摘要：').first.split('相关历史记忆：').last;
+    expect(relatedBlock, isNot(contains('继续写寒山李澈入山')));
     expect(gateway.lastSystem, contains('寒山少主李澈不能写成反派'));
     expect(gateway.lastSystem, contains('寒山少主李澈是正派角色'));
     expect(gateway.lastSystem, contains('继续写寒山李澈入山'));
