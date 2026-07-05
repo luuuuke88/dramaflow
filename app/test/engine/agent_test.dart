@@ -1103,6 +1103,77 @@ return `角色：${names}`;
     expect(gateway.textCallCount, 1);
   });
 
+  test('AgentMemoryService deepRetrieve 合并 summary 展开和直接原始命中', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    void insertMessage(
+      String id,
+      String content,
+      int offset, {
+      required int summarized,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          offset.isEven ? agentRoleUser : agentRoleAssistant,
+          summarized,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('msg_summary_1', '用户强调李澈是寒山少主，必须保持正派。', 0,
+        summarized: 1);
+    insertMessage('msg_summary_2', '助手确认李澈不能被写成反派。', 1,
+        summarized: 1);
+    insertMessage('msg_recent_direct', '用户刚补充：李澈救下沈微这一幕也必须保留。', 2,
+        summarized: 0);
+    insertMessage('msg_noise_direct', '用户提到宗门远景可以多一点云雾。', 3,
+        summarized: 0);
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_lizhe',
+        '李澈角色设定',
+        '李澈是寒山少主，必须保持正派，不能反派化。',
+        now + 4,
+        embeddingJson('李澈是寒山少主，必须保持正派，不能反派化。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['msg_summary_1', 'msg_summary_2']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('["summary_lizhe"]'),
+    ];
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '李澈正派救下沈微',
+    );
+
+    expect(records.map((item) => item.id),
+        ['msg_summary_1', 'msg_summary_2', 'msg_recent_direct']);
+    expect(gateway.textCallCount, 1);
+  });
+
   test('AgentMemoryService deepRetrieve 无 summary 时直接检索原始 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(

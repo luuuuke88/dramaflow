@@ -208,6 +208,16 @@ class AgentMemoryService {
           item.$2,
       ];
     }
+    final directMatches = _rankMessageCandidates(
+      isolationKey: isolationKey,
+      normalized: normalized,
+      tokens: tokens,
+      queryEmbedding: queryEmbedding,
+      onlyUnsummarized: true,
+    ).take(settings.ragLimit);
+    for (final message in directMatches) {
+      if (!ids.contains(message.$2.id)) ids.add(message.$2.id);
+    }
 
     final placeholders = List.filled(ids.length, '?').join(',');
     final rows = db.select(
@@ -224,11 +234,13 @@ class AgentMemoryService {
     required String normalized,
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
+    bool onlyUnsummarized = false,
   }) {
     if (normalized.isEmpty) return const [];
     final messages = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? '
+      '${onlyUnsummarized ? 'AND summarized=0 ' : ''}'
       'ORDER BY createTime DESC, id DESC',
       [isolationKey, agentMemoryTypeMessage],
     );
