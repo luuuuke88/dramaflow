@@ -120,14 +120,19 @@ class AgentMemoryService {
     return id;
   }
 
-  AgentMemoryContext get({
+  Future<AgentMemoryContext> get({
     required String isolationKey,
     required String query,
-  }) {
+    CancelToken? cancelToken,
+  }) async {
     final settings = readSettings();
     final related = settings.ragLimit <= 0
         ? const <AgentMemoryEntry>[]
-        : deepRetrieve(isolationKey: isolationKey, keyword: query)
+        : (await deepRetrieve(
+            isolationKey: isolationKey,
+            keyword: query,
+            cancelToken: cancelToken,
+          ))
             .take(settings.ragLimit)
             .toList();
     final summaries = settings.summaryLimit <= 0
@@ -160,14 +165,56 @@ class AgentMemoryService {
     );
   }
 
-  List<AgentMemoryEntry> deepRetrieve({
+  Future<List<AgentMemoryEntry>> deepRetrieve({
     required String isolationKey,
     required String keyword,
-  }) {
+    CancelToken? cancelToken,
+  }) async {
     final settings = readSettings();
     final normalized = normalizeMemoryText(keyword);
     final tokens = memorySearchTokens(normalized);
     final queryEmbedding = memoryEmbeddingFromText(normalized);
+    final scored = _rankSummaryCandidates(
+      isolationKey: isolationKey,
+      normalized: normalized,
+      tokens: tokens,
+      queryEmbedding: queryEmbedding,
+    );
+    final localCandidates = [
+      for (final item in scored.take(settings.deepRetrieveSummaryLimit))
+        item.$2,
+    ];
+    final selectedSummaries = await _llmFilterSummaries(
+      keyword: keyword,
+      candidates: localCandidates,
+      cancelToken: cancelToken,
+    );
+    final summaries = selectedSummaries ?? localCandidates;
+
+    final ids = <String>[];
+    for (final summary in summaries) {
+      for (final id in summary.relatedMessageIds) {
+        if (!ids.contains(id)) ids.add(id);
+      }
+    }
+    if (ids.isEmpty) return const [];
+
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final rows = db.select(
+      'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
+      'FROM memories WHERE isolationKey=? AND type=? AND id IN ($placeholders) '
+      'ORDER BY createTime ASC, id ASC',
+      [isolationKey, agentMemoryTypeMessage, ...ids],
+    );
+    return [for (final row in rows) AgentMemoryEntry.fromRow(row)];
+  }
+
+  List<(int, AgentMemoryEntry)> _rankSummaryCandidates({
+    required String isolationKey,
+    required String normalized,
+    required Set<String> tokens,
+    required Map<String, int> queryEmbedding,
+  }) {
     final summaries = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? '
@@ -203,23 +250,48 @@ class AgentMemoryService {
       if (byScore != 0) return byScore;
       return b.$2.createdAt.compareTo(a.$2.createdAt);
     });
+    return scored;
+  }
 
-    final ids = <String>[];
-    for (final item in scored.take(settings.deepRetrieveSummaryLimit)) {
-      for (final id in item.$2.relatedMessageIds) {
-        if (!ids.contains(id)) ids.add(id);
-      }
+  Future<List<AgentMemoryEntry>?> _llmFilterSummaries({
+    required String keyword,
+    required List<AgentMemoryEntry> candidates,
+    CancelToken? cancelToken,
+  }) async {
+    if (candidates.isEmpty) return const [];
+    try {
+      final result = await gateway.generateText(
+        '你是短剧 Agent 的 deepRetrieve 记忆判别器。'
+        '请从候选历史摘要中选择与检索关键词真正相关的摘要 id。'
+        '只返回 JSON 字符串数组，例如 ["summary_1"]；不相关则返回 []。',
+        [
+          '检索关键词：$keyword',
+          '',
+          '候选摘要：',
+          for (final candidate in candidates)
+            jsonEncode({
+              'id': candidate.id,
+              'name': candidate.name,
+              'content': candidate.content,
+            }),
+        ].join('\n'),
+        stage: summaryStage,
+        cancelToken: cancelToken,
+      );
+      final ids = _parseSelectedSummaryIds(result.content, candidates);
+      if (ids == null) return null;
+      if (ids.isEmpty) return const [];
+      final byId = {
+        for (final candidate in candidates) candidate.id: candidate
+      };
+      return [
+        for (final candidate in candidates)
+          if (ids.contains(candidate.id) && byId.containsKey(candidate.id))
+            candidate,
+      ];
+    } catch (_) {
+      return null;
     }
-    if (ids.isEmpty) return const [];
-
-    final placeholders = List.filled(ids.length, '?').join(',');
-    final rows = db.select(
-      'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
-      'FROM memories WHERE isolationKey=? AND type=? AND id IN ($placeholders) '
-      'ORDER BY createTime ASC, id ASC',
-      [isolationKey, agentMemoryTypeMessage, ...ids],
-    );
-    return [for (final row in rows) AgentMemoryEntry.fromRow(row)];
   }
 
   AgentMemorySettings readSettings() => AgentMemorySettings(
@@ -421,6 +493,44 @@ Map<String, int> _decodeMemoryEmbedding(String value) {
   } catch (_) {
     return const {};
   }
+}
+
+Set<String>? _parseSelectedSummaryIds(
+  String source,
+  List<AgentMemoryEntry> candidates,
+) {
+  final allowed = {for (final candidate in candidates) candidate.id};
+  final selected = <String>{};
+  final trimmed = source.trim();
+  if (trimmed.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is List) {
+      for (final item in decoded) {
+        final id = '$item'.trim();
+        if (allowed.contains(id)) selected.add(id);
+      }
+      return selected;
+    }
+    if (decoded is Map) {
+      final ids =
+          decoded['ids'] ?? decoded['summaryIds'] ?? decoded['selected'];
+      if (ids is List) {
+        for (final item in ids) {
+          final id = '$item'.trim();
+          if (allowed.contains(id)) selected.add(id);
+        }
+        return selected;
+      }
+      return null;
+    }
+  } catch (_) {
+    // Fall through to tolerant id matching for model responses with prose.
+  }
+  for (final id in allowed) {
+    if (trimmed.contains(id)) selected.add(id);
+  }
+  return selected.isEmpty ? null : selected;
 }
 
 List<String> _decodeStringList(Object? value) {

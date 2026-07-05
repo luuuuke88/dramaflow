@@ -632,7 +632,87 @@ void main() {
     expect(msg.content, contains('不能把李澈写成反派'));
   });
 
-  test('AgentMemoryService get 返回相关记忆、历史摘要和近期对话', () {
+  test('AgentMemoryService deepRetrieve 先由 LLM 判别 summary 再展开原始 message',
+      () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          '',
+          'scriptAgent:$projectId',
+          '[]',
+          offset.isEven ? agentRoleUser : agentRoleAssistant,
+          1,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('msg_relevant_1', '用户强调寒山少主李澈必须保持正派。', 0);
+    insertMessage('msg_relevant_2', '助手确认李澈不能被写成反派。', 1);
+    insertMessage('msg_noise_1', '用户提到寒山宗门夜色适合做远景。', 2);
+    insertMessage('msg_noise_2', '助手确认只把它作为场景气氛。', 3);
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_relevant',
+        '李澈角色设定',
+        '寒山少主李澈是正派角色，不能反派化。',
+        now + 4,
+        embeddingJson('寒山少主李澈是正派角色，不能反派化。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['msg_relevant_1', 'msg_relevant_2']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_noise',
+        '寒山场景气氛',
+        '寒山宗门夜色适合作为远景气氛。',
+        now + 5,
+        embeddingJson('寒山宗门夜色适合作为远景气氛。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['msg_noise_1', 'msg_noise_2']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('["summary_relevant"]'),
+    ];
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '寒山李澈是否能反派化',
+    );
+
+    expect(
+        records.map((item) => item.id), ['msg_relevant_1', 'msg_relevant_2']);
+    expect(gateway.textCallCount, 1);
+  });
+
+  test('AgentMemoryService get 返回相关记忆、历史摘要和近期对话', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
       db,
@@ -716,7 +796,7 @@ void main() {
       ],
     );
 
-    final context = service.get(
+    final context = await service.get(
       isolationKey: 'scriptAgent:$projectId',
       query: '寒山李澈',
     );

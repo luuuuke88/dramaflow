@@ -986,7 +986,7 @@ extension AgentApi on Engine {
     final conversationKey = _agentConversationIsolationKey(projectId);
     final system = _agentSystemPrompt(
       searchAgentMemories(projectId, text, limit: _agentRagLimit()),
-      context: memoryService.get(
+      context: await memoryService.get(
         isolationKey: conversationKey,
         query: text,
       ),
@@ -1144,7 +1144,7 @@ extension AgentApi on Engine {
           final keyword =
               (args['keyword'] ?? args['query'] ?? '').toString().trim();
           if (keyword.isEmpty) return '缺少 keyword 参数。';
-          final records = _agentMemoryService().deepRetrieve(
+          final records = await _agentMemoryService().deepRetrieve(
             isolationKey: _agentConversationIsolationKey(projectId),
             keyword: keyword,
           );
