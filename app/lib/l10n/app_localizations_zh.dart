@@ -2115,6 +2115,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentRagLimitInvalid => '请输入 0-50 之间的整数';
 
   @override
+  String get agentSupervisionTitle => '监督模式';
+
+  @override
+  String get agentSupervisionHelp =>
+      '开启后，决策 Agent 的工具调用会先交给对应监督 Agent 复核；监督拒绝时不会提交任务。';
+
+  @override
+  String get agentSupervisionOn => '开启';
+
+  @override
+  String get agentSupervisionOff => '关闭';
+
+  @override
+  String get agentSupervisionSaved => '监督模式已保存';
+
+  @override
   String get cornerScapeSearchHint => '搜索角色名称';
 
   @override

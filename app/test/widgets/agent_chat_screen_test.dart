@@ -218,6 +218,31 @@ void main() {
     expect(find.text('自动连跑'), findsOneWidget);
   });
 
+  testWidgets('记忆页可启停监督模式并在重建后恢复', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+    expect(engine.agentSupervisionEnabled(), isFalse);
+    expect(find.text('监督模式'), findsOneWidget);
+    expect(find.text('关闭'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('agent-supervision-switch')));
+    await tester.pumpAndSettle();
+
+    expect(engine.agentSupervisionEnabled(), isTrue);
+    expect(find.text('开启'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('开启'), findsOneWidget);
+  });
+
   testWidgets('Agent 体系页展示部署配置、技能列表与记忆管理', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();

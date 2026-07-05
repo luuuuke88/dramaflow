@@ -2129,6 +2129,22 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentRagLimitInvalid => '0-50 の整数を入力してください';
 
   @override
+  String get agentSupervisionTitle => '監督モード';
+
+  @override
+  String get agentSupervisionHelp =>
+      '有効にすると、決定 Agent が選んだツール呼び出しを対応する監督 Agent が先に確認します。拒否された呼び出しはタスクを送信しません。';
+
+  @override
+  String get agentSupervisionOn => 'オン';
+
+  @override
+  String get agentSupervisionOff => 'オフ';
+
+  @override
+  String get agentSupervisionSaved => '監督モードを保存しました';
+
+  @override
   String get cornerScapeSearchHint => 'キャラクター名を検索';
 
   @override

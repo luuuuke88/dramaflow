@@ -1174,6 +1174,8 @@ class _AgentMemoryPane extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _AgentSupervisionCard(onChanged: onChanged),
+        const SizedBox(height: 12),
         _AgentRagLimitCard(onChanged: onChanged),
         const SizedBox(height: 18),
         Row(children: [
@@ -1282,6 +1284,76 @@ class _AgentMemoryPane extends ConsumerWidget {
               ),
             ),
       ],
+    );
+  }
+}
+
+class _AgentSupervisionCard extends ConsumerWidget {
+  final VoidCallback onChanged;
+  const _AgentSupervisionCard({required this.onChanged});
+
+  Future<void> _setEnabled(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
+    final l10n = context.l10n;
+    await runAction(
+      context,
+      ref,
+      () async {
+        ref.read(engineProvider).setAgentSupervisionEnabled(enabled);
+        onChanged();
+      },
+      successMessage: l10n.agentSupervisionSaved,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final enabled = ref.watch(engineProvider).agentSupervisionEnabled();
+    return Material(
+      color: df.surface,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: df.stroke),
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: SwitchListTile(
+          key: const ValueKey('agent-supervision-switch'),
+          contentPadding: EdgeInsets.zero,
+          value: enabled,
+          onChanged: (value) => _setEnabled(context, ref, value),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.agentSupervisionTitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: df.textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                enabled ? l10n.agentSupervisionOn : l10n.agentSupervisionOff,
+                style: TextStyle(fontSize: 12, color: df.textTertiary),
+              ),
+            ],
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              l10n.agentSupervisionHelp,
+              style: TextStyle(fontSize: 12, color: df.textTertiary),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

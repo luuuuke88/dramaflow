@@ -4168,6 +4168,36 @@ abstract class AppLocalizations {
   /// **'请输入 0-50 之间的整数'**
   String get agentRagLimitInvalid;
 
+  /// No description provided for @agentSupervisionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'监督模式'**
+  String get agentSupervisionTitle;
+
+  /// No description provided for @agentSupervisionHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启后，决策 Agent 的工具调用会先交给对应监督 Agent 复核；监督拒绝时不会提交任务。'**
+  String get agentSupervisionHelp;
+
+  /// No description provided for @agentSupervisionOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启'**
+  String get agentSupervisionOn;
+
+  /// No description provided for @agentSupervisionOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get agentSupervisionOff;
+
+  /// No description provided for @agentSupervisionSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'监督模式已保存'**
+  String get agentSupervisionSaved;
+
   /// No description provided for @cornerScapeSearchHint.
   ///
   /// In zh, this message translates to:

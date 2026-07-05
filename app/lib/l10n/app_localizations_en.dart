@@ -2185,6 +2185,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentRagLimitInvalid => 'Enter an integer from 0 to 50';
 
   @override
+  String get agentSupervisionTitle => 'Supervision mode';
+
+  @override
+  String get agentSupervisionHelp =>
+      'When enabled, tool calls selected by the decision Agent are reviewed by the matching supervision Agent first. Rejected calls do not submit tasks.';
+
+  @override
+  String get agentSupervisionOn => 'On';
+
+  @override
+  String get agentSupervisionOff => 'Off';
+
+  @override
+  String get agentSupervisionSaved => 'Supervision mode saved';
+
+  @override
   String get cornerScapeSearchHint => 'Search role name';
 
   @override
