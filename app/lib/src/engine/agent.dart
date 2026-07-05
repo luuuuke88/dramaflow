@@ -435,6 +435,7 @@ class _CustomAgentSkillRuntime {
         _scope[name] = _evaluate(assignment.group(2)!);
         continue;
       }
+      if (trimmed == 'return') return const _CustomJsReturnValue(null);
       if (trimmed.startsWith('return ')) {
         final result = _evaluate(trimmed.substring('return '.length));
         return _CustomJsReturnValue(result);
@@ -958,6 +959,14 @@ class _CustomAgentSkillRuntime {
           index++;
         }
         return filtered;
+      case 'forEach':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        var index = 0;
+        for (final item in value) {
+          _evaluateCallback(method, args.single, item, index);
+          index++;
+        }
+        return null;
       case 'find':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         var index = 0;
@@ -1260,24 +1269,15 @@ class _CustomAgentSkillRuntime {
   }
 
   Object? _evaluateCallbackBody(String method, String body) {
-    final returnExpression = _callbackBlockReturnExpression(method, body);
-    return _evaluate(returnExpression ?? body);
-  }
-
-  String? _callbackBlockReturnExpression(String method, String body) {
     final inner = _literalInner(body.trim(), '{', '}');
-    if (inner == null) return null;
-    final statements = _splitStatements(inner)
-        .map((statement) => statement.trim())
-        .where((statement) => statement.isNotEmpty)
-        .toList();
-    if (statements.length != 1 || !statements.single.startsWith('return ')) {
-      throw EngineException(errLlmFormat, {
-        'reason': 'custom_skill_callback_block',
-        'method': method,
-      });
-    }
-    return statements.single.substring('return '.length).trim();
+    if (inner == null) return _evaluate(body);
+    final result = _runStatements(inner);
+    if (result is _CustomJsReturnValue) return result.value;
+    if (result == null) return null;
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_callback_block',
+      'method': method,
+    });
   }
 
   bool _isValidCallbackParam(String param) {

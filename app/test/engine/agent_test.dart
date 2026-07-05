@@ -1890,6 +1890,61 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 forEach 块状回调累计结果', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_foreach_runtime',
+      name: 'forEach 累计脚本运行时',
+      description: '验证自定义技能兼容模型常写的 forEach + push 块状回调。',
+      script: r'''
+const selected = [];
+args.storyboards.forEach((shot, index) => {
+  if (shot.disabled || !shot.videoDesc?.trim()) {
+    return;
+  }
+  selected.push(`${index + 1}.${shot.videoDesc.trim()}:${shot.duration ?? 1}s`);
+});
+return `可生成分镜：${selected.join('、')}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_foreach_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 ', 'duration': 3},
+          {'videoDesc': '跳过镜头', 'duration': 2, 'disabled': true},
+          {'videoDesc': '李澈拔剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 forEach 累计脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_foreach_runtime');
+    expect(msg.content, '可生成分镜：1.雪夜山门:3s、3.李澈拔剑:1s');
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',
@@ -3233,8 +3288,7 @@ return `参考图：${refs}`;
     expect(typesFor(otherIsolationKey), [agentMemoryTypeMessage]);
   });
 
-  test('AgentMemoryService get 普通 RAG 直接检索 message 而不展开 summary',
-      () async {
+  test('AgentMemoryService get 普通 RAG 直接检索 message 而不展开 summary', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
       db,
@@ -3302,8 +3356,8 @@ return `参考图：${refs}`;
       query: '李澈正派',
     );
 
-    expect(context.relatedMessages.map((item) => item.id),
-        ['rag_relevant_msg']);
+    expect(
+        context.relatedMessages.map((item) => item.id), ['rag_relevant_msg']);
     expect(gateway.textCallCount, 0);
   });
 
@@ -3363,8 +3417,8 @@ return `参考图：${refs}`;
       query: '李澈正派',
     );
 
-    expect(context.relatedMessages.map((item) => item.id),
-        ['rag_relevant_msg']);
+    expect(
+        context.relatedMessages.map((item) => item.id), ['rag_relevant_msg']);
     expect(gateway.textCallCount, 1);
     expect(gateway.textStages, ['scriptAgent:decisionAgent']);
   });
