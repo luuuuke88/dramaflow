@@ -717,8 +717,12 @@ Set<String>? _parseSelectedSummaryIds(
       return selected;
     }
     if (decoded is Map) {
-      final ids =
-          decoded['ids'] ?? decoded['summaryIds'] ?? decoded['selected'];
+      final ids = decoded['ids'] ??
+          decoded['summaryIds'] ??
+          decoded['summary_ids'] ??
+          decoded['relevantSummaryIds'] ??
+          decoded['relevant_summary_ids'] ??
+          decoded['selected'];
       if (ids is List) {
         for (final item in ids) {
           final id = '$item'.trim();
@@ -762,7 +766,13 @@ List<String>? _parseSelectedMemoryIds(
     if (decoded is Map) {
       final ids = decoded['ids'] ??
           decoded['messageIds'] ??
+          decoded['message_ids'] ??
           decoded['memoryIds'] ??
+          decoded['memory_ids'] ??
+          decoded['relevantMessageIds'] ??
+          decoded['relevant_message_ids'] ??
+          decoded['relevantMemoryIds'] ??
+          decoded['relevant_memory_ids'] ??
           decoded['selected'];
       if (ids is List) {
         for (final item in ids) {

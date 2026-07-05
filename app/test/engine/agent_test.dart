@@ -4215,6 +4215,83 @@ description: >-
     expect(gateway.textCallCount, 1);
   });
 
+  test('AgentMemoryService deepRetrieve 支持结构化 relevant_summary_ids 输出',
+      () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          offset.isEven ? agentRoleUser : agentRoleAssistant,
+          1,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('msg_relevant', '用户强调李澈必须保持正派，不能被写成反派。', 0);
+    insertMessage('msg_noise', '用户提到寒山远景可以多一点云雾。', 1);
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_relevant',
+        '李澈角色设定',
+        '李澈必须保持正派，不能反派化。',
+        now + 2,
+        embeddingJson('李澈必须保持正派，不能反派化。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['msg_relevant']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_noise',
+        '寒山场景设定',
+        '寒山远景适合云雾和夜色。',
+        now + 3,
+        embeddingJson('寒山远景适合云雾和夜色。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['msg_noise']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('{"relevant_summary_ids":["summary_relevant"]}'),
+    ];
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '寒山李澈正派',
+    );
+
+    expect(records.map((item) => item.id), ['msg_relevant']);
+    expect(gateway.textCallCount, 1);
+  });
+
   test('AgentMemoryService deepRetrieve 可直接返回没有来源消息的相关 summary', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
