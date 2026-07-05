@@ -1493,6 +1493,39 @@ return `参考图：${refs}`;
     expect(activated.content, isNot(contains('---')));
   });
 
+  test('SkillRuntime activate_skill lists bundled Markdown resources',
+      () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '技能正文：短剧台词要短。',
+      extraFiles: {
+        'references/rules.md': '规则：每句台词不超过二十字。',
+        'references/tone.md': '语气：克制。',
+      },
+    );
+    engine.saveMarkdownAgentSkill(filePath: skillFile.path);
+
+    final activated = engine.activateAgentSkill('style_polisher');
+    expect(activated.resourceFiles, [
+      'references/rules.md',
+      'references/tone.md',
+    ]);
+
+    gateway.turns = [
+      AgentTurnResult.tool('activate_skill', const {'name': 'style_polisher'}),
+    ];
+    await engine.sendAgentMessage(projectId, '激活文风技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'activate_skill');
+    expect(msg.content, contains('使用 read_skill_file 工具读取资源文件。'));
+    expect(msg.content, contains('<skill_resources>'));
+    expect(msg.content, contains('<file>references/rules.md</file>'));
+    expect(msg.content, contains('<file>references/tone.md</file>'));
+    expect(msg.content, contains('</skill_resources>'));
+  });
+
   test('SkillRuntime read_skill_file reads only files under skill root', () {
     final skillFile = _writeSkillFixture(
       dir,

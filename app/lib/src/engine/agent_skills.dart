@@ -26,6 +26,7 @@ class AgentSkillActivation {
   final String description;
   final String content;
   final String filePath;
+  final List<String> resourceFiles;
 
   const AgentSkillActivation({
     required this.id,
@@ -33,6 +34,7 @@ class AgentSkillActivation {
     required this.description,
     required this.content,
     required this.filePath,
+    this.resourceFiles = const [],
   });
 }
 
@@ -97,6 +99,24 @@ String readAgentSkillFileUnderRoot(String skillFilePath, String relativePath) {
     throw EngineException(errLlmFormat, {'reason': '技能文件不存在：$relativePath'});
   }
   return file.readAsStringSync();
+}
+
+List<String> listAgentSkillResourceFiles(String skillFilePath) {
+  final root = p.normalize(p.absolute(File(skillFilePath).parent.path));
+  final mainFile = p.normalize(p.absolute(skillFilePath));
+  final dir = Directory(root);
+  if (!dir.existsSync()) return const [];
+
+  final files = <String>[];
+  for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+    if (entity is! File) continue;
+    final filePath = p.normalize(p.absolute(entity.path));
+    if (filePath == mainFile || !p.isWithin(root, filePath)) continue;
+    if (p.extension(filePath).toLowerCase() != '.md') continue;
+    files.add(p.relative(filePath, from: root).replaceAll('\\', '/'));
+  }
+  files.sort();
+  return files;
 }
 
 Map<String, String> _parseFrontmatter(List<String> lines) {

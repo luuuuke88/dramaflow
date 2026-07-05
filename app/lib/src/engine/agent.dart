@@ -1817,6 +1817,7 @@ extension AgentApi on Engine {
       description: row['description'] as String? ?? parsed.description,
       content: parsed.body,
       filePath: filePath,
+      resourceFiles: listAgentSkillResourceFiles(filePath),
     );
   }
 
@@ -1826,6 +1827,23 @@ extension AgentApi on Engine {
       row['path'] as String? ?? '',
       relativePath,
     );
+  }
+
+  String _formatActivatedAgentSkill(AgentSkillActivation skill) {
+    if (skill.resourceFiles.isEmpty) {
+      return '已激活技能 ${skill.name}：\n${skill.content}';
+    }
+    final buffer = StringBuffer()
+      ..writeln('已激活技能 ${skill.name}：')
+      ..writeln(skill.content.trimRight())
+      ..writeln()
+      ..writeln('使用 read_skill_file 工具读取资源文件。')
+      ..writeln('<skill_resources>');
+    for (final file in skill.resourceFiles) {
+      buffer.writeln('  <file>$file</file>');
+    }
+    buffer.write('</skill_resources>');
+    return buffer.toString();
   }
 
   Map<String, Object?> _markdownSkillRow(String name) {
@@ -2885,7 +2903,7 @@ extension AgentApi on Engine {
               (args['name'] ?? args['skillName'] ?? '').toString().trim();
           if (skillName.isEmpty) return '缺少 name 参数。';
           final skill = activateAgentSkill(skillName);
-          return '已激活技能 ${skill.name}：\n${skill.content}';
+          return _formatActivatedAgentSkill(skill);
         case 'read_skill_file':
           var skillName =
               (args['name'] ?? args['skillName'] ?? '').toString().trim();
