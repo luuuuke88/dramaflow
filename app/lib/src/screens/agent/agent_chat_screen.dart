@@ -1,7 +1,5 @@
-// 剧本 Agent 对话页（照抄 scriptAgent 页交互形态，见 P5 参照与 spec §4 决策）：
-// 消息列表 + 输入框 + 手动/自动模式切换 + 清空记忆 + 内置能力说明。
-// 每次工具调用都是已有真实流水线动作，全部经 o_tasks 队列（任务中心可查可重试），
-// 不做多层子代理编排与向量 RAG 记忆——这是 spec 明确的简化范围，非缺陷。
+// Agent 对话页：承载 ToonFlow 风格 scriptAgent / productionAgent 分层配置，
+// 对话、部署、技能、记忆逐步接到 engine 内的 Agent/RAG parity 实现。
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -397,13 +395,14 @@ class _AgentDeployRowState extends ConsumerState<_AgentDeployRow> {
     _modelValue = value != null && optionValues.contains(value) ? value : null;
   }
 
-  String _stageTitle(AppLocalizations l10n, String key) => switch (key) {
+  String _stageTitle(AppLocalizations l10n, AgentDeployment deployment) =>
+      switch (deployment.key) {
         'script_gen' => l10n.stageScriptGenTitle,
         'event_extract' => l10n.stageEventExtractTitle,
         'asset_extract' => l10n.stageAssetExtractTitle,
         'storyboard_gen' => l10n.stageStoryboardGenTitle,
         'video_prompt_gen' => l10n.stageVideoPromptGenTitle,
-        _ => key,
+        _ => deployment.name,
       };
 
   Future<void> _save() async {
@@ -444,7 +443,7 @@ class _AgentDeployRowState extends ConsumerState<_AgentDeployRow> {
           final title = Row(children: [
             Expanded(
               child: Text(
-                _stageTitle(l10n, widget.deployment.key),
+                _stageTitle(l10n, widget.deployment),
                 style:
                     const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),

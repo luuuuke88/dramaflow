@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -235,6 +236,67 @@ void main() {
     expect(msg.content, '项目$projectId:寒山');
   });
 
+  test(
+      'Agent stage registry seeds ToonFlow script/production families without dropping pipeline keys',
+      () {
+    final keys = engine.agentDeployments().map((item) => item.key).toList();
+
+    expect(
+      keys,
+      containsAllInOrder([
+        'scriptAgent',
+        'scriptAgent:decisionAgent',
+        'scriptAgent:storySkeletonAgent',
+        'scriptAgent:adaptationStrategyAgent',
+        'scriptAgent:scriptAgent',
+        'scriptAgent:supervisionAgent',
+        'productionAgent',
+        'productionAgent:decisionAgent',
+        'productionAgent:deriveAssetsAgent',
+        'productionAgent:generateAssetsAgent',
+        'productionAgent:directorPlanAgent',
+        'productionAgent:storyboardGenAgent',
+        'productionAgent:storyboardPanelAgent',
+        'productionAgent:storyboardTableAgent',
+        'productionAgent:supervisionAgent',
+      ]),
+    );
+    expect(
+      keys,
+      containsAll([
+        'script_gen',
+        'event_extract',
+        'asset_extract',
+        'storyboard_gen',
+        'video_prompt_gen',
+      ]),
+    );
+  });
+
+  test(
+      'ToonFlow Agent stage resolves through fallback text binding when deployment row is empty or disabled',
+      () async {
+    final provider = await engine.createProvider(
+      name: 'azt',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'gpt-5.5',
+        'label': 'gpt-5.5',
+        'kind': 'text',
+        'enabled': true,
+      },
+    ]);
+    await engine.setBinding('script_gen', provider.id, 'gpt-5.5');
+
+    final resolved = resolveAgentStage(db, 'scriptAgent:decisionAgent');
+    expect(resolved.providerId, provider.id);
+    expect(resolved.modelId, 'gpt-5.5');
+  });
+
   test('Agent 部署配置 seed 自阶段绑定，保存后 resolveAgentStage 优先使用部署模型与参数', () async {
     final provider = await engine.createProvider(
       name: 'azt',
@@ -350,14 +412,116 @@ void main() {
     row = db.select('SELECT embedding FROM memories WHERE id=?', [id]).single;
     expect(row['embedding'], isNot(''), reason: '旧记忆检索时应回填本地 embedding');
   });
+
+  test('Agent 记忆：对话写入 memories message 并达到阈值生成 summary', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '2'],
+    );
+    gateway.turns = [const AgentTurnResult.text('我会记住寒山设定。')];
+    gateway.textResults = [
+      const TextResult('用户让助手记住寒山设定，助手确认。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '记住：寒山少主李澈不能写成反派',
+        autoMode: false);
+
+    final messageRows = db.select(
+      'SELECT id,role,content,summarized FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    expect(messageRows, hasLength(2));
+    expect(messageRows.map((row) => row['role']),
+        [agentRoleUser, agentRoleAssistant]);
+    expect(messageRows.first['content'], contains('寒山少主李澈'));
+    expect(messageRows.last['content'], '我会记住寒山设定。');
+    expect(messageRows.map((row) => row['summarized']), [1, 1]);
+
+    final summary = db.select(
+      'SELECT content,relatedMessageIds FROM memories '
+      'WHERE isolationKey=? AND type=?',
+      ['scriptAgent:$projectId', 'summary'],
+    ).single;
+    expect(summary['content'], '用户让助手记住寒山设定，助手确认。');
+    expect(jsonDecode(summary['relatedMessageIds'] as String), hasLength(2));
+  });
+
+  test('Agent 记忆：deepRetrieve 工具从 summary 展开原始 message', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'msg_user',
+        '',
+        '用户强调寒山少主李澈外冷内热。',
+        now,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'msg_assistant',
+        '',
+        '助手确认后续剧本不能把李澈写成反派。',
+        now + 1,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_hanshan',
+        '寒山设定摘要',
+        '寒山少主李澈外冷内热，不能写成反派。',
+        now + 2,
+        '',
+        'scriptAgent:$projectId',
+        jsonEncode(['msg_user', 'msg_assistant']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {'keyword': '寒山'}),
+    ];
+
+    await engine.sendAgentMessage(projectId, '找一下寒山相关记忆', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    expect(msg.content, contains('用户强调寒山少主李澈外冷内热'));
+    expect(msg.content, contains('不能把李澈写成反派'));
+  });
 }
 
 class _Gateway implements ProviderGateway {
   List<AgentTurnResult> turns = const [];
+  List<TextResult> textResults = const [];
   List<AgentToolDef> lastTools = const [];
   String lastSystem = '';
   List<Map<String, String>> lastMessages = const [];
   int callCount = 0;
+  int textCallCount = 0;
   bool shouldThrow = false;
 
   @override
@@ -379,8 +543,15 @@ class _Gateway implements ProviderGateway {
 
   @override
   Future<TextResult> generateText(String system, String user,
-          {required String stage, CancelToken? cancelToken}) async =>
-      const TextResult('');
+      {required String stage, CancelToken? cancelToken}) async {
+    if (textCallCount < textResults.length) {
+      final result = textResults[textCallCount];
+      textCallCount++;
+      return result;
+    }
+    textCallCount++;
+    return const TextResult('');
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

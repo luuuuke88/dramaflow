@@ -1,17 +1,12 @@
-// Agent 体系（P5，瘦身版，见 docs/reference 与 spec §4 决策）：
-// ToonFlow 的真实 Agent 是多层 Claude 子代理编排 + 向量 RAG 记忆，体量巨大且与本项目
-// "显式流水线可见可恢复"的核心设计相悖。DramaFlow 按 spec 既定决策做单层 AgentRunner：
-// 工具调用 1:1 映射到已有真实流水线动作（事件/资产/分镜/图片/视频/配音），每次调用都走
-// 现有 o_tasks 队列，绝不出现"对话框说做了但任务表查无此事"。
-// 记忆：短期消息历史存 o_agentWorkData.data（key='agentChat'，project 级）；
-// 长期记忆以本地 note 形式存 memories 表，并用轻量词面检索注入 Agent 上下文。
-// 这不是 ToonFlow 完整向量 RAG，但保留本地可编辑、可检索、可替换的接口边界。
-// 执行模式对应 ToonFlow 的 auto/manual：manual 每轮只执行一个工具调用后等待用户确认；
-// auto 在安全轮次上限内连续执行工具链。
+// Agent 体系正在按 ToonFlow 的 scriptAgent / productionAgent 分层形态推进。
+// 当前文件保留旧 UI/API 入口，并逐步把 stage registry、记忆、技能和 orchestrator
+// 拆到独立纯 Dart 模块。所有会生成媒体或改业务表的动作仍走现有 engine API 与 o_tasks。
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import 'agent_memory.dart';
+import 'agent_stage_registry.dart';
 import 'audio_bind.dart';
 import 'compose_episode.dart';
 import 'engine.dart';
@@ -31,6 +26,7 @@ const _maxAutoTurns = 5;
 const _defaultAgentRagLimit = 3;
 const _agentMemoryRole = 'agent';
 const _agentMemoryType = 'note';
+const _scriptAgentFamily = 'scriptAgent';
 
 class AgentMessage {
   final String role;
@@ -77,6 +73,9 @@ class AgentSkill {
 class AgentDeployment {
   final String key;
   final String name;
+  final String family;
+  final String role;
+  final String fallbackStage;
   final String vendorId;
   final String modelName;
   final int maxOutputTokens;
@@ -85,6 +84,9 @@ class AgentDeployment {
   const AgentDeployment({
     required this.key,
     required this.name,
+    required this.family,
+    required this.role,
+    required this.fallbackStage,
     required this.vendorId,
     required this.modelName,
     required this.maxOutputTokens,
@@ -128,15 +130,20 @@ class AgentMemoryRecord {
 const _agentSkillType = 'builtin-agent';
 const _customAgentSkillType = 'custom-js-agent';
 const _agentDeploymentType = 'agent-stage';
-const _agentDeploymentKeys = [
-  'script_gen',
-  'event_extract',
-  'asset_extract',
-  'storyboard_gen',
-  'video_prompt_gen',
-];
 
 final _tools = <AgentToolDef>[
+  const AgentToolDef(
+    name: 'deepRetrieve',
+    description: '按关键词深度召回 Agent 历史摘要，并展开相关原始对话消息。'
+        '用于找回较早的角色设定、剧情约束、制作决策。',
+    schema: {
+      'type': 'object',
+      'properties': {
+        'keyword': {'type': 'string'},
+      },
+      'required': ['keyword'],
+    },
+  ),
   const AgentToolDef(
     name: 'get_status',
     description: '查看项目当前进度（章节/事件/剧本/资产/分镜/配音各阶段完成情况），'
@@ -249,6 +256,14 @@ Map<String, dynamic> _skillSchema(Object? raw) {
 
 extension AgentApi on Engine {
   String _agentMemoryIsolationKey(int projectId) => 'project:$projectId';
+  String _agentConversationIsolationKey(int projectId) =>
+      '$_scriptAgentFamily:$projectId';
+
+  AgentMemoryService _agentMemoryService() => AgentMemoryService(
+        db,
+        gateway,
+        summaryStage: 'scriptAgent:decisionAgent',
+      );
 
   List<AgentToolDef> get agentTools {
     final skills = agentSkills();
@@ -385,28 +400,32 @@ extension AgentApi on Engine {
   }
 
   void _ensureAgentDeploymentsSeeded() {
-    for (final key in _agentDeploymentKeys) {
-      final exists =
-          db.select('SELECT id FROM o_agentDeploy WHERE key=? LIMIT 1', [key]);
+    for (final definition in agentStageDefinitions) {
+      final exists = db.select(
+        'SELECT id FROM o_agentDeploy WHERE key=? LIMIT 1',
+        [definition.key],
+      );
       if (exists.isNotEmpty) continue;
-      final binding = db.select('SELECT value FROM o_setting WHERE key=?',
-          ['binding.$key']).firstOrNull?['value'] as String?;
+      final binding = db.select(
+        'SELECT value FROM o_setting WHERE key=?',
+        ['binding.${definition.fallbackStage}'],
+      ).firstOrNull?['value'] as String?;
       final split = _splitBinding(binding);
       db.execute(
         'INSERT INTO o_agentDeploy '
         '(key,name,desc,type,vendorId,modelName,model,disabled,maxOutputTokens,temperature) '
         'VALUES (?,?,?,?,?,?,?,?,?,?)',
         [
-          key,
-          key,
+          definition.key,
+          definition.name,
           '',
           _agentDeploymentType,
           split.$1,
           split.$2,
           split.$1.isEmpty || split.$2.isEmpty ? '' : '${split.$1}:${split.$2}',
           0,
-          8000,
-          70,
+          definition.defaultMaxOutputTokens,
+          definition.defaultTemperature,
         ],
       );
     }
@@ -414,28 +433,38 @@ extension AgentApi on Engine {
 
   List<AgentDeployment> agentDeployments() {
     _ensureAgentDeploymentsSeeded();
+    final rows = db
+        .select(
+          'SELECT key,name,vendorId,modelName,disabled,maxOutputTokens,temperature '
+          'FROM o_agentDeploy WHERE key IN (${List.filled(agentStageKeys.length, '?').join(',')})',
+          agentStageKeys,
+        )
+        .toList()
+      ..sort((a, b) => agentStageSortOrder(a['key'] as String)
+          .compareTo(agentStageSortOrder(b['key'] as String)));
     return [
-      for (final row in db.select(
-        'SELECT key,name,vendorId,modelName,disabled,maxOutputTokens,temperature '
-        'FROM o_agentDeploy WHERE key IN (${List.filled(_agentDeploymentKeys.length, '?').join(',')}) '
-        'ORDER BY CASE key '
-        "WHEN 'script_gen' THEN 0 "
-        "WHEN 'event_extract' THEN 1 "
-        "WHEN 'asset_extract' THEN 2 "
-        "WHEN 'storyboard_gen' THEN 3 "
-        "WHEN 'video_prompt_gen' THEN 4 ELSE 99 END",
-        _agentDeploymentKeys,
-      ))
-        AgentDeployment(
-          key: row['key'] as String,
-          name: row['name'] as String? ?? row['key'] as String,
-          vendorId: row['vendorId'] as String? ?? '',
-          modelName: row['modelName'] as String? ?? '',
-          maxOutputTokens: row['maxOutputTokens'] as int? ?? 8000,
-          temperature: row['temperature'] as int? ?? 70,
-          disabled: _truthy(row['disabled']),
-        ),
+      for (final row in rows) _deploymentFromRow(row),
     ];
+  }
+
+  AgentDeployment _deploymentFromRow(Map<String, Object?> row) {
+    final key = row['key'] as String;
+    final definition = agentStageDefinition(key);
+    return AgentDeployment(
+      key: key,
+      name: row['name'] as String? ?? definition?.name ?? key,
+      family: definition?.family ?? 'custom',
+      role: definition?.role ?? 'custom',
+      fallbackStage: definition?.fallbackStage ?? key,
+      vendorId: row['vendorId'] as String? ?? '',
+      modelName: row['modelName'] as String? ?? '',
+      maxOutputTokens: row['maxOutputTokens'] as int? ??
+          definition?.defaultMaxOutputTokens ??
+          8000,
+      temperature:
+          row['temperature'] as int? ?? definition?.defaultTemperature ?? 70,
+      disabled: _truthy(row['disabled']),
+    );
   }
 
   void updateAgentDeployment(
@@ -446,7 +475,8 @@ extension AgentApi on Engine {
     int? temperature,
     bool? disabled,
   }) {
-    if (!_agentDeploymentKeys.contains(key)) {
+    final definition = agentStageDefinition(key);
+    if (definition == null) {
       throw EngineException(errModelMissing, {'stage': key});
     }
     _ensureAgentDeploymentsSeeded();
@@ -464,12 +494,16 @@ extension AgentApi on Engine {
         });
       }
     }
-    final nextMaxTokens =
-        (maxOutputTokens ?? row['maxOutputTokens'] as int? ?? 8000)
-            .clamp(256, 64000)
-            .toInt();
-    final nextTemperature =
-        (temperature ?? row['temperature'] as int? ?? 70).clamp(0, 200).toInt();
+    final nextMaxTokens = (maxOutputTokens ??
+            row['maxOutputTokens'] as int? ??
+            definition.defaultMaxOutputTokens)
+        .clamp(256, 64000)
+        .toInt();
+    final nextTemperature = (temperature ??
+            row['temperature'] as int? ??
+            definition.defaultTemperature)
+        .clamp(0, 200)
+        .toInt();
     db.execute(
       'UPDATE o_agentDeploy SET vendorId=?, modelName=?, model=?, disabled=?, '
       'maxOutputTokens=?, temperature=? WHERE key=?',
@@ -786,6 +820,11 @@ extension AgentApi on Engine {
     messages
         .add(AgentMessage(role: agentRoleUser, content: text, createdAt: now));
     _saveAgentMessages(projectId, messages);
+    await _recordAgentMemory(
+      projectId,
+      role: agentRoleUser,
+      content: text,
+    );
 
     final system = _agentSystemPrompt(
       searchAgentMemories(projectId, text, limit: _agentRagLimit()),
@@ -830,6 +869,11 @@ extension AgentApi on Engine {
             content: result.text ?? '',
             createdAt: DateTime.now().millisecondsSinceEpoch));
         _saveAgentMessages(projectId, messages);
+        await _recordAgentMemory(
+          projectId,
+          role: agentRoleAssistant,
+          content: result.text ?? '',
+        );
         return;
       }
 
@@ -842,6 +886,27 @@ extension AgentApi on Engine {
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
       _saveAgentMessages(projectId, messages);
+      await _recordAgentMemory(
+        projectId,
+        role: agentRoleTool,
+        content: summary,
+      );
+    }
+  }
+
+  Future<void> _recordAgentMemory(
+    int projectId, {
+    required String role,
+    required String content,
+  }) async {
+    try {
+      await _agentMemoryService().add(
+        isolationKey: _agentConversationIsolationKey(projectId),
+        role: role,
+        content: content,
+      );
+    } catch (_) {
+      // 记忆写入不能阻断主制作流程；失败仍会在对话历史里保留可见消息。
     }
   }
 
@@ -865,6 +930,18 @@ extension AgentApi on Engine {
       int projectId, String name, Map<String, dynamic> args) async {
     try {
       switch (name) {
+        case 'deepRetrieve':
+          final keyword =
+              (args['keyword'] ?? args['query'] ?? '').toString().trim();
+          if (keyword.isEmpty) return '缺少 keyword 参数。';
+          final records = _agentMemoryService().deepRetrieve(
+            isolationKey: _agentConversationIsolationKey(projectId),
+            keyword: keyword,
+          );
+          if (records.isEmpty) return '未找到相关历史记忆。';
+          return [
+            for (final record in records) '${record.role}: ${record.content}',
+          ].join('\n');
         case 'get_status':
           return _statusSummary(projectId);
         case 'generate_events':

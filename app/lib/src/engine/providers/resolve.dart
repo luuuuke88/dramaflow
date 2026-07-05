@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqlite3/sqlite3.dart';
 
+import '../agent_stage_registry.dart';
 import '../util.dart';
 
 const stageKindByStage = {
@@ -112,19 +113,20 @@ ResolvedModel resolveStage(Database db, String stage) {
 /// Agent 体系页的部署配置：优先读取 `o_agentDeploy` 中启用的 stage 覆盖，
 /// 否则回退到普通 `binding.<stage>`，保持旧流水线可运行。
 ResolvedModel resolveAgentStage(Database db, String stage) {
+  final fallbackStage = agentStageFallback(stage);
   final rows = db.select(
     'SELECT vendorId,modelName,disabled,maxOutputTokens,temperature '
     'FROM o_agentDeploy WHERE key=? LIMIT 1',
     [stage],
   );
   if (rows.isEmpty || _disabled(rows.first['disabled'])) {
-    return resolveStage(db, stage);
+    return resolveStage(db, fallbackStage);
   }
   final row = rows.first;
   final providerId = (row['vendorId'] as String?)?.trim() ?? '';
   final modelName = (row['modelName'] as String?)?.trim() ?? '';
   if (providerId.isEmpty || modelName.isEmpty) {
-    return resolveStage(db, stage);
+    return resolveStage(db, fallbackStage);
   }
   return resolveModelById(db, providerId, modelName).copyWith(
     maxOutputTokens: row['maxOutputTokens'] as int?,

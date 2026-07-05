@@ -210,6 +210,8 @@ void main() {
 
     await tester.tap(find.text('技能'));
     await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -360));
+    await tester.pumpAndSettle();
     expect(find.text('generate_events'), findsOneWidget);
     expect(find.textContaining('为章节生成事件摘要'), findsOneWidget);
 
@@ -240,6 +242,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -360));
     await tester.pumpAndSettle();
     await tester
         .tap(find.byKey(const ValueKey('agent-skill-edit-generate_events')));
@@ -437,29 +441,34 @@ void main() {
 
     await tester.tap(find.text('部署'));
     await tester.pumpAndSettle();
-    expect(find.text('剧本生成'), findsOneWidget);
+    expect(find.text('剧本决策 Agent'), findsOneWidget);
     expect(find.textContaining('gpt-5.5'), findsWidgets);
 
-    await tester
-        .tap(find.byKey(const ValueKey('agent-deploy-model-script_gen')));
+    await tester.tap(find
+        .byKey(const ValueKey('agent-deploy-model-scriptAgent:decisionAgent')));
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('gpt-5.4-mini').last);
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const ValueKey('agent-deploy-max-tokens-script_gen')),
+      find.byKey(
+          const ValueKey('agent-deploy-max-tokens-scriptAgent:decisionAgent')),
       '1200',
     );
     await tester.enterText(
-      find.byKey(const ValueKey('agent-deploy-temperature-script_gen')),
+      find.byKey(
+          const ValueKey('agent-deploy-temperature-scriptAgent:decisionAgent')),
       '35',
     );
-    await tester
-        .tap(find.byKey(const ValueKey('agent-deploy-save-script_gen')));
+    await tester.ensureVisible(find
+        .byKey(const ValueKey('agent-deploy-save-scriptAgent:decisionAgent')));
+    await tester.pumpAndSettle();
+    await tester.tap(find
+        .byKey(const ValueKey('agent-deploy-save-scriptAgent:decisionAgent')));
     await tester.pumpAndSettle();
 
     final deployment = engine
         .agentDeployments()
-        .singleWhere((item) => item.key == 'script_gen');
+        .singleWhere((item) => item.key == 'scriptAgent:decisionAgent');
     expect(deployment.modelName, 'gpt-5.4-mini');
     expect(deployment.maxOutputTokens, 1200);
     expect(deployment.temperature, 35);
