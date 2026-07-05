@@ -5207,6 +5207,9 @@ extension AgentApi on Engine {
                   'role': record.role,
                   if (record.sourceSummaryIds.isNotEmpty)
                     'sourceSummaryIds': record.sourceSummaryIds,
+                  if (record.score != null) 'score': record.score,
+                  if (record.matchedTokens.isNotEmpty)
+                    'matchedTokens': record.matchedTokens,
                   'content': record.content,
                 },
             ],

@@ -4603,13 +4603,15 @@ description: >-
     expect(payload['records'], isA<List>());
     final records = payload['records'] as List;
     expect(records, hasLength(1));
-    expect(records.single, {
-      'id': 'trace_msg_user',
-      'type': agentMemoryTypeMessage,
-      'role': agentRoleUser,
-      'sourceSummaryIds': ['trace_summary_lizhe'],
-      'content': '用户强调寒山少主李澈必须保持正派。',
-    });
+    final record = records.single as Map<String, dynamic>;
+    expect(record['id'], 'trace_msg_user');
+    expect(record['type'], agentMemoryTypeMessage);
+    expect(record['role'], agentRoleUser);
+    expect(record['sourceSummaryIds'], ['trace_summary_lizhe']);
+    expect(record['content'], '用户强调寒山少主李澈必须保持正派。');
+    expect(record['score'], isA<int>());
+    expect(record['score'], greaterThan(0));
+    expect(record['matchedTokens'], containsAll(['李澈', '正派']));
   });
 
   test('AgentMemoryService deepRetrieve 先由 LLM 判别 summary 再展开原始 message',

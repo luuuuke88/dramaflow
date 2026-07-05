@@ -20,6 +20,8 @@ class AgentMemoryEntry {
   final String type;
   final List<String> relatedMessageIds;
   final List<String> sourceSummaryIds;
+  final int? score;
+  final List<String> matchedTokens;
 
   const AgentMemoryEntry({
     required this.id,
@@ -31,6 +33,8 @@ class AgentMemoryEntry {
     required this.type,
     this.relatedMessageIds = const [],
     this.sourceSummaryIds = const [],
+    this.score,
+    this.matchedTokens = const [],
   });
 
   factory AgentMemoryEntry.fromRow(Map<String, Object?> row) =>
@@ -48,6 +52,8 @@ class AgentMemoryEntry {
   AgentMemoryEntry copyWith({
     String? embedding,
     List<String>? sourceSummaryIds,
+    int? score,
+    List<String>? matchedTokens,
   }) =>
       AgentMemoryEntry(
         id: id,
@@ -59,6 +65,8 @@ class AgentMemoryEntry {
         type: type,
         relatedMessageIds: relatedMessageIds,
         sourceSummaryIds: sourceSummaryIds ?? this.sourceSummaryIds,
+        score: score ?? this.score,
+        matchedTokens: matchedTokens ?? this.matchedTokens,
       );
 }
 
@@ -280,9 +288,14 @@ class AgentMemoryService {
     );
     final expanded = [
       for (final row in rows)
-        AgentMemoryEntry.fromRow(row).copyWith(
-          sourceSummaryIds:
-              sourceSummaryIdsByMessageId[row['id'] as String] ?? const [],
+        _withTrace(
+          AgentMemoryEntry.fromRow(row).copyWith(
+            sourceSummaryIds:
+                sourceSummaryIdsByMessageId[row['id'] as String] ?? const [],
+          ),
+          normalized: normalized,
+          tokens: tokens,
+          queryEmbedding: queryEmbedding,
         ),
     ];
     if (expanded.isEmpty && summaries.isNotEmpty) return summaries;
@@ -361,7 +374,16 @@ class AgentMemoryService {
       }
       final score = memoryScore(entry.name, entry.content, normalized, tokens,
           queryEmbedding, entry.embedding);
-      if (score > 0) scored.add((score, entry));
+      if (score > 0) {
+        scored.add((
+          score,
+          entry.copyWith(
+            score: score,
+            matchedTokens: memoryMatchedTokens(
+                entry.name, entry.content, normalized, tokens),
+          ),
+        ));
+      }
     }
     scored.sort((a, b) {
       final byScore = b.$1.compareTo(a.$1);
@@ -396,7 +418,16 @@ class AgentMemoryService {
       }
       final score = memoryScore(entry.name, entry.content, normalized, tokens,
           queryEmbedding, entry.embedding);
-      if (score > 0) scored.add((score, entry));
+      if (score > 0) {
+        scored.add((
+          score,
+          entry.copyWith(
+            score: score,
+            matchedTokens: memoryMatchedTokens(
+                entry.name, entry.content, normalized, tokens),
+          ),
+        ));
+      }
     }
     scored.sort((a, b) {
       final byScore = b.$1.compareTo(a.$1);
@@ -404,6 +435,27 @@ class AgentMemoryService {
       return b.$2.createdAt.compareTo(a.$2.createdAt);
     });
     return scored;
+  }
+
+  AgentMemoryEntry _withTrace(
+    AgentMemoryEntry entry, {
+    required String normalized,
+    required Set<String> tokens,
+    required Map<String, int> queryEmbedding,
+  }) {
+    final score = memoryScore(
+      entry.name,
+      entry.content,
+      normalized,
+      tokens,
+      queryEmbedding,
+      entry.embedding,
+    );
+    return entry.copyWith(
+      score: score,
+      matchedTokens:
+          memoryMatchedTokens(entry.name, entry.content, normalized, tokens),
+    );
   }
 
   Future<List<AgentMemoryEntry>?> _llmFilterSummaries({
@@ -681,6 +733,27 @@ int memoryScore(
   }
   score += _embeddingScore(queryEmbedding, _decodeMemoryEmbedding(embedding));
   return score;
+}
+
+List<String> memoryMatchedTokens(
+  String name,
+  String content,
+  String query,
+  Set<String> tokens,
+) {
+  final haystack = normalizeMemoryText('$name\n$content');
+  final matched = <String>[];
+  void add(String value) {
+    final token = value.trim();
+    if (token.length <= 1 || matched.contains(token)) return;
+    if (haystack.contains(token)) matched.add(token);
+  }
+
+  if (query.isNotEmpty) add(query);
+  for (final token in tokens) {
+    add(token);
+  }
+  return matched;
 }
 
 int _embeddingScore(Map<String, int> query, Map<String, int> memory) {
