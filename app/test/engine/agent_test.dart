@@ -3704,6 +3704,69 @@ return labels.join('、');
     expect(msg.content, 'role:李澈/沈微、scene:寒山宗门');
   });
 
+  test('自定义脚本技能：支持对象属性和数组索引赋值', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_property_assignment_runtime',
+      name: '属性赋值脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 grouped[type] = [] 和 asset.priority = index。',
+      script: r'''
+const grouped = {};
+const ordered = [];
+for (const asset of args.assets) {
+  const type = asset.type;
+  if (!grouped[type]) {
+    grouped[type] = [];
+  }
+  asset.priority = grouped[type].length + 1;
+  grouped[type].push(`${asset.priority}.${asset.name.trim()}`);
+}
+ordered[0] = grouped.role.join('/');
+ordered[1] = grouped.scene.join('/');
+return JSON.stringify({
+  role: ordered[0],
+  scene: ordered[1],
+  roleCount: grouped.role.length,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_property_assignment_runtime', const {
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 '},
+          {'type': 'scene', 'name': '寒山宗门'},
+          {'type': 'role', 'name': ' 沈微 '},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用属性赋值脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_property_assignment_runtime');
+    expect(jsonDecode(msg.content), {
+      'role': '1.李澈/2.沈微',
+      'scene': '1.寒山宗门',
+      'roleCount': 2,
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(

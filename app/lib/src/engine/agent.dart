@@ -343,6 +343,19 @@ Map<String, dynamic> _skillSchema(Object? raw) {
   }
 }
 
+Object? _customJsMutableValue(Object? value) {
+  if (value is Map) {
+    return <String, Object?>{
+      for (final entry in value.entries)
+        '${entry.key}': _customJsMutableValue(entry.value),
+    };
+  }
+  if (value is Iterable && value is! String) {
+    return [for (final item in value) _customJsMutableValue(item)];
+  }
+  return value;
+}
+
 // 受限 JS-like 解释器：只开放 projectId/args 和少量纯表达式，避免自定义技能触达系统资源。
 class _CustomAgentSkillRuntime {
   final Map<String, Object?> _scope;
@@ -352,7 +365,7 @@ class _CustomAgentSkillRuntime {
     required Map<String, dynamic> args,
   }) : _scope = {
           'projectId': projectId,
-          'args': args,
+          'args': _customJsMutableValue(args),
           'Array': const _CustomJsBuiltin('Array'),
           'JSON': const _CustomJsBuiltin('JSON'),
           'Math': const _CustomJsBuiltin('Math'),
@@ -539,6 +552,7 @@ class _CustomAgentSkillRuntime {
         continue;
       }
       if (_runVariableUpdate(trimmed)) continue;
+      if (_runMemberAssignment(trimmed)) continue;
       final assignment = RegExp(
         r'^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$',
       ).firstMatch(trimmed);
@@ -834,6 +848,110 @@ class _CustomAgentSkillRuntime {
       return true;
     }
     return false;
+  }
+
+  bool _runMemberAssignment(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    final equals = _findTopLevelDefaultEquals(source);
+    if (equals < 0) return false;
+    final left = source.substring(0, equals).trim();
+    final right = source.substring(equals + 1).trim();
+    if (left.isEmpty || right.isEmpty) return false;
+    final identifier = _readIdentifier(left, 0);
+    if (identifier != null && identifier.end == left.length) return false;
+    final target = _readAssignmentTarget(left);
+    if (target == null) return false;
+    _writeAssignmentTarget(target, _evaluate(right));
+    return true;
+  }
+
+  _CustomJsAssignmentTarget? _readAssignmentTarget(String expression) {
+    final source = expression.trim();
+    final first = _readIdentifier(source, 0);
+    if (first == null) return null;
+    if (!_scope.containsKey(first.text)) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_unknown_variable',
+        'expression': first.text,
+      });
+    }
+    var value = _scope[first.text];
+    var index = first.end;
+    while (true) {
+      index = _skipWhitespace(source, index);
+      if (index >= source.length) break;
+      if (source.startsWith('?.', index)) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_assignment_target',
+          'expression': expression,
+        });
+      }
+      Object? key;
+      if (source[index] == '.') {
+        final prop = _readIdentifier(source, index + 1);
+        if (prop == null) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_property',
+            'expression': expression,
+          });
+        }
+        key = prop.text;
+        index = prop.end;
+      } else if (source[index] == '[') {
+        final item = _readBalanced(source, index, '[', ']');
+        key = _evaluate(item.text);
+        index = item.end;
+      } else {
+        return null;
+      }
+      final next = _skipWhitespace(source, index);
+      if (next >= source.length) {
+        return _CustomJsAssignmentTarget(container: value, key: key);
+      }
+      value = _readIndexOrProperty(value, key);
+      index = next;
+    }
+    return null;
+  }
+
+  Object? _readIndexOrProperty(Object? value, Object? key) {
+    if (key is String) return _readProperty(value, key);
+    return _readIndex(value, key);
+  }
+
+  void _writeAssignmentTarget(
+    _CustomJsAssignmentTarget target,
+    Object? value,
+  ) {
+    final container = target.container;
+    final key = target.key;
+    if (container is Map) {
+      container['$key'] = value;
+      return;
+    }
+    if (container is List) {
+      final index = _assignmentListIndex(key);
+      while (container.length <= index) {
+        container.add(null);
+      }
+      container[index] = value;
+      return;
+    }
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_assignment_target',
+      'key': '$key',
+    });
+  }
+
+  int _assignmentListIndex(Object? key) {
+    final index = key is num ? key.toInt() : int.tryParse('${key ?? ''}');
+    if (index == null || index < 0) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_assignment_index',
+        'key': '$key',
+      });
+    }
+    return index;
   }
 
   void _updateNumericVariable(String name, num delta) {
@@ -2421,6 +2539,16 @@ class _CustomJsRegExp {
   final bool global;
 
   const _CustomJsRegExp(this.regExp, {required this.global});
+}
+
+class _CustomJsAssignmentTarget {
+  final Object? container;
+  final Object? key;
+
+  const _CustomJsAssignmentTarget({
+    required this.container,
+    required this.key,
+  });
 }
 
 abstract class _CustomJsStatementResult {
