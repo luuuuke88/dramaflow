@@ -1129,7 +1129,11 @@ class _CustomAgentSkillRuntime {
         );
       case 'includes':
         if (args.length != 1) _badMethodArgs(method);
-        return '${value ?? ''}'.contains('${_evaluate(args.single) ?? ''}');
+        final needle = _evaluate(args.single);
+        if (value is Iterable && value is! String) {
+          return value.any((item) => _compareValues(item, needle, '==='));
+        }
+        return '${value ?? ''}'.contains('${needle ?? ''}');
       case 'match':
         if (args.length != 1) _badMethodArgs(method);
         return _matchString('${value ?? ''}', _evaluate(args.single));

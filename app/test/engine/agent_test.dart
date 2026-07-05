@@ -3000,6 +3000,70 @@ return `参考图：${refs}`;
     expect(msg.content, '参考图：1.李澈正脸、1.寒山宗门、2.沈微侧脸');
   });
 
+  test('自定义脚本技能：支持数组 includes 按 id 选择资产', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_includes_runtime',
+      name: '数组包含脚本运行时',
+      description: '验证自定义技能兼容模型常写的 selectedIds.includes(asset.id)。',
+      script: r'''
+const selectedNames = args.assets
+  .filter(asset => args.selectedIds.includes(asset.id))
+  .map(asset => asset.name.trim())
+  .join('、');
+const hasMissing = args.selectedIds.includes(999);
+return JSON.stringify({
+  selectedNames,
+  hasMissing,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'selectedIds': {
+            'type': 'array',
+            'items': {'type': 'number'},
+          },
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'id': {'type': 'number'},
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_includes_runtime', const {
+        'selectedIds': [10, 103],
+        'assets': [
+          {'id': 1, 'name': '误匹配角色'},
+          {'id': 10, 'name': ' 李澈 '},
+          {'id': 103, 'name': ' 沈微 '},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组包含脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_includes_runtime');
+    expect(jsonDecode(msg.content), {
+      'selectedNames': '李澈、沈微',
+      'hasMissing': false,
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
