@@ -397,7 +397,7 @@ class _CustomAgentSkillRuntime {
           final call = _readBalanced(expression, index, '(', ')');
           final args = _splitTopLevel(call.text, ',')
               .where((part) => part.trim().isNotEmpty)
-              .map(_evaluate)
+              .map((part) => part.trim())
               .toList();
           value = _callMethod(value, prop.text, args);
           index = call.end;
@@ -425,7 +425,7 @@ class _CustomAgentSkillRuntime {
     return value;
   }
 
-  Object? _callMethod(Object? value, String method, List<Object?> args) {
+  Object? _callMethod(Object? value, String method, List<String> args) {
     switch (method) {
       case 'trim':
         _expectNoArgs(method, args);
@@ -441,12 +441,83 @@ class _CustomAgentSkillRuntime {
         return '${value ?? ''}';
       case 'includes':
         if (args.length != 1) _badMethodArgs(method);
-        return '${value ?? ''}'.contains('${args.single ?? ''}');
+        return '${value ?? ''}'.contains('${_evaluate(args.single) ?? ''}');
+      case 'map':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final mapped = <Object?>[];
+        var index = 0;
+        for (final item in value) {
+          mapped.add(_evaluateCallback(args.single, item, index));
+          index++;
+        }
+        return mapped;
+      case 'join':
+        if (args.length > 1 || value is! Iterable) _badMethodArgs(method);
+        final separator = args.isEmpty
+            ? ','
+            : _stringifyInterpolation(_evaluate(args.single));
+        return value.map(_stringifyInterpolation).join(separator);
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_method',
           'method': method,
         });
+    }
+  }
+
+  Object? _evaluateCallback(String callback, Object? item, int index) {
+    final arrow = _findTopLevelArrow(callback);
+    if (arrow < 0) _badMethodArgs('map');
+    final params = _parseCallbackParams(callback.substring(0, arrow), 'map');
+    final body = callback.substring(arrow + 2).trim();
+    return _withScopeBindings(
+      {
+        params[0]: item,
+        if (params.length > 1) params[1]: index,
+      },
+      () => _evaluate(body),
+    );
+  }
+
+  List<String> _parseCallbackParams(String source, String method) {
+    var params = source.trim();
+    if (params.startsWith('(') && params.endsWith(')')) {
+      params = params.substring(1, params.length - 1);
+    }
+    final names = _splitTopLevel(params, ',')
+        .map((param) => param.trim())
+        .where((param) => param.isNotEmpty)
+        .toList();
+    final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
+    if (names.isEmpty ||
+        names.length > 2 ||
+        names.any((name) => !validName.hasMatch(name))) {
+      _badMethodArgs(method);
+    }
+    return names;
+  }
+
+  T _withScopeBindings<T>(
+    Map<String, Object?> bindings,
+    T Function() evaluate,
+  ) {
+    final previous = <String, Object?>{};
+    final existed = <String, bool>{};
+    for (final entry in bindings.entries) {
+      existed[entry.key] = _scope.containsKey(entry.key);
+      previous[entry.key] = _scope[entry.key];
+      _scope[entry.key] = entry.value;
+    }
+    try {
+      return evaluate();
+    } finally {
+      for (final name in bindings.keys) {
+        if (existed[name] == true) {
+          _scope[name] = previous[name];
+        } else {
+          _scope.remove(name);
+        }
+      }
     }
   }
 
@@ -610,6 +681,48 @@ List<String> _splitTopLevel(String source, String delimiter) {
   }
   parts.add(buffer.toString());
   return parts;
+}
+
+int _findTopLevelArrow(String source) {
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length - 1; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (char == '=' &&
+        source[i + 1] == '>' &&
+        paren == 0 &&
+        bracket == 0 &&
+        brace == 0) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 _Token? _readIdentifier(String source, int start) {

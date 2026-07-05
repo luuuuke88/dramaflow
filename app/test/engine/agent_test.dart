@@ -589,6 +589,48 @@ return `项目${projectId}:${text}:${count}:${JSON.stringify(args.items)}`;
     expect(msg.content, '项目$projectId:寒山:2:["李澈","试剑"]');
   });
 
+  test('自定义脚本技能：支持数组 map 和 join 组合表达式', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_runtime',
+      name: '数组脚本运行时',
+      description: '验证自定义技能可以处理 ToonFlow 常见的数组回调脚本。',
+      script: r'''
+const names = args.items.map(item => item.name.trim()).join('、');
+return `角色：${names}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'items': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_runtime', const {
+        'items': [
+          {'name': ' 李澈 '},
+          {'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用数组脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_runtime');
+    expect(msg.content, '角色：李澈、沈微');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
