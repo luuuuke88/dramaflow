@@ -1572,23 +1572,26 @@ extension AgentApi on Engine {
     final attributionMap = attribution == null
         ? const <String, Set<String>>{}
         : _skillAttributionMap();
-    return [
-      for (final skill in skills)
-        if (_shouldExposeAgentTool(
-          skill,
-          attribution: attribution,
-          attributionMap: attributionMap,
-        ))
-          AgentToolDef(
-            name: skill.id,
-            description: skill.description.isEmpty
-                ? _defaultTool(skill.id)?.description ?? ''
-                : skill.description,
-            schema: skill.schema.isNotEmpty
-                ? skill.schema
-                : _defaultTool(skill.id)?.schema ?? const {},
-          ),
-    ];
+    final markdownSkills = _activatableMarkdownSkills(
+      skills,
+      attribution: attribution,
+      attributionMap: attributionMap,
+    );
+    final tools = <AgentToolDef>[];
+    for (final skill in skills) {
+      if (!_shouldExposeAgentTool(
+        skill,
+        attribution: attribution,
+        attributionMap: attributionMap,
+      )) {
+        continue;
+      }
+      final tool = _agentToolDef(skill);
+      tools.add(tool.name == 'activate_skill'
+          ? _activateSkillToolDef(tool, markdownSkills)
+          : tool);
+    }
+    return tools;
   }
 
   List<AgentToolDef> _agentToolsForStage(String stage) =>
@@ -1602,12 +1605,76 @@ extension AgentApi on Engine {
     if (!skill.enabled || skill.type == _markdownAgentSkillType) {
       return false;
     }
+    return _matchesSkillAttribution(
+      skill,
+      attribution: attribution,
+      attributionMap: attributionMap,
+    );
+  }
+
+  List<AgentSkill> _activatableMarkdownSkills(
+    List<AgentSkill> skills, {
+    required String? attribution,
+    required Map<String, Set<String>> attributionMap,
+  }) {
+    return [
+      for (final skill in skills)
+        if (skill.enabled &&
+            skill.type == _markdownAgentSkillType &&
+            _matchesSkillAttribution(
+              skill,
+              attribution: attribution,
+              attributionMap: attributionMap,
+            ))
+          skill,
+    ];
+  }
+
+  bool _matchesSkillAttribution(
+    AgentSkill skill, {
+    required String? attribution,
+    required Map<String, Set<String>> attributionMap,
+  }) {
     if (attribution == null) return true;
     final skillAttributions = attributionMap[skill.id];
     if (skillAttributions == null || skillAttributions.isEmpty) {
       return true;
     }
     return skillAttributions.contains(attribution);
+  }
+
+  AgentToolDef _agentToolDef(AgentSkill skill) {
+    final defaultTool = _defaultTool(skill.id);
+    return AgentToolDef(
+      name: skill.id,
+      description: skill.description.isEmpty
+          ? defaultTool?.description ?? ''
+          : skill.description,
+      schema: skill.schema.isNotEmpty
+          ? skill.schema
+          : defaultTool?.schema ?? const {},
+    );
+  }
+
+  AgentToolDef _activateSkillToolDef(
+    AgentToolDef tool,
+    List<AgentSkill> markdownSkills,
+  ) {
+    if (markdownSkills.isEmpty) return tool;
+    final names = [for (final skill in markdownSkills) skill.name];
+    final schema = Map<String, dynamic>.from(tool.schema);
+    final properties =
+        Map<String, dynamic>.from(schema['properties'] as Map? ?? const {});
+    final nameSchema =
+        Map<String, dynamic>.from(properties['name'] as Map? ?? const {});
+    nameSchema['enum'] = names;
+    properties['name'] = nameSchema;
+    schema['properties'] = properties;
+    return AgentToolDef(
+      name: tool.name,
+      description: '${tool.description} 可用技能：${names.join('、')}。',
+      schema: schema,
+    );
   }
 
   Map<String, Set<String>> _skillAttributionMap() {

@@ -1585,6 +1585,64 @@ return `参考图：${refs}`;
     expect(msg.content, '规则：每句台词不超过二十字。');
   });
 
+  test('SkillRuntime activate_skill schema lists stage-visible Markdown skills',
+      () async {
+    final scriptSkillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '剧本技能正文。',
+    );
+    final productionSkillFile = _writeSkillFixture(
+      dir,
+      id: 'director_checker',
+      body: '制作技能正文。',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: scriptSkillFile.path,
+      attribution: 'script_agent_decision',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: productionSkillFile.path,
+      attribution: 'production_agent_decision',
+    );
+
+    gateway.turns = [const AgentTurnResult.text('剧本规划已记录。')];
+    await engine.sendAgentMessage(
+      projectId,
+      '规划前三集',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    var activateTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'activate_skill');
+    var nameSchema = Map<String, dynamic>.from(
+      Map<String, dynamic>.from(
+          activateTool.schema['properties'] as Map)['name'] as Map,
+    );
+    expect(activateTool.description, contains('style_polisher'));
+    expect(activateTool.description, isNot(contains('director_checker')));
+    expect(nameSchema['enum'], ['style_polisher']);
+
+    gateway.turns = [const AgentTurnResult.text('制作规划已记录。')];
+    await engine.sendAgentMessage(
+      projectId,
+      '制作导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    activateTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'activate_skill');
+    nameSchema = Map<String, dynamic>.from(
+      Map<String, dynamic>.from(
+          activateTool.schema['properties'] as Map)['name'] as Map,
+    );
+    expect(activateTool.description, contains('director_checker'));
+    expect(activateTool.description, isNot(contains('style_polisher')));
+    expect(nameSchema['enum'], ['director_checker']);
+  });
+
   test('SkillRuntime skips repeated activate_skill content injection',
       () async {
     final skillFile = _writeSkillFixture(
