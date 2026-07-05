@@ -462,6 +462,38 @@ class _CustomAgentSkillRuntime {
         }
         continue;
       }
+      final forInStatement = _readForInStatement(trimmed);
+      if (forInStatement != null) {
+        final keys = _forInKeys(
+          _evaluate(forInStatement.objectExpression),
+          forInStatement.objectExpression,
+        );
+        var guard = 0;
+        for (final key in keys) {
+          guard++;
+          if (guard > 10000) {
+            throw EngineException(errLlmFormat, {
+              'reason': 'custom_skill_for_in_guard',
+            });
+          }
+          final bindings = <String, Object?>{};
+          _bindCallbackParam(
+            forInStatement.keyPattern,
+            key,
+            bindings,
+            'forIn',
+          );
+          final result = _withScopeBindings(
+            bindings,
+            () => _runStatements(forInStatement.body),
+          );
+          if (result is _CustomJsReturnValue) return result;
+          if (result is _CustomJsBreakValue) break;
+          if (result is _CustomJsContinueValue) continue;
+          if (result != null) return result;
+        }
+        continue;
+      }
       final forStatement = _readForStatement(trimmed);
       if (forStatement != null) {
         _runForInitializer(forStatement.initializer);
@@ -682,6 +714,36 @@ class _CustomAgentSkillRuntime {
     return _CustomJsForOfStatement(
       itemPattern: match.group(1)!.trim(),
       iterable: match.group(2)!.trim(),
+      body: body.text,
+    );
+  }
+
+  _CustomJsForInStatement? _readForInStatement(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    if (!source.startsWith('for')) return null;
+    var index = 3;
+    if (index < source.length &&
+        source[index].trim().isNotEmpty &&
+        source[index] != '(') {
+      return null;
+    }
+    index = _skipWhitespace(source, index);
+    if (index >= source.length || source[index] != '(') return null;
+    final header = _readBalanced(source, index, '(', ')');
+    final match = RegExp(
+      r'^(?:(?:const|let|var)\s+)?([\s\S]+?)\s+in\s+([\s\S]+)$',
+    ).firstMatch(header.text.trim());
+    if (match == null) return null;
+    index = _skipWhitespace(source, header.end);
+    if (index >= source.length || source[index] != '{') return null;
+    final body = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, body.end);
+    if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
+      return null;
+    }
+    return _CustomJsForInStatement(
+      keyPattern: match.group(1)!.trim(),
+      objectExpression: match.group(2)!.trim(),
       body: body.text,
     );
   }
@@ -1462,6 +1524,21 @@ class _CustomAgentSkillRuntime {
       ..removeRange(start, start + deleteCount)
       ..insertAll(start, values.skip(2));
     return removed;
+  }
+
+  List<String> _forInKeys(Object? value, String expression) {
+    if (value is Map) {
+      return [for (final key in value.keys) '$key'];
+    }
+    if (value is Iterable && value is! String) {
+      return [
+        for (var index = 0; index < value.length; index++) '$index',
+      ];
+    }
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_for_in',
+      'expression': expression,
+    });
   }
 
   void _flattenInto(List<Object?> target, Iterable source, int depth) {
@@ -2419,6 +2496,18 @@ class _CustomJsForOfStatement {
   const _CustomJsForOfStatement({
     required this.itemPattern,
     required this.iterable,
+    required this.body,
+  });
+}
+
+class _CustomJsForInStatement {
+  final String keyPattern;
+  final String objectExpression;
+  final String body;
+
+  const _CustomJsForInStatement({
+    required this.keyPattern,
+    required this.objectExpression,
     required this.body,
   });
 }

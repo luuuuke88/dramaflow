@@ -3652,6 +3652,58 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 for in 遍历对象分组', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_for_in_runtime',
+      name: '对象分组遍历脚本运行时',
+      description: '验证自定义技能兼容模型常写的 for...in 动态读取分组对象。',
+      script: r'''
+const labels = [];
+for (const type in args.groups) {
+  const items = args.groups[type];
+  if (!Array.isArray(items)) {
+    continue;
+  }
+  labels.push(`${type}:${items.map(item => item.name.trim()).join('/')}`);
+}
+return labels.join('、');
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'groups': {'type': 'object'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_for_in_runtime', const {
+        'groups': {
+          'role': [
+            {'name': ' 李澈 '},
+            {'name': '沈微'},
+          ],
+          'meta': {'version': 1},
+          'scene': [
+            {'name': '寒山宗门'},
+          ],
+        },
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用对象分组遍历脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_for_in_runtime');
+    expect(msg.content, 'role:李澈/沈微、scene:寒山宗门');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
