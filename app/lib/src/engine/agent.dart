@@ -1698,6 +1698,15 @@ class _CustomAgentSkillRuntime {
           index++;
         }
         return null;
+      case 'findIndex':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        var index = 0;
+        for (final item in value) {
+          final matched = _evaluateCallback(method, args.single, item, index);
+          if (_isTruthy(matched)) return index;
+          index++;
+        }
+        return -1;
       case 'some':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         var index = 0;

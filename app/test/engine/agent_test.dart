@@ -3315,6 +3315,66 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 findIndex 定位首个待处理分镜', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_find_index_runtime',
+      name: '分镜定位脚本运行时',
+      description: '验证自定义技能兼容模型常写的 findIndex 定位待处理分镜。',
+      script: r'''
+const draftIndex = args.storyboards.findIndex(
+  shot => !shot.prompt?.trim() && !!shot.videoDesc?.trim()
+);
+const candidate = draftIndex >= 0 ? args.storyboards[draftIndex] : null;
+return JSON.stringify({
+  draftIndex: draftIndex,
+  oneBased: draftIndex + 1,
+  desc: candidate?.videoDesc?.trim() ?? '无',
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'prompt': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_find_index_runtime', const {
+        'storyboards': [
+          {'videoDesc': '雪夜山门', 'prompt': '已有提示词'},
+          {'videoDesc': ' 李澈拔剑 ', 'prompt': ''},
+          {'videoDesc': '', 'prompt': ''},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用分镜定位脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_find_index_runtime');
+    expect(jsonDecode(msg.content), {
+      'draftIndex': 1,
+      'oneBased': 2,
+      'desc': '李澈拔剑',
+    });
+  });
+
   test('自定义脚本技能：支持 reduce 汇总分镜时长和资产名称', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_reduce_runtime',
