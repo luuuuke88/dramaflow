@@ -1287,7 +1287,7 @@ class _CustomAgentSkillRuntime {
     if (arrayDestructured != null && arrayDestructured.isNotEmpty) {
       return true;
     }
-    final objectDestructured = _objectDestructureNames(param);
+    final objectDestructured = _objectDestructureBindings(param);
     return objectDestructured != null && objectDestructured.isNotEmpty;
   }
 
@@ -1316,16 +1316,25 @@ class _CustomAgentSkillRuntime {
       _bindUniqueCallbackName(bindings, name, value, method);
       return;
     }
-    final objectNames = _objectDestructureNames(name);
-    if (objectNames != null && objectNames.isNotEmpty) {
+    final objectBindings = _objectDestructureBindings(name);
+    if (objectBindings != null && objectBindings.isNotEmpty) {
       if (value is! Map) {
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_destructure',
           'param': name,
         });
       }
-      for (final fieldName in objectNames) {
-        _bindUniqueCallbackName(bindings, fieldName, value[fieldName], method);
+      for (final binding in objectBindings) {
+        var boundValue = value[binding.fieldName];
+        if (boundValue == null && binding.defaultExpression != null) {
+          boundValue = _evaluate(binding.defaultExpression!);
+        }
+        _bindUniqueCallbackName(
+          bindings,
+          binding.bindingName,
+          boundValue,
+          method,
+        );
       }
       return;
     }
@@ -1373,19 +1382,49 @@ class _CustomAgentSkillRuntime {
     return names;
   }
 
-  List<String>? _objectDestructureNames(String param) {
+  List<_CustomJsObjectDestructureBinding>? _objectDestructureBindings(
+    String param,
+  ) {
     final source = param.trim();
     final inner = _literalInner(source, '{', '}');
     if (inner == null) return null;
+    final bindings = <_CustomJsObjectDestructureBinding>[];
+    for (final item in _splitTopLevel(inner, ',')) {
+      final trimmed = item.trim();
+      if (trimmed.isEmpty) continue;
+      final binding = _readObjectDestructureBinding(trimmed);
+      if (binding == null) return null;
+      bindings.add(binding);
+    }
+    return bindings.isEmpty ? null : bindings;
+  }
+
+  _CustomJsObjectDestructureBinding? _readObjectDestructureBinding(
+    String source,
+  ) {
     final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
-    final names = _splitTopLevel(inner, ',')
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
-    if (names.isEmpty || names.any((name) => !validName.hasMatch(name))) {
+    final colon = _findTopLevelColon(source);
+    final rawFieldName = colon < 0 ? null : source.substring(0, colon).trim();
+    var bindingSource =
+        (colon < 0 ? source : source.substring(colon + 1)).trim();
+    String? defaultExpression;
+    final equals = _findTopLevelDefaultEquals(bindingSource);
+    if (equals >= 0) {
+      defaultExpression = bindingSource.substring(equals + 1).trim();
+      bindingSource = bindingSource.substring(0, equals).trim();
+    }
+    final fieldName = rawFieldName ?? bindingSource;
+    final bindingName = colon < 0 ? fieldName : bindingSource;
+    if (!validName.hasMatch(fieldName) ||
+        !validName.hasMatch(bindingName) ||
+        defaultExpression == '') {
       return null;
     }
-    return names;
+    return _CustomJsObjectDestructureBinding(
+      fieldName: fieldName,
+      bindingName: bindingName,
+      defaultExpression: defaultExpression,
+    );
   }
 
   T _withScopeBindings<T>(
@@ -1532,6 +1571,18 @@ class _CustomJsForOfStatement {
     required this.itemPattern,
     required this.iterable,
     required this.body,
+  });
+}
+
+class _CustomJsObjectDestructureBinding {
+  final String fieldName;
+  final String bindingName;
+  final String? defaultExpression;
+
+  const _CustomJsObjectDestructureBinding({
+    required this.fieldName,
+    required this.bindingName,
+    required this.defaultExpression,
   });
 }
 
@@ -2011,6 +2062,58 @@ int _findTopLevelColon(String source) {
     if (char == ':' && paren == 0 && bracket == 0 && brace == 0) return i;
   }
   return -1;
+}
+
+int _findTopLevelDefaultEquals(String source) {
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (char == '=' &&
+        paren == 0 &&
+        bracket == 0 &&
+        brace == 0 &&
+        !_isAdjacentComparisonEquals(source, i)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+bool _isAdjacentComparisonEquals(String source, int index) {
+  return (index > 0 &&
+          (source[index - 1] == '=' ||
+              source[index - 1] == '!' ||
+              source[index - 1] == '<' ||
+              source[index - 1] == '>')) ||
+      (index + 1 < source.length &&
+          (source[index + 1] == '=' || source[index + 1] == '>'));
 }
 
 int _findTopLevelArrow(String source) {
