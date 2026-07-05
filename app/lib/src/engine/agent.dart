@@ -366,6 +366,16 @@ class _CustomAgentSkillRuntime {
           : ternary.whenFalse);
     }
 
+    final nullishParts = _splitTopLevelOperator(expr, '??');
+    if (nullishParts.length > 1) {
+      Object? last;
+      for (final part in nullishParts) {
+        last = _evaluate(part);
+        if (last != null) return last;
+      }
+      return last;
+    }
+
     final orParts = _splitTopLevelOperator(expr, '||');
     if (orParts.length > 1) {
       Object? last;
@@ -427,6 +437,37 @@ class _CustomAgentSkillRuntime {
 
     while (index < expression.length) {
       final char = expression[index];
+      if (expression.startsWith('?.[', index)) {
+        if (value == null) return null;
+        final item = _readBalanced(expression, index + 2, '[', ']');
+        final key = _evaluate(item.text);
+        value = _readIndex(value, key);
+        index = item.end;
+        continue;
+      }
+      if (expression.startsWith('?.', index)) {
+        if (value == null) return null;
+        final prop = _readIdentifier(expression, index + 2);
+        if (prop == null) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_property',
+            'expression': expression,
+          });
+        }
+        index = prop.end;
+        if (index < expression.length && expression[index] == '(') {
+          final call = _readBalanced(expression, index, '(', ')');
+          final args = _splitTopLevel(call.text, ',')
+              .where((part) => part.trim().isNotEmpty)
+              .map((part) => part.trim())
+              .toList();
+          value = _callMethod(value, prop.text, args);
+          index = call.end;
+        } else {
+          value = _readProperty(value, prop.text);
+        }
+        continue;
+      }
       if (char == '.') {
         final prop = _readIdentifier(expression, index + 1);
         if (prop == null) {

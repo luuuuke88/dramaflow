@@ -995,6 +995,67 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持可选链和空值合并 fallback', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_optional_runtime',
+      name: '可选链脚本运行时',
+      description: '验证自定义技能兼容模型常写的 ?. 和 ?? 防空写法。',
+      script: r'''
+const names = args.assets
+  ?.map(asset => asset.name?.trim() ?? '未命名')
+  .join('、') ?? '无资产';
+const firstTag = args.assets?.[0]?.tags?.[0] ?? '无标签';
+return JSON.stringify({
+  names: names,
+  firstTag: firstTag,
+  missing: args.missing?.trim() ?? '默认值',
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+                'tags': {
+                  'type': 'array',
+                  'items': {'type': 'string'},
+                },
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_optional_runtime', const {
+        'assets': [
+          {
+            'name': ' 李澈 ',
+            'tags': ['主角'],
+          },
+          <String, Object?>{},
+          {'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用可选链脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_optional_runtime');
+    expect(jsonDecode(msg.content), {
+      'names': '李澈、未命名、沈微',
+      'firstTag': '主角',
+      'missing': '默认值',
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
