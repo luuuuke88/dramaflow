@@ -415,13 +415,27 @@ class _CustomAgentSkillRuntime {
       return count.isOdd ? !truthy : truthy;
     }
 
-    final plusParts = _splitTopLevel(expr, '+');
-    if (plusParts.length > 1) {
-      final values = [for (final part in plusParts) _evaluate(part)];
-      if (values.every((value) => value is num)) {
-        return values.cast<num>().fold<num>(0, (sum, value) => sum + value);
+    final additive = _readTopLevelAdditive(expr);
+    if (additive != null) {
+      final values = [for (final part in additive.parts) _evaluate(part)];
+      if (additive.operators.every((operator) => operator == '+')) {
+        if (values.every((value) => value is num)) {
+          return values.cast<num>().fold<num>(0, (sum, value) => sum + value);
+        }
+        return values.map(_stringifyInterpolation).join();
       }
-      return values.map(_stringifyInterpolation).join();
+      if (values.any((value) => value is! num)) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_arithmetic',
+          'expression': expr,
+        });
+      }
+      var result = values.first as num;
+      for (var i = 0; i < additive.operators.length; i++) {
+        final value = values[i + 1] as num;
+        result = additive.operators[i] == '+' ? result + value : result - value;
+      }
+      return result;
     }
 
     return _evaluateChain(expr);
@@ -619,6 +633,24 @@ class _CustomAgentSkillRuntime {
           index++;
         }
         return filtered;
+      case 'sort':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final sorted = value.toList();
+        sorted.sort(
+          (a, b) => _evaluateSortComparator(method, args.single, a, b),
+        );
+        return sorted;
+      case 'slice':
+        if (value is! Iterable || args.length > 2) _badMethodArgs(method);
+        final items = value.toList();
+        final start = args.isEmpty ? 0 : _toInt(_evaluate(args.first));
+        final rawEnd =
+            args.length < 2 ? items.length : _toInt(_evaluate(args[1]));
+        final normalizedStart = _normalizeSliceIndex(start, items.length);
+        final normalizedEnd = _normalizeSliceIndex(rawEnd, items.length);
+        final end =
+            normalizedEnd < normalizedStart ? normalizedStart : normalizedEnd;
+        return items.sublist(normalizedStart, end);
       case 'join':
         if (args.length > 1 || value is! Iterable) _badMethodArgs(method);
         final separator = args.isEmpty
@@ -650,6 +682,44 @@ class _CustomAgentSkillRuntime {
       },
       () => _evaluate(body),
     );
+  }
+
+  int _evaluateSortComparator(
+    String method,
+    String callback,
+    Object? left,
+    Object? right,
+  ) {
+    final arrow = _findTopLevelArrow(callback);
+    if (arrow < 0) _badMethodArgs(method);
+    final params = _parseCallbackParams(callback.substring(0, arrow), method);
+    if (params.length != 2) _badMethodArgs(method);
+    final body = callback.substring(arrow + 2).trim();
+    final result = _withScopeBindings(
+      {
+        params[0]: left,
+        params[1]: right,
+      },
+      () => _evaluate(body),
+    );
+    if (result is num) return result.sign.toInt();
+    if (result is bool) return result ? 1 : 0;
+    return 0;
+  }
+
+  int _normalizeSliceIndex(int value, int length) {
+    final index = value < 0 ? length + value : value;
+    return index.clamp(0, length).toInt();
+  }
+
+  int _toInt(Object? value) {
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse('${value ?? ''}');
+    if (parsed != null) return parsed;
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_number',
+      'value': value,
+    });
   }
 
   bool _isTruthy(Object? value) {
@@ -817,6 +887,16 @@ class _ComparisonToken {
   });
 }
 
+class _AdditiveToken {
+  final List<String> parts;
+  final List<String> operators;
+
+  const _AdditiveToken({
+    required this.parts,
+    required this.operators,
+  });
+}
+
 class _TernaryToken {
   final String condition;
   final String whenTrue;
@@ -920,6 +1000,70 @@ List<String> _splitTopLevel(String source, String delimiter) {
   }
   parts.add(buffer.toString());
   return parts;
+}
+
+_AdditiveToken? _readTopLevelAdditive(String source) {
+  final parts = <String>[];
+  final operators = <String>[];
+  final buffer = StringBuffer();
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      buffer.write(char);
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      buffer.write(char);
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      buffer.write(char);
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      buffer.write(char);
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if ((char == '+' || char == '-') &&
+        paren == 0 &&
+        bracket == 0 &&
+        brace == 0 &&
+        !_isUnaryAdditive(source, i)) {
+      parts.add(buffer.toString());
+      operators.add(char);
+      buffer.clear();
+      continue;
+    }
+    buffer.write(char);
+  }
+  if (operators.isEmpty) return null;
+  parts.add(buffer.toString());
+  return _AdditiveToken(parts: parts, operators: operators);
+}
+
+bool _isUnaryAdditive(String source, int index) {
+  var previous = index - 1;
+  while (previous >= 0 && source[previous].trim().isEmpty) {
+    previous--;
+  }
+  if (previous < 0) return true;
+  return '([{?:,+-*/!<>=&|'.contains(source[previous]);
 }
 
 List<String> _splitTopLevelOperator(String source, String operator) {

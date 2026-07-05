@@ -1182,6 +1182,57 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 sort 和 slice 选择重点资产', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_sort_slice_runtime',
+      name: '排序截断脚本运行时',
+      description: '验证自定义技能兼容模型常写的 sort/slice 资产优先级处理。',
+      script: r'''
+const topRoles = args.assets
+  .filter(asset => asset.type === 'role')
+  .sort((a, b) => b.priority - a.priority)
+  .slice(0, 2)
+  .map((asset, index) => `${index + 1}.${asset.name.trim()}:${asset.priority}`)
+  .join('、');
+return `重点角色：${topRoles}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+                'priority': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_sort_slice_runtime', const {
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 ', 'priority': 30},
+          {'type': 'scene', 'name': '寒山宗门', 'priority': 90},
+          {'type': 'role', 'name': '沈微', 'priority': 50},
+          {'type': 'role', 'name': '掌门', 'priority': 10},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用排序截断脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_sort_slice_runtime');
+    expect(msg.content, '重点角色：1.沈微:50、2.李澈:30');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
