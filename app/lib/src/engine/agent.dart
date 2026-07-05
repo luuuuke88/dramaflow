@@ -1268,6 +1268,18 @@ class _CustomAgentSkillRuntime {
         if (value is! List) _badMethodArgs(method);
         value.addAll([for (final arg in args) _evaluate(arg)]);
         return value.length;
+      case 'concat':
+        if (value is! Iterable || value is String) _badMethodArgs(method);
+        final combined = <Object?>[...value];
+        for (final arg in args) {
+          final item = _evaluate(arg);
+          if (item is Iterable && item is! String) {
+            combined.addAll(item);
+          } else {
+            combined.add(item);
+          }
+        }
+        return combined;
       case 'map':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         final mapped = <Object?>[];
@@ -1291,6 +1303,14 @@ class _CustomAgentSkillRuntime {
           index++;
         }
         return mapped;
+      case 'flat':
+        if (args.length > 1 || value is! Iterable || value is String) {
+          _badMethodArgs(method);
+        }
+        final depth = args.isEmpty ? 1 : _toInt(_evaluate(args.single));
+        final flattened = <Object?>[];
+        _flattenInto(flattened, value, depth < 0 ? 0 : depth);
+        return flattened;
       case 'filter':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         final filtered = <Object?>[];
@@ -1358,6 +1378,11 @@ class _CustomAgentSkillRuntime {
           (a, b) => _evaluateSortComparator(method, args.single, a, b),
         );
         return sorted;
+      case 'reverse':
+        if (args.isNotEmpty || value is! Iterable || value is String) {
+          _badMethodArgs(method);
+        }
+        return value.toList().reversed.toList();
       case 'slice':
         if (args.length > 2) _badMethodArgs(method);
         if (value is String) {
@@ -1391,6 +1416,16 @@ class _CustomAgentSkillRuntime {
           'reason': 'custom_skill_method',
           'method': method,
         });
+    }
+  }
+
+  void _flattenInto(List<Object?> target, Iterable source, int depth) {
+    for (final item in source) {
+      if (depth > 0 && item is Iterable && item is! String) {
+        _flattenInto(target, item, depth - 1);
+      } else {
+        target.add(item);
+      }
     }
   }
 

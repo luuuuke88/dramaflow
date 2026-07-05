@@ -1305,6 +1305,69 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 concat flat reverse 整理多来源参考图', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_compose_runtime',
+      name: '数组组合脚本运行时',
+      description: '验证自定义技能兼容模型常写的 concat/flat/reverse 参考图整理。',
+      script: r'''
+const refs = args.roleRefs
+  .concat(args.sceneRefs, args.extraRefs)
+  .flat()
+  .filter(ref => ref.enabled !== false)
+  .reverse();
+return JSON.stringify({
+  orderedIds: refs.map(ref => ref.id).join('>'),
+  firstKind: refs[0].kind,
+  count: refs.length,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'roleRefs': {'type': 'array'},
+          'sceneRefs': {'type': 'array'},
+          'extraRefs': {'type': 'array'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_compose_runtime', const {
+        'roleRefs': [
+          {'id': 'R1', 'kind': 'role'},
+        ],
+        'sceneRefs': [
+          {'id': 'S1', 'kind': 'scene'},
+        ],
+        'extraRefs': [
+          [
+            {'id': 'T1', 'kind': 'tool', 'enabled': false},
+            {'id': 'M1', 'kind': 'mood'},
+          ],
+          [
+            {'id': 'M2', 'kind': 'mood'},
+          ],
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组组合脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_compose_runtime');
+    expect(jsonDecode(msg.content), {
+      'orderedIds': 'M2>M1>S1>R1',
+      'firstKind': 'mood',
+      'count': 4,
+    });
+  });
+
   test('自定义脚本技能：支持 Set 去重和 has/add/delete', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_set_runtime',
