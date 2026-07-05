@@ -857,10 +857,7 @@ class _CustomAgentSkillRuntime {
     final params = _parseCallbackParams(callback.substring(0, arrow), method);
     final body = callback.substring(arrow + 2).trim();
     return _withScopeBindings(
-      {
-        params[0]: item,
-        if (params.length > 1) params[1]: index,
-      },
+      _bindCallbackParams(params, [item, index], method),
       () => _evaluate(body),
     );
   }
@@ -877,12 +874,10 @@ class _CustomAgentSkillRuntime {
     final params = _parseCallbackParams(callback.substring(0, arrow), method);
     if (params.length != 2) _badMethodArgs(method);
     final body = callback.substring(arrow + 2).trim();
+    final bindings = _bindCallbackParams(params, [accumulator, item], method);
+    bindings.putIfAbsent('index', () => index);
     return _withScopeBindings(
-      {
-        params[0]: accumulator,
-        params[1]: item,
-        'index': index,
-      },
+      bindings,
       () => _evaluate(body),
     );
   }
@@ -899,10 +894,7 @@ class _CustomAgentSkillRuntime {
     if (params.length != 2) _badMethodArgs(method);
     final body = callback.substring(arrow + 2).trim();
     final result = _withScopeBindings(
-      {
-        params[0]: left,
-        params[1]: right,
-      },
+      _bindCallbackParams(params, [left, right], method),
       () => _evaluate(body),
     );
     if (result is num) return result.sign.toInt();
@@ -992,11 +984,86 @@ class _CustomAgentSkillRuntime {
         .map((param) => param.trim())
         .where((param) => param.isNotEmpty)
         .toList();
-    final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
     if (names.isEmpty ||
         names.length > 2 ||
-        names.any((name) => !validName.hasMatch(name))) {
+        names.any((name) => !_isValidCallbackParam(name))) {
       _badMethodArgs(method);
+    }
+    return names;
+  }
+
+  bool _isValidCallbackParam(String param) {
+    final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
+    if (validName.hasMatch(param)) return true;
+    final destructured = _arrayDestructureNames(param);
+    return destructured != null && destructured.isNotEmpty;
+  }
+
+  Map<String, Object?> _bindCallbackParams(
+    List<String> params,
+    List<Object?> values,
+    String method,
+  ) {
+    if (params.length > values.length) _badMethodArgs(method);
+    final bindings = <String, Object?>{};
+    for (var i = 0; i < params.length; i++) {
+      _bindCallbackParam(params[i], values[i], bindings, method);
+    }
+    return bindings;
+  }
+
+  void _bindCallbackParam(
+    String param,
+    Object? value,
+    Map<String, Object?> bindings,
+    String method,
+  ) {
+    final name = param.trim();
+    final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
+    if (validName.hasMatch(name)) {
+      _bindUniqueCallbackName(bindings, name, value, method);
+      return;
+    }
+    final names = _arrayDestructureNames(name);
+    if (names == null || names.isEmpty) _badMethodArgs(method);
+    if (value is! Iterable || value is String) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_destructure',
+        'param': name,
+      });
+    }
+    final items = value.toList();
+    for (var i = 0; i < names.length; i++) {
+      _bindUniqueCallbackName(
+        bindings,
+        names[i],
+        i < items.length ? items[i] : null,
+        method,
+      );
+    }
+  }
+
+  void _bindUniqueCallbackName(
+    Map<String, Object?> bindings,
+    String name,
+    Object? value,
+    String method,
+  ) {
+    if (bindings.containsKey(name)) _badMethodArgs(method);
+    bindings[name] = value;
+  }
+
+  List<String>? _arrayDestructureNames(String param) {
+    final source = param.trim();
+    final inner = _literalInner(source, '[', ']');
+    if (inner == null) return null;
+    final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
+    final names = _splitTopLevel(inner, ',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    if (names.isEmpty || names.any((name) => !validName.hasMatch(name))) {
+      return null;
     }
     return names;
   }

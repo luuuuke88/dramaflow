@@ -923,6 +923,61 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持回调数组解构处理 Object.entries', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_destructure_runtime',
+      name: '解构脚本运行时',
+      description: '验证自定义技能兼容模型常写的 ([key, value]) => ... 回调参数。',
+      script: r'''
+const groupSummary = Object.entries(args.groups)
+  .filter(([type, items]) => Array.isArray(items) && type !== 'meta')
+  .map(([type, items], index) => `${index + 1}.${type}:${items.map(item => item.name.trim()).join('/')}`)
+  .join('、');
+const totalRefs = Object.entries(args.groups)
+  .reduce((sum, [type, items]) => sum + (Array.isArray(items) ? items.length : 0), 0);
+return JSON.stringify({
+  groupSummary: groupSummary,
+  totalRefs: totalRefs,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'groups': {'type': 'object'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_destructure_runtime', const {
+        'groups': {
+          'role': [
+            {'name': ' 李澈 '},
+            {'name': '沈微'},
+          ],
+          'scene': [
+            {'name': ' 寒山宗门 '},
+          ],
+          'meta': {'ignored': true},
+        },
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用解构脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_destructure_runtime');
+    expect(jsonDecode(msg.content), {
+      'groupSummary': '1.role:李澈/沈微、2.scene:寒山宗门',
+      'totalRefs': 3,
+    });
+  });
+
   test('自定义脚本技能：支持括号分组逻辑表达式', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_group_runtime',
