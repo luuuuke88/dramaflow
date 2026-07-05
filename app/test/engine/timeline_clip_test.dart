@@ -240,7 +240,7 @@ void main() {
     expect(clips.singleWhere((c) => c.id == clipIdE).startMs, 900);
   });
 
-  test('resizeTimelineClipsEnd 批量裁剪尾部但不移动后续素材层', () {
+  test('resizeTimelineClipsEnd 批量裁剪尾部但不移动后续素材层且避免重叠', () {
     final clipA = clipAsset('p/batch_trim_a.mp4', 'A');
     final clipB = clipAsset('p/batch_trim_b.mp4', 'B');
     final clipC = clipAsset('p/batch_trim_c.mp4', 'C');
@@ -285,7 +285,7 @@ void main() {
 
     final clips = engine.timelineClips(scriptId);
     expect(clips.singleWhere((c) => c.id == clipIdA).durationMs, 700);
-    expect(clips.singleWhere((c) => c.id == clipIdB).durationMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdB).durationMs, 600);
     expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 900);
     expect(clips.singleWhere((c) => c.id == clipIdD).startMs, 900);
   });

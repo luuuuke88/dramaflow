@@ -729,10 +729,41 @@ extension TimelineClipApi on Engine {
         ? _minTimelineClipDurationMs
         : durationMs;
     final placeholders = List.filled(clipIds.length, '?').join(',');
-    db.execute(
-      'UPDATE o_timelineClip SET durationMs=? WHERE id IN ($placeholders)',
-      [nextDurationMs, ...clipIds],
-    );
+    final selectedRows = db
+        .select(
+          'SELECT id,scriptId,lane,startMs FROM o_timelineClip '
+          'WHERE id IN ($placeholders)',
+          clipIds,
+        )
+        .toList();
+    if (selectedRows.isEmpty) return;
+    for (final row in selectedRows) {
+      final id = row['id'] as int;
+      final scriptId = (row['scriptId'] as int?) ?? 0;
+      final lane = (row['lane'] as int?) ?? 1;
+      final startMs = (row['startMs'] as int?) ?? 0;
+      var resolvedDurationMs = nextDurationMs;
+      final blockers = db.select(
+        'SELECT startMs FROM o_timelineClip '
+        'WHERE scriptId=? AND lane=? AND id<>? '
+        'AND startMs>? ORDER BY startMs ASC LIMIT 1',
+        [scriptId, lane, id, startMs],
+      );
+      if (blockers.isNotEmpty) {
+        final blockerStart = (blockers.first['startMs'] as int?) ?? startMs;
+        final maxDurationMs = blockerStart - startMs;
+        if (maxDurationMs < resolvedDurationMs) {
+          resolvedDurationMs = maxDurationMs;
+        }
+      }
+      if (resolvedDurationMs < _minTimelineClipDurationMs) {
+        resolvedDurationMs = _minTimelineClipDurationMs;
+      }
+      db.execute(
+        'UPDATE o_timelineClip SET durationMs=? WHERE id=?',
+        [resolvedDurationMs, id],
+      );
+    }
   }
 
   void resizeTimelineClipsEndRipple({

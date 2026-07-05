@@ -3239,7 +3239,7 @@ void main() {
     expect(find.textContaining('300ms · 700ms'), findsOneWidget);
   });
 
-  testWidgets('工作台可选中多个素材层并批量裁剪尾部且不波纹移动', (tester) async {
+  testWidgets('工作台可选中多个素材层并批量裁剪尾部且不波纹移动和重叠', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
       scriptId: scriptId,
@@ -3343,11 +3343,11 @@ void main() {
 
     final clips = engine.timelineClips(scriptId);
     expect(clips.singleWhere((c) => c.id == clipIdA).durationMs, 700);
-    expect(clips.singleWhere((c) => c.id == clipIdB).durationMs, 700);
+    expect(clips.singleWhere((c) => c.id == clipIdB).durationMs, 600);
     expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 900);
     expect(clips.singleWhere((c) => c.id == clipIdD).startMs, 900);
     expect(find.textContaining('100ms · 700ms'), findsOneWidget);
-    expect(find.textContaining('300ms · 700ms'), findsOneWidget);
+    expect(find.textContaining('300ms · 600ms'), findsOneWidget);
   });
 
   testWidgets('移动端工作台：批量裁剪尾部使用全屏表单并保存', (tester) async {
