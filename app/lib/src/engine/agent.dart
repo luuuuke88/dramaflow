@@ -1459,6 +1459,23 @@ extension AgentApi on Engine {
     );
   }
 
+  bool agentSupervisionEnabled() {
+    final row = db
+        .select(
+          "SELECT value FROM o_setting WHERE key='agent.supervision.enabled'",
+        )
+        .firstOrNull;
+    final value = (row?['value'] as String? ?? '').trim().toLowerCase();
+    return const {'1', 'true', 'yes', 'on', 'auto'}.contains(value);
+  }
+
+  void setAgentSupervisionEnabled(bool enabled) {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.supervision.enabled', enabled ? '1' : '0'],
+    );
+  }
+
   /// 发送一条用户消息并驱动 Agent 执行（工具调用全部落 o_tasks，可见可恢复）。
   /// manual 模式每轮只执行一个工具调用；auto 模式在安全上限内连续执行工具链。
   Future<void> sendAgentMessage(
@@ -1547,6 +1564,30 @@ extension AgentApi on Engine {
         return;
       }
 
+      final rejection = await _reviewAgentToolCall(
+        projectId,
+        family: agentFamily,
+        toolName: result.toolName!,
+        toolArgs: result.toolArgs ?? const {},
+        messages: messages,
+      );
+      if (rejection != null) {
+        final content = '监督 Agent 已拦截 ${result.toolName}：$rejection';
+        messages.add(AgentMessage(
+          role: agentRoleAssistant,
+          content: content,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+        ));
+        _saveAgentMessages(projectId, messages, family: agentFamily);
+        await _recordAgentMemory(
+          projectId,
+          family: agentFamily,
+          role: agentRoleAssistant,
+          content: content,
+        );
+        return;
+      }
+
       final summary = await _runTool(
         projectId,
         result.toolName!,
@@ -1567,6 +1608,85 @@ extension AgentApi on Engine {
         content: summary,
       );
     }
+  }
+
+  String _agentSupervisionStage(String family) =>
+      family == _productionAgentFamily
+          ? productionAgentSupervisionStage
+          : scriptAgentSupervisionStage;
+
+  Future<String?> _reviewAgentToolCall(
+    int projectId, {
+    required String family,
+    required String toolName,
+    required Map<String, dynamic> toolArgs,
+    required List<AgentMessage> messages,
+  }) async {
+    if (!agentSupervisionEnabled()) return null;
+    final stage = _agentSupervisionStage(family);
+    final system = family == _productionAgentFamily
+        ? '你是短剧制作监督 Agent。请复核决策 Agent 即将执行的工具调用。'
+            '只允许输出 APPROVE 或 REJECT: 中文原因。'
+        : '你是短剧剧本监督 Agent。请复核决策 Agent 即将执行的工具调用。'
+            '只允许输出 APPROVE 或 REJECT: 中文原因。';
+    final recent =
+        messages.length <= 6 ? messages : messages.sublist(messages.length - 6);
+    final user = [
+      '当前项目状态：',
+      _statusSummary(projectId),
+      '',
+      '近期对话：',
+      for (final message in recent)
+        '${message.role}${message.toolName == null ? '' : '(${message.toolName})'}: '
+            '${message.content}',
+      '',
+      '候选工具调用：$toolName',
+      '候选参数：${jsonEncode(toolArgs)}',
+      '',
+      '复核规则：',
+      '1. 如果参数明显缺失、前置条件不足、用户没有授权批量/高成本动作，请输出 REJECT: 原因。',
+      '2. 如果该调用安全且符合用户意图，请输出 APPROVE。',
+    ].join('\n');
+    try {
+      final result = await gateway.generateText(system, user, stage: stage);
+      return _agentSupervisionRejection(result.content);
+    } catch (e) {
+      final ex = e is EngineException
+          ? e
+          : (e is DioException
+              ? EngineException(errNetwork, {'message': e.message})
+              : EngineException(errLlmFormat, {'message': '$e'}));
+      return '监督 Agent 调用失败：${ex.errKey}';
+    }
+  }
+
+  String? _agentSupervisionRejection(String content) {
+    final text = content.trim();
+    if (text.isEmpty) return '监督 Agent 未返回明确放行结论。';
+    final upper = text.toUpperCase();
+    if (upper.startsWith('APPROVE') ||
+        text.startsWith('同意') ||
+        text.startsWith('通过') ||
+        text.startsWith('可执行')) {
+      return null;
+    }
+    if (upper.startsWith('REJECT')) {
+      final index = text.indexOf(':');
+      if (index >= 0 && index + 1 < text.length) {
+        return text.substring(index + 1).trim();
+      }
+      final zhIndex = text.indexOf('：');
+      if (zhIndex >= 0 && zhIndex + 1 < text.length) {
+        return text.substring(zhIndex + 1).trim();
+      }
+      return '监督 Agent 拒绝执行。';
+    }
+    if (text.startsWith('拒绝') || text.startsWith('拦截')) {
+      final cleaned =
+          text.replaceFirst(RegExp(r'^(拒绝|拦截)\s*[:：]?\s*'), '').trim();
+      return cleaned.isEmpty ? '监督 Agent 拒绝执行。' : cleaned;
+    }
+    return text;
   }
 
   Future<void> _recordAgentMemory(

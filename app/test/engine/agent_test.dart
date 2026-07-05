@@ -152,6 +152,57 @@ void main() {
     );
   });
 
+  test('监督 Agent 放行后才执行决策工具调用', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.supervision.enabled', '1'],
+    );
+    final novelId = engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),
+    ]).single;
+    gateway.turns = [
+      AgentTurnResult.tool('generate_events', {
+        'novelIds': [novelId],
+      }),
+    ];
+    gateway.textResults = const [TextResult('APPROVE')];
+
+    await engine.sendAgentMessage(projectId, '生成事件', autoMode: false);
+
+    expect(gateway.textStages, ['scriptAgent:supervisionAgent']);
+    expect(engine.agentMessages(projectId).last.toolName, 'generate_events');
+    expect(
+      db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
+      contains('event_generation'),
+    );
+  });
+
+  test('监督 Agent 可拦截决策工具调用且不提交任务', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.supervision.enabled', '1'],
+    );
+    db.execute(
+      'INSERT INTO o_novel '
+      '(projectId,chapterIndex,reel,chapter,chapterData,createTime,eventState) '
+      'VALUES (?,?,?,?,?,?,0)',
+      [projectId, 1, '正文卷', '一', 'x', DateTime.now().millisecondsSinceEpoch],
+    );
+    gateway.turns = [const AgentTurnResult.tool('generate_events', {})];
+    gateway.textResults = const [
+      TextResult('REJECT: 先调用 get_status 确认章节状态。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '直接批量生成事件', autoMode: false);
+
+    expect(gateway.textStages, ['scriptAgent:supervisionAgent']);
+    expect(db.select('SELECT id FROM o_tasks'), isEmpty);
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleAssistant);
+    expect(msg.content, contains('监督 Agent 已拦截 generate_events'));
+    expect(msg.content, contains('先调用 get_status'));
+  });
+
   test('LLM 调用失败时追加带错误码的助手消息', () async {
     gateway.shouldThrow = true;
     await engine.sendAgentMessage(projectId, '你好', autoMode: false);
@@ -177,6 +228,30 @@ void main() {
           .select("SELECT value FROM o_setting WHERE key='agent.useMode'")
           .single['value'],
       'manual',
+    );
+  });
+
+  test('Agent 监督模式默认关闭且持久化到 o_setting', () {
+    expect(engine.agentSupervisionEnabled(), isFalse);
+    engine.setAgentSupervisionEnabled(true);
+    expect(engine.agentSupervisionEnabled(), isTrue);
+    expect(
+      db
+          .select(
+            "SELECT value FROM o_setting WHERE key='agent.supervision.enabled'",
+          )
+          .single['value'],
+      '1',
+    );
+    engine.setAgentSupervisionEnabled(false);
+    expect(engine.agentSupervisionEnabled(), isFalse);
+    expect(
+      db
+          .select(
+            "SELECT value FROM o_setting WHERE key='agent.supervision.enabled'",
+          )
+          .single['value'],
+      '0',
     );
   });
 
