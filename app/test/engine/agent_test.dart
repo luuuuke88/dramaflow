@@ -2058,6 +2058,64 @@ return `${name}:${storyboards.length}:${titles}`;
     expect(msg.content, '未命名项目:3:1.雪夜山门、2.李澈拔剑');
   });
 
+  test('自定义脚本技能：支持 Number 和 String 全局转换', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_global_cast_runtime',
+      name: '全局转换脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Number(...) 和 String(...) 转换。',
+      script: r'''
+const { storyboards = [], projectName = '未命名项目' } = args;
+let total = 0;
+storyboards.forEach(shot => {
+  if (!shot.videoDesc?.trim()) {
+    return;
+  }
+  total += Number(shot.duration ?? 1);
+});
+return `${String(projectName).trim()}:${total}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'projectName': {'type': 'string'},
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_global_cast_runtime', const {
+        'projectName': ' 测试短剧 ',
+        'storyboards': [
+          {'videoDesc': '雪夜山门', 'duration': '3'},
+          {'videoDesc': '', 'duration': '99'},
+          {'videoDesc': '李澈拔剑'},
+          {'videoDesc': '掌门入场', 'duration': '2.5'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用全局转换脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_global_cast_runtime');
+    expect(msg.content, '测试短剧:6.5');
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',

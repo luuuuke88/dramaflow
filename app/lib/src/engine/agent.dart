@@ -333,7 +333,9 @@ class _CustomAgentSkillRuntime {
           'args': args,
           'Array': const _CustomJsBuiltin('Array'),
           'Math': const _CustomJsBuiltin('Math'),
+          'Number': const _CustomJsBuiltin('Number'),
           'Object': const _CustomJsBuiltin('Object'),
+          'String': const _CustomJsBuiltin('String'),
         };
 
   String run(String script) {
@@ -788,6 +790,16 @@ class _CustomAgentSkillRuntime {
 
     while (index < expression.length) {
       final char = expression[index];
+      if (char == '(') {
+        final call = _readBalanced(expression, index, '(', ')');
+        final args = _splitTopLevel(call.text, ',')
+            .where((part) => part.trim().isNotEmpty)
+            .map((part) => part.trim())
+            .toList();
+        value = _callFunction(value, first.text, args);
+        index = call.end;
+        continue;
+      }
       if (expression.startsWith('?.[', index)) {
         if (value == null) return null;
         final item = _readBalanced(expression, index + 2, '[', ']');
@@ -1059,6 +1071,34 @@ class _CustomAgentSkillRuntime {
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_method',
           'method': method,
+        });
+    }
+  }
+
+  Object? _callFunction(Object? value, String name, List<String> args) {
+    if (value is _CustomJsBuiltin) {
+      return _callBuiltinFunction(value.name, args);
+    }
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_function',
+      'function': name,
+    });
+  }
+
+  Object? _callBuiltinFunction(String objectName, List<String> args) {
+    switch (objectName) {
+      case 'Number':
+        if (args.length > 1) _badMethodArgs(objectName);
+        if (args.isEmpty) return 0;
+        return _toNum(_evaluate(args.single));
+      case 'String':
+        if (args.length > 1) _badMethodArgs(objectName);
+        if (args.isEmpty) return '';
+        return _stringifyInterpolation(_evaluate(args.single));
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_builtin_function',
+          'object': objectName,
         });
     }
   }
