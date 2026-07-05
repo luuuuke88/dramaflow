@@ -5294,6 +5294,71 @@ description: >-
     expect(record['type'], agentMemoryTypeSummary);
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持按 type 召回长期 note 记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '寒山视觉手册',
+      content: '长期设定：寒山山门必须保持冷白色调和低机位压迫感。',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'note_filter_message_noise',
+        '',
+        '对话噪声：寒山山门可以临时改成暖色喜剧风。',
+        now,
+        embeddingJson('对话噪声：寒山山门可以临时改成暖色喜剧风。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        0,
+        agentMemoryTypeMessage,
+      ],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '寒山山门色调',
+        'types': ['note'],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只召回长期记忆',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final typeSchema = (deepRetrieveTool.schema['properties'] as Map)['type']
+        as Map<String, dynamic>;
+    expect(typeSchema['enum'], contains(agentMemoryTypeNote));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], [
+      '长期设定：寒山山门必须保持冷白色调和低机位压迫感。',
+    ]);
+    final records = payload['records'] as List;
+    expect(records, hasLength(1));
+    final record = records.single as Map<String, dynamic>;
+    expect(record['id'], noteId);
+    expect(record['type'], agentMemoryTypeNote);
+    expect(record['role'], 'agent');
+    expect(gateway.textCallCount, 0);
+  });
+
   test('Agent 记忆：deepRetrieve 不把当前用户消息当作历史召回结果', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

@@ -210,6 +210,7 @@ class AgentMemoryService {
     Set<String>? roles,
     Set<String>? types,
     Set<String>? excludeIds,
+    String? noteIsolationKey,
     CancelToken? cancelToken,
   }) async {
     final roleFilter = _normalizeRoleFilter(roles);
@@ -219,13 +220,34 @@ class AgentMemoryService {
         _matchesTypeFilter(agentMemoryTypeMessage, typeFilter);
     final allowSummaries =
         _matchesTypeFilter(agentMemoryTypeSummary, typeFilter);
+    final allowNotes = typeFilter?.contains(agentMemoryTypeNote) == true;
     final explicitSummaries =
         typeFilter?.contains(agentMemoryTypeSummary) == true;
-    if (!allowMessages && !allowSummaries) return const [];
+    if (!allowMessages && !allowSummaries && !allowNotes) return const [];
     final settings = readSettings();
     final normalized = normalizeMemoryText(keyword);
     final tokens = memorySearchTokens(normalized);
     final queryEmbedding = memoryEmbeddingFromText(normalized);
+    final noteMatches = allowNotes && noteIsolationKey != null
+        ? [
+            for (final item in _filterRankedEntries(
+              _rankNoteCandidates(
+                isolationKey: noteIsolationKey,
+                normalized: normalized,
+                tokens: tokens,
+                queryEmbedding: queryEmbedding,
+              ),
+              roleFilter,
+              typeFilter,
+              excludedIdFilter,
+            ).take(settings.ragLimit))
+              item.$2,
+          ]
+        : const <AgentMemoryEntry>[];
+    List<AgentMemoryEntry> withNotes(List<AgentMemoryEntry> entries) =>
+        noteMatches.isEmpty ? entries : [...noteMatches, ...entries];
+    if (!allowMessages && !allowSummaries) return noteMatches;
+
     final scored = _rankSummaryCandidates(
       isolationKey: isolationKey,
       normalized: normalized,
@@ -244,7 +266,7 @@ class AgentMemoryService {
     if (selectedSummaries != null &&
         selectedSummaries.isEmpty &&
         localCandidates.isNotEmpty) {
-      return const [];
+      return noteMatches;
     }
     final summaries = selectedSummaries ?? localCandidates;
 
@@ -268,7 +290,7 @@ class AgentMemoryService {
           queryEmbedding: queryEmbedding,
           onlyUnsummarized: true,
         );
-        return [
+        return withNotes([
           ..._filterEntries(
             summaries,
             roleFilter,
@@ -283,10 +305,10 @@ class AgentMemoryService {
               excludedIdFilter,
             ).take(settings.ragLimit))
               message.$2,
-        ];
+        ]);
       }
-      if (!allowMessages) return const [];
-      return [
+      if (!allowMessages) return noteMatches;
+      return withNotes([
         for (final item in _filterRankedEntries(
           _rankMessageCandidates(
             isolationKey: isolationKey,
@@ -300,15 +322,15 @@ class AgentMemoryService {
           excludedIdFilter,
         ).take(settings.ragLimit))
           item.$2,
-      ];
+      ]);
     }
     if (!allowMessages) {
-      return _filterEntries(
+      return withNotes(_filterEntries(
         summaries,
         roleFilter,
         typeFilter,
         excludedIdFilter,
-      );
+      ));
     }
     final directMatches = _filterRankedEntries(
       _rankMessageCandidates(
@@ -347,11 +369,14 @@ class AgentMemoryService {
     ], roleFilter, typeFilter, excludedIdFilter);
     if (expanded.isEmpty && summaries.isNotEmpty) {
       return allowSummaries
-          ? _filterEntries(summaries, roleFilter, typeFilter, excludedIdFilter)
-          : const [];
+          ? withNotes(
+              _filterEntries(
+                  summaries, roleFilter, typeFilter, excludedIdFilter),
+            )
+          : noteMatches;
     }
     if (explicitSummaries) {
-      return [
+      return withNotes([
         ..._filterEntries(
           summaries,
           roleFilter,
@@ -359,9 +384,9 @@ class AgentMemoryService {
           excludedIdFilter,
         ),
         ...expanded,
-      ];
+      ]);
     }
-    return expanded;
+    return withNotes(expanded);
   }
 
   void clear({
@@ -469,6 +494,51 @@ class AgentMemoryService {
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in summaries) {
+      var entry = AgentMemoryEntry.fromRow(row);
+      if (entry.embedding.trim().isEmpty) {
+        final embedding = embeddingJson('${entry.name} ${entry.content}');
+        db.execute(
+          'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
+          [embedding, entry.id, isolationKey],
+        );
+        entry = entry.copyWith(embedding: embedding);
+      }
+      final score = memoryScore(entry.name, entry.content, normalized, tokens,
+          queryEmbedding, entry.embedding);
+      if (score > 0) {
+        scored.add((
+          score,
+          entry.copyWith(
+            score: score,
+            matchedTokens: memoryMatchedTokens(
+                entry.name, entry.content, normalized, tokens),
+          ),
+        ));
+      }
+    }
+    scored.sort((a, b) {
+      final byScore = b.$1.compareTo(a.$1);
+      if (byScore != 0) return byScore;
+      return b.$2.createdAt.compareTo(a.$2.createdAt);
+    });
+    return scored;
+  }
+
+  List<(int, AgentMemoryEntry)> _rankNoteCandidates({
+    required String isolationKey,
+    required String normalized,
+    required Set<String> tokens,
+    required Map<String, int> queryEmbedding,
+  }) {
+    if (normalized.isEmpty) return const [];
+    final notes = db.select(
+      'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
+      'FROM memories WHERE isolationKey=? AND type=? '
+      'ORDER BY createTime DESC, id DESC',
+      [isolationKey, agentMemoryTypeNote],
+    );
+    final scored = <(int, AgentMemoryEntry)>[];
+    for (final row in notes) {
       var entry = AgentMemoryEntry.fromRow(row);
       if (entry.embedding.trim().isEmpty) {
         final embedding = embeddingJson('${entry.name} ${entry.content}');

@@ -200,14 +200,14 @@ final _tools = <AgentToolDef>[
         },
         'type': {
           'type': 'string',
-          'enum': ['message', 'summary'],
-          'description': '可选。只返回指定类型的记忆：message 原始对话，summary 摘要。',
+          'enum': ['message', 'summary', 'note'],
+          'description': '可选。只返回指定类型的记忆：message 原始对话，summary 摘要，note 长期记忆。',
         },
         'types': {
           'type': 'array',
           'items': {
             'type': 'string',
-            'enum': ['message', 'summary'],
+            'enum': ['message', 'summary', 'note'],
           },
           'description': '可选。只返回这些类型的记忆。',
         },
@@ -5732,6 +5732,7 @@ extension AgentApi on Engine {
             roles: roles,
             types: types,
             excludeIds: excludedMemoryIds,
+            noteIsolationKey: _agentMemoryIsolationKey(projectId),
           );
           final rawLimit = args['limit'] ?? args['max'] ?? args['count'];
           final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
