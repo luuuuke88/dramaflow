@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/agent.dart';
+import 'package:dramaflow/src/engine/agent_memory.dart';
 import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
@@ -629,6 +630,167 @@ void main() {
     expect(msg.toolName, 'deepRetrieve');
     expect(msg.content, contains('用户强调寒山少主李澈外冷内热'));
     expect(msg.content, contains('不能把李澈写成反派'));
+  });
+
+  test('AgentMemoryService get 返回相关记忆、历史摘要和近期对话', () {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '2'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '2'],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ctx_msg_1',
+        '',
+        '用户要求寒山少主李澈不要被写成反派。',
+        now,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ctx_msg_2',
+        '',
+        '助手确认李澈外冷内热，后续保持正派。',
+        now + 1,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ctx_summary',
+        '寒山线摘要',
+        '寒山少主李澈是正派角色，外冷内热。',
+        now + 2,
+        embeddingJson('寒山少主李澈是正派角色，外冷内热。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['ctx_msg_1', 'ctx_msg_2']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ctx_msg_3',
+        '',
+        '用户补充下一集要写入山试炼。',
+        now + 3,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        0,
+        'message',
+      ],
+    );
+
+    final context = service.get(
+      isolationKey: 'scriptAgent:$projectId',
+      query: '寒山李澈',
+    );
+
+    expect(context.relatedMessages.map((item) => item.id),
+        ['ctx_msg_1', 'ctx_msg_2']);
+    expect(context.summaries.map((item) => item.id), ['ctx_summary']);
+    expect(context.recentMessages.map((item) => item.id),
+        ['ctx_msg_2', 'ctx_msg_3']);
+  });
+
+  test('Agent turn system prompt 注入 Memory.get 摘要和近期对话上下文', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'prompt_msg_1',
+        '',
+        '用户强调寒山少主李澈不能写成反派。',
+        now,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'prompt_msg_2',
+        '',
+        '助手确认：李澈保持正派，外冷内热。',
+        now + 1,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'prompt_summary',
+        '寒山线摘要',
+        '寒山少主李澈是正派角色，不能反派化。',
+        now + 2,
+        embeddingJson('寒山少主李澈是正派角色，不能反派化。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['prompt_msg_1', 'prompt_msg_2']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.turns = [const AgentTurnResult.text('收到，我会沿用寒山设定。')];
+
+    await engine.sendAgentMessage(projectId, '继续写寒山李澈入山', autoMode: false);
+
+    expect(gateway.lastSystem, contains('相关历史记忆'));
+    expect(gateway.lastSystem, contains('历史摘要'));
+    expect(gateway.lastSystem, contains('近期对话'));
+    expect(gateway.lastSystem, contains('寒山少主李澈不能写成反派'));
+    expect(gateway.lastSystem, contains('寒山少主李澈是正派角色'));
+    expect(gateway.lastSystem, contains('继续写寒山李澈入山'));
   });
 
   test(

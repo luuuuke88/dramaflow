@@ -61,6 +61,21 @@ class AgentMemorySettings {
   });
 }
 
+class AgentMemoryContext {
+  final List<AgentMemoryEntry> relatedMessages;
+  final List<AgentMemoryEntry> summaries;
+  final List<AgentMemoryEntry> recentMessages;
+
+  const AgentMemoryContext({
+    this.relatedMessages = const [],
+    this.summaries = const [],
+    this.recentMessages = const [],
+  });
+
+  bool get isEmpty =>
+      relatedMessages.isEmpty && summaries.isEmpty && recentMessages.isEmpty;
+}
+
 class AgentMemoryService {
   final Database db;
   final ProviderGateway gateway;
@@ -103,6 +118,46 @@ class AgentMemoryService {
     );
     await _summarizeIfNeeded(isolationKey, cancelToken: cancelToken);
     return id;
+  }
+
+  AgentMemoryContext get({
+    required String isolationKey,
+    required String query,
+  }) {
+    final settings = readSettings();
+    final related = settings.ragLimit <= 0
+        ? const <AgentMemoryEntry>[]
+        : deepRetrieve(isolationKey: isolationKey, keyword: query)
+            .take(settings.ragLimit)
+            .toList();
+    final summaries = settings.summaryLimit <= 0
+        ? const <AgentMemoryEntry>[]
+        : [
+            for (final row in db.select(
+              'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
+              'FROM memories WHERE isolationKey=? AND type=? '
+              'ORDER BY createTime DESC, id DESC LIMIT ?',
+              [isolationKey, agentMemoryTypeSummary, settings.summaryLimit],
+            ))
+              AgentMemoryEntry.fromRow(row),
+          ];
+    final recentDesc = settings.shortTermLimit <= 0
+        ? const <AgentMemoryEntry>[]
+        : [
+            for (final row in db.select(
+              'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
+              'FROM memories WHERE isolationKey=? AND type=? '
+              'ORDER BY createTime DESC, id DESC LIMIT ?',
+              [isolationKey, agentMemoryTypeMessage, settings.shortTermLimit],
+            ))
+              AgentMemoryEntry.fromRow(row),
+          ];
+    final recent = recentDesc.reversed.toList();
+    return AgentMemoryContext(
+      relatedMessages: related,
+      summaries: summaries,
+      recentMessages: recent,
+    );
   }
 
   List<AgentMemoryEntry> deepRetrieve({

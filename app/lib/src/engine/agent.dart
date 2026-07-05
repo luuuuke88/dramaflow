@@ -896,18 +896,45 @@ extension AgentApi on Engine {
     return score;
   }
 
-  String _agentSystemPrompt(List<AgentMemoryRecord> memories) {
+  String _agentSystemPrompt(
+    List<AgentMemoryRecord> memories, {
+    AgentMemoryContext? context,
+  }) {
     const base = '你是短剧创作助手。你可以调用工具推进项目的制作流程'
         '（事件提取→提取资产→生成分镜→生成首帧图→生成视频→配音绑定→合成）。'
         '每次只做用户明确要求或明显下一步需要的动作，不要臆造不存在的 id。'
         '如果不确定该做什么，先调用 get_status 查看进度。';
-    if (memories.isEmpty) return base;
-    final lines = [
-      '',
-      '',
-      '长期记忆：',
-      for (final memory in memories) '- ${memory.name}: ${memory.content}',
-    ];
+    final lines = <String>[];
+    if (memories.isNotEmpty) {
+      lines.addAll([
+        '',
+        '',
+        '长期记忆：',
+        for (final memory in memories) '- ${memory.name}: ${memory.content}',
+      ]);
+    }
+    if (context != null && !context.isEmpty) {
+      lines.addAll(['', '', 'Agent 记忆上下文：']);
+      if (context.relatedMessages.isNotEmpty) {
+        lines.add('相关历史记忆：');
+        for (final memory in context.relatedMessages) {
+          lines.add('  ${memory.role}: ${memory.content}');
+        }
+      }
+      if (context.summaries.isNotEmpty) {
+        lines.add('历史摘要：');
+        for (final summary in context.summaries) {
+          lines.add('  ${summary.content}');
+        }
+      }
+      if (context.recentMessages.isNotEmpty) {
+        lines.add('近期对话：');
+        for (final memory in context.recentMessages) {
+          lines.add('  ${memory.role}: ${memory.content}');
+        }
+      }
+    }
+    if (lines.isEmpty) return base;
     return '$base${lines.join('\n')}';
   }
 
@@ -955,8 +982,14 @@ extension AgentApi on Engine {
       content: text,
     );
 
+    final memoryService = _agentMemoryService();
+    final conversationKey = _agentConversationIsolationKey(projectId);
     final system = _agentSystemPrompt(
       searchAgentMemories(projectId, text, limit: _agentRagLimit()),
+      context: memoryService.get(
+        isolationKey: conversationKey,
+        query: text,
+      ),
     );
     final agentFamily = _agentFamilyForMessage(text);
 
