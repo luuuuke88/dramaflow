@@ -2885,6 +2885,90 @@ description: >
     expect(msg.content, endsWith('</skill_content>'));
   });
 
+  test('SkillRuntime lists ToonFlow workspace and attached skill resources',
+      () {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'director_style',
+      body: '主技能：导演规划要先定镜头节奏。',
+      extraFiles: {
+        'references/local.md': '本技能资源：镜头节奏先急后缓。',
+      },
+    );
+    final workspaceFile = File(p.join(
+      dir.path,
+      'skills',
+      'production_skills',
+      'storyboard_table_techniques.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('工作区技法：分镜表要含景别和运镜。');
+    final attachedReadme = File(p.join(
+      dir.path,
+      'skills',
+      'story_skills',
+      'Xianxia_fantasy',
+      'README.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('附加题材：仙侠短剧先给宗门压迫。');
+    final attachedNested = File(p.join(
+      dir.path,
+      'skills',
+      'story_skills',
+      'Xianxia_fantasy',
+      'driector_skills',
+      'director_planning_narrative.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('附加叙事：前三秒给强钩子。');
+
+    engine.saveMarkdownAgentSkill(
+      filePath: skillFile.path,
+      workspaceDirs: const ['production_skills'],
+      attachedSkillDirs: const ['story_skills/Xianxia_fantasy'],
+    );
+
+    final activated = engine.activateAgentSkill('director_style');
+    expect(activated.resourceFiles, [
+      'references/local.md',
+      'production_skills/storyboard_table_techniques.md',
+      'story_skills/Xianxia_fantasy/README.md',
+      'story_skills/Xianxia_fantasy/driector_skills/director_planning_narrative.md',
+    ]);
+    expect(
+      engine.readAgentSkillFile('director_style', 'references/local.md'),
+      '本技能资源：镜头节奏先急后缓。',
+    );
+    expect(
+      engine.readAgentSkillFile(
+        'director_style',
+        p
+            .relative(workspaceFile.path, from: p.join(dir.path, 'skills'))
+            .replaceAll('\\', '/'),
+      ),
+      '工作区技法：分镜表要含景别和运镜。',
+    );
+    expect(
+      engine.readAgentSkillFile(
+        'director_style',
+        p
+            .relative(attachedReadme.path, from: p.join(dir.path, 'skills'))
+            .replaceAll('\\', '/'),
+      ),
+      '附加题材：仙侠短剧先给宗门压迫。',
+    );
+    expect(
+      engine.readAgentSkillFile(
+        'director_style',
+        p
+            .relative(attachedNested.path, from: p.join(dir.path, 'skills'))
+            .replaceAll('\\', '/'),
+      ),
+      '附加叙事：前三秒给强钩子。',
+    );
+  });
+
   test('SkillRuntime read_skill_file reads only files under skill root', () {
     final skillFile = _writeSkillFixture(
       dir,

@@ -79,6 +79,16 @@ class AgentSkill {
   });
 }
 
+class _MarkdownSkillResources {
+  final List<String> workspaceDirs;
+  final List<String> attachedSkillDirs;
+
+  const _MarkdownSkillResources({
+    this.workspaceDirs = const [],
+    this.attachedSkillDirs = const [],
+  });
+}
+
 class AgentDeployment {
   final String key;
   final String name;
@@ -2973,6 +2983,8 @@ extension AgentApi on Engine {
     required String filePath,
     String? attribution,
     bool enabled = true,
+    List<String> workspaceDirs = const [],
+    List<String> attachedSkillDirs = const [],
   }) {
     final parsed = parseAgentSkillFile(filePath);
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -2991,7 +3003,10 @@ extension AgentApi on Engine {
             now,
         now,
         filePath,
-        '',
+        _encodeMarkdownSkillResources(
+          workspaceDirs: workspaceDirs,
+          attachedSkillDirs: attachedSkillDirs,
+        ),
         '',
       ],
     );
@@ -3009,21 +3024,29 @@ extension AgentApi on Engine {
     final row = _markdownSkillRow(name);
     final filePath = row['path'] as String? ?? '';
     final parsed = parseAgentSkillFile(filePath);
+    final resources = _decodeMarkdownSkillResources(row['md5']);
     return AgentSkillActivation(
       id: row['id'] as String,
       name: row['name'] as String? ?? parsed.name,
       description: row['description'] as String? ?? parsed.description,
       content: parsed.body,
       filePath: filePath,
-      resourceFiles: listAgentSkillResourceFiles(filePath),
+      resourceFiles: listAgentSkillResourceFiles(
+        filePath,
+        workspaceDirs: resources.workspaceDirs,
+        attachedSkillDirs: resources.attachedSkillDirs,
+      ),
     );
   }
 
   String readAgentSkillFile(String name, String relativePath) {
     final row = _markdownSkillRow(name);
+    final resources = _decodeMarkdownSkillResources(row['md5']);
     return readAgentSkillFileUnderRoot(
       row['path'] as String? ?? '',
       relativePath,
+      workspaceDirs: resources.workspaceDirs,
+      attachedSkillDirs: resources.attachedSkillDirs,
     );
   }
 
@@ -3061,7 +3084,7 @@ extension AgentApi on Engine {
       throw EngineException(errLlmFormat, {'reason': '技能名称不能为空'});
     }
     final row = db.select(
-      'SELECT id,name,description,path FROM o_skillList '
+      'SELECT id,name,description,path,md5 FROM o_skillList '
       'WHERE (id=? OR name=?) AND type=? AND COALESCE(state,1)!=0 LIMIT 1',
       [trimmed, trimmed, _markdownAgentSkillType],
     ).firstOrNull;
@@ -3069,6 +3092,59 @@ extension AgentApi on Engine {
       throw EngineException(errLlmFormat, {'reason': 'Markdown 技能不存在或未启用'});
     }
     return row;
+  }
+
+  String _encodeMarkdownSkillResources({
+    required List<String> workspaceDirs,
+    required List<String> attachedSkillDirs,
+  }) {
+    if (workspaceDirs.isEmpty && attachedSkillDirs.isEmpty) return '';
+    return jsonEncode({
+      'workspaceDirs': _normalizedSkillDirs(workspaceDirs),
+      'attachedSkillDirs': _normalizedSkillDirs(attachedSkillDirs),
+    });
+  }
+
+  _MarkdownSkillResources _decodeMarkdownSkillResources(Object? raw) {
+    if (raw is! String || raw.trim().isEmpty) {
+      return const _MarkdownSkillResources();
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const _MarkdownSkillResources();
+      return _MarkdownSkillResources(
+        workspaceDirs: _stringList(decoded['workspaceDirs']),
+        attachedSkillDirs: _stringList(decoded['attachedSkillDirs']),
+      );
+    } catch (_) {
+      return const _MarkdownSkillResources();
+    }
+  }
+
+  List<String> _normalizedSkillDirs(List<String> dirs) {
+    final result = <String>[];
+    final seen = <String>{};
+    for (final dir in dirs) {
+      final normalized = dir.trim().replaceAll('\\', '/');
+      if (normalized.isEmpty ||
+          normalized == '.' ||
+          normalized == '..' ||
+          normalized.startsWith('../') ||
+          normalized.startsWith('/')) {
+        continue;
+      }
+      if (seen.add(normalized)) result.add(normalized);
+    }
+    return result;
+  }
+
+  List<String> _stringList(Object? raw) {
+    if (raw is! List) return const [];
+    return [
+      for (final item in raw)
+        if (item is String && item.trim().isNotEmpty)
+          item.trim().replaceAll('\\', '/'),
+    ];
   }
 
   void updateAgentSkill(

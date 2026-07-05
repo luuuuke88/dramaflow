@@ -87,13 +87,34 @@ String normalizeAgentSkillId(String value) {
   return normalized;
 }
 
-String readAgentSkillFileUnderRoot(String skillFilePath, String relativePath) {
-  final trimmed = relativePath.trim();
-  if (trimmed.isEmpty || p.isAbsolute(trimmed)) {
-    throw const EngineException(errLlmFormat, {'reason': '技能文件路径不安全'});
+String readAgentSkillFileUnderRoot(
+  String skillFilePath,
+  String relativePath, {
+  List<String> workspaceDirs = const [],
+  List<String> attachedSkillDirs = const [],
+}) {
+  final safeRelativePath = _normalizeSkillRelativePath(relativePath);
+  final ownRoot = _ownSkillRoot(skillFilePath);
+  final ownTarget = p.normalize(p.absolute(ownRoot, safeRelativePath));
+  if ((ownTarget == ownRoot || p.isWithin(ownRoot, ownTarget)) &&
+      File(ownTarget).existsSync()) {
+    return File(ownTarget).readAsStringSync();
   }
-  final root = p.normalize(p.absolute(File(skillFilePath).parent.path));
-  final target = p.normalize(p.absolute(root, trimmed));
+
+  final allowed = listAgentSkillResourceFiles(
+    skillFilePath,
+    workspaceDirs: workspaceDirs,
+    attachedSkillDirs: attachedSkillDirs,
+  );
+  if (!allowed.contains(safeRelativePath)) {
+    throw EngineException(
+      errLlmFormat,
+      {'reason': '技能文件不存在：$relativePath'},
+    );
+  }
+
+  final root = _skillsRoot(skillFilePath);
+  final target = p.normalize(p.absolute(root, safeRelativePath));
   if (target != root && !p.isWithin(root, target)) {
     throw const EngineException(errLlmFormat, {'reason': '技能文件路径不安全'});
   }
@@ -104,22 +125,103 @@ String readAgentSkillFileUnderRoot(String skillFilePath, String relativePath) {
   return file.readAsStringSync();
 }
 
-List<String> listAgentSkillResourceFiles(String skillFilePath) {
-  final root = p.normalize(p.absolute(File(skillFilePath).parent.path));
+List<String> listAgentSkillResourceFiles(
+  String skillFilePath, {
+  List<String> workspaceDirs = const [],
+  List<String> attachedSkillDirs = const [],
+}) {
+  final root = _ownSkillRoot(skillFilePath);
   final mainFile = p.normalize(p.absolute(skillFilePath));
   final dir = Directory(root);
-  if (!dir.existsSync()) return const [];
-
   final files = <String>[];
-  for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+  final seen = <String>{};
+  void add(String file) {
+    if (seen.add(file)) files.add(file);
+  }
+
+  if (dir.existsSync()) {
+    final ownFiles = <String>[];
+    for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+      final filePath = p.normalize(p.absolute(entity.path));
+      if (filePath == mainFile || !p.isWithin(root, filePath)) continue;
+      if (p.extension(filePath).toLowerCase() != '.md') continue;
+      ownFiles.add(p.relative(filePath, from: root).replaceAll('\\', '/'));
+    }
+    ownFiles.sort();
+    for (final file in ownFiles) {
+      add(file);
+    }
+  }
+
+  final skillsRoot = _skillsRoot(skillFilePath);
+  for (final dir in workspaceDirs) {
+    for (final file in _listMarkdownFilesUnderSkillsRoot(
+      skillsRoot,
+      dir,
+      recursive: false,
+    )) {
+      add(file);
+    }
+  }
+  for (final dir in attachedSkillDirs) {
+    for (final file in _listMarkdownFilesUnderSkillsRoot(
+      skillsRoot,
+      dir,
+      recursive: true,
+    )) {
+      add(file);
+    }
+  }
+  return files;
+}
+
+String _ownSkillRoot(String skillFilePath) =>
+    p.normalize(p.absolute(File(skillFilePath).parent.path));
+
+String _skillsRoot(String skillFilePath) {
+  final file = File(skillFilePath);
+  final ownRoot = _ownSkillRoot(skillFilePath);
+  if (p.basename(file.path).toLowerCase() == 'skill.md') {
+    return p.normalize(p.dirname(ownRoot));
+  }
+  return ownRoot;
+}
+
+List<String> _listMarkdownFilesUnderSkillsRoot(
+  String skillsRoot,
+  String relativeDir, {
+  required bool recursive,
+}) {
+  final safeDir = _normalizeSkillRelativePath(relativeDir);
+  final dirPath = p.normalize(p.absolute(skillsRoot, safeDir));
+  if (dirPath != skillsRoot && !p.isWithin(skillsRoot, dirPath)) {
+    return const [];
+  }
+  final dir = Directory(dirPath);
+  if (!dir.existsSync()) return const [];
+  final files = <String>[];
+  for (final entity in dir.listSync(recursive: recursive, followLinks: false)) {
     if (entity is! File) continue;
     final filePath = p.normalize(p.absolute(entity.path));
-    if (filePath == mainFile || !p.isWithin(root, filePath)) continue;
+    if (!p.isWithin(skillsRoot, filePath)) continue;
     if (p.extension(filePath).toLowerCase() != '.md') continue;
-    files.add(p.relative(filePath, from: root).replaceAll('\\', '/'));
+    files.add(p.relative(filePath, from: skillsRoot).replaceAll('\\', '/'));
   }
   files.sort();
   return files;
+}
+
+String _normalizeSkillRelativePath(String value) {
+  final trimmed = value.trim().replaceAll('\\', '/');
+  if (trimmed.isEmpty || p.isAbsolute(trimmed)) {
+    throw const EngineException(errLlmFormat, {'reason': '技能文件路径不安全'});
+  }
+  final normalized = p.posix.normalize(trimmed);
+  if (normalized == '.' || normalized == '..' || normalized.startsWith('../')) {
+    throw const EngineException(errLlmFormat, {'reason': '技能文件路径不安全'});
+  }
+  return normalized;
 }
 
 Map<String, String> _parseFrontmatter(List<String> lines) {
