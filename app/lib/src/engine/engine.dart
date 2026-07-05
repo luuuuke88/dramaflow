@@ -700,6 +700,16 @@ WHERE id=?
       db.execute('DELETE FROM o_videoTrack WHERE projectId=?', [id]);
       db.execute('DELETE FROM o_video WHERE projectId=?', [id]);
       db.execute('DELETE FROM memories WHERE isolationKey LIKE ?', ['$id:%']);
+      db.execute(
+        'DELETE FROM memories WHERE isolationKey IN (?,?) '
+        'OR isolationKey LIKE ? OR isolationKey LIKE ?',
+        [
+          'scriptAgent:$id',
+          'productionAgent:$id',
+          'scriptAgent:$id:%',
+          'productionAgent:$id:%',
+        ],
+      );
       db.execute('DELETE FROM o_project WHERE id=?', [id]);
       db.execute('COMMIT');
     } catch (_) {

@@ -185,6 +185,8 @@ void main() {
       ).first['n'],
       greaterThan(0),
     );
+    expect(_agentMemoryCount(db, projectId), 0);
+    expect(_agentMemoryCount(db, otherId), greaterThan(0));
     expect(Directory(p.join(dir.path, 'media', '$projectId')).existsSync(),
         isFalse);
     expect(
@@ -210,6 +212,16 @@ int _count(Database db, String table, int projectId) {
   };
   return db.select(sql, [projectId]).first['n'] as int;
 }
+
+int _agentMemoryCount(Database db, int projectId) => db.select(
+      'SELECT COUNT(*) n FROM memories '
+      'WHERE isolationKey IN (?,?) OR isolationKey LIKE ?',
+      [
+        'scriptAgent:$projectId',
+        'productionAgent:$projectId',
+        'productionAgent:$projectId:%',
+      ],
+    ).first['n'] as int;
 
 void _insertCascadeGraph(Database db, int projectId) {
   db.execute(
@@ -270,6 +282,36 @@ void _insertCascadeGraph(Database db, int projectId) {
   db.execute(
     'INSERT INTO memories (id,content,createTime,isolationKey,type) VALUES (?,?,?,?,?)',
     ['m-$projectId', 'memory', 1, '$projectId:agent', 'text'],
+  );
+  db.execute(
+    'INSERT INTO memories (id,content,createTime,isolationKey,type) VALUES (?,?,?,?,?)',
+    [
+      'script-agent-$projectId',
+      'script memory',
+      2,
+      'scriptAgent:$projectId',
+      'message'
+    ],
+  );
+  db.execute(
+    'INSERT INTO memories (id,content,createTime,isolationKey,type) VALUES (?,?,?,?,?)',
+    [
+      'production-agent-$projectId',
+      'production memory',
+      3,
+      'productionAgent:$projectId',
+      'message',
+    ],
+  );
+  db.execute(
+    'INSERT INTO memories (id,content,createTime,isolationKey,type) VALUES (?,?,?,?,?)',
+    [
+      'production-agent-episode-$projectId',
+      'production scoped memory',
+      4,
+      'productionAgent:$projectId:episode-1',
+      'summary',
+    ],
   );
 }
 
