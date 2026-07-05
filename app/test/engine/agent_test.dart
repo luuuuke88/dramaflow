@@ -1832,6 +1832,52 @@ return JSON.stringify({
     expect(msg.content, contains('不能把李澈写成反派'));
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持 limit 限制返回条数', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          offset.isEven ? agentRoleUser : agentRoleAssistant,
+          0,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('limit_msg_old', '旧设定：李澈来自寒山。', 0);
+    insertMessage('limit_msg_mid', '中间设定：李澈剑法克制。', 1);
+    insertMessage('limit_msg_new', '最新补充：李澈必须救下沈微。', 2);
+
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '李澈',
+        'limit': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '只找一条李澈相关记忆', autoMode: false);
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    expect((deepRetrieveTool.schema['properties'] as Map), contains('limit'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    expect(msg.content.split('\n'), hasLength(1));
+    expect(msg.content, contains('李澈'));
+  });
+
   test('AgentMemoryService deepRetrieve 先由 LLM 判别 summary 再展开原始 message',
       () async {
     final now = DateTime.now().millisecondsSinceEpoch;

@@ -149,6 +149,12 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'keyword': {'type': 'string'},
+        'limit': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。限制返回的原始记忆条数，默认使用全局 RAG 配置。',
+        },
       },
       'required': ['keyword'],
     },
@@ -2843,9 +2849,14 @@ extension AgentApi on Engine {
             ),
             keyword: keyword,
           );
-          if (records.isEmpty) return '未找到相关历史记忆。';
+          final rawLimit = args['limit'] ?? args['max'] ?? args['count'];
+          final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
+          final limitedRecords =
+              limit == null ? records : records.take(limit).toList();
+          if (limitedRecords.isEmpty) return '未找到相关历史记忆。';
           return [
-            for (final record in records) '${record.role}: ${record.content}',
+            for (final record in limitedRecords)
+              '${record.role}: ${record.content}',
           ].join('\n');
         case 'activate_skill':
           final skillName =
