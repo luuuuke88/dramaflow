@@ -1144,6 +1144,77 @@ return `项目${projectId}:${text}:${count}:${JSON.stringify(args.items)}`;
     );
   });
 
+  test(
+      'ScriptAgent subagents receive long-term and conversation memory context',
+      () async {
+    engine.saveAgentMemory(
+      projectId,
+      name: '寒山画风',
+      content: '寒山相关镜头保持冷白色调，不能写成暖色宫廷风。',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'script_sub_msg_user',
+        '',
+        '用户强调寒山少主李澈必须保持正派。',
+        now,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'script_sub_summary',
+        '李澈角色设定',
+        '寒山少主李澈是正派角色，不能反派化。',
+        now + 1,
+        embeddingJson('寒山少主李澈是正派角色，不能反派化。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['script_sub_msg_user']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('["script_sub_summary"]'),
+      TextResult('["script_sub_summary"]'),
+    ];
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '搭建寒山篇前三集骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先做寒山故事骨架', autoMode: false);
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:storySkeletonAgent',
+    ]);
+    expect(gateway.lastSystem, contains('故事骨架搭建 Agent'));
+    expect(gateway.lastSystem, contains('长期记忆'));
+    expect(gateway.lastSystem, contains('冷白色调'));
+    expect(gateway.lastSystem, contains('Agent 记忆上下文'));
+    expect(gateway.lastSystem, contains('相关历史记忆'));
+    expect(gateway.lastSystem, contains('李澈必须保持正派'));
+    expect(gateway.lastSystem, contains('历史摘要'));
+    expect(gateway.lastSystem, contains('李澈是正派角色'));
+  });
+
   test('Agent tool list honors custom skill attribution by decision stage',
       () async {
     engine.saveCustomAgentSkill(
@@ -1357,6 +1428,95 @@ return `项目${projectId}:${text}:${count}:${JSON.stringify(args.items)}`;
         'run_sub_agent_supervision',
       ]),
     );
+  });
+
+  test(
+      'ProductionAgent subagents receive production memory context without script leakage',
+      () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    engine.saveAgentMemory(
+      projectId,
+      name: '制作镜头规则',
+      content: '寒山制作镜头保持低机位跟拍，首帧避免暖色宫廷布景。',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'production_sub_msg_user',
+        '',
+        '用户要求导演计划保留低机位跟拍和冷白山门。',
+        now,
+        '',
+        'productionAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'production_sub_summary',
+        '导演计划要求',
+        '寒山制作需要低机位跟拍，并保持冷白山门视觉。',
+        now + 1,
+        embeddingJson('寒山制作需要低机位跟拍，并保持冷白山门视觉。'),
+        'productionAgent:$projectId',
+        jsonEncode(['production_sub_msg_user']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'script_private_summary',
+        '剧本私有设定',
+        '这条剧本私有记忆不应进入制作子 Agent。',
+        now + 2,
+        embeddingJson('剧本私有记忆不应进入制作子 Agent。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('["production_sub_summary"]'),
+      TextResult('["production_sub_summary"]'),
+    ];
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做寒山第一集导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>低机位跟拍寒山山门</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作画布：做寒山导演计划', autoMode: false);
+
+    expect(gateway.stages, [
+      'productionAgent:decisionAgent',
+      'productionAgent:directorPlanAgent',
+    ]);
+    expect(gateway.lastSystem, contains('负责导演规划'));
+    expect(gateway.lastSystem, contains('长期记忆'));
+    expect(gateway.lastSystem, contains('低机位跟拍'));
+    expect(gateway.lastSystem, contains('Agent 记忆上下文'));
+    expect(gateway.lastSystem, contains('相关历史记忆'));
+    expect(gateway.lastSystem, contains('冷白山门'));
+    expect(gateway.lastSystem, isNot(contains('剧本私有记忆')));
   });
 
   test(

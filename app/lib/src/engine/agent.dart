@@ -1487,11 +1487,13 @@ extension AgentApi on Engine {
   String _agentSystemPrompt(
     List<AgentMemoryRecord> memories, {
     AgentMemoryContext? context,
+    String? base,
   }) {
-    const base = '你是短剧创作助手。你可以调用工具推进项目的制作流程'
+    const defaultBase = '你是短剧创作助手。你可以调用工具推进项目的制作流程'
         '（事件提取→提取资产→生成分镜→生成首帧图→生成视频→配音绑定→合成）。'
         '每次只做用户明确要求或明显下一步需要的动作，不要臆造不存在的 id。'
         '如果不确定该做什么，先调用 get_status 查看进度。';
+    final promptBase = base ?? defaultBase;
     final lines = <String>[];
     if (memories.isNotEmpty) {
       lines.addAll([
@@ -1522,8 +1524,8 @@ extension AgentApi on Engine {
         }
       }
     }
-    if (lines.isEmpty) return base;
-    return '$base${lines.join('\n')}';
+    if (lines.isEmpty) return promptBase;
+    return '$promptBase${lines.join('\n')}';
   }
 
   /// Agent 执行模式（auto/manual）持久化。config 由别处拥有，此处直接写 o_setting
@@ -2401,7 +2403,18 @@ extension AgentApi on Engine {
         'content': prompt.isEmpty ? '请继续执行当前任务。' : prompt,
       },
     ];
-    final system = _scriptAgentSubAgentSystem(stage);
+    final memoryService = _agentMemoryService(family: _scriptAgentFamily);
+    final system = _agentSystemPrompt(
+      searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
+      context: await memoryService.get(
+        isolationKey: _agentConversationIsolationKey(
+          projectId,
+          family: _scriptAgentFamily,
+        ),
+        query: prompt,
+      ),
+      base: _scriptAgentSubAgentSystem(stage),
+    );
     for (var turn = 0; turn < _maxAutoTurns; turn++) {
       final result = await gateway.generateAgentTurn(
         system,
@@ -2821,7 +2834,18 @@ extension AgentApi on Engine {
         'content': prompt.isEmpty ? '请继续执行当前制作任务。' : prompt,
       },
     ];
-    final system = _productionAgentSubAgentSystem(stage);
+    final memoryService = _agentMemoryService(family: _productionAgentFamily);
+    final system = _agentSystemPrompt(
+      searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
+      context: await memoryService.get(
+        isolationKey: _agentConversationIsolationKey(
+          projectId,
+          family: _productionAgentFamily,
+        ),
+        query: prompt,
+      ),
+      base: _productionAgentSubAgentSystem(stage),
+    );
     for (var turn = 0; turn < _maxAutoTurns; turn++) {
       final result = await gateway.generateAgentTurn(
         system,
