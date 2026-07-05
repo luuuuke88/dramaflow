@@ -1597,6 +1597,18 @@ extension AgentApi on Engine {
   List<AgentToolDef> _agentToolsForStage(String stage) =>
       _agentTools(stage: stage);
 
+  List<AgentSkill> _markdownSkillsForStage(String stage) {
+    final attribution = _agentToolAttribution(stage);
+    final attributionMap = attribution == null
+        ? const <String, Set<String>>{}
+        : _skillAttributionMap();
+    return _activatableMarkdownSkills(
+      agentSkills(),
+      attribution: attribution,
+      attributionMap: attributionMap,
+    );
+  }
+
   bool _shouldExposeAgentTool(
     AgentSkill skill, {
     required String? attribution,
@@ -2380,6 +2392,7 @@ extension AgentApi on Engine {
     AgentMemoryContext? context,
     String? base,
     List<String> activatedSkills = const [],
+    List<AgentSkill> availableSkills = const [],
   }) {
     const defaultBase = '你是短剧创作助手。你可以调用工具推进项目的制作流程'
         '（事件提取→提取资产→生成分镜→生成首帧图→生成视频→配音绑定→合成）。'
@@ -2387,6 +2400,13 @@ extension AgentApi on Engine {
         '如果不确定该做什么，先调用 get_status 查看进度。';
     final promptBase = base ?? defaultBase;
     final lines = <String>[];
+    if (availableSkills.isNotEmpty) {
+      lines.addAll([
+        '',
+        '',
+        _formatAvailableAgentSkills(availableSkills),
+      ]);
+    }
     if (activatedSkills.isNotEmpty) {
       lines.addAll([
         '',
@@ -2427,6 +2447,31 @@ extension AgentApi on Engine {
     if (lines.isEmpty) return promptBase;
     return '$promptBase${lines.join('\n')}';
   }
+
+  String _formatAvailableAgentSkills(List<AgentSkill> skills) {
+    final buffer = StringBuffer()
+      ..writeln('## Skills')
+      ..writeln('当任务与某个技能的描述匹配时，调用 activate_skill 工具并传入技能名称来加载完整指令。')
+      ..writeln('加载后遵循技能指令执行任务，需要时调用 read_skill_file 读取资源文件内容。')
+      ..writeln()
+      ..writeln('<available_skills>');
+    for (final skill in skills) {
+      buffer
+        ..writeln('  <skill>')
+        ..writeln('    <name>${_escapeSkillPromptXml(skill.name)}</name>')
+        ..writeln(
+          '    <description>${_escapeSkillPromptXml(skill.description)}</description>',
+        )
+        ..writeln('  </skill>');
+    }
+    buffer.write('</available_skills>');
+    return buffer.toString();
+  }
+
+  String _escapeSkillPromptXml(String value) => value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
 
   List<String> _activatedAgentSkillContexts(List<AgentMessage> messages) {
     final values = <String>[];
@@ -2638,6 +2683,9 @@ extension AgentApi on Engine {
 
     for (var turn = 0; turn < (autoMode ? _maxAutoTurns : 1); turn++) {
       final memoryService = _agentMemoryService(family: agentFamily);
+      final stage = agentFamily == _productionAgentFamily
+          ? productionAgentDecisionStage
+          : scriptAgentDecisionStage;
       final system = _agentSystemPrompt(
         searchAgentMemories(projectId, text, limit: _agentRagLimit()),
         context: await memoryService.get(
@@ -2645,6 +2693,7 @@ extension AgentApi on Engine {
           query: text,
         ),
         activatedSkills: _activatedAgentSkillContexts(messages),
+        availableSkills: _markdownSkillsForStage(stage),
       );
       final history = [
         for (final m in messages)
@@ -2657,9 +2706,6 @@ extension AgentApi on Engine {
       ];
       AgentTurnResult result;
       try {
-        final stage = agentFamily == _productionAgentFamily
-            ? productionAgentDecisionStage
-            : scriptAgentDecisionStage;
         final tools = agentFamily == _productionAgentFamily
             ? productionAgentDecisionTools(_agentToolsForStage(stage))
             : scriptAgentDecisionTools(_agentToolsForStage(stage));
@@ -2783,6 +2829,7 @@ extension AgentApi on Engine {
       ),
       base: baseSystem,
       activatedSkills: _activatedAgentSkillContexts(messages),
+      availableSkills: _markdownSkillsForStage(stage),
     );
     final user = [
       '当前项目状态：',
@@ -3457,6 +3504,7 @@ extension AgentApi on Engine {
           activatedSkills,
           _activatedAgentSkillContextsFromHistory(history),
         ),
+        availableSkills: _markdownSkillsForStage(stage),
       );
       final result = await gateway.generateAgentTurn(
         system,
@@ -3925,6 +3973,7 @@ extension AgentApi on Engine {
           activatedSkills,
           _activatedAgentSkillContextsFromHistory(history),
         ),
+        availableSkills: _markdownSkillsForStage(stage),
       );
       final result = await gateway.generateAgentTurn(
         system,

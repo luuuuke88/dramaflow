@@ -1643,6 +1643,59 @@ return `参考图：${refs}`;
     expect(nameSchema['enum'], ['director_checker']);
   });
 
+  test('SkillRuntime lists stage-visible Markdown skills in system prompt',
+      () async {
+    final scriptSkillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '剧本技能正文。',
+    );
+    final productionSkillFile = _writeSkillFixture(
+      dir,
+      id: 'director_checker',
+      body: '制作技能正文。',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: scriptSkillFile.path,
+      attribution: 'script_agent_decision',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: productionSkillFile.path,
+      attribution: 'production_agent_decision',
+    );
+
+    gateway.turns = [const AgentTurnResult.text('剧本规划已记录。')];
+    await engine.sendAgentMessage(
+      projectId,
+      '规划前三集',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    expect(gateway.lastSystem, contains('## Skills'));
+    expect(gateway.lastSystem, contains('<available_skills>'));
+    expect(gateway.lastSystem, contains('<name>style_polisher</name>'));
+    expect(
+      gateway.lastSystem,
+      contains('<description>短剧文风润色技能</description>'),
+    );
+    expect(gateway.lastSystem, contains('</available_skills>'));
+    expect(gateway.lastSystem, isNot(contains('director_checker')));
+
+    gateway.turns = [const AgentTurnResult.text('制作规划已记录。')];
+    await engine.sendAgentMessage(
+      projectId,
+      '制作导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(gateway.lastSystem, contains('## Skills'));
+    expect(gateway.lastSystem, contains('<available_skills>'));
+    expect(gateway.lastSystem, contains('<name>director_checker</name>'));
+    expect(gateway.lastSystem, isNot(contains('style_polisher')));
+  });
+
   test('SkillRuntime skips repeated activate_skill content injection',
       () async {
     final skillFile = _writeSkillFixture(
