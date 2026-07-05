@@ -5267,6 +5267,70 @@ description: 分镜面板写入专用技法
     expect(nameSchema['enum'], contains('storyboard_layout_skill.md'));
   });
 
+  test('ProductionAgent 项目技能不会泄漏到其他项目', () async {
+    db.execute(
+      'UPDATE o_project SET artStyle=?, directorManual=? WHERE id=?',
+      ['水墨视觉', '仙侠叙事', projectId],
+    );
+    File(p.join(dir.path, 'skills', 'art_skills', 'InkStyle', 'meta.json'))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync(jsonEncode({'name': '水墨视觉'}));
+    File(p.join(
+      dir.path,
+      'skills',
+      'art_skills',
+      'InkStyle',
+      'driector_skills',
+      'ink_only_director_skill.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('''
+---
+name: ink_only_director_skill.md
+description: 只属于水墨视觉项目
+---
+
+水墨项目专用导演技法。
+''');
+    final scriptA =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做项目 A 导演计划', 'scriptId': scriptA},
+      ),
+      const AgentTurnResult.text('<scriptPlan>项目 A</scriptPlan>'),
+    ];
+    await engine.sendAgentMessage(projectId, '制作画布：项目 A 导演计划', autoMode: false);
+    expect(gateway.lastSystem, contains('ink_only_director_skill.md'));
+    db.execute(
+      'INSERT OR REPLACE INTO o_skillAttribution (attribution,skillId) '
+      'VALUES (?,?)',
+      [
+        'production_agent_execution',
+        'project_${projectId}_ink_only_director_skill.md',
+      ],
+    );
+
+    final projectB = engine.addProject(projectType: 'novel', name: '另一个项目');
+    final scriptB =
+        engine.addScript(projectId: projectB, name: '第一集', content: '林岚入城');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做项目 B 导演计划', 'scriptId': scriptB},
+      ),
+      const AgentTurnResult.text('<scriptPlan>项目 B</scriptPlan>'),
+    ];
+    await engine.sendAgentMessage(projectB, '制作画布：项目 B 导演计划', autoMode: false);
+    expect(gateway.lastSystem, isNot(contains('ink_only_director_skill.md')));
+    final activateSkill =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'activate_skill');
+    final properties = activateSkill.schema['properties'] as Map;
+    final nameSchema = properties['name'] as Map;
+    expect(nameSchema['enum'], isNot(contains('ink_only_director_skill.md')));
+  });
+
   test('ProductionAgent 子 Agent 输出按 ToonFlow memoryKey 写入记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',

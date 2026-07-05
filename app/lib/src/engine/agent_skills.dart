@@ -146,6 +146,7 @@ List<SeededMarkdownAgentSkill> seedToonFlowMarkdownAgentSkillsInDb(
 List<SeededMarkdownAgentSkill> seedProjectProductionMarkdownAgentSkillsInDb(
   Database db,
   String skillsRootPath, {
+  required int projectId,
   String? artStyle,
   String? directorManual,
 }) {
@@ -160,7 +161,9 @@ List<SeededMarkdownAgentSkill> seedProjectProductionMarkdownAgentSkillsInDb(
   if (artDir != null) {
     dirAttributions.add((
       dir: artDir,
-      attributions: const ['production_agent_execution'],
+      attributions: [
+        _projectSkillAttribution('production_agent_execution', projectId),
+      ],
     ));
   }
   final storyDir = _manualDirectorSkillsDir(
@@ -171,16 +174,24 @@ List<SeededMarkdownAgentSkill> seedProjectProductionMarkdownAgentSkillsInDb(
   if (storyDir != null) {
     dirAttributions.add((
       dir: storyDir,
-      attributions: const ['production_agent_execution'],
+      attributions: [
+        _projectSkillAttribution('production_agent_execution', projectId),
+      ],
     ));
   }
   final productionDir = Directory(p.join(root.path, 'production_skills'));
   if (productionDir.existsSync()) {
     dirAttributions.add((
       dir: productionDir,
-      attributions: const [
-        'production_execution_storyboard_panel',
-        'production_execution_storyboard_table',
+      attributions: [
+        _projectSkillAttribution(
+          'production_execution_storyboard_panel',
+          projectId,
+        ),
+        _projectSkillAttribution(
+          'production_execution_storyboard_table',
+          projectId,
+        ),
       ],
     ));
   }
@@ -201,6 +212,7 @@ List<SeededMarkdownAgentSkill> seedProjectProductionMarkdownAgentSkillsInDb(
         result = _upsertMarkdownAgentSkillInDb(
           db,
           file.path,
+          idOverride: _projectMarkdownSkillId(projectId, file.path),
           attribution: attribution,
         );
       }
@@ -216,12 +228,14 @@ SeededMarkdownAgentSkill _upsertMarkdownAgentSkillInDb(
   Database db,
   String filePath, {
   required String attribution,
+  String? idOverride,
   List<String> workspaceDirs = const [],
   List<String> attachedSkillDirs = const [],
 }) {
   final parsed = parseAgentSkillFile(filePath);
-  final existing = db
-      .select('SELECT id FROM o_skillList WHERE id=?', [parsed.id]).firstOrNull;
+  final skillId = idOverride ?? parsed.id;
+  final existing =
+      db.select('SELECT id FROM o_skillList WHERE id=?', [skillId]).firstOrNull;
   final now = DateTime.now().millisecondsSinceEpoch;
   final resources = encodeMarkdownSkillResources(
     workspaceDirs: workspaceDirs,
@@ -233,7 +247,7 @@ SeededMarkdownAgentSkill _upsertMarkdownAgentSkillInDb(
       '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
       'VALUES (?,?,?,?,?,?,?,?,?,?)',
       [
-        parsed.id,
+        skillId,
         parsed.name,
         parsed.description,
         1,
@@ -254,21 +268,29 @@ SeededMarkdownAgentSkill _upsertMarkdownAgentSkillInDb(
         filePath,
         resources,
         now,
-        parsed.id,
+        skillId,
       ],
     );
   }
   db.execute(
     'INSERT OR REPLACE INTO o_skillAttribution (attribution,skillId) '
     'VALUES (?,?)',
-    [attribution, parsed.id],
+    [attribution, skillId],
   );
   return SeededMarkdownAgentSkill(
-    id: parsed.id,
+    id: skillId,
     name: parsed.name,
     description: parsed.description,
     path: filePath,
   );
+}
+
+String _projectSkillAttribution(String attribution, int projectId) =>
+    '$attribution:project:$projectId';
+
+String _projectMarkdownSkillId(int projectId, String filePath) {
+  final parsed = parseAgentSkillFile(filePath);
+  return 'project_${projectId}_${parsed.id}';
 }
 
 Directory? _manualDirectorSkillsDir(

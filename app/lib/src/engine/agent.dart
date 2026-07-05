@@ -2696,9 +2696,11 @@ extension AgentApi on Engine {
     return _agentTools();
   }
 
-  List<AgentToolDef> _agentTools({String? stage}) {
+  List<AgentToolDef> _agentTools({String? stage, int? projectId}) {
     final skills = agentSkills();
-    final attributions = stage == null ? null : _agentToolAttributions(stage);
+    final attributions = stage == null
+        ? null
+        : _agentToolAttributions(stage, projectId: projectId);
     final attributionMap = attributions == null || attributions.isEmpty
         ? const <String, Set<String>>{}
         : _skillAttributionMap();
@@ -2706,6 +2708,7 @@ extension AgentApi on Engine {
       skills,
       attributions: attributions,
       attributionMap: attributionMap,
+      projectId: projectId,
     );
     final tools = <AgentToolDef>[];
     for (final skill in skills) {
@@ -2724,11 +2727,11 @@ extension AgentApi on Engine {
     return tools;
   }
 
-  List<AgentToolDef> _agentToolsForStage(String stage) =>
-      _agentTools(stage: stage);
+  List<AgentToolDef> _agentToolsForStage(String stage, {int? projectId}) =>
+      _agentTools(stage: stage, projectId: projectId);
 
-  List<AgentSkill> _markdownSkillsForStage(String stage) {
-    final attributions = _agentToolAttributions(stage);
+  List<AgentSkill> _markdownSkillsForStage(String stage, {int? projectId}) {
+    final attributions = _agentToolAttributions(stage, projectId: projectId);
     final attributionMap = attributions == null || attributions.isEmpty
         ? const <String, Set<String>>{}
         : _skillAttributionMap();
@@ -2736,6 +2739,7 @@ extension AgentApi on Engine {
       agentSkills(),
       attributions: attributions,
       attributionMap: attributionMap,
+      projectId: projectId,
     );
   }
 
@@ -2758,11 +2762,18 @@ extension AgentApi on Engine {
     List<AgentSkill> skills, {
     required Set<String>? attributions,
     required Map<String, Set<String>> attributionMap,
+    required int? projectId,
   }) {
     return [
       for (final skill in skills)
         if (skill.enabled &&
             skill.type == _markdownAgentSkillType &&
+            _matchesProjectMarkdownScope(
+              skill,
+              attributions: attributions,
+              attributionMap: attributionMap,
+              projectId: projectId,
+            ) &&
             _matchesSkillAttribution(
               skill,
               attributions: attributions,
@@ -2770,6 +2781,30 @@ extension AgentApi on Engine {
             ))
           skill,
     ];
+  }
+
+  bool _matchesProjectMarkdownScope(
+    AgentSkill skill, {
+    required Set<String>? attributions,
+    required Map<String, Set<String>> attributionMap,
+    required int? projectId,
+  }) {
+    if (projectId == null || !_isProjectPackMarkdownSkill(skill)) return true;
+    final skillAttributions = attributionMap[skill.id];
+    if (skillAttributions == null || skillAttributions.isEmpty) return false;
+    final suffix = ':project:$projectId';
+    return skillAttributions.any(
+      (attribution) =>
+          attribution.endsWith(suffix) &&
+          (attributions == null || attributions.contains(attribution)),
+    );
+  }
+
+  bool _isProjectPackMarkdownSkill(AgentSkill skill) {
+    final path = skill.script.replaceAll('\\', '/');
+    return path.contains('/skills/art_skills/') ||
+        path.contains('/skills/story_skills/') ||
+        path.contains('/skills/production_skills/');
   }
 
   bool _matchesSkillAttribution(
@@ -2832,7 +2867,7 @@ extension AgentApi on Engine {
     return result;
   }
 
-  Set<String>? _agentToolAttributions(String stage) {
+  Set<String>? _agentToolAttributions(String stage, {int? projectId}) {
     final exact = switch (stage) {
       'scriptAgent' || 'scriptAgent:decisionAgent' => {'script_agent_decision'},
       'scriptAgent:storySkeletonAgent' => {
@@ -2878,7 +2913,9 @@ extension AgentApi on Engine {
       'productionAgent:supervisionAgent' => {'production_agent_supervision'},
       _ => null,
     };
-    if (exact != null) return exact;
+    if (exact != null) {
+      return _withProjectSkillAttributions(exact, stage, projectId);
+    }
 
     final definition = agentStageDefinition(stage);
     if (definition == null) return null;
@@ -2895,8 +2932,40 @@ extension AgentApi on Engine {
       _ => null,
     };
     if (role == null) return null;
-    return {'${family}_$role'};
+    return _withProjectSkillAttributions({'${family}_$role'}, stage, projectId);
   }
+
+  Set<String> _withProjectSkillAttributions(
+    Set<String> attributions,
+    String stage,
+    int? projectId,
+  ) {
+    if (projectId == null) return attributions;
+    final result = {...attributions};
+    if (stage.startsWith('productionAgent:') &&
+        attributions.contains('production_agent_execution')) {
+      result.add(_projectAgentSkillAttribution(
+        'production_agent_execution',
+        projectId,
+      ));
+    }
+    if (stage == productionAgentStoryboardPanelStage) {
+      result.add(_projectAgentSkillAttribution(
+        'production_execution_storyboard_panel',
+        projectId,
+      ));
+    }
+    if (stage == productionAgentStoryboardTableStage) {
+      result.add(_projectAgentSkillAttribution(
+        'production_execution_storyboard_table',
+        projectId,
+      ));
+    }
+    return result;
+  }
+
+  String _projectAgentSkillAttribution(String attribution, int projectId) =>
+      '$attribution:project:$projectId';
 
   AgentToolDef? _defaultTool(String id) {
     for (final tool in _tools) {
@@ -3076,6 +3145,23 @@ extension AgentApi on Engine {
 
   AgentSkillActivation activateAgentSkill(String name) {
     final row = _markdownSkillRow(name);
+    return _activateAgentSkillFromRow(row);
+  }
+
+  AgentSkillActivation _activateAgentSkillForContext(
+    String name, {
+    String? stage,
+    required int projectId,
+  }) {
+    final row = _markdownSkillRowForContext(
+      name,
+      stage: stage,
+      projectId: projectId,
+    );
+    return _activateAgentSkillFromRow(row);
+  }
+
+  AgentSkillActivation _activateAgentSkillFromRow(Map<String, Object?> row) {
     final filePath = row['path'] as String? ?? '';
     final parsed = parseAgentSkillFile(filePath);
     final resources = _decodeMarkdownSkillResources(row['md5']);
@@ -3095,6 +3181,27 @@ extension AgentApi on Engine {
 
   String readAgentSkillFile(String name, String relativePath) {
     final row = _markdownSkillRow(name);
+    return _readAgentSkillFileFromRow(row, relativePath);
+  }
+
+  String _readAgentSkillFileForContext(
+    String name,
+    String relativePath, {
+    String? stage,
+    required int projectId,
+  }) {
+    final row = _markdownSkillRowForContext(
+      name,
+      stage: stage,
+      projectId: projectId,
+    );
+    return _readAgentSkillFileFromRow(row, relativePath);
+  }
+
+  String _readAgentSkillFileFromRow(
+    Map<String, Object?> row,
+    String relativePath,
+  ) {
     final resources = _decodeMarkdownSkillResources(row['md5']);
     return readAgentSkillFileUnderRoot(
       row['path'] as String? ?? '',
@@ -3141,6 +3248,36 @@ extension AgentApi on Engine {
       'SELECT id,name,description,path,md5 FROM o_skillList '
       'WHERE (id=? OR name=?) AND type=? AND COALESCE(state,1)!=0 LIMIT 1',
       [trimmed, trimmed, _markdownAgentSkillType],
+    ).firstOrNull;
+    if (row == null) {
+      throw EngineException(errLlmFormat, {'reason': 'Markdown 技能不存在或未启用'});
+    }
+    return row;
+  }
+
+  Map<String, Object?> _markdownSkillRowForContext(
+    String name, {
+    String? stage,
+    required int projectId,
+  }) {
+    if (stage == null || stage.trim().isEmpty) return _markdownSkillRow(name);
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw EngineException(errLlmFormat, {'reason': '技能名称不能为空'});
+    }
+    final allowed = _markdownSkillsForStage(stage, projectId: projectId)
+        .where((skill) => skill.id == trimmed || skill.name == trimmed)
+        .map((skill) => skill.id)
+        .toList();
+    if (allowed.isEmpty) {
+      throw EngineException(errLlmFormat, {'reason': 'Markdown 技能不存在或未启用'});
+    }
+    final placeholders = List.filled(allowed.length, '?').join(',');
+    final row = db.select(
+      'SELECT id,name,description,path,md5 FROM o_skillList '
+      'WHERE id IN ($placeholders) AND type=? AND COALESCE(state,1)!=0 '
+      'ORDER BY createTime ASC, id ASC LIMIT 1',
+      [...allowed, _markdownAgentSkillType],
     ).firstOrNull;
     if (row == null) {
       throw EngineException(errLlmFormat, {'reason': 'Markdown 技能不存在或未启用'});
@@ -4034,7 +4171,7 @@ extension AgentApi on Engine {
           query: text,
         ),
         activatedSkills: _activatedAgentSkillContexts(messages),
-        availableSkills: _markdownSkillsForStage(stage),
+        availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
       );
       final history = [
         for (final m in messages)
@@ -4048,8 +4185,12 @@ extension AgentApi on Engine {
       AgentTurnResult result;
       try {
         final tools = agentFamily == _productionAgentFamily
-            ? productionAgentDecisionTools(_agentToolsForStage(stage))
-            : scriptAgentDecisionTools(_agentToolsForStage(stage));
+            ? productionAgentDecisionTools(
+                _agentToolsForStage(stage, projectId: projectId),
+              )
+            : scriptAgentDecisionTools(
+                _agentToolsForStage(stage, projectId: projectId),
+              );
         result = await gateway.generateAgentTurn(
           system,
           history,
@@ -4114,6 +4255,7 @@ extension AgentApi on Engine {
         result.toolName!,
         result.toolArgs ?? const {},
         agentFamily: agentFamily,
+        stage: stage,
         activatedSkills: _activatedAgentSkillContexts(messages),
       );
       messages.add(AgentMessage(
@@ -4170,7 +4312,7 @@ extension AgentApi on Engine {
       ),
       base: baseSystem,
       activatedSkills: _activatedAgentSkillContexts(messages),
-      availableSkills: _markdownSkillsForStage(stage),
+      availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
     );
     final user = [
       '当前项目状态：',
@@ -4320,6 +4462,7 @@ extension AgentApi on Engine {
     String name,
     Map<String, dynamic> args, {
     String agentFamily = _scriptAgentFamily,
+    String? stage,
     List<String> activatedSkills = const [],
   }) async {
     try {
@@ -4357,7 +4500,11 @@ extension AgentApi on Engine {
           final skillName =
               (args['name'] ?? args['skillName'] ?? '').toString().trim();
           if (skillName.isEmpty) return '缺少 name 参数。';
-          final skill = activateAgentSkill(skillName);
+          final skill = _activateAgentSkillForContext(
+            skillName,
+            stage: stage,
+            projectId: projectId,
+          );
           final activeNames = _activatedAgentSkillNames(activatedSkills);
           if (activeNames.contains(skill.name) ||
               activeNames.contains(skill.id)) {
@@ -4381,7 +4528,12 @@ extension AgentApi on Engine {
           }
           if (filePath.isEmpty) return '缺少 filePath 参数。';
           return _formatReadAgentSkillFile(
-            readAgentSkillFile(skillName, filePath),
+            _readAgentSkillFileForContext(
+              skillName,
+              filePath,
+              stage: stage,
+              projectId: projectId,
+            ),
           );
         case 'get_novel_events':
           return _scriptAgentNovelEvents(projectId, args);
@@ -4848,12 +5000,13 @@ extension AgentApi on Engine {
         ),
         base: _scriptAgentSubAgentSystem(stage),
         activatedSkills: activeSkillContexts,
-        availableSkills: _markdownSkillsForStage(stage),
+        availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
       );
       final result = await gateway.generateAgentTurn(
         system,
         history,
-        scriptAgentExecutionTools(_agentToolsForStage(stage)),
+        scriptAgentExecutionTools(
+            _agentToolsForStage(stage, projectId: projectId)),
         stage: stage,
       );
       if (!result.isToolCall) {
@@ -4876,6 +5029,7 @@ extension AgentApi on Engine {
         toolName,
         result.toolArgs ?? const {},
         agentFamily: _scriptAgentFamily,
+        stage: stage,
         activatedSkills: activeSkillContexts,
       );
       history.add({
@@ -5320,12 +5474,14 @@ extension AgentApi on Engine {
         ),
         base: _productionAgentSubAgentSystem(stage),
         activatedSkills: activeSkillContexts,
-        availableSkills: _markdownSkillsForStage(stage),
+        availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
       );
       final result = await gateway.generateAgentTurn(
         system,
         history,
-        productionAgentExecutionTools(_agentToolsForStage(stage)),
+        productionAgentExecutionTools(
+          _agentToolsForStage(stage, projectId: projectId),
+        ),
         stage: stage,
       );
       if (!result.isToolCall) {
@@ -5349,6 +5505,7 @@ extension AgentApi on Engine {
         toolName,
         toolArgs,
         agentFamily: _productionAgentFamily,
+        stage: stage,
         activatedSkills: activeSkillContexts,
       );
       history.add({
@@ -5420,6 +5577,7 @@ extension AgentApi on Engine {
     seedProjectProductionMarkdownAgentSkillsInDb(
       db,
       p.join(p.dirname(media.rootDir), 'skills'),
+      projectId: projectId,
       artStyle: project?['artStyle'] as String?,
       directorManual: project?['directorManual'] as String?,
     );
