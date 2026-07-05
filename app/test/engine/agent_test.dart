@@ -4116,6 +4116,45 @@ description: >-
     expect(gateway.textCallCount, 1);
   });
 
+  test('AgentMemoryService deepRetrieve 可直接返回没有来源消息的相关 summary', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_style_only',
+        '寒山风格摘要',
+        '寒山篇需要保持冷白色调、低机位山门压迫感和正派主角气质。',
+        now,
+        embeddingJson('寒山篇需要保持冷白色调、低机位山门压迫感和正派主角气质。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('["summary_style_only"]'),
+    ];
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '寒山低机位山门风格',
+    );
+
+    expect(records.map((item) => item.id), ['summary_style_only']);
+    expect(records.single.type, agentMemoryTypeSummary);
+    expect(records.single.content, contains('低机位山门压迫感'));
+    expect(gateway.textCallCount, 1);
+  });
+
   test('AgentMemoryService deepRetrieve 尊重 LLM 判别为空且不回退原始命中', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(

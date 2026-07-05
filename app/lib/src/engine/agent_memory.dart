@@ -216,6 +216,19 @@ class AgentMemoryService {
       }
     }
     if (ids.isEmpty) {
+      if (summaries.isNotEmpty) {
+        final directMatches = _rankMessageCandidates(
+          isolationKey: isolationKey,
+          normalized: normalized,
+          tokens: tokens,
+          queryEmbedding: queryEmbedding,
+          onlyUnsummarized: true,
+        ).take(settings.ragLimit);
+        return [
+          ...summaries,
+          for (final message in directMatches) message.$2,
+        ];
+      }
       return [
         for (final item in _rankMessageCandidates(
           isolationKey: isolationKey,
