@@ -3767,6 +3767,75 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持对象属性和数组索引复合更新', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_member_update_runtime',
+      name: '成员更新脚本运行时',
+      description:
+          '验证自定义技能兼容 stats[type]++、asset.score += n 和 timeline[0] += n。',
+      script: r'''
+const stats = {};
+const timeline = [0, 100];
+for (const asset of args.assets) {
+  const type = asset.type;
+  if (!stats[type]) {
+    stats[type] = 0;
+  }
+  stats[type]++;
+  asset.score = 10;
+  asset.score += asset.weight;
+  asset.score--;
+  timeline[0] += asset.duration;
+  timeline[1] -= 5;
+}
+return JSON.stringify({
+  roleCount: stats.role,
+  sceneCount: stats.scene,
+  firstScore: args.assets[0].score,
+  totalDuration: timeline[0],
+  tail: timeline[1],
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_member_update_runtime', const {
+        'assets': [
+          {'type': 'role', 'duration': 2, 'weight': 4},
+          {'type': 'scene', 'duration': 3, 'weight': 1},
+          {'type': 'role', 'duration': 5, 'weight': 2},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用成员更新脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_member_update_runtime');
+    expect(jsonDecode(msg.content), {
+      'roleCount': 2,
+      'sceneCount': 1,
+      'firstScore': 13,
+      'totalDuration': 10,
+      'tail': 85,
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(

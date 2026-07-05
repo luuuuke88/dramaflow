@@ -552,6 +552,7 @@ class _CustomAgentSkillRuntime {
         continue;
       }
       if (_runVariableUpdate(trimmed)) continue;
+      if (_runMemberUpdate(trimmed)) continue;
       if (_runMemberAssignment(trimmed)) continue;
       final assignment = RegExp(
         r'^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$',
@@ -865,6 +866,38 @@ class _CustomAgentSkillRuntime {
     return true;
   }
 
+  bool _runMemberUpdate(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    if (source.endsWith('++') || source.endsWith('--')) {
+      final delta = source.endsWith('++') ? 1 : -1;
+      final left = source.substring(0, source.length - 2).trim();
+      final target = _readAssignmentTarget(left);
+      if (target == null) return false;
+      _updateNumericMember(target, delta);
+      return true;
+    }
+    if (source.startsWith('++') || source.startsWith('--')) {
+      final delta = source.startsWith('++') ? 1 : -1;
+      final left = source.substring(2).trim();
+      final target = _readAssignmentTarget(left);
+      if (target == null) return false;
+      _updateNumericMember(target, delta);
+      return true;
+    }
+    final equals = _findTopLevelDefaultEquals(source);
+    if (equals <= 0) return false;
+    final operator = source[equals - 1];
+    if (operator != '+' && operator != '-') return false;
+    final left = source.substring(0, equals - 1).trim();
+    final right = source.substring(equals + 1).trim();
+    if (left.isEmpty || right.isEmpty) return false;
+    final target = _readAssignmentTarget(left);
+    if (target == null) return false;
+    final delta = _toNum(_evaluate(right));
+    _updateNumericMember(target, operator == '+' ? delta : -delta);
+    return true;
+  }
+
   _CustomJsAssignmentTarget? _readAssignmentTarget(String expression) {
     final source = expression.trim();
     final first = _readIdentifier(source, 0);
@@ -915,8 +948,26 @@ class _CustomAgentSkillRuntime {
   }
 
   Object? _readIndexOrProperty(Object? value, Object? key) {
+    if (value is List && (key is num || int.tryParse('$key') != null)) {
+      return _readIndex(value, key is num ? key : int.parse('$key'));
+    }
     if (key is String) return _readProperty(value, key);
     return _readIndex(value, key);
+  }
+
+  Object? _readAssignmentTargetValue(_CustomJsAssignmentTarget target) {
+    final container = target.container;
+    final key = target.key;
+    if (container is Map) return container['$key'];
+    if (container is List) {
+      final index = _assignmentListIndex(key);
+      if (index >= 0 && index < container.length) return container[index];
+      return null;
+    }
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_assignment_target',
+      'key': '$key',
+    });
   }
 
   void _writeAssignmentTarget(
@@ -952,6 +1003,15 @@ class _CustomAgentSkillRuntime {
       });
     }
     return index;
+  }
+
+  void _updateNumericMember(_CustomJsAssignmentTarget target, num delta) {
+    final current = _toNum(_readAssignmentTargetValue(target));
+    final next = current + delta;
+    _writeAssignmentTarget(
+      target,
+      next == next.truncateToDouble() ? next.toInt() : next,
+    );
   }
 
   void _updateNumericVariable(String name, num delta) {
