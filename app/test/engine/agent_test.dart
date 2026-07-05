@@ -1212,6 +1212,75 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Set 去重和 has/add/delete', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_set_runtime',
+      name: 'Set 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 new Set([...]) 去重和成员判断。',
+      script: r'''
+const unique = new Set(args.assets.map(asset => asset.name.trim()));
+const selected = new Set(args.selectedIds);
+selected.delete(10);
+selected.add(30);
+const picked = args.assets
+  .filter(asset => selected.has(asset.id))
+  .map(asset => asset.name.trim())
+  .join('、');
+return JSON.stringify({
+  uniqueNames: [...unique].join('、'),
+  uniqueCount: unique.size,
+  picked,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'selectedIds': {
+            'type': 'array',
+            'items': {'type': 'number'},
+          },
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'id': {'type': 'number'},
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_set_runtime', const {
+        'selectedIds': [10, 20],
+        'assets': [
+          {'id': 10, 'name': ' 李澈 '},
+          {'id': 20, 'name': '沈微'},
+          {'id': 30, 'name': ' 李澈 '},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Set 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_set_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'uniqueNames': '李澈、沈微',
+      'uniqueCount': 2,
+      'picked': '沈微、李澈',
+    });
+  });
+
   test('自定义脚本技能：支持回调数组解构处理 Object.entries', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_destructure_runtime',

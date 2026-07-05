@@ -790,6 +790,8 @@ class _CustomAgentSkillRuntime {
     if (grouped != null) return _evaluate(grouped);
     final jsonStringify = _jsonStringifyInner(expr);
     if (jsonStringify != null) return jsonEncode(_evaluate(jsonStringify));
+    final newExpression = _evaluateNewExpression(expr);
+    if (newExpression != null) return newExpression;
     if (expr.startsWith('`') && expr.endsWith('`') && expr.length >= 2) {
       return _evaluateTemplate(expr.substring(1, expr.length - 1));
     }
@@ -808,6 +810,16 @@ class _CustomAgentSkillRuntime {
     }
     final arrayLiteral = _literalInner(expr, '[', ']');
     if (arrayLiteral != null) return _evaluateArrayLiteral(arrayLiteral);
+    if (expr.startsWith('[')) {
+      final array = _readBalanced(expr, 0, '[', ']');
+      if (array.end < expr.length) {
+        return _evaluateValueChain(
+          _evaluateArrayLiteral(array.text),
+          expr,
+          array.end,
+        );
+      }
+    }
     final objectLiteral = _literalInner(expr, '{', '}');
     if (objectLiteral != null) return _evaluateObjectLiteral(objectLiteral);
     if (expr == 'true') return true;
@@ -940,8 +952,17 @@ class _CustomAgentSkillRuntime {
         'expression': first.text,
       });
     }
-    Object? value = _scope[first.text];
+    final value = _scope[first.text];
 
+    return _evaluateValueChain(value, expression, index);
+  }
+
+  Object? _evaluateValueChain(
+    Object? initialValue,
+    String expression,
+    int index,
+  ) {
+    var value = initialValue;
     while (index < expression.length) {
       final char = expression[index];
       if (char == '(') {
@@ -950,7 +971,7 @@ class _CustomAgentSkillRuntime {
             .where((part) => part.trim().isNotEmpty)
             .map((part) => part.trim())
             .toList();
-        value = _callFunction(value, first.text, args);
+        value = _callFunction(value, 'anonymous', args);
         index = call.end;
         continue;
       }
@@ -1024,6 +1045,31 @@ class _CustomAgentSkillRuntime {
       });
     }
     return value;
+  }
+
+  Object? _evaluateNewExpression(String expression) {
+    if (!_startsWithWord(expression, 0, 'new')) return null;
+    var index = _skipWhitespace(expression, 'new'.length);
+    final name = _readIdentifier(expression, index);
+    if (name == null) return null;
+    index = _skipWhitespace(expression, name.end);
+    if (index >= expression.length || expression[index] != '(') return null;
+    final call = _readBalanced(expression, index, '(', ')');
+    index = _skipWhitespace(expression, call.end);
+    if (index != expression.length) return null;
+    final args = _splitTopLevel(call.text, ',')
+        .where((part) => part.trim().isNotEmpty)
+        .map((part) => part.trim())
+        .toList();
+    switch (name.text) {
+      case 'Set':
+        return _newSet(args);
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_constructor',
+          'constructor': name.text,
+        });
+    }
   }
 
   List<Object?> _evaluateArrayLiteral(String source) {
@@ -1139,6 +1185,24 @@ class _CustomAgentSkillRuntime {
       case 'match':
         if (args.length != 1) _badMethodArgs(method);
         return _matchString('${value ?? ''}', _evaluate(args.single));
+      case 'has':
+        if (args.length != 1 || value is! Set) _badMethodArgs(method);
+        final needle = _evaluate(args.single);
+        return value.any((item) => _compareValues(item, needle, '==='));
+      case 'add':
+        if (args.length != 1 || value is! Set) _badMethodArgs(method);
+        value.add(_evaluate(args.single));
+        return value;
+      case 'delete':
+        if (args.length != 1 || value is! Set) _badMethodArgs(method);
+        final needle = _evaluate(args.single);
+        final currentLength = value.length;
+        value.removeWhere((item) => _compareValues(item, needle, '==='));
+        return value.length != currentLength;
+      case 'clear':
+        if (args.isNotEmpty || value is! Set) _badMethodArgs(method);
+        value.clear();
+        return null;
       case 'push':
         if (value is! List) _badMethodArgs(method);
         value.addAll([for (final arg in args) _evaluate(arg)]);
@@ -1407,6 +1471,18 @@ class _CustomAgentSkillRuntime {
       for (var index = 0; index < values.length; index++)
         _evaluateCallback('from', args[1], values[index], index),
     ];
+  }
+
+  Set<Object?> _newSet(List<String> args) {
+    if (args.length > 1) _badMethodArgs('Set');
+    if (args.isEmpty) return <Object?>{};
+    final source = _evaluate(args.single);
+    if (source == null) return <Object?>{};
+    if (source is String) return <Object?>{...source.split('')};
+    if (source is Iterable) return <Object?>{...source};
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_set_constructor',
+    });
   }
 
   int _arrayLikeLength(Map<Object?, Object?> source) {
@@ -1912,6 +1988,7 @@ class _CustomAgentSkillRuntime {
 
   Object? _readProperty(Object? value, String property) {
     if (value is Map) return value[property];
+    if (property == 'size' && value is Set) return value.length;
     if (property == 'length') {
       if (value is String) return value.length;
       if (value is Iterable) return value.length;
