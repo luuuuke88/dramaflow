@@ -9,6 +9,7 @@ import '../api/models.dart';
 import 'assets.dart';
 import 'audio_bind.dart' show AudioBindApi;
 import 'compose.dart';
+import 'agent_skills.dart';
 import 'storyboard.dart' show StoryboardApi;
 import 'config.dart';
 import 'db.dart';
@@ -284,6 +285,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     final db = openEngineDb(path.join(dataDir, 'dramaflow.sqlite'));
     final config = EngineConfig(db, isMobile: isMobile);
     _seedDefaults(db, config, isMobile: isMobile);
+    seedToonFlowMarkdownAgentSkillsInDb(db, path.join(dataDir, 'skills'));
     final media = MediaStore(path.join(dataDir, 'media'));
     final engine = Engine(
       db: db,

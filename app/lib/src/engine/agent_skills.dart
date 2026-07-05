@@ -1,10 +1,95 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart';
 
 import 'errors.dart';
 
 const markdownAgentSkillType = 'markdown-agent';
+
+class ToonFlowMarkdownSkillSeed {
+  final String fileName;
+  final String attribution;
+  final List<String> workspaceDirs;
+
+  const ToonFlowMarkdownSkillSeed({
+    required this.fileName,
+    required this.attribution,
+    this.workspaceDirs = const [],
+  });
+}
+
+class SeededMarkdownAgentSkill {
+  final String id;
+  final String name;
+  final String description;
+  final String path;
+
+  const SeededMarkdownAgentSkill({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.path,
+  });
+}
+
+const toonFlowMarkdownSkillSeeds = <ToonFlowMarkdownSkillSeed>[
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'script_agent_decision.md',
+    attribution: 'script_agent_decision',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'script_execution_skeleton.md',
+    attribution: 'script_execution_skeleton',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'script_execution_adaptation.md',
+    attribution: 'script_execution_adaptation',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'script_execution_script.md',
+    attribution: 'script_execution_script',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'script_agent_supervision.md',
+    attribution: 'script_agent_supervision',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'production_agent_decision.md',
+    attribution: 'production_agent_decision',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_derive_assets.md',
+    attribution: 'production_execution_derive_assets',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_generate_assets.md',
+    attribution: 'production_execution_generate_assets',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_director_plan.md',
+    attribution: 'production_execution_director_plan',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_storyboard_gen.md',
+    attribution: 'production_execution_storyboard_gen',
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_storyboard_panel.md',
+    attribution: 'production_execution_storyboard_panel',
+    workspaceDirs: ['production_skills'],
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_storyboard_table.md',
+    attribution: 'production_execution_storyboard_table',
+    workspaceDirs: ['production_skills'],
+  ),
+  ToonFlowMarkdownSkillSeed(
+    fileName: 'production_agent_supervision.md',
+    attribution: 'production_agent_supervision',
+  ),
+];
 
 class ParsedAgentSkillMarkdown {
   final String id;
@@ -35,6 +120,80 @@ class AgentSkillActivation {
     required this.content,
     required this.filePath,
     this.resourceFiles = const [],
+  });
+}
+
+List<SeededMarkdownAgentSkill> seedToonFlowMarkdownAgentSkillsInDb(
+  Database db,
+  String skillsRootPath,
+) {
+  final root = Directory(skillsRootPath);
+  if (!root.existsSync()) return const [];
+  final seeded = <SeededMarkdownAgentSkill>[];
+  final now = DateTime.now().millisecondsSinceEpoch;
+  for (final seed in toonFlowMarkdownSkillSeeds) {
+    final file = File(p.join(root.path, seed.fileName));
+    if (!file.existsSync()) continue;
+    final parsed = parseAgentSkillFile(file.path);
+    final existing = db.select(
+        'SELECT id FROM o_skillList WHERE id=?', [parsed.id]).firstOrNull;
+    final resources = encodeMarkdownSkillResources(
+      workspaceDirs: seed.workspaceDirs,
+    );
+    if (existing == null) {
+      db.execute(
+        'INSERT INTO o_skillList '
+        '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          parsed.id,
+          parsed.name,
+          parsed.description,
+          1,
+          markdownAgentSkillType,
+          now,
+          now,
+          file.path,
+          resources,
+          '',
+        ],
+      );
+    } else {
+      db.execute(
+        'UPDATE o_skillList SET type=?, path=?, md5=?, updateTime=? '
+        'WHERE id=?',
+        [
+          markdownAgentSkillType,
+          file.path,
+          resources,
+          now,
+          parsed.id,
+        ],
+      );
+    }
+    db.execute(
+      'INSERT OR REPLACE INTO o_skillAttribution (attribution,skillId) '
+      'VALUES (?,?)',
+      [seed.attribution, parsed.id],
+    );
+    seeded.add(SeededMarkdownAgentSkill(
+      id: parsed.id,
+      name: parsed.name,
+      description: parsed.description,
+      path: file.path,
+    ));
+  }
+  return seeded;
+}
+
+String encodeMarkdownSkillResources({
+  List<String> workspaceDirs = const [],
+  List<String> attachedSkillDirs = const [],
+}) {
+  if (workspaceDirs.isEmpty && attachedSkillDirs.isEmpty) return '';
+  return jsonEncode({
+    'workspaceDirs': _normalizedSkillDirs(workspaceDirs),
+    'attachedSkillDirs': _normalizedSkillDirs(attachedSkillDirs),
   });
 }
 
@@ -218,6 +377,11 @@ List<String> _listMarkdownFilesUnderSkillsRoot(
   files.sort();
   return files;
 }
+
+List<String> _normalizedSkillDirs(List<String> dirs) => [
+      for (final dir in dirs)
+        if (dir.trim().isNotEmpty) _normalizeSkillRelativePath(dir),
+    ];
 
 String _normalizeSkillRelativePath(String value) {
   final trimmed = value.trim().replaceAll('\\', '/');
