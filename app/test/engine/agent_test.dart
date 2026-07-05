@@ -1960,6 +1960,69 @@ return labels.join('、');
     expect(msg.content, '1.雪夜山门:3s、3.李澈拔剑:1s');
   });
 
+  test('自定义脚本技能：支持数组方法传入函数声明回调', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_function_callback_runtime',
+      name: '函数回调脚本运行时',
+      description: '验证自定义技能兼容模型常写的 map(formatShot) 函数引用回调。',
+      script: r'''
+function formatShot(shot, index) {
+  if (shot.disabled || !shot.videoDesc?.trim()) {
+    return null;
+  }
+  return `${index + 1}.${shot.videoDesc.trim()}`;
+}
+
+function keepLabel(label) {
+  return !!label;
+}
+
+const labels = args.storyboards
+  .map(formatShot)
+  .filter(keepLabel);
+
+return labels.join('、');
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_function_callback_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 '},
+          {'videoDesc': '', 'disabled': false},
+          {'videoDesc': '废弃镜头', 'disabled': true},
+          {'videoDesc': '李澈拔剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用函数回调脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_function_callback_runtime');
+    expect(msg.content, '1.雪夜山门、4.李澈拔剑');
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',

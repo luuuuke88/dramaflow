@@ -1296,6 +1296,13 @@ class _CustomAgentSkillRuntime {
 
   Object? _callCustomFunction(_CustomJsFunction function, List<String> args) {
     final values = [for (final arg in args) _evaluate(arg)];
+    return _callCustomFunctionWithValues(function, values);
+  }
+
+  Object? _callCustomFunctionWithValues(
+    _CustomJsFunction function,
+    List<Object?> values,
+  ) {
     final bindings = <String, Object?>{};
     for (var i = 0; i < function.params.length; i++) {
       _bindCallbackParam(
@@ -1459,7 +1466,13 @@ class _CustomAgentSkillRuntime {
     int index,
   ) {
     final arrow = _findTopLevelArrow(callback);
-    if (arrow < 0) _badMethodArgs(method);
+    if (arrow < 0) {
+      final function = _evaluate(callback);
+      if (function is _CustomJsFunction) {
+        return _callCustomFunctionWithValues(function, [item, index]);
+      }
+      _badMethodArgs(method);
+    }
     final params = _parseCallbackParams(callback.substring(0, arrow), method);
     final body = callback.substring(arrow + 2).trim();
     return _withScopeBindings(
@@ -1476,7 +1489,16 @@ class _CustomAgentSkillRuntime {
     int index,
   ) {
     final arrow = _findTopLevelArrow(callback);
-    if (arrow < 0) _badMethodArgs(method);
+    if (arrow < 0) {
+      final function = _evaluate(callback);
+      if (function is _CustomJsFunction) {
+        return _callCustomFunctionWithValues(
+          function,
+          [accumulator, item, index],
+        );
+      }
+      _badMethodArgs(method);
+    }
     final params = _parseCallbackParams(callback.substring(0, arrow), method);
     if (params.length != 2) _badMethodArgs(method);
     final body = callback.substring(arrow + 2).trim();
@@ -1495,7 +1517,16 @@ class _CustomAgentSkillRuntime {
     Object? right,
   ) {
     final arrow = _findTopLevelArrow(callback);
-    if (arrow < 0) _badMethodArgs(method);
+    if (arrow < 0) {
+      final function = _evaluate(callback);
+      if (function is _CustomJsFunction) {
+        final result = _callCustomFunctionWithValues(function, [left, right]);
+        if (result is num) return result.sign.toInt();
+        if (result is bool) return result ? 1 : 0;
+        return 0;
+      }
+      _badMethodArgs(method);
+    }
     final params = _parseCallbackParams(callback.substring(0, arrow), method);
     if (params.length != 2) _badMethodArgs(method);
     final body = callback.substring(arrow + 2).trim();
