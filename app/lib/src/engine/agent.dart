@@ -336,6 +336,8 @@ class _CustomAgentSkillRuntime {
           'Number': const _CustomJsBuiltin('Number'),
           'Object': const _CustomJsBuiltin('Object'),
           'String': const _CustomJsBuiltin('String'),
+          'parseFloat': const _CustomJsBuiltin('parseFloat'),
+          'parseInt': const _CustomJsBuiltin('parseInt'),
         };
 
   String run(String script) {
@@ -1095,6 +1097,17 @@ class _CustomAgentSkillRuntime {
         if (args.length > 1) _badMethodArgs(objectName);
         if (args.isEmpty) return '';
         return _stringifyInterpolation(_evaluate(args.single));
+      case 'parseFloat':
+        if (args.length != 1) _badMethodArgs(objectName);
+        return _parseNumericPrefix(_evaluate(args.single), integer: false);
+      case 'parseInt':
+        if (args.isEmpty || args.length > 2) _badMethodArgs(objectName);
+        final radix = args.length == 1 ? 10 : _toInt(_evaluate(args[1]));
+        return _parseNumericPrefix(
+          _evaluate(args.first),
+          integer: true,
+          radix: radix,
+        );
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_builtin_function',
@@ -1263,6 +1276,34 @@ class _CustomAgentSkillRuntime {
       'reason': 'custom_skill_number',
       'value': value,
     });
+  }
+
+  num _parseNumericPrefix(
+    Object? value, {
+    required bool integer,
+    int radix = 10,
+  }) {
+    if (value is num) return integer ? value.toInt() : value;
+    if (integer && radix != 10) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_number_radix',
+        'value': radix,
+      });
+    }
+    final text = '${value ?? ''}'.trimLeft();
+    final pattern = integer
+        ? RegExp(r'^[+-]?\d+')
+        : RegExp(r'^[+-]?(?:(?:\d+\.?\d*)|(?:\.\d+))(?:[eE][+-]?\d+)?');
+    final match = pattern.firstMatch(text);
+    if (match == null) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_number',
+        'value': value,
+      });
+    }
+    final parsed =
+        integer ? int.parse(match.group(0)!) : num.parse(match.group(0)!);
+    return parsed;
   }
 
   List<T> _forEachArg<T>(

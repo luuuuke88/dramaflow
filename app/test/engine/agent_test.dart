@@ -2116,6 +2116,68 @@ return `${String(projectName).trim()}:${total}`;
     expect(msg.content, '测试短剧:6.5');
   });
 
+  test('自定义脚本技能：支持 parseFloat 和 parseInt 全局解析', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_parse_runtime',
+      name: '全局解析脚本运行时',
+      description: '验证自定义技能兼容模型常写的 parseFloat/parseInt 解析带单位数字。',
+      script: r'''
+const { storyboards = [] } = args;
+let totalDuration = 0;
+let refCount = 0;
+storyboards.forEach(shot => {
+  if (!shot.videoDesc?.trim()) {
+    return;
+  }
+  totalDuration += parseFloat(shot.duration ?? '1');
+  refCount += parseInt(shot.references ?? '0', 10);
+});
+return JSON.stringify({
+  totalDuration,
+  refCount,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'string'},
+                'references': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_parse_runtime', const {
+        'storyboards': [
+          {'videoDesc': '雪夜山门', 'duration': '3秒', 'references': '4 refs'},
+          {'videoDesc': '李澈拔剑', 'duration': '2.5s', 'references': '2张'},
+          {'videoDesc': '', 'duration': '99s', 'references': '99'},
+          {'videoDesc': '掌门入场'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用全局解析脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_parse_runtime');
+    expect(msg.content, '{"totalDuration":6.5,"refCount":6}');
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',
