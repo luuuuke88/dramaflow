@@ -421,6 +421,7 @@ class _CustomAgentSkillRuntime {
         _scope[declaration.group(1)!] = _evaluate(declaration.group(2)!);
         continue;
       }
+      if (_runVariableUpdate(trimmed)) continue;
       final assignment = RegExp(
         r'^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$',
       ).firstMatch(trimmed);
@@ -560,43 +561,48 @@ class _CustomAgentSkillRuntime {
   void _runForUpdate(String statement) {
     final trimmed = statement.trim();
     if (trimmed.isEmpty) return;
-    final postfix = RegExp(
-      r'^([A-Za-z_][A-Za-z0-9_]*)\s*(\+\+|--)$',
-    ).firstMatch(trimmed);
-    if (postfix != null) {
-      _updateNumericVariable(
-        postfix.group(1)!,
-        postfix.group(2)! == '++' ? 1 : -1,
-      );
-      return;
-    }
-    final prefix = RegExp(
-      r'^(\+\+|--)\s*([A-Za-z_][A-Za-z0-9_]*)$',
-    ).firstMatch(trimmed);
-    if (prefix != null) {
-      _updateNumericVariable(
-        prefix.group(2)!,
-        prefix.group(1)! == '++' ? 1 : -1,
-      );
-      return;
-    }
-    final compound = RegExp(
-      r'^([A-Za-z_][A-Za-z0-9_]*)\s*([+-])=\s*([\s\S]+)$',
-    ).firstMatch(trimmed);
-    if (compound != null) {
-      final delta = _toNum(_evaluate(compound.group(3)!));
-      _updateNumericVariable(
-        compound.group(1)!,
-        compound.group(2)! == '+' ? delta : -delta,
-      );
-      return;
-    }
+    if (_runVariableUpdate(trimmed)) return;
     final result = _runStatements(trimmed);
     if (result != null) {
       throw EngineException(errLlmFormat, {
         'reason': 'custom_skill_for_update',
       });
     }
+  }
+
+  bool _runVariableUpdate(String statement) {
+    final postfix = RegExp(
+      r'^([A-Za-z_][A-Za-z0-9_]*)\s*(\+\+|--)$',
+    ).firstMatch(statement);
+    if (postfix != null) {
+      _updateNumericVariable(
+        postfix.group(1)!,
+        postfix.group(2)! == '++' ? 1 : -1,
+      );
+      return true;
+    }
+    final prefix = RegExp(
+      r'^(\+\+|--)\s*([A-Za-z_][A-Za-z0-9_]*)$',
+    ).firstMatch(statement);
+    if (prefix != null) {
+      _updateNumericVariable(
+        prefix.group(2)!,
+        prefix.group(1)! == '++' ? 1 : -1,
+      );
+      return true;
+    }
+    final compound = RegExp(
+      r'^([A-Za-z_][A-Za-z0-9_]*)\s*([+-])=\s*([\s\S]+)$',
+    ).firstMatch(statement);
+    if (compound != null) {
+      final delta = _toNum(_evaluate(compound.group(3)!));
+      _updateNumericVariable(
+        compound.group(1)!,
+        compound.group(2)! == '+' ? delta : -delta,
+      );
+      return true;
+    }
+    return false;
   }
 
   void _updateNumericVariable(String name, num delta) {

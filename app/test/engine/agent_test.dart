@@ -1945,6 +1945,66 @@ return `可生成分镜：${selected.join('、')}`;
     expect(msg.content, '可生成分镜：1.雪夜山门:3s、3.李澈拔剑:1s');
   });
 
+  test('自定义脚本技能：支持复合赋值和自增累计分镜指标', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_compound_runtime',
+      name: '复合赋值脚本运行时',
+      description: '验证自定义技能兼容模型常写的 total += x 和 count++ 累计语句。',
+      script: r'''
+let total = 0;
+let usable = 0;
+args.storyboards.forEach(shot => {
+  if (shot.disabled || !shot.videoDesc?.trim()) {
+    return;
+  }
+  total += shot.duration ?? 1;
+  usable++;
+});
+return JSON.stringify({
+  total,
+  usable,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_compound_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 ', 'duration': 3},
+          {'videoDesc': '跳过镜头', 'duration': 8, 'disabled': true},
+          {'videoDesc': '李澈拔剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用复合赋值脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_compound_runtime');
+    expect(msg.content, '{"total":4,"usable":2}');
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',
