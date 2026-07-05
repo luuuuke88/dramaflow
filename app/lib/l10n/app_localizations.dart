@@ -4198,6 +4198,18 @@ abstract class AppLocalizations {
   /// **'请输入有效的整数配置'**
   String get agentMemorySettingsInvalid;
 
+  /// No description provided for @agentMemoryClearSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'清理摘要'**
+  String get agentMemoryClearSummary;
+
+  /// No description provided for @agentMemoryClearNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空长期记忆'**
+  String get agentMemoryClearNote;
+
   /// No description provided for @agentRagLimitTitle.
   ///
   /// In zh, this message translates to:

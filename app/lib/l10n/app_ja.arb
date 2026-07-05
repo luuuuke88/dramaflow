@@ -758,6 +758,8 @@
   "agentMemoryDeepRetrieveSummaryLimit": "deepRetrieve 要約件数",
   "agentMemorySettingsSaved": "Agent 記憶設定を保存しました",
   "agentMemorySettingsInvalid": "有効な整数設定を入力してください",
+  "agentMemoryClearSummary": "要約を消去",
+  "agentMemoryClearNote": "長期記憶を消去",
   "agentRagLimitTitle": "検索メモリ件数",
   "agentRagLimitHelp": "Agent の各返信前に長期記憶から検索して注入する最大件数です。ToonFlow の ragLimit と揃えています。",
   "agentRagLimitSaved": "検索メモリ件数を保存しました",

@@ -2130,6 +2130,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentMemorySettingsInvalid => '请输入有效的整数配置';
 
   @override
+  String get agentMemoryClearSummary => '清理摘要';
+
+  @override
+  String get agentMemoryClearNote => '清空长期记忆';
+
+  @override
   String get agentRagLimitTitle => '搜索记忆条数';
 
   @override

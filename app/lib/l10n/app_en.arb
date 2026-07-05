@@ -758,6 +758,8 @@
   "agentMemoryDeepRetrieveSummaryLimit": "deepRetrieve summary limit",
   "agentMemorySettingsSaved": "Agent memory settings saved",
   "agentMemorySettingsInvalid": "Enter valid integer settings",
+  "agentMemoryClearSummary": "Clear summaries",
+  "agentMemoryClearNote": "Clear long-term memories",
   "agentRagLimitTitle": "RAG search limit",
   "agentRagLimitHelp": "Maximum long-term memories retrieved and injected before each Agent reply, matching ToonFlow's ragLimit.",
   "agentRagLimitSaved": "RAG search limit saved",

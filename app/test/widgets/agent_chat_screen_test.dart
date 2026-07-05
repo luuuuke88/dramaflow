@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/agent.dart';
+import 'package:dramaflow/src/engine/agent_memory.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -398,6 +399,9 @@ void main() {
       find.byKey(const ValueKey('agent-rag-limit-field')),
       '4',
     );
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('agent-rag-limit-save')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('agent-rag-limit-save')));
     await tester.pumpAndSettle();
     expect(engine.agentRagLimit(), 4);
@@ -775,6 +779,61 @@ void main() {
     expect(setting('agent.memory.ragLimit'), '2');
     expect(setting('ragLimit'), '2');
     expect(setting('agent.memory.deepRetrieveSummaryLimit'), '7');
+  });
+
+  testWidgets('记忆页可按类型清空摘要和长期记忆且保留对话', (tester) async {
+    engine.saveAgentMemory(
+      projectId,
+      name: '角色守则',
+      content: '李澈必须保持正派。',
+    );
+    engine.db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ui_summary',
+        '摘要',
+        '用户和助手讨论过寒山设定。',
+        DateTime.now().millisecondsSinceEpoch,
+        '{}',
+        'scriptAgent:$projectId',
+        '[]',
+        'assistant',
+        0,
+        agentMemoryTypeSummary,
+      ],
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '记住寒山设定');
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+    expect(engine.agentMessages(projectId), hasLength(2));
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('agent-memory-clear-summary')));
+    await tester.pumpAndSettle();
+    expect(
+      engine.db
+          .select(
+            'SELECT COUNT(*) AS n FROM memories WHERE isolationKey=? AND type=?',
+            ['scriptAgent:$projectId', agentMemoryTypeSummary],
+          )
+          .single['n'],
+      0,
+    );
+    expect(engine.agentMessages(projectId), hasLength(2));
+    expect(engine.agentLongTermMemories(projectId), hasLength(1));
+    expect(find.text('记忆已清空'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('agent-memory-clear-note')));
+    await tester.pumpAndSettle();
+    expect(engine.agentLongTermMemories(projectId), isEmpty);
+    expect(engine.agentMessages(projectId), hasLength(2));
   });
 
   testWidgets('移动端 Agent：新增长期记忆使用全屏表单并保存', (tester) async {

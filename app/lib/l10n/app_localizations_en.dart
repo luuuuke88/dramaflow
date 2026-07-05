@@ -2201,6 +2201,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentMemorySettingsInvalid => 'Enter valid integer settings';
 
   @override
+  String get agentMemoryClearSummary => 'Clear summaries';
+
+  @override
+  String get agentMemoryClearNote => 'Clear long-term memories';
+
+  @override
   String get agentRagLimitTitle => 'RAG search limit';
 
   @override

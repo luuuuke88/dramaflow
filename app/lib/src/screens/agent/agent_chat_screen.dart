@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import '../../api/models.dart';
 import '../../engine/agent.dart';
+import '../../engine/agent_memory.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -1168,6 +1169,27 @@ class _AgentMemoryPane extends ConsumerWidget {
     );
   }
 
+  Future<void> _clearScopedMemory(
+    BuildContext context,
+    WidgetRef ref,
+    String scope,
+  ) async {
+    final l10n = context.l10n;
+    await runAction(
+      context,
+      ref,
+      () async {
+        ref.read(engineProvider).clearAgentMemoryScope(
+              projectId,
+              family: agentFamilyScript,
+              scope: scope,
+            );
+        onChanged();
+      },
+      successMessage: l10n.agentChatMemoryCleared,
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
@@ -1185,12 +1207,31 @@ class _AgentMemoryPane extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: df.textPrimary)),
           ),
-          FilledButton.icon(
-            onPressed: () => _addMemory(context, ref),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(l10n.agentMemoryAdd),
-          ),
         ]),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: () => _addMemory(context, ref),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(l10n.agentMemoryAdd),
+            ),
+            OutlinedButton.icon(
+              key: const ValueKey('agent-memory-clear-note'),
+              onPressed: memories.isEmpty
+                  ? null
+                  : () => _clearScopedMemory(
+                        context,
+                        ref,
+                        agentMemoryTypeNote,
+                      ),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: Text(l10n.agentMemoryClearNote),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         if (memories.isEmpty)
           Text(l10n.agentLongTermMemoryEmpty,
@@ -1249,12 +1290,30 @@ class _AgentMemoryPane extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: df.textPrimary)),
           ),
-          FilledButton.tonalIcon(
-            onPressed: messages.isEmpty ? null : onClear,
-            icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-            label: Text(l10n.agentChatClearMemory),
-          ),
         ]),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.tonalIcon(
+              key: const ValueKey('agent-memory-clear-messages'),
+              onPressed: messages.isEmpty ? null : onClear,
+              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              label: Text(l10n.agentChatClearMemory),
+            ),
+            OutlinedButton.icon(
+              key: const ValueKey('agent-memory-clear-summary'),
+              onPressed: () => _clearScopedMemory(
+                context,
+                ref,
+                agentMemoryTypeSummary,
+              ),
+              icon: const Icon(Icons.summarize_outlined, size: 18),
+              label: Text(l10n.agentMemoryClearSummary),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         if (messages.isEmpty)
           Text(l10n.agentMemoryEmpty,

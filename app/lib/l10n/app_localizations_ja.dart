@@ -2144,6 +2144,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentMemorySettingsInvalid => '有効な整数設定を入力してください';
 
   @override
+  String get agentMemoryClearSummary => '要約を消去';
+
+  @override
+  String get agentMemoryClearNote => '長期記憶を消去';
+
+  @override
   String get agentRagLimitTitle => '検索メモリ件数';
 
   @override

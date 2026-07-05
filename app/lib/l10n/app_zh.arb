@@ -913,6 +913,8 @@
   "agentMemoryDeepRetrieveSummaryLimit": "深度召回摘要数",
   "agentMemorySettingsSaved": "Agent 记忆设置已保存",
   "agentMemorySettingsInvalid": "请输入有效的整数配置",
+  "agentMemoryClearSummary": "清理摘要",
+  "agentMemoryClearNote": "清空长期记忆",
   "agentRagLimitTitle": "搜索记忆条数",
   "agentRagLimitHelp": "Agent 每次回复前从长期记忆中检索并注入的最大条数，对齐 ToonFlow 的 ragLimit。",
   "agentRagLimitSaved": "搜索记忆条数已保存",
