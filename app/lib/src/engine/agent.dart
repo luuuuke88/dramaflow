@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import 'agent_memory.dart';
+import 'agent_skills.dart';
 import 'agent_stage_registry.dart';
 import 'audio_bind.dart';
 import 'compose_episode.dart';
@@ -17,6 +18,8 @@ import 'providers/openai_text.dart' show AgentToolDef, AgentTurnResult;
 import 'scripts.dart';
 import 'storyboard.dart';
 import 'video_track.dart';
+
+export 'agent_skills.dart' show AgentSkillActivation;
 
 const agentRoleUser = 'user';
 const agentRoleAssistant = 'assistant';
@@ -129,6 +132,7 @@ class AgentMemoryRecord {
 
 const _agentSkillType = 'builtin-agent';
 const _customAgentSkillType = 'custom-js-agent';
+const _markdownAgentSkillType = markdownAgentSkillType;
 const _agentDeploymentType = 'agent-stage';
 
 final _tools = <AgentToolDef>[
@@ -142,6 +146,29 @@ final _tools = <AgentToolDef>[
         'keyword': {'type': 'string'},
       },
       'required': ['keyword'],
+    },
+  ),
+  const AgentToolDef(
+    name: 'activate_skill',
+    description: '激活一个 Markdown 技能，把技能正文加载到当前 Agent 上下文中。',
+    schema: {
+      'type': 'object',
+      'properties': {
+        'name': {'type': 'string'},
+      },
+      'required': ['name'],
+    },
+  ),
+  const AgentToolDef(
+    name: 'read_skill_file',
+    description: '读取已安装 Markdown 技能目录内的补充文件。只能读取该技能目录下的相对路径。',
+    schema: {
+      'type': 'object',
+      'properties': {
+        'name': {'type': 'string'},
+        'path': {'type': 'string'},
+      },
+      'required': ['name', 'path'],
     },
   ),
   const AgentToolDef(
@@ -269,7 +296,7 @@ extension AgentApi on Engine {
     final skills = agentSkills();
     return [
       for (final skill in skills)
-        if (skill.enabled)
+        if (skill.enabled && skill.type != _markdownAgentSkillType)
           AgentToolDef(
             name: skill.id,
             description: skill.description.isEmpty
@@ -315,13 +342,29 @@ extension AgentApi on Engine {
     }
   }
 
-  List<AgentSkill> agentSkills() {
+  List<AgentSkill> _agentSkills({String? attribution}) {
     _ensureAgentSkillsSeeded();
-    final rows = db.select(
-      'SELECT id,name,description,state,type,path,md5 FROM o_skillList '
-      'WHERE type IN (?,?) ORDER BY createTime ASC, id ASC',
-      [_agentSkillType, _customAgentSkillType],
-    );
+    final allowedTypes = [
+      _agentSkillType,
+      _customAgentSkillType,
+      _markdownAgentSkillType,
+    ];
+    final rows = attribution == null
+        ? db.select(
+            'SELECT id,name,description,state,type,path,md5 FROM o_skillList '
+            'WHERE type IN (${List.filled(allowedTypes.length, '?').join(',')}) '
+            'ORDER BY createTime ASC, id ASC',
+            allowedTypes,
+          )
+        : db.select(
+            'SELECT s.id,s.name,s.description,s.state,s.type,s.path,s.md5 '
+            'FROM o_skillList s '
+            'JOIN o_skillAttribution a ON a.skillId=s.id '
+            'WHERE a.attribution=? '
+            'AND s.type IN (${List.filled(allowedTypes.length, '?').join(',')}) '
+            'ORDER BY s.createTime ASC, s.id ASC',
+            [attribution, ...allowedTypes],
+          );
     return [
       for (final row in rows)
         AgentSkill(
@@ -337,6 +380,15 @@ extension AgentApi on Engine {
         ),
     ];
   }
+
+  List<AgentSkill> agentSkillsByAttribution(String attribution) =>
+      _agentSkills(attribution: attribution);
+
+  List<AgentSkill> agentSkillsForAttribution(String attribution) =>
+      _agentSkills(attribution: attribution);
+
+  List<AgentSkill> agentSkills({String? attribution}) =>
+      _agentSkills(attribution: attribution);
 
   void saveCustomAgentSkill({
     required String id,
@@ -372,6 +424,79 @@ extension AgentApi on Engine {
     );
   }
 
+  AgentSkill saveMarkdownAgentSkill({
+    required String filePath,
+    String? attribution,
+    bool enabled = true,
+  }) {
+    final parsed = parseAgentSkillFile(filePath);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_skillList '
+      '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        parsed.id,
+        parsed.name,
+        parsed.description,
+        enabled ? 1 : 0,
+        _markdownAgentSkillType,
+        db.select('SELECT createTime FROM o_skillList WHERE id=?',
+                [parsed.id]).firstOrNull?['createTime'] as int? ??
+            now,
+        now,
+        filePath,
+        '',
+        '',
+      ],
+    );
+    final trimmedAttribution = attribution?.trim();
+    if (trimmedAttribution != null && trimmedAttribution.isNotEmpty) {
+      db.execute(
+        'INSERT OR REPLACE INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+        [trimmedAttribution, parsed.id],
+      );
+    }
+    return agentSkills().singleWhere((skill) => skill.id == parsed.id);
+  }
+
+  AgentSkillActivation activateAgentSkill(String name) {
+    final row = _markdownSkillRow(name);
+    final filePath = row['path'] as String? ?? '';
+    final parsed = parseAgentSkillFile(filePath);
+    return AgentSkillActivation(
+      id: row['id'] as String,
+      name: row['name'] as String? ?? parsed.name,
+      description: row['description'] as String? ?? parsed.description,
+      content: parsed.body,
+      filePath: filePath,
+    );
+  }
+
+  String readAgentSkillFile(String name, String relativePath) {
+    final row = _markdownSkillRow(name);
+    return readAgentSkillFileUnderRoot(
+      row['path'] as String? ?? '',
+      relativePath,
+    );
+  }
+
+  Map<String, Object?> _markdownSkillRow(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw EngineException(errLlmFormat, {'reason': '技能名称不能为空'});
+    }
+    final row = db.select(
+      'SELECT id,name,description,path FROM o_skillList '
+      'WHERE (id=? OR name=?) AND type=? AND COALESCE(state,1)!=0 LIMIT 1',
+      [trimmed, trimmed, _markdownAgentSkillType],
+    ).firstOrNull;
+    if (row == null) {
+      throw EngineException(errLlmFormat, {'reason': 'Markdown 技能不存在或未启用'});
+    }
+    return row;
+  }
+
   void updateAgentSkill(
     String id, {
     String? description,
@@ -380,8 +505,8 @@ extension AgentApi on Engine {
     _ensureAgentSkillsSeeded();
     final row = db.select(
       'SELECT id,description,state,type FROM o_skillList '
-      'WHERE id=? AND type IN (?,?)',
-      [id, _agentSkillType, _customAgentSkillType],
+      'WHERE id=? AND type IN (?,?,?)',
+      [id, _agentSkillType, _customAgentSkillType, _markdownAgentSkillType],
     ).firstOrNull;
     if (row == null) {
       throw EngineException(errLlmFormat, {'reason': '技能不存在'});
@@ -942,6 +1067,20 @@ extension AgentApi on Engine {
           return [
             for (final record in records) '${record.role}: ${record.content}',
           ].join('\n');
+        case 'activate_skill':
+          final skillName =
+              (args['name'] ?? args['skillName'] ?? '').toString().trim();
+          if (skillName.isEmpty) return '缺少 name 参数。';
+          final skill = activateAgentSkill(skillName);
+          return '已激活技能 ${skill.name}：\n${skill.content}';
+        case 'read_skill_file':
+          final skillName =
+              (args['name'] ?? args['skillName'] ?? '').toString().trim();
+          final filePath =
+              (args['path'] ?? args['filePath'] ?? '').toString().trim();
+          if (skillName.isEmpty) return '缺少 name 参数。';
+          if (filePath.isEmpty) return '缺少 path 参数。';
+          return readAgentSkillFile(skillName, filePath);
         case 'get_status':
           return _statusSummary(projectId);
         case 'generate_events':

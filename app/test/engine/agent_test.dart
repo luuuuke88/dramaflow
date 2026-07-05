@@ -6,6 +6,7 @@ import 'package:dramaflow/src/engine/agent.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/events.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/novel.dart';
@@ -234,6 +235,121 @@ void main() {
     expect(msg.role, agentRoleTool);
     expect(msg.toolName, 'custom_echo');
     expect(msg.content, '项目$projectId:寒山');
+  });
+
+  test('SkillRuntime parses Markdown frontmatter and filters by attribution',
+      () {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '''
+请保持短剧文风克制，不要滥用旁白。
+
+## 规则
+
+- 角色台词要短。
+''',
+    );
+
+    final skill = engine.saveMarkdownAgentSkill(
+      filePath: skillFile.path,
+      attribution: 'script_agent_decision',
+    );
+
+    expect(skill.id, 'style_polisher');
+    expect(skill.name, 'style_polisher');
+    expect(skill.description, '短剧文风润色技能');
+    expect(skill.type, 'markdown-agent');
+
+    final filtered = engine.agentSkills(attribution: 'script_agent_decision');
+    expect(filtered.map((item) => item.id), contains('style_polisher'));
+    expect(
+      engine.agentSkills(attribution: 'production_agent_execution'),
+      isNot(contains(predicate<AgentSkill>((s) => s.id == 'style_polisher'))),
+    );
+  });
+
+  test('SkillRuntime activate_skill returns Markdown body for Agent context',
+      () {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '''
+请保持短剧文风克制，不要滥用旁白。
+
+## 规则
+
+- 角色台词要短。
+''',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: skillFile.path,
+      attribution: 'script_agent_decision',
+    );
+
+    final activated = engine.activateAgentSkill('style_polisher');
+
+    expect(activated.id, 'style_polisher');
+    expect(activated.description, '短剧文风润色技能');
+    expect(activated.content, contains('角色台词要短'));
+    expect(activated.content, isNot(contains('---')));
+  });
+
+  test('SkillRuntime read_skill_file reads only files under skill root', () {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '正文技能内容',
+      extraFiles: {
+        'references/rules.md': '规则：不能把李澈写成反派。',
+      },
+    );
+    engine.saveMarkdownAgentSkill(filePath: skillFile.path);
+
+    expect(
+      engine.readAgentSkillFile('style_polisher', 'references/rules.md'),
+      '规则：不能把李澈写成反派。',
+    );
+    expect(
+      () => engine.readAgentSkillFile('style_polisher', '../secret.md'),
+      throwsA(isA<EngineException>()),
+    );
+  });
+
+  test('SkillRuntime exposes activate_skill and read_skill_file as Agent tools',
+      () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '技能正文：短剧台词要短。',
+      extraFiles: {
+        'references/rules.md': '规则：每句台词不超过二十字。',
+      },
+    );
+    engine.saveMarkdownAgentSkill(filePath: skillFile.path);
+
+    gateway.turns = [
+      AgentTurnResult.tool('activate_skill', const {'name': 'style_polisher'}),
+    ];
+    await engine.sendAgentMessage(projectId, '激活文风技能', autoMode: false);
+
+    expect(gateway.lastTools.map((tool) => tool.name),
+        containsAll(['activate_skill', 'read_skill_file']));
+    var msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'activate_skill');
+    expect(msg.content, contains('技能正文：短剧台词要短'));
+
+    gateway.turns = [
+      AgentTurnResult.tool('read_skill_file', const {
+        'name': 'style_polisher',
+        'path': 'references/rules.md',
+      }),
+    ];
+    await engine.sendAgentMessage(projectId, '读取技能规则', autoMode: false);
+
+    msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'read_skill_file');
+    expect(msg.content, '规则：每句台词不超过二十字。');
   });
 
   test(
@@ -514,8 +630,33 @@ void main() {
   });
 }
 
+File _writeSkillFixture(
+  Directory dir, {
+  required String id,
+  required String body,
+  Map<String, String> extraFiles = const {},
+}) {
+  final skillDir = Directory(p.join(dir.path, 'skills', id))
+    ..createSync(recursive: true);
+  final file = File(p.join(skillDir.path, 'SKILL.md'));
+  file.writeAsStringSync('''
+---
+name: $id
+description: 短剧文风润色技能
+---
+
+$body
+''');
+  for (final entry in extraFiles.entries) {
+    final extra = File(p.join(skillDir.path, entry.key))
+      ..parent.createSync(recursive: true);
+    extra.writeAsStringSync(entry.value);
+  }
+  return file;
+}
+
 class _Gateway implements ProviderGateway {
-  List<AgentTurnResult> turns = const [];
+  List<AgentTurnResult> _turns = const [];
   List<TextResult> textResults = const [];
   List<AgentToolDef> lastTools = const [];
   String lastSystem = '';
@@ -523,6 +664,13 @@ class _Gateway implements ProviderGateway {
   int callCount = 0;
   int textCallCount = 0;
   bool shouldThrow = false;
+
+  set turns(List<AgentTurnResult> value) {
+    _turns = value;
+    callCount = 0;
+  }
+
+  List<AgentTurnResult> get turns => _turns;
 
   @override
   Future<AgentTurnResult> generateAgentTurn(
@@ -536,7 +684,7 @@ class _Gateway implements ProviderGateway {
     lastTools = List<AgentToolDef>.from(tools);
     lastSystem = system;
     lastMessages = [for (final message in messages) Map.of(message)];
-    final r = turns[callCount];
+    final r = _turns[callCount];
     callCount++;
     return r;
   }

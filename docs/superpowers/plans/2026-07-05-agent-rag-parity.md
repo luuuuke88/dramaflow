@@ -39,7 +39,7 @@
 - Modify: `app/lib/src/engine/providers/resolve.dart`
 - Test: `app/test/engine/agent_test.dart`
 
-- [ ] **Step 1: Write failing registry test**
+- [x] **Step 1: Write failing registry test**
 
 Add a test asserting `agentDeployments()` includes all ToonFlow script/production keys plus old pipeline keys, in registry order:
 
@@ -73,7 +73,7 @@ test('Agent stage registry seeds ToonFlow script/production families without dro
 });
 ```
 
-- [ ] **Step 2: Run the focused test to verify RED**
+- [x] **Step 2: Run the focused test to verify RED**
 
 Run:
 
@@ -84,7 +84,7 @@ flutter test test/engine/agent_test.dart --plain-name "Agent stage registry seed
 
 Expected: FAIL because the current hard-coded `_agentDeploymentKeys` only contains the five old pipeline keys.
 
-- [ ] **Step 3: Implement `agent_stage_registry.dart`**
+- [x] **Step 3: Implement `agent_stage_registry.dart`**
 
 Define immutable `AgentStageDefinition` records and export:
 
@@ -113,11 +113,11 @@ const agentStageDefinitions = <AgentStageDefinition>[
 ];
 ```
 
-- [ ] **Step 4: Replace hard-coded deployment keys**
+- [x] **Step 4: Replace hard-coded deployment keys**
 
 In `agent.dart`, use `agentStageDefinitions` for seed/query/update validation. Insert `name` from the registry and seed `vendorId/modelName` from `binding.<fallbackStage>` instead of only `binding.<key>`.
 
-- [ ] **Step 5: Add fallback resolution test**
+- [x] **Step 5: Add fallback resolution test**
 
 Add a test:
 
@@ -140,7 +140,7 @@ test('ToonFlow Agent stage resolves through fallback text binding when deploymen
 });
 ```
 
-- [ ] **Step 6: Run focused tests to verify GREEN**
+- [x] **Step 6: Run focused tests to verify GREEN**
 
 Run:
 
@@ -152,7 +152,7 @@ flutter test test/engine/agent_test.dart --plain-name "ToonFlow Agent stage reso
 
 Expected: both focused tests pass.
 
-- [ ] **Step 7: Commit Task 1**
+- [x] **Step 7: Commit Task 1**
 
 ```bash
 git add app/lib/src/engine/agent_stage_registry.dart app/lib/src/engine/agent.dart app/lib/src/engine/providers/resolve.dart app/test/engine/agent_test.dart docs/superpowers/plans/2026-07-05-agent-rag-parity.md
@@ -166,7 +166,7 @@ git commit -m "feat(agent): seed toonflow stage registry"
 - Modify: `app/lib/src/engine/agent.dart`
 - Test: `app/test/engine/agent_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add three concrete tests:
 
@@ -176,7 +176,7 @@ Add three concrete tests:
 
 Use fake gateway text responses for summaries so tests do not call network.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -187,7 +187,7 @@ flutter test test/engine/agent_test.dart --plain-name "AgentMemoryService"
 
 Expected: FAIL because `AgentMemoryService` does not exist and `memories(type='message'/'summary')` is not used.
 
-- [ ] **Step 3: Implement service**
+- [x] **Step 3: Implement service**
 
 Add pure-Dart service methods:
 
@@ -200,7 +200,7 @@ void clear({required String isolationKey, required AgentMemoryClearScope scope})
 
 Generate local token embeddings, mark summarized messages, store `relatedMessageIds` JSON, and enforce configurable limits.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run:
 
@@ -218,11 +218,11 @@ Expected: new memory tests pass and old long-term note tests still pass.
 - Modify: `app/lib/src/engine/agent.dart`
 - Test: `app/test/engine/agent_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add tests for Markdown frontmatter parsing, `activate_skill`, `read_skill_file`, attribution filtering, and path traversal rejection.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -233,11 +233,11 @@ flutter test test/engine/agent_test.dart --plain-name "SkillRuntime"
 
 Expected: FAIL because runtime APIs do not exist.
 
-- [ ] **Step 3: Implement runtime**
+- [x] **Step 3: Implement runtime**
 
 Seed built-in skill metadata into `o_skillList`; store attribution rows in `o_skillAttribution`; read files only from the configured skill root; return readable Chinese errors for missing skill or unsafe path.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run:
 
