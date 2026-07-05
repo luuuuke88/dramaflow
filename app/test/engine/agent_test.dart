@@ -1890,6 +1890,59 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_object_destructure_runtime',
+      name: '对象解构脚本运行时',
+      description: '验证自定义技能兼容模型常写的 ({ field }) => ... 参数。',
+      script: r'''
+const names = args.storyboards
+  .filter(({ videoDesc }) => !!videoDesc?.trim())
+  .map(({ index, videoDesc, duration }) =>
+    `${index}.${videoDesc.trim()}:${duration}s`)
+  .join('、');
+return `可用分镜：${names}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'index': {'type': 'number'},
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_object_destructure_runtime', const {
+        'storyboards': [
+          {'index': 1, 'videoDesc': ' 雪夜山门 ', 'duration': 3},
+          {'index': 2, 'videoDesc': '', 'duration': 2},
+          {'index': 3, 'videoDesc': '李澈拔剑', 'duration': 4},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用对象解构脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_object_destructure_runtime');
+    expect(msg.content, '可用分镜：1.雪夜山门:3s、3.李澈拔剑:4s');
+  });
+
   test('自定义脚本技能：支持 sort 和 slice 选择重点资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_sort_slice_runtime',

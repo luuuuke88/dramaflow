@@ -1283,8 +1283,12 @@ class _CustomAgentSkillRuntime {
   bool _isValidCallbackParam(String param) {
     final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
     if (validName.hasMatch(param)) return true;
-    final destructured = _arrayDestructureNames(param);
-    return destructured != null && destructured.isNotEmpty;
+    final arrayDestructured = _arrayDestructureNames(param);
+    if (arrayDestructured != null && arrayDestructured.isNotEmpty) {
+      return true;
+    }
+    final objectDestructured = _objectDestructureNames(param);
+    return objectDestructured != null && objectDestructured.isNotEmpty;
   }
 
   Map<String, Object?> _bindCallbackParams(
@@ -1310,6 +1314,19 @@ class _CustomAgentSkillRuntime {
     final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
     if (validName.hasMatch(name)) {
       _bindUniqueCallbackName(bindings, name, value, method);
+      return;
+    }
+    final objectNames = _objectDestructureNames(name);
+    if (objectNames != null && objectNames.isNotEmpty) {
+      if (value is! Map) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_destructure',
+          'param': name,
+        });
+      }
+      for (final fieldName in objectNames) {
+        _bindUniqueCallbackName(bindings, fieldName, value[fieldName], method);
+      }
       return;
     }
     final names = _arrayDestructureNames(name);
@@ -1344,6 +1361,21 @@ class _CustomAgentSkillRuntime {
   List<String>? _arrayDestructureNames(String param) {
     final source = param.trim();
     final inner = _literalInner(source, '[', ']');
+    if (inner == null) return null;
+    final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
+    final names = _splitTopLevel(inner, ',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    if (names.isEmpty || names.any((name) => !validName.hasMatch(name))) {
+      return null;
+    }
+    return names;
+  }
+
+  List<String>? _objectDestructureNames(String param) {
+    final source = param.trim();
+    final inner = _literalInner(source, '{', '}');
     if (inner == null) return null;
     final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
     final names = _splitTopLevel(inner, ',')
