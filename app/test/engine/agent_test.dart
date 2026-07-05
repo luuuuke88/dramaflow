@@ -3836,6 +3836,78 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持对象属性和数组索引逻辑赋值', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_logical_assignment_runtime',
+      name: '逻辑赋值脚本运行时',
+      description: '验证自定义技能兼容 grouped[type] ||= [] 和 stats[type] ??= 0。',
+      script: r'''
+const grouped = {};
+const stats = {};
+const flags = [true, false];
+for (const asset of args.assets) {
+  const type = asset.type;
+  grouped[type] ||= [];
+  stats[type] ??= 0;
+  stats[type]++;
+  grouped[type].push(asset.name.trim());
+}
+flags[0] &&= args.allowOverwrite;
+flags[1] ||= grouped.scene.length > 0;
+stats.role ??= 100;
+stats.tool ??= 7;
+return JSON.stringify({
+  role: grouped.role.join('/'),
+  scene: grouped.scene.join('/'),
+  roleCount: stats.role,
+  toolCount: stats.tool,
+  firstFlag: flags[0],
+  secondFlag: flags[1],
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'allowOverwrite': {'type': 'boolean'},
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_logical_assignment_runtime', const {
+        'allowOverwrite': false,
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 '},
+          {'type': 'scene', 'name': '寒山宗门'},
+          {'type': 'role', 'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用逻辑赋值脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_logical_assignment_runtime');
+    expect(jsonDecode(msg.content), {
+      'role': '李澈/沈微',
+      'scene': '寒山宗门',
+      'roleCount': 2,
+      'toolCount': 7,
+      'firstFlag': false,
+      'secondFlag': true,
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(

@@ -553,6 +553,7 @@ class _CustomAgentSkillRuntime {
       }
       if (_runVariableUpdate(trimmed)) continue;
       if (_runMemberUpdate(trimmed)) continue;
+      if (_runMemberLogicalAssignment(trimmed)) continue;
       if (_runMemberAssignment(trimmed)) continue;
       final assignment = RegExp(
         r'^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$',
@@ -895,6 +896,32 @@ class _CustomAgentSkillRuntime {
     if (target == null) return false;
     final delta = _toNum(_evaluate(right));
     _updateNumericMember(target, operator == '+' ? delta : -delta);
+    return true;
+  }
+
+  bool _runMemberLogicalAssignment(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    final equals = _findTopLevelDefaultEquals(source);
+    if (equals < 2) return false;
+    final operator = source.substring(equals - 2, equals);
+    if (operator != '||' && operator != '&&' && operator != '??') {
+      return false;
+    }
+    final left = source.substring(0, equals - 2).trim();
+    final right = source.substring(equals + 1).trim();
+    if (left.isEmpty || right.isEmpty) return false;
+    final target = _readAssignmentTarget(left);
+    if (target == null) return false;
+    final current = _readAssignmentTargetValue(target);
+    final shouldWrite = switch (operator) {
+      '||' => !_isTruthy(current),
+      '&&' => _isTruthy(current),
+      '??' => current == null,
+      _ => false,
+    };
+    if (shouldWrite) {
+      _writeAssignmentTarget(target, _evaluate(right));
+    }
     return true;
   }
 
