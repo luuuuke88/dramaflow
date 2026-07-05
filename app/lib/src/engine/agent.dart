@@ -311,6 +311,9 @@ class _CustomAgentSkillRuntime {
   }) : _scope = {
           'projectId': projectId,
           'args': args,
+          'Array': const _CustomJsBuiltin('Array'),
+          'Math': const _CustomJsBuiltin('Math'),
+          'Object': const _CustomJsBuiltin('Object'),
         };
 
   String run(String script) {
@@ -636,6 +639,9 @@ class _CustomAgentSkillRuntime {
   }
 
   Object? _callMethod(Object? value, String method, List<String> args) {
+    if (value is _CustomJsBuiltin) {
+      return _callBuiltinMethod(value.name, method, args);
+    }
     switch (method) {
       case 'trim':
         _expectNoArgs(method, args);
@@ -759,6 +765,87 @@ class _CustomAgentSkillRuntime {
     }
   }
 
+  Object? _callBuiltinMethod(
+    String objectName,
+    String method,
+    List<String> args,
+  ) {
+    switch (objectName) {
+      case 'Array':
+        if (method == 'isArray') {
+          if (args.length != 1) _badMethodArgs(method);
+          return _evaluate(args.single) is List;
+        }
+        break;
+      case 'Math':
+        return _callMathMethod(method, args);
+      case 'Object':
+        return _callObjectMethod(method, args);
+    }
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_builtin_method',
+      'object': objectName,
+      'method': method,
+    });
+  }
+
+  Object? _callMathMethod(String method, List<String> args) {
+    final numbers = _forEachArg<num>(args, _toNum);
+    switch (method) {
+      case 'round':
+        if (numbers.length != 1) _badMethodArgs(method);
+        return numbers.single.round();
+      case 'floor':
+        if (numbers.length != 1) _badMethodArgs(method);
+        return numbers.single.floor();
+      case 'ceil':
+        if (numbers.length != 1) _badMethodArgs(method);
+        return numbers.single.ceil();
+      case 'abs':
+        if (numbers.length != 1) _badMethodArgs(method);
+        return numbers.single.abs();
+      case 'max':
+        if (numbers.isEmpty) _badMethodArgs(method);
+        return numbers.reduce((a, b) => a > b ? a : b);
+      case 'min':
+        if (numbers.isEmpty) _badMethodArgs(method);
+        return numbers.reduce((a, b) => a < b ? a : b);
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_builtin_method',
+          'object': 'Math',
+          'method': method,
+        });
+    }
+  }
+
+  Object? _callObjectMethod(String method, List<String> args) {
+    if (args.length != 1) _badMethodArgs(method);
+    final value = _evaluate(args.single);
+    if (value is! Map) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_object_builtin',
+        'method': method,
+      });
+    }
+    switch (method) {
+      case 'keys':
+        return [for (final key in value.keys) '$key'];
+      case 'values':
+        return [for (final entry in value.entries) entry.value];
+      case 'entries':
+        return [
+          for (final entry in value.entries) ['${entry.key}', entry.value],
+        ];
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_builtin_method',
+          'object': 'Object',
+          'method': method,
+        });
+    }
+  }
+
   Object? _evaluateCallback(
     String method,
     String callback,
@@ -837,6 +924,22 @@ class _CustomAgentSkillRuntime {
       'value': value,
     });
   }
+
+  num _toNum(Object? value) {
+    if (value is num) return value;
+    final parsed = num.tryParse('${value ?? ''}');
+    if (parsed != null) return parsed;
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_number',
+      'value': value,
+    });
+  }
+
+  List<T> _forEachArg<T>(
+    List<String> args,
+    T Function(Object? value) convert,
+  ) =>
+      [for (final arg in args) convert(_evaluate(arg))];
 
   bool _isTruthy(Object? value) {
     if (value == null) return false;
@@ -983,6 +1086,11 @@ class _CustomAgentSkillRuntime {
     if (value is num || value is bool) return '$value';
     return jsonEncode(value);
   }
+}
+
+class _CustomJsBuiltin {
+  final String name;
+  const _CustomJsBuiltin(this.name);
 }
 
 class _Token {

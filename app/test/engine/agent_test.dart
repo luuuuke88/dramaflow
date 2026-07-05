@@ -846,6 +846,83 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Object Array Math 静态工具', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_static_helpers_runtime',
+      name: '静态工具脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Object.entries、Array.isArray 和 Math.round。',
+      script: r'''
+const groupSummary = Object.entries(args.groups)
+  .filter(entry => Array.isArray(entry[1]))
+  .map(entry => `${entry[0]}:${entry[1].map(item => item.name.trim()).join('/')}`)
+  .join('、');
+const keys = Object.keys(args.groups).join('|');
+const valuesCount = Object.values(args.groups)
+  .filter(value => Array.isArray(value))
+  .reduce((sum, value) => sum + value.length, 0);
+const average = Math.round(args.shots
+  .reduce((sum, shot) => sum + shot.duration, 0) / args.shots.length * 10) / 10;
+return JSON.stringify({
+  keys: keys,
+  groupSummary: groupSummary,
+  valuesCount: valuesCount,
+  average: average,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'groups': {'type': 'object'},
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_static_helpers_runtime', const {
+        'groups': {
+          'role': [
+            {'name': ' 李澈 '},
+            {'name': '沈微'},
+          ],
+          'scene': [
+            {'name': ' 寒山宗门 '},
+          ],
+          'meta': {'ignored': true},
+        },
+        'shots': [
+          {'duration': 1.2},
+          {'duration': 2.4},
+          {'duration': 2.5},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用静态工具脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_static_helpers_runtime');
+    expect(jsonDecode(msg.content), {
+      'keys': 'role|scene|meta',
+      'groupSummary': 'role:李澈/沈微、scene:寒山宗门',
+      'valuesCount': 3,
+      'average': 2,
+    });
+  });
+
   test('自定义脚本技能：支持括号分组逻辑表达式', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_group_runtime',
