@@ -1021,6 +1021,27 @@ class _CustomAgentSkillRuntime {
     });
   }
 
+  bool _deleteAssignmentTarget(_CustomJsAssignmentTarget target) {
+    final container = target.container;
+    final key = target.key;
+    if (container is Map) {
+      container.remove(key);
+      container.remove('$key');
+      return true;
+    }
+    if (container is List) {
+      final index = _assignmentListIndex(key);
+      if (index >= 0 && index < container.length) {
+        container[index] = null;
+      }
+      return true;
+    }
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_delete',
+      'key': '$key',
+    });
+  }
+
   int _assignmentListIndex(Object? key) {
     final index = key is num ? key.toInt() : int.tryParse('${key ?? ''}');
     if (index == null || index < 0) {
@@ -1068,6 +1089,8 @@ class _CustomAgentSkillRuntime {
     if (jsonStringify != null) return jsonEncode(_evaluate(jsonStringify));
     final newExpression = _evaluateNewExpression(expr);
     if (newExpression != null) return newExpression;
+    final deleteExpression = _evaluateDeleteExpression(expr);
+    if (deleteExpression != null) return deleteExpression;
     final inOperator = _readTopLevelInOperator(expr);
     if (inOperator != null) {
       return _hasProperty(
@@ -1361,6 +1384,24 @@ class _CustomAgentSkillRuntime {
           'constructor': name.text,
         });
     }
+  }
+
+  Object? _evaluateDeleteExpression(String expression) {
+    if (!_startsWithWord(expression, 0, 'delete')) return null;
+    final targetExpression = expression.substring('delete'.length).trim();
+    if (targetExpression.isEmpty) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_delete',
+      });
+    }
+    final target = _readAssignmentTarget(targetExpression);
+    if (target == null) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_delete',
+        'expression': expression,
+      });
+    }
+    return _deleteAssignmentTarget(target);
   }
 
   List<Object?> _evaluateArrayLiteral(String source) {

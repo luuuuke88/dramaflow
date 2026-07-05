@@ -3770,6 +3770,87 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 delete 操作符清理对象字段', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_delete_operator_runtime',
+      name: 'delete 操作符脚本运行时',
+      description: '验证自定义技能兼容模型常写的 delete payload.debug 清理写法。',
+      script: r'''
+const payload = Object.assign({}, args.payload);
+const removedDebug = delete payload.debug;
+const removedMissing = delete payload.missing;
+for (const key of args.removeKeys) {
+  delete payload[key];
+}
+payload.assets = args.assets;
+delete payload.assets[0].tempPrompt;
+delete payload.assets[1].discard;
+delete payload.refs[1];
+return JSON.stringify({
+  removedDebug,
+  removedMissing,
+  hasDebug: 'debug' in payload,
+  hasDraft: 'draft' in payload,
+  hasKeep: 'keep' in payload,
+  firstHasTemp: 'tempPrompt' in payload.assets[0],
+  secondHasDiscard: 'discard' in payload.assets[1],
+  refs: payload.refs,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'payload': {'type': 'object'},
+          'removeKeys': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_delete_operator_runtime', const {
+        'payload': {
+          'debug': true,
+          'draft': 'remove',
+          'keep': 'ok',
+          'refs': ['A', 'B', 'C'],
+        },
+        'removeKeys': ['draft'],
+        'assets': [
+          {'name': '李澈', 'tempPrompt': '草稿'},
+          {'name': '寒山宗门', 'discard': true},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 delete 操作符脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_delete_operator_runtime');
+    expect(jsonDecode(msg.content), {
+      'removedDebug': true,
+      'removedMissing': true,
+      'hasDebug': false,
+      'hasDraft': false,
+      'hasKeep': true,
+      'firstHasTemp': false,
+      'secondHasDiscard': false,
+      'refs': ['A', null, 'C'],
+    });
+  });
+
   test('自定义脚本技能：支持对象属性和数组索引赋值', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_property_assignment_runtime',
