@@ -4454,6 +4454,79 @@ description: >-
     expect(gateway.textCallCount, 0);
   });
 
+  test('AgentMemoryService deepRetrieveSummaryLimit 为 0 时不绕回已摘要 message',
+      () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.deepRetrieveSummaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'msg_summarized_old',
+        '',
+        '旧消息：李澈来自寒山且必须保持正派。',
+        now,
+        embeddingJson('李澈来自寒山且必须保持正派'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_old',
+        '李澈旧设定',
+        '李澈来自寒山且必须保持正派。',
+        now + 1,
+        embeddingJson('李澈来自寒山且必须保持正派'),
+        'scriptAgent:$projectId',
+        jsonEncode(['msg_summarized_old']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'msg_recent_direct',
+        '',
+        '新消息：李澈救下沈微这一幕必须保留。',
+        now + 2,
+        embeddingJson('李澈救下沈微这一幕必须保留'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        0,
+        'message',
+      ],
+    );
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '李澈正派救下沈微',
+    );
+
+    expect(records.map((item) => item.id), ['msg_recent_direct']);
+    expect(gateway.textCallCount, 0);
+  });
+
   test('AgentMemoryService clear 按 scope 清空 message summary note', () {
     final service = AgentMemoryService(
       db,

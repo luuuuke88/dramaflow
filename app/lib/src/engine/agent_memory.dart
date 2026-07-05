@@ -235,6 +235,7 @@ class AgentMemoryService {
           normalized: normalized,
           tokens: tokens,
           queryEmbedding: queryEmbedding,
+          onlyUnsummarized: scored.isNotEmpty,
         ).take(settings.ragLimit))
           item.$2,
       ];
