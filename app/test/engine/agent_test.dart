@@ -2178,6 +2178,62 @@ return JSON.stringify({
     expect(msg.content, '{"totalDuration":6.5,"refCount":6}');
   });
 
+  test('自定义脚本技能：支持字符串拆分清洗分镜表', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_string_parse_runtime',
+      name: '字符串解析脚本运行时',
+      description: '验证自定义技能兼容模型常写的 split/replace/startsWith/endsWith 文本清洗。',
+      script: r'''
+const shots = args.table
+  .split('\n')
+  .map(line => line.trim())
+  .filter(line => line && !line.startsWith('#') && !line.endsWith('废弃'))
+  .map((line, index) => {
+    const parts = line.replace('镜头：', '').split('|').map(part => part.trim());
+    return {
+      index: index + 1,
+      title: parts[0],
+      duration: parseFloat(parts[1].replace('秒', '')),
+      track: parts[2],
+    };
+  });
+return JSON.stringify(shots);
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'table': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_string_parse_runtime', const {
+        'table': '''
+# 分镜表
+镜头：雪夜山门 | 3秒 | 首尾帧
+镜头：废稿 | 9秒 | 首帧 废弃
+镜头：李澈拔剑 | 2.5秒 | 视频参考
+''',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用字符串解析脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_string_parse_runtime');
+    expect(
+      msg.content,
+      '[{"index":1,"title":"雪夜山门","duration":3,"track":"首尾帧"},'
+      '{"index":2,"title":"李澈拔剑","duration":2.5,"track":"视频参考"}]',
+    );
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',

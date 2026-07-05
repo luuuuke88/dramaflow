@@ -955,6 +955,28 @@ class _CustomAgentSkillRuntime {
       case 'toString':
         _expectNoArgs(method, args);
         return '${value ?? ''}';
+      case 'split':
+        if (args.length > 1) _badMethodArgs(method);
+        final text = '${value ?? ''}';
+        if (args.isEmpty) return [text];
+        final separator = _stringifyInterpolation(_evaluate(args.single));
+        return separator.isEmpty ? text.split('') : text.split(separator);
+      case 'replace':
+        if (args.length != 2) _badMethodArgs(method);
+        final text = '${value ?? ''}';
+        final from = _stringifyInterpolation(_evaluate(args.first));
+        final to = _stringifyInterpolation(_evaluate(args[1]));
+        return from.isEmpty ? '$to$text' : text.replaceFirst(from, to);
+      case 'startsWith':
+        if (args.length != 1) _badMethodArgs(method);
+        return '${value ?? ''}'.startsWith(
+          _stringifyInterpolation(_evaluate(args.single)),
+        );
+      case 'endsWith':
+        if (args.length != 1) _badMethodArgs(method);
+        return '${value ?? ''}'.endsWith(
+          _stringifyInterpolation(_evaluate(args.single)),
+        );
       case 'includes':
         if (args.length != 1) _badMethodArgs(method);
         return '${value ?? ''}'.contains('${_evaluate(args.single) ?? ''}');
