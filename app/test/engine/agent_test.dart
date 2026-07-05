@@ -1056,6 +1056,74 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持对象和数组展开语法整理资产', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_spread_runtime',
+      name: '展开脚本运行时',
+      description: '验证自定义技能兼容模型常写的 ...asset 和数组展开写法。',
+      script: r'''
+const normalized = args.assets.map(asset => ({
+  ...asset,
+  name: asset.name?.trim() ?? '未命名',
+  tags: [...(asset.tags ?? []), '短剧'],
+}));
+return JSON.stringify(normalized);
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+                'tags': {
+                  'type': 'array',
+                  'items': {'type': 'string'},
+                },
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_spread_runtime', const {
+        'assets': [
+          {
+            'type': 'role',
+            'name': ' 李澈 ',
+            'tags': ['主角'],
+          },
+          {
+            'type': 'scene',
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用展开脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_spread_runtime');
+    expect(jsonDecode(msg.content), [
+      {
+        'type': 'role',
+        'name': '李澈',
+        'tags': ['主角', '短剧'],
+      },
+      {
+        'type': 'scene',
+        'name': '未命名',
+        'tags': ['短剧'],
+      },
+    ]);
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(

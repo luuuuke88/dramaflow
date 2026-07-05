@@ -509,16 +509,45 @@ class _CustomAgentSkillRuntime {
     return value;
   }
 
-  List<Object?> _evaluateArrayLiteral(String source) => [
-        for (final item in _splitTopLevel(source, ','))
-          if (item.trim().isNotEmpty) _evaluate(item),
-      ];
+  List<Object?> _evaluateArrayLiteral(String source) {
+    final result = <Object?>[];
+    for (final item in _splitTopLevel(source, ',')) {
+      final trimmed = item.trim();
+      if (trimmed.isEmpty) continue;
+      if (trimmed.startsWith('...')) {
+        final spread = _evaluate(trimmed.substring(3).trim());
+        if (spread is! Iterable) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_array_spread',
+            'expression': trimmed,
+          });
+        }
+        result.addAll(spread);
+        continue;
+      }
+      result.add(_evaluate(trimmed));
+    }
+    return result;
+  }
 
   Map<String, Object?> _evaluateObjectLiteral(String source) {
     final result = <String, Object?>{};
     for (final item in _splitTopLevel(source, ',')) {
       final trimmed = item.trim();
       if (trimmed.isEmpty) continue;
+      if (trimmed.startsWith('...')) {
+        final spread = _evaluate(trimmed.substring(3).trim());
+        if (spread is! Map) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_object_spread',
+            'expression': trimmed,
+          });
+        }
+        for (final entry in spread.entries) {
+          result['${entry.key}'] = entry.value;
+        }
+        continue;
+      }
       final colon = _findTopLevelColon(trimmed);
       if (colon < 0) {
         final shorthand = _readIdentifier(trimmed, 0);
