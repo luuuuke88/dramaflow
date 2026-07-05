@@ -1068,6 +1068,13 @@ class _CustomAgentSkillRuntime {
     if (jsonStringify != null) return jsonEncode(_evaluate(jsonStringify));
     final newExpression = _evaluateNewExpression(expr);
     if (newExpression != null) return newExpression;
+    final inOperator = _readTopLevelInOperator(expr);
+    if (inOperator != null) {
+      return _hasProperty(
+        _evaluate(inOperator.right),
+        _evaluate(inOperator.left),
+      );
+    }
     if (expr.startsWith('`') && expr.endsWith('`') && expr.length >= 2) {
       return _evaluateTemplate(expr.substring(1, expr.length - 1));
     }
@@ -2280,6 +2287,21 @@ class _CustomAgentSkillRuntime {
     return true;
   }
 
+  bool _hasProperty(Object? value, Object? key) {
+    if (value is Map) {
+      return value.containsKey(key) || value.containsKey('$key');
+    }
+    if (value is List) {
+      final index = key is num ? key.toInt() : int.tryParse('${key ?? ''}');
+      return index != null && index >= 0 && index < value.length;
+    }
+    if (value is String) {
+      final index = key is num ? key.toInt() : int.tryParse('${key ?? ''}');
+      return index != null && index >= 0 && index < value.length;
+    }
+    return false;
+  }
+
   Map<String, Object?> _customJsErrorObject(Object error) {
     if (error is EngineException) {
       return {
@@ -3167,6 +3189,67 @@ _ComparisonToken? _readTopLevelComparison(String source) {
     }
   }
   return null;
+}
+
+_ComparisonToken? _readTopLevelInOperator(String source) {
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length - 1; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    final regexLiteral = _readRegexLiteral(
+      source,
+      i,
+      requireStartContext: true,
+    );
+    if (regexLiteral != null) {
+      i = regexLiteral.end - 1;
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (paren != 0 || bracket != 0 || brace != 0) continue;
+    if (!_isTopLevelInAt(source, i)) continue;
+    final left = source.substring(0, i).trim();
+    final right = source.substring(i + 2).trim();
+    if (left.isEmpty || right.isEmpty) return null;
+    return _ComparisonToken(left: left, right: right, operator: 'in');
+  }
+  return null;
+}
+
+bool _isTopLevelInAt(String source, int index) {
+  if (!source.startsWith('in', index)) return false;
+  final before = index - 1;
+  final after = index + 2;
+  if (before >= 0 && _isIdentPart(source.codeUnitAt(before))) return false;
+  if (after < source.length && _isIdentPart(source.codeUnitAt(after))) {
+    return false;
+  }
+  return true;
 }
 
 _TernaryToken? _readTopLevelTernary(String source) {
