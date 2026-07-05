@@ -4737,12 +4737,15 @@ extension AgentApi on Engine {
     messages
         .add(AgentMessage(role: agentRoleUser, content: text, createdAt: now));
     _saveAgentMessages(projectId, messages, family: agentFamily);
-    await _recordAgentMemory(
+    final currentUserMemoryId = await _recordAgentMemory(
       projectId,
       family: agentFamily,
       role: agentRoleUser,
       content: text,
     );
+    final excludedDeepRetrieveMemoryIds = {
+      if (currentUserMemoryId.isNotEmpty) currentUserMemoryId,
+    };
 
     final conversationKey = _agentConversationIsolationKey(
       projectId,
@@ -4894,6 +4897,7 @@ extension AgentApi on Engine {
         agentFamily: agentFamily,
         stage: stage,
         activatedSkills: _activatedAgentSkillContexts(messages),
+        excludedMemoryIds: excludedDeepRetrieveMemoryIds,
       );
       if (supervisionWasEnabled) {
         await _recordAgentSummaryMemory(
@@ -5047,14 +5051,14 @@ extension AgentApi on Engine {
     return text;
   }
 
-  Future<void> _recordAgentMemory(
+  Future<String> _recordAgentMemory(
     int projectId, {
     required String family,
     required String role,
     required String content,
   }) async {
     try {
-      await _agentMemoryService(family: family).add(
+      return await _agentMemoryService(family: family).add(
         isolationKey: _agentConversationIsolationKey(
           projectId,
           family: family,
@@ -5064,6 +5068,7 @@ extension AgentApi on Engine {
       );
     } catch (_) {
       // 记忆写入不能阻断主制作流程；失败仍会在对话历史里保留可见消息。
+      return '';
     }
   }
 
@@ -5177,6 +5182,7 @@ extension AgentApi on Engine {
     String agentFamily = _scriptAgentFamily,
     String? stage,
     List<String> activatedSkills = const [],
+    Set<String> excludedMemoryIds = const {},
   }) async {
     try {
       switch (name) {
@@ -5196,6 +5202,7 @@ extension AgentApi on Engine {
             ),
             keyword: keyword,
             roles: roles,
+            excludeIds: excludedMemoryIds,
           );
           final rawLimit = args['limit'] ?? args['max'] ?? args['count'];
           final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();

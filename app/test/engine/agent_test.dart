@@ -4628,6 +4628,55 @@ description: >-
     expect((records.single as Map<String, dynamic>)['role'], agentRoleUser);
   });
 
+  test('Agent 记忆：deepRetrieve 不把当前用户消息当作历史召回结果', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'exclude_current_old_user_msg',
+        '',
+        '历史约束：李澈保护沈微，不能让沈微黑化。',
+        now,
+        embeddingJson('历史约束：李澈保护沈微，不能让沈微黑化。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        0,
+        'message',
+      ],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '李澈保护沈微',
+        'roles': [agentRoleUser],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '当前问题：李澈保护沈微要怎么处理？',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], contains('历史约束：李澈保护沈微，不能让沈微黑化。'));
+    expect(
+      payload['memories'],
+      isNot(contains('当前问题：李澈保护沈微要怎么处理？')),
+    );
+    final records = payload['records'] as List;
+    expect(
+      records.map((item) => (item as Map<String, dynamic>)['content']),
+      isNot(contains('当前问题：李澈保护沈微要怎么处理？')),
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具返回可追踪 records 元数据', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
