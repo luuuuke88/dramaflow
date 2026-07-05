@@ -5763,6 +5763,7 @@ extension AgentApi on Engine {
                 {
                   'id': record.id,
                   'type': record.type,
+                  'scope': _deepRetrieveRecordScope(record),
                   'role': record.role,
                   if (record.sourceSummaryIds.isNotEmpty)
                     'sourceSummaryIds': record.sourceSummaryIds,
@@ -6131,6 +6132,17 @@ extension AgentApi on Engine {
           args['memoryScope'],
     );
     return values.isEmpty ? null : values;
+  }
+
+  String _deepRetrieveRecordScope(AgentMemoryEntry record) {
+    switch (record.type) {
+      case agentMemoryTypeNote:
+        return 'long_term';
+      case agentMemoryTypeSummary:
+        return 'summary';
+      default:
+        return 'conversation';
+    }
   }
 
   Map<String, dynamic> _scriptAgentWorkspace(int projectId) {

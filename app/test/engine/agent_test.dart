@@ -5421,6 +5421,70 @@ description: >-
     expect(record['type'], agentMemoryTypeNote);
   });
 
+  test('Agent 记忆：deepRetrieve records 标注记忆 scope', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '角色禁忌',
+      content: '长期设定：李澈不能被改写成反派，也不能主动滥杀。',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'scope_label_message',
+        '',
+        '历史对话：李澈必须保持正派，不能被塑造成反派。',
+        now,
+        embeddingJson('历史对话：李澈必须保持正派，不能被塑造成反派。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        0,
+        agentMemoryTypeMessage,
+      ],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '李澈反派',
+        'scope': 'all',
+        'limit': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '召回所有层级的李澈禁忌设定',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    final records = (payload['records'] as List)
+        .cast<Map>()
+        .map((record) => record.cast<String, dynamic>())
+        .toList();
+    expect(records, hasLength(2));
+
+    final noteRecord = records.singleWhere((record) => record['id'] == noteId);
+    expect(noteRecord['type'], agentMemoryTypeNote);
+    expect(noteRecord['scope'], 'long_term');
+
+    final messageRecord =
+        records.singleWhere((record) => record['id'] == 'scope_label_message');
+    expect(messageRecord['type'], agentMemoryTypeMessage);
+    expect(messageRecord['scope'], 'conversation');
+  });
+
   test('Agent 记忆：deepRetrieve 不把当前用户消息当作历史召回结果', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
