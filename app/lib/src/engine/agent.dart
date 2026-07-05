@@ -4,6 +4,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:path/path.dart' as p;
 
 import 'agent_memory.dart';
 import 'agent_orchestrator.dart';
@@ -5301,6 +5302,7 @@ extension AgentApi on Engine {
         'content': prompt.isEmpty ? '请继续执行当前制作任务。' : prompt,
       },
     ];
+    _ensureProjectProductionMarkdownSkills(projectId);
     for (var turn = 0; turn < _maxAutoTurns; turn++) {
       final memoryService = _agentMemoryService(family: _productionAgentFamily);
       final activeSkillContexts = _mergeActivatedAgentSkillContexts(
@@ -5408,6 +5410,19 @@ extension AgentApi on Engine {
       return 'assistant:supervision';
     }
     return 'assistant:execution';
+  }
+
+  void _ensureProjectProductionMarkdownSkills(int projectId) {
+    final project = db.select(
+      'SELECT artStyle,directorManual FROM o_project WHERE id=?',
+      [projectId],
+    ).firstOrNull;
+    seedProjectProductionMarkdownAgentSkillsInDb(
+      db,
+      p.join(p.dirname(media.rootDir), 'skills'),
+      artStyle: project?['artStyle'] as String?,
+      directorManual: project?['directorManual'] as String?,
+    );
   }
 
   bool _argBool(Object? value, {required bool defaultValue}) {

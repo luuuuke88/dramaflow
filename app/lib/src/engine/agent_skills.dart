@@ -130,60 +130,149 @@ List<SeededMarkdownAgentSkill> seedToonFlowMarkdownAgentSkillsInDb(
   final root = Directory(skillsRootPath);
   if (!root.existsSync()) return const [];
   final seeded = <SeededMarkdownAgentSkill>[];
-  final now = DateTime.now().millisecondsSinceEpoch;
   for (final seed in toonFlowMarkdownSkillSeeds) {
     final file = File(p.join(root.path, seed.fileName));
     if (!file.existsSync()) continue;
-    final parsed = parseAgentSkillFile(file.path);
-    final existing = db.select(
-        'SELECT id FROM o_skillList WHERE id=?', [parsed.id]).firstOrNull;
-    final resources = encodeMarkdownSkillResources(
+    seeded.add(_upsertMarkdownAgentSkillInDb(
+      db,
+      file.path,
+      attribution: seed.attribution,
       workspaceDirs: seed.workspaceDirs,
-    );
-    if (existing == null) {
-      db.execute(
-        'INSERT INTO o_skillList '
-        '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?)',
-        [
-          parsed.id,
-          parsed.name,
-          parsed.description,
-          1,
-          markdownAgentSkillType,
-          now,
-          now,
-          file.path,
-          resources,
-          '',
-        ],
-      );
-    } else {
-      db.execute(
-        'UPDATE o_skillList SET type=?, path=?, md5=?, updateTime=? '
-        'WHERE id=?',
-        [
-          markdownAgentSkillType,
-          file.path,
-          resources,
-          now,
-          parsed.id,
-        ],
-      );
-    }
-    db.execute(
-      'INSERT OR REPLACE INTO o_skillAttribution (attribution,skillId) '
-      'VALUES (?,?)',
-      [seed.attribution, parsed.id],
-    );
-    seeded.add(SeededMarkdownAgentSkill(
-      id: parsed.id,
-      name: parsed.name,
-      description: parsed.description,
-      path: file.path,
     ));
   }
   return seeded;
+}
+
+List<SeededMarkdownAgentSkill> seedProjectProductionMarkdownAgentSkillsInDb(
+  Database db,
+  String skillsRootPath, {
+  String? artStyle,
+  String? directorManual,
+}) {
+  final root = Directory(skillsRootPath);
+  if (!root.existsSync()) return const [];
+  final dirs = <Directory>[];
+  final artDir = _manualDirectorSkillsDir(
+    root.path,
+    'art_skills',
+    artStyle,
+  );
+  if (artDir != null) dirs.add(artDir);
+  final storyDir = _manualDirectorSkillsDir(
+    root.path,
+    'story_skills',
+    directorManual,
+  );
+  if (storyDir != null) dirs.add(storyDir);
+  final productionDir = Directory(p.join(root.path, 'production_skills'));
+  if (productionDir.existsSync()) dirs.add(productionDir);
+
+  final seeded = <SeededMarkdownAgentSkill>[];
+  final seenPaths = <String>{};
+  for (final dir in dirs) {
+    final files = dir
+        .listSync(followLinks: false)
+        .whereType<File>()
+        .where((file) => p.extension(file.path).toLowerCase() == '.md')
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+    for (final file in files) {
+      final normalized = p.normalize(p.absolute(file.path));
+      if (!seenPaths.add(normalized)) continue;
+      seeded.add(_upsertMarkdownAgentSkillInDb(
+        db,
+        file.path,
+        attribution: 'production_agent_execution',
+      ));
+    }
+  }
+  return seeded;
+}
+
+SeededMarkdownAgentSkill _upsertMarkdownAgentSkillInDb(
+  Database db,
+  String filePath, {
+  required String attribution,
+  List<String> workspaceDirs = const [],
+  List<String> attachedSkillDirs = const [],
+}) {
+  final parsed = parseAgentSkillFile(filePath);
+  final existing = db
+      .select('SELECT id FROM o_skillList WHERE id=?', [parsed.id]).firstOrNull;
+  final now = DateTime.now().millisecondsSinceEpoch;
+  final resources = encodeMarkdownSkillResources(
+    workspaceDirs: workspaceDirs,
+    attachedSkillDirs: attachedSkillDirs,
+  );
+  if (existing == null) {
+    db.execute(
+      'INSERT INTO o_skillList '
+      '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        parsed.id,
+        parsed.name,
+        parsed.description,
+        1,
+        markdownAgentSkillType,
+        now,
+        now,
+        filePath,
+        resources,
+        '',
+      ],
+    );
+  } else {
+    db.execute(
+      'UPDATE o_skillList SET type=?, path=?, md5=?, updateTime=? '
+      'WHERE id=?',
+      [
+        markdownAgentSkillType,
+        filePath,
+        resources,
+        now,
+        parsed.id,
+      ],
+    );
+  }
+  db.execute(
+    'INSERT OR REPLACE INTO o_skillAttribution (attribution,skillId) '
+    'VALUES (?,?)',
+    [attribution, parsed.id],
+  );
+  return SeededMarkdownAgentSkill(
+    id: parsed.id,
+    name: parsed.name,
+    description: parsed.description,
+    path: filePath,
+  );
+}
+
+Directory? _manualDirectorSkillsDir(
+  String skillsRootPath,
+  String kind,
+  String? value,
+) {
+  final name = value?.trim();
+  if (name == null || name.isEmpty) return null;
+  final root = Directory(p.join(skillsRootPath, kind));
+  if (!root.existsSync()) return null;
+  final direct = Directory(p.join(root.path, name, 'driector_skills'));
+  if (direct.existsSync()) return direct;
+  for (final pack in root.listSync(followLinks: false).whereType<Directory>()) {
+    final meta = File(p.join(pack.path, 'meta.json'));
+    if (!meta.existsSync()) continue;
+    try {
+      final decoded = jsonDecode(meta.readAsStringSync());
+      if (decoded is Map && decoded['name'] == name) {
+        final dir = Directory(p.join(pack.path, 'driector_skills'));
+        return dir.existsSync() ? dir : null;
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+  return null;
 }
 
 String encodeMarkdownSkillResources({

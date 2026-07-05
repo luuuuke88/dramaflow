@@ -5058,6 +5058,108 @@ description: >-
     expect(gateway.lastSystem, isNot(contains('剧本私有记忆')));
   });
 
+  test('ProductionAgent 子 Agent 暴露项目画风和导演手册技能', () async {
+    db.execute(
+      'UPDATE o_project SET artStyle=?, directorManual=? WHERE id=?',
+      ['水墨视觉', '仙侠叙事', projectId],
+    );
+    File(p.join(dir.path, 'skills', 'art_skills', 'InkStyle', 'meta.json'))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync(jsonEncode({'name': '水墨视觉'}));
+    File(p.join(
+      dir.path,
+      'skills',
+      'art_skills',
+      'InkStyle',
+      'driector_skills',
+      'director_planning_style.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('''
+---
+name: director_planning_style.md
+description: 画风导演规划技法
+---
+
+# 画风导演规划
+冷白水墨，低饱和，镜头留白。
+''');
+    File(p.join(
+      dir.path,
+      'skills',
+      'story_skills',
+      'XianxiaStory',
+      'meta.json',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync(jsonEncode({'name': '仙侠叙事'}));
+    File(p.join(
+      dir.path,
+      'skills',
+      'story_skills',
+      'XianxiaStory',
+      'driector_skills',
+      'director_planning_narrative.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('''
+---
+name: director_planning_narrative.md
+description: 仙侠叙事导演规划技法
+---
+
+# 仙侠叙事导演规划
+前三秒必须给宗门压迫和主角困境。
+''');
+    File(p.join(
+      dir.path,
+      'skills',
+      'story_skills',
+      'OtherStory',
+      'driector_skills',
+      'director_planning_narrative.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('''
+---
+name: other_story_skill.md
+description: 不应出现在当前项目
+---
+
+其他题材。
+''');
+
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做寒山导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>冷白水墨压迫感开场</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作画布：做寒山导演计划', autoMode: false);
+
+    expect(gateway.lastSystem,
+        contains('<name>director_planning_style.md</name>'));
+    expect(gateway.lastSystem, contains('画风导演规划技法'));
+    expect(
+      gateway.lastSystem,
+      contains('<name>director_planning_narrative.md</name>'),
+    );
+    expect(gateway.lastSystem, contains('仙侠叙事导演规划技法'));
+    expect(gateway.lastSystem, isNot(contains('other_story_skill.md')));
+
+    final activateSkill =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'activate_skill');
+    final properties = activateSkill.schema['properties'] as Map;
+    final nameSchema = properties['name'] as Map;
+    expect(nameSchema['enum'], contains('director_planning_style.md'));
+    expect(nameSchema['enum'], contains('director_planning_narrative.md'));
+    expect(nameSchema['enum'], isNot(contains('other_story_skill.md')));
+  });
+
   test('ProductionAgent 子 Agent 输出按 ToonFlow memoryKey 写入记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
