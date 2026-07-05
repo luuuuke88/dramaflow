@@ -5160,6 +5160,113 @@ description: 不应出现在当前项目
     expect(nameSchema['enum'], isNot(contains('other_story_skill.md')));
   });
 
+  test('ProductionAgent project production_skills 仅暴露给分镜写入子 Agent', () async {
+    db.execute(
+      'UPDATE o_project SET artStyle=?, directorManual=? WHERE id=?',
+      ['水墨视觉', '仙侠叙事', projectId],
+    );
+    File(p.join(dir.path, 'skills', 'art_skills', 'InkStyle', 'meta.json'))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync(jsonEncode({'name': '水墨视觉'}));
+    File(p.join(
+      dir.path,
+      'skills',
+      'art_skills',
+      'InkStyle',
+      'driector_skills',
+      'director_planning_style.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('''
+---
+name: director_planning_style.md
+description: 画风导演规划技法
+---
+
+画风导演规划。
+''');
+    File(p.join(
+      dir.path,
+      'skills',
+      'story_skills',
+      'XianxiaStory',
+      'meta.json',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync(jsonEncode({'name': '仙侠叙事'}));
+    File(p.join(
+      dir.path,
+      'skills',
+      'story_skills',
+      'XianxiaStory',
+      'driector_skills',
+      'director_planning_narrative.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('''
+---
+name: director_planning_narrative.md
+description: 叙事导演规划技法
+---
+
+叙事导演规划。
+''');
+    File(p.join(
+      dir.path,
+      'skills',
+      'production_skills',
+      'storyboard_layout_skill.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('''
+---
+name: storyboard_layout_skill.md
+description: 分镜面板写入专用技法
+---
+
+只用于分镜面板或分镜表写入。
+''');
+
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做寒山导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>冷白水墨压迫感开场</scriptPlan>'),
+    ];
+    await engine.sendAgentMessage(projectId, '制作画布：做寒山导演计划', autoMode: false);
+    expect(gateway.lastSystem, contains('director_planning_style.md'));
+    expect(gateway.lastSystem, contains('director_planning_narrative.md'));
+    expect(gateway.lastSystem, isNot(contains('storyboard_layout_skill.md')));
+    var activateSkill =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'activate_skill');
+    var properties = activateSkill.schema['properties'] as Map;
+    var nameSchema = properties['name'] as Map;
+    expect(nameSchema['enum'], isNot(contains('storyboard_layout_skill.md')));
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'prompt': '写入首集分镜面板', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text(
+        '<storyboardItem videoDesc="山门压迫" prompt="cold mountain gate" '
+        'track="首集" shouldGenerateImage="false" duration="5" '
+        'associateAssetsIds="[]"></storyboardItem>',
+      ),
+    ];
+    await engine.sendAgentMessage(projectId, '制作画布：写入分镜面板', autoMode: false);
+    expect(gateway.lastSystem, contains('storyboard_layout_skill.md'));
+    activateSkill =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'activate_skill');
+    properties = activateSkill.schema['properties'] as Map;
+    nameSchema = properties['name'] as Map;
+    expect(nameSchema['enum'], contains('storyboard_layout_skill.md'));
+  });
+
   test('ProductionAgent 子 Agent 输出按 ToonFlow memoryKey 写入记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',

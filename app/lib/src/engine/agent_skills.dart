@@ -151,26 +151,44 @@ List<SeededMarkdownAgentSkill> seedProjectProductionMarkdownAgentSkillsInDb(
 }) {
   final root = Directory(skillsRootPath);
   if (!root.existsSync()) return const [];
-  final dirs = <Directory>[];
+  final dirAttributions = <({Directory dir, List<String> attributions})>[];
   final artDir = _manualDirectorSkillsDir(
     root.path,
     'art_skills',
     artStyle,
   );
-  if (artDir != null) dirs.add(artDir);
+  if (artDir != null) {
+    dirAttributions.add((
+      dir: artDir,
+      attributions: const ['production_agent_execution'],
+    ));
+  }
   final storyDir = _manualDirectorSkillsDir(
     root.path,
     'story_skills',
     directorManual,
   );
-  if (storyDir != null) dirs.add(storyDir);
+  if (storyDir != null) {
+    dirAttributions.add((
+      dir: storyDir,
+      attributions: const ['production_agent_execution'],
+    ));
+  }
   final productionDir = Directory(p.join(root.path, 'production_skills'));
-  if (productionDir.existsSync()) dirs.add(productionDir);
+  if (productionDir.existsSync()) {
+    dirAttributions.add((
+      dir: productionDir,
+      attributions: const [
+        'production_execution_storyboard_panel',
+        'production_execution_storyboard_table',
+      ],
+    ));
+  }
 
   final seeded = <SeededMarkdownAgentSkill>[];
-  final seenPaths = <String>{};
-  for (final dir in dirs) {
-    final files = dir
+  final seededPaths = <String>{};
+  for (final item in dirAttributions) {
+    final files = item.dir
         .listSync(followLinks: false)
         .whereType<File>()
         .where((file) => p.extension(file.path).toLowerCase() == '.md')
@@ -178,12 +196,17 @@ List<SeededMarkdownAgentSkill> seedProjectProductionMarkdownAgentSkillsInDb(
       ..sort((a, b) => a.path.compareTo(b.path));
     for (final file in files) {
       final normalized = p.normalize(p.absolute(file.path));
-      if (!seenPaths.add(normalized)) continue;
-      seeded.add(_upsertMarkdownAgentSkillInDb(
-        db,
-        file.path,
-        attribution: 'production_agent_execution',
-      ));
+      SeededMarkdownAgentSkill? result;
+      for (final attribution in item.attributions) {
+        result = _upsertMarkdownAgentSkillInDb(
+          db,
+          file.path,
+          attribution: attribution,
+        );
+      }
+      if (result != null && seededPaths.add(normalized)) {
+        seeded.add(result);
+      }
     }
   }
   return seeded;
