@@ -67,6 +67,15 @@ void main() {
     expect(msgs[1].role, agentRoleAssistant);
     expect(msgs[1].content, '你好，我可以帮你推进制作流程。');
 
+    final memoryRows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    expect(memoryRows.map((row) => row['role']),
+        [agentRoleUser, 'assistant:decision']);
+    expect(memoryRows.last['content'], '你好，我可以帮你推进制作流程。');
+
     engine.clearAgentMemory(projectId);
     expect(engine.agentMessages(projectId), isEmpty);
   });
@@ -1752,7 +1761,7 @@ return JSON.stringify({
     );
     expect(messageRows, hasLength(2));
     expect(messageRows.map((row) => row['role']),
-        [agentRoleUser, agentRoleAssistant]);
+        [agentRoleUser, 'assistant:decision']);
     expect(messageRows.first['content'], contains('寒山少主李澈'));
     expect(messageRows.last['content'], '我会记住寒山设定。');
     expect(messageRows.map((row) => row['summarized']), [1, 1]);
@@ -2245,7 +2254,7 @@ return JSON.stringify({
     );
     expect(productionMessages, hasLength(2));
     expect(productionMessages.map((row) => row['role']),
-        [agentRoleUser, agentRoleAssistant]);
+        [agentRoleUser, 'assistant:decision']);
     expect(productionMessages.map((row) => row['summarized']), [1, 1]);
 
     final scriptMessages = db.select(

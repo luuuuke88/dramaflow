@@ -31,6 +31,7 @@ const agentRoleTool = 'tool';
 const _maxAutoTurns = 5;
 const _agentMemoryRole = 'agent';
 const _agentMemoryType = 'note';
+const _agentDecisionMemoryRole = 'assistant:decision';
 const _scriptAgentFamily = 'scriptAgent';
 const _productionAgentFamily = 'productionAgent';
 const agentFamilyScript = _scriptAgentFamily;
@@ -2592,7 +2593,7 @@ extension AgentApi on Engine {
         await _recordAgentMemory(
           projectId,
           family: agentFamily,
-          role: agentRoleAssistant,
+          role: _agentDecisionMemoryRole,
           content: result.text ?? '',
         );
         return;
