@@ -219,6 +219,55 @@ void main() {
     expect(count('productionAgent:$projectId', agentMemoryTypeMessage), 2);
   });
 
+  test('agentMemorySummaries 按 family 返回历史摘要', () {
+    void insertSummary(
+      String isolationKey,
+      String id,
+      String content,
+      int createTime,
+    ) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '摘要',
+          content,
+          createTime,
+          embeddingJson(content),
+          isolationKey,
+          '[]',
+          agentRoleAssistant,
+          0,
+          agentMemoryTypeSummary,
+        ],
+      );
+    }
+
+    insertSummary('scriptAgent:$projectId', 'script_summary_old', '旧剧本摘要', 1);
+    insertSummary('scriptAgent:$projectId', 'script_summary_new', '新剧本摘要', 2);
+    insertSummary(
+      'productionAgent:$projectId',
+      'production_summary',
+      '制作摘要',
+      3,
+    );
+
+    expect(
+      engine
+          .agentMemorySummaries(projectId, family: agentFamilyScript)
+          .map((item) => item.content),
+      ['新剧本摘要', '旧剧本摘要'],
+    );
+    expect(
+      engine
+          .agentMemorySummaries(projectId, family: agentFamilyProduction)
+          .map((item) => item.content),
+      ['制作摘要'],
+    );
+  });
+
   test('manual 模式：一次工具调用后停止，等待用户下一句', () async {
     final novelId = engine.addNovels(projectId, const [
       ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),

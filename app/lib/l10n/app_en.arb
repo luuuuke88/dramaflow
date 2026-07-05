@@ -741,6 +741,8 @@
   "agentMemoryEmpty": "No memory yet. Sent messages will appear here as inspectable context records.",
   "agentLongTermMemoryCount": "{count} long-term memories",
   "agentLongTermMemoryEmpty": "No long-term memories yet. Save character rules, forbidden directions, or worldbuilding notes here.",
+  "agentMemorySummaryCount": "{count} history summaries",
+  "agentMemorySummaryEmpty": "No history summaries yet. They are generated after the message summary threshold is reached.",
   "agentMemoryAdd": "Add memory",
   "agentMemoryCreateTitle": "Add long-term memory",
   "agentMemoryEditTitle": "Edit long-term memory",

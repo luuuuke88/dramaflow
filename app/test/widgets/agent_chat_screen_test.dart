@@ -292,6 +292,8 @@ void main() {
     await tester.tap(find.text('记忆'));
     await tester.pumpAndSettle();
     expect(find.text('记忆条目 2'), findsOneWidget);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -500));
+    await tester.pumpAndSettle();
     expect(find.text('记录一条记忆'), findsOneWidget);
 
     await tester.tap(find.text('部署'));
@@ -303,7 +305,9 @@ void main() {
 
     await tester.tap(find.text('记忆'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('清空记忆'));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('agent-memory-clear-messages')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('删除'));
     await tester.pumpAndSettle();
@@ -424,6 +428,8 @@ void main() {
     expect(find.text('界面归属技能'), findsOneWidget);
 
     await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -900));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('agent-rag-limit-field')),
@@ -725,6 +731,8 @@ void main() {
     await tester.tap(find.text('记忆'));
     await tester.pumpAndSettle();
 
+    await tester.drag(find.byType(ListView).last, const Offset(0, -900));
+    await tester.pumpAndSettle();
     expect(find.text('搜索记忆条数'), findsOneWidget);
     expect(
       find.descendant(
@@ -759,6 +767,8 @@ void main() {
     await tester.tap(find.text('记忆'));
     await tester.pumpAndSettle();
 
+    await tester.drag(find.byType(ListView).last, const Offset(0, -900));
+    await tester.pumpAndSettle();
     expect(find.text('摘要触发消息数'), findsOneWidget);
     expect(find.text('摘要最大字数'), findsOneWidget);
     expect(find.text('短期上下文条数'), findsOneWidget);
@@ -844,6 +854,8 @@ void main() {
 
     await tester.tap(find.text('记忆'));
     await tester.pumpAndSettle();
+    expect(find.text('历史摘要 1'), findsOneWidget);
+    expect(find.text('用户和助手讨论过寒山设定。'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('agent-memory-clear-summary')));
     await tester.pumpAndSettle();
@@ -856,6 +868,8 @@ void main() {
     );
     expect(engine.agentMessages(projectId), hasLength(2));
     expect(engine.agentLongTermMemories(projectId), hasLength(1));
+    expect(find.text('历史摘要 0'), findsOneWidget);
+    expect(find.text('用户和助手讨论过寒山设定。'), findsNothing);
     expect(find.text('记忆已清空'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('agent-memory-clear-note')));

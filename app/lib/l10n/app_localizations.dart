@@ -4096,6 +4096,18 @@ abstract class AppLocalizations {
   /// **'暂无长期记忆。可以把角色设定、禁忌写法、世界观规则保存到这里。'**
   String get agentLongTermMemoryEmpty;
 
+  /// No description provided for @agentMemorySummaryCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'历史摘要 {count}'**
+  String agentMemorySummaryCount(int count);
+
+  /// No description provided for @agentMemorySummaryEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无历史摘要。对话达到摘要触发消息数后会自动生成。'**
+  String get agentMemorySummaryEmpty;
+
   /// No description provided for @agentMemoryAdd.
   ///
   /// In zh, this message translates to:

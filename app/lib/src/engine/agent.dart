@@ -2562,6 +2562,22 @@ extension AgentApi on Engine {
     return [for (final row in rows) AgentMemoryRecord.fromRow(row)];
   }
 
+  List<AgentMemoryRecord> agentMemorySummaries(
+    int projectId, {
+    String family = _scriptAgentFamily,
+  }) {
+    final rows = db.select(
+      'SELECT id,name,content,createTime,embedding FROM memories '
+      'WHERE isolationKey=? AND type=? '
+      'ORDER BY createTime DESC, id DESC',
+      [
+        _agentConversationIsolationKey(projectId, family: family),
+        agentMemoryTypeSummary,
+      ],
+    );
+    return [for (final row in rows) AgentMemoryRecord.fromRow(row)];
+  }
+
   String saveAgentMemory(
     int projectId, {
     String? id,

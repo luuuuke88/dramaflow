@@ -2148,6 +2148,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'No long-term memories yet. Save character rules, forbidden directions, or worldbuilding notes here.';
 
   @override
+  String agentMemorySummaryCount(int count) {
+    return '$count history summaries';
+  }
+
+  @override
+  String get agentMemorySummaryEmpty =>
+      'No history summaries yet. They are generated after the message summary threshold is reached.';
+
+  @override
   String get agentMemoryAdd => 'Add memory';
 
   @override

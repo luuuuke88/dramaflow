@@ -116,6 +116,9 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     final messages = ref
         .watch(engineProvider)
         .agentMessages(widget.projectId, family: _agentFamily);
+    final summaries = ref
+        .watch(engineProvider)
+        .agentMemorySummaries(widget.projectId, family: _agentFamily);
     final memories =
         ref.watch(engineProvider).agentLongTermMemories(widget.projectId);
 
@@ -269,6 +272,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
               projectId: widget.projectId,
               family: _agentFamily,
               messages: messages,
+              summaries: summaries,
               memories: memories,
               onClear: _clearMemory,
               onChanged: () => setState(() {}),
@@ -1136,6 +1140,7 @@ class _AgentMemoryPane extends ConsumerWidget {
   final int projectId;
   final String family;
   final List<AgentMessage> messages;
+  final List<AgentMemoryRecord> summaries;
   final List<AgentMemoryRecord> memories;
   final VoidCallback onClear;
   final VoidCallback onChanged;
@@ -1143,6 +1148,7 @@ class _AgentMemoryPane extends ConsumerWidget {
     required this.projectId,
     required this.family,
     required this.messages,
+    required this.summaries,
     required this.memories,
     required this.onClear,
     required this.onChanged,
@@ -1333,6 +1339,58 @@ class _AgentMemoryPane extends ConsumerWidget {
         const SizedBox(height: 12),
         Row(children: [
           Expanded(
+            child: Text(l10n.agentMemorySummaryCount(summaries.length),
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: df.textPrimary)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          key: const ValueKey('agent-memory-clear-summary'),
+          onPressed: summaries.isEmpty
+              ? null
+              : () => _clearScopedMemory(
+                    context,
+                    ref,
+                    agentMemoryTypeSummary,
+                  ),
+          icon: const Icon(Icons.summarize_outlined, size: 18),
+          label: Text(l10n.agentMemoryClearSummary),
+        ),
+        const SizedBox(height: 10),
+        if (summaries.isEmpty)
+          Text(l10n.agentMemorySummaryEmpty,
+              style: TextStyle(fontSize: 12, color: df.textTertiary))
+        else
+          for (final summary in summaries)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: df.surface,
+                border: Border.all(color: df.stroke),
+                borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(summary.name.isEmpty ? 'summary' : summary.name,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: df.textTertiary)),
+                  const SizedBox(height: 4),
+                  Text(summary.content, style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+        const SizedBox(height: 20),
+        Divider(color: df.stroke),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(
             child: Text(l10n.agentMemoryCount(messages.length),
                 style: TextStyle(
                     fontSize: 15,
@@ -1350,16 +1408,6 @@ class _AgentMemoryPane extends ConsumerWidget {
               onPressed: messages.isEmpty ? null : onClear,
               icon: const Icon(Icons.delete_sweep_outlined, size: 18),
               label: Text(l10n.agentChatClearMemory),
-            ),
-            OutlinedButton.icon(
-              key: const ValueKey('agent-memory-clear-summary'),
-              onPressed: () => _clearScopedMemory(
-                context,
-                ref,
-                agentMemoryTypeSummary,
-              ),
-              icon: const Icon(Icons.summarize_outlined, size: 18),
-              label: Text(l10n.agentMemoryClearSummary),
             ),
           ],
         ),

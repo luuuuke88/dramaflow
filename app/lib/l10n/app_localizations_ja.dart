@@ -2092,6 +2092,14 @@ class AppLocalizationsJa extends AppLocalizations {
       '長期記憶はまだありません。キャラクター設定、避けたい方向性、世界観ルールを保存できます。';
 
   @override
+  String agentMemorySummaryCount(int count) {
+    return '履歴要約 $count';
+  }
+
+  @override
+  String get agentMemorySummaryEmpty => '履歴要約はまだありません。要約するメッセージ数に達すると自動生成されます。';
+
+  @override
   String get agentMemoryAdd => '記憶を追加';
 
   @override

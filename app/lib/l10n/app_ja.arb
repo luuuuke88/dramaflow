@@ -741,6 +741,8 @@
   "agentMemoryEmpty": "記憶はまだありません。送信したメッセージは確認可能なコンテキストとしてここに表示されます。",
   "agentLongTermMemoryCount": "長期記憶 {count}",
   "agentLongTermMemoryEmpty": "長期記憶はまだありません。キャラクター設定、避けたい方向性、世界観ルールを保存できます。",
+  "agentMemorySummaryCount": "履歴要約 {count}",
+  "agentMemorySummaryEmpty": "履歴要約はまだありません。要約するメッセージ数に達すると自動生成されます。",
   "agentMemoryAdd": "記憶を追加",
   "agentMemoryCreateTitle": "長期記憶を追加",
   "agentMemoryEditTitle": "長期記憶を編集",

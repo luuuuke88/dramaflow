@@ -2078,6 +2078,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentLongTermMemoryEmpty => '暂无长期记忆。可以把角色设定、禁忌写法、世界观规则保存到这里。';
 
   @override
+  String agentMemorySummaryCount(int count) {
+    return '历史摘要 $count';
+  }
+
+  @override
+  String get agentMemorySummaryEmpty => '暂无历史摘要。对话达到摘要触发消息数后会自动生成。';
+
+  @override
   String get agentMemoryAdd => '新增记忆';
 
   @override
