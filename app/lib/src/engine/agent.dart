@@ -29,7 +29,6 @@ const agentRoleAssistant = 'assistant';
 const agentRoleTool = 'tool';
 
 const _maxAutoTurns = 5;
-const _defaultAgentRagLimit = 3;
 const _agentMemoryRole = 'agent';
 const _agentMemoryType = 'note';
 const _scriptAgentFamily = 'scriptAgent';
@@ -1442,14 +1441,89 @@ extension AgentApi on Engine {
     return (row?['value'] as String?) == 'auto';
   }
 
-  int agentRagLimit() => _agentRagLimit();
+  AgentMemorySettings agentMemorySettings() =>
+      _agentMemoryService().readSettings();
 
-  void setAgentRagLimit(int limit) {
-    final normalized = limit.clamp(0, 50).toInt();
+  int agentRagLimit() => agentMemorySettings().ragLimit;
+
+  void setAgentMemorySettings({
+    int? messagesPerSummary,
+    int? summaryMaxLength,
+    int? shortTermLimit,
+    int? summaryLimit,
+    int? ragLimit,
+    int? deepRetrieveSummaryLimit,
+  }) {
+    if (messagesPerSummary != null) {
+      _writeAgentIntSetting(
+        'agent.memory.messagesPerSummary',
+        messagesPerSummary,
+        min: 1,
+        max: 50,
+      );
+    }
+    if (summaryMaxLength != null) {
+      _writeAgentIntSetting(
+        'agent.memory.summaryMaxLength',
+        summaryMaxLength,
+        min: 80,
+        max: 4000,
+      );
+    }
+    if (shortTermLimit != null) {
+      _writeAgentIntSetting(
+        'agent.memory.shortTermLimit',
+        shortTermLimit,
+        min: 0,
+        max: 100,
+      );
+    }
+    if (summaryLimit != null) {
+      _writeAgentIntSetting(
+        'agent.memory.summaryLimit',
+        summaryLimit,
+        min: 0,
+        max: 100,
+      );
+    }
+    if (ragLimit != null) {
+      final normalized = _writeAgentIntSetting(
+        'agent.memory.ragLimit',
+        ragLimit,
+        min: 0,
+        max: 50,
+      );
+      db.execute(
+        'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+        ['ragLimit', '$normalized'],
+      );
+    }
+    if (deepRetrieveSummaryLimit != null) {
+      _writeAgentIntSetting(
+        'agent.memory.deepRetrieveSummaryLimit',
+        deepRetrieveSummaryLimit,
+        min: 0,
+        max: 50,
+      );
+    }
+  }
+
+  int _writeAgentIntSetting(
+    String key,
+    int value, {
+    required int min,
+    required int max,
+  }) {
+    final normalized = value.clamp(min, max).toInt();
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
-      ['ragLimit', '$normalized'],
+      [key, '$normalized'],
     );
+    return normalized;
+  }
+
+  void setAgentRagLimit(int limit) {
+    setAgentMemorySettings(ragLimit: limit);
   }
 
   void setAgentUseMode(bool autoMode) {
@@ -1728,11 +1802,7 @@ extension AgentApi on Engine {
   }
 
   int _agentRagLimit() {
-    final row = db
-        .select("SELECT value FROM o_setting WHERE key='ragLimit'")
-        .firstOrNull;
-    final parsed = int.tryParse(row?['value'] as String? ?? '');
-    return (parsed ?? _defaultAgentRagLimit).clamp(0, 50).toInt();
+    return agentRagLimit();
   }
 
   String _agentFamilyForMessage(String text) {

@@ -2172,6 +2172,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentMemoryDeleted => 'Long-term memory deleted';
 
   @override
+  String get agentMemorySettingsTitle => 'Agent memory settings';
+
+  @override
+  String get agentMemorySettingsHelp =>
+      'Controls short-term context, summary compression, long-term memory search, and deepRetrieve recall.';
+
+  @override
+  String get agentMemoryMessagesPerSummary => 'Messages per summary';
+
+  @override
+  String get agentMemorySummaryMaxLength => 'Summary max length';
+
+  @override
+  String get agentMemoryShortTermLimit => 'Short-term context limit';
+
+  @override
+  String get agentMemorySummaryLimit => 'History summary limit';
+
+  @override
+  String get agentMemoryDeepRetrieveSummaryLimit =>
+      'deepRetrieve summary limit';
+
+  @override
+  String get agentMemorySettingsSaved => 'Agent memory settings saved';
+
+  @override
+  String get agentMemorySettingsInvalid => 'Enter valid integer settings';
+
+  @override
   String get agentRagLimitTitle => 'RAG search limit';
 
   @override

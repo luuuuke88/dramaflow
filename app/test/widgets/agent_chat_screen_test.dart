@@ -678,6 +678,9 @@ void main() {
       find.byKey(const ValueKey('agent-rag-limit-field')),
       '2',
     );
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('agent-rag-limit-save')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('agent-rag-limit-save')));
     await tester.pumpAndSettle();
 
@@ -687,6 +690,65 @@ void main() {
           .single['value'],
       '2',
     );
+  });
+
+  testWidgets('记忆页可配置完整 Agent 记忆参数', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('摘要触发消息数'), findsOneWidget);
+    expect(find.text('摘要最大字数'), findsOneWidget);
+    expect(find.text('短期上下文条数'), findsOneWidget);
+    expect(find.text('历史摘要条数'), findsOneWidget);
+    expect(find.text('搜索记忆条数'), findsOneWidget);
+    expect(find.text('深度召回摘要数'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-messages-per-summary-field')),
+      '4',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-summary-max-length-field')),
+      '640',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-short-term-limit-field')),
+      '6',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-summary-limit-field')),
+      '8',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-rag-limit-field')),
+      '2',
+    );
+    await tester.enterText(
+      find.byKey(
+        const ValueKey('agent-memory-deep-retrieve-summary-limit-field'),
+      ),
+      '7',
+    );
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('agent-rag-limit-save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('agent-rag-limit-save')));
+    await tester.pumpAndSettle();
+
+    String setting(String key) => engine.db.select(
+            'SELECT value FROM o_setting WHERE key=?', [key]).single['value']
+        as String;
+
+    expect(setting('agent.memory.messagesPerSummary'), '4');
+    expect(setting('agent.memory.summaryMaxLength'), '640');
+    expect(setting('agent.memory.shortTermLimit'), '6');
+    expect(setting('agent.memory.summaryLimit'), '8');
+    expect(setting('agent.memory.ragLimit'), '2');
+    expect(setting('ragLimit'), '2');
+    expect(setting('agent.memory.deepRetrieveSummaryLimit'), '7');
   });
 
   testWidgets('移动端 Agent：新增长期记忆使用全屏表单并保存', (tester) async {

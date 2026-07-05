@@ -4144,6 +4144,60 @@ abstract class AppLocalizations {
   /// **'长期记忆已删除'**
   String get agentMemoryDeleted;
 
+  /// No description provided for @agentMemorySettingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 记忆设置'**
+  String get agentMemorySettingsTitle;
+
+  /// No description provided for @agentMemorySettingsHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制短期上下文、摘要压缩、长期记忆搜索和 deepRetrieve 深度召回。'**
+  String get agentMemorySettingsHelp;
+
+  /// No description provided for @agentMemoryMessagesPerSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'摘要触发消息数'**
+  String get agentMemoryMessagesPerSummary;
+
+  /// No description provided for @agentMemorySummaryMaxLength.
+  ///
+  /// In zh, this message translates to:
+  /// **'摘要最大字数'**
+  String get agentMemorySummaryMaxLength;
+
+  /// No description provided for @agentMemoryShortTermLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'短期上下文条数'**
+  String get agentMemoryShortTermLimit;
+
+  /// No description provided for @agentMemorySummaryLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'历史摘要条数'**
+  String get agentMemorySummaryLimit;
+
+  /// No description provided for @agentMemoryDeepRetrieveSummaryLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'深度召回摘要数'**
+  String get agentMemoryDeepRetrieveSummaryLimit;
+
+  /// No description provided for @agentMemorySettingsSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 记忆设置已保存'**
+  String get agentMemorySettingsSaved;
+
+  /// No description provided for @agentMemorySettingsInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入有效的整数配置'**
+  String get agentMemorySettingsInvalid;
+
   /// No description provided for @agentRagLimitTitle.
   ///
   /// In zh, this message translates to:

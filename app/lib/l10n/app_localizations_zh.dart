@@ -2102,6 +2102,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentMemoryDeleted => '长期记忆已删除';
 
   @override
+  String get agentMemorySettingsTitle => 'Agent 记忆设置';
+
+  @override
+  String get agentMemorySettingsHelp =>
+      '控制短期上下文、摘要压缩、长期记忆搜索和 deepRetrieve 深度召回。';
+
+  @override
+  String get agentMemoryMessagesPerSummary => '摘要触发消息数';
+
+  @override
+  String get agentMemorySummaryMaxLength => '摘要最大字数';
+
+  @override
+  String get agentMemoryShortTermLimit => '短期上下文条数';
+
+  @override
+  String get agentMemorySummaryLimit => '历史摘要条数';
+
+  @override
+  String get agentMemoryDeepRetrieveSummaryLimit => '深度召回摘要数';
+
+  @override
+  String get agentMemorySettingsSaved => 'Agent 记忆设置已保存';
+
+  @override
+  String get agentMemorySettingsInvalid => '请输入有效的整数配置';
+
+  @override
   String get agentRagLimitTitle => '搜索记忆条数';
 
   @override

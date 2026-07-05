@@ -1175,8 +1175,6 @@ class _AgentMemoryPane extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       children: [
         _AgentSupervisionCard(onChanged: onChanged),
-        const SizedBox(height: 12),
-        _AgentRagLimitCard(onChanged: onChanged),
         const SizedBox(height: 18),
         Row(children: [
           Expanded(
@@ -1283,6 +1281,8 @@ class _AgentMemoryPane extends ConsumerWidget {
                 ],
               ),
             ),
+        const SizedBox(height: 12),
+        _AgentRagLimitCard(onChanged: onChanged),
       ],
     );
   }
@@ -1367,28 +1367,76 @@ class _AgentRagLimitCard extends ConsumerStatefulWidget {
 }
 
 class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
+  late final TextEditingController _messagesPerSummaryCtrl;
+  late final TextEditingController _summaryMaxLengthCtrl;
+  late final TextEditingController _shortTermLimitCtrl;
+  late final TextEditingController _summaryLimitCtrl;
   late final TextEditingController _limitCtrl;
+  late final TextEditingController _deepRetrieveSummaryLimitCtrl;
 
   @override
   void initState() {
     super.initState();
-    _limitCtrl = TextEditingController(
-      text: ref.read(engineProvider).agentRagLimit().toString(),
+    final settings = ref.read(engineProvider).agentMemorySettings();
+    _messagesPerSummaryCtrl =
+        TextEditingController(text: settings.messagesPerSummary.toString());
+    _summaryMaxLengthCtrl =
+        TextEditingController(text: settings.summaryMaxLength.toString());
+    _shortTermLimitCtrl =
+        TextEditingController(text: settings.shortTermLimit.toString());
+    _summaryLimitCtrl =
+        TextEditingController(text: settings.summaryLimit.toString());
+    _limitCtrl = TextEditingController(text: settings.ragLimit.toString());
+    _deepRetrieveSummaryLimitCtrl = TextEditingController(
+      text: settings.deepRetrieveSummaryLimit.toString(),
     );
   }
 
   @override
   void dispose() {
+    _messagesPerSummaryCtrl.dispose();
+    _summaryMaxLengthCtrl.dispose();
+    _shortTermLimitCtrl.dispose();
+    _summaryLimitCtrl.dispose();
     _limitCtrl.dispose();
+    _deepRetrieveSummaryLimitCtrl.dispose();
     super.dispose();
+  }
+
+  int? _parse(TextEditingController controller, {required int min}) {
+    final value = int.tryParse(controller.text.trim());
+    if (value == null || value < min) return null;
+    return value;
+  }
+
+  void _reloadFields() {
+    final settings = ref.read(engineProvider).agentMemorySettings();
+    _messagesPerSummaryCtrl.text = settings.messagesPerSummary.toString();
+    _summaryMaxLengthCtrl.text = settings.summaryMaxLength.toString();
+    _shortTermLimitCtrl.text = settings.shortTermLimit.toString();
+    _summaryLimitCtrl.text = settings.summaryLimit.toString();
+    _limitCtrl.text = settings.ragLimit.toString();
+    _deepRetrieveSummaryLimitCtrl.text =
+        settings.deepRetrieveSummaryLimit.toString();
   }
 
   Future<void> _save() async {
     final l10n = context.l10n;
-    final value = int.tryParse(_limitCtrl.text.trim());
-    if (value == null || value < 0) {
+    final messagesPerSummary = _parse(_messagesPerSummaryCtrl, min: 1);
+    final summaryMaxLength = _parse(_summaryMaxLengthCtrl, min: 80);
+    final shortTermLimit = _parse(_shortTermLimitCtrl, min: 0);
+    final summaryLimit = _parse(_summaryLimitCtrl, min: 0);
+    final ragLimit = _parse(_limitCtrl, min: 0);
+    final deepRetrieveSummaryLimit =
+        _parse(_deepRetrieveSummaryLimitCtrl, min: 0);
+    if (messagesPerSummary == null ||
+        summaryMaxLength == null ||
+        shortTermLimit == null ||
+        summaryLimit == null ||
+        ragLimit == null ||
+        deepRetrieveSummaryLimit == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.agentRagLimitInvalid)),
+        SnackBar(content: Text(l10n.agentMemorySettingsInvalid)),
       );
       return;
     }
@@ -1396,11 +1444,39 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
       context,
       ref,
       () async {
-        ref.read(engineProvider).setAgentRagLimit(value);
-        _limitCtrl.text = ref.read(engineProvider).agentRagLimit().toString();
+        ref.read(engineProvider).setAgentMemorySettings(
+              messagesPerSummary: messagesPerSummary,
+              summaryMaxLength: summaryMaxLength,
+              shortTermLimit: shortTermLimit,
+              summaryLimit: summaryLimit,
+              ragLimit: ragLimit,
+              deepRetrieveSummaryLimit: deepRetrieveSummaryLimit,
+            );
+        _reloadFields();
         widget.onChanged();
       },
-      successMessage: l10n.agentRagLimitSaved,
+      successMessage: l10n.agentMemorySettingsSaved,
+    );
+  }
+
+  Widget _numberField({
+    required String label,
+    required TextEditingController controller,
+    required Key key,
+    required String hintText,
+  }) {
+    return SizedBox(
+      width: 146,
+      child: TextField(
+        key: key,
+        controller: controller,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hintText,
+          isDense: true,
+        ),
+      ),
     );
   }
 
@@ -1419,7 +1495,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            l10n.agentRagLimitTitle,
+            l10n.agentMemorySettingsTitle,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -1428,30 +1504,60 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
           ),
           const SizedBox(height: 4),
           Text(
-            l10n.agentRagLimitHelp,
+            l10n.agentMemorySettingsHelp,
             style: TextStyle(fontSize: 12, color: df.textTertiary),
           ),
           const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          FilledButton(
+            key: const ValueKey('agent-rag-limit-save'),
+            onPressed: _save,
+            child: Text(l10n.commonSave),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.start,
             children: [
-              SizedBox(
-                width: 132,
-                child: TextField(
-                  key: const ValueKey('agent-rag-limit-field'),
-                  controller: _limitCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    hintText: '0-50',
-                    isDense: true,
-                  ),
+              _numberField(
+                label: l10n.agentMemoryMessagesPerSummary,
+                controller: _messagesPerSummaryCtrl,
+                key: const ValueKey(
+                  'agent-memory-messages-per-summary-field',
                 ),
+                hintText: '1-50',
               ),
-              const SizedBox(width: 10),
-              FilledButton(
-                key: const ValueKey('agent-rag-limit-save'),
-                onPressed: _save,
-                child: Text(l10n.commonSave),
+              _numberField(
+                label: l10n.agentMemorySummaryMaxLength,
+                controller: _summaryMaxLengthCtrl,
+                key: const ValueKey('agent-memory-summary-max-length-field'),
+                hintText: '80-4000',
+              ),
+              _numberField(
+                label: l10n.agentMemoryShortTermLimit,
+                controller: _shortTermLimitCtrl,
+                key: const ValueKey('agent-memory-short-term-limit-field'),
+                hintText: '0-100',
+              ),
+              _numberField(
+                label: l10n.agentMemorySummaryLimit,
+                controller: _summaryLimitCtrl,
+                key: const ValueKey('agent-memory-summary-limit-field'),
+                hintText: '0-100',
+              ),
+              _numberField(
+                label: l10n.agentRagLimitTitle,
+                controller: _limitCtrl,
+                key: const ValueKey('agent-rag-limit-field'),
+                hintText: '0-50',
+              ),
+              _numberField(
+                label: l10n.agentMemoryDeepRetrieveSummaryLimit,
+                controller: _deepRetrieveSummaryLimitCtrl,
+                key: const ValueKey(
+                  'agent-memory-deep-retrieve-summary-limit-field',
+                ),
+                hintText: '0-50',
               ),
             ],
           ),

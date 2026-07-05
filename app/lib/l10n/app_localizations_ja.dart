@@ -2116,6 +2116,34 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentMemoryDeleted => '長期記憶を削除しました';
 
   @override
+  String get agentMemorySettingsTitle => 'Agent 記憶設定';
+
+  @override
+  String get agentMemorySettingsHelp =>
+      '短期コンテキスト、要約圧縮、長期記憶検索、deepRetrieve の呼び出し範囲を制御します。';
+
+  @override
+  String get agentMemoryMessagesPerSummary => '要約するメッセージ数';
+
+  @override
+  String get agentMemorySummaryMaxLength => '要約の最大文字数';
+
+  @override
+  String get agentMemoryShortTermLimit => '短期コンテキスト件数';
+
+  @override
+  String get agentMemorySummaryLimit => '履歴要約件数';
+
+  @override
+  String get agentMemoryDeepRetrieveSummaryLimit => 'deepRetrieve 要約件数';
+
+  @override
+  String get agentMemorySettingsSaved => 'Agent 記憶設定を保存しました';
+
+  @override
+  String get agentMemorySettingsInvalid => '有効な整数設定を入力してください';
+
+  @override
   String get agentRagLimitTitle => '検索メモリ件数';
 
   @override
