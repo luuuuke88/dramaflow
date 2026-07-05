@@ -405,6 +405,16 @@ class _CustomAgentSkillRuntime {
       );
     }
 
+    if (expr.startsWith('!')) {
+      var count = 0;
+      while (count < expr.length && expr[count] == '!') {
+        count++;
+      }
+      final value = _evaluate(expr.substring(count));
+      final truthy = _isTruthy(value);
+      return count.isOdd ? !truthy : truthy;
+    }
+
     final plusParts = _splitTopLevel(expr, '+');
     if (plusParts.length > 1) {
       final values = [for (final part in plusParts) _evaluate(part)];

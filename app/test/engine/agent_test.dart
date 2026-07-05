@@ -1124,6 +1124,64 @@ return JSON.stringify(normalized);
     ]);
   });
 
+  test('自定义脚本技能：支持一元逻辑表达式筛选资产', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_unary_runtime',
+      name: '一元逻辑脚本运行时',
+      description: '验证自定义技能兼容模型常写的 !asset.disabled 和 !!value。',
+      script: r'''
+const names = args.assets
+  .filter(asset => !asset.disabled && !!asset.name?.trim())
+  .map(asset => asset.name.trim())
+  .join('、');
+return JSON.stringify({
+  names: names,
+  hasDraft: !!args.draft,
+  empty: !args.assets.length,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'draft': {'type': 'string'},
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_unary_runtime', const {
+        'draft': '有草稿',
+        'assets': [
+          {'name': ' 李澈 ', 'disabled': false},
+          {'name': '弃用角色', 'disabled': true},
+          {'name': '   ', 'disabled': false},
+          {'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用一元逻辑脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_unary_runtime');
+    expect(jsonDecode(msg.content), {
+      'names': '李澈、沈微',
+      'hasDraft': true,
+      'empty': false,
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
