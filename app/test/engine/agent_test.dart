@@ -453,6 +453,14 @@ void main() {
       db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
       contains('event_generation'),
     );
+    final audit = db.select(
+      'SELECT role,content FROM memories WHERE isolationKey=? AND type=? '
+      'ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', agentMemoryTypeSummary],
+    );
+    expect(audit, hasLength(1));
+    expect(audit.single['role'], 'assistant:supervision');
+    expect(audit.single['content'], contains('监督 Agent 已放行 generate_events'));
   });
 
   test('监督 Agent 可拦截决策工具调用且不提交任务', () async {

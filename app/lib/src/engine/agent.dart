@@ -4525,6 +4525,7 @@ extension AgentApi on Engine {
         return;
       }
 
+      final supervisionWasEnabled = agentSupervisionEnabled();
       final rejection = await _reviewAgentToolCall(
         projectId,
         family: agentFamily,
@@ -4547,6 +4548,15 @@ extension AgentApi on Engine {
           content: content,
         );
         return;
+      }
+      if (supervisionWasEnabled) {
+        await _recordAgentSummaryMemory(
+          projectId,
+          family: agentFamily,
+          role: 'assistant:supervision',
+          name: '监督审计',
+          content: '监督 Agent 已放行 $toolName。参数：${jsonEncode(toolArgs)}',
+        );
       }
 
       final summary = await _runTool(
@@ -4716,6 +4726,39 @@ extension AgentApi on Engine {
       );
     } catch (_) {
       // 记忆写入不能阻断主制作流程；失败仍会在对话历史里保留可见消息。
+    }
+  }
+
+  Future<void> _recordAgentSummaryMemory(
+    int projectId, {
+    required String family,
+    required String role,
+    required String name,
+    required String content,
+  }) async {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return;
+    try {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          'agent_sum_${DateTime.now().microsecondsSinceEpoch}',
+          name,
+          trimmed,
+          now,
+          embeddingJson(trimmed),
+          _agentConversationIsolationKey(projectId, family: family),
+          '[]',
+          role,
+          0,
+          agentMemoryTypeSummary,
+        ],
+      );
+    } catch (_) {
+      // 审计记忆不能阻断主制作流程；可见结果仍保留在任务/对话中。
     }
   }
 
