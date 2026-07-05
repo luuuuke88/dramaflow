@@ -285,6 +285,457 @@ Map<String, dynamic> _skillSchema(Object? raw) {
   }
 }
 
+// 受限 JS-like 解释器：只开放 projectId/args 和少量纯表达式，避免自定义技能触达系统资源。
+class _CustomAgentSkillRuntime {
+  final Map<String, Object?> _scope;
+
+  _CustomAgentSkillRuntime({
+    required int projectId,
+    required Map<String, dynamic> args,
+  }) : _scope = {
+          'projectId': projectId,
+          'args': args,
+        };
+
+  String run(String script) {
+    for (final statement in _splitStatements(script)) {
+      final trimmed = statement.trim();
+      if (trimmed.isEmpty) continue;
+      final declaration = RegExp(
+        r'^(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$',
+      ).firstMatch(trimmed);
+      if (declaration != null) {
+        _scope[declaration.group(1)!] = _evaluate(declaration.group(2)!);
+        continue;
+      }
+      final assignment = RegExp(
+        r'^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$',
+      ).firstMatch(trimmed);
+      if (assignment != null) {
+        final name = assignment.group(1)!;
+        if (!_scope.containsKey(name)) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_unknown_variable',
+            'expression': name,
+          });
+        }
+        _scope[name] = _evaluate(assignment.group(2)!);
+        continue;
+      }
+      if (trimmed.startsWith('return ')) {
+        final result = _evaluate(trimmed.substring('return '.length));
+        return _stringifyReturn(result);
+      }
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_statement',
+        'statement': trimmed,
+      });
+    }
+    throw EngineException(errLlmFormat, {'reason': 'custom_skill_return'});
+  }
+
+  Object? _evaluate(String expression) {
+    final expr = _trimTrailingSemicolon(expression.trim());
+    if (expr.isEmpty) return '';
+    final jsonStringify = _jsonStringifyInner(expr);
+    if (jsonStringify != null) return jsonEncode(_evaluate(jsonStringify));
+    if (expr.startsWith('`') && expr.endsWith('`') && expr.length >= 2) {
+      return _evaluateTemplate(expr.substring(1, expr.length - 1));
+    }
+    if (_isQuoted(expr)) return _unquote(expr);
+    if (expr == 'true') return true;
+    if (expr == 'false') return false;
+    if (expr == 'null' || expr == 'undefined') return null;
+    final intValue = int.tryParse(expr);
+    if (intValue != null) return intValue;
+    final doubleValue = double.tryParse(expr);
+    if (doubleValue != null) return doubleValue;
+
+    final plusParts = _splitTopLevel(expr, '+');
+    if (plusParts.length > 1) {
+      final values = [for (final part in plusParts) _evaluate(part)];
+      if (values.every((value) => value is num)) {
+        return values.cast<num>().fold<num>(0, (sum, value) => sum + value);
+      }
+      return values.map(_stringifyInterpolation).join();
+    }
+
+    return _evaluateChain(expr);
+  }
+
+  Object? _evaluateChain(String expression) {
+    var index = 0;
+    final first = _readIdentifier(expression, index);
+    if (first == null) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_expression',
+        'expression': expression,
+      });
+    }
+    index = first.end;
+    if (!_scope.containsKey(first.text)) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_unknown_variable',
+        'expression': first.text,
+      });
+    }
+    Object? value = _scope[first.text];
+
+    while (index < expression.length) {
+      final char = expression[index];
+      if (char == '.') {
+        final prop = _readIdentifier(expression, index + 1);
+        if (prop == null) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_property',
+            'expression': expression,
+          });
+        }
+        index = prop.end;
+        if (index < expression.length && expression[index] == '(') {
+          final call = _readBalanced(expression, index, '(', ')');
+          final args = _splitTopLevel(call.text, ',')
+              .where((part) => part.trim().isNotEmpty)
+              .map(_evaluate)
+              .toList();
+          value = _callMethod(value, prop.text, args);
+          index = call.end;
+        } else {
+          value = _readProperty(value, prop.text);
+        }
+        continue;
+      }
+      if (char == '[') {
+        final item = _readBalanced(expression, index, '[', ']');
+        final key = _evaluate(item.text);
+        value = _readIndex(value, key);
+        index = item.end;
+        continue;
+      }
+      if (char.trim().isEmpty) {
+        index++;
+        continue;
+      }
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_expression',
+        'expression': expression,
+      });
+    }
+    return value;
+  }
+
+  Object? _callMethod(Object? value, String method, List<Object?> args) {
+    switch (method) {
+      case 'trim':
+        _expectNoArgs(method, args);
+        return '${value ?? ''}'.trim();
+      case 'toUpperCase':
+        _expectNoArgs(method, args);
+        return '${value ?? ''}'.toUpperCase();
+      case 'toLowerCase':
+        _expectNoArgs(method, args);
+        return '${value ?? ''}'.toLowerCase();
+      case 'toString':
+        _expectNoArgs(method, args);
+        return '${value ?? ''}';
+      case 'includes':
+        if (args.length != 1) _badMethodArgs(method);
+        return '${value ?? ''}'.contains('${args.single ?? ''}');
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_method',
+          'method': method,
+        });
+    }
+  }
+
+  Object? _readProperty(Object? value, String property) {
+    if (value is Map) return value[property];
+    if (property == 'length') {
+      if (value is String) return value.length;
+      if (value is Iterable) return value.length;
+      if (value is Map) return value.length;
+    }
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_property',
+      'property': property,
+    });
+  }
+
+  Object? _readIndex(Object? value, Object? key) {
+    if (value is Map) return value['$key'];
+    if (value is List && key is num) {
+      final index = key.toInt();
+      if (index >= 0 && index < value.length) return value[index];
+      return null;
+    }
+    if (value is String && key is num) {
+      final index = key.toInt();
+      if (index >= 0 && index < value.length) return value[index];
+      return null;
+    }
+    throw EngineException(errLlmFormat, {'reason': 'custom_skill_index'});
+  }
+
+  String _evaluateTemplate(String template) {
+    final buffer = StringBuffer();
+    var index = 0;
+    while (index < template.length) {
+      final start = template.indexOf(r'${', index);
+      if (start < 0) {
+        buffer.write(template.substring(index));
+        break;
+      }
+      buffer.write(template.substring(index, start));
+      final exprStart = start + 2;
+      final end = _findTemplateExpressionEnd(template, exprStart);
+      buffer.write(_stringifyInterpolation(
+        _evaluate(template.substring(exprStart, end)),
+      ));
+      index = end + 1;
+    }
+    return buffer.toString();
+  }
+
+  String _stringifyReturn(Object? value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    if (value is num || value is bool) return '$value';
+    return jsonEncode(value);
+  }
+
+  String _stringifyInterpolation(Object? value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    if (value is num || value is bool) return '$value';
+    return jsonEncode(value);
+  }
+}
+
+class _Token {
+  final String text;
+  final int end;
+  const _Token(this.text, this.end);
+}
+
+List<String> _splitStatements(String script) {
+  final statements = <String>[];
+  final buffer = StringBuffer();
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < script.length; i++) {
+    final char = script[i];
+    buffer.write(char);
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (char == ';' && paren == 0 && bracket == 0 && brace == 0) {
+      final value = buffer.toString();
+      statements.add(value.substring(0, value.length - 1));
+      buffer.clear();
+    }
+  }
+  final tail = buffer.toString().trim();
+  if (tail.isNotEmpty) statements.add(tail);
+  return statements;
+}
+
+List<String> _splitTopLevel(String source, String delimiter) {
+  final parts = <String>[];
+  final buffer = StringBuffer();
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      buffer.write(char);
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      buffer.write(char);
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      buffer.write(char);
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      buffer.write(char);
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (char == delimiter && paren == 0 && bracket == 0 && brace == 0) {
+      parts.add(buffer.toString());
+      buffer.clear();
+      continue;
+    }
+    buffer.write(char);
+  }
+  parts.add(buffer.toString());
+  return parts;
+}
+
+_Token? _readIdentifier(String source, int start) {
+  if (start >= source.length) return null;
+  final first = source.codeUnitAt(start);
+  if (!_isIdentStart(first)) return null;
+  var end = start + 1;
+  while (end < source.length && _isIdentPart(source.codeUnitAt(end))) {
+    end++;
+  }
+  return _Token(source.substring(start, end), end);
+}
+
+bool _isIdentStart(int code) =>
+    code == 95 || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+
+bool _isIdentPart(int code) =>
+    _isIdentStart(code) || (code >= 48 && code <= 57);
+
+_Token _readBalanced(String source, int start, String open, String close) {
+  var depth = 0;
+  var quote = '';
+  var escaped = false;
+  for (var i = start; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      continue;
+    }
+    if (char == open) {
+      depth++;
+      continue;
+    }
+    if (char == close) {
+      depth--;
+      if (depth == 0) return _Token(source.substring(start + 1, i), i + 1);
+    }
+  }
+  throw EngineException(errLlmFormat, {'reason': 'custom_skill_balanced'});
+}
+
+String? _jsonStringifyInner(String expr) {
+  if (!expr.startsWith('JSON.stringify(') || !expr.endsWith(')')) return null;
+  return _readBalanced(expr, 'JSON.stringify'.length, '(', ')').text;
+}
+
+String _trimTrailingSemicolon(String source) {
+  var text = source.trim();
+  while (text.endsWith(';')) {
+    text = text.substring(0, text.length - 1).trim();
+  }
+  return text;
+}
+
+bool _isQuoted(String expr) =>
+    expr.length >= 2 &&
+    ((expr.startsWith("'") && expr.endsWith("'")) ||
+        (expr.startsWith('"') && expr.endsWith('"')));
+
+String _unquote(String expr) {
+  final body = expr.substring(1, expr.length - 1);
+  return body
+      .replaceAll(r'\"', '"')
+      .replaceAll(r"\'", "'")
+      .replaceAll(r'\n', '\n')
+      .replaceAll(r'\t', '\t')
+      .replaceAll(r'\\', r'\');
+}
+
+int _findTemplateExpressionEnd(String source, int start) {
+  var depth = 0;
+  var quote = '';
+  var escaped = false;
+  for (var i = start; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'") {
+      quote = char;
+      continue;
+    }
+    if (char == '{') {
+      depth++;
+      continue;
+    }
+    if (char == '}') {
+      if (depth == 0) return i;
+      depth--;
+    }
+  }
+  throw EngineException(errLlmFormat, {'reason': 'custom_skill_template'});
+}
+
+void _expectNoArgs(String method, List<Object?> args) {
+  if (args.isEmpty) return;
+  _badMethodArgs(method);
+}
+
+Never _badMethodArgs(String method) {
+  throw EngineException(errLlmFormat, {
+    'reason': 'custom_skill_method_args',
+    'method': method,
+  });
+}
+
 extension AgentApi on Engine {
   String _agentMemoryIsolationKey(int projectId) => 'project:$projectId';
   String _agentConversationIsolationKey(int projectId) =>
@@ -2100,44 +2551,8 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final match =
-        RegExp(r'^\s*return\s+([\s\S]*?);?\s*$').firstMatch(script.trim());
-    if (match == null) {
-      throw EngineException(errLlmFormat, {'reason': 'custom_skill_return'});
-    }
-    final expr = match.group(1)!.trim();
-    if (expr == 'projectId') return '$projectId';
-    if (expr == 'JSON.stringify(args)') return jsonEncode(args);
-
-    final argExpr =
-        RegExp(r'^args\.([A-Za-z_][A-Za-z0-9_]*)$').firstMatch(expr);
-    if (argExpr != null) {
-      return '${args[argExpr.group(1)] ?? ''}';
-    }
-
-    if (expr.length >= 2 &&
-        ((expr.startsWith("'") && expr.endsWith("'")) ||
-            (expr.startsWith('"') && expr.endsWith('"')))) {
-      return expr.substring(1, expr.length - 1);
-    }
-
-    if (expr.length >= 2 && expr.startsWith('`') && expr.endsWith('`')) {
-      final template = expr.substring(1, expr.length - 1);
-      return template.replaceAllMapped(RegExp(r'\$\{([^}]+)\}'), (match) {
-        final item = match.group(1)!.trim();
-        if (item == 'projectId') return '$projectId';
-        if (item == 'JSON.stringify(args)') return jsonEncode(args);
-        final arg =
-            RegExp(r'^args\.([A-Za-z_][A-Za-z0-9_]*)$').firstMatch(item);
-        if (arg != null) return '${args[arg.group(1)] ?? ''}';
-        throw EngineException(errLlmFormat, {
-          'reason': 'custom_skill_expression',
-          'expression': item,
-        });
-      });
-    }
-
-    throw EngineException(errLlmFormat, {'reason': 'custom_skill_expression'});
+    return _CustomAgentSkillRuntime(projectId: projectId, args: args)
+        .run(script);
   }
 
   String _statusSummary(int projectId) {

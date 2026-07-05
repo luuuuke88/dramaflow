@@ -240,6 +240,43 @@ void main() {
     expect(msg.content, '项目$projectId:寒山');
   });
 
+  test('自定义脚本技能：支持局部变量和常用 JS 表达式', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_runtime',
+      name: '脚本运行时',
+      description: '验证自定义技能可以执行更接近 ToonFlow 的脚本片段。',
+      script: r'''
+const text = args.text.trim().toUpperCase();
+const count = args.items.length;
+return `项目${projectId}:${text}:${count}:${JSON.stringify(args.items)}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'text': {'type': 'string'},
+          'items': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_runtime', const {
+        'text': ' 寒山 ',
+        'items': ['李澈', '试剑'],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_runtime');
+    expect(msg.content, '项目$projectId:寒山:2:["李澈","试剑"]');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
