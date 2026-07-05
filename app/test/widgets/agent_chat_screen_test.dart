@@ -106,6 +106,36 @@ void main() {
     expect(engine.agentMessages(projectId), hasLength(2));
   });
 
+  testWidgets('对话页可切换剧本和制作 Agent 并隔离消息', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '剧本侧推进事件');
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+    expect(engine.agentMessages(projectId, family: agentFamilyScript),
+        hasLength(2));
+    expect(engine.agentMessages(projectId, family: agentFamilyProduction),
+        isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('agent-family-production')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('导演计划'), findsOneWidget);
+    expect(find.text('剧本侧推进事件'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), '制作侧推进分镜');
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+    expect(engine.agentMessages(projectId, family: agentFamilyProduction),
+        hasLength(2));
+    expect(find.text('制作侧推进分镜'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('agent-family-script')));
+    await tester.pumpAndSettle();
+    expect(find.text('剧本侧推进事件'), findsOneWidget);
+    expect(find.text('制作侧推进分镜'), findsNothing);
+  });
+
   testWidgets('清空记忆按钮：确认后清空并提示', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
@@ -818,12 +848,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('agent-memory-clear-summary')));
     await tester.pumpAndSettle();
     expect(
-      engine.db
-          .select(
-            'SELECT COUNT(*) AS n FROM memories WHERE isolationKey=? AND type=?',
-            ['scriptAgent:$projectId', agentMemoryTypeSummary],
-          )
-          .single['n'],
+      engine.db.select(
+        'SELECT COUNT(*) AS n FROM memories WHERE isolationKey=? AND type=?',
+        ['scriptAgent:$projectId', agentMemoryTypeSummary],
+      ).single['n'],
       0,
     );
     expect(engine.agentMessages(projectId), hasLength(2));

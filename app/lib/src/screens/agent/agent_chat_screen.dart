@@ -29,6 +29,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   final ScrollController _scroll = ScrollController();
   bool _autoMode = false;
   bool _sending = false;
+  String _agentFamily = agentFamilyScript;
 
   @override
   void initState() {
@@ -49,6 +50,12 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     ref.read(engineProvider).setAgentUseMode(value);
   }
 
+  void _setAgentFamily(String family) {
+    if (_agentFamily == family) return;
+    setState(() => _agentFamily = family);
+    _scrollToBottom();
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
@@ -63,9 +70,10 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     _input.clear();
     setState(() => _sending = true);
     _scrollToBottom();
+    final family = _agentFamily;
     try {
       await ref.read(engineProvider).sendAgentMessage(widget.projectId, text,
-          autoMode: _autoMode, family: agentFamilyScript);
+          autoMode: _autoMode, family: family);
     } finally {
       if (mounted) setState(() => _sending = false);
       _scrollToBottom();
@@ -83,7 +91,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     if (confirmed != true) return;
     ref
         .read(engineProvider)
-        .clearAgentMemory(widget.projectId, family: agentFamilyScript);
+        .clearAgentMemory(widget.projectId, family: _agentFamily);
     if (mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(l10n.agentChatMemoryCleared)));
@@ -107,7 +115,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     final df = context.df;
     final messages = ref
         .watch(engineProvider)
-        .agentMessages(widget.projectId, family: agentFamilyScript);
+        .agentMessages(widget.projectId, family: _agentFamily);
     final memories =
         ref.watch(engineProvider).agentLongTermMemories(widget.projectId);
 
@@ -115,7 +123,9 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(l10n.agentChatTitle),
+          title: Text(_agentFamily == agentFamilyScript
+              ? l10n.agentDeployGroupScriptAgent
+              : l10n.agentDeployGroupProductionAgent),
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
@@ -160,13 +170,49 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
         body: TabBarView(
           children: [
             Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SegmentedButton<String>(
+                    key: const ValueKey('agent-family-switch'),
+                    showSelectedIcon: false,
+                    segments: [
+                      ButtonSegment(
+                        value: agentFamilyScript,
+                        icon: const Icon(Icons.edit_note_outlined),
+                        label: Text(
+                          l10n.agentDeployGroupScriptAgent,
+                          key: const ValueKey('agent-family-script'),
+                        ),
+                      ),
+                      ButtonSegment(
+                        value: agentFamilyProduction,
+                        icon: const Icon(Icons.movie_creation_outlined),
+                        label: Text(
+                          l10n.agentDeployGroupProductionAgent,
+                          key: const ValueKey('agent-family-production'),
+                        ),
+                      ),
+                    ],
+                    selected: {_agentFamily},
+                    onSelectionChanged: (selection) {
+                      _setAgentFamily(selection.single);
+                    },
+                  ),
+                ),
+              ),
               Expanded(
                 child: ListView(
                   controller: _scroll,
                   padding: const EdgeInsets.all(16),
                   children: [
                     if (messages.isEmpty)
-                      _WelcomeBubble(text: l10n.agentChatWelcome),
+                      _WelcomeBubble(
+                        text: _agentFamily == agentFamilyScript
+                            ? l10n.agentChatWelcome
+                            : l10n.canvasChatWelcome,
+                      ),
                     for (final m in messages) _MessageBubble(message: m),
                     if (_sending)
                       Padding(
@@ -221,6 +267,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
             ),
             _AgentMemoryPane(
               projectId: widget.projectId,
+              family: _agentFamily,
               messages: messages,
               memories: memories,
               onClear: _clearMemory,
@@ -1087,12 +1134,14 @@ class _AgentSkillDialogState extends State<_AgentSkillDialog> {
 
 class _AgentMemoryPane extends ConsumerWidget {
   final int projectId;
+  final String family;
   final List<AgentMessage> messages;
   final List<AgentMemoryRecord> memories;
   final VoidCallback onClear;
   final VoidCallback onChanged;
   const _AgentMemoryPane({
     required this.projectId,
+    required this.family,
     required this.messages,
     required this.memories,
     required this.onClear,
@@ -1181,7 +1230,7 @@ class _AgentMemoryPane extends ConsumerWidget {
       () async {
         ref.read(engineProvider).clearAgentMemoryScope(
               projectId,
-              family: agentFamilyScript,
+              family: family,
               scope: scope,
             );
         onChanged();
