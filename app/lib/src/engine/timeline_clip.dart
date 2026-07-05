@@ -114,6 +114,36 @@ extension TimelineClipApi on Engine {
     final normalizedDuration =
         durationMs != null && durationMs > 0 ? durationMs : null;
     final shiftMs = normalizedDuration ?? _defaultTimelineClipDurationMs;
+    final splitRow = db.select(
+      'SELECT * FROM o_timelineClip '
+      'WHERE scriptId=? AND lane=? AND startMs<? '
+      'AND startMs + COALESCE(durationMs, ?) > ? '
+      'ORDER BY startMs DESC, id DESC LIMIT 1',
+      [
+        scriptId,
+        normalizedLane,
+        normalizedStart,
+        _defaultTimelineClipDurationMs,
+        normalizedStart
+      ],
+    ).firstOrNull;
+    int? splitTailDuration;
+    if (splitRow != null) {
+      final splitStart = (splitRow['startMs'] as int?) ?? 0;
+      final splitDuration =
+          (splitRow['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+      final splitEnd = splitStart + splitDuration;
+      final splitHeadDuration = normalizedStart - splitStart;
+      splitTailDuration = splitEnd - normalizedStart;
+      if (splitHeadDuration > 0 && splitTailDuration > 0) {
+        db.execute(
+          'UPDATE o_timelineClip SET durationMs=? WHERE id=?',
+          [splitHeadDuration, splitRow['id'] as int],
+        );
+      } else {
+        splitTailDuration = null;
+      }
+    }
     db.execute(
       'UPDATE o_timelineClip '
       'SET startMs=startMs + ? '
@@ -135,7 +165,26 @@ extension TimelineClipApi on Engine {
         normalizedDuration,
       ],
     );
-    return db.lastInsertRowId;
+    final insertedId = db.lastInsertRowId;
+    if (splitRow != null && splitTailDuration != null) {
+      db.execute(
+        'INSERT INTO o_timelineClip '
+        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
+        'VALUES (?,?,?,?,?,?,?,?,?)',
+        [
+          splitRow['projectId'],
+          splitRow['scriptId'],
+          splitRow['assetId'],
+          splitRow['name'],
+          splitRow['filePath'],
+          splitRow['lane'],
+          normalizedStart + shiftMs,
+          splitTailDuration,
+          _normalizeTimelineClipOpacity(splitRow['opacity'] as num?),
+        ],
+      );
+    }
+    return insertedId;
   }
 
   int addTimelineClipFromAssetAutoLane({

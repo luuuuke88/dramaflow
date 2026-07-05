@@ -342,6 +342,54 @@ void main() {
     expect(otherLane.durationMs, 600);
   });
 
+  test('addTimelineClipFromAssetRipple 插入到片段中间时拆分被插入片段', () {
+    final clipA = clipAsset('p/ripple_insert_split_a.mp4', 'A');
+    final clipB = clipAsset('p/ripple_insert_split_b.mp4', 'B');
+    final clipInsert = clipAsset('p/ripple_insert_split_new.mp4', 'Insert');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 600,
+      durationMs: 400,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipB,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 300,
+    );
+
+    final insertedId = engine.addTimelineClipFromAssetRipple(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipInsert,
+      lane: 1,
+      startMs: 800,
+      durationMs: 200,
+    );
+
+    final clips = engine.timelineClips(scriptId);
+    final firstPart = clips.singleWhere((c) => c.id == clipIdA);
+    expect(firstPart.startMs, 600);
+    expect(firstPart.durationMs, 200);
+    final inserted = clips.singleWhere((c) => c.id == insertedId);
+    expect(inserted.startMs, 800);
+    expect(inserted.durationMs, 200);
+    final secondPart = clips.singleWhere(
+      (c) => c.id != clipIdA && c.id != insertedId && c.name == 'A',
+    );
+    expect(secondPart.startMs, 1000);
+    expect(secondPart.durationMs, 200);
+    expect(secondPart.filePath, 'p/ripple_insert_split_a.mp4');
+    final shifted = clips.singleWhere((c) => c.id == clipIdB);
+    expect(shifted.startMs, 1400);
+    expect(shifted.durationMs, 300);
+  });
+
   test('addTimelineClipFromAssetAutoLane 在同一时间寻找空素材层', () {
     final clipA = clipAsset('p/auto_lane_a.mp4', 'A');
     final clipB = clipAsset('p/auto_lane_b.mp4', 'B');
