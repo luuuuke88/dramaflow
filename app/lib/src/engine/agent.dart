@@ -30,6 +30,7 @@ const agentRoleAssistant = 'assistant';
 const agentRoleTool = 'tool';
 
 const _maxAutoTurns = 5;
+const _maxConsecutiveAutoToolCalls = 3;
 const _agentMemoryRole = 'agent';
 const _agentMemoryType = 'note';
 const _agentDecisionMemoryRole = 'assistant:decision';
@@ -4409,6 +4410,8 @@ extension AgentApi on Engine {
       family: agentFamily,
     );
     final executedToolSignatures = <String>{};
+    String? lastAutoToolName;
+    var consecutiveAutoToolCalls = 0;
 
     for (var turn = 0; turn < (autoMode ? _maxAutoTurns : 1); turn++) {
       final memoryService = _agentMemoryService(family: agentFamily);
@@ -4479,6 +4482,30 @@ extension AgentApi on Engine {
 
       final toolName = result.toolName!;
       final toolArgs = result.toolArgs ?? const {};
+      if (autoMode) {
+        if (lastAutoToolName == toolName) {
+          consecutiveAutoToolCalls++;
+        } else {
+          lastAutoToolName = toolName;
+          consecutiveAutoToolCalls = 1;
+        }
+        if (consecutiveAutoToolCalls > _maxConsecutiveAutoToolCalls) {
+          final content = '已停止自动执行：检测到连续调用 $toolName，避免循环执行。';
+          messages.add(AgentMessage(
+            role: agentRoleAssistant,
+            content: content,
+            createdAt: DateTime.now().millisecondsSinceEpoch,
+          ));
+          _saveAgentMessages(projectId, messages, family: agentFamily);
+          await _recordAgentMemory(
+            projectId,
+            family: agentFamily,
+            role: agentRoleAssistant,
+            content: content,
+          );
+          return;
+        }
+      }
       final toolSignature = _agentToolCallSignature(toolName, toolArgs);
       if (autoMode && !executedToolSignatures.add(toolSignature)) {
         final content = '已停止自动执行：检测到重复工具调用 $toolName，避免循环执行。';

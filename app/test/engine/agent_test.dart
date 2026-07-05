@@ -354,10 +354,27 @@ void main() {
   test('auto 模式在安全上限内停止（防止无限工具调用循环）', () async {
     gateway.turns = List.generate(
       10,
-      (index) => AgentTurnResult.tool('get_status', {'tick': index}),
+      (index) => index.isEven
+          ? AgentTurnResult.tool('get_status', {'tick': index})
+          : AgentTurnResult.tool('deepRetrieve', {'keyword': '寒山$index'}),
     );
     await engine.sendAgentMessage(projectId, '一直做', autoMode: true);
     expect(gateway.callCount, 5, reason: '_maxAutoTurns=5 上限生效');
+  });
+
+  test('auto 模式会拦截连续相同工具调用', () async {
+    gateway.turns = List.generate(
+      6,
+      (index) => AgentTurnResult.tool('get_status', {'tick': index}),
+    );
+
+    await engine.sendAgentMessage(projectId, '一直刷新状态', autoMode: true);
+
+    final msgs = engine.agentMessages(projectId);
+    expect(msgs.where((m) => m.toolName == 'get_status'), hasLength(3));
+    expect(msgs.last.role, agentRoleAssistant);
+    expect(msgs.last.content, contains('连续调用 get_status'));
+    expect(gateway.callCount, 4);
   });
 
   test('auto 模式会拦截同一轮重复工具调用', () async {
