@@ -255,11 +255,11 @@ Expected: all SkillRuntime tests pass.
 - Modify: `app/lib/src/engine/agent.dart`
 - Test: `app/test/engine/agent_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add tests for `scriptAgent:decisionAgent` calling `run_sub_agent_storySkeleton`, `run_sub_agent_adaptationStrategy`, `run_sub_agent_script`, and `run_supervision_agent`, with XML output writing to `o_agentWorkData` and `o_script`.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -270,11 +270,11 @@ flutter test test/engine/agent_test.dart --plain-name "ScriptAgentOrchestrator"
 
 Expected: FAIL because all turns currently use `stage: script_gen` and no subagent dispatcher exists.
 
-- [ ] **Step 3: Implement orchestrator**
+- [x] **Step 3: Implement orchestrator**
 
 Route `sendAgentMessage` through `ScriptAgentOrchestrator` for script family; call `gateway.generateAgentTurn` with the exact ToonFlow stage key; parse XML elements into existing engine APIs.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run:
 

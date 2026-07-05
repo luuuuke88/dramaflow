@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import 'agent_memory.dart';
+import 'agent_orchestrator.dart';
 import 'agent_skills.dart';
 import 'agent_stage_registry.dart';
 import 'audio_bind.dart';
@@ -967,12 +968,12 @@ extension AgentApi on Engine {
       ];
       AgentTurnResult result;
       try {
-        final tools = agentTools;
+        final tools = scriptAgentDecisionTools(agentTools);
         result = await gateway.generateAgentTurn(
           system,
           history,
           tools,
-          stage: 'script_gen',
+          stage: scriptAgentDecisionStage,
         );
       } catch (e) {
         final ex = e is EngineException
@@ -1081,6 +1082,43 @@ extension AgentApi on Engine {
           if (skillName.isEmpty) return '缺少 name 参数。';
           if (filePath.isEmpty) return '缺少 path 参数。';
           return readAgentSkillFile(skillName, filePath);
+        case 'get_novel_events':
+          return _scriptAgentNovelEvents(projectId, args);
+        case 'get_planData':
+          return _scriptAgentPlanData(projectId, args);
+        case 'get_novel_text':
+          return _scriptAgentNovelText(projectId, args);
+        case 'get_script_content':
+          return _scriptAgentScriptContent(projectId, args);
+        case 'run_sub_agent_storySkeleton':
+          return _runScriptAgentSubAgent(
+            projectId,
+            args,
+            stage: scriptAgentStorySkeletonStage,
+            label: '故事骨架 Agent',
+            xmlTag: scriptAgentStorySkeletonKey,
+            workspaceKey: scriptAgentStorySkeletonKey,
+          );
+        case 'run_sub_agent_adaptationStrategy':
+          return _runScriptAgentSubAgent(
+            projectId,
+            args,
+            stage: scriptAgentAdaptationStrategyStage,
+            label: '改编策略 Agent',
+            xmlTag: scriptAgentAdaptationStrategyKey,
+            workspaceKey: scriptAgentAdaptationStrategyKey,
+          );
+        case 'run_sub_agent_script':
+          return _runScriptAgentScriptSubAgent(projectId, args);
+        case 'run_supervision_agent':
+          return _runScriptAgentSubAgent(
+            projectId,
+            args,
+            stage: scriptAgentSupervisionStage,
+            label: '监督 Agent',
+            xmlTag: '',
+            workspaceKey: scriptAgentSupervisionKey,
+          );
         case 'get_status':
           return _statusSummary(projectId);
         case 'generate_events':
@@ -1164,6 +1202,314 @@ extension AgentApi on Engine {
       return '执行失败：${ex.errKey}';
     }
   }
+
+  List<int>? _intListAny(Map<String, dynamic> args, List<String> keys) {
+    for (final key in keys) {
+      final parsed = _coerceIntList(args[key]);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  List<int>? _coerceIntList(Object? raw) {
+    if (raw == null) return null;
+    if (raw is Iterable) {
+      final values = [
+        for (final item in raw)
+          if (_coerceInt(item) != null) _coerceInt(item)!,
+      ];
+      return values.isEmpty ? null : values;
+    }
+    if (raw is String) {
+      final text = raw.trim();
+      if (text.isEmpty) return null;
+      final range = RegExp(r'^(\d+)\s*(?:-|~|至)\s*(\d+)$').firstMatch(text);
+      if (range != null) {
+        final start = int.parse(range.group(1)!);
+        final end = int.parse(range.group(2)!);
+        if (start <= end) return [for (var i = start; i <= end; i++) i];
+        return [for (var i = start; i >= end; i--) i];
+      }
+      if (text.contains(RegExp(r'[,，、\s]+'))) {
+        final values = [
+          for (final part in text.split(RegExp(r'[,，、\s]+')))
+            if (_coerceInt(part) != null) _coerceInt(part)!,
+        ];
+        return values.isEmpty ? null : values;
+      }
+    }
+    final single = _coerceInt(raw);
+    return single == null ? null : [single];
+  }
+
+  int? _coerceInt(Object? raw) {
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw.trim());
+    return null;
+  }
+
+  Map<String, dynamic> _scriptAgentWorkspace(int projectId) {
+    final row = db.select(
+      'SELECT data FROM o_agentWorkData '
+      'WHERE projectId=? AND episodesId IS NULL AND key=?',
+      [projectId, scriptAgentWorkspaceKey],
+    ).firstOrNull;
+    if (row == null) {
+      final data = normalizeScriptAgentWorkspace(null);
+      _saveScriptAgentWorkspace(projectId, data);
+      return data;
+    }
+    try {
+      return normalizeScriptAgentWorkspace(
+        jsonDecode(row['data'] as String? ?? '{}'),
+      );
+    } catch (_) {
+      return normalizeScriptAgentWorkspace(null);
+    }
+  }
+
+  void _saveScriptAgentWorkspace(
+    int projectId,
+    Map<String, dynamic> data,
+  ) {
+    final json = encodeScriptAgentWorkspace(data);
+    final exists = db.select(
+      'SELECT id FROM o_agentWorkData '
+      'WHERE projectId=? AND episodesId IS NULL AND key=?',
+      [projectId, scriptAgentWorkspaceKey],
+    ).firstOrNull;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (exists == null) {
+      db.execute(
+        'INSERT INTO o_agentWorkData (projectId,key,data,createTime,updateTime) '
+        'VALUES (?,?,?,?,?)',
+        [projectId, scriptAgentWorkspaceKey, json, now, now],
+      );
+    } else {
+      db.execute(
+        'UPDATE o_agentWorkData SET data=?, updateTime=? WHERE id=?',
+        [json, now, exists['id']],
+      );
+    }
+  }
+
+  String _scriptAgentNovelEvents(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final novelIds = _intListAny(args, const ['novelIds']);
+    final chapterIndexes = _intListAny(args, const [
+      'chapterIndexs',
+      'chapterIndexes',
+      'chapterIndex',
+      'ids',
+    ]);
+    final chapters = novels(projectId, limit: 100000).data.where((chapter) {
+      if (novelIds != null) return novelIds.contains(chapter.id);
+      if (chapterIndexes != null) {
+        return chapterIndexes.contains(chapter.chapterIndex);
+      }
+      return true;
+    }).toList();
+    if (chapters.isEmpty) return '无数据';
+    return chapters
+        .map((chapter) =>
+            '第${chapter.chapterIndex}章，标题:${chapter.chapter ?? ''}，'
+            '事件:${(chapter.event ?? '').trim().isEmpty ? '未生成' : chapter.event}')
+        .join('\n');
+  }
+
+  String _scriptAgentPlanData(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final key = (args['key'] ?? args['name'] ?? '').toString().trim();
+    final data = _scriptAgentWorkspace(projectId);
+    if (key == 'script') return _scriptAgentScriptContent(projectId, args);
+    if (key.isNotEmpty) {
+      final value = '${data[key] ?? ''}'.trim();
+      return value.isEmpty ? '无数据' : value;
+    }
+    return jsonEncode({
+      ...data,
+      'script': [
+        for (final script in scripts(projectId))
+          {
+            'id': script.id,
+            'name': script.name ?? '',
+            'content': script.content ?? '',
+          },
+      ],
+    });
+  }
+
+  String _scriptAgentNovelText(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final novelIds = _intListAny(args, const ['novelIds']);
+    final chapterIndexes = _intListAny(args, const [
+      'chapterIndex',
+      'chapterIndexs',
+      'chapterIndexes',
+      'ids',
+    ]);
+    final chapters = novels(projectId, limit: 100000).data.where((chapter) {
+      if (novelIds != null) return novelIds.contains(chapter.id);
+      if (chapterIndexes != null) {
+        return chapterIndexes.contains(chapter.chapterIndex);
+      }
+      return true;
+    }).toList();
+    if (chapters.isEmpty) return '无数据';
+    return chapters
+        .map((chapter) => '第${chapter.chapterIndex}章 ${chapter.chapter ?? ''}\n'
+            '${chapter.chapterData ?? ''}')
+        .join('\n\n---\n\n');
+  }
+
+  String _scriptAgentScriptContent(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final ids = _intListAny(args, const ['ids', 'scriptIds']);
+    final rows = scripts(projectId).where((script) {
+      if (ids == null) return true;
+      return ids.contains(script.id);
+    }).toList();
+    if (rows.isEmpty) return '无数据';
+    return rows
+        .map((script) =>
+            '<scriptItem name="${_escapeXmlAttr(script.name ?? '')}">'
+            '${_escapeXmlText(script.content ?? '')}</scriptItem>')
+        .join('\n');
+  }
+
+  Future<String> _runScriptAgentSubAgent(
+    int projectId,
+    Map<String, dynamic> args, {
+    required String stage,
+    required String label,
+    required String xmlTag,
+    required String workspaceKey,
+  }) async {
+    final output = await _runScriptAgentText(projectId, args, stage: stage);
+    var content = xmlTag.isEmpty ? '' : extractXmlTagText(output, xmlTag);
+    if (content.isEmpty) content = stripXmlTags(output).trim();
+    if (content.isEmpty) return '$label 未返回可写入内容。';
+    final data = _scriptAgentWorkspace(projectId);
+    data[workspaceKey] = content;
+    _saveScriptAgentWorkspace(projectId, data);
+    return '$label 已写入工作区。';
+  }
+
+  Future<String> _runScriptAgentScriptSubAgent(
+    int projectId,
+    Map<String, dynamic> args,
+  ) async {
+    final output = await _runScriptAgentText(projectId, args,
+        stage: scriptAgentScriptStage);
+    final items = parseScriptAgentScriptItems(output);
+    if (items.isEmpty) return '剧本 Agent 未输出 scriptItem。';
+    for (final item in items) {
+      final exists = db.select(
+        'SELECT id FROM o_script WHERE projectId=? AND name=?',
+        [projectId, item.name],
+      ).firstOrNull;
+      if (exists == null) {
+        addScript(projectId: projectId, name: item.name, content: item.content);
+      } else {
+        updateScript(exists['id'] as int, content: item.content);
+      }
+    }
+    return '剧本 Agent 已写入 ${items.length} 个剧本。';
+  }
+
+  Future<String> _runScriptAgentText(
+    int projectId,
+    Map<String, dynamic> args, {
+    required String stage,
+  }) async {
+    final prompt = (args['prompt'] ?? args['instruction'] ?? args['task'] ?? '')
+        .toString()
+        .trim();
+    final history = <Map<String, String>>[
+      {'role': 'assistant', 'content': _scriptAgentProjectInfo(projectId)},
+      {
+        'role': 'user',
+        'content': prompt.isEmpty ? '请继续执行当前任务。' : prompt,
+      },
+    ];
+    final system = _scriptAgentSubAgentSystem(stage);
+    for (var turn = 0; turn < _maxAutoTurns; turn++) {
+      final result = await gateway.generateAgentTurn(
+        system,
+        history,
+        scriptAgentExecutionTools(agentTools),
+        stage: stage,
+      );
+      if (!result.isToolCall) return result.text ?? '';
+      final toolName = result.toolName ?? '';
+      if (toolName.startsWith('run_sub_agent_') ||
+          toolName == 'run_supervision_agent') {
+        return '子 Agent 不支持嵌套调用：$toolName';
+      }
+      final summary = await _runTool(
+        projectId,
+        toolName,
+        result.toolArgs ?? const {},
+      );
+      history.add({
+        'role': 'assistant',
+        'content': '（工具 $toolName 执行结果：$summary）',
+      });
+    }
+    return '';
+  }
+
+  String _scriptAgentProjectInfo(int projectId) {
+    final project = db
+        .select('SELECT * FROM o_project WHERE id=?', [projectId]).firstOrNull;
+    final chapterCount = novels(projectId, limit: 1).total;
+    return [
+      '## 项目信息',
+      '小说名称：${project?['name'] ?? '未知'}',
+      '小说类型：${project?['type'] ?? '未知'}',
+      '小说简介：${project?['intro'] ?? '无'}',
+      '目标改编影视视觉手册|画风：${project?['artStyle'] ?? '无'}',
+      '目标改编视频画幅：${project?['videoRatio'] ?? '16:9'}',
+      '章节数量：$chapterCount章',
+    ].join('\n');
+  }
+
+  String _scriptAgentSubAgentSystem(String stage) {
+    switch (stage) {
+      case scriptAgentStorySkeletonStage:
+        return '你是短剧改编项目的故事骨架搭建 Agent。'
+            '可以读取工作区和章节事件，最终必须输出完整 <storySkeleton>故事骨架内容</storySkeleton>。';
+      case scriptAgentAdaptationStrategyStage:
+        return '你是短剧改编项目的改编策略制定 Agent。'
+            '可以读取工作区、故事骨架和章节事件，最终必须输出完整 '
+            '<adaptationStrategy>改编策略内容</adaptationStrategy>。';
+      case scriptAgentScriptStage:
+        return '你是短剧改编项目的剧本编写 Agent。'
+            '可以读取工作区、事件、原文和已有剧本。最终必须只输出一个或多个 '
+            '<scriptItem name="剧本名称">剧本内容</scriptItem>。';
+      case scriptAgentSupervisionStage:
+        return '你是短剧改编项目的监督层 Agent。'
+            '请独立审核工作区或剧本产物，返回简短、可执行的审核结论。';
+      default:
+        return '你是短剧改编项目的执行层 Agent。';
+    }
+  }
+
+  String _escapeXmlText(String value) => value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+
+  String _escapeXmlAttr(String value) =>
+      _escapeXmlText(value).replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 
   String _runCustomAgentSkill(
     int projectId,

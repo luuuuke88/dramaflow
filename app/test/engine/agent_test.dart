@@ -628,6 +628,121 @@ void main() {
     expect(msg.content, contains('用户强调寒山少主李澈外冷内热'));
     expect(msg.content, contains('不能把李澈写成反派'));
   });
+
+  test(
+      'ScriptAgentOrchestrator uses decision stage and exposes script subagent tools',
+      () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(projectId, '规划前三集', autoMode: false);
+
+    expect(gateway.stages, ['scriptAgent:decisionAgent']);
+    expect(
+      gateway.toolNamesByCall.single,
+      containsAll([
+        'get_novel_events',
+        'get_planData',
+        'get_novel_text',
+        'get_script_content',
+        'run_sub_agent_storySkeleton',
+        'run_sub_agent_adaptationStrategy',
+        'run_sub_agent_script',
+        'run_supervision_agent',
+      ]),
+    );
+  });
+
+  test(
+      'ScriptAgentOrchestrator runs planning subagents and stores scriptAgent workspace data',
+      () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '搭建寒山篇前三集骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先做故事骨架', autoMode: false);
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:storySkeletonAgent',
+    ]);
+    var data = _scriptAgentWorkData(db, projectId);
+    expect(data['storySkeleton'], '寒山篇三集骨架');
+    expect(data['adaptationStrategy'], '');
+    expect(engine.agentMessages(projectId).last.content,
+        contains('故事骨架 Agent 已写入工作区'));
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_adaptationStrategy',
+        const {'prompt': '给寒山篇设计短剧改编策略'},
+      ),
+      const AgentTurnResult.text(
+        '<adaptationStrategy>前三集强化退婚冲突</adaptationStrategy>',
+      ),
+    ];
+
+    await engine.sendAgentMessage(projectId, '继续做改编策略', autoMode: false);
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:adaptationStrategyAgent',
+    ]);
+    data = _scriptAgentWorkData(db, projectId);
+    expect(data['storySkeleton'], '寒山篇三集骨架');
+    expect(data['adaptationStrategy'], '前三集强化退婚冲突');
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_supervision_agent',
+        const {'prompt': '检查前三集是否连续'},
+      ),
+      const AgentTurnResult.text('监督结论：节奏成立。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '监督一下', autoMode: false);
+
+    data = _scriptAgentWorkData(db, projectId);
+    expect(data['supervision'], contains('节奏成立'));
+  });
+
+  test('ScriptAgentOrchestrator parses script subagent XML into scripts',
+      () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_script',
+        const {'prompt': '写第一集'},
+      ),
+      const AgentTurnResult.text(
+        '<scriptItem name="第一集"><content>李澈入山。</content></scriptItem>'
+        '<scriptItem name="第二集">寒山试剑。</scriptItem>',
+      ),
+    ];
+
+    await engine.sendAgentMessage(projectId, '生成剧本正文', autoMode: false);
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:scriptAgent',
+    ]);
+    final rows = engine.scripts(projectId);
+    expect(rows.map((row) => row.name), ['第一集', '第二集']);
+    expect(rows[0].content, '李澈入山。');
+    expect(rows[1].content, '寒山试剑。');
+    expect(engine.agentMessages(projectId).last.content,
+        contains('剧本 Agent 已写入 2 个剧本'));
+  });
+}
+
+Map<String, dynamic> _scriptAgentWorkData(Database db, int projectId) {
+  final row = db.select(
+    "SELECT data FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL AND key='scriptAgent'",
+    [projectId],
+  ).single;
+  return Map<String, dynamic>.from(jsonDecode(row['data'] as String) as Map);
 }
 
 File _writeSkillFixture(
@@ -661,6 +776,8 @@ class _Gateway implements ProviderGateway {
   List<AgentToolDef> lastTools = const [];
   String lastSystem = '';
   List<Map<String, String>> lastMessages = const [];
+  List<String> stages = const [];
+  List<List<String>> toolNamesByCall = const [];
   int callCount = 0;
   int textCallCount = 0;
   bool shouldThrow = false;
@@ -668,6 +785,8 @@ class _Gateway implements ProviderGateway {
   set turns(List<AgentTurnResult> value) {
     _turns = value;
     callCount = 0;
+    stages = [];
+    toolNamesByCall = [];
   }
 
   List<AgentTurnResult> get turns => _turns;
@@ -684,6 +803,11 @@ class _Gateway implements ProviderGateway {
     lastTools = List<AgentToolDef>.from(tools);
     lastSystem = system;
     lastMessages = [for (final message in messages) Map.of(message)];
+    stages = [...stages, stage];
+    toolNamesByCall = [
+      ...toolNamesByCall,
+      [for (final tool in tools) tool.name],
+    ];
     final r = _turns[callCount];
     callCount++;
     return r;
