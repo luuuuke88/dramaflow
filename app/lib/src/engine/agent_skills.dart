@@ -78,8 +78,11 @@ ParsedAgentSkillMarkdown parseAgentSkillMarkdown(
 
 String normalizeAgentSkillId(String value) {
   final normalized = value.trim();
-  if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(normalized)) {
-    throw EngineException(errLlmFormat, {'reason': '技能 name 只能包含字母、数字和下划线'});
+  if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(normalized)) {
+    throw EngineException(
+      errLlmFormat,
+      {'reason': '技能 name 只能包含字母、数字、下划线和连字符'},
+    );
   }
   return normalized;
 }
@@ -121,12 +124,56 @@ List<String> listAgentSkillResourceFiles(String skillFilePath) {
 
 Map<String, String> _parseFrontmatter(List<String> lines) {
   final values = <String, String>{};
-  for (final line in lines) {
-    final sep = line.indexOf(':');
-    if (sep <= 0) continue;
-    final key = line.substring(0, sep).trim();
-    final value = line.substring(sep + 1).trim();
-    if (key.isNotEmpty) values[key] = value;
+  for (var i = 0; i < lines.length;) {
+    final line = lines[i];
+    final trimmed = line.trim();
+    if (trimmed.isEmpty || trimmed.startsWith('#')) {
+      i++;
+      continue;
+    }
+    final match = RegExp(r'^([A-Za-z0-9_-]+)\s*:\s*(.*)$').firstMatch(line);
+    if (match == null) {
+      i++;
+      continue;
+    }
+    final key = match.group(1)!.trim();
+    final rawValue = match.group(2)!.trim();
+    i++;
+    if (key.isEmpty) continue;
+    if (RegExp(r'^[>|][+-]?[0-9]*$').hasMatch(rawValue)) {
+      final folded = rawValue.startsWith('>');
+      final blockLines = <String>[];
+      int? blockIndent;
+      while (i < lines.length) {
+        final current = lines[i];
+        if (current.trim().isEmpty) {
+          if (blockIndent != null) blockLines.add('');
+          i++;
+          continue;
+        }
+        final currentIndent =
+            RegExp(r'^\s*').firstMatch(current)!.group(0)!.length;
+        blockIndent ??= currentIndent;
+        if (currentIndent < blockIndent) break;
+        blockLines.add(current.substring(blockIndent));
+        i++;
+      }
+      final joined = blockLines.join('\n').trim();
+      values[key] = folded
+          ? joined
+              .replaceAll(RegExp(r'\n{2,}'), '\n\n')
+              .replaceAllMapped(
+                RegExp(r'([^\n])\n([^\n])'),
+                (match) => '${match.group(1)} ${match.group(2)}',
+              )
+              .trim()
+          : joined;
+      continue;
+    }
+    values[key] = rawValue.replaceFirstMapped(
+      RegExp(r'''^(['"])([\s\S]*)\1$'''),
+      (match) => match.group(2)!,
+    );
   }
   return values;
 }

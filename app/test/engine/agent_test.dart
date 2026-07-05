@@ -2794,6 +2794,36 @@ return `参考图：${refs}`;
     );
   });
 
+  test('SkillRuntime parses ToonFlow-style folded frontmatter and hyphen names',
+      () {
+    final skillDir = Directory(p.join(dir.path, 'skills', 'story-polisher'))
+      ..createSync(recursive: true);
+    final skillFile = File(p.join(skillDir.path, 'SKILL.md'))
+      ..writeAsStringSync('''
+---
+name: "story-polisher"
+description: >
+  短剧故事润色技能，
+  负责压缩旁白并强化前三秒钩子。
+---
+
+请把故事节奏压到更适合短剧。
+''');
+
+    final skill = engine.saveMarkdownAgentSkill(
+      filePath: skillFile.path,
+      attribution: 'script_agent_execution',
+    );
+
+    expect(skill.id, 'story-polisher');
+    expect(skill.name, 'story-polisher');
+    expect(skill.description, '短剧故事润色技能， 负责压缩旁白并强化前三秒钩子。');
+
+    final activated = engine.activateAgentSkill('story-polisher');
+    expect(activated.name, 'story-polisher');
+    expect(activated.content, contains('请把故事节奏压到更适合短剧。'));
+  });
+
   test('SkillRuntime activate_skill returns Markdown body for Agent context',
       () {
     final skillFile = _writeSkillFixture(
