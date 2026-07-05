@@ -2074,7 +2074,7 @@ return JSON.stringify({
     expect(gateway.textCallCount, 0);
   });
 
-  test('AgentMemoryService get 返回相关记忆、历史摘要和近期对话', () async {
+  test('AgentMemoryService get 返回相关记忆、历史摘要和未摘要近期对话', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
       db,
@@ -2157,6 +2157,40 @@ return JSON.stringify({
         'message',
       ],
     );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ctx_msg_4',
+        '',
+        '助手确认下一集聚焦入山试炼。',
+        now + 4,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        0,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ctx_msg_5',
+        '',
+        '这条已经进入更新摘要，不应再作为短期对话重复注入。',
+        now + 5,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        'message',
+      ],
+    );
 
     final context = await service.get(
       isolationKey: 'scriptAgent:$projectId',
@@ -2167,7 +2201,7 @@ return JSON.stringify({
         ['ctx_msg_1', 'ctx_msg_2']);
     expect(context.summaries.map((item) => item.id), ['ctx_summary']);
     expect(context.recentMessages.map((item) => item.id),
-        ['ctx_msg_2', 'ctx_msg_3']);
+        ['ctx_msg_3', 'ctx_msg_4']);
   });
 
   test('Agent turn system prompt 注入 Memory.get 摘要和近期对话上下文', () async {

@@ -152,6 +152,7 @@ class AgentMemoryService {
             for (final row in db.select(
               'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
               'FROM memories WHERE isolationKey=? AND type=? '
+              'AND COALESCE(summarized,0)=0 '
               'ORDER BY createTime DESC, id DESC LIMIT ?',
               [isolationKey, agentMemoryTypeMessage, settings.shortTermLimit],
             ))
