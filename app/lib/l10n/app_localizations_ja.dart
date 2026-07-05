@@ -2203,7 +2203,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scriptPlanSaved => '脚本プランを保存しました';
 
   @override
-  String get canvasChatTitle => '脚本エージェント';
+  String get canvasChatTitle => '制作エージェント';
+
+  @override
+  String get canvasChatWelcome =>
+      'こんにちは、制作エージェントです。演出プラン、絵コンテパネル、初期フレーム画像、動画生成、音声割り当て、最終合成を支援できます。処理したい話数や手順を教えてください。';
 
   @override
   String get canvasChatOpen => 'エージェント対話';

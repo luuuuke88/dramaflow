@@ -143,7 +143,7 @@ void main() {
     await tester.tap(find.text('Agent 对话'));
     await tester.pumpAndSettle();
     // 面板打开后出现欢迎语与发送按钮。
-    expect(find.textContaining('我是剧本 Agent'), findsOneWidget);
+    expect(find.textContaining('我是制作 Agent'), findsOneWidget);
     expect(find.text('发送'), findsOneWidget);
   });
 
@@ -277,7 +277,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.smart_toy_outlined));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, '剧本 Agent'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, '制作 Agent'), findsOneWidget);
     expect(find.text('发送'), findsOneWidget);
   });
 

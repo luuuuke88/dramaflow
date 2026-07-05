@@ -143,7 +143,13 @@ void main() {
       AgentTurnResult.tool('generate_storyboards', const {}), // 缺 scriptId
     ];
     await engine.sendAgentMessage(projectId, '生成分镜', autoMode: false);
-    expect(engine.agentMessages(projectId).last.content, contains('缺少'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('缺少'),
+    );
   });
 
   test('LLM 调用失败时追加带错误码的助手消息', () async {
@@ -944,6 +950,25 @@ return `项目${projectId}:${text}:${count}:${JSON.stringify(args.items)}`;
     ).single;
     expect(summary['content'], '制作 Agent 记住分镜和视频生成策略。');
     expect(gateway.textStages, ['productionAgent:decisionAgent']);
+  });
+
+  test('productionAgent 决策历史不混入 scriptAgent 对话', () async {
+    gateway.turns = const [
+      AgentTurnResult.text('剧本规划已记录。'),
+      AgentTurnResult.text('制作规划已记录。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '规划前三集', autoMode: false);
+    await engine.sendAgentMessage(projectId, '制作画布：生成导演计划', autoMode: false);
+
+    expect(gateway.stages,
+        ['scriptAgent:decisionAgent', 'productionAgent:decisionAgent']);
+    expect(gateway.lastMessages.map((item) => item['content']),
+        isNot(contains('规划前三集')));
+    expect(gateway.lastMessages.map((item) => item['content']),
+        isNot(contains('剧本规划已记录。')));
+    expect(gateway.lastMessages.map((item) => item['content']),
+        contains('制作画布：生成导演计划'));
   });
 
   test(

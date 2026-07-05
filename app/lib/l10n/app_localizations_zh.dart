@@ -2188,7 +2188,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get scriptPlanSaved => '剧本规划已保存';
 
   @override
-  String get canvasChatTitle => '剧本 Agent';
+  String get canvasChatTitle => '制作 Agent';
+
+  @override
+  String get canvasChatWelcome =>
+      '你好，我是制作 Agent。我可以帮你推进导演计划、分镜面板、首帧图、视频生成、配音绑定和最终合成。直接告诉我你想处理哪一集或哪一步。';
 
   @override
   String get canvasChatOpen => 'Agent 对话';

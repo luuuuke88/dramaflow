@@ -2260,7 +2260,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scriptPlanSaved => 'Script plan saved';
 
   @override
-  String get canvasChatTitle => 'Script Agent';
+  String get canvasChatTitle => 'Production Agent';
+
+  @override
+  String get canvasChatWelcome =>
+      'Hi, I\'m the Production Agent. I can help with director plans, storyboard panels, first-frame images, video generation, voice binding, and final compose. Tell me which episode or step to handle.';
 
   @override
   String get canvasChatOpen => 'Agent chat';

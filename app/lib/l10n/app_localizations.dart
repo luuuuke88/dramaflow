@@ -4297,8 +4297,14 @@ abstract class AppLocalizations {
   /// No description provided for @canvasChatTitle.
   ///
   /// In zh, this message translates to:
-  /// **'剧本 Agent'**
+  /// **'制作 Agent'**
   String get canvasChatTitle;
+
+  /// No description provided for @canvasChatWelcome.
+  ///
+  /// In zh, this message translates to:
+  /// **'你好，我是制作 Agent。我可以帮你推进导演计划、分镜面板、首帧图、视频生成、配音绑定和最终合成。直接告诉我你想处理哪一集或哪一步。'**
+  String get canvasChatWelcome;
 
   /// No description provided for @canvasChatOpen.
   ///

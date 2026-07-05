@@ -73,8 +73,8 @@ void main() {
   testWidgets('空对话显示欢迎语与面板标题', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
-    expect(find.text('剧本 Agent'), findsOneWidget); // 面板头部标题
-    expect(find.textContaining('我是剧本 Agent'), findsOneWidget);
+    expect(find.text('制作 Agent'), findsOneWidget); // 面板头部标题
+    expect(find.textContaining('我是制作 Agent'), findsOneWidget);
   });
 
   testWidgets('发送消息后追加用户与助手气泡并落库', (tester) async {
@@ -87,7 +87,10 @@ void main() {
 
     expect(find.text('现在进度如何'), findsOneWidget);
     expect(find.text('好的，已收到。'), findsOneWidget);
-    expect(engine.agentMessages(projectId), hasLength(2));
+    expect(
+      engine.agentMessages(projectId, family: agentFamilyProduction),
+      hasLength(2),
+    );
   });
 
   testWidgets('清空记忆按钮：确认后清空并提示', (tester) async {
@@ -96,14 +99,16 @@ void main() {
     await tester.enterText(find.byType(TextField), '你好');
     await tester.tap(find.text('发送'));
     await tester.pumpAndSettle();
-    expect(engine.agentMessages(projectId), isNotEmpty);
+    expect(engine.agentMessages(projectId, family: agentFamilyProduction),
+        isNotEmpty);
 
     await tester.tap(find.byIcon(Icons.delete_sweep_outlined));
     await tester.pumpAndSettle();
     await tester.tap(find.text('删除'));
     await tester.pumpAndSettle();
 
-    expect(engine.agentMessages(projectId), isEmpty);
+    expect(engine.agentMessages(projectId, family: agentFamilyProduction),
+        isEmpty);
     expect(find.text('记忆已清空'), findsOneWidget);
   });
 

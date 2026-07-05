@@ -63,9 +63,8 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     setState(() => _sending = true);
     _scrollToBottom();
     try {
-      await ref
-          .read(engineProvider)
-          .sendAgentMessage(widget.projectId, text, autoMode: _autoMode);
+      await ref.read(engineProvider).sendAgentMessage(widget.projectId, text,
+          autoMode: _autoMode, family: agentFamilyScript);
     } finally {
       if (mounted) setState(() => _sending = false);
       _scrollToBottom();
@@ -81,7 +80,9 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       builder: (c) => const _AgentClearMemoryConfirmBody(),
     );
     if (confirmed != true) return;
-    ref.read(engineProvider).clearAgentMemory(widget.projectId);
+    ref
+        .read(engineProvider)
+        .clearAgentMemory(widget.projectId, family: agentFamilyScript);
     if (mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(l10n.agentChatMemoryCleared)));
@@ -103,7 +104,9 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
-    final messages = ref.watch(engineProvider).agentMessages(widget.projectId);
+    final messages = ref
+        .watch(engineProvider)
+        .agentMessages(widget.projectId, family: agentFamilyScript);
     final memories =
         ref.watch(engineProvider).agentLongTermMemories(widget.projectId);
 

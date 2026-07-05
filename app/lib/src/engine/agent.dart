@@ -34,6 +34,8 @@ const _agentMemoryRole = 'agent';
 const _agentMemoryType = 'note';
 const _scriptAgentFamily = 'scriptAgent';
 const _productionAgentFamily = 'productionAgent';
+const agentFamilyScript = _scriptAgentFamily;
+const agentFamilyProduction = _productionAgentFamily;
 
 class AgentMessage {
   final String role;
@@ -1141,11 +1143,24 @@ extension AgentApi on Engine {
   bool _truthy(Object? value) =>
       value == true || value == 1 || value == '1' || value == 'true';
 
-  List<AgentMessage> agentMessages(int projectId) {
+  String _agentChatKey(String family) => 'agentChat:$family';
+
+  List<AgentMessage> agentMessages(
+    int projectId, {
+    String family = agentFamilyScript,
+  }) {
     final row = db.select(
-      "SELECT data FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL AND key='agentChat'",
-      [projectId],
-    ).firstOrNull;
+          'SELECT data FROM o_agentWorkData '
+          'WHERE projectId=? AND episodesId IS NULL AND key=?',
+          [projectId, _agentChatKey(family)],
+        ).firstOrNull ??
+        (family == _scriptAgentFamily
+            ? db.select(
+                'SELECT data FROM o_agentWorkData '
+                "WHERE projectId=? AND episodesId IS NULL AND key='agentChat'",
+                [projectId],
+              ).firstOrNull
+            : null);
     if (row == null) return const [];
     try {
       final decoded = jsonDecode(row['data'] as String) as List;
@@ -1157,18 +1172,24 @@ extension AgentApi on Engine {
     }
   }
 
-  void _saveAgentMessages(int projectId, List<AgentMessage> messages) {
+  void _saveAgentMessages(
+    int projectId,
+    List<AgentMessage> messages, {
+    required String family,
+  }) {
+    final key = _agentChatKey(family);
     final json = jsonEncode([for (final m in messages) m.toJson()]);
     final exists = db.select(
-      "SELECT id FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL AND key='agentChat'",
-      [projectId],
+      'SELECT id FROM o_agentWorkData '
+      'WHERE projectId=? AND episodesId IS NULL AND key=?',
+      [projectId, key],
     ).firstOrNull;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (exists == null) {
       db.execute(
         'INSERT INTO o_agentWorkData (projectId,key,data,createTime,updateTime) '
-        "VALUES (?,'agentChat',?,?,?)",
-        [projectId, json, now, now],
+        'VALUES (?,?,?,?,?)',
+        [projectId, key, json, now, now],
       );
     } else {
       db.execute(
@@ -1178,10 +1199,25 @@ extension AgentApi on Engine {
     }
   }
 
-  void clearAgentMemory(int projectId) {
+  void clearAgentMemory(int projectId, {String? family}) {
+    if (family == null) {
+      db.execute(
+        'DELETE FROM o_agentWorkData WHERE projectId=? '
+        'AND episodesId IS NULL AND (key=? OR key LIKE ?)',
+        [projectId, 'agentChat', 'agentChat:%'],
+      );
+      return;
+    }
     db.execute(
-      "DELETE FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL AND key='agentChat'",
-      [projectId],
+      'DELETE FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL '
+      'AND (key=? OR (?=? AND key=?))',
+      [
+        projectId,
+        _agentChatKey(family),
+        family,
+        _scriptAgentFamily,
+        'agentChat',
+      ],
     );
   }
 
@@ -1429,13 +1465,16 @@ extension AgentApi on Engine {
     int projectId,
     String text, {
     required bool autoMode,
+    String? family,
   }) async {
-    final messages = List<AgentMessage>.from(agentMessages(projectId));
-    final agentFamily = _agentFamilyForMessage(text);
+    final agentFamily = family ?? _agentFamilyForMessage(text);
+    final messages = List<AgentMessage>.from(
+      agentMessages(projectId, family: agentFamily),
+    );
     final now = DateTime.now().millisecondsSinceEpoch;
     messages
         .add(AgentMessage(role: agentRoleUser, content: text, createdAt: now));
-    _saveAgentMessages(projectId, messages);
+    _saveAgentMessages(projectId, messages, family: agentFamily);
     await _recordAgentMemory(
       projectId,
       family: agentFamily,
@@ -1489,7 +1528,7 @@ extension AgentApi on Engine {
             role: agentRoleAssistant,
             content: '（出错：${ex.errKey}）',
             createdAt: DateTime.now().millisecondsSinceEpoch));
-        _saveAgentMessages(projectId, messages);
+        _saveAgentMessages(projectId, messages, family: agentFamily);
         return;
       }
 
@@ -1498,7 +1537,7 @@ extension AgentApi on Engine {
             role: agentRoleAssistant,
             content: result.text ?? '',
             createdAt: DateTime.now().millisecondsSinceEpoch));
-        _saveAgentMessages(projectId, messages);
+        _saveAgentMessages(projectId, messages, family: agentFamily);
         await _recordAgentMemory(
           projectId,
           family: agentFamily,
@@ -1520,7 +1559,7 @@ extension AgentApi on Engine {
         toolName: result.toolName,
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
-      _saveAgentMessages(projectId, messages);
+      _saveAgentMessages(projectId, messages, family: agentFamily);
       await _recordAgentMemory(
         projectId,
         family: agentFamily,

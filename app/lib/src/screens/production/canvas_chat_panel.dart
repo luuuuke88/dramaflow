@@ -1,7 +1,6 @@
-// 制作画布右侧 Agent 对话面板（照抄 ToonFlow rightChatBox：把剧本 Agent 对话
+// 制作画布右侧 Agent 对话面板（照抄 ToonFlow rightChatBox：把 productionAgent 对话
 // 以右侧滑出面板/移动端全屏对话的形态嵌进制作画布，与独立的 Agent 页共用同一套
-// 消息气泡 + 输入框 + 手动/自动模式切换 + 清空记忆交互，且共用同一份底层数据
-// （engine.agentMessages/sendAgentMessage/clearAgentMemory，project 级）。
+// 消息气泡 + 输入框 + 手动/自动模式切换 + 清空记忆交互，但底层聊天历史按 Agent family 分域。
 // 这里不复用 agent_chat_screen.dart 的私有 State（那是整页 Scaffold 形态，含 AppBar），
 // 面板形态需要自带头部与紧凑布局，因此自成一个可复用 widget，逻辑与其保持一致。
 import 'package:flutter/material.dart';
@@ -55,9 +54,8 @@ class _CanvasChatPanelState extends ConsumerState<CanvasChatPanel> {
     setState(() => _sending = true);
     _scrollToBottom();
     try {
-      await ref
-          .read(engineProvider)
-          .sendAgentMessage(widget.projectId, text, autoMode: _autoMode);
+      await ref.read(engineProvider).sendAgentMessage(widget.projectId, text,
+          autoMode: _autoMode, family: agentFamilyProduction);
     } finally {
       if (mounted) setState(() => _sending = false);
       _scrollToBottom();
@@ -83,7 +81,9 @@ class _CanvasChatPanelState extends ConsumerState<CanvasChatPanel> {
       ),
     );
     if (confirmed != true) return;
-    ref.read(engineProvider).clearAgentMemory(widget.projectId);
+    ref
+        .read(engineProvider)
+        .clearAgentMemory(widget.projectId, family: agentFamilyProduction);
     if (mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(l10n.agentChatMemoryCleared)));
@@ -95,7 +95,9 @@ class _CanvasChatPanelState extends ConsumerState<CanvasChatPanel> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
-    final messages = ref.watch(engineProvider).agentMessages(widget.projectId);
+    final messages = ref
+        .watch(engineProvider)
+        .agentMessages(widget.projectId, family: agentFamilyProduction);
 
     return Column(children: [
       _PanelHeader(
@@ -110,7 +112,7 @@ class _CanvasChatPanelState extends ConsumerState<CanvasChatPanel> {
           controller: _scroll,
           padding: const EdgeInsets.all(16),
           children: [
-            if (messages.isEmpty) _WelcomeBubble(text: l10n.agentChatWelcome),
+            if (messages.isEmpty) _WelcomeBubble(text: l10n.canvasChatWelcome),
             for (final m in messages) _MessageBubble(message: m),
             if (_sending)
               Padding(
@@ -265,7 +267,8 @@ class _MessageBubble extends StatelessWidget {
             borderRadius: BorderRadius.circular(DFTokens.radiusCard),
             border: Border.all(color: df.primary.withValues(alpha: 0.3)),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Icon(Icons.bolt, size: 14, color: df.primary),
               const SizedBox(width: 4),
