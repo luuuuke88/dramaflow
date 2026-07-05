@@ -135,7 +135,7 @@ class AgentMemoryService {
           ))
             .take(settings.ragLimit)
             .toList();
-    final summaries = settings.summaryLimit <= 0
+    final summariesDesc = settings.summaryLimit <= 0
         ? const <AgentMemoryEntry>[]
         : [
             for (final row in db.select(
@@ -146,6 +146,7 @@ class AgentMemoryService {
             ))
               AgentMemoryEntry.fromRow(row),
           ];
+    final summaries = summariesDesc.reversed.toList();
     final recentDesc = settings.shortTermLimit <= 0
         ? const <AgentMemoryEntry>[]
         : [

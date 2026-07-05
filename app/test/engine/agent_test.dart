@@ -2145,6 +2145,40 @@ return JSON.stringify({
       '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
       'VALUES (?,?,?,?,?,?,?,?,?,?)',
       [
+        'ctx_summary_mid',
+        '入山线摘要一',
+        '入山试炼前半段已经推进到山门。',
+        now + 6,
+        embeddingJson('入山试炼前半段已经推进到山门。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ctx_summary_new',
+        '入山线摘要二',
+        '入山试炼后半段需要写出宗门压迫感。',
+        now + 7,
+        embeddingJson('入山试炼后半段需要写出宗门压迫感。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
         'ctx_msg_3',
         '',
         '用户补充下一集要写入山试炼。',
@@ -2199,7 +2233,8 @@ return JSON.stringify({
 
     expect(context.relatedMessages.map((item) => item.id),
         ['ctx_msg_1', 'ctx_msg_2']);
-    expect(context.summaries.map((item) => item.id), ['ctx_summary']);
+    expect(context.summaries.map((item) => item.id),
+        ['ctx_summary_mid', 'ctx_summary_new']);
     expect(context.recentMessages.map((item) => item.id),
         ['ctx_msg_3', 'ctx_msg_4']);
   });
