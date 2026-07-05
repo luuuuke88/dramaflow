@@ -1152,6 +1152,14 @@ class _CustomAgentSkillRuntime {
       case 'trim':
         _expectNoArgs(method, args);
         return '${value ?? ''}'.trim();
+      case 'trimStart':
+      case 'trimLeft':
+        _expectNoArgs(method, args);
+        return '${value ?? ''}'.trimLeft();
+      case 'trimEnd':
+      case 'trimRight':
+        _expectNoArgs(method, args);
+        return '${value ?? ''}'.trimRight();
       case 'toUpperCase':
         _expectNoArgs(method, args);
         return '${value ?? ''}'.toUpperCase();
@@ -1173,6 +1181,12 @@ class _CustomAgentSkillRuntime {
         final matcher = _evaluate(args.first);
         final to = _stringifyInterpolation(_evaluate(args[1]));
         return _replaceString(text, matcher, to);
+      case 'replaceAll':
+        if (args.length != 2) _badMethodArgs(method);
+        final text = '${value ?? ''}';
+        final matcher = _evaluate(args.first);
+        final to = _stringifyInterpolation(_evaluate(args[1]));
+        return _replaceAllString(text, matcher, to);
       case 'indexOf':
         if (args.isEmpty || args.length > 2) _badMethodArgs(method);
         final text = '${value ?? ''}';
@@ -1181,6 +1195,15 @@ class _CustomAgentSkillRuntime {
             ? _normalizeSearchStart(_toInt(_evaluate(args[1])), text.length)
             : 0;
         return text.indexOf(needle, start);
+      case 'lastIndexOf':
+        if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        final text = '${value ?? ''}';
+        final needle = _stringifyInterpolation(_evaluate(args.first));
+        final start = args.length == 2
+            ? _normalizeLastSearchStart(_toInt(_evaluate(args[1])), text.length)
+            : text.length;
+        if (start < 0) return needle.isEmpty ? 0 : -1;
+        return text.lastIndexOf(needle, start);
       case 'substring':
         if (args.isEmpty || args.length > 2) _badMethodArgs(method);
         final text = '${value ?? ''}';
@@ -1197,6 +1220,12 @@ class _CustomAgentSkillRuntime {
           end = swapped;
         }
         return text.substring(start, end);
+      case 'charAt':
+        if (args.length > 1) _badMethodArgs(method);
+        final text = '${value ?? ''}';
+        final index = args.isEmpty ? 0 : _toInt(_evaluate(args.single));
+        if (index < 0 || index >= text.length) return '';
+        return text[index];
       case 'startsWith':
         if (args.length != 1) _badMethodArgs(method);
         return '${value ?? ''}'.startsWith(
@@ -1392,6 +1421,17 @@ class _CustomAgentSkillRuntime {
     return from.isEmpty
         ? '$replacement$text'
         : text.replaceFirst(from, replacement);
+  }
+
+  String _replaceAllString(String text, Object? matcher, String replacement) {
+    if (matcher is _CustomJsRegExp) {
+      return text.replaceAll(matcher.regExp, replacement);
+    }
+    final from = _stringifyInterpolation(matcher);
+    if (from.isEmpty) {
+      return '$replacement${text.split('').join(replacement)}$replacement';
+    }
+    return text.replaceAll(from, replacement);
   }
 
   Object? _callFunction(Object? value, String name, List<String> args) {
@@ -1708,6 +1748,11 @@ class _CustomAgentSkillRuntime {
   }
 
   int _normalizeSearchStart(int value, int length) {
+    return value.clamp(0, length).toInt();
+  }
+
+  int _normalizeLastSearchStart(int value, int length) {
+    if (value < 0) return -1;
     return value.clamp(0, length).toInt();
   }
 
@@ -3063,6 +3108,7 @@ String _unquote(String expr) {
   return body
       .replaceAll(r'\"', '"')
       .replaceAll(r"\'", "'")
+      .replaceAll(r'\r', '\r')
       .replaceAll(r'\n', '\n')
       .replaceAll(r'\t', '\t')
       .replaceAll(r'\\', r'\');

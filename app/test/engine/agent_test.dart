@@ -2662,6 +2662,69 @@ return JSON.stringify({
     );
   });
 
+  test('自定义脚本技能：支持 lastIndexOf replaceAll trimStart trimEnd 和 charAt 清洗工作区',
+      () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_string_cleanup_runtime',
+      name: '字符串清洗脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 lastIndexOf/replaceAll/trimStart/trimEnd/charAt 文本清洗。',
+      script: r'''
+const cleaned = args.workspace.replaceAll('\r\n', '\n').trimEnd();
+const lastOpen = cleaned.lastIndexOf('<storyboardItem');
+const previousOpen = cleaned.lastIndexOf('<storyboardItem', lastOpen - 1);
+const lastClose = cleaned.lastIndexOf('</storyboardItem>');
+const previousClose = cleaned.indexOf('</storyboardItem>', previousOpen);
+const lastBlock = cleaned.substring(lastOpen, lastClose);
+const previousBlock = cleaned.substring(previousOpen, previousClose);
+const marker = 'videoDesc="';
+const descStart = lastBlock.indexOf(marker) + marker.length;
+const descEnd = lastBlock.indexOf('"', descStart);
+const previousStart = previousBlock.indexOf(marker) + marker.length;
+const previousEnd = previousBlock.indexOf('"', previousStart);
+const desc = lastBlock.substring(descStart, descEnd)
+  .replaceAll('　', ' ')
+  .trimStart()
+  .trimEnd();
+const previousDesc = previousBlock.substring(previousStart, previousEnd).trim();
+return JSON.stringify({
+  previousDesc,
+  desc,
+  tail: cleaned.charAt(cleaned.length - 1),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_string_cleanup_runtime', const {
+        'workspace':
+            '<storyboardItem videoDesc="雪夜山门" duration="3秒"></storyboardItem>\r\n'
+                '<storyboardItem videoDesc="　李澈拔剑　" duration="2秒"></storyboardItem>\r\n'
+                '   ',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用字符串清洗脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_string_cleanup_runtime');
+    expect(
+      msg.content,
+      '{"previousDesc":"雪夜山门","desc":"李澈拔剑","tail":">"}',
+    );
+  });
+
   test('自定义脚本技能：支持 JSON.parse 读取工作区数据', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_json_parse_runtime',
