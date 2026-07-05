@@ -164,12 +164,14 @@ void main() {
       AgentTurnResult.tool('generate_events', {
         'novelIds': [novelId],
       }),
+      const AgentTurnResult.text('APPROVE'),
     ];
-    gateway.textResults = const [TextResult('APPROVE')];
 
     await engine.sendAgentMessage(projectId, '生成事件', autoMode: false);
 
-    expect(gateway.textStages, ['scriptAgent:supervisionAgent']);
+    expect(gateway.stages,
+        ['scriptAgent:decisionAgent', 'scriptAgent:supervisionAgent']);
+    expect(gateway.textStages, isEmpty);
     expect(engine.agentMessages(projectId).last.toolName, 'generate_events');
     expect(
       db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
@@ -188,14 +190,16 @@ void main() {
       'VALUES (?,?,?,?,?,?,0)',
       [projectId, 1, '正文卷', '一', 'x', DateTime.now().millisecondsSinceEpoch],
     );
-    gateway.turns = [const AgentTurnResult.tool('generate_events', {})];
-    gateway.textResults = const [
-      TextResult('REJECT: 先调用 get_status 确认章节状态。'),
+    gateway.turns = const [
+      AgentTurnResult.tool('generate_events', {}),
+      AgentTurnResult.text('REJECT: 先调用 get_status 确认章节状态。'),
     ];
 
     await engine.sendAgentMessage(projectId, '直接批量生成事件', autoMode: false);
 
-    expect(gateway.textStages, ['scriptAgent:supervisionAgent']);
+    expect(gateway.stages,
+        ['scriptAgent:decisionAgent', 'scriptAgent:supervisionAgent']);
+    expect(gateway.textStages, isEmpty);
     expect(db.select('SELECT id FROM o_tasks'), isEmpty);
     final msg = engine.agentMessages(projectId).last;
     expect(msg.role, agentRoleAssistant);

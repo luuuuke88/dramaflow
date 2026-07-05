@@ -1648,8 +1648,18 @@ extension AgentApi on Engine {
       '2. 如果该调用安全且符合用户意图，请输出 APPROVE。',
     ].join('\n');
     try {
-      final result = await gateway.generateText(system, user, stage: stage);
-      return _agentSupervisionRejection(result.content);
+      final result = await gateway.generateAgentTurn(
+        system,
+        [
+          {'role': 'user', 'content': user},
+        ],
+        const [],
+        stage: stage,
+      );
+      if (result.isToolCall) {
+        return '监督 Agent 返回了不允许的工具调用：${result.toolName ?? ''}';
+      }
+      return _agentSupervisionRejection(result.text ?? '');
     } catch (e) {
       final ex = e is EngineException
           ? e

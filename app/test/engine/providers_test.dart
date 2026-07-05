@@ -118,6 +118,33 @@ void main() {
     });
   });
 
+  group('generateAgentTurn', () {
+    test('无工具时不发送空 tools/tool_choice', () async {
+      final adapter = FakeAdapter((o) => jsonBody({
+            'choices': [
+              {
+                'message': {'content': 'APPROVE'}
+              }
+            ],
+          }));
+      bindModel('script_gen', 'text');
+
+      final r = await gw(adapter).generateAgentTurn(
+        'sys',
+        const [
+          {'role': 'user', 'content': 'review'}
+        ],
+        const [],
+        stage: 'scriptAgent:supervisionAgent',
+      );
+
+      expect(r.text, 'APPROVE');
+      final body = adapter.requests.single.data as Map;
+      expect(body, isNot(contains('tools')));
+      expect(body, isNot(contains('tool_choice')));
+    });
+  });
+
   group('generateImage', () {
     test('b64 落盘且 prompt 注入尺寸指令', () async {
       final adapter = FakeAdapter((o) => jsonBody({

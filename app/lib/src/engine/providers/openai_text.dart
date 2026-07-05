@@ -165,6 +165,17 @@ Future<AgentTurnResult> openaiGenerateAgentTurn(
   CancelToken? cancelToken,
 }) async {
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
+  final toolPayload = [
+    for (final t in tools)
+      {
+        'type': 'function',
+        'function': {
+          'name': t.name,
+          'description': t.description,
+          'parameters': t.schema,
+        },
+      },
+  ];
   final res = await dio.post(
     '$base/chat/completions',
     data: {
@@ -173,18 +184,8 @@ Future<AgentTurnResult> openaiGenerateAgentTurn(
         {'role': 'system', 'content': system},
         ...messages,
       ],
-      'tools': [
-        for (final t in tools)
-          {
-            'type': 'function',
-            'function': {
-              'name': t.name,
-              'description': t.description,
-              'parameters': t.schema,
-            },
-          },
-      ],
-      'tool_choice': 'auto',
+      if (toolPayload.isNotEmpty) 'tools': toolPayload,
+      if (toolPayload.isNotEmpty) 'tool_choice': 'auto',
       'max_completion_tokens': model.maxOutputTokens ?? 8000,
       if (model.temperature != null) 'temperature': model.temperature! / 100,
     },
