@@ -2443,6 +2443,48 @@ return JSON.stringify({
     );
   });
 
+  test('自定义脚本技能：支持 try catch 兜底 JSON 解析失败', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_try_catch_runtime',
+      name: 'try catch 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 try/catch 容错解析。',
+      script: r'''
+try {
+  const workspace = JSON.parse(args.workspaceJson);
+  return workspace.project.name.trim();
+} catch (err) {
+  return `工作区 JSON 无法解析，已降级：${err.name}:${err.key}:${err.reason}`;
+}
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspaceJson': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_try_catch_runtime', const {
+        'workspaceJson': '{ bad json',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 try catch 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_try_catch_runtime');
+    expect(
+      msg.content,
+      '工作区 JSON 无法解析，已降级：EngineException:errLlmFormat:custom_skill_json_parse',
+    );
+  });
+
   test('自定义脚本技能：支持正则 match 提取分镜工作区 XML', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regex_match_runtime',

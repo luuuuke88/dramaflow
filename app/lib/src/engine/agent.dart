@@ -376,6 +376,25 @@ class _CustomAgentSkillRuntime {
         _scope[function.name] = function;
         continue;
       }
+      final tryStatement = _readTryStatement(trimmed);
+      if (tryStatement != null) {
+        try {
+          final result = _runStatements(tryStatement.body);
+          if (result != null) return result;
+        } catch (error) {
+          final bindings = tryStatement.errorName == null
+              ? <String, Object?>{}
+              : <String, Object?>{
+                  tryStatement.errorName!: _customJsErrorObject(error),
+                };
+          final result = _withScopeBindings(
+            bindings,
+            () => _runStatements(tryStatement.catchBody),
+          );
+          if (result != null) return result;
+        }
+        continue;
+      }
       final ifStatement = _readIfStatement(trimmed);
       if (ifStatement != null) {
         final branch = _isTruthy(_evaluate(ifStatement.condition))
@@ -539,6 +558,41 @@ class _CustomAgentSkillRuntime {
       condition: condition.text,
       whenTrue: whenTrue.text,
       whenFalse: whenFalse,
+    );
+  }
+
+  _CustomJsTryStatement? _readTryStatement(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    if (!_startsWithWord(source, 0, 'try')) return null;
+    var index = _skipWhitespace(source, 'try'.length);
+    if (index >= source.length || source[index] != '{') return null;
+    final body = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, body.end);
+    if (!_startsWithWord(source, index, 'catch')) return null;
+    index = _skipWhitespace(source, index + 'catch'.length);
+    String? errorName;
+    if (index < source.length && source[index] == '(') {
+      final rawParam = _readBalanced(source, index, '(', ')');
+      final param = rawParam.text.trim();
+      if (param.isNotEmpty) {
+        final identifier = _readIdentifier(param, 0);
+        if (identifier == null || identifier.end != param.length) {
+          return null;
+        }
+        errorName = param;
+      }
+      index = _skipWhitespace(source, rawParam.end);
+    }
+    if (index >= source.length || source[index] != '{') return null;
+    final catchBody = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, catchBody.end);
+    if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
+      return null;
+    }
+    return _CustomJsTryStatement(
+      body: body.text,
+      errorName: errorName,
+      catchBody: catchBody.text,
     );
   }
 
@@ -1521,6 +1575,21 @@ class _CustomAgentSkillRuntime {
     return true;
   }
 
+  Map<String, Object?> _customJsErrorObject(Object error) {
+    if (error is EngineException) {
+      return {
+        'name': 'EngineException',
+        'key': error.errKey,
+        'reason': error.errParams['reason'],
+        'message': error.message,
+      };
+    }
+    return {
+      'name': error.runtimeType.toString(),
+      'message': '$error',
+    };
+  }
+
   bool _compareValues(Object? left, Object? right, String operator) {
     switch (operator) {
       case '===':
@@ -1870,6 +1939,18 @@ class _CustomJsContinueValue extends _CustomJsStatementResult {
   const _CustomJsContinueValue() : super();
 }
 
+class _CustomJsTryStatement {
+  final String body;
+  final String? errorName;
+  final String catchBody;
+
+  const _CustomJsTryStatement({
+    required this.body,
+    required this.errorName,
+    required this.catchBody,
+  });
+}
+
 class _CustomJsIfStatement {
   final String condition;
   final String whenTrue;
@@ -2041,7 +2122,8 @@ List<String> _splitStatements(String script) {
           bracket == 0 &&
           brace == 0 &&
           _isTopLevelBlockStatement(buffer.toString()) &&
-          !_nextTopLevelWordIs(script, i + 1, 'else')) {
+          !_nextTopLevelWordIs(script, i + 1, 'else') &&
+          !_nextTopLevelWordIs(script, i + 1, 'catch')) {
         statements.add(buffer.toString());
         buffer.clear();
       }
@@ -2060,6 +2142,7 @@ List<String> _splitStatements(String script) {
 bool _isTopLevelBlockStatement(String source) {
   final trimmed = source.trimLeft();
   return _startsWithWord(trimmed, 0, 'if') ||
+      _startsWithWord(trimmed, 0, 'try') ||
       _startsWithWord(trimmed, 0, 'function') ||
       _startsWithWord(trimmed, 0, 'while') ||
       _startsWithWord(trimmed, 0, 'for');
