@@ -5282,6 +5282,50 @@ description: >-
     expect(subAgentMemory['content'], '寒山篇三集骨架');
   });
 
+  test('ScriptAgent 子 Agent 工具调用结果写入执行层审计记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final novelId = engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '寒山起', chapterData: 'x'),
+    ]).single;
+    db.execute(
+      'UPDATE o_novel SET event=?, eventState=1 WHERE id=?',
+      ['李澈在寒山山门救下沈微。', novelId],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        {
+          'prompt': '读取事件后搭建寒山篇骨架',
+          'novelIds': [novelId]
+        },
+      ),
+      AgentTurnResult.tool(
+        'get_novel_events',
+        {
+          'novelIds': [novelId]
+        },
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先读取事件再做寒山故事骨架', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:storySkeleton:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_novel_events 执行结果'));
+    expect(toolAudit['content'], contains('李澈在寒山山门救下沈微'));
+  });
+
   test('Agent tool list honors custom skill attribution by decision stage',
       () async {
     engine.saveCustomAgentSkill(
@@ -6023,6 +6067,41 @@ description: 只属于水墨视觉项目
       (row) => row['role'] == 'assistant:execution:storyboardTable',
     );
     expect(storyboardTableMemory['content'], '山门压迫|低机位');
+  });
+
+  test('ProductionAgent 子 Agent 工具调用结果写入执行层审计记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '读取制作工作区后做导演计划', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool(
+        'get_flowData',
+        {'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>低机位跟拍寒山山门</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作画布：读取工作区再做导演计划',
+        autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['productionAgent:$projectId', 'message'],
+    );
+
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:directorPlan:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_flowData 执行结果'));
+    expect(toolAudit['content'], contains('李澈入山'));
   });
 
   test(

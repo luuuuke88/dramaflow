@@ -4729,6 +4729,21 @@ extension AgentApi on Engine {
     }
   }
 
+  Future<void> _recordAgentToolAuditMemory(
+    int projectId, {
+    required String family,
+    required String baseRole,
+    required String toolName,
+    required String content,
+  }) async {
+    await _recordAgentMemory(
+      projectId,
+      family: family,
+      role: '$baseRole:tool',
+      content: '工具 $toolName 执行结果：$content',
+    );
+  }
+
   Future<void> _recordAgentSummaryMemory(
     int projectId, {
     required String family,
@@ -5403,6 +5418,13 @@ extension AgentApi on Engine {
         stage: stage,
         activatedSkills: activeSkillContexts,
       );
+      await _recordAgentToolAuditMemory(
+        projectId,
+        family: _scriptAgentFamily,
+        baseRole: _scriptAgentSubAgentMemoryRole(stage),
+        toolName: toolName,
+        content: summary,
+      );
       history.add({
         'role': 'assistant',
         'content': '（工具 $toolName 执行结果：$summary）',
@@ -5878,6 +5900,13 @@ extension AgentApi on Engine {
         agentFamily: _productionAgentFamily,
         stage: stage,
         activatedSkills: activeSkillContexts,
+      );
+      await _recordAgentToolAuditMemory(
+        projectId,
+        family: _productionAgentFamily,
+        baseRole: _productionAgentSubAgentMemoryRole(stage),
+        toolName: toolName,
+        content: summary,
       );
       history.add({
         'role': 'assistant',
