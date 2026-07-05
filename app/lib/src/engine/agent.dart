@@ -1277,6 +1277,19 @@ class _CustomAgentSkillRuntime {
         if (value is! List) _badMethodArgs(method);
         value.addAll(_evaluateCallArguments(args));
         return value.length;
+      case 'pop':
+        if (args.isNotEmpty || value is! List) _badMethodArgs(method);
+        return value.isEmpty ? null : value.removeLast();
+      case 'shift':
+        if (args.isNotEmpty || value is! List) _badMethodArgs(method);
+        return value.isEmpty ? null : value.removeAt(0);
+      case 'unshift':
+        if (value is! List) _badMethodArgs(method);
+        value.insertAll(0, _evaluateCallArguments(args));
+        return value.length;
+      case 'splice':
+        if (args.isEmpty || value is! List) _badMethodArgs(method);
+        return _spliceList(value, args);
       case 'concat':
         if (value is! Iterable || value is String) _badMethodArgs(method);
         final combined = <Object?>[...value];
@@ -1288,6 +1301,17 @@ class _CustomAgentSkillRuntime {
           }
         }
         return combined;
+      case 'at':
+        if (args.length != 1) _badMethodArgs(method);
+        final rawIndex = _toInt(_evaluate(args.single));
+        if (value is String) {
+          final index = _normalizeAtIndex(rawIndex, value.length);
+          return index == null ? null : value[index];
+        }
+        if (value is! Iterable) _badMethodArgs(method);
+        final items = value.toList();
+        final index = _normalizeAtIndex(rawIndex, items.length);
+        return index == null ? null : items[index];
       case 'map':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         final mapped = <Object?>[];
@@ -1425,6 +1449,19 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  List<Object?> _spliceList(List value, List<String> args) {
+    final values = _evaluateCallArguments(args);
+    final start = _normalizeSpliceStart(_toInt(values.first), value.length);
+    final deleteCount = values.length < 2
+        ? value.length - start
+        : _toInt(values[1]).clamp(0, value.length - start).toInt();
+    final removed = value.sublist(start, start + deleteCount);
+    value
+      ..removeRange(start, start + deleteCount)
+      ..insertAll(start, values.skip(2));
+    return removed;
   }
 
   void _flattenInto(List<Object?> target, Iterable source, int depth) {
@@ -1872,6 +1909,17 @@ class _CustomAgentSkillRuntime {
   int _normalizeSliceIndex(int value, int length) {
     final index = value < 0 ? length + value : value;
     return index.clamp(0, length).toInt();
+  }
+
+  int? _normalizeAtIndex(int value, int length) {
+    final index = value < 0 ? length + value : value;
+    if (index < 0 || index >= length) return null;
+    return index;
+  }
+
+  int _normalizeSpliceStart(int value, int length) {
+    if (value < 0) return (length + value).clamp(0, length).toInt();
+    return value.clamp(0, length).toInt();
   }
 
   int _normalizeSearchStart(int value, int length) {

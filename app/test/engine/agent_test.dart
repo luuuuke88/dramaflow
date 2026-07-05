@@ -3586,6 +3586,72 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持数组队列和插入变更方法', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_mutation_runtime',
+      name: '数组变更脚本运行时',
+      description: '验证自定义技能兼容模型常写的 at/pop/shift/unshift/splice。',
+      script: r'''
+const queue = args.shots.map(shot => shot.name.trim());
+const originalLast = queue.at(-1);
+const removedFirst = queue.shift();
+const removedLast = queue.pop();
+queue.unshift('预告');
+const replaced = queue.splice(1, 1, '补拍', '转场');
+return JSON.stringify({
+  originalLast,
+  removedFirst,
+  removedLast,
+  replaced: replaced.join('、'),
+  queue: queue.join('>'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_mutation_runtime', const {
+        'shots': [
+          {'name': ' 开场 '},
+          {'name': '追击'},
+          {'name': ' 对峙 '},
+          {'name': '收束'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组变更脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_mutation_runtime');
+    expect(jsonDecode(msg.content), {
+      'originalLast': '收束',
+      'removedFirst': '开场',
+      'removedLast': '收束',
+      'replaced': '追击',
+      'queue': '预告>补拍>转场>对峙',
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
