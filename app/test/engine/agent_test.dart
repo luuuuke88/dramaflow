@@ -4551,6 +4551,83 @@ description: >-
     expect((payload['memories'] as List).single, contains('李澈'));
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持按 role 过滤 summary 展开的原始 message', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'role_filter_user_msg',
+        '',
+        '用户约束：寒山线里李澈必须保护沈微。',
+        now,
+        embeddingJson('用户约束：寒山线里李澈必须保护沈微。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'role_filter_assistant_msg',
+        '',
+        '助手确认：寒山线会保留沈微被救下的桥段。',
+        now + 1,
+        embeddingJson('助手确认：寒山线会保留沈微被救下的桥段。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'role_filter_summary',
+        '寒山线约束',
+        '寒山线里李澈保护沈微，助手已确认桥段保留。',
+        now + 2,
+        embeddingJson('寒山线里李澈保护沈微，助手已确认桥段保留。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['role_filter_user_msg', 'role_filter_assistant_msg']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '寒山沈微',
+        'roles': [agentRoleUser],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '按角色过滤历史记忆', autoMode: false);
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    expect((deepRetrieveTool.schema['properties'] as Map), contains('roles'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], ['用户约束：寒山线里李澈必须保护沈微。']);
+    final records = payload['records'] as List;
+    expect(records, hasLength(1));
+    expect((records.single as Map<String, dynamic>)['role'], agentRoleUser);
+  });
+
   test('Agent 记忆：deepRetrieve 工具返回可追踪 records 元数据', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

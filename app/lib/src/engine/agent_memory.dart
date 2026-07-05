@@ -207,8 +207,10 @@ class AgentMemoryService {
   Future<List<AgentMemoryEntry>> deepRetrieve({
     required String isolationKey,
     required String keyword,
+    Set<String>? roles,
     CancelToken? cancelToken,
   }) async {
+    final roleFilter = _normalizeRoleFilter(roles);
     final settings = readSettings();
     final normalized = normalizeMemoryText(keyword);
     final tokens = memorySearchTokens(normalized);
@@ -251,29 +253,37 @@ class AgentMemoryService {
           tokens: tokens,
           queryEmbedding: queryEmbedding,
           onlyUnsummarized: true,
-        ).take(settings.ragLimit);
+        );
         return [
-          ...summaries,
-          for (final message in directMatches) message.$2,
+          ..._filterEntriesByRoles(summaries, roleFilter),
+          for (final message in _filterRankedByRoles(directMatches, roleFilter)
+              .take(settings.ragLimit))
+            message.$2,
         ];
       }
       return [
-        for (final item in _rankMessageCandidates(
-          isolationKey: isolationKey,
-          normalized: normalized,
-          tokens: tokens,
-          queryEmbedding: queryEmbedding,
-          onlyUnsummarized: scored.isNotEmpty,
+        for (final item in _filterRankedByRoles(
+          _rankMessageCandidates(
+            isolationKey: isolationKey,
+            normalized: normalized,
+            tokens: tokens,
+            queryEmbedding: queryEmbedding,
+            onlyUnsummarized: scored.isNotEmpty,
+          ),
+          roleFilter,
         ).take(settings.ragLimit))
           item.$2,
       ];
     }
-    final directMatches = _rankMessageCandidates(
-      isolationKey: isolationKey,
-      normalized: normalized,
-      tokens: tokens,
-      queryEmbedding: queryEmbedding,
-      onlyUnsummarized: true,
+    final directMatches = _filterRankedByRoles(
+      _rankMessageCandidates(
+        isolationKey: isolationKey,
+        normalized: normalized,
+        tokens: tokens,
+        queryEmbedding: queryEmbedding,
+        onlyUnsummarized: true,
+      ),
+      roleFilter,
     ).take(settings.ragLimit);
     for (final message in directMatches) {
       if (!ids.contains(message.$2.id)) ids.add(message.$2.id);
@@ -286,7 +296,7 @@ class AgentMemoryService {
       'ORDER BY createTime ASC, id ASC',
       [isolationKey, agentMemoryTypeMessage, ...ids],
     );
-    final expanded = [
+    final expanded = _filterEntriesByRoles([
       for (final row in rows)
         _withTrace(
           AgentMemoryEntry.fromRow(row).copyWith(
@@ -297,8 +307,10 @@ class AgentMemoryService {
           tokens: tokens,
           queryEmbedding: queryEmbedding,
         ),
-    ];
-    if (expanded.isEmpty && summaries.isNotEmpty) return summaries;
+    ], roleFilter);
+    if (expanded.isEmpty && summaries.isNotEmpty) {
+      return _filterEntriesByRoles(summaries, roleFilter);
+    }
     return expanded;
   }
 
@@ -456,6 +468,36 @@ class AgentMemoryService {
       matchedTokens:
           memoryMatchedTokens(entry.name, entry.content, normalized, tokens),
     );
+  }
+
+  Set<String>? _normalizeRoleFilter(Set<String>? roles) {
+    if (roles == null) return null;
+    final normalized = {
+      for (final role in roles)
+        if (role.trim().isNotEmpty) role.trim(),
+    };
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  bool _matchesRoleFilter(AgentMemoryEntry entry, Set<String>? roles) =>
+      roles == null || roles.contains(entry.role);
+
+  List<AgentMemoryEntry> _filterEntriesByRoles(
+    Iterable<AgentMemoryEntry> entries,
+    Set<String>? roles,
+  ) =>
+      [
+        for (final entry in entries)
+          if (_matchesRoleFilter(entry, roles)) entry
+      ];
+
+  Iterable<(int, AgentMemoryEntry)> _filterRankedByRoles(
+    Iterable<(int, AgentMemoryEntry)> entries,
+    Set<String>? roles,
+  ) sync* {
+    for (final item in entries) {
+      if (_matchesRoleFilter(item.$2, roles)) yield item;
+    }
   }
 
   Future<List<AgentMemoryEntry>?> _llmFilterSummaries({

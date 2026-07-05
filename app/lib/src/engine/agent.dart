@@ -189,6 +189,15 @@ final _tools = <AgentToolDef>[
           'maximum': 50,
           'description': '可选。限制返回的原始记忆条数，默认使用全局 RAG 配置。',
         },
+        'role': {
+          'type': 'string',
+          'description': '可选。只返回指定 role 的记忆，例如 user 或 assistant:supervision。',
+        },
+        'roles': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。只返回这些 role 的记忆。',
+        },
       },
       'required': ['keyword'],
     },
@@ -5175,6 +5184,9 @@ extension AgentApi on Engine {
           final keyword =
               (args['keyword'] ?? args['query'] ?? '').toString().trim();
           if (keyword.isEmpty) return '缺少 keyword 参数。';
+          final roles = _coerceStringSet(
+            args['roles'] ?? args['role'] ?? args['memoryRoles'],
+          );
           final records = await _agentMemoryService(
             family: agentFamily,
           ).deepRetrieve(
@@ -5183,6 +5195,7 @@ extension AgentApi on Engine {
               family: agentFamily,
             ),
             keyword: keyword,
+            roles: roles,
           );
           final rawLimit = args['limit'] ?? args['max'] ?? args['count'];
           final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
@@ -5495,6 +5508,26 @@ extension AgentApi on Engine {
     if (raw is num) return raw.toInt();
     if (raw is String) return int.tryParse(raw.trim());
     return null;
+  }
+
+  Set<String>? _coerceStringSet(Object? raw) {
+    final values = <String>{};
+    void add(Object? value) {
+      if (value is! String) return;
+      for (final part in value.split(',')) {
+        final trimmed = part.trim();
+        if (trimmed.isNotEmpty) values.add(trimmed);
+      }
+    }
+
+    if (raw is List) {
+      for (final item in raw) {
+        add(item);
+      }
+    } else {
+      add(raw);
+    }
+    return values.isEmpty ? null : values;
   }
 
   Map<String, dynamic> _scriptAgentWorkspace(int projectId) {
