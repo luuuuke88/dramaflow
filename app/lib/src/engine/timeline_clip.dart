@@ -338,6 +338,39 @@ extension TimelineClipApi on Engine {
     final oldEndMs = oldStartMs + durationMs;
     final nextStartMs = startMs < 0 ? 0 : startMs;
     final deltaMs = nextStartMs - oldStartMs;
+    final splitRow = nextStartMs < oldStartMs
+        ? db.select(
+            'SELECT * FROM o_timelineClip '
+            'WHERE scriptId=? AND lane=? AND id<>? AND startMs<? '
+            'AND startMs + COALESCE(durationMs, ?) > ? '
+            'ORDER BY startMs DESC, id DESC LIMIT 1',
+            [
+              scriptId,
+              lane,
+              clipId,
+              nextStartMs,
+              _defaultTimelineClipDurationMs,
+              nextStartMs
+            ],
+          ).firstOrNull
+        : null;
+    int? splitTailDuration;
+    if (splitRow != null) {
+      final splitStart = (splitRow['startMs'] as int?) ?? 0;
+      final splitDuration =
+          (splitRow['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+      final splitEnd = splitStart + splitDuration;
+      final splitHeadDuration = nextStartMs - splitStart;
+      splitTailDuration = splitEnd - nextStartMs;
+      if (splitHeadDuration > 0 && splitTailDuration > 0) {
+        db.execute(
+          'UPDATE o_timelineClip SET durationMs=? WHERE id=?',
+          [splitHeadDuration, splitRow['id'] as int],
+        );
+      } else {
+        splitTailDuration = null;
+      }
+    }
     db.execute('UPDATE o_timelineClip SET startMs=? WHERE id=?', [
       nextStartMs,
       clipId,
@@ -349,6 +382,31 @@ extension TimelineClipApi on Engine {
       'WHERE scriptId=? AND lane=? AND id<>? AND startMs>=?',
       [deltaMs, deltaMs, scriptId, lane, clipId, oldEndMs],
     );
+    if (splitRow != null && splitTailDuration != null) {
+      db.execute(
+        'INSERT INTO o_timelineClip '
+        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
+        'VALUES (?,?,?,?,?,?,?,?,?)',
+        [
+          splitRow['projectId'],
+          splitRow['scriptId'],
+          splitRow['assetId'],
+          splitRow['name'],
+          splitRow['filePath'],
+          splitRow['lane'],
+          nextStartMs + durationMs,
+          splitTailDuration,
+          _normalizeTimelineClipOpacity(splitRow['opacity'] as num?),
+        ],
+      );
+      final splitTailId = db.lastInsertRowId;
+      _normalizeTimelineLaneForward(
+        db: db,
+        scriptId: scriptId,
+        lane: lane,
+        priorityIds: [clipId, splitTailId],
+      );
+    }
   }
 
   void moveTimelineClipsRipple({
@@ -1124,4 +1182,46 @@ int _timelineGroupMoveOffset({
     offset = nextOffset;
   }
   return offset;
+}
+
+void _normalizeTimelineLaneForward({
+  required Database db,
+  required int scriptId,
+  required int lane,
+  List<int> priorityIds = const [],
+}) {
+  final priority = <int, int>{
+    for (var i = 0; i < priorityIds.length; i++) priorityIds[i]: i,
+  };
+  final rows = db.select(
+    'SELECT id,startMs,durationMs FROM o_timelineClip '
+    'WHERE scriptId=? AND lane=?',
+    [scriptId, lane < 1 ? 1 : lane],
+  ).toList()
+    ..sort((a, b) {
+      final startA = (a['startMs'] as int?) ?? 0;
+      final startB = (b['startMs'] as int?) ?? 0;
+      if (startA != startB) return startA.compareTo(startB);
+      final idA = a['id'] as int;
+      final idB = b['id'] as int;
+      final priorityA = priority[idA] ?? priorityIds.length;
+      final priorityB = priority[idB] ?? priorityIds.length;
+      if (priorityA != priorityB) return priorityA.compareTo(priorityB);
+      return idA.compareTo(idB);
+    });
+  var cursorMs = 0;
+  for (final row in rows) {
+    final id = row['id'] as int;
+    final startMs = (row['startMs'] as int?) ?? 0;
+    final durationMs =
+        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
+    final nextStartMs = startMs < cursorMs ? cursorMs : startMs;
+    if (nextStartMs != startMs) {
+      db.execute(
+        'UPDATE o_timelineClip SET startMs=? WHERE id=?',
+        [nextStartMs, id],
+      );
+    }
+    cursorMs = nextStartMs + durationMs;
+  }
 }

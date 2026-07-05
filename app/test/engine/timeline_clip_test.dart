@@ -669,6 +669,99 @@ void main() {
     expect(otherLane.durationMs, 400);
   });
 
+  test('moveTimelineClipRipple 向前插入到片段中间时拆分目标片段', () {
+    final clipA = clipAsset('p/ripple_move_split_a.mp4', 'A');
+    final clipMove = clipAsset('p/ripple_move_split_move.mp4', 'Move');
+    final clipC = clipAsset('p/ripple_move_split_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 600,
+      durationMs: 400,
+    );
+    final clipIdMove = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipMove,
+      lane: 1,
+      startMs: 1200,
+      durationMs: 200,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 1,
+      startMs: 1600,
+      durationMs: 300,
+    );
+
+    engine.moveTimelineClipRipple(clipId: clipIdMove, startMs: 800);
+
+    final clips = engine.timelineClips(scriptId);
+    final firstPart = clips.singleWhere((c) => c.id == clipIdA);
+    expect(firstPart.startMs, 600);
+    expect(firstPart.durationMs, 200);
+    final moved = clips.singleWhere((c) => c.id == clipIdMove);
+    expect(moved.startMs, 800);
+    expect(moved.durationMs, 200);
+    final secondPart = clips.singleWhere(
+      (c) => c.id != clipIdA && c.id != clipIdMove && c.name == 'A',
+    );
+    expect(secondPart.startMs, 1000);
+    expect(secondPart.durationMs, 200);
+    expect(secondPart.filePath, 'p/ripple_move_split_a.mp4');
+    final shifted = clips.singleWhere((c) => c.id == clipIdC);
+    expect(shifted.startMs, 1200);
+    expect(shifted.durationMs, 300);
+  });
+
+  test('moveTimelineClipRipple 向前插入后避免拆分尾段和后续片段重叠', () {
+    final clipA = clipAsset('p/ripple_move_tail_guard_a.mp4', 'A');
+    final clipMove = clipAsset('p/ripple_move_tail_guard_move.mp4', 'Move');
+    final clipC = clipAsset('p/ripple_move_tail_guard_c.mp4', 'C');
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipA,
+      lane: 1,
+      startMs: 600,
+      durationMs: 500,
+    );
+    final clipIdMove = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipMove,
+      lane: 1,
+      startMs: 2000,
+      durationMs: 100,
+    );
+    final clipIdC = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipC,
+      lane: 1,
+      startMs: 2100,
+      durationMs: 300,
+    );
+
+    engine.moveTimelineClipRipple(clipId: clipIdMove, startMs: 1000);
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).durationMs, 400);
+    expect(clips.singleWhere((c) => c.id == clipIdMove).startMs, 1000);
+    final tail = clips.singleWhere(
+      (c) => c.id != clipIdA && c.id != clipIdMove && c.name == 'A',
+    );
+    expect(tail.startMs, 1100);
+    expect(tail.durationMs, 100);
+    final shifted = clips.singleWhere((c) => c.id == clipIdC);
+    expect(shifted.startMs, 1200);
+    expect(shifted.durationMs, 300);
+  });
+
   test('moveTimelineClipsRipple 批量波纹移动并后移受影响轨道', () {
     final clipA = clipAsset('p/batch_ripple_move_a.mp4', 'A');
     final clipB = clipAsset('p/batch_ripple_move_b.mp4', 'B');
