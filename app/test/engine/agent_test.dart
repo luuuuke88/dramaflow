@@ -968,13 +968,15 @@ return `资产标签：${labels}`;
 
     expect(gateway.lastTools.map((tool) => tool.name),
         containsAll(['activate_skill', 'read_skill_file']));
+    final readSkillTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'read_skill_file');
+    expect(readSkillTool.schema['required'], ['path']);
     var msg = engine.agentMessages(projectId).last;
     expect(msg.toolName, 'activate_skill');
     expect(msg.content, contains('技能正文：短剧台词要短'));
 
     gateway.turns = [
       AgentTurnResult.tool('read_skill_file', const {
-        'name': 'style_polisher',
         'path': 'references/rules.md',
       }),
     ];

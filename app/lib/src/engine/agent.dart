@@ -166,14 +166,15 @@ final _tools = <AgentToolDef>[
   ),
   const AgentToolDef(
     name: 'read_skill_file',
-    description: '读取已安装 Markdown 技能目录内的补充文件。只能读取该技能目录下的相对路径。',
+    description: '读取已安装 Markdown 技能目录内的补充文件。只能读取该技能目录下的相对路径。'
+        '如果当前只激活了一个技能，可只传 path；激活多个技能时请同时传 name。',
     schema: {
       'type': 'object',
       'properties': {
         'name': {'type': 'string'},
         'path': {'type': 'string'},
       },
-      'required': ['name', 'path'],
+      'required': ['path'],
     },
   ),
   const AgentToolDef(
@@ -1967,6 +1968,18 @@ extension AgentApi on Engine {
     return text;
   }
 
+  List<String> _activatedAgentSkillNames(Iterable<String> contexts) {
+    final names = <String>[];
+    final seen = <String>{};
+    final pattern = RegExp(r'^已激活技能\s+([^：:\n]+)[：:]');
+    for (final context in contexts) {
+      final match = pattern.firstMatch(context.trim());
+      final name = match?.group(1)?.trim() ?? '';
+      if (name.isNotEmpty && seen.add(name)) names.add(name);
+    }
+    return names;
+  }
+
   List<String> _mergeActivatedAgentSkillContexts(
     Iterable<String> first,
     Iterable<String> second,
@@ -2450,11 +2463,20 @@ extension AgentApi on Engine {
           final skill = activateAgentSkill(skillName);
           return '已激活技能 ${skill.name}：\n${skill.content}';
         case 'read_skill_file':
-          final skillName =
+          var skillName =
               (args['name'] ?? args['skillName'] ?? '').toString().trim();
           final filePath =
               (args['path'] ?? args['filePath'] ?? '').toString().trim();
-          if (skillName.isEmpty) return '缺少 name 参数。';
+          if (skillName.isEmpty) {
+            final names = _activatedAgentSkillNames(activatedSkills);
+            if (names.length == 1) {
+              skillName = names.single;
+            } else if (names.isEmpty) {
+              return '缺少 name 参数。请先调用 activate_skill，或显式传入 name。';
+            } else {
+              return '已激活多个技能，请传入 name 参数。';
+            }
+          }
           if (filePath.isEmpty) return '缺少 path 参数。';
           return readAgentSkillFile(skillName, filePath);
         case 'get_novel_events':
