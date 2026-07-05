@@ -3182,6 +3182,111 @@ return `参考图：${refs}`;
     expect(subAgentSystem, contains('每集结尾保留悬念'));
   });
 
+  test('SkillRuntime 子 Agent 内部激活后 read_skill_file 继承技能名称', () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'story_skeleton_style',
+      body: '''
+技能正文：故事骨架必须按短剧前三秒强冲突组织。
+''',
+      extraFiles: {
+        'references/beat.md': '节奏：每集结尾必须留钩子。',
+      },
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: skillFile.path,
+      attribution: 'script_agent_execution',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '按技能搭建前三集故事骨架'},
+      ),
+      AgentTurnResult.tool(
+        'activate_skill',
+        const {'name': 'story_skeleton_style'},
+      ),
+      AgentTurnResult.tool(
+        'read_skill_file',
+        const {'filePath': 'references/beat.md'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>前三集强冲突骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先做故事骨架', autoMode: false);
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:storySkeletonAgent',
+      'scriptAgent:storySkeletonAgent',
+      'scriptAgent:storySkeletonAgent',
+    ]);
+    expect(gateway.systems[2], contains('已激活 Agent 技能'));
+    expect(gateway.systems[2], contains('story_skeleton_style'));
+    expect(
+      gateway.lastMessages.map((message) => message['content']).join('\n'),
+      contains('节奏：每集结尾必须留钩子。'),
+    );
+    final data = _scriptAgentWorkData(db, projectId);
+    expect(data['storySkeleton'], '前三集强冲突骨架');
+  });
+
+  test('SkillRuntime 生产子 Agent 内部激活后 read_skill_file 继承技能名称', () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'director_plan_style',
+      body: '''
+技能正文：导演规划必须先明确镜头节奏。
+''',
+      extraFiles: {
+        'references/lens.md': '镜头：先近景压迫，再横移揭示战场。',
+      },
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: skillFile.path,
+      attribution: 'production_agent_execution',
+    );
+    final scriptId = engine.addScript(
+      projectId: projectId,
+      name: '第一集',
+      content: '李澈在战火中入宗。',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '按技能做第一集导演规划', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool(
+        'activate_skill',
+        const {'name': 'director_plan_style'},
+      ),
+      AgentTurnResult.tool(
+        'read_skill_file',
+        const {'filePath': 'references/lens.md'},
+      ),
+      const AgentTurnResult.text('<scriptPlan>冷色近景压迫后横移揭示战场</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作导演计划', autoMode: false);
+
+    expect(gateway.stages, [
+      'productionAgent:decisionAgent',
+      'productionAgent:directorPlanAgent',
+      'productionAgent:directorPlanAgent',
+      'productionAgent:directorPlanAgent',
+    ]);
+    expect(gateway.systems[2], contains('已激活 Agent 技能'));
+    expect(gateway.systems[2], contains('director_plan_style'));
+    expect(
+      gateway.lastMessages.map((message) => message['content']).join('\n'),
+      contains('镜头：先近景压迫，再横移揭示战场。'),
+    );
+    final data = _productionAgentWorkData(db, projectId, scriptId);
+    expect(data['scriptPlan'], '冷色近景压迫后横移揭示战场');
+  });
+
   test(
       'Agent stage registry seeds ToonFlow script/production families without dropping pipeline keys',
       () {

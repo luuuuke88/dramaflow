@@ -3691,6 +3691,11 @@ extension AgentApi on Engine {
     final seen = <String>{};
     for (final message in history) {
       final content = message['content'] ?? '';
+      final xmlContext = _normalizeActivatedSkillContext(content);
+      if (xmlContext.isNotEmpty) {
+        if (seen.add(xmlContext)) values.add(xmlContext);
+        continue;
+      }
       final marker = content.indexOf('已激活技能 ');
       if (marker < 0) continue;
       var text = content.substring(marker).trim();
@@ -4726,6 +4731,10 @@ extension AgentApi on Engine {
     ];
     for (var turn = 0; turn < _maxAutoTurns; turn++) {
       final memoryService = _agentMemoryService(family: _scriptAgentFamily);
+      final activeSkillContexts = _mergeActivatedAgentSkillContexts(
+        activatedSkills,
+        _activatedAgentSkillContextsFromHistory(history),
+      );
       final system = _agentSystemPrompt(
         searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
         context: await memoryService.get(
@@ -4736,10 +4745,7 @@ extension AgentApi on Engine {
           query: prompt,
         ),
         base: _scriptAgentSubAgentSystem(stage),
-        activatedSkills: _mergeActivatedAgentSkillContexts(
-          activatedSkills,
-          _activatedAgentSkillContextsFromHistory(history),
-        ),
+        activatedSkills: activeSkillContexts,
         availableSkills: _markdownSkillsForStage(stage),
       );
       final result = await gateway.generateAgentTurn(
@@ -4768,6 +4774,7 @@ extension AgentApi on Engine {
         toolName,
         result.toolArgs ?? const {},
         agentFamily: _scriptAgentFamily,
+        activatedSkills: activeSkillContexts,
       );
       history.add({
         'role': 'assistant',
@@ -5195,6 +5202,10 @@ extension AgentApi on Engine {
     ];
     for (var turn = 0; turn < _maxAutoTurns; turn++) {
       final memoryService = _agentMemoryService(family: _productionAgentFamily);
+      final activeSkillContexts = _mergeActivatedAgentSkillContexts(
+        activatedSkills,
+        _activatedAgentSkillContextsFromHistory(history),
+      );
       final system = _agentSystemPrompt(
         searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
         context: await memoryService.get(
@@ -5205,10 +5216,7 @@ extension AgentApi on Engine {
           query: prompt,
         ),
         base: _productionAgentSubAgentSystem(stage),
-        activatedSkills: _mergeActivatedAgentSkillContexts(
-          activatedSkills,
-          _activatedAgentSkillContextsFromHistory(history),
-        ),
+        activatedSkills: activeSkillContexts,
         availableSkills: _markdownSkillsForStage(stage),
       );
       final result = await gateway.generateAgentTurn(
@@ -5238,6 +5246,7 @@ extension AgentApi on Engine {
         toolName,
         toolArgs,
         agentFamily: _productionAgentFamily,
+        activatedSkills: activeSkillContexts,
       );
       history.add({
         'role': 'assistant',
