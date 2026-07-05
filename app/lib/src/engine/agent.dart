@@ -381,6 +381,24 @@ class _CustomAgentSkillRuntime {
         if (result != null) return result;
         continue;
       }
+      final whileStatement = _readWhileStatement(trimmed);
+      if (whileStatement != null) {
+        var guard = 0;
+        while (_isTruthy(_evaluate(whileStatement.condition))) {
+          guard++;
+          if (guard > 10000) {
+            throw EngineException(errLlmFormat, {
+              'reason': 'custom_skill_while_guard',
+            });
+          }
+          final result = _runStatements(whileStatement.body);
+          if (result is _CustomJsReturnValue) return result;
+          if (result is _CustomJsBreakValue) break;
+          if (result is _CustomJsContinueValue) continue;
+          if (result != null) return result;
+        }
+        continue;
+      }
       final forOfStatement = _readForOfStatement(trimmed);
       if (forOfStatement != null) {
         final iterable = _evaluate(forOfStatement.iterable);
@@ -516,6 +534,31 @@ class _CustomAgentSkillRuntime {
       condition: condition.text,
       whenTrue: whenTrue.text,
       whenFalse: whenFalse,
+    );
+  }
+
+  _CustomJsWhileStatement? _readWhileStatement(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    if (!source.startsWith('while')) return null;
+    var index = 5;
+    if (index < source.length &&
+        source[index].trim().isNotEmpty &&
+        source[index] != '(') {
+      return null;
+    }
+    index = _skipWhitespace(source, index);
+    if (index >= source.length || source[index] != '(') return null;
+    final condition = _readBalanced(source, index, '(', ')');
+    index = _skipWhitespace(source, condition.end);
+    if (index >= source.length || source[index] != '{') return null;
+    final body = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, body.end);
+    if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
+      return null;
+    }
+    return _CustomJsWhileStatement(
+      condition: condition.text,
+      body: body.text,
     );
   }
 
@@ -1776,6 +1819,16 @@ class _CustomJsForStatement {
   });
 }
 
+class _CustomJsWhileStatement {
+  final String condition;
+  final String body;
+
+  const _CustomJsWhileStatement({
+    required this.condition,
+    required this.body,
+  });
+}
+
 class _CustomJsForOfStatement {
   final String itemPattern;
   final String iterable;
@@ -1930,6 +1983,7 @@ List<String> _splitStatements(String script) {
 bool _isTopLevelBlockStatement(String source) {
   final trimmed = source.trimLeft();
   return _startsWithWord(trimmed, 0, 'if') ||
+      _startsWithWord(trimmed, 0, 'while') ||
       _startsWithWord(trimmed, 0, 'for');
 }
 

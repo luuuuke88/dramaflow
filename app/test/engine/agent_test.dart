@@ -1827,6 +1827,78 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 while 循环遍历分镜', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_while_runtime',
+      name: 'while 循环脚本运行时',
+      description: '验证自定义技能兼容模型常写的 while/i++ 分镜遍历。',
+      script: r'''
+let selected = [];
+let totalDuration = 0;
+let i = 0;
+while (i < args.storyboards.length) {
+  const shot = args.storyboards[i];
+  i++;
+  if (shot.disabled) {
+    continue;
+  }
+  if (selected.length >= args.limit) {
+    break;
+  }
+  totalDuration += shot.duration ?? 1;
+  selected.push(`${i}.${shot.videoDesc.trim()}`);
+}
+return JSON.stringify({
+  totalDuration,
+  selected: selected.join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'limit': {'type': 'number'},
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_while_runtime', const {
+        'limit': 2,
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 ', 'duration': 3},
+          {'videoDesc': '废弃镜头', 'duration': 10, 'disabled': true},
+          {'videoDesc': '李澈拔剑'},
+          {'videoDesc': '掌门入场', 'duration': 8},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 while 循环脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_while_runtime');
+    expect(jsonDecode(msg.content), {
+      'totalDuration': 4,
+      'selected': '1.雪夜山门、3.李澈拔剑',
+    });
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',
