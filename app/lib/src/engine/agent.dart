@@ -633,6 +633,33 @@ class _CustomAgentSkillRuntime {
           index++;
         }
         return filtered;
+      case 'find':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        var index = 0;
+        for (final item in value) {
+          final matched = _evaluateCallback(method, args.single, item, index);
+          if (_isTruthy(matched)) return item;
+          index++;
+        }
+        return null;
+      case 'some':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        var index = 0;
+        for (final item in value) {
+          final matched = _evaluateCallback(method, args.single, item, index);
+          if (_isTruthy(matched)) return true;
+          index++;
+        }
+        return false;
+      case 'every':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        var index = 0;
+        for (final item in value) {
+          final matched = _evaluateCallback(method, args.single, item, index);
+          if (!_isTruthy(matched)) return false;
+          index++;
+        }
+        return true;
       case 'sort':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         final sorted = value.toList();

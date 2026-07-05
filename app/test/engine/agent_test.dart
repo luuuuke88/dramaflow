@@ -1233,6 +1233,63 @@ return `重点角色：${topRoles}`;
     expect(msg.content, '重点角色：1.沈微:50、2.李澈:30');
   });
 
+  test('自定义脚本技能：支持 find some every 检查资产完整度', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_find_some_every_runtime',
+      name: '查找检查脚本运行时',
+      description: '验证自定义技能兼容模型常写的 find/some/every 资产检查。',
+      script: r'''
+const mainRole = args.assets
+  .find(asset => asset.type === 'role' && asset.main === true)
+  ?.name?.trim() ?? '无主角';
+const hasScene = args.assets.some(asset => asset.type === 'scene');
+const allNamed = args.assets.every(asset => !!asset.name?.trim());
+return JSON.stringify({
+  mainRole: mainRole,
+  hasScene: hasScene,
+  allNamed: allNamed,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+                'main': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_find_some_every_runtime', const {
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 ', 'main': true},
+          {'type': 'scene', 'name': '寒山宗门'},
+          {'type': 'tool', 'name': ''},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用查找检查脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_find_some_every_runtime');
+    expect(jsonDecode(msg.content), {
+      'mainRole': '李澈',
+      'hasScene': true,
+      'allNamed': false,
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
