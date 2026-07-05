@@ -43,7 +43,9 @@ ParsedAgentSkillMarkdown parseAgentSkillFile(String filePath) {
   if (!file.existsSync()) {
     throw EngineException(errLlmFormat, {'reason': '技能文件不存在：$filePath'});
   }
-  final fallback = p.basenameWithoutExtension(file.parent.path);
+  final fallback = p.basename(file.path).toLowerCase() == 'skill.md'
+      ? p.basenameWithoutExtension(file.parent.path)
+      : p.basenameWithoutExtension(file.path);
   return parseAgentSkillMarkdown(file.readAsStringSync(),
       fallbackName: fallback);
 }
@@ -78,10 +80,10 @@ ParsedAgentSkillMarkdown parseAgentSkillMarkdown(
 
 String normalizeAgentSkillId(String value) {
   final normalized = value.trim();
-  if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(normalized)) {
+  if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_.-]*$').hasMatch(normalized)) {
     throw EngineException(
       errLlmFormat,
-      {'reason': '技能 name 只能包含字母、数字、下划线和连字符'},
+      {'reason': '技能 name 只能包含字母、数字、下划线、连字符和点号'},
     );
   }
   return normalized;
@@ -95,10 +97,12 @@ String readAgentSkillFileUnderRoot(
 }) {
   final safeRelativePath = _normalizeSkillRelativePath(relativePath);
   final ownRoot = _ownSkillRoot(skillFilePath);
-  final ownTarget = p.normalize(p.absolute(ownRoot, safeRelativePath));
-  if ((ownTarget == ownRoot || p.isWithin(ownRoot, ownTarget)) &&
-      File(ownTarget).existsSync()) {
-    return File(ownTarget).readAsStringSync();
+  if (_isDirectoryStyleSkillFile(skillFilePath)) {
+    final ownTarget = p.normalize(p.absolute(ownRoot, safeRelativePath));
+    if ((ownTarget == ownRoot || p.isWithin(ownRoot, ownTarget)) &&
+        File(ownTarget).existsSync()) {
+      return File(ownTarget).readAsStringSync();
+    }
   }
 
   final allowed = listAgentSkillResourceFiles(
@@ -139,7 +143,7 @@ List<String> listAgentSkillResourceFiles(
     if (seen.add(file)) files.add(file);
   }
 
-  if (dir.existsSync()) {
+  if (_isDirectoryStyleSkillFile(skillFilePath) && dir.existsSync()) {
     final ownFiles = <String>[];
     for (final entity in dir.listSync(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
@@ -179,10 +183,13 @@ List<String> listAgentSkillResourceFiles(
 String _ownSkillRoot(String skillFilePath) =>
     p.normalize(p.absolute(File(skillFilePath).parent.path));
 
+bool _isDirectoryStyleSkillFile(String skillFilePath) =>
+    p.basename(skillFilePath).toLowerCase() == 'skill.md';
+
 String _skillsRoot(String skillFilePath) {
   final file = File(skillFilePath);
   final ownRoot = _ownSkillRoot(skillFilePath);
-  if (p.basename(file.path).toLowerCase() == 'skill.md') {
+  if (_isDirectoryStyleSkillFile(file.path)) {
     return p.normalize(p.dirname(ownRoot));
   }
   return ownRoot;

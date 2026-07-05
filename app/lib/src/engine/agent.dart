@@ -2,8 +2,10 @@
 // 当前文件保留旧 UI/API 入口，并逐步把 stage registry、记忆、技能和 orchestrator
 // 拆到独立纯 Dart 模块。所有会生成媒体或改业务表的动作仍走现有 engine API 与 o_tasks。
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:path/path.dart' as p;
 
 import 'agent_memory.dart';
 import 'agent_orchestrator.dart';
@@ -89,6 +91,18 @@ class _MarkdownSkillResources {
   });
 }
 
+class _ToonFlowMarkdownSkillSeed {
+  final String fileName;
+  final String attribution;
+  final List<String> workspaceDirs;
+
+  const _ToonFlowMarkdownSkillSeed({
+    required this.fileName,
+    required this.attribution,
+    this.workspaceDirs = const [],
+  });
+}
+
 class AgentDeployment {
   final String key;
   final String name;
@@ -170,6 +184,63 @@ const _agentSkillType = 'builtin-agent';
 const _customAgentSkillType = 'custom-js-agent';
 const _markdownAgentSkillType = markdownAgentSkillType;
 const _agentDeploymentType = 'agent-stage';
+
+const _toonFlowMarkdownSkillSeeds = <_ToonFlowMarkdownSkillSeed>[
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'script_agent_decision.md',
+    attribution: 'script_agent_decision',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'script_execution_skeleton.md',
+    attribution: 'script_execution_skeleton',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'script_execution_adaptation.md',
+    attribution: 'script_execution_adaptation',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'script_execution_script.md',
+    attribution: 'script_execution_script',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'script_agent_supervision.md',
+    attribution: 'script_agent_supervision',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'production_agent_decision.md',
+    attribution: 'production_agent_decision',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_derive_assets.md',
+    attribution: 'production_execution_derive_assets',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_generate_assets.md',
+    attribution: 'production_execution_generate_assets',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_director_plan.md',
+    attribution: 'production_execution_director_plan',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_storyboard_gen.md',
+    attribution: 'production_execution_storyboard_gen',
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_storyboard_panel.md',
+    attribution: 'production_execution_storyboard_panel',
+    workspaceDirs: ['production_skills'],
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'production_execution_storyboard_table.md',
+    attribution: 'production_execution_storyboard_table',
+    workspaceDirs: ['production_skills'],
+  ),
+  _ToonFlowMarkdownSkillSeed(
+    fileName: 'production_agent_supervision.md',
+    attribution: 'production_agent_supervision',
+  ),
+];
 
 final _tools = <AgentToolDef>[
   const AgentToolDef(
@@ -3022,6 +3093,22 @@ extension AgentApi on Engine {
         );
       }
     }
+  }
+
+  List<AgentSkill> seedToonFlowMarkdownAgentSkills(String skillsRootPath) {
+    final root = Directory(skillsRootPath);
+    if (!root.existsSync()) return const [];
+    final seeded = <AgentSkill>[];
+    for (final spec in _toonFlowMarkdownSkillSeeds) {
+      final file = File(p.join(root.path, spec.fileName));
+      if (!file.existsSync()) continue;
+      seeded.add(saveMarkdownAgentSkill(
+        filePath: file.path,
+        attribution: spec.attribution,
+        workspaceDirs: spec.workspaceDirs,
+      ));
+    }
+    return seeded;
   }
 
   AgentSkill saveMarkdownAgentSkill({

@@ -2969,6 +2969,74 @@ description: >
     );
   });
 
+  test('SkillRuntime seeds ToonFlow root markdown skills with attribution', () {
+    final skillsRoot = Directory(p.join(dir.path, 'toonflow-skills'))
+      ..createSync(recursive: true);
+    File(p.join(skillsRoot.path, 'script_execution_skeleton.md'))
+        .writeAsStringSync('''
+---
+name: script_execution_skeleton.md
+description: 故事骨架搭建 Agent
+---
+
+# 故事骨架搭建 Agent
+请读取事件并输出 <storySkeleton>。
+''');
+    File(p.join(skillsRoot.path, 'production_execution_storyboard_table.md'))
+        .writeAsStringSync('''
+---
+name: production_execution_storyboard_table.md
+description: >-
+  分镜表构建 Agent
+---
+
+# 分镜表构建
+请输出 <storyboardTable>。
+''');
+    File(p.join(
+      skillsRoot.path,
+      'production_skills',
+      'storyboard_table_techniques.md',
+    ))
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('分镜表技法：必须包含景别、运镜、时长。');
+
+    final seeded = engine.seedToonFlowMarkdownAgentSkills(skillsRoot.path);
+
+    expect(seeded.map((skill) => skill.id), [
+      'script_execution_skeleton.md',
+      'production_execution_storyboard_table.md',
+    ]);
+    expect(
+      engine
+          .agentSkills(attribution: 'script_execution_skeleton')
+          .map((skill) => skill.id),
+      contains('script_execution_skeleton.md'),
+    );
+    expect(
+      engine
+          .agentSkills(attribution: 'production_execution_storyboard_table')
+          .map((skill) => skill.id),
+      contains('production_execution_storyboard_table.md'),
+    );
+
+    final skeleton = engine.activateAgentSkill('script_execution_skeleton.md');
+    expect(skeleton.content, contains('请读取事件并输出'));
+
+    final table =
+        engine.activateAgentSkill('production_execution_storyboard_table.md');
+    expect(table.description, '分镜表构建 Agent');
+    expect(table.resourceFiles,
+        contains('production_skills/storyboard_table_techniques.md'));
+    expect(
+      engine.readAgentSkillFile(
+        'production_execution_storyboard_table.md',
+        'production_skills/storyboard_table_techniques.md',
+      ),
+      '分镜表技法：必须包含景别、运镜、时长。',
+    );
+  });
+
   test('SkillRuntime read_skill_file reads only files under skill root', () {
     final skillFile = _writeSkillFixture(
       dir,
