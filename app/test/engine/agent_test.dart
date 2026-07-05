@@ -985,6 +985,41 @@ return `资产标签：${labels}`;
     expect(msg.content, '规则：每句台词不超过二十字。');
   });
 
+  test('SkillRuntime 激活后会注入后续 Agent system prompt', () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '''
+技能正文：短剧台词必须克制，每句尽量少于二十字。
+
+## 检查点
+
+- 删除空泛旁白。
+- 保留人物冲突。
+''',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: skillFile.path,
+      attribution: 'script_agent_decision',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('activate_skill', const {'name': 'style_polisher'}),
+      const AgentTurnResult.text('已按技能继续处理。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '激活技能后继续润色剧本', autoMode: true);
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:decisionAgent',
+    ]);
+    expect(gateway.lastSystem, contains('已激活 Agent 技能'));
+    expect(gateway.lastSystem, contains('style_polisher'));
+    expect(gateway.lastSystem, contains('短剧台词必须克制'));
+    expect(gateway.lastSystem, contains('删除空泛旁白'));
+  });
+
   test(
       'Agent stage registry seeds ToonFlow script/production families without dropping pipeline keys',
       () {
