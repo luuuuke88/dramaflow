@@ -2854,11 +2854,18 @@ extension AgentApi on Engine {
           final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
           final limitedRecords =
               limit == null ? records : records.take(limit).toList();
-          if (limitedRecords.isEmpty) return '未找到相关历史记忆。';
-          return [
-            for (final record in limitedRecords)
-              '${record.role}: ${record.content}',
-          ].join('\n');
+          if (limitedRecords.isEmpty) {
+            return jsonEncode({
+              'found': false,
+              'message': '未找到相关记忆',
+            });
+          }
+          return jsonEncode({
+            'found': true,
+            'memories': [
+              for (final record in limitedRecords) record.content,
+            ],
+          });
         case 'activate_skill':
           final skillName =
               (args['name'] ?? args['skillName'] ?? '').toString().trim();

@@ -1837,8 +1837,11 @@ return JSON.stringify({
     final msg = engine.agentMessages(projectId).last;
     expect(msg.role, agentRoleTool);
     expect(msg.toolName, 'deepRetrieve');
-    expect(msg.content, contains('用户强调寒山少主李澈外冷内热'));
-    expect(msg.content, contains('不能把李澈写成反派'));
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], isA<List>());
+    expect(payload['memories'], contains('用户强调寒山少主李澈外冷内热。'));
+    expect(payload['memories'], contains('助手确认后续剧本不能把李澈写成反派。'));
   });
 
   test('Agent 记忆：deepRetrieve 工具支持 limit 限制返回条数', () async {
@@ -1883,8 +1886,11 @@ return JSON.stringify({
     final msg = engine.agentMessages(projectId).last;
     expect(msg.role, agentRoleTool);
     expect(msg.toolName, 'deepRetrieve');
-    expect(msg.content.split('\n'), hasLength(1));
-    expect(msg.content, contains('李澈'));
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], isA<List>());
+    expect(payload['memories'], hasLength(1));
+    expect((payload['memories'] as List).single, contains('李澈'));
   });
 
   test('AgentMemoryService deepRetrieve 先由 LLM 判别 summary 再展开原始 message',
