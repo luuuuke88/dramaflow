@@ -1154,6 +1154,99 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Object.assign 和 Object.fromEntries 整理工具入参', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_object_compose_runtime',
+      name: 'Object 组合脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Object.assign/Object.fromEntries 入参整理。',
+      script: r'''
+const defaults = { quality: 'draft', track: 'video' };
+const normalizedAssets = Object.fromEntries(
+  Object.entries(args.assetsById)
+    .filter(([id, asset]) => asset.enabled !== false)
+    .map(([id, asset]) => [
+      id,
+      Object.assign({}, defaults, {
+        id,
+        type: asset.type,
+        name: asset.name.trim(),
+        prompt: `${asset.type}:${asset.name.trim()}`,
+      }),
+    ])
+);
+const request = Object.assign({}, args.baseRequest, {
+  assetCount: Object.keys(normalizedAssets).length,
+  assets: normalizedAssets,
+});
+return JSON.stringify(request);
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'baseRequest': {'type': 'object'},
+          'assetsById': {'type': 'object'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_object_compose_runtime', const {
+        'baseRequest': {
+          'stage': 'storyboard-video-prompt',
+          'quality': 'preview',
+        },
+        'assetsById': {
+          'A001': {
+            'type': 'role',
+            'name': ' 李澈 ',
+          },
+          'A002': {
+            'type': 'scene',
+            'name': ' 寒山宗门 ',
+          },
+          'A003': {
+            'type': 'tool',
+            'name': '废弃道具',
+            'enabled': false,
+          },
+        },
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Object 组合脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_object_compose_runtime');
+    expect(jsonDecode(msg.content), {
+      'stage': 'storyboard-video-prompt',
+      'quality': 'preview',
+      'assetCount': 2,
+      'assets': {
+        'A001': {
+          'quality': 'draft',
+          'track': 'video',
+          'id': 'A001',
+          'type': 'role',
+          'name': '李澈',
+          'prompt': 'role:李澈',
+        },
+        'A002': {
+          'quality': 'draft',
+          'track': 'video',
+          'id': 'A002',
+          'type': 'scene',
+          'name': '寒山宗门',
+          'prompt': 'scene:寒山宗门',
+        },
+      },
+    });
+  });
+
   test('自定义脚本技能：支持 Array.from 生成序号和映射列表', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_array_from_runtime',

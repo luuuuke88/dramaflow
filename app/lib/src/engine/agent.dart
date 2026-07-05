@@ -1636,23 +1636,31 @@ class _CustomAgentSkillRuntime {
   }
 
   Object? _callObjectMethod(String method, List<String> args) {
-    if (args.length != 1) _badMethodArgs(method);
-    final value = _evaluate(args.single);
-    if (value is! Map) {
-      throw EngineException(errLlmFormat, {
-        'reason': 'custom_skill_object_builtin',
-        'method': method,
-      });
-    }
     switch (method) {
+      case 'assign':
+        return _objectAssign(args);
+      case 'fromEntries':
+        return _objectFromEntries(args);
       case 'keys':
-        return [for (final key in value.keys) '$key'];
       case 'values':
-        return [for (final entry in value.entries) entry.value];
       case 'entries':
-        return [
-          for (final entry in value.entries) ['${entry.key}', entry.value],
-        ];
+        if (args.length != 1) _badMethodArgs(method);
+        final value = _evaluate(args.single);
+        if (value is! Map) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_object_builtin',
+            'method': method,
+          });
+        }
+        if (method == 'values') {
+          return [for (final entry in value.entries) entry.value];
+        }
+        if (method == 'entries') {
+          return [
+            for (final entry in value.entries) ['${entry.key}', entry.value],
+          ];
+        }
+        return [for (final key in value.keys) '$key'];
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_builtin_method',
@@ -1660,6 +1668,57 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  Map<String, Object?> _objectAssign(List<String> args) {
+    if (args.isEmpty) _badMethodArgs('assign');
+    final target = _evaluate(args.first);
+    if (target is! Map) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_object_builtin',
+        'method': 'assign',
+      });
+    }
+    final result = <String, Object?>{
+      for (final entry in target.entries) '${entry.key}': entry.value,
+    };
+    for (final arg in args.skip(1)) {
+      final source = _evaluate(arg);
+      if (source == null) continue;
+      if (source is! Map) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_object_builtin',
+          'method': 'assign',
+        });
+      }
+      for (final entry in source.entries) {
+        result['${entry.key}'] = entry.value;
+      }
+    }
+    return result;
+  }
+
+  Map<String, Object?> _objectFromEntries(List<String> args) {
+    if (args.length != 1) _badMethodArgs('fromEntries');
+    final source = _evaluate(args.single);
+    if (source is! Iterable) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_object_builtin',
+        'method': 'fromEntries',
+      });
+    }
+    final result = <String, Object?>{};
+    for (final item in source) {
+      final pair = item is Iterable ? item.toList() : null;
+      if (pair == null || pair.length < 2) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_object_builtin',
+          'method': 'fromEntries',
+        });
+      }
+      result['${pair[0]}'] = pair[1];
+    }
+    return result;
   }
 
   Object? _evaluateCallback(
