@@ -870,6 +870,74 @@ return `资产标签：${labels}`;
     expect(msg.content, '资产标签：李澈(角色)、寒山宗门(场景)、灵剑(其他)');
   });
 
+  test('自定义脚本技能：支持对象和数组字面量返回结构化 JSON', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_literal_runtime',
+      name: '结构化脚本运行时',
+      description: '验证自定义技能可以构造 ToonFlow 常见的分镜/资产 JSON 结构。',
+      script: r'''
+const shots = args.storyboards.map((shot, index) => ({
+  order: index + 1,
+  name: shot.name.trim(),
+  prompt: `${shot.desc.trim()}｜${shot.duration >= 3 ? '长镜头' : '短镜头'}`,
+}));
+return JSON.stringify({
+  projectId: projectId,
+  shots: shots,
+  tags: ['storyboard', args.mode],
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'mode': {'type': 'string'},
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_literal_runtime', const {
+        'mode': '短剧',
+        'storyboards': [
+          {'name': ' 开场 ', 'desc': '寒山雪夜', 'duration': 2},
+          {'name': ' 对峙 ', 'desc': '李澈拔剑', 'duration': 4},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用结构化脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_literal_runtime');
+    final decoded = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(decoded['projectId'], projectId);
+    expect(decoded['tags'], ['storyboard', '短剧']);
+    expect(decoded['shots'], [
+      {
+        'order': 1,
+        'name': '开场',
+        'prompt': '寒山雪夜｜短镜头',
+      },
+      {
+        'order': 2,
+        'name': '对峙',
+        'prompt': '李澈拔剑｜长镜头',
+      },
+    ]);
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(

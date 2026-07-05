@@ -347,6 +347,10 @@ class _CustomAgentSkillRuntime {
       return _evaluateTemplate(expr.substring(1, expr.length - 1));
     }
     if (_isQuoted(expr)) return _unquote(expr);
+    final arrayLiteral = _literalInner(expr, '[', ']');
+    if (arrayLiteral != null) return _evaluateArrayLiteral(arrayLiteral);
+    final objectLiteral = _literalInner(expr, '{', '}');
+    if (objectLiteral != null) return _evaluateObjectLiteral(objectLiteral);
     if (expr == 'true') return true;
     if (expr == 'false') return false;
     if (expr == 'null' || expr == 'undefined') return null;
@@ -458,6 +462,41 @@ class _CustomAgentSkillRuntime {
       });
     }
     return value;
+  }
+
+  List<Object?> _evaluateArrayLiteral(String source) => [
+        for (final item in _splitTopLevel(source, ','))
+          if (item.trim().isNotEmpty) _evaluate(item),
+      ];
+
+  Map<String, Object?> _evaluateObjectLiteral(String source) {
+    final result = <String, Object?>{};
+    for (final item in _splitTopLevel(source, ',')) {
+      final trimmed = item.trim();
+      if (trimmed.isEmpty) continue;
+      final colon = _findTopLevelColon(trimmed);
+      if (colon < 0) {
+        final shorthand = _readIdentifier(trimmed, 0);
+        if (shorthand == null || shorthand.end != trimmed.length) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_object_literal',
+            'expression': trimmed,
+          });
+        }
+        result[shorthand.text] = _evaluate(shorthand.text);
+        continue;
+      }
+      final rawKey = trimmed.substring(0, colon).trim();
+      final valueExpr = trimmed.substring(colon + 1).trim();
+      if (rawKey.isEmpty || valueExpr.isEmpty) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_object_literal',
+          'expression': trimmed,
+        });
+      }
+      result[_objectLiteralKey(rawKey)] = _evaluate(valueExpr);
+    }
+    return result;
   }
 
   Object? _callMethod(Object? value, String method, List<String> args) {
@@ -953,6 +992,42 @@ _TernaryToken? _readTopLevelTernary(String source) {
   return null;
 }
 
+int _findTopLevelColon(String source) {
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (char == ':' && paren == 0 && bracket == 0 && brace == 0) return i;
+  }
+  return -1;
+}
+
 int _findTopLevelArrow(String source) {
   var quote = '';
   var escaped = false;
@@ -1074,6 +1149,30 @@ bool _isQuoted(String expr) =>
     expr.length >= 2 &&
     ((expr.startsWith("'") && expr.endsWith("'")) ||
         (expr.startsWith('"') && expr.endsWith('"')));
+
+String? _literalInner(String expr, String open, String close) {
+  if (!expr.startsWith(open)) return null;
+  try {
+    final balanced = _readBalanced(expr, 0, open, close);
+    if (balanced.end != expr.length) return null;
+    return balanced.text;
+  } catch (_) {
+    return null;
+  }
+}
+
+String _objectLiteralKey(String rawKey) {
+  final key = rawKey.trim();
+  if (_isQuoted(key)) return _unquote(key);
+  final identifier = _readIdentifier(key, 0);
+  if (identifier != null && identifier.end == key.length) return key;
+  final intKey = int.tryParse(key);
+  if (intKey != null) return '$intKey';
+  throw EngineException(errLlmFormat, {
+    'reason': 'custom_skill_object_key',
+    'expression': rawKey,
+  });
+}
 
 String _unquote(String expr) {
   final body = expr.substring(1, expr.length - 1);
