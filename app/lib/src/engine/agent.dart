@@ -3352,7 +3352,16 @@ extension AgentApi on Engine {
         scriptAgentExecutionTools(_agentToolsForStage(stage)),
         stage: stage,
       );
-      if (!result.isToolCall) return result.text ?? '';
+      if (!result.isToolCall) {
+        final text = result.text ?? '';
+        await _recordAgentMemory(
+          projectId,
+          family: _scriptAgentFamily,
+          role: _scriptAgentSubAgentMemoryRole(stage),
+          content: stripXmlTags(text).trim(),
+        );
+        return text;
+      }
       final toolName = result.toolName ?? '';
       if (toolName.startsWith('run_sub_agent_') ||
           toolName == 'run_supervision_agent') {
@@ -3405,6 +3414,21 @@ extension AgentApi on Engine {
             '请独立审核工作区或剧本产物，返回简短、可执行的审核结论。';
       default:
         return '你是短剧改编项目的执行层 Agent。';
+    }
+  }
+
+  String _scriptAgentSubAgentMemoryRole(String stage) {
+    switch (stage) {
+      case scriptAgentStorySkeletonStage:
+        return 'assistant:execution:storySkeleton';
+      case scriptAgentAdaptationStrategyStage:
+        return 'assistant:execution:adaptationStrategy';
+      case scriptAgentScriptStage:
+        return 'assistant:execution:script';
+      case scriptAgentSupervisionStage:
+        return 'assistant:supervision';
+      default:
+        return 'assistant:execution';
     }
   }
 
@@ -3796,7 +3820,16 @@ extension AgentApi on Engine {
         productionAgentExecutionTools(_agentToolsForStage(stage)),
         stage: stage,
       );
-      if (!result.isToolCall) return result.text ?? '';
+      if (!result.isToolCall) {
+        final text = result.text ?? '';
+        await _recordAgentMemory(
+          projectId,
+          family: _productionAgentFamily,
+          role: _productionAgentSubAgentMemoryRole(stage),
+          content: stripXmlTags(text).trim(),
+        );
+        return text;
+      }
       final toolName = result.toolName ?? '';
       if (toolName.startsWith('run_sub_agent_')) {
         return '子 Agent 不支持嵌套调用：$toolName';
@@ -3861,6 +3894,13 @@ extension AgentApi on Engine {
       default:
         return '你是短剧制作执行层 Agent。';
     }
+  }
+
+  String _productionAgentSubAgentMemoryRole(String stage) {
+    if (stage == productionAgentSupervisionStage) {
+      return 'assistant:supervision';
+    }
+    return 'assistant:execution';
   }
 
   bool _argBool(Object? value, {required bool defaultValue}) {

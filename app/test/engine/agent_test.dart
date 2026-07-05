@@ -2375,6 +2375,35 @@ return JSON.stringify({
     expect(gateway.lastSystem, contains('李澈是正派角色'));
   });
 
+  test('ScriptAgent 子 Agent 输出按 ToonFlow memoryKey 写入记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '搭建寒山篇前三集骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先做寒山故事骨架', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+
+    expect(rows.map((row) => row['role']),
+        contains('assistant:execution:storySkeleton'));
+    final subAgentMemory = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:storySkeleton',
+    );
+    expect(subAgentMemory['content'], '寒山篇三集骨架');
+  });
+
   test('Agent tool list honors custom skill attribution by decision stage',
       () async {
     engine.saveCustomAgentSkill(
@@ -2677,6 +2706,36 @@ return JSON.stringify({
     expect(gateway.lastSystem, contains('相关历史记忆'));
     expect(gateway.lastSystem, contains('冷白山门'));
     expect(gateway.lastSystem, isNot(contains('剧本私有记忆')));
+  });
+
+  test('ProductionAgent 子 Agent 输出按 ToonFlow memoryKey 写入记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '寒山开场');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做寒山导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>低机位跟拍寒山山门</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作画布：做寒山导演计划', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['productionAgent:$projectId', 'message'],
+    );
+
+    expect(rows.map((row) => row['role']), contains('assistant:execution'));
+    final subAgentMemory = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution',
+    );
+    expect(subAgentMemory['content'], '低机位跟拍寒山山门');
   });
 
   test(
