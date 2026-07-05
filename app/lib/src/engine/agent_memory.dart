@@ -208,11 +208,20 @@ class AgentMemoryService {
     required String isolationKey,
     required String keyword,
     Set<String>? roles,
+    Set<String>? types,
     Set<String>? excludeIds,
     CancelToken? cancelToken,
   }) async {
     final roleFilter = _normalizeRoleFilter(roles);
+    final typeFilter = _normalizeTypeFilter(types);
     final excludedIdFilter = _normalizeIdFilter(excludeIds);
+    final allowMessages =
+        _matchesTypeFilter(agentMemoryTypeMessage, typeFilter);
+    final allowSummaries =
+        _matchesTypeFilter(agentMemoryTypeSummary, typeFilter);
+    final explicitSummaries =
+        typeFilter?.contains(agentMemoryTypeSummary) == true;
+    if (!allowMessages && !allowSummaries) return const [];
     final settings = readSettings();
     final normalized = normalizeMemoryText(keyword);
     final tokens = memorySearchTokens(normalized);
@@ -263,16 +272,20 @@ class AgentMemoryService {
           ..._filterEntries(
             summaries,
             roleFilter,
+            typeFilter,
             excludedIdFilter,
           ),
-          for (final message in _filterRankedEntries(
-            directMatches,
-            roleFilter,
-            excludedIdFilter,
-          ).take(settings.ragLimit))
-            message.$2,
+          if (allowMessages)
+            for (final message in _filterRankedEntries(
+              directMatches,
+              roleFilter,
+              typeFilter,
+              excludedIdFilter,
+            ).take(settings.ragLimit))
+              message.$2,
         ];
       }
+      if (!allowMessages) return const [];
       return [
         for (final item in _filterRankedEntries(
           _rankMessageCandidates(
@@ -283,10 +296,19 @@ class AgentMemoryService {
             onlyUnsummarized: scored.isNotEmpty,
           ),
           roleFilter,
+          typeFilter,
           excludedIdFilter,
         ).take(settings.ragLimit))
           item.$2,
       ];
+    }
+    if (!allowMessages) {
+      return _filterEntries(
+        summaries,
+        roleFilter,
+        typeFilter,
+        excludedIdFilter,
+      );
     }
     final directMatches = _filterRankedEntries(
       _rankMessageCandidates(
@@ -297,6 +319,7 @@ class AgentMemoryService {
         onlyUnsummarized: true,
       ),
       roleFilter,
+      typeFilter,
       excludedIdFilter,
     ).take(settings.ragLimit);
     for (final message in directMatches) {
@@ -321,9 +344,22 @@ class AgentMemoryService {
           tokens: tokens,
           queryEmbedding: queryEmbedding,
         ),
-    ], roleFilter, excludedIdFilter);
+    ], roleFilter, typeFilter, excludedIdFilter);
     if (expanded.isEmpty && summaries.isNotEmpty) {
-      return _filterEntries(summaries, roleFilter, excludedIdFilter);
+      return allowSummaries
+          ? _filterEntries(summaries, roleFilter, typeFilter, excludedIdFilter)
+          : const [];
+    }
+    if (explicitSummaries) {
+      return [
+        ..._filterEntries(
+          summaries,
+          roleFilter,
+          typeFilter,
+          excludedIdFilter,
+        ),
+        ...expanded,
+      ];
     }
     return expanded;
   }
@@ -493,6 +529,34 @@ class AgentMemoryService {
     return normalized.isEmpty ? null : normalized;
   }
 
+  Set<String>? _normalizeTypeFilter(Set<String>? types) {
+    if (types == null) return null;
+    final normalized = {
+      for (final type in types)
+        if (_normalizeMemoryType(type) != null) _normalizeMemoryType(type)!,
+    };
+    return normalized;
+  }
+
+  String? _normalizeMemoryType(String type) {
+    final value = type.trim().toLowerCase();
+    return switch (value) {
+      'message' ||
+      'messages' ||
+      'chat' ||
+      'conversation' =>
+        agentMemoryTypeMessage,
+      'summary' || 'summaries' => agentMemoryTypeSummary,
+      'note' ||
+      'notes' ||
+      'long_term' ||
+      'long-term' ||
+      'longterm' =>
+        agentMemoryTypeNote,
+      _ => null,
+    };
+  }
+
   Set<String>? _normalizeIdFilter(Set<String>? ids) {
     if (ids == null) return null;
     final normalized = {
@@ -505,33 +569,41 @@ class AgentMemoryService {
   bool _matchesRoleFilter(AgentMemoryEntry entry, Set<String>? roles) =>
       roles == null || roles.contains(entry.role);
 
+  bool _matchesTypeFilter(String type, Set<String>? types) =>
+      types == null || types.contains(type);
+
   bool _matchesIdFilter(AgentMemoryEntry entry, Set<String>? excludeIds) =>
       excludeIds == null || !excludeIds.contains(entry.id);
 
   bool _matchesEntryFilter(
     AgentMemoryEntry entry,
     Set<String>? roles,
+    Set<String>? types,
     Set<String>? excludeIds,
   ) =>
-      _matchesRoleFilter(entry, roles) && _matchesIdFilter(entry, excludeIds);
+      _matchesRoleFilter(entry, roles) &&
+      _matchesTypeFilter(entry.type, types) &&
+      _matchesIdFilter(entry, excludeIds);
 
   List<AgentMemoryEntry> _filterEntries(
     Iterable<AgentMemoryEntry> entries,
     Set<String>? roles,
+    Set<String>? types,
     Set<String>? excludeIds,
   ) =>
       [
         for (final entry in entries)
-          if (_matchesEntryFilter(entry, roles, excludeIds)) entry
+          if (_matchesEntryFilter(entry, roles, types, excludeIds)) entry
       ];
 
   Iterable<(int, AgentMemoryEntry)> _filterRankedEntries(
     Iterable<(int, AgentMemoryEntry)> entries,
     Set<String>? roles,
+    Set<String>? types,
     Set<String>? excludeIds,
   ) sync* {
     for (final item in entries) {
-      if (_matchesEntryFilter(item.$2, roles, excludeIds)) yield item;
+      if (_matchesEntryFilter(item.$2, roles, types, excludeIds)) yield item;
     }
   }
 

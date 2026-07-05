@@ -198,6 +198,19 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。只返回这些 role 的记忆。',
         },
+        'type': {
+          'type': 'string',
+          'enum': ['message', 'summary'],
+          'description': '可选。只返回指定类型的记忆：message 原始对话，summary 摘要。',
+        },
+        'types': {
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': ['message', 'summary'],
+          },
+          'description': '可选。只返回这些类型的记忆。',
+        },
       },
       'required': ['keyword'],
     },
@@ -5693,6 +5706,12 @@ extension AgentApi on Engine {
           final roles = _coerceStringSet(
             args['roles'] ?? args['role'] ?? args['memoryRoles'],
           );
+          final types = _coerceStringSet(
+            args['types'] ??
+                args['type'] ??
+                args['memoryTypes'] ??
+                args['memoryType'],
+          );
           final records = await _agentMemoryService(
             family: agentFamily,
           ).deepRetrieve(
@@ -5702,6 +5721,7 @@ extension AgentApi on Engine {
             ),
             keyword: keyword,
             roles: roles,
+            types: types,
             excludeIds: excludedMemoryIds,
           );
           final rawLimit = args['limit'] ?? args['max'] ?? args['count'];

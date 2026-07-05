@@ -5168,6 +5168,72 @@ description: >-
     expect((records.single as Map<String, dynamic>)['role'], agentRoleUser);
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持按 type 只返回 summary 记录', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'type_filter_msg',
+        '',
+        '用户约束：寒山线里李澈必须保护沈微。',
+        now,
+        embeddingJson('用户约束：寒山线里李澈必须保护沈微。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'type_filter_summary',
+        '寒山线约束',
+        '摘要：寒山线里李澈保护沈微，后续分镜必须保留救援桥段。',
+        now + 1,
+        embeddingJson('摘要：寒山线里李澈保护沈微，后续分镜必须保留救援桥段。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['type_filter_msg']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '寒山李澈沈微',
+        'types': ['summary'],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '只召回摘要记忆', autoMode: false);
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = deepRetrieveTool.schema['properties'] as Map;
+    expect(properties, contains('type'));
+    expect(properties, contains('types'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], [
+      '摘要：寒山线里李澈保护沈微，后续分镜必须保留救援桥段。',
+    ]);
+    final records = payload['records'] as List;
+    expect(records, hasLength(1));
+    final record = records.single as Map<String, dynamic>;
+    expect(record['id'], 'type_filter_summary');
+    expect(record['type'], agentMemoryTypeSummary);
+  });
+
   test('Agent 记忆：deepRetrieve 不把当前用户消息当作历史召回结果', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
