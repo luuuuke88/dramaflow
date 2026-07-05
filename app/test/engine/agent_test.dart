@@ -131,6 +131,94 @@ void main() {
     expect(memoryCount('productionAgent:$projectId'), 0);
   });
 
+  test('clearAgentMemoryScope 按 scope 清理记忆且保留聊天记录', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    gateway.turns = const [
+      AgentTurnResult.text('剧本 Agent 已记录。'),
+      AgentTurnResult.text('制作 Agent 已记录。'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '剧本侧消息',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+    await engine.sendAgentMessage(
+      projectId,
+      '制作侧消息',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+    engine.saveAgentMemory(
+      projectId,
+      name: '角色守则',
+      content: '李澈必须保持正派。',
+    );
+
+    void insertSummary(String isolationKey, String id) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '摘要',
+          '$id 摘要内容',
+          DateTime.now().millisecondsSinceEpoch,
+          embeddingJson('$id 摘要内容'),
+          isolationKey,
+          '[]',
+          agentRoleAssistant,
+          0,
+          agentMemoryTypeSummary,
+        ],
+      );
+    }
+
+    insertSummary('scriptAgent:$projectId', 'script_manual_summary');
+    insertSummary('productionAgent:$projectId', 'production_manual_summary');
+
+    int count(String isolationKey, String type) => db.select(
+          'SELECT COUNT(*) AS n FROM memories WHERE isolationKey=? AND type=?',
+          [isolationKey, type],
+        ).single['n'] as int;
+
+    engine.clearAgentMemoryScope(
+      projectId,
+      family: agentFamilyScript,
+      scope: agentMemoryTypeSummary,
+    );
+
+    expect(
+        engine.agentMessages(projectId, family: agentFamilyScript), isNotEmpty);
+    expect(count('scriptAgent:$projectId', agentMemoryTypeMessage), 2);
+    expect(count('scriptAgent:$projectId', agentMemoryTypeSummary), 0);
+    expect(count('productionAgent:$projectId', agentMemoryTypeMessage), 2);
+    expect(count('productionAgent:$projectId', agentMemoryTypeSummary), 1);
+    expect(engine.agentLongTermMemories(projectId), hasLength(1));
+
+    engine.clearAgentMemoryScope(projectId, scope: agentMemoryTypeNote);
+
+    expect(engine.agentLongTermMemories(projectId), isEmpty);
+    expect(count('scriptAgent:$projectId', agentMemoryTypeMessage), 2);
+    expect(count('productionAgent:$projectId', agentMemoryTypeMessage), 2);
+
+    engine.clearAgentMemoryScope(
+      projectId,
+      family: agentFamilyScript,
+      scope: agentMemoryScopeAll,
+    );
+
+    expect(
+        engine.agentMessages(projectId, family: agentFamilyScript), isNotEmpty);
+    expect(count('scriptAgent:$projectId', agentMemoryTypeMessage), 0);
+    expect(count('productionAgent:$projectId', agentMemoryTypeMessage), 2);
+  });
+
   test('manual 模式：一次工具调用后停止，等待用户下一句', () async {
     final novelId = engine.addNovels(projectId, const [
       ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),

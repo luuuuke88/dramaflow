@@ -2511,6 +2511,33 @@ extension AgentApi on Engine {
     _clearAgentConversationMemory(projectId, family: family);
   }
 
+  void clearAgentMemoryScope(
+    int projectId, {
+    String? family,
+    required String scope,
+  }) {
+    final trimmedScope = scope.trim();
+    final service = _agentMemoryService(
+      family: family ?? _scriptAgentFamily,
+    );
+    if (trimmedScope == agentMemoryTypeNote) {
+      service.clear(
+        isolationKey: _agentMemoryIsolationKey(projectId),
+        scope: agentMemoryTypeNote,
+      );
+      return;
+    }
+    final families = family == null
+        ? const [_scriptAgentFamily, _productionAgentFamily]
+        : [family];
+    for (final item in families) {
+      service.clear(
+        isolationKey: _agentConversationIsolationKey(projectId, family: item),
+        scope: trimmedScope,
+      );
+    }
+  }
+
   void _clearAgentConversationMemory(
     int projectId, {
     required String family,
