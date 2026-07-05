@@ -481,6 +481,12 @@ void main() {
     expect(msg.role, agentRoleAssistant);
     expect(msg.content, contains('监督 Agent 已拦截 generate_events'));
     expect(msg.content, contains('先调用 get_status'));
+    final memoryRoles = db.select(
+      'SELECT role FROM memories WHERE isolationKey=? AND type=? '
+      'ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', agentMemoryTypeMessage],
+    ).map((row) => row['role']);
+    expect(memoryRoles, contains('assistant:supervision'));
   });
 
   test('监督 Agent 复核工具调用时注入长期记忆和对话记忆上下文', () async {

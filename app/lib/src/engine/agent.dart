@@ -4543,7 +4543,7 @@ extension AgentApi on Engine {
         await _recordAgentMemory(
           projectId,
           family: agentFamily,
-          role: agentRoleAssistant,
+          role: 'assistant:supervision',
           content: content,
         );
         return;
