@@ -33,6 +33,24 @@ class _Gateway implements ProviderGateway {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+void _writeMarkdownSkill(
+  Directory dir, {
+  required String id,
+  required String description,
+  required String body,
+}) {
+  final skillDir = Directory(p.join(dir.path, 'skills', id))
+    ..createSync(recursive: true);
+  File(p.join(skillDir.path, 'SKILL.md')).writeAsStringSync('''
+---
+name: $id
+description: $description
+---
+
+$body
+''');
+}
+
 void main() {
   late Directory dir;
   late Engine engine;
@@ -237,6 +255,103 @@ void main() {
     expect(find.text('记忆条目 0'), findsOneWidget);
   });
 
+  testWidgets('Agent 体系页按 Agent 分组部署、按归属过滤技能并保存记忆设置', (tester) async {
+    _writeMarkdownSkill(
+      dir,
+      id: 'script_style_skill',
+      description: '剧本决策技能',
+      body: '剧本决策规则',
+    );
+    _writeMarkdownSkill(
+      dir,
+      id: 'production_style_skill',
+      description: '制作执行技能',
+      body: '制作执行规则',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: p.join(dir.path, 'skills', 'script_style_skill', 'SKILL.md'),
+      attribution: 'script_agent_decision',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath:
+          p.join(dir.path, 'skills', 'production_style_skill', 'SKILL.md'),
+      attribution: 'production_agent_execution',
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('部署'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('agent-deploy-group-scriptAgent')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('agent-deploy-group-productionAgent')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('agent-deploy-group-pipeline')),
+        findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('agent-deploy-group-scriptAgent')),
+        matching: find.text('剧本 Agent'),
+      ),
+      findsWidgets,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('agent-deploy-group-productionAgent')),
+        matching: find.text('制作 Agent'),
+      ),
+      findsWidgets,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('agent-deploy-group-pipeline')),
+        matching: find.text('流水线'),
+      ),
+      findsWidgets,
+    );
+
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+
+    await tester
+        .tap(find.byKey(const ValueKey('agent-skill-attribution-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('制作执行').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('production_style_skill'),
+      320,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('production_style_skill'), findsOneWidget);
+
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, 2000));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('agent-skill-attribution-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('剧本决策').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('script_style_skill'),
+      -320,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('script_style_skill'), findsOneWidget);
+    expect(find.text('production_style_skill'), findsNothing);
+
+    await tester.tap(find.text('记忆'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-rag-limit-field')),
+      '4',
+    );
+    await tester.tap(find.byKey(const ValueKey('agent-rag-limit-save')));
+    await tester.pumpAndSettle();
+    expect(engine.agentRagLimit(), 4);
+  });
+
   testWidgets('技能页可编辑技能描述并启停技能定义', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
@@ -286,6 +401,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('agent-skill-edit-generate_events')),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -140));
     await tester.pumpAndSettle();
     await tester
         .tap(find.byKey(const ValueKey('agent-skill-edit-generate_events')));
@@ -444,6 +566,14 @@ void main() {
     expect(find.text('剧本决策 Agent'), findsOneWidget);
     expect(find.textContaining('gpt-5.5'), findsWidgets);
 
+    await tester.scrollUntilVisible(
+      find.byKey(
+          const ValueKey('agent-deploy-model-scriptAgent:decisionAgent')),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -140));
+    await tester.pumpAndSettle();
     await tester.tap(find
         .byKey(const ValueKey('agent-deploy-model-scriptAgent:decisionAgent')));
     await tester.pumpAndSettle();

@@ -1985,11 +1985,44 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentDeploySaved => 'Agent デプロイを保存しました';
 
   @override
+  String get agentDeployGroupScriptAgent => 'シナリオ Agent';
+
+  @override
+  String get agentDeployGroupProductionAgent => '制作 Agent';
+
+  @override
+  String get agentDeployGroupPipeline => 'パイプライン';
+
+  @override
   String get agentSkillsBuiltinTitle => '組み込み技能';
 
   @override
   String get agentSkillsEditableHint =>
       '技能定義はローカルの o_skillList に保存されます。説明と有効状態を編集できます。ツール名は固定され、タスクセンターの記録を追跡・再試行できる状態に保ちます。';
+
+  @override
+  String get agentSkillAttributionFilter => '技能スコープ';
+
+  @override
+  String get agentSkillAttributionAll => 'すべての技能';
+
+  @override
+  String get agentSkillAttributionScriptDecision => 'シナリオ決定';
+
+  @override
+  String get agentSkillAttributionScriptExecution => 'シナリオ実行';
+
+  @override
+  String get agentSkillAttributionScriptSupervision => 'シナリオ監督';
+
+  @override
+  String get agentSkillAttributionProductionDecision => '制作決定';
+
+  @override
+  String get agentSkillAttributionProductionExecution => '制作実行';
+
+  @override
+  String get agentSkillAttributionProductionSupervision => '制作監督';
 
   @override
   String get agentSkillEditTitle => '技能を編集';

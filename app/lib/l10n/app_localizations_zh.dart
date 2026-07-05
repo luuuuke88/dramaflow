@@ -1973,11 +1973,44 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentDeploySaved => 'Agent 部署已保存';
 
   @override
+  String get agentDeployGroupScriptAgent => '剧本 Agent';
+
+  @override
+  String get agentDeployGroupProductionAgent => '制作 Agent';
+
+  @override
+  String get agentDeployGroupPipeline => '流水线';
+
+  @override
   String get agentSkillsBuiltinTitle => '内置技能';
 
   @override
   String get agentSkillsEditableHint =>
       '技能定义保存在本地 o_skillList，可编辑说明与启停状态；工具名保持固定，确保任务中心可追踪、可重试。';
+
+  @override
+  String get agentSkillAttributionFilter => '技能归属';
+
+  @override
+  String get agentSkillAttributionAll => '全部技能';
+
+  @override
+  String get agentSkillAttributionScriptDecision => '剧本决策';
+
+  @override
+  String get agentSkillAttributionScriptExecution => '剧本执行';
+
+  @override
+  String get agentSkillAttributionScriptSupervision => '剧本监督';
+
+  @override
+  String get agentSkillAttributionProductionDecision => '制作决策';
+
+  @override
+  String get agentSkillAttributionProductionExecution => '制作执行';
+
+  @override
+  String get agentSkillAttributionProductionSupervision => '制作监督';
 
   @override
   String get agentSkillEditTitle => '编辑技能';

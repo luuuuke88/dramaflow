@@ -328,11 +328,11 @@ Expected: production orchestration tests pass.
 - Modify: `app/lib/src/screens/agent/agent_chat_screen.dart`
 - Test: `app/test/widgets/agent_chat_screen_test.dart`
 
-- [ ] **Step 1: Write failing widget tests**
+- [x] **Step 1: Write failing widget tests**
 
 Assert the deployment pane groups rows under Script Agent, Production Agent, and Pipeline; assert memory settings fields save; assert skills can be filtered by attribution.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -343,11 +343,11 @@ flutter test test/widgets/agent_chat_screen_test.dart --plain-name "Agent 体系
 
 Expected: FAIL for the new grouped UI expectations.
 
-- [ ] **Step 3: Implement UI**
+- [x] **Step 3: Implement UI**
 
 Use `AgentDeployment.family` and `AgentDeployment.role` metadata from the registry. Keep compact mobile layout and existing save buttons.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run:
 
@@ -363,7 +363,7 @@ Expected: widget tests pass.
 **Files:**
 - All changed files
 
-- [ ] **Step 1: Run static analysis**
+- [x] **Step 1: Run static analysis**
 
 ```bash
 cd app
@@ -372,7 +372,7 @@ flutter analyze
 
 Expected: `No issues found!`
 
-- [ ] **Step 2: Run full test suite**
+- [x] **Step 2: Run full test suite**
 
 ```bash
 cd app
@@ -381,7 +381,7 @@ flutter test
 
 Expected: all tests pass.
 
-- [ ] **Step 3: Commit verified implementation**
+- [x] **Step 3: Commit verified implementation**
 
 Commit remaining task changes with conventional commit messages. Do not commit build outputs.
 

@@ -2040,11 +2040,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentDeploySaved => 'Agent deployment saved';
 
   @override
+  String get agentDeployGroupScriptAgent => 'Script Agent';
+
+  @override
+  String get agentDeployGroupProductionAgent => 'Production Agent';
+
+  @override
+  String get agentDeployGroupPipeline => 'Pipeline';
+
+  @override
   String get agentSkillsBuiltinTitle => 'Built-in skills';
 
   @override
   String get agentSkillsEditableHint =>
       'Skill definitions are stored locally in o_skillList. You can edit descriptions and enable or disable skills; tool names stay fixed so Task Center records remain traceable and retryable.';
+
+  @override
+  String get agentSkillAttributionFilter => 'Skill scope';
+
+  @override
+  String get agentSkillAttributionAll => 'All skills';
+
+  @override
+  String get agentSkillAttributionScriptDecision => 'Script decision';
+
+  @override
+  String get agentSkillAttributionScriptExecution => 'Script execution';
+
+  @override
+  String get agentSkillAttributionScriptSupervision => 'Script supervision';
+
+  @override
+  String get agentSkillAttributionProductionDecision => 'Production decision';
+
+  @override
+  String get agentSkillAttributionProductionExecution => 'Production execution';
+
+  @override
+  String get agentSkillAttributionProductionSupervision =>
+      'Production supervision';
 
   @override
   String get agentSkillEditTitle => 'Edit skill';

@@ -213,7 +213,6 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
             ]),
             _AgentDeployPane(autoMode: _autoMode, onChanged: _setAutoMode),
             _AgentSkillsPane(
-              skills: ref.watch(engineProvider).agentSkills(),
               onUpdated: () => setState(() {}),
             ),
             _AgentMemoryPane(
@@ -306,20 +305,90 @@ class _AgentDeployPaneState extends ConsumerState<_AgentDeployPane> {
               );
             }
             final options = snapshot.data ?? const <_AgentModelOption>[];
+            final scriptDeployments = deployments
+                .where((deployment) => deployment.family == 'scriptAgent')
+                .toList();
+            final productionDeployments = deployments
+                .where((deployment) => deployment.family == 'productionAgent')
+                .toList();
+            final pipelineDeployments = deployments
+                .where((deployment) => deployment.family == 'pipeline')
+                .toList();
             return Column(
               children: [
-                for (final deployment in deployments)
-                  _AgentDeployRow(
-                    key: ValueKey('agent-deploy-row-${deployment.key}'),
-                    deployment: deployment,
-                    options: options,
-                    onSaved: () => setState(() => _revision++),
-                  ),
+                _AgentDeployGroup(
+                  key: const ValueKey('agent-deploy-group-scriptAgent'),
+                  title: l10n.agentDeployGroupScriptAgent,
+                  deployments: scriptDeployments,
+                  options: options,
+                  onSaved: () => setState(() => _revision++),
+                ),
+                _AgentDeployGroup(
+                  key: const ValueKey('agent-deploy-group-productionAgent'),
+                  title: l10n.agentDeployGroupProductionAgent,
+                  deployments: productionDeployments,
+                  options: options,
+                  onSaved: () => setState(() => _revision++),
+                ),
+                _AgentDeployGroup(
+                  key: const ValueKey('agent-deploy-group-pipeline'),
+                  title: l10n.agentDeployGroupPipeline,
+                  deployments: pipelineDeployments,
+                  options: options,
+                  onSaved: () => setState(() => _revision++),
+                ),
               ],
             );
           },
         ),
       ],
+    );
+  }
+}
+
+class _AgentDeployGroup extends StatelessWidget {
+  final String title;
+  final List<AgentDeployment> deployments;
+  final List<_AgentModelOption> options;
+  final VoidCallback onSaved;
+
+  const _AgentDeployGroup({
+    super.key,
+    required this.title,
+    required this.deployments,
+    required this.options,
+    required this.onSaved,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    if (deployments.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: df.textPrimary,
+              ),
+            ),
+          ),
+          for (final deployment in deployments)
+            _AgentDeployRow(
+              key: ValueKey('agent-deploy-row-${deployment.key}'),
+              deployment: deployment,
+              options: options,
+              onSaved: onSaved,
+            ),
+        ],
+      ),
     );
   }
 }
@@ -523,10 +592,38 @@ class _AgentDeployRowState extends ConsumerState<_AgentDeployRow> {
   }
 }
 
-class _AgentSkillsPane extends ConsumerWidget {
-  final List<AgentSkill> skills;
+class _SkillAttributionOption {
+  final String? value;
+  final String label;
+  const _SkillAttributionOption(this.value, this.label);
+}
+
+class _AgentSkillsPane extends ConsumerStatefulWidget {
   final VoidCallback onUpdated;
-  const _AgentSkillsPane({required this.skills, required this.onUpdated});
+  const _AgentSkillsPane({required this.onUpdated});
+
+  @override
+  ConsumerState<_AgentSkillsPane> createState() => _AgentSkillsPaneState();
+}
+
+class _AgentSkillsPaneState extends ConsumerState<_AgentSkillsPane> {
+  String? _attribution;
+
+  List<_SkillAttributionOption> _options(AppLocalizations l10n) => [
+        _SkillAttributionOption(null, l10n.agentSkillAttributionAll),
+        _SkillAttributionOption(
+            'script_agent_decision', l10n.agentSkillAttributionScriptDecision),
+        _SkillAttributionOption('script_agent_execution',
+            l10n.agentSkillAttributionScriptExecution),
+        _SkillAttributionOption('script_agent_supervision',
+            l10n.agentSkillAttributionScriptSupervision),
+        _SkillAttributionOption('production_agent_decision',
+            l10n.agentSkillAttributionProductionDecision),
+        _SkillAttributionOption('production_agent_execution',
+            l10n.agentSkillAttributionProductionExecution),
+        _SkillAttributionOption('production_agent_supervision',
+            l10n.agentSkillAttributionProductionSupervision),
+      ];
 
   Future<void> _editSkill(
       BuildContext context, WidgetRef ref, AgentSkill skill) {
@@ -545,7 +642,8 @@ class _AgentSkillsPane extends ConsumerWidget {
                 description: description,
                 enabled: enabled,
               );
-          onUpdated();
+          widget.onUpdated();
+          setState(() {});
         },
       ),
     );
@@ -578,16 +676,21 @@ class _AgentSkillsPane extends ConsumerWidget {
               schema: draft.schema,
               enabled: draft.enabled,
             );
-        onUpdated();
+        widget.onUpdated();
+        setState(() {});
       },
       successMessage: l10n.agentCustomSkillSaved,
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
+    final options = _options(l10n);
+    final skills = _attribution == null
+        ? ref.watch(engineProvider).agentSkills()
+        : ref.watch(engineProvider).agentSkills(attribution: _attribution);
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: skills.length + 1,
@@ -615,6 +718,24 @@ class _AgentSkillsPane extends ConsumerWidget {
               const SizedBox(height: 6),
               Text(l10n.agentSkillsEditableHint,
                   style: TextStyle(fontSize: 12, color: df.textSecondary)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String?>(
+                key: const ValueKey('agent-skill-attribution-filter'),
+                initialValue: _attribution,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: l10n.agentSkillAttributionFilter,
+                  isDense: true,
+                ),
+                items: [
+                  for (final option in options)
+                    DropdownMenuItem<String?>(
+                      value: option.value,
+                      child: Text(option.label),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _attribution = value),
+              ),
             ],
           );
         }

@@ -3898,6 +3898,24 @@ abstract class AppLocalizations {
   /// **'Agent 部署已保存'**
   String get agentDeploySaved;
 
+  /// No description provided for @agentDeployGroupScriptAgent.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本 Agent'**
+  String get agentDeployGroupScriptAgent;
+
+  /// No description provided for @agentDeployGroupProductionAgent.
+  ///
+  /// In zh, this message translates to:
+  /// **'制作 Agent'**
+  String get agentDeployGroupProductionAgent;
+
+  /// No description provided for @agentDeployGroupPipeline.
+  ///
+  /// In zh, this message translates to:
+  /// **'流水线'**
+  String get agentDeployGroupPipeline;
+
   /// No description provided for @agentSkillsBuiltinTitle.
   ///
   /// In zh, this message translates to:
@@ -3909,6 +3927,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'技能定义保存在本地 o_skillList，可编辑说明与启停状态；工具名保持固定，确保任务中心可追踪、可重试。'**
   String get agentSkillsEditableHint;
+
+  /// No description provided for @agentSkillAttributionFilter.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能归属'**
+  String get agentSkillAttributionFilter;
+
+  /// No description provided for @agentSkillAttributionAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部技能'**
+  String get agentSkillAttributionAll;
+
+  /// No description provided for @agentSkillAttributionScriptDecision.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本决策'**
+  String get agentSkillAttributionScriptDecision;
+
+  /// No description provided for @agentSkillAttributionScriptExecution.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本执行'**
+  String get agentSkillAttributionScriptExecution;
+
+  /// No description provided for @agentSkillAttributionScriptSupervision.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本监督'**
+  String get agentSkillAttributionScriptSupervision;
+
+  /// No description provided for @agentSkillAttributionProductionDecision.
+  ///
+  /// In zh, this message translates to:
+  /// **'制作决策'**
+  String get agentSkillAttributionProductionDecision;
+
+  /// No description provided for @agentSkillAttributionProductionExecution.
+  ///
+  /// In zh, this message translates to:
+  /// **'制作执行'**
+  String get agentSkillAttributionProductionExecution;
+
+  /// No description provided for @agentSkillAttributionProductionSupervision.
+  ///
+  /// In zh, this message translates to:
+  /// **'制作监督'**
+  String get agentSkillAttributionProductionSupervision;
 
   /// No description provided for @agentSkillEditTitle.
   ///
