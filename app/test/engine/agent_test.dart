@@ -1290,6 +1290,72 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 reduce 汇总分镜时长和资产名称', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_reduce_runtime',
+      name: '归并脚本运行时',
+      description: '验证自定义技能兼容模型常写的 reduce 汇总逻辑。',
+      script: r'''
+const totalDuration = args.shots
+  .reduce((sum, shot) => sum + shot.duration, 0);
+const names = args.assets
+  .reduce((list, asset) => [...list, asset.name.trim()], [])
+  .join('、');
+return JSON.stringify({
+  totalDuration: totalDuration,
+  names: names,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_reduce_runtime', const {
+        'shots': [
+          {'duration': 2},
+          {'duration': 3},
+          {'duration': 4},
+        ],
+        'assets': [
+          {'name': ' 李澈 '},
+          {'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用归并脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_reduce_runtime');
+    expect(jsonDecode(msg.content), {
+      'totalDuration': 9,
+      'names': '李澈、沈微',
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(

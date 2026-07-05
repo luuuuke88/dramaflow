@@ -660,6 +660,21 @@ class _CustomAgentSkillRuntime {
           index++;
         }
         return true;
+      case 'reduce':
+        if (args.length != 2 || value is! Iterable) _badMethodArgs(method);
+        Object? accumulator = _evaluate(args[1]);
+        var index = 0;
+        for (final item in value) {
+          accumulator = _evaluateReduceCallback(
+            method,
+            args.first,
+            accumulator,
+            item,
+            index,
+          );
+          index++;
+        }
+        return accumulator;
       case 'sort':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         final sorted = value.toList();
@@ -706,6 +721,28 @@ class _CustomAgentSkillRuntime {
       {
         params[0]: item,
         if (params.length > 1) params[1]: index,
+      },
+      () => _evaluate(body),
+    );
+  }
+
+  Object? _evaluateReduceCallback(
+    String method,
+    String callback,
+    Object? accumulator,
+    Object? item,
+    int index,
+  ) {
+    final arrow = _findTopLevelArrow(callback);
+    if (arrow < 0) _badMethodArgs(method);
+    final params = _parseCallbackParams(callback.substring(0, arrow), method);
+    if (params.length != 2) _badMethodArgs(method);
+    final body = callback.substring(arrow + 2).trim();
+    return _withScopeBindings(
+      {
+        params[0]: accumulator,
+        params[1]: item,
+        'index': index,
       },
       () => _evaluate(body),
     );
