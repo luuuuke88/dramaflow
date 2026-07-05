@@ -1570,14 +1570,17 @@ return `参考图：${refs}`;
         containsAll(['activate_skill', 'read_skill_file']));
     final readSkillTool =
         gateway.lastTools.singleWhere((tool) => tool.name == 'read_skill_file');
-    expect(readSkillTool.schema['required'], ['path']);
+    final readSkillProperties =
+        Map<String, dynamic>.from(readSkillTool.schema['properties'] as Map);
+    expect(readSkillTool.schema['required'], ['filePath']);
+    expect(readSkillProperties, contains('filePath'));
     var msg = engine.agentMessages(projectId).last;
     expect(msg.toolName, 'activate_skill');
     expect(msg.content, contains('技能正文：短剧台词要短'));
 
     gateway.turns = [
       AgentTurnResult.tool('read_skill_file', const {
-        'path': 'references/rules.md',
+        'filePath': 'references/rules.md',
       }),
     ];
     await engine.sendAgentMessage(projectId, '读取技能规则', autoMode: false);
@@ -1588,6 +1591,28 @@ return `参考图：${refs}`;
     expect(msg.content, contains('规则：每句台词不超过二十字。'));
     expect(msg.content, contains('可以使用 read_skill_file 工具读取资源文件。'));
     expect(msg.content, endsWith('</skill_content>'));
+  });
+
+  test('SkillRuntime read_skill_file reports missing filePath parameter',
+      () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '技能正文。',
+    );
+    engine.saveMarkdownAgentSkill(filePath: skillFile.path);
+
+    gateway.turns = [
+      AgentTurnResult.tool('activate_skill', const {'name': 'style_polisher'}),
+      AgentTurnResult.tool('read_skill_file', const {}),
+    ];
+    await engine.sendAgentMessage(projectId, '激活后误读资源', autoMode: true);
+
+    final msg = engine
+        .agentMessages(projectId)
+        .lastWhere((message) => message.toolName == 'read_skill_file');
+    expect(msg.toolName, 'read_skill_file');
+    expect(msg.content, '缺少 filePath 参数。');
   });
 
   test('SkillRuntime activate_skill schema lists stage-visible Markdown skills',

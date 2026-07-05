@@ -174,14 +174,21 @@ final _tools = <AgentToolDef>[
   const AgentToolDef(
     name: 'read_skill_file',
     description: '读取已安装 Markdown 技能目录内的补充文件。只能读取该技能目录下的相对路径。'
-        '如果当前只激活了一个技能，可只传 path；激活多个技能时请同时传 name。',
+        '如果当前只激活了一个技能，可只传 filePath；激活多个技能时请同时传 name。',
     schema: {
       'type': 'object',
       'properties': {
         'name': {'type': 'string'},
-        'path': {'type': 'string'},
+        'filePath': {
+          'type': 'string',
+          'description': '资源文件的相对路径，来自 activate_skill 返回的 skill_resources',
+        },
+        'path': {
+          'type': 'string',
+          'description': '兼容旧调用的 filePath 别名。',
+        },
       },
-      'required': ['path'],
+      'required': ['filePath'],
     },
   ),
   const AgentToolDef(
@@ -3072,7 +3079,7 @@ extension AgentApi on Engine {
               return '已激活多个技能，请传入 name 参数。';
             }
           }
-          if (filePath.isEmpty) return '缺少 path 参数。';
+          if (filePath.isEmpty) return '缺少 filePath 参数。';
           return _formatReadAgentSkillFile(
             readAgentSkillFile(skillName, filePath),
           );
