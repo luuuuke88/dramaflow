@@ -354,6 +354,13 @@ class _CustomAgentSkillRuntime {
     final doubleValue = double.tryParse(expr);
     if (doubleValue != null) return doubleValue;
 
+    final ternary = _readTopLevelTernary(expr);
+    if (ternary != null) {
+      return _evaluate(_isTruthy(_evaluate(ternary.condition))
+          ? ternary.whenTrue
+          : ternary.whenFalse);
+    }
+
     final orParts = _splitTopLevelOperator(expr, '||');
     if (orParts.length > 1) {
       for (final part in orParts) {
@@ -686,6 +693,18 @@ class _ComparisonToken {
   });
 }
 
+class _TernaryToken {
+  final String condition;
+  final String whenTrue;
+  final String whenFalse;
+
+  const _TernaryToken({
+    required this.condition,
+    required this.whenTrue,
+    required this.whenFalse,
+  });
+}
+
 List<String> _splitStatements(String script) {
   final statements = <String>[];
   final buffer = StringBuffer();
@@ -870,6 +889,63 @@ _ComparisonToken? _readTopLevelComparison(String source) {
         left: source.substring(0, i),
         right: source.substring(i + operator.length),
         operator: operator,
+      );
+    }
+  }
+  return null;
+}
+
+_TernaryToken? _readTopLevelTernary(String source) {
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+  var question = -1;
+  var nested = 0;
+
+  for (var i = 0; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (paren != 0 || bracket != 0 || brace != 0) continue;
+    if (char == '?') {
+      if (question < 0) {
+        question = i;
+      } else {
+        nested++;
+      }
+      continue;
+    }
+    if (char == ':' && question >= 0) {
+      if (nested > 0) {
+        nested--;
+        continue;
+      }
+      return _TernaryToken(
+        condition: source.substring(0, question).trim(),
+        whenTrue: source.substring(question + 1, i).trim(),
+        whenFalse: source.substring(i + 1).trim(),
       );
     }
   }

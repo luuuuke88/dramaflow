@@ -824,6 +824,52 @@ return `可用资产：${names}`;
     expect(msg.content, '可用资产：李澈、寒山宗门');
   });
 
+  test('自定义脚本技能：支持三元表达式映射资产标签', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_ternary_runtime',
+      name: '三元脚本运行时',
+      description: '验证自定义技能可以用三元表达式处理缺省字段和标签。',
+      script: r'''
+const labels = args.assets
+  .map(asset => `${asset.name.trim()}(${asset.type === 'role' ? '角色' : asset.type === 'scene' ? '场景' : '其他'})`)
+  .join('、');
+return `资产标签：${labels}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_ternary_runtime', const {
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 '},
+          {'type': 'scene', 'name': '寒山宗门'},
+          {'type': 'tool', 'name': '灵剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用三元脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_ternary_runtime');
+    expect(msg.content, '资产标签：李澈(角色)、寒山宗门(场景)、灵剑(其他)');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
