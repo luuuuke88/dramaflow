@@ -452,6 +452,30 @@ class _CustomAgentSkillRuntime {
       return result;
     }
 
+    final multiplicative = _readTopLevelMultiplicative(expr);
+    if (multiplicative != null) {
+      final values = [
+        for (final part in multiplicative.parts) _evaluate(part),
+      ];
+      if (values.any((value) => value is! num)) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_arithmetic',
+          'expression': expr,
+        });
+      }
+      var result = values.first as num;
+      for (var i = 0; i < multiplicative.operators.length; i++) {
+        final value = values[i + 1] as num;
+        result = switch (multiplicative.operators[i]) {
+          '*' => result * value,
+          '/' => result / value,
+          '%' => result % value,
+          _ => result,
+        };
+      }
+      return result;
+    }
+
     return _evaluateChain(expr);
   }
 
@@ -989,6 +1013,16 @@ class _AdditiveToken {
   });
 }
 
+class _MultiplicativeToken {
+  final List<String> parts;
+  final List<String> operators;
+
+  const _MultiplicativeToken({
+    required this.parts,
+    required this.operators,
+  });
+}
+
 class _TernaryToken {
   final String condition;
   final String whenTrue;
@@ -1156,6 +1190,66 @@ bool _isUnaryAdditive(String source, int index) {
   }
   if (previous < 0) return true;
   return '([{?:,+-*/!<>=&|'.contains(source[previous]);
+}
+
+_MultiplicativeToken? _readTopLevelMultiplicative(String source) {
+  final parts = <String>[];
+  final operators = <String>[];
+  final buffer = StringBuffer();
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      buffer.write(char);
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      buffer.write(char);
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      buffer.write(char);
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      buffer.write(char);
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if ((char == '*' || char == '/' || char == '%') &&
+        paren == 0 &&
+        bracket == 0 &&
+        brace == 0 &&
+        !_isAdjacentSameOperator(source, i, char)) {
+      parts.add(buffer.toString());
+      operators.add(char);
+      buffer.clear();
+      continue;
+    }
+    buffer.write(char);
+  }
+  if (operators.isEmpty) return null;
+  parts.add(buffer.toString());
+  return _MultiplicativeToken(parts: parts, operators: operators);
+}
+
+bool _isAdjacentSameOperator(String source, int index, String operator) {
+  return (index > 0 && source[index - 1] == operator) ||
+      (index + 1 < source.length && source[index + 1] == operator);
 }
 
 List<String> _splitTopLevelOperator(String source, String operator) {

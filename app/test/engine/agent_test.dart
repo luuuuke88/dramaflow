@@ -784,6 +784,68 @@ return `长镜头：${shots}`;
     expect(msg.content, '长镜头：李澈救人、沈微回望');
   });
 
+  test('自定义脚本技能：支持乘除取模计算镜头时长', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_multiplicative_runtime',
+      name: '乘除取模脚本运行时',
+      description: '验证自定义技能兼容模型常写的秒转毫秒、平均时长和节奏点计算。',
+      script: r'''
+const totalMs = args.shots
+  .reduce((sum, shot) => sum + shot.duration * 1000, 0);
+const average = totalMs / args.shots.length;
+const evenShots = args.shots
+  .filter((shot, index) => index % 2 === 0)
+  .map(shot => shot.name.trim())
+  .join('、');
+return JSON.stringify({
+  totalMs: totalMs,
+  average: average,
+  evenShots: evenShots,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_multiplicative_runtime', const {
+        'shots': [
+          {'name': ' 开场 ', 'duration': 1.5},
+          {'name': '追击', 'duration': 2},
+          {'name': ' 回望 ', 'duration': 2.5},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用乘除取模脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_multiplicative_runtime');
+    expect(jsonDecode(msg.content), {
+      'totalMs': 6000,
+      'average': 2000,
+      'evenShots': '开场、回望',
+    });
+  });
+
   test('自定义脚本技能：支持括号分组逻辑表达式', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_group_runtime',
