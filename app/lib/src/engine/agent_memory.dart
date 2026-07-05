@@ -19,6 +19,7 @@ class AgentMemoryEntry {
   final String role;
   final String type;
   final List<String> relatedMessageIds;
+  final List<String> sourceSummaryIds;
 
   const AgentMemoryEntry({
     required this.id,
@@ -29,6 +30,7 @@ class AgentMemoryEntry {
     required this.role,
     required this.type,
     this.relatedMessageIds = const [],
+    this.sourceSummaryIds = const [],
   });
 
   factory AgentMemoryEntry.fromRow(Map<String, Object?> row) =>
@@ -41,6 +43,22 @@ class AgentMemoryEntry {
         role: row['role'] as String? ?? '',
         type: row['type'] as String? ?? '',
         relatedMessageIds: _decodeStringList(row['relatedMessageIds']),
+      );
+
+  AgentMemoryEntry copyWith({
+    String? embedding,
+    List<String>? sourceSummaryIds,
+  }) =>
+      AgentMemoryEntry(
+        id: id,
+        name: name,
+        content: content,
+        createdAt: createdAt,
+        embedding: embedding ?? this.embedding,
+        role: role,
+        type: type,
+        relatedMessageIds: relatedMessageIds,
+        sourceSummaryIds: sourceSummaryIds ?? this.sourceSummaryIds,
       );
 }
 
@@ -210,9 +228,11 @@ class AgentMemoryService {
     final summaries = selectedSummaries ?? localCandidates;
 
     final ids = <String>[];
+    final sourceSummaryIdsByMessageId = <String, List<String>>{};
     for (final summary in summaries) {
       for (final id in summary.relatedMessageIds) {
         if (!ids.contains(id)) ids.add(id);
+        (sourceSummaryIdsByMessageId[id] ??= <String>[]).add(summary.id);
       }
     }
     if (ids.isEmpty) {
@@ -258,7 +278,13 @@ class AgentMemoryService {
       'ORDER BY createTime ASC, id ASC',
       [isolationKey, agentMemoryTypeMessage, ...ids],
     );
-    final expanded = [for (final row in rows) AgentMemoryEntry.fromRow(row)];
+    final expanded = [
+      for (final row in rows)
+        AgentMemoryEntry.fromRow(row).copyWith(
+          sourceSummaryIds:
+              sourceSummaryIdsByMessageId[row['id'] as String] ?? const [],
+        ),
+    ];
     if (expanded.isEmpty && summaries.isNotEmpty) return summaries;
     return expanded;
   }
@@ -331,16 +357,7 @@ class AgentMemoryService {
           'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
           [embedding, entry.id, isolationKey],
         );
-        entry = AgentMemoryEntry(
-          id: entry.id,
-          name: entry.name,
-          content: entry.content,
-          createdAt: entry.createdAt,
-          embedding: embedding,
-          role: entry.role,
-          type: entry.type,
-          relatedMessageIds: entry.relatedMessageIds,
-        );
+        entry = entry.copyWith(embedding: embedding);
       }
       final score = memoryScore(entry.name, entry.content, normalized, tokens,
           queryEmbedding, entry.embedding);
@@ -375,16 +392,7 @@ class AgentMemoryService {
           'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
           [embedding, entry.id, isolationKey],
         );
-        entry = AgentMemoryEntry(
-          id: entry.id,
-          name: entry.name,
-          content: entry.content,
-          createdAt: entry.createdAt,
-          embedding: embedding,
-          role: entry.role,
-          type: entry.type,
-          relatedMessageIds: entry.relatedMessageIds,
-        );
+        entry = entry.copyWith(embedding: embedding);
       }
       final score = memoryScore(entry.name, entry.content, normalized, tokens,
           queryEmbedding, entry.embedding);

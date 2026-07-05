@@ -4206,6 +4206,7 @@ description: >-
       'id': 'trace_msg_user',
       'type': agentMemoryTypeMessage,
       'role': agentRoleUser,
+      'sourceSummaryIds': ['trace_summary_lizhe'],
       'content': '用户强调寒山少主李澈必须保持正派。',
     });
   });

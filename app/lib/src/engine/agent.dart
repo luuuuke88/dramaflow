@@ -4861,6 +4861,8 @@ extension AgentApi on Engine {
                   'id': record.id,
                   'type': record.type,
                   'role': record.role,
+                  if (record.sourceSummaryIds.isNotEmpty)
+                    'sourceSummaryIds': record.sourceSummaryIds,
                   'content': record.content,
                 },
             ],
