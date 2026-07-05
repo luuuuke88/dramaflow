@@ -338,6 +338,8 @@ class _CustomAgentSkillRuntime {
   Object? _evaluate(String expression) {
     final expr = _trimTrailingSemicolon(expression.trim());
     if (expr.isEmpty) return '';
+    final grouped = _unwrapOuterParens(expr);
+    if (grouped != null) return _evaluate(grouped);
     final jsonStringify = _jsonStringifyInner(expr);
     if (jsonStringify != null) return jsonEncode(_evaluate(jsonStringify));
     if (expr.startsWith('`') && expr.endsWith('`') && expr.length >= 2) {
@@ -978,6 +980,17 @@ String _trimTrailingSemicolon(String source) {
     text = text.substring(0, text.length - 1).trim();
   }
   return text;
+}
+
+String? _unwrapOuterParens(String expr) {
+  if (!expr.startsWith('(')) return null;
+  try {
+    final balanced = _readBalanced(expr, 0, '(', ')');
+    if (balanced.end != expr.length) return null;
+    return balanced.text.trim();
+  } catch (_) {
+    return null;
+  }
 }
 
 bool _isQuoted(String expr) =>

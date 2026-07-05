@@ -775,6 +775,55 @@ return `长镜头：${shots}`;
     expect(msg.content, '长镜头：李澈救人、沈微回望');
   });
 
+  test('自定义脚本技能：支持括号分组逻辑表达式', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_group_runtime',
+      name: '分组脚本运行时',
+      description: '验证自定义技能可以用括号组合复杂筛选条件。',
+      script: r'''
+const names = args.assets
+  .filter(asset => (asset.type === 'role' || asset.type === 'scene') && asset.enabled !== false)
+  .map(asset => asset.name.trim())
+  .join('、');
+return `可用资产：${names}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+                'enabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_group_runtime', const {
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 ', 'enabled': true},
+          {'type': 'scene', 'name': '寒山宗门', 'enabled': true},
+          {'type': 'tool', 'name': '灵剑', 'enabled': true},
+          {'type': 'role', 'name': '弃用角色', 'enabled': false},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用分组脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_group_runtime');
+    expect(msg.content, '可用资产：李澈、寒山宗门');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
