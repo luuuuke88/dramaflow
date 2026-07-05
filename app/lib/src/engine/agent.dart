@@ -368,18 +368,22 @@ class _CustomAgentSkillRuntime {
 
     final orParts = _splitTopLevelOperator(expr, '||');
     if (orParts.length > 1) {
+      Object? last;
       for (final part in orParts) {
-        if (_isTruthy(_evaluate(part))) return true;
+        last = _evaluate(part);
+        if (_isTruthy(last)) return last;
       }
-      return false;
+      return last;
     }
 
     final andParts = _splitTopLevelOperator(expr, '&&');
     if (andParts.length > 1) {
+      Object? last;
       for (final part in andParts) {
-        if (!_isTruthy(_evaluate(part))) return false;
+        last = _evaluate(part);
+        if (!_isTruthy(last)) return last;
       }
-      return true;
+      return last;
     }
 
     final comparison = _readTopLevelComparison(expr);

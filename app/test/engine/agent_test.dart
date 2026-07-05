@@ -938,6 +938,63 @@ return JSON.stringify({
     ]);
   });
 
+  test('自定义脚本技能：短路表达式返回 JS 风格操作数', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_short_circuit_runtime',
+      name: '短路脚本运行时',
+      description: '验证自定义技能兼容模型常写的 args.assets || [] fallback。',
+      script: r'''
+const assets = args.assets || [];
+const mode = args.mode && args.mode.trim();
+const names = assets
+  .map(asset => asset.name || '未命名')
+  .join('、');
+return JSON.stringify({
+  mode: mode,
+  names: names,
+  missing: args.missing || '默认值',
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'mode': {'type': 'string'},
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_short_circuit_runtime', const {
+        'mode': ' 短剧 ',
+        'assets': [
+          {'name': '李澈'},
+          <String, Object?>{},
+          {'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用短路脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_short_circuit_runtime');
+    expect(jsonDecode(msg.content), {
+      'mode': '短剧',
+      'names': '李澈、未命名、沈微',
+      'missing': '默认值',
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
