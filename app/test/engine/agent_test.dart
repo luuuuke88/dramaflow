@@ -2607,6 +2607,61 @@ return JSON.stringify(shots);
     );
   });
 
+  test('自定义脚本技能：支持 indexOf substring 和字符串 slice 解析工作区', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_string_index_runtime',
+      name: '字符串索引脚本运行时',
+      description: '验证自定义技能兼容模型常写的 indexOf/substring/slice 工作区解析。',
+      script: r'''
+const start = args.workspace.indexOf('<storyboardItem');
+const close = args.workspace.indexOf('</storyboardItem>', start);
+const block = args.workspace.substring(start, close);
+const descStart = block.indexOf('videoDesc="') + 'videoDesc="'.length;
+const descEnd = block.indexOf('"', descStart);
+const desc = block.substring(descStart, descEnd).trim();
+const prefix = args.workspace.slice(0, start).trim();
+const lastClose = args.workspace.trim().slice(-17);
+return JSON.stringify({
+  found: start >= 0,
+  desc,
+  prefixEndsWithPlan: prefix.endsWith('</scriptPlan>'),
+  lastClose,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_string_index_runtime', const {
+        'workspace': '''
+<scriptPlan>寒山宗门外，雪夜开场。</scriptPlan>
+<storyboardItem videoDesc=" 雪夜山门 " duration="3秒"></storyboardItem>
+<storyboardItem videoDesc="李澈拔剑" duration="2秒"></storyboardItem>
+''',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用字符串索引脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_string_index_runtime');
+    expect(
+      msg.content,
+      '{"found":true,"desc":"雪夜山门",'
+      '"prefixEndsWithPlan":true,"lastClose":"</storyboardItem>"}',
+    );
+  });
+
   test('自定义脚本技能：支持 JSON.parse 读取工作区数据', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_json_parse_runtime',

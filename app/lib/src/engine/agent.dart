@@ -795,6 +795,14 @@ class _CustomAgentSkillRuntime {
     if (expr.startsWith('`') && expr.endsWith('`') && expr.length >= 2) {
       return _evaluateTemplate(expr.substring(1, expr.length - 1));
     }
+    final quotedLiteral = _readQuotedLiteral(expr, 0);
+    if (quotedLiteral != null && quotedLiteral.end < expr.length) {
+      return _evaluateValueChain(
+        _unquote(quotedLiteral.text),
+        expr,
+        quotedLiteral.end,
+      );
+    }
     if (_isQuoted(expr)) return _unquote(expr);
     final regexLiteral = _readRegexLiteral(expr, 0);
     if (regexLiteral != null && regexLiteral.end == expr.length) {
@@ -1165,6 +1173,30 @@ class _CustomAgentSkillRuntime {
         final matcher = _evaluate(args.first);
         final to = _stringifyInterpolation(_evaluate(args[1]));
         return _replaceString(text, matcher, to);
+      case 'indexOf':
+        if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        final text = '${value ?? ''}';
+        final needle = _stringifyInterpolation(_evaluate(args.first));
+        final start = args.length == 2
+            ? _normalizeSearchStart(_toInt(_evaluate(args[1])), text.length)
+            : 0;
+        return text.indexOf(needle, start);
+      case 'substring':
+        if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        final text = '${value ?? ''}';
+        var start = _normalizeSubstringIndex(
+          _toInt(_evaluate(args.first)),
+          text.length,
+        );
+        var end = args.length == 2
+            ? _normalizeSubstringIndex(_toInt(_evaluate(args[1])), text.length)
+            : text.length;
+        if (start > end) {
+          final swapped = start;
+          start = end;
+          end = swapped;
+        }
+        return text.substring(start, end);
       case 'startsWith':
         if (args.length != 1) _badMethodArgs(method);
         return '${value ?? ''}'.startsWith(
@@ -1298,7 +1330,18 @@ class _CustomAgentSkillRuntime {
         );
         return sorted;
       case 'slice':
-        if (value is! Iterable || args.length > 2) _badMethodArgs(method);
+        if (args.length > 2) _badMethodArgs(method);
+        if (value is String) {
+          final start = args.isEmpty ? 0 : _toInt(_evaluate(args.first));
+          final rawEnd =
+              args.length < 2 ? value.length : _toInt(_evaluate(args[1]));
+          final normalizedStart = _normalizeSliceIndex(start, value.length);
+          final normalizedEnd = _normalizeSliceIndex(rawEnd, value.length);
+          final end =
+              normalizedEnd < normalizedStart ? normalizedStart : normalizedEnd;
+          return value.substring(normalizedStart, end);
+        }
+        if (value is! Iterable) _badMethodArgs(method);
         final items = value.toList();
         final start = args.isEmpty ? 0 : _toInt(_evaluate(args.first));
         final rawEnd =
@@ -1662,6 +1705,15 @@ class _CustomAgentSkillRuntime {
   int _normalizeSliceIndex(int value, int length) {
     final index = value < 0 ? length + value : value;
     return index.clamp(0, length).toInt();
+  }
+
+  int _normalizeSearchStart(int value, int length) {
+    return value.clamp(0, length).toInt();
+  }
+
+  int _normalizeSubstringIndex(int value, int length) {
+    if (value < 0) return 0;
+    return value.clamp(0, length).toInt();
   }
 
   int _toInt(Object? value) {
@@ -2896,6 +2948,28 @@ bool _isQuoted(String expr) =>
     expr.length >= 2 &&
     ((expr.startsWith("'") && expr.endsWith("'")) ||
         (expr.startsWith('"') && expr.endsWith('"')));
+
+_Token? _readQuotedLiteral(String source, int start) {
+  if (start >= source.length) return null;
+  final quote = source[start];
+  if (quote != "'" && quote != '"') return null;
+  var escaped = false;
+  for (var i = start + 1; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (char == quote) {
+      return _Token(source.substring(start, i + 1), i + 1);
+    }
+  }
+  return null;
+}
 
 _RegexLiteralToken? _readRegexLiteral(
   String source,
