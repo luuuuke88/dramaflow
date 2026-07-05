@@ -2310,6 +2310,58 @@ return JSON.stringify({
     );
   });
 
+  test('自定义脚本技能：支持正则 match 提取分镜工作区 XML', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regex_match_runtime',
+      name: '正则解析脚本运行时',
+      description: '验证自定义技能兼容模型常写的 /.../g 和 match 捕获组解析。',
+      script: r'''
+const blocks = args.workspace.match(/<storyboardItem\b[^>]*>/g) ?? [];
+const shots = blocks.map((block, index) => {
+  const desc = block.match(/videoDesc="([^"]+)"/);
+  const duration = block.match(/duration="([^"]+)"/);
+  return {
+    index: index + 1,
+    videoDesc: desc[1].trim(),
+    duration: parseFloat(duration[1]),
+  };
+});
+return JSON.stringify(shots);
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_regex_match_runtime', const {
+        'workspace': '''
+<scriptPlan>寒山宗门外，雪夜开场。</scriptPlan>
+<storyboardItem videoDesc=" 雪夜山门 " duration="3秒" track="首帧"></storyboardItem>
+<storyboardItem videoDesc="李澈拔剑" duration="2.5s" track="视频参考"></storyboardItem>
+''',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用正则解析脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regex_match_runtime');
+    expect(
+      msg.content,
+      '[{"index":1,"videoDesc":"雪夜山门","duration":3},'
+      '{"index":2,"videoDesc":"李澈拔剑","duration":2.5}]',
+    );
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',

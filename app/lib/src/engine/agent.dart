@@ -655,6 +655,18 @@ class _CustomAgentSkillRuntime {
       return _evaluateTemplate(expr.substring(1, expr.length - 1));
     }
     if (_isQuoted(expr)) return _unquote(expr);
+    final regexLiteral = _readRegexLiteral(expr, 0);
+    if (regexLiteral != null && regexLiteral.end == expr.length) {
+      return _CustomJsRegExp(
+        RegExp(
+          regexLiteral.pattern,
+          caseSensitive: !regexLiteral.flags.contains('i'),
+          multiLine: regexLiteral.flags.contains('m'),
+          dotAll: regexLiteral.flags.contains('s'),
+        ),
+        global: regexLiteral.flags.contains('g'),
+      );
+    }
     final arrayLiteral = _literalInner(expr, '[', ']');
     if (arrayLiteral != null) return _evaluateArrayLiteral(arrayLiteral);
     final objectLiteral = _literalInner(expr, '{', '}');
@@ -981,6 +993,9 @@ class _CustomAgentSkillRuntime {
       case 'includes':
         if (args.length != 1) _badMethodArgs(method);
         return '${value ?? ''}'.contains('${_evaluate(args.single) ?? ''}');
+      case 'match':
+        if (args.length != 1) _badMethodArgs(method);
+        return _matchString('${value ?? ''}', _evaluate(args.single));
       case 'push':
         if (value is! List) _badMethodArgs(method);
         value.addAll([for (final arg in args) _evaluate(arg)]);
@@ -1098,6 +1113,23 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  Object? _matchString(String text, Object? matcher) {
+    if (matcher is _CustomJsRegExp) {
+      final matches = matcher.regExp.allMatches(text).toList();
+      if (matches.isEmpty) return null;
+      if (matcher.global) {
+        return [for (final match in matches) match.group(0) ?? ''];
+      }
+      final match = matches.first;
+      return [
+        for (var i = 0; i <= match.groupCount; i++) match.group(i),
+      ];
+    }
+    final needle = _stringifyInterpolation(matcher);
+    if (needle.isEmpty) return [''];
+    return text.contains(needle) ? [needle] : null;
   }
 
   Object? _callFunction(Object? value, String name, List<String> args) {
@@ -1671,6 +1703,13 @@ class _CustomJsBuiltin {
   const _CustomJsBuiltin(this.name);
 }
 
+class _CustomJsRegExp {
+  final RegExp regExp;
+  final bool global;
+
+  const _CustomJsRegExp(this.regExp, {required this.global});
+}
+
 abstract class _CustomJsStatementResult {
   const _CustomJsStatementResult();
 }
@@ -1788,6 +1827,18 @@ class _TernaryToken {
   });
 }
 
+class _RegexLiteralToken {
+  final String pattern;
+  final String flags;
+  final int end;
+
+  const _RegexLiteralToken({
+    required this.pattern,
+    required this.flags,
+    required this.end,
+  });
+}
+
 List<String> _splitStatements(String script) {
   final statements = <String>[];
   final buffer = StringBuffer();
@@ -1810,6 +1861,16 @@ List<String> _splitStatements(String script) {
     }
     if (quote.isNotEmpty) {
       if (char == quote) quote = '';
+      continue;
+    }
+    final regexLiteral = _readRegexLiteral(
+      script,
+      i,
+      requireStartContext: true,
+    );
+    if (regexLiteral != null) {
+      buffer.write(script.substring(i + 1, regexLiteral.end));
+      i = regexLiteral.end - 1;
       continue;
     }
     if (char == '"' || char == "'" || char == '`') {
@@ -1878,6 +1939,16 @@ List<String> _splitTopLevel(String source, String delimiter) {
     if (quote.isNotEmpty) {
       buffer.write(char);
       if (char == quote) quote = '';
+      continue;
+    }
+    final regexLiteral = _readRegexLiteral(
+      source,
+      i,
+      requireStartContext: true,
+    );
+    if (regexLiteral != null) {
+      buffer.write(source.substring(i, regexLiteral.end));
+      i = regexLiteral.end - 1;
       continue;
     }
     if (char == '"' || char == "'" || char == '`') {
@@ -2100,6 +2171,15 @@ _ComparisonToken? _readTopLevelComparison(String source) {
       if (char == quote) quote = '';
       continue;
     }
+    final regexLiteral = _readRegexLiteral(
+      source,
+      i,
+      requireStartContext: true,
+    );
+    if (regexLiteral != null) {
+      i = regexLiteral.end - 1;
+      continue;
+    }
     if (char == '"' || char == "'" || char == '`') {
       quote = char;
       continue;
@@ -2144,6 +2224,15 @@ _TernaryToken? _readTopLevelTernary(String source) {
     }
     if (quote.isNotEmpty) {
       if (char == quote) quote = '';
+      continue;
+    }
+    final regexLiteral = _readRegexLiteral(
+      source,
+      i,
+      requireStartContext: true,
+    );
+    if (regexLiteral != null) {
+      i = regexLiteral.end - 1;
       continue;
     }
     if (char == '"' || char == "'" || char == '`') {
@@ -2364,6 +2453,15 @@ _Token _readBalanced(String source, int start, String open, String close) {
       if (char == quote) quote = '';
       continue;
     }
+    final regexLiteral = _readRegexLiteral(
+      source,
+      i,
+      requireStartContext: true,
+    );
+    if (regexLiteral != null) {
+      i = regexLiteral.end - 1;
+      continue;
+    }
     if (char == '"' || char == "'" || char == '`') {
       quote = char;
       continue;
@@ -2408,6 +2506,69 @@ bool _isQuoted(String expr) =>
     expr.length >= 2 &&
     ((expr.startsWith("'") && expr.endsWith("'")) ||
         (expr.startsWith('"') && expr.endsWith('"')));
+
+_RegexLiteralToken? _readRegexLiteral(
+  String source,
+  int start, {
+  bool requireStartContext = false,
+}) {
+  if (start >= source.length || source[start] != '/') return null;
+  if (start + 1 >= source.length ||
+      source[start + 1] == '/' ||
+      source[start + 1] == '*') {
+    return null;
+  }
+  if (requireStartContext && !_canStartRegexLiteral(source, start)) {
+    return null;
+  }
+
+  var escaped = false;
+  var inClass = false;
+  for (var i = start + 1; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (char == '[') {
+      inClass = true;
+      continue;
+    }
+    if (char == ']') {
+      inClass = false;
+      continue;
+    }
+    if (char != '/' || inClass) continue;
+    var end = i + 1;
+    while (end < source.length && _isIdentPart(source.codeUnitAt(end))) {
+      end++;
+    }
+    final flags = source.substring(i + 1, end);
+    if (flags.runes
+        .any((code) => !'gimsuy'.contains(String.fromCharCode(code)))) {
+      return null;
+    }
+    return _RegexLiteralToken(
+      pattern: source.substring(start + 1, i),
+      flags: flags,
+      end: end,
+    );
+  }
+  return null;
+}
+
+bool _canStartRegexLiteral(String source, int start) {
+  for (var i = start - 1; i >= 0; i--) {
+    final char = source[i];
+    if (char.trim().isEmpty) continue;
+    return '([{:;,=!?&|+-*'.contains(char);
+  }
+  return true;
+}
 
 String? _literalInner(String expr, String open, String close) {
   if (!expr.startsWith(open)) return null;
