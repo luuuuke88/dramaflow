@@ -197,7 +197,17 @@ class AgentMemoryService {
         if (!ids.contains(id)) ids.add(id);
       }
     }
-    if (ids.isEmpty) return const [];
+    if (ids.isEmpty) {
+      return [
+        for (final item in _rankMessageCandidates(
+          isolationKey: isolationKey,
+          normalized: normalized,
+          tokens: tokens,
+          queryEmbedding: queryEmbedding,
+        ).take(settings.ragLimit))
+          item.$2,
+      ];
+    }
 
     final placeholders = List.filled(ids.length, '?').join(',');
     final rows = db.select(
@@ -207,6 +217,51 @@ class AgentMemoryService {
       [isolationKey, agentMemoryTypeMessage, ...ids],
     );
     return [for (final row in rows) AgentMemoryEntry.fromRow(row)];
+  }
+
+  List<(int, AgentMemoryEntry)> _rankMessageCandidates({
+    required String isolationKey,
+    required String normalized,
+    required Set<String> tokens,
+    required Map<String, int> queryEmbedding,
+  }) {
+    if (normalized.isEmpty) return const [];
+    final messages = db.select(
+      'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
+      'FROM memories WHERE isolationKey=? AND type=? '
+      'ORDER BY createTime DESC, id DESC',
+      [isolationKey, agentMemoryTypeMessage],
+    );
+    final scored = <(int, AgentMemoryEntry)>[];
+    for (final row in messages) {
+      var entry = AgentMemoryEntry.fromRow(row);
+      if (entry.embedding.trim().isEmpty) {
+        final embedding = embeddingJson('${entry.name} ${entry.content}');
+        db.execute(
+          'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
+          [embedding, entry.id, isolationKey],
+        );
+        entry = AgentMemoryEntry(
+          id: entry.id,
+          name: entry.name,
+          content: entry.content,
+          createdAt: entry.createdAt,
+          embedding: embedding,
+          role: entry.role,
+          type: entry.type,
+          relatedMessageIds: entry.relatedMessageIds,
+        );
+      }
+      final score = memoryScore(entry.name, entry.content, normalized, tokens,
+          queryEmbedding, entry.embedding);
+      if (score > 0) scored.add((score, entry));
+    }
+    scored.sort((a, b) {
+      final byScore = b.$1.compareTo(a.$1);
+      if (byScore != 0) return byScore;
+      return b.$2.createdAt.compareTo(a.$2.createdAt);
+    });
+    return scored;
   }
 
   List<(int, AgentMemoryEntry)> _rankSummaryCandidates({

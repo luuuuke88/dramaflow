@@ -1061,6 +1061,45 @@ return `项目${projectId}:${text}:${count}:${JSON.stringify(args.items)}`;
     expect(gateway.textCallCount, 1);
   });
 
+  test('AgentMemoryService deepRetrieve 无 summary 时直接检索原始 message', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          offset.isEven ? agentRoleUser : agentRoleAssistant,
+          0,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('msg_direct_relevant', '用户强调李澈必须保持正派，不能被写成反派。', 0);
+    insertMessage('msg_direct_noise', '用户提到寒山宗门夜色适合做远景。', 1);
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '李澈正派设定',
+    );
+
+    expect(records.map((item) => item.id), ['msg_direct_relevant']);
+    expect(gateway.textCallCount, 0);
+  });
+
   test('AgentMemoryService get 返回相关记忆、历史摘要和近期对话', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
