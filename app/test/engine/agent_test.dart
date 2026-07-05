@@ -1519,11 +1519,13 @@ return `参考图：${refs}`;
 
     final msg = engine.agentMessages(projectId).last;
     expect(msg.toolName, 'activate_skill');
+    expect(msg.content, startsWith('<skill_content name="style_polisher">'));
     expect(msg.content, contains('使用 read_skill_file 工具读取资源文件。'));
     expect(msg.content, contains('<skill_resources>'));
     expect(msg.content, contains('<file>references/rules.md</file>'));
     expect(msg.content, contains('<file>references/tone.md</file>'));
     expect(msg.content, contains('</skill_resources>'));
+    expect(msg.content, endsWith('</skill_content>'));
   });
 
   test('SkillRuntime read_skill_file reads only files under skill root', () {
@@ -1582,7 +1584,10 @@ return `参考图：${refs}`;
 
     msg = engine.agentMessages(projectId).last;
     expect(msg.toolName, 'read_skill_file');
-    expect(msg.content, '规则：每句台词不超过二十字。');
+    expect(msg.content, startsWith('<skill_content>'));
+    expect(msg.content, contains('规则：每句台词不超过二十字。'));
+    expect(msg.content, contains('可以使用 read_skill_file 工具读取资源文件。'));
+    expect(msg.content, endsWith('</skill_content>'));
   });
 
   test('SkillRuntime activate_skill schema lists stage-visible Markdown skills',
@@ -1715,6 +1720,7 @@ return `参考图：${refs}`;
 
     final first = engine.agentMessages(projectId).last;
     expect(first.toolName, 'activate_skill');
+    expect(first.content, startsWith('<skill_content name="style_polisher">'));
     expect(first.content, contains('技能正文：短剧台词要短。'));
     expect(first.content, contains('<file>references/rules.md</file>'));
 
@@ -1738,7 +1744,8 @@ return `参考图：${refs}`;
 
     final read = engine.agentMessages(projectId).last;
     expect(read.toolName, 'read_skill_file');
-    expect(read.content, '规则：每句台词不超过二十字。');
+    expect(read.content, contains('规则：每句台词不超过二十字。'));
+    expect(read.content, startsWith('<skill_content>'));
   });
 
   test('SkillRuntime 激活后会注入后续 Agent system prompt', () async {

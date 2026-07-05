@@ -1909,19 +1909,30 @@ extension AgentApi on Engine {
   }
 
   String _formatActivatedAgentSkill(AgentSkillActivation skill) {
-    if (skill.resourceFiles.isEmpty) {
-      return '已激活技能 ${skill.name}：\n${skill.content}';
-    }
     final buffer = StringBuffer()
-      ..writeln('已激活技能 ${skill.name}：')
+      ..writeln('<skill_content name="${_escapeSkillPromptXml(skill.name)}">')
       ..writeln(skill.content.trimRight())
       ..writeln()
-      ..writeln('使用 read_skill_file 工具读取资源文件。')
-      ..writeln('<skill_resources>');
-    for (final file in skill.resourceFiles) {
-      buffer.writeln('  <file>$file</file>');
+      ..writeln('使用 read_skill_file 工具读取资源文件。');
+    if (skill.resourceFiles.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('<skill_resources>');
+      for (final file in skill.resourceFiles) {
+        buffer.writeln('  <file>$file</file>');
+      }
+      buffer.writeln('</skill_resources>');
     }
-    buffer.write('</skill_resources>');
+    buffer.write('</skill_content>');
+    return buffer.toString();
+  }
+
+  String _formatReadAgentSkillFile(String content) {
+    final buffer = StringBuffer()
+      ..writeln('<skill_content>')
+      ..writeln(content.trimRight())
+      ..writeln()
+      ..writeln('可以使用 read_skill_file 工具读取资源文件。')
+      ..write('</skill_content>');
     return buffer.toString();
   }
 
@@ -2506,17 +2517,40 @@ extension AgentApi on Engine {
 
   String _normalizeActivatedSkillContext(String content) {
     final text = content.trim();
-    if (text.isEmpty || !text.startsWith('已激活技能 ')) return '';
-    return text;
+    if (text.isEmpty) return '';
+    if (text.startsWith('已激活技能 ')) return text;
+    return _extractActivatedSkillXml(text);
+  }
+
+  String _extractActivatedSkillXml(String text) {
+    final start = text.indexOf('<skill_content');
+    if (start < 0) return '';
+    const closeTag = '</skill_content>';
+    final end = text.indexOf(closeTag, start);
+    if (end < 0) return '';
+    final xml = text.substring(start, end + closeTag.length).trim();
+    final openEnd = xml.indexOf('>');
+    if (openEnd < 0) return '';
+    final opening = xml.substring(0, openEnd + 1);
+    if (!RegExp(r'\sname\s*=').hasMatch(opening)) return '';
+    return xml;
+  }
+
+  String _activatedAgentSkillNameFromContext(String context) {
+    final text = context.trim();
+    final legacy = RegExp(r'^已激活技能\s+([^：:\n]+)[：:]').firstMatch(text);
+    if (legacy != null) return legacy.group(1)?.trim() ?? '';
+    final xml =
+        RegExp(r'^<skill_content\b[^>]*\bname="([^"]+)"').firstMatch(text);
+    if (xml != null) return xml.group(1)?.trim() ?? '';
+    return '';
   }
 
   List<String> _activatedAgentSkillNames(Iterable<String> contexts) {
     final names = <String>[];
     final seen = <String>{};
-    final pattern = RegExp(r'^已激活技能\s+([^：:\n]+)[：:]');
     for (final context in contexts) {
-      final match = pattern.firstMatch(context.trim());
-      final name = match?.group(1)?.trim() ?? '';
+      final name = _activatedAgentSkillNameFromContext(context);
       if (name.isNotEmpty && seen.add(name)) names.add(name);
     }
     return names;
@@ -3039,7 +3073,9 @@ extension AgentApi on Engine {
             }
           }
           if (filePath.isEmpty) return '缺少 path 参数。';
-          return readAgentSkillFile(skillName, filePath);
+          return _formatReadAgentSkillFile(
+            readAgentSkillFile(skillName, filePath),
+          );
         case 'get_novel_events':
           return _scriptAgentNovelEvents(projectId, args);
         case 'get_planData':
