@@ -1365,6 +1365,76 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 flatMap 展开嵌套分镜参考图', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_flat_map_runtime',
+      name: '嵌套分镜展开脚本运行时',
+      description: '验证自定义技能兼容模型常写的 flatMap 嵌套资产展开逻辑。',
+      script: r'''
+const refs = args.storyboards
+  .flatMap((shot, shotIndex) => shot.references.map((ref) => ({
+    shot: shotIndex + 1,
+    name: ref.name.trim(),
+  })))
+  .map(ref => `${ref.shot}.${ref.name}`)
+  .join('、');
+return `参考图：${refs}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'references': {
+                  'type': 'array',
+                  'items': {
+                    'type': 'object',
+                    'properties': {
+                      'name': {'type': 'string'},
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_flat_map_runtime', const {
+        'storyboards': [
+          {
+            'references': [
+              {'name': ' 李澈正脸 '},
+              {'name': '寒山宗门'},
+            ],
+          },
+          {
+            'references': [
+              {'name': ' 沈微侧脸 '},
+            ],
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用嵌套分镜展开脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_flat_map_runtime');
+    expect(msg.content, '参考图：1.李澈正脸、1.寒山宗门、2.沈微侧脸');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(

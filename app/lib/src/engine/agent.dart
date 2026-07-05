@@ -630,6 +630,20 @@ class _CustomAgentSkillRuntime {
           index++;
         }
         return mapped;
+      case 'flatMap':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final mapped = <Object?>[];
+        var index = 0;
+        for (final item in value) {
+          final result = _evaluateCallback(method, args.single, item, index);
+          if (result is Iterable && result is! String) {
+            mapped.addAll(result);
+          } else {
+            mapped.add(result);
+          }
+          index++;
+        }
+        return mapped;
       case 'filter':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         final filtered = <Object?>[];
