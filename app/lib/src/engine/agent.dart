@@ -4549,16 +4549,6 @@ extension AgentApi on Engine {
         );
         return;
       }
-      if (supervisionWasEnabled) {
-        await _recordAgentSummaryMemory(
-          projectId,
-          family: agentFamily,
-          role: 'assistant:supervision',
-          name: '监督审计',
-          content: '监督 Agent 已放行 $toolName。参数：${jsonEncode(toolArgs)}',
-        );
-      }
-
       final summary = await _runTool(
         projectId,
         toolName,
@@ -4567,6 +4557,16 @@ extension AgentApi on Engine {
         stage: stage,
         activatedSkills: _activatedAgentSkillContexts(messages),
       );
+      if (supervisionWasEnabled) {
+        await _recordAgentSummaryMemory(
+          projectId,
+          family: agentFamily,
+          role: 'assistant:supervision',
+          name: '监督审计',
+          content:
+              '监督 Agent 已放行 $toolName。参数：${jsonEncode(toolArgs)}。执行结果：$summary',
+        );
+      }
       messages.add(AgentMessage(
         role: agentRoleTool,
         content: summary,

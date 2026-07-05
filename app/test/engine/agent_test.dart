@@ -461,6 +461,7 @@ void main() {
     expect(audit, hasLength(1));
     expect(audit.single['role'], 'assistant:supervision');
     expect(audit.single['content'], contains('监督 Agent 已放行 generate_events'));
+    expect(audit.single['content'], contains('已提交事件生成任务'));
   });
 
   test('监督 Agent 可拦截决策工具调用且不提交任务', () async {
