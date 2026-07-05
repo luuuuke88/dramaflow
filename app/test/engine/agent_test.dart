@@ -4951,6 +4951,8 @@ description: >-
 
     final matched = engine.searchAgentMemories(projectId, '寒山');
     expect(matched.map((item) => item.id), [id]);
+    expect(matched.single.score, greaterThan(0));
+    expect(matched.single.matchedTokens, contains('寒山'));
 
     gateway.turns = [const AgentTurnResult.text('收到')];
     await engine.sendAgentMessage(projectId, '下一场写寒山少主出场', autoMode: false);
@@ -4963,6 +4965,8 @@ description: >-
       gateway.lastSystem,
       contains('createTime="${memories.single.createdAt}"'),
     );
+    expect(gateway.lastSystem, contains('score="'));
+    expect(gateway.lastSystem, contains('matchedTokens="寒山'));
     expect(gateway.lastSystem, contains('寒山少主李澈'));
   });
 

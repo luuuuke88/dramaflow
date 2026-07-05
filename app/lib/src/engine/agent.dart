@@ -123,6 +123,8 @@ class AgentMemoryRecord {
   final int createdAt;
   final String embedding;
   final List<String> relatedMessageIds;
+  final int? score;
+  final List<String> matchedTokens;
   const AgentMemoryRecord({
     required this.id,
     required this.name,
@@ -130,6 +132,8 @@ class AgentMemoryRecord {
     required this.createdAt,
     required this.embedding,
     this.relatedMessageIds = const [],
+    this.score,
+    this.matchedTokens = const [],
   });
 
   factory AgentMemoryRecord.fromRow(Map<String, Object?> row) =>
@@ -142,14 +146,23 @@ class AgentMemoryRecord {
         relatedMessageIds: _decodeAgentMemoryIdList(row['relatedMessageIds']),
       );
 
-  AgentMemoryRecord withEmbedding(String value) => AgentMemoryRecord(
+  AgentMemoryRecord copyWith({
+    String? embedding,
+    int? score,
+    List<String>? matchedTokens,
+  }) =>
+      AgentMemoryRecord(
         id: id,
         name: name,
         content: content,
         createdAt: createdAt,
-        embedding: value,
+        embedding: embedding ?? this.embedding,
         relatedMessageIds: relatedMessageIds,
+        score: score ?? this.score,
+        matchedTokens: matchedTokens ?? this.matchedTokens,
       );
+
+  AgentMemoryRecord withEmbedding(String value) => copyWith(embedding: value);
 }
 
 List<String> _decodeAgentMemoryIdList(Object? value) {
@@ -4851,7 +4864,16 @@ extension AgentApi on Engine {
       record = _ensureMemoryEmbedding(projectId, record);
       final score =
           _memoryScore(record, normalizedQuery, tokens, queryEmbedding);
-      if (score > 0) scored.add((score, record));
+      if (score > 0) {
+        scored.add((
+          score,
+          record.copyWith(
+            score: score,
+            matchedTokens:
+                _memoryMatchedTokens(record, normalizedQuery, tokens),
+          ),
+        ));
+      }
     }
     scored.sort((a, b) {
       final byScore = b.$1.compareTo(a.$1);
@@ -4949,6 +4971,26 @@ extension AgentApi on Engine {
     return score;
   }
 
+  List<String> _memoryMatchedTokens(
+    AgentMemoryRecord record,
+    String query,
+    Set<String> tokens,
+  ) {
+    final haystack = _normalizeMemoryText('${record.name}\n${record.content}');
+    final matched = <String>[];
+    void add(String value) {
+      final token = value.trim();
+      if (token.length <= 1 || matched.contains(token)) return;
+      if (haystack.contains(token)) matched.add(token);
+    }
+
+    if (query.isNotEmpty) add(query);
+    for (final token in tokens) {
+      add(token);
+    }
+    return matched;
+  }
+
   String _agentSystemPrompt(
     List<AgentMemoryRecord> memories, {
     AgentMemoryContext? context,
@@ -5018,6 +5060,9 @@ extension AgentApi on Engine {
       'createTime="${memory.createdAt}"',
       if (memory.relatedMessageIds.isNotEmpty)
         'relatedMessageIds="${_escapeXmlAttr(memory.relatedMessageIds.join(','))}"',
+      if (memory.score != null) 'score="${memory.score}"',
+      if (memory.matchedTokens.isNotEmpty)
+        'matchedTokens="${_escapeXmlAttr(memory.matchedTokens.join(','))}"',
     ];
     return '<note ${attrs.join(' ')}>${_escapeXmlText(memory.content)}</note>';
   }
