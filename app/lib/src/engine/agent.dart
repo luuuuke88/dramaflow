@@ -4408,6 +4408,7 @@ extension AgentApi on Engine {
       projectId,
       family: agentFamily,
     );
+    final executedToolSignatures = <String>{};
 
     for (var turn = 0; turn < (autoMode ? _maxAutoTurns : 1); turn++) {
       final memoryService = _agentMemoryService(family: agentFamily);
@@ -4476,15 +4477,35 @@ extension AgentApi on Engine {
         return;
       }
 
+      final toolName = result.toolName!;
+      final toolArgs = result.toolArgs ?? const {};
+      final toolSignature = _agentToolCallSignature(toolName, toolArgs);
+      if (autoMode && !executedToolSignatures.add(toolSignature)) {
+        final content = '已停止自动执行：检测到重复工具调用 $toolName，避免循环执行。';
+        messages.add(AgentMessage(
+          role: agentRoleAssistant,
+          content: content,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+        ));
+        _saveAgentMessages(projectId, messages, family: agentFamily);
+        await _recordAgentMemory(
+          projectId,
+          family: agentFamily,
+          role: agentRoleAssistant,
+          content: content,
+        );
+        return;
+      }
+
       final rejection = await _reviewAgentToolCall(
         projectId,
         family: agentFamily,
-        toolName: result.toolName!,
-        toolArgs: result.toolArgs ?? const {},
+        toolName: toolName,
+        toolArgs: toolArgs,
         messages: messages,
       );
       if (rejection != null) {
-        final content = '监督 Agent 已拦截 ${result.toolName}：$rejection';
+        final content = '监督 Agent 已拦截 $toolName：$rejection';
         messages.add(AgentMessage(
           role: agentRoleAssistant,
           content: content,
@@ -4502,8 +4523,8 @@ extension AgentApi on Engine {
 
       final summary = await _runTool(
         projectId,
-        result.toolName!,
-        result.toolArgs ?? const {},
+        toolName,
+        toolArgs,
         agentFamily: agentFamily,
         stage: stage,
         activatedSkills: _activatedAgentSkillContexts(messages),
@@ -4511,7 +4532,7 @@ extension AgentApi on Engine {
       messages.add(AgentMessage(
         role: agentRoleTool,
         content: summary,
-        toolName: result.toolName,
+        toolName: toolName,
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
       _saveAgentMessages(projectId, messages, family: agentFamily);
@@ -4528,6 +4549,24 @@ extension AgentApi on Engine {
       family == _productionAgentFamily
           ? productionAgentSupervisionStage
           : scriptAgentSupervisionStage;
+
+  String _agentToolCallSignature(String toolName, Map<String, dynamic> args) =>
+      '$toolName:${jsonEncode(_normalizeAgentToolArgs(args))}';
+
+  Object? _normalizeAgentToolArgs(Object? value) {
+    if (value is Map) {
+      final entries = value.entries.toList()
+        ..sort((a, b) => '${a.key}'.compareTo('${b.key}'));
+      return {
+        for (final entry in entries)
+          '${entry.key}': _normalizeAgentToolArgs(entry.value),
+      };
+    }
+    if (value is Iterable && value is! String) {
+      return [for (final item in value) _normalizeAgentToolArgs(item)];
+    }
+    return value;
+  }
 
   Future<String?> _reviewAgentToolCall(
     int projectId, {

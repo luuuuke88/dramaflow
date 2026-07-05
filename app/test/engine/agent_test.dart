@@ -352,10 +352,28 @@ void main() {
   });
 
   test('auto 模式在安全上限内停止（防止无限工具调用循环）', () async {
-    gateway.turns =
-        List.generate(10, (_) => const AgentTurnResult.tool('get_status', {}));
+    gateway.turns = List.generate(
+      10,
+      (index) => AgentTurnResult.tool('get_status', {'tick': index}),
+    );
     await engine.sendAgentMessage(projectId, '一直做', autoMode: true);
     expect(gateway.callCount, 5, reason: '_maxAutoTurns=5 上限生效');
+  });
+
+  test('auto 模式会拦截同一轮重复工具调用', () async {
+    gateway.turns = const [
+      AgentTurnResult.tool('get_status', {}),
+      AgentTurnResult.tool('get_status', {}),
+      AgentTurnResult.text('不会走到这里'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '一直查看状态', autoMode: true);
+
+    final msgs = engine.agentMessages(projectId);
+    expect(msgs.where((m) => m.toolName == 'get_status'), hasLength(1));
+    expect(msgs.last.role, agentRoleAssistant);
+    expect(msgs.last.content, contains('重复工具调用 get_status'));
+    expect(gateway.callCount, 2);
   });
 
   test('generate_events 不传 novelIds 时默认处理全部未完成章节', () async {
