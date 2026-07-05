@@ -1757,6 +1757,76 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持传统 for 循环与 break continue', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_for_runtime',
+      name: '计数循环脚本运行时',
+      description: '验证自定义技能兼容模型常写的 for/i++/break/continue。',
+      script: r'''
+let selected = [];
+let totalDuration = 0;
+for (let i = 0; i < args.storyboards.length; i++) {
+  const shot = args.storyboards[i];
+  if (shot.disabled) {
+    continue;
+  }
+  if (selected.length >= args.limit) {
+    break;
+  }
+  totalDuration = totalDuration + shot.duration;
+  selected = [...selected, `${i + 1}.${shot.videoDesc.trim()}`];
+}
+return JSON.stringify({
+  totalDuration,
+  selected: selected.join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'limit': {'type': 'number'},
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_for_runtime', const {
+        'limit': 2,
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 ', 'duration': 3},
+          {'videoDesc': '废弃镜头', 'duration': 10, 'disabled': true},
+          {'videoDesc': '李澈拔剑', 'duration': 4},
+          {'videoDesc': '掌门入场', 'duration': 8},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用计数循环脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_for_runtime');
+    expect(jsonDecode(msg.content), {
+      'totalDuration': 7,
+      'selected': '1.雪夜山门、3.李澈拔剑',
+    });
+  });
+
   test('自定义脚本技能：支持 sort 和 slice 选择重点资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_sort_slice_runtime',

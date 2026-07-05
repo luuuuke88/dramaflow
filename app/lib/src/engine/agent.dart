@@ -338,14 +338,23 @@ class _CustomAgentSkillRuntime {
 
   String run(String script) {
     final result = _runStatements(script);
-    if (result != null) return _stringifyReturn(result.value);
+    if (result is _CustomJsReturnValue) {
+      return _stringifyReturn(result.value);
+    }
+    if (result != null) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_control_flow',
+      });
+    }
     throw EngineException(errLlmFormat, {'reason': 'custom_skill_return'});
   }
 
-  _CustomJsReturnValue? _runStatements(String script) {
+  _CustomJsStatementResult? _runStatements(String script) {
     for (final statement in _splitStatements(script)) {
       final trimmed = statement.trim();
       if (trimmed.isEmpty) continue;
+      if (trimmed == 'break') return const _CustomJsBreakValue();
+      if (trimmed == 'continue') return const _CustomJsContinueValue();
       final ifStatement = _readIfStatement(trimmed);
       if (ifStatement != null) {
         final branch = _isTruthy(_evaluate(ifStatement.condition))
@@ -377,6 +386,30 @@ class _CustomAgentSkillRuntime {
             bindings,
             () => _runStatements(forOfStatement.body),
           );
+          if (result is _CustomJsReturnValue) return result;
+          if (result is _CustomJsBreakValue) break;
+          if (result is _CustomJsContinueValue) continue;
+          if (result != null) return result;
+        }
+        continue;
+      }
+      final forStatement = _readForStatement(trimmed);
+      if (forStatement != null) {
+        _runForInitializer(forStatement.initializer);
+        var guard = 0;
+        while (forStatement.condition.isEmpty ||
+            _isTruthy(_evaluate(forStatement.condition))) {
+          guard++;
+          if (guard > 10000) {
+            throw EngineException(errLlmFormat, {
+              'reason': 'custom_skill_for_guard',
+            });
+          }
+          final result = _runStatements(forStatement.body);
+          if (result is _CustomJsReturnValue) return result;
+          if (result is _CustomJsBreakValue) break;
+          _runForUpdate(forStatement.update);
+          if (result is _CustomJsContinueValue) continue;
           if (result != null) return result;
         }
         continue;
@@ -482,6 +515,107 @@ class _CustomAgentSkillRuntime {
       iterable: match.group(2)!.trim(),
       body: body.text,
     );
+  }
+
+  _CustomJsForStatement? _readForStatement(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    if (!source.startsWith('for')) return null;
+    var index = 3;
+    if (index < source.length &&
+        source[index].trim().isNotEmpty &&
+        source[index] != '(') {
+      return null;
+    }
+    index = _skipWhitespace(source, index);
+    if (index >= source.length || source[index] != '(') return null;
+    final header = _readBalanced(source, index, '(', ')');
+    if (RegExp(r'\s+of\s+').hasMatch(header.text)) return null;
+    final parts = _splitTopLevel(header.text, ';');
+    if (parts.length != 3) return null;
+    index = _skipWhitespace(source, header.end);
+    if (index >= source.length || source[index] != '{') return null;
+    final body = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, body.end);
+    if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
+      return null;
+    }
+    return _CustomJsForStatement(
+      initializer: parts[0].trim(),
+      condition: parts[1].trim(),
+      update: parts[2].trim(),
+      body: body.text,
+    );
+  }
+
+  void _runForInitializer(String statement) {
+    final trimmed = statement.trim();
+    if (trimmed.isEmpty) return;
+    final result = _runStatements(trimmed);
+    if (result != null) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_for_initializer',
+      });
+    }
+  }
+
+  void _runForUpdate(String statement) {
+    final trimmed = statement.trim();
+    if (trimmed.isEmpty) return;
+    final postfix = RegExp(
+      r'^([A-Za-z_][A-Za-z0-9_]*)\s*(\+\+|--)$',
+    ).firstMatch(trimmed);
+    if (postfix != null) {
+      _updateNumericVariable(
+        postfix.group(1)!,
+        postfix.group(2)! == '++' ? 1 : -1,
+      );
+      return;
+    }
+    final prefix = RegExp(
+      r'^(\+\+|--)\s*([A-Za-z_][A-Za-z0-9_]*)$',
+    ).firstMatch(trimmed);
+    if (prefix != null) {
+      _updateNumericVariable(
+        prefix.group(2)!,
+        prefix.group(1)! == '++' ? 1 : -1,
+      );
+      return;
+    }
+    final compound = RegExp(
+      r'^([A-Za-z_][A-Za-z0-9_]*)\s*([+-])=\s*([\s\S]+)$',
+    ).firstMatch(trimmed);
+    if (compound != null) {
+      final delta = _toNum(_evaluate(compound.group(3)!));
+      _updateNumericVariable(
+        compound.group(1)!,
+        compound.group(2)! == '+' ? delta : -delta,
+      );
+      return;
+    }
+    final result = _runStatements(trimmed);
+    if (result != null) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_for_update',
+      });
+    }
+  }
+
+  void _updateNumericVariable(String name, num delta) {
+    if (!_scope.containsKey(name)) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_unknown_variable',
+        'expression': name,
+      });
+    }
+    final current = _scope[name];
+    if (current is! num) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_number',
+        'value': current,
+      });
+    }
+    final next = current + delta;
+    _scope[name] = next == next.truncateToDouble() ? next.toInt() : next;
   }
 
   Object? _evaluate(String expression) {
@@ -1312,9 +1446,21 @@ class _CustomJsBuiltin {
   const _CustomJsBuiltin(this.name);
 }
 
-class _CustomJsReturnValue {
+abstract class _CustomJsStatementResult {
+  const _CustomJsStatementResult();
+}
+
+class _CustomJsReturnValue extends _CustomJsStatementResult {
   final Object? value;
-  const _CustomJsReturnValue(this.value);
+  const _CustomJsReturnValue(this.value) : super();
+}
+
+class _CustomJsBreakValue extends _CustomJsStatementResult {
+  const _CustomJsBreakValue() : super();
+}
+
+class _CustomJsContinueValue extends _CustomJsStatementResult {
+  const _CustomJsContinueValue() : super();
 }
 
 class _CustomJsIfStatement {
@@ -1326,6 +1472,20 @@ class _CustomJsIfStatement {
     required this.condition,
     required this.whenTrue,
     required this.whenFalse,
+  });
+}
+
+class _CustomJsForStatement {
+  final String initializer;
+  final String condition;
+  final String update;
+  final String body;
+
+  const _CustomJsForStatement({
+    required this.initializer,
+    required this.condition,
+    required this.update,
+    required this.body,
   });
 }
 
