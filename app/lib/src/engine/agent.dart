@@ -356,6 +356,31 @@ class _CustomAgentSkillRuntime {
         if (result != null) return result;
         continue;
       }
+      final forOfStatement = _readForOfStatement(trimmed);
+      if (forOfStatement != null) {
+        final iterable = _evaluate(forOfStatement.iterable);
+        if (iterable is! Iterable || iterable is String) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_for_of',
+            'expression': forOfStatement.iterable,
+          });
+        }
+        for (final item in iterable) {
+          final bindings = <String, Object?>{};
+          _bindCallbackParam(
+            forOfStatement.itemPattern,
+            item,
+            bindings,
+            'forOf',
+          );
+          final result = _withScopeBindings(
+            bindings,
+            () => _runStatements(forOfStatement.body),
+          );
+          if (result != null) return result;
+        }
+        continue;
+      }
       final declaration = RegExp(
         r'^(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$',
       ).firstMatch(trimmed);
@@ -426,6 +451,36 @@ class _CustomAgentSkillRuntime {
       condition: condition.text,
       whenTrue: whenTrue.text,
       whenFalse: whenFalse,
+    );
+  }
+
+  _CustomJsForOfStatement? _readForOfStatement(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    if (!source.startsWith('for')) return null;
+    var index = 3;
+    if (index < source.length &&
+        source[index].trim().isNotEmpty &&
+        source[index] != '(') {
+      return null;
+    }
+    index = _skipWhitespace(source, index);
+    if (index >= source.length || source[index] != '(') return null;
+    final header = _readBalanced(source, index, '(', ')');
+    final match = RegExp(
+      r'^(?:(?:const|let|var)\s+)?([\s\S]+?)\s+of\s+([\s\S]+)$',
+    ).firstMatch(header.text.trim());
+    if (match == null) return null;
+    index = _skipWhitespace(source, header.end);
+    if (index >= source.length || source[index] != '{') return null;
+    final body = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, body.end);
+    if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
+      return null;
+    }
+    return _CustomJsForOfStatement(
+      itemPattern: match.group(1)!.trim(),
+      iterable: match.group(2)!.trim(),
+      body: body.text,
     );
   }
 
@@ -1274,6 +1329,18 @@ class _CustomJsIfStatement {
   });
 }
 
+class _CustomJsForOfStatement {
+  final String itemPattern;
+  final String iterable;
+  final String body;
+
+  const _CustomJsForOfStatement({
+    required this.itemPattern,
+    required this.iterable,
+    required this.body,
+  });
+}
+
 class _Token {
   final String text;
   final int end;
@@ -1357,7 +1424,17 @@ List<String> _splitStatements(String script) {
     if (char == '[') bracket++;
     if (char == ']') bracket--;
     if (char == '{') brace++;
-    if (char == '}') brace--;
+    if (char == '}') {
+      brace--;
+      if (paren == 0 &&
+          bracket == 0 &&
+          brace == 0 &&
+          _isTopLevelBlockStatement(buffer.toString()) &&
+          !_nextTopLevelWordIs(script, i + 1, 'else')) {
+        statements.add(buffer.toString());
+        buffer.clear();
+      }
+    }
     if (char == ';' && paren == 0 && bracket == 0 && brace == 0) {
       final value = buffer.toString();
       statements.add(value.substring(0, value.length - 1));
@@ -1367,6 +1444,17 @@ List<String> _splitStatements(String script) {
   final tail = buffer.toString().trim();
   if (tail.isNotEmpty) statements.add(tail);
   return statements;
+}
+
+bool _isTopLevelBlockStatement(String source) {
+  final trimmed = source.trimLeft();
+  return _startsWithWord(trimmed, 0, 'if') ||
+      _startsWithWord(trimmed, 0, 'for');
+}
+
+bool _nextTopLevelWordIs(String source, int index, String word) {
+  final next = _skipWhitespace(source, index);
+  return _startsWithWord(source, next, word);
 }
 
 List<String> _splitTopLevel(String source, String delimiter) {

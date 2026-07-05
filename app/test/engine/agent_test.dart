@@ -1695,6 +1695,68 @@ if (args.assets.length === 0) {
     expect(msg.content, '已收到 2 个资产');
   });
 
+  test('自定义脚本技能：支持 for of 遍历分镜并累计结果', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_for_of_runtime',
+      name: '循环脚本运行时',
+      description: '验证自定义技能兼容模型常写的 for...of 分镜遍历。',
+      script: r'''
+let totalDuration = 0;
+let names = [];
+for (const shot of args.storyboards) {
+  if (!shot.videoDesc?.trim()) {
+    return `第 ${shot.index} 镜缺少描述`;
+  }
+  totalDuration = totalDuration + shot.duration;
+  names = [...names, `${shot.index}.${shot.videoDesc.trim()}`];
+}
+return JSON.stringify({
+  totalDuration,
+  names: names.join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'index': {'type': 'number'},
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_for_of_runtime', const {
+        'storyboards': [
+          {'index': 1, 'videoDesc': ' 雪夜山门 ', 'duration': 3},
+          {'index': 2, 'videoDesc': '李澈拔剑', 'duration': 4},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用循环脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_for_of_runtime');
+    expect(jsonDecode(msg.content), {
+      'totalDuration': 7,
+      'names': '1.雪夜山门、2.李澈拔剑',
+    });
+  });
+
   test('自定义脚本技能：支持 sort 和 slice 选择重点资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_sort_slice_runtime',
