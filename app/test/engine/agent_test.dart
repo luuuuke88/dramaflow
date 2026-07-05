@@ -4956,6 +4956,13 @@ description: >-
     await engine.sendAgentMessage(projectId, '下一场写寒山少主出场', autoMode: false);
 
     expect(gateway.lastSystem, contains('长期记忆'));
+    expect(gateway.lastSystem, contains('<note id="$id"'));
+    expect(gateway.lastSystem, contains('type="note"'));
+    expect(gateway.lastSystem, contains('name="主角设定"'));
+    expect(
+      gateway.lastSystem,
+      contains('createTime="${memories.single.createdAt}"'),
+    );
     expect(gateway.lastSystem, contains('寒山少主李澈'));
   });
 
@@ -4975,8 +4982,7 @@ description: >-
     gateway.turns = [const AgentTurnResult.text('收到')];
     await engine.sendAgentMessage(projectId, '继续写寒山线索', autoMode: false);
 
-    final injected =
-        RegExp(r'^- ', multiLine: true).allMatches(gateway.lastSystem).length;
+    final injected = RegExp(r'<note ').allMatches(gateway.lastSystem).length;
     expect(injected, 2);
   });
 

@@ -4982,7 +4982,7 @@ extension AgentApi on Engine {
         '',
         '',
         '长期记忆：',
-        for (final memory in memories) '- ${memory.name}: ${memory.content}',
+        for (final memory in memories) _formatLongTermMemoryNote(memory),
       ]);
     }
     if (context != null && !context.isEmpty) {
@@ -5008,6 +5008,18 @@ extension AgentApi on Engine {
     }
     if (lines.isEmpty) return promptBase;
     return '$promptBase${lines.join('\n')}';
+  }
+
+  String _formatLongTermMemoryNote(AgentMemoryRecord memory) {
+    final attrs = <String>[
+      'id="${_escapeXmlAttr(memory.id)}"',
+      'type="$agentMemoryTypeNote"',
+      if (memory.name.isNotEmpty) 'name="${_escapeXmlAttr(memory.name)}"',
+      'createTime="${memory.createdAt}"',
+      if (memory.relatedMessageIds.isNotEmpty)
+        'relatedMessageIds="${_escapeXmlAttr(memory.relatedMessageIds.join(','))}"',
+    ];
+    return '<note ${attrs.join(' ')}>${_escapeXmlText(memory.content)}</note>';
   }
 
   String _formatAgentMemoryContextEntry(
