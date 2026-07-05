@@ -3696,6 +3696,60 @@ return `参考图：${refs}`;
     expect(gateway.textCallCount, 1);
   });
 
+  test('AgentMemoryService deepRetrieve 尊重 LLM 判别为空且不回退原始命中', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'msg_lizhe_direct',
+        '',
+        '用户说李澈来自寒山，但这条不应绕过 summary 判别。',
+        now,
+        embeddingJson('李澈来自寒山'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        0,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_lizhe',
+        '李澈角色设定',
+        '寒山少主李澈是正派角色。',
+        now + 1,
+        embeddingJson('寒山少主李澈是正派角色。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['msg_lizhe_direct']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('[]'),
+    ];
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '寒山李澈',
+    );
+
+    expect(records, isEmpty);
+    expect(gateway.textCallCount, 1);
+  });
+
   test('AgentMemoryService deepRetrieve 合并 summary 展开和直接原始命中', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(

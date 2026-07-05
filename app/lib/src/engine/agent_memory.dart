@@ -202,6 +202,11 @@ class AgentMemoryService {
       candidates: localCandidates,
       cancelToken: cancelToken,
     );
+    if (selectedSummaries != null &&
+        selectedSummaries.isEmpty &&
+        localCandidates.isNotEmpty) {
+      return const [];
+    }
     final summaries = selectedSummaries ?? localCandidates;
 
     final ids = <String>[];
