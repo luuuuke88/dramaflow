@@ -414,6 +414,22 @@ class _CustomAgentSkillRuntime {
         }
         continue;
       }
+      final destructuredDeclaration = RegExp(
+        r'^(?:const|let|var)\s+([\[{][\s\S]+[\]}])\s*=\s*([\s\S]+)$',
+      ).firstMatch(trimmed);
+      if (destructuredDeclaration != null) {
+        final bindings = <String, Object?>{};
+        _bindCallbackParam(
+          destructuredDeclaration.group(1)!,
+          _evaluate(destructuredDeclaration.group(2)!),
+          bindings,
+          'declaration',
+        );
+        for (final entry in bindings.entries) {
+          _scope[entry.key] = entry.value;
+        }
+        continue;
+      }
       final declaration = RegExp(
         r'^(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$',
       ).firstMatch(trimmed);

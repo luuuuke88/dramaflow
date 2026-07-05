@@ -2005,6 +2005,59 @@ return JSON.stringify({
     expect(msg.content, '{"total":4,"usable":2}');
   });
 
+  test('自定义脚本技能：支持顶层对象解构声明读取 args', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_top_object_destructure_runtime',
+      name: '顶层对象解构脚本运行时',
+      description: '验证自定义技能兼容模型常写的 const { field = x } = args 声明。',
+      script: r'''
+const { storyboards = [], projectName: name = '未命名项目' } = args;
+const titles = storyboards
+  .filter(({ videoDesc }) => !!videoDesc?.trim())
+  .map(({ videoDesc }, index) => `${index + 1}.${videoDesc.trim()}`)
+  .join('、');
+return `${name}:${storyboards.length}:${titles}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'projectName': {'type': 'string'},
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+          'custom_script_top_object_destructure_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 '},
+          {'videoDesc': ''},
+          {'videoDesc': '李澈拔剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用顶层对象解构脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_top_object_destructure_runtime');
+    expect(msg.content, '未命名项目:3:1.雪夜山门、2.李澈拔剑');
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',
