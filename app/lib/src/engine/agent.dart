@@ -1967,6 +1967,19 @@ extension AgentApi on Engine {
     return text;
   }
 
+  List<String> _mergeActivatedAgentSkillContexts(
+    Iterable<String> first,
+    Iterable<String> second,
+  ) {
+    final values = <String>[];
+    final seen = <String>{};
+    for (final item in [...first, ...second]) {
+      final normalized = _normalizeActivatedSkillContext(item);
+      if (normalized.isNotEmpty && seen.add(normalized)) values.add(normalized);
+    }
+    return values;
+  }
+
   /// Agent 执行模式（auto/manual）持久化。config 由别处拥有，此处直接写 o_setting
   /// 键 agent.useMode（'auto'/'manual'），与 ToonFlow 的 auto/manual 语义一致。
   bool agentUseMode() {
@@ -2204,6 +2217,7 @@ extension AgentApi on Engine {
         result.toolName!,
         result.toolArgs ?? const {},
         agentFamily: agentFamily,
+        activatedSkills: _activatedAgentSkillContexts(messages),
       );
       messages.add(AgentMessage(
         role: agentRoleTool,
@@ -2408,6 +2422,7 @@ extension AgentApi on Engine {
     String name,
     Map<String, dynamic> args, {
     String agentFamily = _scriptAgentFamily,
+    List<String> activatedSkills = const [],
   }) async {
     try {
       switch (name) {
@@ -2470,6 +2485,7 @@ extension AgentApi on Engine {
             label: '故事骨架 Agent',
             xmlTag: scriptAgentStorySkeletonKey,
             workspaceKey: scriptAgentStorySkeletonKey,
+            activatedSkills: activatedSkills,
           );
         case 'run_sub_agent_adaptationStrategy':
           return _runScriptAgentSubAgent(
@@ -2479,9 +2495,14 @@ extension AgentApi on Engine {
             label: '改编策略 Agent',
             xmlTag: scriptAgentAdaptationStrategyKey,
             workspaceKey: scriptAgentAdaptationStrategyKey,
+            activatedSkills: activatedSkills,
           );
         case 'run_sub_agent_script':
-          return _runScriptAgentScriptSubAgent(projectId, args);
+          return _runScriptAgentScriptSubAgent(
+            projectId,
+            args,
+            activatedSkills: activatedSkills,
+          );
         case 'run_supervision_agent':
           return _runScriptAgentSubAgent(
             projectId,
@@ -2490,6 +2511,7 @@ extension AgentApi on Engine {
             label: '监督 Agent',
             xmlTag: '',
             workspaceKey: scriptAgentSupervisionKey,
+            activatedSkills: activatedSkills,
           );
         case 'run_sub_agent_derive_assets':
           return _runProductionAgentSubAgent(
@@ -2497,6 +2519,7 @@ extension AgentApi on Engine {
             args,
             stage: productionAgentDeriveAssetsStage,
             label: '衍生资产 Agent',
+            activatedSkills: activatedSkills,
           );
         case 'run_sub_agent_generate_assets':
           return _runProductionAgentSubAgent(
@@ -2504,6 +2527,7 @@ extension AgentApi on Engine {
             args,
             stage: productionAgentGenerateAssetsStage,
             label: '资产生图 Agent',
+            activatedSkills: activatedSkills,
           );
         case 'run_sub_agent_director_plan':
           return _runProductionAgentSubAgent(
@@ -2513,6 +2537,7 @@ extension AgentApi on Engine {
             label: '导演计划 Agent',
             xmlTag: productionScriptPlanKey,
             workspaceKey: productionScriptPlanKey,
+            activatedSkills: activatedSkills,
           );
         case 'run_sub_agent_storyboard_gen':
           return _runProductionAgentSubAgent(
@@ -2520,9 +2545,14 @@ extension AgentApi on Engine {
             args,
             stage: productionAgentStoryboardGenStage,
             label: '分镜图生成 Agent',
+            activatedSkills: activatedSkills,
           );
         case 'run_sub_agent_storyboard_panel':
-          return _runProductionStoryboardPanelSubAgent(projectId, args);
+          return _runProductionStoryboardPanelSubAgent(
+            projectId,
+            args,
+            activatedSkills: activatedSkills,
+          );
         case 'run_sub_agent_storyboard_table':
           return _runProductionAgentSubAgent(
             projectId,
@@ -2531,6 +2561,7 @@ extension AgentApi on Engine {
             label: '分镜表 Agent',
             xmlTag: productionStoryboardTableKey,
             workspaceKey: productionStoryboardTableKey,
+            activatedSkills: activatedSkills,
           );
         case 'run_sub_agent_supervision':
           return _runProductionAgentSubAgent(
@@ -2539,6 +2570,7 @@ extension AgentApi on Engine {
             stage: productionAgentSupervisionStage,
             label: '制作监督 Agent',
             workspaceKey: productionSupervisionKey,
+            activatedSkills: activatedSkills,
           );
         case 'get_status':
           return _statusSummary(projectId);
@@ -2813,8 +2845,14 @@ extension AgentApi on Engine {
     required String label,
     required String xmlTag,
     required String workspaceKey,
+    List<String> activatedSkills = const [],
   }) async {
-    final output = await _runScriptAgentText(projectId, args, stage: stage);
+    final output = await _runScriptAgentText(
+      projectId,
+      args,
+      stage: stage,
+      activatedSkills: activatedSkills,
+    );
     var content = xmlTag.isEmpty ? '' : extractXmlTagText(output, xmlTag);
     if (content.isEmpty) content = stripXmlTags(output).trim();
     if (content.isEmpty) return '$label 未返回可写入内容。';
@@ -2826,10 +2864,15 @@ extension AgentApi on Engine {
 
   Future<String> _runScriptAgentScriptSubAgent(
     int projectId,
-    Map<String, dynamic> args,
-  ) async {
-    final output = await _runScriptAgentText(projectId, args,
-        stage: scriptAgentScriptStage);
+    Map<String, dynamic> args, {
+    List<String> activatedSkills = const [],
+  }) async {
+    final output = await _runScriptAgentText(
+      projectId,
+      args,
+      stage: scriptAgentScriptStage,
+      activatedSkills: activatedSkills,
+    );
     final items = parseScriptAgentScriptItems(output);
     if (items.isEmpty) return '剧本 Agent 未输出 scriptItem。';
     for (final item in items) {
@@ -2850,6 +2893,7 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args, {
     required String stage,
+    List<String> activatedSkills = const [],
   }) async {
     final prompt = (args['prompt'] ?? args['instruction'] ?? args['task'] ?? '')
         .toString()
@@ -2873,7 +2917,10 @@ extension AgentApi on Engine {
           query: prompt,
         ),
         base: _scriptAgentSubAgentSystem(stage),
-        activatedSkills: _activatedAgentSkillContextsFromHistory(history),
+        activatedSkills: _mergeActivatedAgentSkillContexts(
+          activatedSkills,
+          _activatedAgentSkillContextsFromHistory(history),
+        ),
       );
       final result = await gateway.generateAgentTurn(
         system,
@@ -3230,11 +3277,17 @@ extension AgentApi on Engine {
     required String label,
     String? xmlTag,
     String? workspaceKey,
+    List<String> activatedSkills = const [],
   }) async {
     final scriptId = _productionScriptId(projectId, args);
     if (scriptId == null) return '缺少 scriptId 参数。';
-    final output =
-        await _runProductionAgentText(projectId, scriptId, args, stage: stage);
+    final output = await _runProductionAgentText(
+      projectId,
+      scriptId,
+      args,
+      stage: stage,
+      activatedSkills: activatedSkills,
+    );
     if (workspaceKey == null) {
       return '$label 执行完成。';
     }
@@ -3254,8 +3307,9 @@ extension AgentApi on Engine {
 
   Future<String> _runProductionStoryboardPanelSubAgent(
     int projectId,
-    Map<String, dynamic> args,
-  ) async {
+    Map<String, dynamic> args, {
+    List<String> activatedSkills = const [],
+  }) async {
     final scriptId = _productionScriptId(projectId, args);
     if (scriptId == null) return '缺少 scriptId 参数。';
     final output = await _runProductionAgentText(
@@ -3263,6 +3317,7 @@ extension AgentApi on Engine {
       scriptId,
       args,
       stage: productionAgentStoryboardPanelStage,
+      activatedSkills: activatedSkills,
     );
     final items = parseProductionStoryboardItems(output);
     if (items.isEmpty) return '分镜面板 Agent 未输出 storyboardItem。';
@@ -3279,6 +3334,7 @@ extension AgentApi on Engine {
     int scriptId,
     Map<String, dynamic> args, {
     required String stage,
+    List<String> activatedSkills = const [],
   }) async {
     final prompt = (args['prompt'] ?? args['instruction'] ?? args['task'] ?? '')
         .toString()
@@ -3305,7 +3361,10 @@ extension AgentApi on Engine {
           query: prompt,
         ),
         base: _productionAgentSubAgentSystem(stage),
-        activatedSkills: _activatedAgentSkillContextsFromHistory(history),
+        activatedSkills: _mergeActivatedAgentSkillContexts(
+          activatedSkills,
+          _activatedAgentSkillContextsFromHistory(history),
+        ),
       );
       final result = await gateway.generateAgentTurn(
         system,

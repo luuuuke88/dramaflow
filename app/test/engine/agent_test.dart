@@ -1020,6 +1020,53 @@ return `资产标签：${labels}`;
     expect(gateway.lastSystem, contains('删除空泛旁白'));
   });
 
+  test('SkillRuntime 激活技能会传递给后续子 Agent system prompt', () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'story_skeleton_style',
+      body: '''
+技能正文：故事骨架必须按短剧前三秒强冲突组织。
+
+## 输出规则
+
+- 第一集先给强钩子。
+- 每集结尾保留悬念。
+''',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: skillFile.path,
+      attribution: 'script_agent_decision',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'activate_skill',
+        const {'name': 'story_skeleton_style'},
+      ),
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '搭建前三集故事骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>前三集强冲突骨架</storySkeleton>'),
+      const AgentTurnResult.text('故事骨架已完成。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '激活骨架技能并生成故事骨架', autoMode: true);
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:decisionAgent',
+      'scriptAgent:storySkeletonAgent',
+      'scriptAgent:decisionAgent',
+    ]);
+    final subAgentSystem = gateway.systems[2];
+    expect(subAgentSystem, contains('故事骨架搭建 Agent'));
+    expect(subAgentSystem, contains('已激活 Agent 技能'));
+    expect(subAgentSystem, contains('story_skeleton_style'));
+    expect(subAgentSystem, contains('前三秒强冲突'));
+    expect(subAgentSystem, contains('每集结尾保留悬念'));
+  });
+
   test(
       'Agent stage registry seeds ToonFlow script/production families without dropping pipeline keys',
       () {
@@ -2318,6 +2365,7 @@ class _Gateway implements ProviderGateway {
   List<TextResult> textResults = const [];
   List<AgentToolDef> lastTools = const [];
   String lastSystem = '';
+  List<String> systems = const [];
   List<Map<String, String>> lastMessages = const [];
   List<String> stages = const [];
   List<String> textStages = const [];
@@ -2330,6 +2378,7 @@ class _Gateway implements ProviderGateway {
     _turns = value;
     callCount = 0;
     stages = [];
+    systems = [];
     textStages = [];
     toolNamesByCall = [];
   }
@@ -2347,6 +2396,7 @@ class _Gateway implements ProviderGateway {
     if (shouldThrow) throw Exception('boom');
     lastTools = List<AgentToolDef>.from(tools);
     lastSystem = system;
+    systems = [...systems, system];
     lastMessages = [for (final message in messages) Map.of(message)];
     stages = [...stages, stage];
     toolNamesByCall = [
