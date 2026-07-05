@@ -2234,6 +2234,82 @@ return JSON.stringify(shots);
     );
   });
 
+  test('自定义脚本技能：支持 JSON.parse 读取工作区数据', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_json_parse_runtime',
+      name: 'JSON 工作区脚本运行时',
+      description: '验证自定义技能兼容模型常写的 JSON.parse 工作区数据读取。',
+      script: r'''
+const workspace = JSON.parse(args.workspaceJson);
+const selected = workspace.storyboards
+  .filter(shot => shot.enabled !== false)
+  .map((shot, index) => ({
+    order: index + 1,
+    id: shot.id,
+    title: shot.title.trim(),
+    duration: parseFloat(shot.duration),
+    assetCount: shot.assets.length,
+  }));
+return JSON.stringify({
+  project: workspace.project.name.trim(),
+  selected,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspaceJson': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_json_parse_runtime', {
+        'workspaceJson': jsonEncode({
+          'project': {'name': ' 测试短剧 '},
+          'storyboards': [
+            {
+              'id': 's1',
+              'title': ' 雪夜山门 ',
+              'duration': '3秒',
+              'enabled': true,
+              'assets': ['A001', 'A010'],
+            },
+            {
+              'id': 's2',
+              'title': '废稿',
+              'duration': '9秒',
+              'enabled': false,
+              'assets': ['A999'],
+            },
+            {
+              'id': 's3',
+              'title': '李澈拔剑',
+              'duration': '2.5s',
+              'assets': ['A001'],
+            },
+          ],
+        }),
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 JSON 工作区脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_json_parse_runtime');
+    expect(
+      msg.content,
+      '{"project":"测试短剧","selected":[{"order":1,"id":"s1","title":"雪夜山门",'
+      '"duration":3,"assetCount":2},{"order":2,"id":"s3","title":"李澈拔剑",'
+      '"duration":2.5,"assetCount":1}]}',
+    );
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',

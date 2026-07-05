@@ -332,6 +332,7 @@ class _CustomAgentSkillRuntime {
           'projectId': projectId,
           'args': args,
           'Array': const _CustomJsBuiltin('Array'),
+          'JSON': const _CustomJsBuiltin('JSON'),
           'Math': const _CustomJsBuiltin('Math'),
           'Number': const _CustomJsBuiltin('Number'),
           'Object': const _CustomJsBuiltin('Object'),
@@ -1150,6 +1151,8 @@ class _CustomAgentSkillRuntime {
           return _evaluate(args.single) is List;
         }
         break;
+      case 'JSON':
+        return _callJsonMethod(method, args);
       case 'Math':
         return _callMathMethod(method, args);
       case 'Object':
@@ -1160,6 +1163,30 @@ class _CustomAgentSkillRuntime {
       'object': objectName,
       'method': method,
     });
+  }
+
+  Object? _callJsonMethod(String method, List<String> args) {
+    switch (method) {
+      case 'parse':
+        if (args.length != 1) _badMethodArgs(method);
+        final source = _stringifyInterpolation(_evaluate(args.single));
+        try {
+          return jsonDecode(source);
+        } catch (_) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_json_parse',
+          });
+        }
+      case 'stringify':
+        if (args.length != 1) _badMethodArgs(method);
+        return jsonEncode(_evaluate(args.single));
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_builtin_method',
+          'object': 'JSON',
+          'method': method,
+        });
+    }
   }
 
   Object? _callMathMethod(String method, List<String> args) {
