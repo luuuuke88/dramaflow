@@ -977,9 +977,9 @@ class _CustomAgentSkillRuntime {
       case 'replace':
         if (args.length != 2) _badMethodArgs(method);
         final text = '${value ?? ''}';
-        final from = _stringifyInterpolation(_evaluate(args.first));
+        final matcher = _evaluate(args.first);
         final to = _stringifyInterpolation(_evaluate(args[1]));
-        return from.isEmpty ? '$to$text' : text.replaceFirst(from, to);
+        return _replaceString(text, matcher, to);
       case 'startsWith':
         if (args.length != 1) _badMethodArgs(method);
         return '${value ?? ''}'.startsWith(
@@ -1130,6 +1130,18 @@ class _CustomAgentSkillRuntime {
     final needle = _stringifyInterpolation(matcher);
     if (needle.isEmpty) return [''];
     return text.contains(needle) ? [needle] : null;
+  }
+
+  String _replaceString(String text, Object? matcher, String replacement) {
+    if (matcher is _CustomJsRegExp) {
+      return matcher.global
+          ? text.replaceAll(matcher.regExp, replacement)
+          : text.replaceFirst(matcher.regExp, replacement);
+    }
+    final from = _stringifyInterpolation(matcher);
+    return from.isEmpty
+        ? '$replacement$text'
+        : text.replaceFirst(from, replacement);
   }
 
   Object? _callFunction(Object? value, String name, List<String> args) {

@@ -2362,6 +2362,58 @@ return JSON.stringify(shots);
     );
   });
 
+  test('自定义脚本技能：支持正则 replace 清洗工作区 XML', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regex_replace_runtime',
+      name: '正则清洗脚本运行时',
+      description: '验证自定义技能兼容模型常写的 replace(/.../g, x) 文本清洗。',
+      script: r'''
+const cleaned = args.workspace
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+const firstTagRemoved = args.workspace
+  .replace(/<scriptPlan>/, '')
+  .startsWith('寒山宗门外');
+return JSON.stringify({
+  cleaned,
+  firstTagRemoved,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_regex_replace_runtime', const {
+        'workspace': '''
+<scriptPlan>寒山宗门外，雪夜开场。</scriptPlan>
+<storyboardItem> 雪夜山门 </storyboardItem>
+<storyboardItem>李澈拔剑</storyboardItem>
+''',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用正则清洗脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regex_replace_runtime');
+    expect(
+      msg.content,
+      '{"cleaned":"寒山宗门外，雪夜开场。 雪夜山门 李澈拔剑",'
+      '"firstTagRemoved":true}',
+    );
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',
