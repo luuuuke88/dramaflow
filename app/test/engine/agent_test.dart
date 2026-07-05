@@ -4135,6 +4135,66 @@ description: >-
     expect((payload['memories'] as List).single, contains('李澈'));
   });
 
+  test('Agent 记忆：deepRetrieve 工具返回可追踪 records 元数据', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'trace_msg_user',
+        '',
+        '用户强调寒山少主李澈必须保持正派。',
+        now,
+        embeddingJson('用户强调寒山少主李澈必须保持正派。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'trace_summary_lizhe',
+        '李澈角色设定',
+        '寒山少主李澈必须保持正派。',
+        now + 1,
+        embeddingJson('寒山少主李澈必须保持正派。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['trace_msg_user']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '李澈正派',
+        'limit': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '追踪角色设定来源', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], ['用户强调寒山少主李澈必须保持正派。']);
+    expect(payload['records'], isA<List>());
+    final records = payload['records'] as List;
+    expect(records, hasLength(1));
+    expect(records.single, {
+      'id': 'trace_msg_user',
+      'type': agentMemoryTypeMessage,
+      'role': agentRoleUser,
+      'content': '用户强调寒山少主李澈必须保持正派。',
+    });
+  });
+
   test('AgentMemoryService deepRetrieve 先由 LLM 判别 summary 再展开原始 message',
       () async {
     final now = DateTime.now().millisecondsSinceEpoch;

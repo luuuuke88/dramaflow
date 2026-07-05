@@ -491,17 +491,12 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('技能'));
+    await tester.tap(find.widgetWithText(Tab, '技能'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('agent-skill-edit-generate_events')),
-      240,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -140));
-    await tester.pumpAndSettle();
-    await tester
-        .tap(find.byKey(const ValueKey('agent-skill-edit-generate_events')));
+    final editSkill =
+        find.byKey(const ValueKey('agent-skill-edit-deepRetrieve'));
+    expect(editSkill, findsOneWidget);
+    await tester.tap(editSkill);
     await tester.pumpAndSettle();
 
     expect(find.byType(AlertDialog), findsNothing);
@@ -516,9 +511,8 @@ void main() {
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
 
-    final skill = engine
-        .agentSkills()
-        .singleWhere((item) => item.id == 'generate_events');
+    final skill =
+        engine.agentSkills().singleWhere((item) => item.id == 'deepRetrieve');
     expect(skill.description, '移动端也能编辑技能。');
     expect(skill.enabled, isFalse);
     expect(find.text('移动端也能编辑技能。'), findsOneWidget);

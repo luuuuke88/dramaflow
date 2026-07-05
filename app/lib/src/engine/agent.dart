@@ -177,7 +177,8 @@ final _tools = <AgentToolDef>[
   const AgentToolDef(
     name: 'deepRetrieve',
     description: '按关键词深度召回 Agent 历史摘要，并展开相关原始对话消息。'
-        '用于找回较早的角色设定、剧情约束、制作决策。',
+        '用于找回较早的角色设定、剧情约束、制作决策。'
+        '结果会同时返回 memories 文本列表和 records 结构化来源。',
     schema: {
       'type': 'object',
       'properties': {
@@ -4810,6 +4811,15 @@ extension AgentApi on Engine {
             'found': true,
             'memories': [
               for (final record in limitedRecords) record.content,
+            ],
+            'records': [
+              for (final record in limitedRecords)
+                {
+                  'id': record.id,
+                  'type': record.type,
+                  'role': record.role,
+                  'content': record.content,
+                },
             ],
           });
         case 'activate_skill':
