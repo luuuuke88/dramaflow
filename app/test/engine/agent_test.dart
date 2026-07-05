@@ -3515,6 +3515,77 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持函数和方法调用参数 spread', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_call_spread_runtime',
+      name: '调用参数展开脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Math.max(...list) 和 push(...items)。',
+      script: r'''
+const durations = args.shots.map(shot => shot.duration);
+const names = [];
+names.push(...args.assets.map(asset => asset.name.trim()));
+return JSON.stringify({
+  maxDuration: Math.max(...durations),
+  minDuration: Math.min(...durations),
+  names: names.join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_call_spread_runtime', const {
+        'shots': [
+          {'duration': 2},
+          {'duration': 5},
+          {'duration': 3},
+        ],
+        'assets': [
+          {'name': ' 李澈 '},
+          {'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用参数展开脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_call_spread_runtime');
+    expect(jsonDecode(msg.content), {
+      'maxDuration': 5,
+      'minDuration': 2,
+      'names': '李澈、沈微',
+    });
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(

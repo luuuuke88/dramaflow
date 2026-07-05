@@ -1275,13 +1275,12 @@ class _CustomAgentSkillRuntime {
         return null;
       case 'push':
         if (value is! List) _badMethodArgs(method);
-        value.addAll([for (final arg in args) _evaluate(arg)]);
+        value.addAll(_evaluateCallArguments(args));
         return value.length;
       case 'concat':
         if (value is! Iterable || value is String) _badMethodArgs(method);
         final combined = <Object?>[...value];
-        for (final arg in args) {
-          final item = _evaluate(arg);
+        for (final item in _evaluateCallArguments(args)) {
           if (item is Iterable && item is! String) {
             combined.addAll(item);
           } else {
@@ -1492,8 +1491,30 @@ class _CustomAgentSkillRuntime {
   }
 
   Object? _callCustomFunction(_CustomJsFunction function, List<String> args) {
-    final values = [for (final arg in args) _evaluate(arg)];
-    return _callCustomFunctionWithValues(function, values);
+    return _callCustomFunctionWithValues(
+        function, _evaluateCallArguments(args));
+  }
+
+  List<Object?> _evaluateCallArguments(List<String> args) {
+    final values = <Object?>[];
+    for (final arg in args) {
+      final trimmed = arg.trim();
+      if (trimmed.startsWith('...')) {
+        final spreadValue = _evaluate(trimmed.substring(3).trim());
+        if (spreadValue is String) {
+          values.addAll(spreadValue.split(''));
+        } else if (spreadValue is Iterable) {
+          values.addAll(spreadValue);
+        } else {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_spread_argument',
+          });
+        }
+      } else {
+        values.add(_evaluate(arg));
+      }
+    }
+    return values;
   }
 
   Object? _callCustomFunctionWithValues(
@@ -1521,23 +1542,24 @@ class _CustomAgentSkillRuntime {
   }
 
   Object? _callBuiltinFunction(String objectName, List<String> args) {
+    final values = _evaluateCallArguments(args);
     switch (objectName) {
       case 'Number':
-        if (args.length > 1) _badMethodArgs(objectName);
-        if (args.isEmpty) return 0;
-        return _toNum(_evaluate(args.single));
+        if (values.length > 1) _badMethodArgs(objectName);
+        if (values.isEmpty) return 0;
+        return _toNum(values.single);
       case 'String':
-        if (args.length > 1) _badMethodArgs(objectName);
-        if (args.isEmpty) return '';
-        return _stringifyInterpolation(_evaluate(args.single));
+        if (values.length > 1) _badMethodArgs(objectName);
+        if (values.isEmpty) return '';
+        return _stringifyInterpolation(values.single);
       case 'parseFloat':
-        if (args.length != 1) _badMethodArgs(objectName);
-        return _parseNumericPrefix(_evaluate(args.single), integer: false);
+        if (values.length != 1) _badMethodArgs(objectName);
+        return _parseNumericPrefix(values.single, integer: false);
       case 'parseInt':
-        if (args.isEmpty || args.length > 2) _badMethodArgs(objectName);
-        final radix = args.length == 1 ? 10 : _toInt(_evaluate(args[1]));
+        if (values.isEmpty || values.length > 2) _badMethodArgs(objectName);
+        final radix = values.length == 1 ? 10 : _toInt(values[1]);
         return _parseNumericPrefix(
-          _evaluate(args.first),
+          values.first,
           integer: true,
           radix: radix,
         );
@@ -1688,8 +1710,9 @@ class _CustomAgentSkillRuntime {
       case 'keys':
       case 'values':
       case 'entries':
-        if (args.length != 1) _badMethodArgs(method);
-        final value = _evaluate(args.single);
+        final values = _evaluateCallArguments(args);
+        if (values.length != 1) _badMethodArgs(method);
+        final value = values.single;
         if (value is! Map) {
           throw EngineException(errLlmFormat, {
             'reason': 'custom_skill_object_builtin',
@@ -1715,8 +1738,9 @@ class _CustomAgentSkillRuntime {
   }
 
   Map<String, Object?> _objectAssign(List<String> args) {
-    if (args.isEmpty) _badMethodArgs('assign');
-    final target = _evaluate(args.first);
+    final values = _evaluateCallArguments(args);
+    if (values.isEmpty) _badMethodArgs('assign');
+    final target = values.first;
     if (target is! Map) {
       throw EngineException(errLlmFormat, {
         'reason': 'custom_skill_object_builtin',
@@ -1726,8 +1750,7 @@ class _CustomAgentSkillRuntime {
     final result = <String, Object?>{
       for (final entry in target.entries) '${entry.key}': entry.value,
     };
-    for (final arg in args.skip(1)) {
-      final source = _evaluate(arg);
+    for (final source in values.skip(1)) {
       if (source == null) continue;
       if (source is! Map) {
         throw EngineException(errLlmFormat, {
@@ -1743,8 +1766,9 @@ class _CustomAgentSkillRuntime {
   }
 
   Map<String, Object?> _objectFromEntries(List<String> args) {
-    if (args.length != 1) _badMethodArgs('fromEntries');
-    final source = _evaluate(args.single);
+    final values = _evaluateCallArguments(args);
+    if (values.length != 1) _badMethodArgs('fromEntries');
+    final source = values.single;
     if (source is! Iterable) {
       throw EngineException(errLlmFormat, {
         'reason': 'custom_skill_object_builtin',
@@ -1916,7 +1940,7 @@ class _CustomAgentSkillRuntime {
     List<String> args,
     T Function(Object? value) convert,
   ) =>
-      [for (final arg in args) convert(_evaluate(arg))];
+      [for (final arg in _evaluateCallArguments(args)) convert(arg)];
 
   bool _isTruthy(Object? value) {
     if (value == null) return false;
