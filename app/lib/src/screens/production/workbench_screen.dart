@@ -576,6 +576,18 @@ class _TimelineOverview extends ConsumerStatefulWidget {
   ConsumerState<_TimelineOverview> createState() => _TimelineOverviewState();
 }
 
+class _TimelineClipPlacement {
+  final int lane;
+  final int startMs;
+  final int durationMs;
+
+  const _TimelineClipPlacement({
+    required this.lane,
+    required this.startMs,
+    required this.durationMs,
+  });
+}
+
 class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   static const double _dragPixelsPerTimeStep = 12;
   static const int _dragTimeStepMs = 100;
@@ -662,21 +674,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         widget.shots.isEmpty) {
       return;
     }
-    final engine = ref.read(engineProvider);
-    final selectedRows = engine
-        .timelineClips(widget.shots.first.scriptId)
-        .where((clip) => _selectedClipIds.contains(clip.id))
-        .toList();
-    if (selectedRows.isEmpty) return;
-    for (final clip in selectedRows) {
-      engine.updateTimelineClip(
-        clipId: clip.id,
-        lane: clip.lane,
-        startMs: playheadMs,
-        durationMs: clip.durationMs,
-      );
-    }
-    setState(() {});
+    _alignSelectedClipLayers((_) => playheadMs);
   }
 
   void _alignSelectedClipLayerEndsToPlayhead() {
@@ -686,23 +684,11 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         widget.shots.isEmpty) {
       return;
     }
-    final engine = ref.read(engineProvider);
-    final selectedRows = engine
-        .timelineClips(widget.shots.first.scriptId)
-        .where((clip) => _selectedClipIds.contains(clip.id))
-        .toList();
-    if (selectedRows.isEmpty) return;
-    for (final clip in selectedRows) {
+    _alignSelectedClipLayers((clip) {
       final duration = clip.durationMs ?? _defaultClipDurationMs;
       final nextStart = playheadMs - duration;
-      engine.updateTimelineClip(
-        clipId: clip.id,
-        lane: clip.lane,
-        startMs: nextStart < 0 ? 0 : nextStart,
-        durationMs: clip.durationMs,
-      );
-    }
-    setState(() {});
+      return nextStart < 0 ? 0 : nextStart;
+    });
   }
 
   void _alignSelectedClipLayerCentersToPlayhead() {
@@ -712,21 +698,44 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         widget.shots.isEmpty) {
       return;
     }
+    _alignSelectedClipLayers((clip) {
+      final duration = clip.durationMs ?? _defaultClipDurationMs;
+      final nextStart = playheadMs - duration ~/ 2;
+      return nextStart < 0 ? 0 : nextStart;
+    });
+  }
+
+  void _alignSelectedClipLayers(int Function(TimelineClipRow clip) startFor) {
     final engine = ref.read(engineProvider);
     final selectedRows = engine
         .timelineClips(widget.shots.first.scriptId)
         .where((clip) => _selectedClipIds.contains(clip.id))
         .toList();
     if (selectedRows.isEmpty) return;
+    final selectedIds = selectedRows.map((clip) => clip.id).toSet();
+    final placements = <_TimelineClipPlacement>[];
     for (final clip in selectedRows) {
       final duration = clip.durationMs ?? _defaultClipDurationMs;
-      final nextStart = playheadMs - duration ~/ 2;
+      final resolvedStart = _avoidTimelineClipOverlapForward(
+        engine: engine,
+        clip: clip,
+        lane: clip.lane,
+        startMs: startFor(clip),
+        durationMs: duration,
+        ignoredClipIds: selectedIds,
+        placed: placements,
+      );
       engine.updateTimelineClip(
         clipId: clip.id,
         lane: clip.lane,
-        startMs: nextStart < 0 ? 0 : nextStart,
+        startMs: resolvedStart,
         durationMs: clip.durationMs,
       );
+      placements.add(_TimelineClipPlacement(
+        lane: clip.lane,
+        startMs: resolvedStart,
+        durationMs: duration,
+      ));
     }
     setState(() {});
   }
@@ -1294,6 +1303,52 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         candidate =
             candidate < other.startMs ? other.startMs - durationMs : otherEnd;
         if (candidate < 0) candidate = 0;
+        changed = true;
+        break;
+      }
+    }
+    return candidate;
+  }
+
+  int _avoidTimelineClipOverlapForward({
+    required Engine engine,
+    required TimelineClipRow clip,
+    required int lane,
+    required int startMs,
+    required int durationMs,
+    Set<int> ignoredClipIds = const {},
+    List<_TimelineClipPlacement> placed = const [],
+  }) {
+    final targetLane = lane < 1 ? 1 : lane;
+    var candidate = startMs < 0 ? 0 : startMs;
+    final intervals = <_TimelineClipPlacement>[
+      for (final other in engine.timelineClips(clip.scriptId))
+        if (other.id != clip.id &&
+            other.lane == targetLane &&
+            !ignoredClipIds.contains(other.id))
+          _TimelineClipPlacement(
+            lane: targetLane,
+            startMs: other.startMs,
+            durationMs: other.durationMs ?? _defaultClipDurationMs,
+          ),
+      for (final item in placed)
+        if (item.lane == targetLane) item,
+    ]..sort((a, b) {
+        final byStart = a.startMs.compareTo(b.startMs);
+        return byStart != 0 ? byStart : a.durationMs.compareTo(b.durationMs);
+      });
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < intervals.length + 1) {
+      changed = false;
+      guard += 1;
+      for (final interval in intervals) {
+        final intervalEnd = interval.startMs + interval.durationMs;
+        final candidateEnd = candidate + durationMs;
+        final overlaps =
+            candidate < intervalEnd && candidateEnd > interval.startMs;
+        if (!overlaps) continue;
+        candidate = intervalEnd;
         changed = true;
         break;
       }
