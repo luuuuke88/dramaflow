@@ -105,15 +105,80 @@ class AgentMemoryContext {
       relatedMessages.isEmpty && summaries.isEmpty && recentMessages.isEmpty;
 }
 
+abstract class AgentMemoryEmbeddingProvider {
+  const AgentMemoryEmbeddingProvider();
+
+  String embeddingJson(String text);
+
+  Map<String, int> embeddingFromText(String text);
+
+  int score({
+    required String name,
+    required String content,
+    required String query,
+    required Set<String> tokens,
+    required Map<String, int> queryEmbedding,
+    required String memoryEmbedding,
+  });
+
+  List<String> matchedTokens({
+    required String name,
+    required String content,
+    required String query,
+    required Set<String> tokens,
+  });
+}
+
+class TokenAgentMemoryEmbeddingProvider extends AgentMemoryEmbeddingProvider {
+  const TokenAgentMemoryEmbeddingProvider();
+
+  @override
+  String embeddingJson(String text) =>
+      jsonEncode(embeddingFromText(normalizeMemoryText(text)));
+
+  @override
+  Map<String, int> embeddingFromText(String text) =>
+      memoryEmbeddingFromText(text);
+
+  @override
+  int score({
+    required String name,
+    required String content,
+    required String query,
+    required Set<String> tokens,
+    required Map<String, int> queryEmbedding,
+    required String memoryEmbedding,
+  }) =>
+      memoryScore(
+        name,
+        content,
+        query,
+        tokens,
+        queryEmbedding,
+        memoryEmbedding,
+      );
+
+  @override
+  List<String> matchedTokens({
+    required String name,
+    required String content,
+    required String query,
+    required Set<String> tokens,
+  }) =>
+      memoryMatchedTokens(name, content, query, tokens);
+}
+
 class AgentMemoryService {
   final Database db;
   final ProviderGateway gateway;
   final String summaryStage;
+  final AgentMemoryEmbeddingProvider embeddingProvider;
 
   const AgentMemoryService(
     this.db,
     this.gateway, {
     required this.summaryStage,
+    this.embeddingProvider = const TokenAgentMemoryEmbeddingProvider(),
   });
 
   Future<String> add({
@@ -137,7 +202,7 @@ class AgentMemoryService {
         name.trim(),
         trimmed,
         now,
-        embeddingJson('$name $trimmed'),
+        embeddingProvider.embeddingJson('$name $trimmed'),
         isolationKey,
         '[]',
         role,
@@ -157,7 +222,7 @@ class AgentMemoryService {
     final settings = readSettings();
     final normalized = normalizeMemoryText(query);
     final tokens = memorySearchTokens(normalized);
-    final queryEmbedding = memoryEmbeddingFromText(normalized);
+    final queryEmbedding = embeddingProvider.embeddingFromText(normalized);
     final rankedMessages = settings.ragLimit <= 0
         ? const <(int, AgentMemoryEntry)>[]
         : _rankMessageCandidates(
@@ -227,7 +292,7 @@ class AgentMemoryService {
     final settings = readSettings();
     final normalized = normalizeMemoryText(keyword);
     final tokens = memorySearchTokens(normalized);
-    final queryEmbedding = memoryEmbeddingFromText(normalized);
+    final queryEmbedding = embeddingProvider.embeddingFromText(normalized);
     final noteMatches = allowNotes && noteIsolationKey != null
         ? [
             for (final item in _filterRankedEntries(
@@ -452,22 +517,33 @@ class AgentMemoryService {
     for (final row in messages) {
       var entry = AgentMemoryEntry.fromRow(row);
       if (entry.embedding.trim().isEmpty) {
-        final embedding = embeddingJson('${entry.name} ${entry.content}');
+        final embedding =
+            embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
         db.execute(
           'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
           [embedding, entry.id, isolationKey],
         );
         entry = entry.copyWith(embedding: embedding);
       }
-      final score = memoryScore(entry.name, entry.content, normalized, tokens,
-          queryEmbedding, entry.embedding);
+      final score = embeddingProvider.score(
+        name: entry.name,
+        content: entry.content,
+        query: normalized,
+        tokens: tokens,
+        queryEmbedding: queryEmbedding,
+        memoryEmbedding: entry.embedding,
+      );
       if (score > 0) {
         scored.add((
           score,
           entry.copyWith(
             score: score,
-            matchedTokens: memoryMatchedTokens(
-                entry.name, entry.content, normalized, tokens),
+            matchedTokens: embeddingProvider.matchedTokens(
+              name: entry.name,
+              content: entry.content,
+              query: normalized,
+              tokens: tokens,
+            ),
           ),
         ));
       }
@@ -496,22 +572,33 @@ class AgentMemoryService {
     for (final row in summaries) {
       var entry = AgentMemoryEntry.fromRow(row);
       if (entry.embedding.trim().isEmpty) {
-        final embedding = embeddingJson('${entry.name} ${entry.content}');
+        final embedding =
+            embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
         db.execute(
           'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
           [embedding, entry.id, isolationKey],
         );
         entry = entry.copyWith(embedding: embedding);
       }
-      final score = memoryScore(entry.name, entry.content, normalized, tokens,
-          queryEmbedding, entry.embedding);
+      final score = embeddingProvider.score(
+        name: entry.name,
+        content: entry.content,
+        query: normalized,
+        tokens: tokens,
+        queryEmbedding: queryEmbedding,
+        memoryEmbedding: entry.embedding,
+      );
       if (score > 0) {
         scored.add((
           score,
           entry.copyWith(
             score: score,
-            matchedTokens: memoryMatchedTokens(
-                entry.name, entry.content, normalized, tokens),
+            matchedTokens: embeddingProvider.matchedTokens(
+              name: entry.name,
+              content: entry.content,
+              query: normalized,
+              tokens: tokens,
+            ),
           ),
         ));
       }
@@ -541,22 +628,33 @@ class AgentMemoryService {
     for (final row in notes) {
       var entry = AgentMemoryEntry.fromRow(row);
       if (entry.embedding.trim().isEmpty) {
-        final embedding = embeddingJson('${entry.name} ${entry.content}');
+        final embedding =
+            embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
         db.execute(
           'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
           [embedding, entry.id, isolationKey],
         );
         entry = entry.copyWith(embedding: embedding);
       }
-      final score = memoryScore(entry.name, entry.content, normalized, tokens,
-          queryEmbedding, entry.embedding);
+      final score = embeddingProvider.score(
+        name: entry.name,
+        content: entry.content,
+        query: normalized,
+        tokens: tokens,
+        queryEmbedding: queryEmbedding,
+        memoryEmbedding: entry.embedding,
+      );
       if (score > 0) {
         scored.add((
           score,
           entry.copyWith(
             score: score,
-            matchedTokens: memoryMatchedTokens(
-                entry.name, entry.content, normalized, tokens),
+            matchedTokens: embeddingProvider.matchedTokens(
+              name: entry.name,
+              content: entry.content,
+              query: normalized,
+              tokens: tokens,
+            ),
           ),
         ));
       }
@@ -575,18 +673,22 @@ class AgentMemoryService {
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
   }) {
-    final score = memoryScore(
-      entry.name,
-      entry.content,
-      normalized,
-      tokens,
-      queryEmbedding,
-      entry.embedding,
+    final score = embeddingProvider.score(
+      name: entry.name,
+      content: entry.content,
+      query: normalized,
+      tokens: tokens,
+      queryEmbedding: queryEmbedding,
+      memoryEmbedding: entry.embedding,
     );
     return entry.copyWith(
       score: score,
-      matchedTokens:
-          memoryMatchedTokens(entry.name, entry.content, normalized, tokens),
+      matchedTokens: embeddingProvider.matchedTokens(
+        name: entry.name,
+        content: entry.content,
+        query: normalized,
+        tokens: tokens,
+      ),
     );
   }
 
@@ -852,7 +954,7 @@ class AgentMemoryService {
         '对话摘要',
         summary,
         now,
-        embeddingJson(summary),
+        embeddingProvider.embeddingJson(summary),
         isolationKey,
         jsonEncode(ids),
         'assistant',

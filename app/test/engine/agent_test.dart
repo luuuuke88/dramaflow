@@ -6200,6 +6200,66 @@ description: >-
     expect(gateway.textCallCount, 0);
   });
 
+  test('AgentMemoryService get 支持注入 embedding provider 召回语义相关 message',
+      () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    const embeddingProvider = _SemanticMemoryEmbeddingProvider();
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+      embeddingProvider: embeddingProvider,
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'semantic_noise_msg',
+        '',
+        '用户设定：寒山宗门外景需要云海远景。',
+        now,
+        embeddingProvider.embeddingJson('用户设定：寒山宗门外景需要云海远景。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'semantic_relevant_msg',
+        '',
+        '用户设定：李澈和沈微之间有不可背弃的师徒契约。',
+        now + 1,
+        embeddingProvider.embeddingJson('用户设定：李澈和沈微之间有不可背弃的师徒契约。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+
+    final context = await service.get(
+      isolationKey: 'scriptAgent:$projectId',
+      query: '师承羁绊',
+    );
+
+    expect(context.relatedMessages.map((item) => item.id),
+        ['semantic_relevant_msg']);
+    expect(context.relatedMessages.single.score, greaterThan(0));
+    expect(gateway.textCallCount, 0);
+  });
+
   test('AgentMemoryService get 可开启模型重排过滤相关 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
@@ -7705,6 +7765,20 @@ $body
     extra.writeAsStringSync(entry.value);
   }
   return file;
+}
+
+class _SemanticMemoryEmbeddingProvider
+    extends TokenAgentMemoryEmbeddingProvider {
+  const _SemanticMemoryEmbeddingProvider();
+
+  @override
+  Map<String, int> embeddingFromText(String text) {
+    final normalized = normalizeMemoryText(text);
+    if (normalized.contains('师徒契约') || normalized.contains('师承羁绊')) {
+      return const {'mentor_bond': 1};
+    }
+    return super.embeddingFromText(text);
+  }
 }
 
 class _Gateway implements ProviderGateway {
