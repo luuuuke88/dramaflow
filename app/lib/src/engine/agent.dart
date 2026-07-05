@@ -858,7 +858,7 @@ class _CustomAgentSkillRuntime {
     final body = callback.substring(arrow + 2).trim();
     return _withScopeBindings(
       _bindCallbackParams(params, [item, index], method),
-      () => _evaluate(body),
+      () => _evaluateCallbackBody(method, body),
     );
   }
 
@@ -878,7 +878,7 @@ class _CustomAgentSkillRuntime {
     bindings.putIfAbsent('index', () => index);
     return _withScopeBindings(
       bindings,
-      () => _evaluate(body),
+      () => _evaluateCallbackBody(method, body),
     );
   }
 
@@ -895,7 +895,7 @@ class _CustomAgentSkillRuntime {
     final body = callback.substring(arrow + 2).trim();
     final result = _withScopeBindings(
       _bindCallbackParams(params, [left, right], method),
-      () => _evaluate(body),
+      () => _evaluateCallbackBody(method, body),
     );
     if (result is num) return result.sign.toInt();
     if (result is bool) return result ? 1 : 0;
@@ -990,6 +990,27 @@ class _CustomAgentSkillRuntime {
       _badMethodArgs(method);
     }
     return names;
+  }
+
+  Object? _evaluateCallbackBody(String method, String body) {
+    final returnExpression = _callbackBlockReturnExpression(method, body);
+    return _evaluate(returnExpression ?? body);
+  }
+
+  String? _callbackBlockReturnExpression(String method, String body) {
+    final inner = _literalInner(body.trim(), '{', '}');
+    if (inner == null) return null;
+    final statements = _splitStatements(inner)
+        .map((statement) => statement.trim())
+        .where((statement) => statement.isNotEmpty)
+        .toList();
+    if (statements.length != 1 || !statements.single.startsWith('return ')) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_callback_block',
+        'method': method,
+      });
+    }
+    return statements.single.substring('return '.length).trim();
   }
 
   bool _isValidCallbackParam(String param) {

@@ -978,6 +978,95 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持块状箭头回调 return', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_block_callback_runtime',
+      name: '块状回调脚本运行时',
+      description: '验证自定义技能兼容模型常写的 item => { return ...; } 回调。',
+      script: r'''
+const labels = args.assets
+  .filter(asset => {
+    return asset.enabled !== false;
+  })
+  .sort((a, b) => {
+    return b.priority - a.priority;
+  })
+  .map((asset, index) => {
+    return {
+      order: index + 1,
+      name: asset.name.trim(),
+      label: `${asset.type}:${asset.name.trim()}`,
+    };
+  });
+return JSON.stringify(labels);
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+                'priority': {'type': 'number'},
+                'enabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_block_callback_runtime', const {
+        'assets': [
+          {
+            'type': 'role',
+            'name': ' 李澈 ',
+            'priority': 30,
+            'enabled': true,
+          },
+          {
+            'type': 'tool',
+            'name': '弃用道具',
+            'priority': 90,
+            'enabled': false,
+          },
+          {
+            'type': 'scene',
+            'name': ' 寒山宗门 ',
+            'priority': 50,
+            'enabled': true,
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用块状回调脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_block_callback_runtime');
+    expect(jsonDecode(msg.content), [
+      {
+        'order': 1,
+        'name': '寒山宗门',
+        'label': 'scene:寒山宗门',
+      },
+      {
+        'order': 2,
+        'name': '李澈',
+        'label': 'role:李澈',
+      },
+    ]);
+  });
+
   test('自定义脚本技能：支持括号分组逻辑表达式', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_group_runtime',
