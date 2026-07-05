@@ -1154,6 +1154,64 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Array.from 生成序号和映射列表', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_from_runtime',
+      name: 'Array.from 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Array.from({ length }, mapper)。',
+      script: r'''
+const shotLabels = Array.from({ length: args.count }, (_, index) => `镜头${index + 1}`)
+  .join('、');
+const assetLabels = Array.from(args.assets, (asset, index) =>
+  `${index + 1}.${asset.name.trim()}`)
+  .join('、');
+return JSON.stringify({
+  shotLabels,
+  assetLabels,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'count': {'type': 'number'},
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_from_runtime', const {
+        'count': 3,
+        'assets': [
+          {'name': ' 李澈 '},
+          {'name': '寒山宗门'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Array.from 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_from_runtime');
+    expect(jsonDecode(msg.content), {
+      'shotLabels': '镜头1、镜头2、镜头3',
+      'assetLabels': '1.李澈、2.寒山宗门',
+    });
+  });
+
   test('自定义脚本技能：支持回调数组解构处理 Object.entries', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_destructure_runtime',

@@ -1369,6 +1369,7 @@ class _CustomAgentSkillRuntime {
           if (args.length != 1) _badMethodArgs(method);
           return _evaluate(args.single) is List;
         }
+        if (method == 'from') return _arrayFrom(args);
         break;
       case 'JSON':
         return _callJsonMethod(method, args);
@@ -1382,6 +1383,43 @@ class _CustomAgentSkillRuntime {
       'object': objectName,
       'method': method,
     });
+  }
+
+  List<Object?> _arrayFrom(List<String> args) {
+    if (args.isEmpty || args.length > 2) _badMethodArgs('from');
+    final source = _evaluate(args.first);
+    final values = <Object?>[];
+    if (source is String) {
+      values.addAll(source.split(''));
+    } else if (source is Iterable) {
+      values.addAll(source);
+    } else if (source is Map) {
+      final length = _arrayLikeLength(source);
+      for (var index = 0; index < length; index++) {
+        values
+            .add(source.containsKey(index) ? source[index] : source['$index']);
+      }
+    } else {
+      _badMethodArgs('from');
+    }
+    if (args.length == 1) return values;
+    return [
+      for (var index = 0; index < values.length; index++)
+        _evaluateCallback('from', args[1], values[index], index),
+    ];
+  }
+
+  int _arrayLikeLength(Map<Object?, Object?> source) {
+    final raw = source['length'];
+    if (raw == null) return 0;
+    final length = _toInt(raw);
+    if (length <= 0) return 0;
+    if (length > 10000) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_array_from_guard',
+      });
+    }
+    return length;
   }
 
   Object? _callJsonMethod(String method, List<String> args) {
