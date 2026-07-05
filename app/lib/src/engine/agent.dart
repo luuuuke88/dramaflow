@@ -371,6 +371,11 @@ class _CustomAgentSkillRuntime {
       if (trimmed.isEmpty) continue;
       if (trimmed == 'break') return const _CustomJsBreakValue();
       if (trimmed == 'continue') return const _CustomJsContinueValue();
+      final function = _readFunctionDeclaration(trimmed);
+      if (function != null) {
+        _scope[function.name] = function;
+        continue;
+      }
       final ifStatement = _readIfStatement(trimmed);
       if (ifStatement != null) {
         final branch = _isTruthy(_evaluate(ifStatement.condition))
@@ -534,6 +539,30 @@ class _CustomAgentSkillRuntime {
       condition: condition.text,
       whenTrue: whenTrue.text,
       whenFalse: whenFalse,
+    );
+  }
+
+  _CustomJsFunction? _readFunctionDeclaration(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    if (!_startsWithWord(source, 0, 'function')) return null;
+    var index = _skipWhitespace(source, 'function'.length);
+    final name = _readIdentifier(source, index);
+    if (name == null) return null;
+    index = _skipWhitespace(source, name.end);
+    if (index >= source.length || source[index] != '(') return null;
+    final rawParams = _readBalanced(source, index, '(', ')');
+    final params = _readFunctionParams(rawParams.text, name.text);
+    index = _skipWhitespace(source, rawParams.end);
+    if (index >= source.length || source[index] != '{') return null;
+    final body = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, body.end);
+    if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
+      return null;
+    }
+    return _CustomJsFunction(
+      name: name.text,
+      params: params,
+      body: body.text,
     );
   }
 
@@ -1202,9 +1231,34 @@ class _CustomAgentSkillRuntime {
     if (value is _CustomJsBuiltin) {
       return _callBuiltinFunction(value.name, args);
     }
+    if (value is _CustomJsFunction) {
+      return _callCustomFunction(value, args);
+    }
     throw EngineException(errLlmFormat, {
       'reason': 'custom_skill_function',
       'function': name,
+    });
+  }
+
+  Object? _callCustomFunction(_CustomJsFunction function, List<String> args) {
+    final values = [for (final arg in args) _evaluate(arg)];
+    final bindings = <String, Object?>{};
+    for (var i = 0; i < function.params.length; i++) {
+      _bindCallbackParam(
+        function.params[i],
+        i < values.length ? values[i] : null,
+        bindings,
+        function.name,
+      );
+    }
+    return _withScopeBindings(bindings, () {
+      final result = _runStatements(function.body);
+      if (result is _CustomJsReturnValue) return result.value;
+      if (result == null) return null;
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_function_control_flow',
+        'function': function.name,
+      });
     });
   }
 
@@ -1518,6 +1572,17 @@ class _CustomAgentSkillRuntime {
     return names;
   }
 
+  List<String> _readFunctionParams(String source, String name) {
+    final params = _splitTopLevel(source, ',')
+        .map((param) => param.trim())
+        .where((param) => param.isNotEmpty)
+        .toList();
+    if (params.any((param) => !_isValidCallbackParam(param))) {
+      _badMethodArgs(name);
+    }
+    return params;
+  }
+
   Object? _evaluateCallbackBody(String method, String body) {
     final inner = _literalInner(body.trim(), '{', '}');
     if (inner == null) return _evaluate(body);
@@ -1769,6 +1834,18 @@ class _CustomJsBuiltin {
   const _CustomJsBuiltin(this.name);
 }
 
+class _CustomJsFunction {
+  final String name;
+  final List<String> params;
+  final String body;
+
+  const _CustomJsFunction({
+    required this.name,
+    required this.params,
+    required this.body,
+  });
+}
+
 class _CustomJsRegExp {
   final RegExp regExp;
   final bool global;
@@ -1983,6 +2060,7 @@ List<String> _splitStatements(String script) {
 bool _isTopLevelBlockStatement(String source) {
   final trimmed = source.trimLeft();
   return _startsWithWord(trimmed, 0, 'if') ||
+      _startsWithWord(trimmed, 0, 'function') ||
       _startsWithWord(trimmed, 0, 'while') ||
       _startsWithWord(trimmed, 0, 'for');
 }

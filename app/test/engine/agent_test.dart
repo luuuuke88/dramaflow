@@ -1899,6 +1899,67 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持普通函数声明作为辅助方法', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_function_runtime',
+      name: '函数声明脚本运行时',
+      description: '验证自定义技能兼容模型常写的 function 辅助方法。',
+      script: r'''
+function formatShot(shot, index) {
+  if (shot.disabled || !shot.videoDesc?.trim()) {
+    return null;
+  }
+  const duration = shot.duration ?? 1;
+  return `${index + 1}.${shot.videoDesc.trim()}:${duration}s`;
+}
+
+const labels = args.storyboards
+  .map((shot, index) => formatShot(shot, index))
+  .filter(label => !!label);
+
+return labels.join('、');
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_function_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 ', 'duration': 3},
+          {'videoDesc': '', 'duration': 4},
+          {'videoDesc': '李澈拔剑'},
+          {'videoDesc': '废弃镜头', 'duration': 8, 'disabled': true},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用函数声明脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_function_runtime');
+    expect(msg.content, '1.雪夜山门:3s、3.李澈拔剑:1s');
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',
