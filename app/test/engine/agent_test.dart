@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/agent.dart';
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -15,6 +16,7 @@ import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/storyboard_table.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
@@ -735,12 +737,221 @@ void main() {
     expect(engine.agentMessages(projectId).last.content,
         contains('剧本 Agent 已写入 2 个剧本'));
   });
+
+  test(
+      'ProductionAgentOrchestrator uses decision stage and exposes production subagent tools',
+      () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(projectId, '制作画布：生成导演计划和分镜面板',
+        autoMode: false);
+
+    expect(gateway.stages, ['productionAgent:decisionAgent']);
+    expect(
+      gateway.toolNamesByCall.single,
+      containsAll([
+        'get_flowData',
+        'add_deriveAsset',
+        'generate_deriveAsset',
+        'generate_storyboard',
+        'add_flowData_storyboard',
+        'run_sub_agent_derive_assets',
+        'run_sub_agent_generate_assets',
+        'run_sub_agent_director_plan',
+        'run_sub_agent_storyboard_gen',
+        'run_sub_agent_storyboard_panel',
+        'run_sub_agent_storyboard_table',
+        'run_sub_agent_supervision',
+      ]),
+    );
+  });
+
+  test(
+      'ProductionAgentOrchestrator writes director plan storyboard table and storyboard panel',
+      () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做第一集导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>第一集冷色调快节奏</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作导演计划', autoMode: false);
+
+    expect(gateway.stages, [
+      'productionAgent:decisionAgent',
+      'productionAgent:directorPlanAgent',
+    ]);
+    var flowData = _productionAgentWorkData(db, projectId, scriptId);
+    expect(flowData['scriptPlan'], '第一集冷色调快节奏');
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_table',
+        {'prompt': '做第一集分镜表', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<storyboardTable>|镜头|内容|</storyboardTable>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作分镜表', autoMode: false);
+
+    flowData = _productionAgentWorkData(db, projectId, scriptId);
+    expect(flowData['storyboardTable'], '|镜头|内容|');
+    expect(engine.storyboardTable(projectId, scriptId), '|镜头|内容|');
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'prompt': '写第一集分镜面板', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.text(
+        "<storyboardItem videoDesc='李澈踏入寒山宗门' "
+        "prompt='冷色调，少年入山，远景' track='主线' "
+        "shouldGenerateImage='false' duration='3.5' "
+        "associateAssetsIds='[$roleId]'></storyboardItem>",
+      ),
+    ];
+
+    await engine.sendAgentMessage(projectId, '写分镜面板', autoMode: false);
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows, hasLength(1));
+    expect(rows.single.videoDesc, '李澈踏入寒山宗门');
+    expect(rows.single.prompt, '冷色调，少年入山，远景');
+    expect(rows.single.duration, '3.5');
+    expect(rows.single.track, '主线');
+    expect(rows.single.shouldGenerateImage, 0);
+    expect(rows.single.assetIds, [roleId]);
+  });
+
+  test(
+      'ProductionAgentOrchestrator runs asset and storyboard execution tools from subagents',
+      () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final parentAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, parentAssetId]);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_derive_assets',
+        {'prompt': '衍生战损造型', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool(
+        'add_deriveAsset',
+        {
+          'assetsId': parentAssetId,
+          'id': null,
+          'name': '李澈战损造型',
+          'desc': '衣甲破损，脸侧有血痕',
+          'scriptId': scriptId,
+        },
+      ),
+      const AgentTurnResult.text('衍生资产完成'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '生产衍生资产', autoMode: false);
+
+    final child = db.select(
+      'SELECT * FROM o_assets WHERE assetsId=? AND name=?',
+      [parentAssetId, '李澈战损造型'],
+    ).single;
+    final childId = child['id'] as int;
+    expect(child['describe'], '衣甲破损，脸侧有血痕');
+    expect(
+      db.select('SELECT assetId FROM o_scriptAssets WHERE scriptId=?',
+          [scriptId]).map((row) => row['assetId']),
+      contains(childId),
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_generate_assets',
+        {'prompt': '生成衍生资产图片', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool('generate_deriveAsset', {
+        'ids': [childId],
+      }),
+      const AgentTurnResult.text('开始生成'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '生成衍生资产图片', autoMode: false);
+
+    expect(
+      db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
+      contains('asset_image_generation'),
+    );
+
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '寒山宗门远景',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_gen',
+        {'prompt': '生成分镜首帧', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool('generate_storyboard', {
+        'ids': [storyboardId],
+      }),
+      const AgentTurnResult.text('开始生成'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '生成分镜首帧图', autoMode: false);
+
+    expect(
+      db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
+      contains('storyboard_image_generation'),
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_supervision',
+        {'prompt': '审核制作结果', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('监督结论：制作链路通过。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '监督制作结果', autoMode: false);
+
+    final flowData = _productionAgentWorkData(db, projectId, scriptId);
+    expect(flowData['supervision'], contains('制作链路通过'));
+  });
 }
 
 Map<String, dynamic> _scriptAgentWorkData(Database db, int projectId) {
   final row = db.select(
     "SELECT data FROM o_agentWorkData WHERE projectId=? AND episodesId IS NULL AND key='scriptAgent'",
     [projectId],
+  ).single;
+  return Map<String, dynamic>.from(jsonDecode(row['data'] as String) as Map);
+}
+
+Map<String, dynamic> _productionAgentWorkData(
+  Database db,
+  int projectId,
+  int scriptId,
+) {
+  final row = db.select(
+    "SELECT data FROM o_agentWorkData WHERE projectId=? AND episodesId=? AND key='productionAgent'",
+    [projectId, scriptId],
   ).single;
   return Map<String, dynamic>.from(jsonDecode(row['data'] as String) as Map);
 }

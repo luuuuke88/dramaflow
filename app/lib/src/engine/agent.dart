@@ -9,6 +9,7 @@ import 'agent_memory.dart';
 import 'agent_orchestrator.dart';
 import 'agent_skills.dart';
 import 'agent_stage_registry.dart';
+import 'assets.dart';
 import 'audio_bind.dart';
 import 'compose_episode.dart';
 import 'engine.dart';
@@ -18,6 +19,7 @@ import 'novel.dart';
 import 'providers/openai_text.dart' show AgentToolDef, AgentTurnResult;
 import 'scripts.dart';
 import 'storyboard.dart';
+import 'storyboard_table.dart';
 import 'video_track.dart';
 
 export 'agent_skills.dart' show AgentSkillActivation;
@@ -31,6 +33,7 @@ const _defaultAgentRagLimit = 3;
 const _agentMemoryRole = 'agent';
 const _agentMemoryType = 'note';
 const _scriptAgentFamily = 'scriptAgent';
+const _productionAgentFamily = 'productionAgent';
 
 class AgentMessage {
   final String role;
@@ -955,6 +958,7 @@ extension AgentApi on Engine {
     final system = _agentSystemPrompt(
       searchAgentMemories(projectId, text, limit: _agentRagLimit()),
     );
+    final agentFamily = _agentFamilyForMessage(text);
 
     for (var turn = 0; turn < (autoMode ? _maxAutoTurns : 1); turn++) {
       final history = [
@@ -968,12 +972,16 @@ extension AgentApi on Engine {
       ];
       AgentTurnResult result;
       try {
-        final tools = scriptAgentDecisionTools(agentTools);
+        final tools = agentFamily == _productionAgentFamily
+            ? productionAgentDecisionTools(agentTools)
+            : scriptAgentDecisionTools(agentTools);
         result = await gateway.generateAgentTurn(
           system,
           history,
           tools,
-          stage: scriptAgentDecisionStage,
+          stage: agentFamily == _productionAgentFamily
+              ? productionAgentDecisionStage
+              : scriptAgentDecisionStage,
         );
       } catch (e) {
         final ex = e is EngineException
@@ -1052,6 +1060,49 @@ extension AgentApi on Engine {
     return (parsed ?? _defaultAgentRagLimit).clamp(0, 50).toInt();
   }
 
+  String _agentFamilyForMessage(String text) {
+    final normalized = text.toLowerCase();
+    const scriptKeywords = [
+      '事件',
+      '剧本',
+      '故事骨架',
+      '改编',
+      '小说',
+      '章节',
+      'script',
+      'skeleton',
+      'adaptation',
+    ];
+    for (final keyword in scriptKeywords) {
+      if (normalized.contains(keyword)) return _scriptAgentFamily;
+    }
+    const productionKeywords = [
+      '制作',
+      '制作画布',
+      '导演',
+      '拍摄',
+      '分镜',
+      '镜头',
+      '资产',
+      '素材',
+      '首帧',
+      '生图',
+      '图片',
+      '视频',
+      '工作台',
+      'storyboard',
+      'production',
+      'asset',
+      'director',
+      'shot',
+      'video',
+    ];
+    for (final keyword in productionKeywords) {
+      if (normalized.contains(keyword)) return _productionAgentFamily;
+    }
+    return _scriptAgentFamily;
+  }
+
   Future<String> _runTool(
       int projectId, String name, Map<String, dynamic> args) async {
     try {
@@ -1090,6 +1141,18 @@ extension AgentApi on Engine {
           return _scriptAgentNovelText(projectId, args);
         case 'get_script_content':
           return _scriptAgentScriptContent(projectId, args);
+        case 'get_flowData':
+          return _productionAgentFlowData(projectId, args);
+        case 'add_deriveAsset':
+          return _productionAgentAddDeriveAsset(projectId, args);
+        case 'del_deriveAsset':
+          return _productionAgentDeleteDeriveAsset(projectId, args);
+        case 'generate_deriveAsset':
+          return _productionAgentGenerateDeriveAsset(projectId, args);
+        case 'generate_storyboard':
+          return _productionAgentGenerateStoryboard(projectId, args);
+        case 'add_flowData_storyboard':
+          return _productionAgentAddStoryboard(projectId, args);
         case 'run_sub_agent_storySkeleton':
           return _runScriptAgentSubAgent(
             projectId,
@@ -1118,6 +1181,55 @@ extension AgentApi on Engine {
             label: '监督 Agent',
             xmlTag: '',
             workspaceKey: scriptAgentSupervisionKey,
+          );
+        case 'run_sub_agent_derive_assets':
+          return _runProductionAgentSubAgent(
+            projectId,
+            args,
+            stage: productionAgentDeriveAssetsStage,
+            label: '衍生资产 Agent',
+          );
+        case 'run_sub_agent_generate_assets':
+          return _runProductionAgentSubAgent(
+            projectId,
+            args,
+            stage: productionAgentGenerateAssetsStage,
+            label: '资产生图 Agent',
+          );
+        case 'run_sub_agent_director_plan':
+          return _runProductionAgentSubAgent(
+            projectId,
+            args,
+            stage: productionAgentDirectorPlanStage,
+            label: '导演计划 Agent',
+            xmlTag: productionScriptPlanKey,
+            workspaceKey: productionScriptPlanKey,
+          );
+        case 'run_sub_agent_storyboard_gen':
+          return _runProductionAgentSubAgent(
+            projectId,
+            args,
+            stage: productionAgentStoryboardGenStage,
+            label: '分镜图生成 Agent',
+          );
+        case 'run_sub_agent_storyboard_panel':
+          return _runProductionStoryboardPanelSubAgent(projectId, args);
+        case 'run_sub_agent_storyboard_table':
+          return _runProductionAgentSubAgent(
+            projectId,
+            args,
+            stage: productionAgentStoryboardTableStage,
+            label: '分镜表 Agent',
+            xmlTag: productionStoryboardTableKey,
+            workspaceKey: productionStoryboardTableKey,
+          );
+        case 'run_sub_agent_supervision':
+          return _runProductionAgentSubAgent(
+            projectId,
+            args,
+            stage: productionAgentSupervisionStage,
+            label: '制作监督 Agent',
+            workspaceKey: productionSupervisionKey,
           );
         case 'get_status':
           return _statusSummary(projectId);
@@ -1510,6 +1622,435 @@ extension AgentApi on Engine {
 
   String _escapeXmlAttr(String value) =>
       _escapeXmlText(value).replaceAll('"', '&quot;').replaceAll("'", '&apos;');
+
+  int? _productionScriptId(int projectId, Map<String, dynamic> args) {
+    final direct = _coerceInt(args['scriptId'] ?? args['episodesId']);
+    if (direct != null) return direct;
+    final fromList = _intListAny(args, const ['scriptIds', 'episodeIds']);
+    if (fromList != null && fromList.isNotEmpty) return fromList.first;
+    final rows = scripts(projectId);
+    return rows.isEmpty ? null : rows.first.id;
+  }
+
+  Map<String, dynamic> _productionAgentWorkspace(
+    int projectId,
+    int scriptId,
+  ) {
+    final row = db.select(
+      'SELECT data FROM o_agentWorkData '
+      'WHERE projectId=? AND episodesId=? AND key=?',
+      [projectId, scriptId, productionAgentWorkspaceKey],
+    ).firstOrNull;
+    final data = row == null
+        ? normalizeProductionAgentWorkspace(null)
+        : (() {
+            try {
+              return normalizeProductionAgentWorkspace(
+                jsonDecode(row['data'] as String? ?? '{}'),
+              );
+            } catch (_) {
+              return normalizeProductionAgentWorkspace(null);
+            }
+          })();
+    data['script'] = db.select('SELECT content FROM o_script WHERE id=?',
+            [scriptId]).firstOrNull?['content'] as String? ??
+        '';
+    data['assets'] = _productionAssetsData(projectId, scriptId);
+    data['storyboard'] = _productionStoryboardData(scriptId);
+    return data;
+  }
+
+  void _saveProductionAgentWorkspace(
+    int projectId,
+    int scriptId,
+    Map<String, dynamic> data,
+  ) {
+    final json = encodeProductionAgentWorkspace(data);
+    final exists = db.select(
+      'SELECT id FROM o_agentWorkData '
+      'WHERE projectId=? AND episodesId=? AND key=?',
+      [projectId, scriptId, productionAgentWorkspaceKey],
+    ).firstOrNull;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (exists == null) {
+      db.execute(
+        'INSERT INTO o_agentWorkData '
+        '(projectId,episodesId,key,data,createTime,updateTime) '
+        'VALUES (?,?,?,?,?,?)',
+        [projectId, scriptId, productionAgentWorkspaceKey, json, now, now],
+      );
+    } else {
+      db.execute(
+        'UPDATE o_agentWorkData SET data=?, updateTime=? WHERE id=?',
+        [json, now, exists['id']],
+      );
+    }
+  }
+
+  List<Map<String, dynamic>> _productionAssetsData(
+    int projectId,
+    int scriptId,
+  ) {
+    final linkedIds = db
+        .select(
+            'SELECT assetId FROM o_scriptAssets WHERE scriptId=?', [scriptId])
+        .map((row) => row['assetId'] as int)
+        .toList();
+    if (linkedIds.isEmpty) return const [];
+    final all = assetsByIds(linkedIds);
+    final parentIds =
+        all.where((a) => a.assetsId == null).map((a) => a.id).toList();
+    if (parentIds.isEmpty) {
+      return [
+        for (final asset in all)
+          {
+            'id': asset.id,
+            'name': asset.name ?? '',
+            'type': asset.type,
+            'prompt': asset.prompt ?? '',
+            'desc': asset.describe ?? '',
+            'derive': const [],
+          },
+      ];
+    }
+    final children = db.select(
+      'SELECT * FROM o_assets WHERE projectId=? AND assetsId IN '
+      '(${List.filled(parentIds.length, '?').join(',')}) ORDER BY id',
+      [projectId, ...parentIds],
+    );
+    final childrenByParent = <int, List<Map<String, dynamic>>>{};
+    for (final child in children) {
+      childrenByParent.putIfAbsent(child['assetsId'] as int, () => []).add({
+        'id': child['id'],
+        'assetsId': child['assetsId'],
+        'name': child['name'] ?? '',
+        'type': child['type'] ?? '',
+        'prompt': child['prompt'] ?? '',
+        'desc': child['describe'] ?? '',
+      });
+    }
+    return [
+      for (final asset in all.where((a) => a.assetsId == null))
+        {
+          'id': asset.id,
+          'name': asset.name ?? '',
+          'type': asset.type,
+          'prompt': asset.prompt ?? '',
+          'desc': asset.describe ?? '',
+          'derive': childrenByParent[asset.id] ?? const [],
+        },
+    ];
+  }
+
+  List<Map<String, dynamic>> _productionStoryboardData(int scriptId) => [
+        for (final row in storyboards(scriptId))
+          {
+            'id': row.id,
+            'index': row.index,
+            'duration': row.duration ?? '',
+            'prompt': row.prompt ?? '',
+            'associateAssetsIds': row.assetIds,
+            'src': row.filePath,
+            'state': row.state,
+            'videoDesc': row.videoDesc ?? '',
+            'shouldGenerateImage': row.shouldGenerateImage,
+            'reason': row.reason ?? '',
+            'flowId': row.flowId,
+          },
+      ];
+
+  String _productionAgentFlowData(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final scriptId = _productionScriptId(projectId, args);
+    if (scriptId == null) return '缺少 scriptId 参数。';
+    final key = (args['key'] ?? '').toString().trim();
+    final data = _productionAgentWorkspace(projectId, scriptId);
+    if (key.isEmpty) return jsonEncode(data);
+    final value = data[key];
+    if (value == null) return '无数据';
+    return value is String
+        ? (value.trim().isEmpty ? '无数据' : value)
+        : jsonEncode(value);
+  }
+
+  String _productionAgentAddDeriveAsset(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final parentId = _coerceInt(args['assetsId']);
+    if (parentId == null) return '缺少 assetsId 参数。';
+    final name = (args['name'] ?? '').toString().trim();
+    if (name.isEmpty) return '缺少 name 参数。';
+    final desc = (args['desc'] ?? args['describe'] ?? '').toString().trim();
+    final id = _coerceInt(args['id']);
+    final parent = db
+        .select('SELECT type FROM o_assets WHERE id=?', [parentId]).firstOrNull;
+    if (parent == null) return '关联的资产不存在。';
+    final scriptId = _productionScriptId(projectId, args);
+    if (id == null) {
+      final childId = addAsset(
+        projectId: projectId,
+        type: parent['type'] as String? ?? 'role',
+        name: name,
+        describe: desc,
+        parentAssetsId: parentId,
+      );
+      if (scriptId != null) _linkScriptAsset(scriptId, childId);
+      return '已新增衍生资产，ID: $childId。';
+    }
+    updateAsset(id, name: name, describe: desc);
+    if (scriptId != null) _linkScriptAsset(scriptId, id);
+    return '已更新衍生资产，ID: $id。';
+  }
+
+  void _linkScriptAsset(int scriptId, int assetId) {
+    final exists = db.select(
+      'SELECT assetId FROM o_scriptAssets WHERE scriptId=? AND assetId=?',
+      [scriptId, assetId],
+    ).firstOrNull;
+    if (exists != null) return;
+    db.execute(
+      'INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+      [scriptId, assetId],
+    );
+  }
+
+  String _productionAgentDeleteDeriveAsset(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final id = _coerceInt(args['id']);
+    if (id == null) return '缺少 id 参数。';
+    deleteAssets([id]);
+    return '已删除衍生资产，ID: $id。';
+  }
+
+  String _productionAgentGenerateDeriveAsset(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final ids = _intListAny(args, const ['ids']);
+    if (ids == null || ids.isEmpty) return '缺少 ids 参数。';
+    final items = <({int assetsId, String? refImageBase64})>[
+      for (final id in ids) (assetsId: id, refImageBase64: null),
+    ];
+    final taskId = generateAssetImages(projectId, items, concurrentCount: 1);
+    if (taskId == 0) return '没有可生成的衍生资产。';
+    return '已提交资产图片生成任务（任务 #$taskId），涉及 ${ids.length} 个资产。';
+  }
+
+  String _productionAgentGenerateStoryboard(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final ids = _intListAny(args, const ['ids', 'storyboardIds']);
+    if (ids == null || ids.isEmpty) return '缺少 ids 参数。';
+    final taskId = batchGenerateStoryboardImages(
+      projectId,
+      ids,
+      compulsory: true,
+      concurrentCount: 1,
+    );
+    if (taskId == 0) return '没有可生成的分镜。';
+    return '已提交分镜首帧图生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
+  }
+
+  String _productionAgentAddStoryboard(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final scriptId = _productionScriptId(projectId, args);
+    if (scriptId == null) return '缺少 scriptId 参数。';
+    final item = ProductionStoryboardItem(
+      videoDesc: (args['videoDesc'] ?? '').toString(),
+      prompt: (args['prompt'] ?? '').toString(),
+      track: (args['track'] ?? '').toString(),
+      duration: (args['duration'] ?? '').toString(),
+      associateAssetIds:
+          _intListAny(args, const ['associateAssetsIds', 'assetIds']) ??
+              const [],
+      shouldGenerateImage: _argBool(
+        args['shouldGenerateImage'],
+        defaultValue: true,
+      ),
+    );
+    if (item.videoDesc.trim().isEmpty) return '缺少 videoDesc 参数。';
+    final id = _addProductionStoryboardItem(projectId, scriptId, item);
+    return '已新增分镜，ID: $id。';
+  }
+
+  int _addProductionStoryboardItem(
+    int projectId,
+    int scriptId,
+    ProductionStoryboardItem item,
+  ) {
+    final id = addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: item.prompt,
+      videoDesc: item.videoDesc,
+      duration: item.duration,
+      assetIds: item.associateAssetIds,
+    );
+    db.execute(
+      'UPDATE o_storyboard SET shouldGenerateImage=?, track=? WHERE id=?',
+      [item.shouldGenerateImage ? 1 : 0, item.track, id],
+    );
+    return id;
+  }
+
+  Future<String> _runProductionAgentSubAgent(
+    int projectId,
+    Map<String, dynamic> args, {
+    required String stage,
+    required String label,
+    String? xmlTag,
+    String? workspaceKey,
+  }) async {
+    final scriptId = _productionScriptId(projectId, args);
+    if (scriptId == null) return '缺少 scriptId 参数。';
+    final output =
+        await _runProductionAgentText(projectId, scriptId, args, stage: stage);
+    if (workspaceKey == null) {
+      return '$label 执行完成。';
+    }
+    var content = xmlTag == null || xmlTag.isEmpty
+        ? stripXmlTags(output).trim()
+        : extractXmlTagText(output, xmlTag);
+    if (content.isEmpty) content = stripXmlTags(output).trim();
+    if (content.isEmpty) return '$label 未返回可写入内容。';
+    final data = _productionAgentWorkspace(projectId, scriptId);
+    data[workspaceKey] = content;
+    _saveProductionAgentWorkspace(projectId, scriptId, data);
+    if (workspaceKey == productionStoryboardTableKey) {
+      saveStoryboardTable(projectId, scriptId, content);
+    }
+    return '$label 已写入工作区。';
+  }
+
+  Future<String> _runProductionStoryboardPanelSubAgent(
+    int projectId,
+    Map<String, dynamic> args,
+  ) async {
+    final scriptId = _productionScriptId(projectId, args);
+    if (scriptId == null) return '缺少 scriptId 参数。';
+    final output = await _runProductionAgentText(
+      projectId,
+      scriptId,
+      args,
+      stage: productionAgentStoryboardPanelStage,
+    );
+    final items = parseProductionStoryboardItems(output);
+    if (items.isEmpty) return '分镜面板 Agent 未输出 storyboardItem。';
+    for (final item in items) {
+      _addProductionStoryboardItem(projectId, scriptId, item);
+    }
+    final data = _productionAgentWorkspace(projectId, scriptId);
+    _saveProductionAgentWorkspace(projectId, scriptId, data);
+    return '分镜面板 Agent 已写入 ${items.length} 个分镜。';
+  }
+
+  Future<String> _runProductionAgentText(
+    int projectId,
+    int scriptId,
+    Map<String, dynamic> args, {
+    required String stage,
+  }) async {
+    final prompt = (args['prompt'] ?? args['instruction'] ?? args['task'] ?? '')
+        .toString()
+        .trim();
+    final history = <Map<String, String>>[
+      {
+        'role': 'assistant',
+        'content': _productionAgentProjectInfo(projectId, scriptId)
+      },
+      {
+        'role': 'user',
+        'content': prompt.isEmpty ? '请继续执行当前制作任务。' : prompt,
+      },
+    ];
+    final system = _productionAgentSubAgentSystem(stage);
+    for (var turn = 0; turn < _maxAutoTurns; turn++) {
+      final result = await gateway.generateAgentTurn(
+        system,
+        history,
+        productionAgentExecutionTools(agentTools),
+        stage: stage,
+      );
+      if (!result.isToolCall) return result.text ?? '';
+      final toolName = result.toolName ?? '';
+      if (toolName.startsWith('run_sub_agent_')) {
+        return '子 Agent 不支持嵌套调用：$toolName';
+      }
+      final toolArgs = Map<String, dynamic>.from(result.toolArgs ?? const {});
+      toolArgs.putIfAbsent('scriptId', () => scriptId);
+      final summary = await _runTool(projectId, toolName, toolArgs);
+      history.add({
+        'role': 'assistant',
+        'content': '（工具 $toolName 执行结果：$summary）',
+      });
+    }
+    return '';
+  }
+
+  String _productionAgentProjectInfo(int projectId, int scriptId) {
+    final project = db
+        .select('SELECT * FROM o_project WHERE id=?', [projectId]).firstOrNull;
+    final script = db.select(
+        'SELECT name,content FROM o_script WHERE id=?', [scriptId]).firstOrNull;
+    return [
+      '## 项目信息',
+      '项目名称：${project?['name'] ?? '未知'}',
+      '图像模型：${project?['imageModel'] ?? '未配置'}',
+      '视频模型：${project?['videoModel'] ?? '未配置'}',
+      '多参：${project?['mode'] ?? '未知'}',
+      '画幅：${project?['videoRatio'] ?? '16:9'}',
+      '当前剧本：${script?['name'] ?? scriptId}',
+      '剧本内容：${script?['content'] ?? ''}',
+    ].join('\n');
+  }
+
+  String _productionAgentSubAgentSystem(String stage) {
+    switch (stage) {
+      case productionAgentDeriveAssetsStage:
+        return '你是短剧制作执行导演，负责分析并写入衍生资产。'
+            '需要写资产时调用 add_deriveAsset。';
+      case productionAgentGenerateAssetsStage:
+        return '你是短剧制作执行导演，负责提交衍生资产图片生成任务。'
+            '需要生成图片时调用 generate_deriveAsset。';
+      case productionAgentDirectorPlanStage:
+        return '你是短剧制作执行导演，负责导演规划。'
+            '最终必须输出完整 <scriptPlan>导演规划内容</scriptPlan>。';
+      case productionAgentStoryboardGenStage:
+        return '你是短剧制作执行导演，负责提交分镜首帧图生成任务。'
+            '需要生成分镜图片时调用 generate_storyboard。';
+      case productionAgentStoryboardPanelStage:
+        return '你是短剧制作执行导演，负责分镜面板写入。'
+            '最终必须输出一个或多个 <storyboardItem videoDesc="视频描述" '
+            'prompt="图片提示词" track="分组" shouldGenerateImage="true/false" '
+            'duration="视频推荐时间" associateAssetsIds="[资产ID]"></storyboardItem>。';
+      case productionAgentStoryboardTableStage:
+        return '你是短剧制作执行导演，负责分镜表构建。'
+            '最终必须输出完整 <storyboardTable>分镜表内容</storyboardTable>。';
+      case productionAgentSupervisionStage:
+        return '你是短剧制作监督层 Agent。请独立审核制作产物，返回简短、可执行的审核结论。';
+      default:
+        return '你是短剧制作执行层 Agent。';
+    }
+  }
+
+  bool _argBool(Object? value, {required bool defaultValue}) {
+    if (value == null) return defaultValue;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final text = value.toString().trim().toLowerCase();
+    if (text.isEmpty) return defaultValue;
+    if (const {'true', '1', 'yes', 'y', '是'}.contains(text)) return true;
+    if (const {'false', '0', 'no', 'n', '否'}.contains(text)) return false;
+    return defaultValue;
+  }
 
   String _runCustomAgentSkill(
     int projectId,

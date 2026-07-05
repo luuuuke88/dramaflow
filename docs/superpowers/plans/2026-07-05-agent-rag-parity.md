@@ -292,11 +292,11 @@ Expected: Script Agent tests pass and existing manual/auto tests still pass.
 - Modify: `app/lib/src/engine/agent.dart`
 - Test: `app/test/engine/agent_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add tests for production decision tools: `run_sub_agent_derive_assets`, `run_sub_agent_generate_assets`, `run_sub_agent_director_plan`, `run_sub_agent_storyboard_gen`, `run_sub_agent_storyboard_panel`, `run_sub_agent_storyboard_table`, and `run_sub_agent_supervision`.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -307,11 +307,11 @@ flutter test test/engine/agent_test.dart --plain-name "ProductionAgentOrchestrat
 
 Expected: FAIL because production family dispatcher does not exist.
 
-- [ ] **Step 3: Implement production tools**
+- [x] **Step 3: Implement production tools**
 
 Map production subagent outputs through existing asset/storyboard/image-flow/video-track APIs; submit long-running generation to `o_tasks`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run:
 
