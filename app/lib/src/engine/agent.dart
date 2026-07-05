@@ -439,10 +439,8 @@ class _CustomAgentSkillRuntime {
         final result = _evaluate(trimmed.substring('return '.length));
         return _CustomJsReturnValue(result);
       }
-      throw EngineException(errLlmFormat, {
-        'reason': 'custom_skill_statement',
-        'statement': trimmed,
-      });
+      _evaluate(trimmed);
+      continue;
     }
     return null;
   }
@@ -923,6 +921,10 @@ class _CustomAgentSkillRuntime {
       case 'includes':
         if (args.length != 1) _badMethodArgs(method);
         return '${value ?? ''}'.contains('${_evaluate(args.single) ?? ''}');
+      case 'push':
+        if (value is! List) _badMethodArgs(method);
+        value.addAll([for (final arg in args) _evaluate(arg)]);
+        return value.length;
       case 'map':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         final mapped = <Object?>[];

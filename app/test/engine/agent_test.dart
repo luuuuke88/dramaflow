@@ -1827,6 +1827,69 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_push_runtime',
+      name: '数组追加脚本运行时',
+      description: '验证自定义技能兼容模型常写的 selected.push(...) 语句。',
+      script: r'''
+const selected = [];
+for (const shot of args.storyboards) {
+  if (!shot.videoDesc?.trim()) {
+    continue;
+  }
+  selected.push({
+    index: shot.index,
+    desc: shot.videoDesc.trim(),
+  });
+}
+return JSON.stringify({
+  count: selected.length,
+  names: selected.map(shot => `${shot.index}.${shot.desc}`).join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'index': {'type': 'number'},
+                'videoDesc': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_push_runtime', const {
+        'storyboards': [
+          {'index': 1, 'videoDesc': ' 雪夜山门 '},
+          {'index': 2, 'videoDesc': ''},
+          {'index': 3, 'videoDesc': '李澈拔剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组追加脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_push_runtime');
+    expect(jsonDecode(msg.content), {
+      'count': 2,
+      'names': '1.雪夜山门、3.李澈拔剑',
+    });
+  });
+
   test('自定义脚本技能：支持 sort 和 slice 选择重点资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_sort_slice_runtime',
