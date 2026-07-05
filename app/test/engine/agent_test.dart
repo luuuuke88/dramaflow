@@ -5542,7 +5542,7 @@ description: >-
       'VALUES (?,?,?,?,?,?,?,?,?,?)',
       [
         'trace_msg_user',
-        '',
+        '第1轮用户约束',
         '用户强调寒山少主李澈必须保持正派。',
         now,
         embeddingJson('用户强调寒山少主李澈必须保持正派。'),
@@ -5589,6 +5589,8 @@ description: >-
     final record = records.single as Map<String, dynamic>;
     expect(record['id'], 'trace_msg_user');
     expect(record['type'], agentMemoryTypeMessage);
+    expect(record['name'], '第1轮用户约束');
+    expect(record['createTime'], now);
     expect(record['role'], agentRoleUser);
     expect(record['sourceSummaryIds'], ['trace_summary_lizhe']);
     expect(record['content'], '用户强调寒山少主李澈必须保持正派。');

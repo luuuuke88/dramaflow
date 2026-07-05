@@ -5764,6 +5764,8 @@ extension AgentApi on Engine {
                   'id': record.id,
                   'type': record.type,
                   'scope': _deepRetrieveRecordScope(record),
+                  'name': record.name,
+                  'createTime': record.createdAt,
                   'role': record.role,
                   if (record.sourceSummaryIds.isNotEmpty)
                     'sourceSummaryIds': record.sourceSummaryIds,
