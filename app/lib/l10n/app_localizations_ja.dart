@@ -2151,6 +2151,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentMemoryDeepRetrieveSummaryLimit => 'deepRetrieve 要約件数';
 
   @override
+  String get agentMemoryRerankEnabled => 'モデルで RAG を再順位付け';
+
+  @override
+  String get agentMemoryRerankHelp => 'ローカル候補から本当に関連する原文記憶をモデルで選別します。';
+
+  @override
   String get agentMemorySettingsSaved => 'Agent 記憶設定を保存しました';
 
   @override

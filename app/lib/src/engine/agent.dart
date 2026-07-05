@@ -2974,6 +2974,7 @@ extension AgentApi on Engine {
     int? summaryLimit,
     int? ragLimit,
     int? deepRetrieveSummaryLimit,
+    bool? rerankEnabled,
   }) {
     if (messagesPerSummary != null) {
       _writeAgentIntSetting(
@@ -3027,6 +3028,12 @@ extension AgentApi on Engine {
         max: 50,
       );
     }
+    if (rerankEnabled != null) {
+      _writeAgentBoolSetting(
+        'agent.memory.rerankEnabled',
+        rerankEnabled,
+      );
+    }
   }
 
   int _writeAgentIntSetting(
@@ -3041,6 +3048,13 @@ extension AgentApi on Engine {
       [key, '$normalized'],
     );
     return normalized;
+  }
+
+  void _writeAgentBoolSetting(String key, bool value) {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      [key, value ? '1' : '0'],
+    );
   }
 
   void setAgentRagLimit(int limit) {

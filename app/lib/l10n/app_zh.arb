@@ -928,6 +928,8 @@
   "agentMemoryShortTermLimit": "短期上下文条数",
   "agentMemorySummaryLimit": "历史摘要条数",
   "agentMemoryDeepRetrieveSummaryLimit": "深度召回摘要数",
+  "agentMemoryRerankEnabled": "模型重排 RAG",
+  "agentMemoryRerankHelp": "开启后会让模型从本地候选记忆中再筛选真正相关的原文。",
   "agentMemorySettingsSaved": "Agent 记忆设置已保存",
   "agentMemorySettingsInvalid": "请输入有效的整数配置",
   "agentMemoryClearSummary": "清理摘要",

@@ -759,6 +759,8 @@
   "agentMemoryShortTermLimit": "Short-term context limit",
   "agentMemorySummaryLimit": "History summary limit",
   "agentMemoryDeepRetrieveSummaryLimit": "deepRetrieve summary limit",
+  "agentMemoryRerankEnabled": "Model rerank RAG",
+  "agentMemoryRerankHelp": "Use the model to select truly relevant source messages from local memory candidates.",
   "agentMemorySettingsSaved": "Agent memory settings saved",
   "agentMemorySettingsInvalid": "Enter valid integer settings",
   "agentMemoryClearSummary": "Clear summaries",

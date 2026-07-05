@@ -4204,6 +4204,18 @@ abstract class AppLocalizations {
   /// **'深度召回摘要数'**
   String get agentMemoryDeepRetrieveSummaryLimit;
 
+  /// No description provided for @agentMemoryRerankEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型重排 RAG'**
+  String get agentMemoryRerankEnabled;
+
+  /// No description provided for @agentMemoryRerankHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启后会让模型从本地候选记忆中再筛选真正相关的原文。'**
+  String get agentMemoryRerankHelp;
+
   /// No description provided for @agentMemorySettingsSaved.
   ///
   /// In zh, this message translates to:

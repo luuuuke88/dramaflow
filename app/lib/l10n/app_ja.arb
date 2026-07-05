@@ -759,6 +759,8 @@
   "agentMemoryShortTermLimit": "短期コンテキスト件数",
   "agentMemorySummaryLimit": "履歴要約件数",
   "agentMemoryDeepRetrieveSummaryLimit": "deepRetrieve 要約件数",
+  "agentMemoryRerankEnabled": "モデルで RAG を再順位付け",
+  "agentMemoryRerankHelp": "ローカル候補から本当に関連する原文記憶をモデルで選別します。",
   "agentMemorySettingsSaved": "Agent 記憶設定を保存しました",
   "agentMemorySettingsInvalid": "有効な整数設定を入力してください",
   "agentMemoryClearSummary": "要約を消去",

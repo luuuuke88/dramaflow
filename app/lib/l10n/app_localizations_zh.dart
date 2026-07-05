@@ -2137,6 +2137,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentMemoryDeepRetrieveSummaryLimit => '深度召回摘要数';
 
   @override
+  String get agentMemoryRerankEnabled => '模型重排 RAG';
+
+  @override
+  String get agentMemoryRerankHelp => '开启后会让模型从本地候选记忆中再筛选真正相关的原文。';
+
+  @override
   String get agentMemorySettingsSaved => 'Agent 记忆设置已保存';
 
   @override

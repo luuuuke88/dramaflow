@@ -1601,6 +1601,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
   late final TextEditingController _summaryLimitCtrl;
   late final TextEditingController _limitCtrl;
   late final TextEditingController _deepRetrieveSummaryLimitCtrl;
+  late bool _rerankEnabled;
 
   @override
   void initState() {
@@ -1618,6 +1619,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     _deepRetrieveSummaryLimitCtrl = TextEditingController(
       text: settings.deepRetrieveSummaryLimit.toString(),
     );
+    _rerankEnabled = settings.rerankEnabled;
   }
 
   @override
@@ -1646,6 +1648,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     _limitCtrl.text = settings.ragLimit.toString();
     _deepRetrieveSummaryLimitCtrl.text =
         settings.deepRetrieveSummaryLimit.toString();
+    _rerankEnabled = settings.rerankEnabled;
   }
 
   Future<void> _save() async {
@@ -1679,6 +1682,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
               summaryLimit: summaryLimit,
               ragLimit: ragLimit,
               deepRetrieveSummaryLimit: deepRetrieveSummaryLimit,
+              rerankEnabled: _rerankEnabled,
             );
         _reloadFields();
         widget.onChanged();
@@ -1786,6 +1790,41 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
                   'agent-memory-deep-retrieve-summary-limit-field',
                 ),
                 hintText: '0-50',
+              ),
+              SizedBox(
+                width: 292,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.agentMemoryRerankEnabled,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: df.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            l10n.agentMemoryRerankHelp,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: df.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      key: const ValueKey('agent-memory-rerank-switch'),
+                      value: _rerankEnabled,
+                      onChanged: (value) =>
+                          setState(() => _rerankEnabled = value),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

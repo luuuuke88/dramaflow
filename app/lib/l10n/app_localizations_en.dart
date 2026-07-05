@@ -2209,6 +2209,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'deepRetrieve summary limit';
 
   @override
+  String get agentMemoryRerankEnabled => 'Model rerank RAG';
+
+  @override
+  String get agentMemoryRerankHelp =>
+      'Use the model to select truly relevant source messages from local memory candidates.';
+
+  @override
   String get agentMemorySettingsSaved => 'Agent memory settings saved';
 
   @override
