@@ -2654,6 +2654,65 @@ return `参考图：${refs}`;
     expect(gateway.textCallCount, 0);
   });
 
+  test('AgentMemoryService clear 按 scope 清空 message summary note', () {
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    const isolationKey = 'scriptAgent:scope-clear';
+    const otherIsolationKey = 'productionAgent:scope-clear';
+
+    void insertMemory(String id, String key, String type) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          id,
+          '$type 内容',
+          1000 + id.length,
+          embeddingJson('$type 内容'),
+          key,
+          '[]',
+          'assistant',
+          0,
+          type,
+        ],
+      );
+    }
+
+    insertMemory('scope_msg', isolationKey, agentMemoryTypeMessage);
+    insertMemory('scope_sum', isolationKey, agentMemoryTypeSummary);
+    insertMemory('scope_note', isolationKey, agentMemoryTypeNote);
+    insertMemory('other_msg', otherIsolationKey, agentMemoryTypeMessage);
+
+    List<String> typesFor(String key) => [
+          for (final row in db.select(
+            'SELECT type FROM memories WHERE isolationKey=? ORDER BY type ASC',
+            [key],
+          ))
+            row['type'] as String,
+        ];
+
+    service.clear(isolationKey: isolationKey, scope: agentMemoryTypeMessage);
+
+    expect(
+        typesFor(isolationKey), [agentMemoryTypeNote, agentMemoryTypeSummary]);
+    expect(typesFor(otherIsolationKey), [agentMemoryTypeMessage]);
+
+    service.clear(isolationKey: isolationKey, scope: agentMemoryTypeSummary);
+
+    expect(typesFor(isolationKey), [agentMemoryTypeNote]);
+    expect(typesFor(otherIsolationKey), [agentMemoryTypeMessage]);
+
+    service.clear(isolationKey: isolationKey, scope: 'all');
+
+    expect(typesFor(isolationKey), isEmpty);
+    expect(typesFor(otherIsolationKey), [agentMemoryTypeMessage]);
+  });
+
   test('AgentMemoryService get 普通 RAG 直接检索 message 而不展开 summary',
       () async {
     final now = DateTime.now().millisecondsSinceEpoch;

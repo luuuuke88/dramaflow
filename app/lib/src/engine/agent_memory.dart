@@ -8,6 +8,7 @@ import 'providers/gateway.dart';
 const agentMemoryTypeMessage = 'message';
 const agentMemoryTypeSummary = 'summary';
 const agentMemoryTypeNote = 'note';
+const agentMemoryScopeAll = 'all';
 
 class AgentMemoryEntry {
   final String id;
@@ -234,6 +235,27 @@ class AgentMemoryService {
       [isolationKey, agentMemoryTypeMessage, ...ids],
     );
     return [for (final row in rows) AgentMemoryEntry.fromRow(row)];
+  }
+
+  void clear({
+    required String isolationKey,
+    required String scope,
+  }) {
+    final trimmedScope = scope.trim();
+    if (trimmedScope == agentMemoryScopeAll) {
+      db.execute('DELETE FROM memories WHERE isolationKey=?', [isolationKey]);
+      return;
+    }
+    const allowedScopes = {
+      agentMemoryTypeMessage,
+      agentMemoryTypeSummary,
+      agentMemoryTypeNote,
+    };
+    if (!allowedScopes.contains(trimmedScope)) return;
+    db.execute(
+      'DELETE FROM memories WHERE isolationKey=? AND type=?',
+      [isolationKey, trimmedScope],
+    );
   }
 
   List<(int, AgentMemoryEntry)> _rankMessageCandidates({
