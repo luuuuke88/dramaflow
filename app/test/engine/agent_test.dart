@@ -1655,6 +1655,46 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 if else 控制流提前返回', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_if_else_runtime',
+      name: '分支脚本运行时',
+      description: '验证自定义技能兼容模型常写的 if/else 分支返回。',
+      script: r'''
+if (args.assets.length === 0) {
+  return '缺少资产';
+} else {
+  return `已收到 ${args.assets.length} 个资产`;
+}
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_if_else_runtime', const {
+        'assets': [
+          {'name': '李澈'},
+          {'name': '寒山宗门'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用分支脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_if_else_runtime');
+    expect(msg.content, '已收到 2 个资产');
+  });
+
   test('自定义脚本技能：支持 sort 和 slice 选择重点资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_sort_slice_runtime',

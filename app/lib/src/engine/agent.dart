@@ -337,9 +337,25 @@ class _CustomAgentSkillRuntime {
         };
 
   String run(String script) {
+    final result = _runStatements(script);
+    if (result != null) return _stringifyReturn(result.value);
+    throw EngineException(errLlmFormat, {'reason': 'custom_skill_return'});
+  }
+
+  _CustomJsReturnValue? _runStatements(String script) {
     for (final statement in _splitStatements(script)) {
       final trimmed = statement.trim();
       if (trimmed.isEmpty) continue;
+      final ifStatement = _readIfStatement(trimmed);
+      if (ifStatement != null) {
+        final branch = _isTruthy(_evaluate(ifStatement.condition))
+            ? ifStatement.whenTrue
+            : ifStatement.whenFalse;
+        if (branch == null) continue;
+        final result = _runStatements(branch);
+        if (result != null) return result;
+        continue;
+      }
       final declaration = RegExp(
         r'^(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$',
       ).firstMatch(trimmed);
@@ -363,14 +379,54 @@ class _CustomAgentSkillRuntime {
       }
       if (trimmed.startsWith('return ')) {
         final result = _evaluate(trimmed.substring('return '.length));
-        return _stringifyReturn(result);
+        return _CustomJsReturnValue(result);
       }
       throw EngineException(errLlmFormat, {
         'reason': 'custom_skill_statement',
         'statement': trimmed,
       });
     }
-    throw EngineException(errLlmFormat, {'reason': 'custom_skill_return'});
+    return null;
+  }
+
+  _CustomJsIfStatement? _readIfStatement(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    if (!source.startsWith('if')) return null;
+    var index = 2;
+    if (index < source.length &&
+        source[index].trim().isNotEmpty &&
+        source[index] != '(') {
+      return null;
+    }
+    index = _skipWhitespace(source, index);
+    if (index >= source.length || source[index] != '(') return null;
+    final condition = _readBalanced(source, index, '(', ')');
+    index = _skipWhitespace(source, condition.end);
+    if (index >= source.length || source[index] != '{') return null;
+    final whenTrue = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, whenTrue.end);
+    String? whenFalse;
+    if (_startsWithWord(source, index, 'else')) {
+      index = _skipWhitespace(source, index + 'else'.length);
+      if (index < source.length && source[index] == '{') {
+        final elseBlock = _readBalanced(source, index, '{', '}');
+        whenFalse = elseBlock.text;
+        index = _skipWhitespace(source, elseBlock.end);
+      } else if (_startsWithWord(source, index, 'if')) {
+        whenFalse = source.substring(index).trim();
+        index = source.length;
+      } else {
+        return null;
+      }
+    }
+    if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
+      return null;
+    }
+    return _CustomJsIfStatement(
+      condition: condition.text,
+      whenTrue: whenTrue.text,
+      whenFalse: whenFalse,
+    );
   }
 
   Object? _evaluate(String expression) {
@@ -1201,6 +1257,23 @@ class _CustomJsBuiltin {
   const _CustomJsBuiltin(this.name);
 }
 
+class _CustomJsReturnValue {
+  final Object? value;
+  const _CustomJsReturnValue(this.value);
+}
+
+class _CustomJsIfStatement {
+  final String condition;
+  final String whenTrue;
+  final String? whenFalse;
+
+  const _CustomJsIfStatement({
+    required this.condition,
+    required this.whenTrue,
+    required this.whenFalse,
+  });
+}
+
 class _Token {
   final String text;
   final int end;
@@ -1716,6 +1789,25 @@ bool _isIdentStart(int code) =>
 
 bool _isIdentPart(int code) =>
     _isIdentStart(code) || (code >= 48 && code <= 57);
+
+int _skipWhitespace(String source, int index) {
+  var i = index;
+  while (i < source.length && source[i].trim().isEmpty) {
+    i++;
+  }
+  return i;
+}
+
+bool _startsWithWord(String source, int index, String word) {
+  if (!source.startsWith(word, index)) return false;
+  final before = index - 1;
+  final after = index + word.length;
+  if (before >= 0 && _isIdentPart(source.codeUnitAt(before))) return false;
+  if (after < source.length && _isIdentPart(source.codeUnitAt(after))) {
+    return false;
+  }
+  return true;
+}
 
 _Token _readBalanced(String source, int start, String open, String close) {
   var depth = 0;
