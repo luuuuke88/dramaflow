@@ -1795,13 +1795,30 @@ extension AgentApi on Engine {
   }) async {
     if (!agentSupervisionEnabled()) return null;
     final stage = _agentSupervisionStage(family);
-    final system = family == _productionAgentFamily
+    final baseSystem = family == _productionAgentFamily
         ? '你是短剧制作监督 Agent。请复核决策 Agent 即将执行的工具调用。'
             '只允许输出 APPROVE 或 REJECT: 中文原因。'
         : '你是短剧剧本监督 Agent。请复核决策 Agent 即将执行的工具调用。'
             '只允许输出 APPROVE 或 REJECT: 中文原因。';
     final recent =
         messages.length <= 6 ? messages : messages.sublist(messages.length - 6);
+    final reviewQuery = [
+      for (final message in recent) message.content,
+      toolName,
+      jsonEncode(toolArgs),
+    ].join('\n');
+    final memoryService = _agentMemoryService(family: family);
+    final system = _agentSystemPrompt(
+      searchAgentMemories(projectId, reviewQuery, limit: _agentRagLimit()),
+      context: await memoryService.get(
+        isolationKey: _agentConversationIsolationKey(
+          projectId,
+          family: family,
+        ),
+        query: reviewQuery,
+      ),
+      base: baseSystem,
+    );
     final user = [
       '当前项目状态：',
       _statusSummary(projectId),

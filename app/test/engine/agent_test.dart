@@ -258,6 +258,162 @@ void main() {
     expect(msg.content, contains('先调用 get_status'));
   });
 
+  test('监督 Agent 复核工具调用时注入长期记忆和对话记忆上下文', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.supervision.enabled', '1'],
+    );
+    engine.saveAgentMemory(
+      projectId,
+      name: '寒山安全规则',
+      content: '寒山线工具调用前必须确认章节范围，不能擅自批量生成全部章节。',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'supervision_msg_user',
+        '',
+        '用户强调寒山少主李澈必须保持正派。',
+        now,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'supervision_summary',
+        '寒山审核规则',
+        '寒山线执行工具前要核对范围，李澈必须保持正派。',
+        now + 1,
+        embeddingJson('寒山线执行工具前要核对范围，李澈必须保持正派。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['supervision_msg_user']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    final novelId = engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),
+    ]).single;
+    gateway.textResults = const [
+      TextResult('["supervision_summary"]'),
+      TextResult('["supervision_summary"]'),
+    ];
+    gateway.turns = [
+      AgentTurnResult.tool('generate_events', {
+        'novelIds': [novelId],
+      }),
+      const AgentTurnResult.text('APPROVE'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '生成寒山第1章事件', autoMode: false);
+
+    expect(gateway.stages,
+        ['scriptAgent:decisionAgent', 'scriptAgent:supervisionAgent']);
+    expect(gateway.lastSystem, contains('剧本监督 Agent'));
+    expect(gateway.lastSystem, contains('长期记忆'));
+    expect(gateway.lastSystem, contains('不能擅自批量生成全部章节'));
+    expect(gateway.lastSystem, contains('Agent 记忆上下文'));
+    expect(gateway.lastSystem, contains('相关历史记忆'));
+    expect(gateway.lastSystem, contains('李澈必须保持正派'));
+  });
+
+  test('制作监督 Agent 复核工具调用时只注入 production 记忆上下文', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.supervision.enabled', '1'],
+    );
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    engine.saveAgentMemory(
+      projectId,
+      name: '制作审核规则',
+      content: '寒山制作视频生成前必须确认首帧存在，禁止无首帧直接生成视频。',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'production_supervision_msg',
+        '',
+        '用户强调寒山视频生成必须先检查首帧图。',
+        now,
+        '',
+        'productionAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'production_supervision_summary',
+        '制作审核摘要',
+        '寒山视频生成前必须确认首帧图已经存在。',
+        now + 1,
+        embeddingJson('寒山视频生成前必须确认首帧图已经存在。'),
+        'productionAgent:$projectId',
+        jsonEncode(['production_supervision_msg']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'script_supervision_private',
+        '剧本私有审核摘要',
+        '这条剧本监督私有记忆不应进入制作监督 Agent。',
+        now + 2,
+        embeddingJson('剧本监督私有记忆不应进入制作监督 Agent。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('["production_supervision_summary"]'),
+      TextResult('["production_supervision_summary"]'),
+    ];
+    gateway.turns = [
+      AgentTurnResult.tool('generate_videos', {'scriptId': scriptId}),
+      const AgentTurnResult.text('APPROVE'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作画布：生成寒山视频', autoMode: false);
+
+    expect(gateway.stages,
+        ['productionAgent:decisionAgent', 'productionAgent:supervisionAgent']);
+    expect(gateway.lastSystem, contains('制作监督 Agent'));
+    expect(gateway.lastSystem, contains('长期记忆'));
+    expect(gateway.lastSystem, contains('禁止无首帧直接生成视频'));
+    expect(gateway.lastSystem, contains('Agent 记忆上下文'));
+    expect(gateway.lastSystem, contains('首帧图已经存在'));
+    expect(gateway.lastSystem, isNot(contains('剧本监督私有记忆')));
+  });
+
   test('LLM 调用失败时追加带错误码的助手消息', () async {
     gateway.shouldThrow = true;
     await engine.sendAgentMessage(projectId, '你好', autoMode: false);
