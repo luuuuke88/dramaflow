@@ -211,6 +211,20 @@ final _tools = <AgentToolDef>[
           },
           'description': '可选。只返回这些类型的记忆。',
         },
+        'scope': {
+          'type': 'string',
+          'enum': ['conversation', 'summary', 'long_term', 'all'],
+          'description':
+              '可选。按记忆层级召回：conversation 对话记忆，summary 摘要，long_term 长期记忆，all 全部。',
+        },
+        'scopes': {
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': ['conversation', 'summary', 'long_term', 'all'],
+          },
+          'description': '可选。按多个记忆层级召回。',
+        },
       },
       'required': ['keyword'],
     },
@@ -5715,12 +5729,7 @@ extension AgentApi on Engine {
           final roles = _coerceStringSet(
             args['roles'] ?? args['role'] ?? args['memoryRoles'],
           );
-          final types = _coerceStringSet(
-            args['types'] ??
-                args['type'] ??
-                args['memoryTypes'] ??
-                args['memoryType'],
-          );
+          final types = _deepRetrieveMemoryTypes(args);
           final records = await _agentMemoryService(
             family: agentFamily,
           ).deepRetrieve(
@@ -6064,6 +6073,63 @@ extension AgentApi on Engine {
     } else {
       add(raw);
     }
+    return values.isEmpty ? null : values;
+  }
+
+  Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {
+    final values = <String>{};
+    void addRaw(Object? raw) {
+      final items = _coerceStringSet(raw);
+      if (items != null) values.addAll(items);
+    }
+
+    void addScope(Object? raw) {
+      final scopes = _coerceStringSet(raw);
+      if (scopes == null) return;
+      for (final scope in scopes) {
+        switch (scope.trim().toLowerCase()) {
+          case 'conversation':
+          case 'conversations':
+          case 'chat':
+          case 'history':
+            values
+              ..add(agentMemoryTypeMessage)
+              ..add(agentMemoryTypeSummary);
+            break;
+          case 'summary':
+          case 'summaries':
+            values.add(agentMemoryTypeSummary);
+            break;
+          case 'long_term':
+          case 'long-term':
+          case 'longterm':
+          case 'note':
+          case 'notes':
+          case 'project':
+            values.add(agentMemoryTypeNote);
+            break;
+          case 'all':
+            values
+              ..add(agentMemoryTypeMessage)
+              ..add(agentMemoryTypeSummary)
+              ..add(agentMemoryTypeNote);
+            break;
+          default:
+            values.add(scope);
+        }
+      }
+    }
+
+    addRaw(args['types'] ??
+        args['type'] ??
+        args['memoryTypes'] ??
+        args['memoryType']);
+    addScope(
+      args['scopes'] ??
+          args['scope'] ??
+          args['memoryScopes'] ??
+          args['memoryScope'],
+    );
     return values.isEmpty ? null : values;
   }
 
