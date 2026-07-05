@@ -126,15 +126,20 @@ class AgentMemoryService {
     CancelToken? cancelToken,
   }) async {
     final settings = readSettings();
+    final normalized = normalizeMemoryText(query);
+    final tokens = memorySearchTokens(normalized);
+    final queryEmbedding = memoryEmbeddingFromText(normalized);
     final related = settings.ragLimit <= 0
         ? const <AgentMemoryEntry>[]
-        : (await deepRetrieve(
-            isolationKey: isolationKey,
-            keyword: query,
-            cancelToken: cancelToken,
-          ))
-            .take(settings.ragLimit)
-            .toList();
+        : [
+            for (final item in _rankMessageCandidates(
+              isolationKey: isolationKey,
+              normalized: normalized,
+              tokens: tokens,
+              queryEmbedding: queryEmbedding,
+            ).take(settings.ragLimit))
+              item.$2,
+          ];
     final summariesDesc = settings.summaryLimit <= 0
         ? const <AgentMemoryEntry>[]
         : [

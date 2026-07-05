@@ -2074,6 +2074,80 @@ return JSON.stringify({
     expect(gateway.textCallCount, 0);
   });
 
+  test('AgentMemoryService get 普通 RAG 直接检索 message 而不展开 summary',
+      () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'rag_noise_msg',
+        '',
+        '这条原始消息只讨论宗门夜色和远景气氛。',
+        now,
+        embeddingJson('这条原始消息只讨论宗门夜色和远景气氛。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'rag_relevant_msg',
+        '',
+        '用户明确要求李澈保持正派，不能被写成反派。',
+        now + 1,
+        embeddingJson('用户明确要求李澈保持正派，不能被写成反派。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        'message',
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'rag_summary_mentions_keyword',
+        '李澈摘要',
+        '李澈正派关键词出现在摘要里，但该摘要关联的是噪声原文。',
+        now + 2,
+        embeddingJson('李澈正派关键词出现在摘要里，但该摘要关联的是噪声原文。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['rag_noise_msg']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+
+    final context = await service.get(
+      isolationKey: 'scriptAgent:$projectId',
+      query: '李澈正派',
+    );
+
+    expect(context.relatedMessages.map((item) => item.id),
+        ['rag_relevant_msg']);
+    expect(gateway.textCallCount, 0);
+  });
+
   test('AgentMemoryService get 返回相关记忆、历史摘要和未摘要近期对话', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
