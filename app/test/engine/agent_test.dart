@@ -376,6 +376,26 @@ void main() {
     expect(msg.content, '项目$projectId:寒山');
   });
 
+  test('自定义脚本技能：保存时可绑定 Agent 归属', () {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_decision_only',
+      name: '剧本决策专属技能',
+      description: '只在剧本决策 Agent 中显示。',
+      script: r'return "ok";',
+      attribution: 'script_agent_decision',
+    );
+
+    final scriptSkills =
+        engine.agentSkills(attribution: 'script_agent_decision');
+    final productionSkills =
+        engine.agentSkills(attribution: 'production_agent_execution');
+
+    expect(scriptSkills.map((skill) => skill.id),
+        contains('custom_script_decision_only'));
+    expect(productionSkills.map((skill) => skill.id),
+        isNot(contains('custom_script_decision_only')));
+  });
+
   test('自定义脚本技能：支持局部变量和常用 JS 表达式', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_runtime',
@@ -1122,6 +1142,109 @@ return `项目${projectId}:${text}:${count}:${JSON.stringify(args.items)}`;
         'run_supervision_agent',
       ]),
     );
+  });
+
+  test('Agent tool list honors custom skill attribution by decision stage',
+      () async {
+    engine.saveCustomAgentSkill(
+      id: 'script_decision_custom',
+      name: '剧本决策技能',
+      description: '只给剧本决策 Agent 使用。',
+      script: r'return "script";',
+    );
+    engine.saveCustomAgentSkill(
+      id: 'production_decision_custom',
+      name: '制作决策技能',
+      description: '只给制作决策 Agent 使用。',
+      script: r'return "production";',
+    );
+    db.execute(
+      'INSERT INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+      ['script_agent_decision', 'script_decision_custom'],
+    );
+    db.execute(
+      'INSERT INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+      ['production_agent_decision', 'production_decision_custom'],
+    );
+    gateway.turns = const [
+      AgentTurnResult.text('剧本规划已记录。'),
+      AgentTurnResult.text('制作规划已记录。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '规划前三集', autoMode: false);
+    await engine.sendAgentMessage(projectId, '制作画布：生成导演计划', autoMode: false);
+
+    expect(gateway.stages,
+        ['scriptAgent:decisionAgent', 'productionAgent:decisionAgent']);
+    expect(gateway.toolNamesByCall.first, contains('script_decision_custom'));
+    expect(gateway.toolNamesByCall.first,
+        isNot(contains('production_decision_custom')));
+    expect(
+        gateway.toolNamesByCall.last, contains('production_decision_custom'));
+    expect(gateway.toolNamesByCall.last,
+        isNot(contains('script_decision_custom')));
+  });
+
+  test('Agent tool list honors custom skill attribution by execution stage',
+      () async {
+    engine.saveCustomAgentSkill(
+      id: 'script_execution_custom',
+      name: '剧本执行技能',
+      description: '只给剧本执行 Agent 使用。',
+      script: r'return "script";',
+    );
+    engine.saveCustomAgentSkill(
+      id: 'production_execution_custom',
+      name: '制作执行技能',
+      description: '只给制作执行 Agent 使用。',
+      script: r'return "production";',
+    );
+    db.execute(
+      'INSERT INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+      ['script_agent_execution', 'script_execution_custom'],
+    );
+    db.execute(
+      'INSERT INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+      ['production_agent_execution', 'production_execution_custom'],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '搭建寒山篇前三集骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先做故事骨架', autoMode: false);
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:storySkeletonAgent',
+    ]);
+    expect(gateway.toolNamesByCall.last, contains('script_execution_custom'));
+    expect(gateway.toolNamesByCall.last,
+        isNot(contains('production_execution_custom')));
+
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做第一集导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>第一集冷色调快节奏</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作导演计划', autoMode: false);
+
+    expect(gateway.stages, [
+      'productionAgent:decisionAgent',
+      'productionAgent:directorPlanAgent',
+    ]);
+    expect(
+        gateway.toolNamesByCall.last, contains('production_execution_custom'));
+    expect(gateway.toolNamesByCall.last,
+        isNot(contains('script_execution_custom')));
   });
 
   test(

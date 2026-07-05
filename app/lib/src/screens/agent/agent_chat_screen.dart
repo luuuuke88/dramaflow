@@ -678,6 +678,7 @@ class _AgentSkillsPaneState extends ConsumerState<_AgentSkillsPane> {
               script: draft.script,
               schema: draft.schema,
               enabled: draft.enabled,
+              attribution: _attribution,
             );
         widget.onUpdated();
         setState(() {});

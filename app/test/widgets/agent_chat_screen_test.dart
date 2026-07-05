@@ -366,6 +366,32 @@ void main() {
     expect(find.text('script_style_skill'), findsOneWidget);
     expect(find.text('production_style_skill'), findsNothing);
 
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, 2000));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('agent-custom-skill-add')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-id-field')),
+      'custom_ui_decision_only',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-name-field')),
+      '界面归属技能',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-custom-skill-description-field')),
+      '从剧本决策筛选页创建。',
+    );
+    await tester.tap(find.text('保存').last);
+    await tester.pumpAndSettle();
+    expect(
+      engine
+          .agentSkills(attribution: 'script_agent_decision')
+          .map((skill) => skill.id),
+      contains('custom_ui_decision_only'),
+    );
+    expect(find.text('界面归属技能'), findsOneWidget);
+
     await tester.tap(find.text('记忆'));
     await tester.pumpAndSettle();
     await tester.enterText(

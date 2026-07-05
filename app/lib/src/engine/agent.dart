@@ -757,10 +757,22 @@ extension AgentApi on Engine {
       );
 
   List<AgentToolDef> get agentTools {
+    return _agentTools();
+  }
+
+  List<AgentToolDef> _agentTools({String? stage}) {
     final skills = agentSkills();
+    final attribution = stage == null ? null : _agentToolAttribution(stage);
+    final attributionMap = attribution == null
+        ? const <String, Set<String>>{}
+        : _skillAttributionMap();
     return [
       for (final skill in skills)
-        if (skill.enabled && skill.type != _markdownAgentSkillType)
+        if (_shouldExposeAgentTool(
+          skill,
+          attribution: attribution,
+          attributionMap: attributionMap,
+        ))
           AgentToolDef(
             name: skill.id,
             description: skill.description.isEmpty
@@ -771,6 +783,59 @@ extension AgentApi on Engine {
                 : _defaultTool(skill.id)?.schema ?? const {},
           ),
     ];
+  }
+
+  List<AgentToolDef> _agentToolsForStage(String stage) =>
+      _agentTools(stage: stage);
+
+  bool _shouldExposeAgentTool(
+    AgentSkill skill, {
+    required String? attribution,
+    required Map<String, Set<String>> attributionMap,
+  }) {
+    if (!skill.enabled || skill.type == _markdownAgentSkillType) {
+      return false;
+    }
+    if (attribution == null) return true;
+    final skillAttributions = attributionMap[skill.id];
+    if (skillAttributions == null || skillAttributions.isEmpty) {
+      return true;
+    }
+    return skillAttributions.contains(attribution);
+  }
+
+  Map<String, Set<String>> _skillAttributionMap() {
+    final rows =
+        db.select('SELECT skillId,attribution FROM o_skillAttribution');
+    final result = <String, Set<String>>{};
+    for (final row in rows) {
+      final skillId = row['skillId'] as String? ?? '';
+      final attribution = row['attribution'] as String? ?? '';
+      if (skillId.isEmpty || attribution.isEmpty) continue;
+      (result[skillId] ??= <String>{}).add(attribution);
+    }
+    return result;
+  }
+
+  String? _agentToolAttribution(String stage) {
+    final definition = agentStageDefinitions
+        .where((definition) => definition.key == stage)
+        .firstOrNull;
+    if (definition == null) return null;
+    final family = switch (definition.family) {
+      _scriptAgentFamily => 'script_agent',
+      _productionAgentFamily => 'production_agent',
+      _ => null,
+    };
+    if (family == null) return null;
+    final role = switch (definition.role) {
+      'decision' => 'decision',
+      'execution' => 'execution',
+      'supervision' => 'supervision',
+      _ => null,
+    };
+    if (role == null) return null;
+    return '${family}_$role';
   }
 
   AgentToolDef? _defaultTool(String id) {
@@ -861,6 +926,7 @@ extension AgentApi on Engine {
     required String script,
     Map<String, dynamic> schema = const {},
     bool enabled = true,
+    String? attribution,
   }) {
     final normalizedId = id.trim();
     if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(normalizedId)) {
@@ -886,6 +952,17 @@ extension AgentApi on Engine {
         '',
       ],
     );
+    final trimmedAttribution = attribution?.trim();
+    if (trimmedAttribution != null) {
+      db.execute(
+          'DELETE FROM o_skillAttribution WHERE skillId=?', [normalizedId]);
+      if (trimmedAttribution.isNotEmpty) {
+        db.execute(
+          'INSERT OR REPLACE INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+          [trimmedAttribution, normalizedId],
+        );
+      }
+    }
   }
 
   AgentSkill saveMarkdownAgentSkill({
@@ -1615,16 +1692,17 @@ extension AgentApi on Engine {
       ];
       AgentTurnResult result;
       try {
+        final stage = agentFamily == _productionAgentFamily
+            ? productionAgentDecisionStage
+            : scriptAgentDecisionStage;
         final tools = agentFamily == _productionAgentFamily
-            ? productionAgentDecisionTools(agentTools)
-            : scriptAgentDecisionTools(agentTools);
+            ? productionAgentDecisionTools(_agentToolsForStage(stage))
+            : scriptAgentDecisionTools(_agentToolsForStage(stage));
         result = await gateway.generateAgentTurn(
           system,
           history,
           tools,
-          stage: agentFamily == _productionAgentFamily
-              ? productionAgentDecisionStage
-              : scriptAgentDecisionStage,
+          stage: stage,
         );
       } catch (e) {
         final ex = e is EngineException
@@ -2328,7 +2406,7 @@ extension AgentApi on Engine {
       final result = await gateway.generateAgentTurn(
         system,
         history,
-        scriptAgentExecutionTools(agentTools),
+        scriptAgentExecutionTools(_agentToolsForStage(stage)),
         stage: stage,
       );
       if (!result.isToolCall) return result.text ?? '';
@@ -2748,7 +2826,7 @@ extension AgentApi on Engine {
       final result = await gateway.generateAgentTurn(
         system,
         history,
-        productionAgentExecutionTools(agentTools),
+        productionAgentExecutionTools(_agentToolsForStage(stage)),
         stage: stage,
       );
       if (!result.isToolCall) return result.text ?? '';
