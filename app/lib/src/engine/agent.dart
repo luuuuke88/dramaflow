@@ -370,11 +370,11 @@ class _CustomAgentSkillRuntime {
 
     final comparison = _readTopLevelComparison(expr);
     if (comparison != null) {
-      final equals = _valuesEqual(
+      return _compareValues(
         _evaluate(comparison.left),
         _evaluate(comparison.right),
+        comparison.operator,
       );
-      return comparison.negated ? !equals : equals;
     }
 
     final plusParts = _splitTopLevel(expr, '+');
@@ -527,9 +527,38 @@ class _CustomAgentSkillRuntime {
     return true;
   }
 
-  bool _valuesEqual(Object? left, Object? right) {
-    if (left is num && right is num) return left == right;
-    return left == right;
+  bool _compareValues(Object? left, Object? right, String operator) {
+    switch (operator) {
+      case '===':
+      case '==':
+        if (left is num && right is num) return left == right;
+        return left == right;
+      case '!==':
+      case '!=':
+        if (left is num && right is num) return left != right;
+        return left != right;
+      case '>':
+      case '>=':
+      case '<':
+      case '<=':
+        final comparison = _compareOrder(left, right);
+        if (comparison == null) return false;
+        return switch (operator) {
+          '>' => comparison > 0,
+          '>=' => comparison >= 0,
+          '<' => comparison < 0,
+          '<=' => comparison <= 0,
+          _ => false,
+        };
+      default:
+        return false;
+    }
+  }
+
+  int? _compareOrder(Object? left, Object? right) {
+    if (left is num && right is num) return left.compareTo(right);
+    if (left is String && right is String) return left.compareTo(right);
+    return null;
   }
 
   List<String> _parseCallbackParams(String source, String method) {
@@ -646,12 +675,12 @@ class _Token {
 class _ComparisonToken {
   final String left;
   final String right;
-  final bool negated;
+  final String operator;
 
   const _ComparisonToken({
     required this.left,
     required this.right,
-    required this.negated,
+    required this.operator,
   });
 }
 
@@ -801,7 +830,7 @@ List<String> _splitTopLevelOperator(String source, String operator) {
 }
 
 _ComparisonToken? _readTopLevelComparison(String source) {
-  const operators = ['===', '!==', '==', '!='];
+  const operators = ['===', '!==', '>=', '<=', '==', '!=', '>', '<'];
   var quote = '';
   var escaped = false;
   var paren = 0;
@@ -838,7 +867,7 @@ _ComparisonToken? _readTopLevelComparison(String source) {
       return _ComparisonToken(
         left: source.substring(0, i),
         right: source.substring(i + operator.length),
-        negated: operator.startsWith('!'),
+        operator: operator,
       );
     }
   }

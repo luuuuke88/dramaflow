@@ -727,6 +727,54 @@ return `可用角色：${roles}`;
     expect(msg.content, '可用角色：李澈、沈微');
   });
 
+  test('自定义脚本技能：支持数字比较和回调 index 参数', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_numeric_runtime',
+      name: '数字脚本运行时',
+      description: '验证自定义技能可以用数字比较筛选分镜。',
+      script: r'''
+const shots = args.shots
+  .filter((shot, index) => shot.duration >= 3 && index < 3)
+  .map(shot => shot.name.trim())
+  .join('、');
+return `长镜头：${shots}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_numeric_runtime', const {
+        'shots': [
+          {'name': ' 开场远景 ', 'duration': 2},
+          {'name': '李澈救人', 'duration': 3},
+          {'name': '沈微回望', 'duration': 4},
+          {'name': '远山收束', 'duration': 5},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用数字脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_numeric_runtime');
+    expect(msg.content, '长镜头：李澈救人、沈微回望');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
