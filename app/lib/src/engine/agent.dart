@@ -352,6 +352,31 @@ class _CustomAgentSkillRuntime {
     final doubleValue = double.tryParse(expr);
     if (doubleValue != null) return doubleValue;
 
+    final orParts = _splitTopLevelOperator(expr, '||');
+    if (orParts.length > 1) {
+      for (final part in orParts) {
+        if (_isTruthy(_evaluate(part))) return true;
+      }
+      return false;
+    }
+
+    final andParts = _splitTopLevelOperator(expr, '&&');
+    if (andParts.length > 1) {
+      for (final part in andParts) {
+        if (!_isTruthy(_evaluate(part))) return false;
+      }
+      return true;
+    }
+
+    final comparison = _readTopLevelComparison(expr);
+    if (comparison != null) {
+      final equals = _valuesEqual(
+        _evaluate(comparison.left),
+        _evaluate(comparison.right),
+      );
+      return comparison.negated ? !equals : equals;
+    }
+
     final plusParts = _splitTopLevel(expr, '+');
     if (plusParts.length > 1) {
       final values = [for (final part in plusParts) _evaluate(part)];
@@ -502,6 +527,11 @@ class _CustomAgentSkillRuntime {
     return true;
   }
 
+  bool _valuesEqual(Object? left, Object? right) {
+    if (left is num && right is num) return left == right;
+    return left == right;
+  }
+
   List<String> _parseCallbackParams(String source, String method) {
     var params = source.trim();
     if (params.startsWith('(') && params.endsWith(')')) {
@@ -613,6 +643,18 @@ class _Token {
   const _Token(this.text, this.end);
 }
 
+class _ComparisonToken {
+  final String left;
+  final String right;
+  final bool negated;
+
+  const _ComparisonToken({
+    required this.left,
+    required this.right,
+    required this.negated,
+  });
+}
+
 List<String> _splitStatements(String script) {
   final statements = <String>[];
   final buffer = StringBuffer();
@@ -704,6 +746,103 @@ List<String> _splitTopLevel(String source, String delimiter) {
   }
   parts.add(buffer.toString());
   return parts;
+}
+
+List<String> _splitTopLevelOperator(String source, String operator) {
+  final parts = <String>[];
+  final buffer = StringBuffer();
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      buffer.write(char);
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      buffer.write(char);
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      buffer.write(char);
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      buffer.write(char);
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (paren == 0 &&
+        bracket == 0 &&
+        brace == 0 &&
+        source.startsWith(operator, i)) {
+      parts.add(buffer.toString());
+      buffer.clear();
+      i += operator.length - 1;
+      continue;
+    }
+    buffer.write(char);
+  }
+  parts.add(buffer.toString());
+  return parts;
+}
+
+_ComparisonToken? _readTopLevelComparison(String source) {
+  const operators = ['===', '!==', '==', '!='];
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (paren != 0 || bracket != 0 || brace != 0) continue;
+    for (final operator in operators) {
+      if (!source.startsWith(operator, i)) continue;
+      return _ComparisonToken(
+        left: source.substring(0, i),
+        right: source.substring(i + operator.length),
+        negated: operator.startsWith('!'),
+      );
+    }
+  }
+  return null;
 }
 
 int _findTopLevelArrow(String source) {

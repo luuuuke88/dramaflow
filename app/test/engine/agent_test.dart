@@ -678,6 +678,55 @@ return `角色资产：${roles}`;
     expect(msg.content, '角色资产：李澈、沈微');
   });
 
+  test('自定义脚本技能：支持比较和逻辑表达式筛选数组', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_logic_runtime',
+      name: '逻辑脚本运行时',
+      description: '验证自定义技能可以用比较和逻辑表达式筛选生产资产。',
+      script: r'''
+const roles = args.assets
+  .filter(asset => asset.type === 'role' && asset.enabled !== false)
+  .map(asset => asset.name.trim())
+  .join('、');
+return `可用角色：${roles}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+                'enabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_logic_runtime', const {
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 ', 'enabled': true},
+          {'type': 'role', 'name': '弃用角色', 'enabled': false},
+          {'type': 'scene', 'name': '寒山宗门', 'enabled': true},
+          {'type': 'role', 'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '调用逻辑脚本运行时技能', autoMode: false);
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_logic_runtime');
+    expect(msg.content, '可用角色：李澈、沈微');
+  });
+
   test('SkillRuntime parses Markdown frontmatter and filters by attribution',
       () {
     final skillFile = _writeSkillFixture(
