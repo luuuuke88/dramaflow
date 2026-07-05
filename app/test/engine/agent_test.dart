@@ -4155,6 +4155,45 @@ description: >-
     expect(gateway.textCallCount, 1);
   });
 
+  test('AgentMemoryService deepRetrieve 在来源 message 缺失时保留相关 summary', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'summary_missing_sources',
+        '寒山导演记忆',
+        '寒山导演记忆：山门段必须保持低机位压迫感，不能改成轻喜剧。',
+        now,
+        embeddingJson('寒山导演记忆：山门段必须保持低机位压迫感，不能改成轻喜剧。'),
+        'productionAgent:$projectId',
+        jsonEncode(['deleted_msg_a', 'deleted_msg_b']),
+        agentRoleAssistant,
+        0,
+        'summary',
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('["summary_missing_sources"]'),
+    ];
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'productionAgent:$projectId',
+      keyword: '寒山山门低机位压迫感',
+    );
+
+    expect(records.map((item) => item.id), ['summary_missing_sources']);
+    expect(records.single.type, agentMemoryTypeSummary);
+    expect(records.single.content, contains('低机位压迫感'));
+    expect(gateway.textCallCount, 1);
+  });
+
   test('AgentMemoryService deepRetrieve 尊重 LLM 判别为空且不回退原始命中', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(

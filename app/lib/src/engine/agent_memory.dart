@@ -257,7 +257,9 @@ class AgentMemoryService {
       'ORDER BY createTime ASC, id ASC',
       [isolationKey, agentMemoryTypeMessage, ...ids],
     );
-    return [for (final row in rows) AgentMemoryEntry.fromRow(row)];
+    final expanded = [for (final row in rows) AgentMemoryEntry.fromRow(row)];
+    if (expanded.isEmpty && summaries.isNotEmpty) return summaries;
+    return expanded;
   }
 
   void clear({
