@@ -1365,26 +1365,10 @@ class _AgentMemoryPane extends ConsumerWidget {
               style: TextStyle(fontSize: 12, color: df.textTertiary))
         else
           for (final summary in summaries)
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: df.surface,
-                border: Border.all(color: df.stroke),
-                borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(summary.name.isEmpty ? 'summary' : summary.name,
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: df.textTertiary)),
-                  const SizedBox(height: 4),
-                  Text(summary.content, style: const TextStyle(fontSize: 12)),
-                ],
-              ),
+            _AgentSummaryCard(
+              projectId: projectId,
+              family: family,
+              summary: summary,
             ),
         const SizedBox(height: 20),
         Divider(color: df.stroke),
@@ -1441,6 +1425,93 @@ class _AgentMemoryPane extends ConsumerWidget {
         const SizedBox(height: 12),
         _AgentRagLimitCard(onChanged: onChanged),
       ],
+    );
+  }
+}
+
+class _AgentSummaryCard extends ConsumerStatefulWidget {
+  final int projectId;
+  final String family;
+  final AgentMemoryRecord summary;
+
+  const _AgentSummaryCard({
+    required this.projectId,
+    required this.family,
+    required this.summary,
+  });
+
+  @override
+  ConsumerState<_AgentSummaryCard> createState() => _AgentSummaryCardState();
+}
+
+class _AgentSummaryCardState extends ConsumerState<_AgentSummaryCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final summary = widget.summary;
+    final relatedMessages = summary.relatedMessageIds.isEmpty
+        ? const <AgentMemoryRecord>[]
+        : ref.watch(engineProvider).agentMemorySummaryMessages(
+              widget.projectId,
+              summary.id,
+              family: widget.family,
+            );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: df.surface,
+        border: Border.all(color: df.stroke),
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(summary.name.isEmpty ? 'summary' : summary.name,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: df.textTertiary)),
+          const SizedBox(height: 4),
+          Text(summary.content, style: const TextStyle(fontSize: 12)),
+          if (summary.relatedMessageIds.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            TextButton.icon(
+              key: ValueKey('agent-memory-summary-related-${summary.id}'),
+              style: TextButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                minimumSize: const Size(0, 32),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => setState(() => _expanded = !_expanded),
+              icon: Icon(
+                _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                size: 18,
+              ),
+              label: Text(
+                l10n.agentMemoryRelatedMessagesCount(
+                  summary.relatedMessageIds.length,
+                ),
+              ),
+            ),
+            if (_expanded) ...[
+              const SizedBox(height: 4),
+              for (final message in relatedMessages)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    message.content,
+                    style: TextStyle(fontSize: 12, color: df.textSecondary),
+                  ),
+                ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }

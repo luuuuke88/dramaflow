@@ -832,13 +832,47 @@ void main() {
       '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
       'VALUES (?,?,?,?,?,?,?,?,?,?)',
       [
+        'ui_summary_msg_user',
+        '',
+        '用户说李澈来自寒山。',
+        DateTime.now().millisecondsSinceEpoch,
+        '{}',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    engine.db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ui_summary_msg_assistant',
+        '',
+        '助手确认李澈不能写成反派。',
+        DateTime.now().millisecondsSinceEpoch + 1,
+        '{}',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    engine.db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
         'ui_summary',
         '摘要',
         '用户和助手讨论过寒山设定。',
         DateTime.now().millisecondsSinceEpoch,
         '{}',
         'scriptAgent:$projectId',
-        '[]',
+        '["ui_summary_msg_user","ui_summary_msg_assistant"]',
         'assistant',
         0,
         agentMemoryTypeSummary,
@@ -856,6 +890,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('历史摘要 1'), findsOneWidget);
     expect(find.text('用户和助手讨论过寒山设定。'), findsOneWidget);
+    expect(find.text('关联原文 2'), findsOneWidget);
+    await tester.ensureVisible(find.text('关联原文 2'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关联原文 2'));
+    await tester.pumpAndSettle();
+    expect(find.text('用户说李澈来自寒山。'), findsOneWidget);
+    expect(find.text('助手确认李澈不能写成反派。'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('agent-memory-clear-summary')));
     await tester.pumpAndSettle();
@@ -868,10 +909,15 @@ void main() {
     );
     expect(engine.agentMessages(projectId), hasLength(2));
     expect(engine.agentLongTermMemories(projectId), hasLength(1));
-    expect(find.text('历史摘要 0'), findsOneWidget);
+    await tester.pump();
     expect(find.text('用户和助手讨论过寒山设定。'), findsNothing);
+    await tester.drag(find.byType(ListView).last, const Offset(0, 180));
+    await tester.pumpAndSettle();
+    expect(find.text('历史摘要 0'), findsOneWidget);
     expect(find.text('记忆已清空'), findsOneWidget);
 
+    await tester.drag(find.byType(ListView).last, const Offset(0, 520));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('agent-memory-clear-note')));
     await tester.pumpAndSettle();
     expect(engine.agentLongTermMemories(projectId), isEmpty);

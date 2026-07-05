@@ -905,6 +905,14 @@
     }
   },
   "agentMemorySummaryEmpty": "暂无历史摘要。对话达到摘要触发消息数后会自动生成。",
+  "agentMemoryRelatedMessagesCount": "关联原文 {count}",
+  "@agentMemoryRelatedMessagesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "agentMemoryAdd": "新增记忆",
   "agentMemoryCreateTitle": "新增长期记忆",
   "agentMemoryEditTitle": "编辑长期记忆",

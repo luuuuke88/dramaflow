@@ -220,12 +220,15 @@ void main() {
   });
 
   test('agentMemorySummaries 按 family 返回历史摘要', () {
-    void insertSummary(
-      String isolationKey,
-      String id,
-      String content,
-      int createTime,
-    ) {
+    void insertMemory({
+      required String isolationKey,
+      required String id,
+      required String content,
+      required int createTime,
+      required String type,
+      String role = agentRoleAssistant,
+      String relatedMessageIds = '[]',
+    }) {
       db.execute(
         'INSERT INTO memories '
         '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
@@ -237,28 +240,69 @@ void main() {
           createTime,
           embeddingJson(content),
           isolationKey,
-          '[]',
-          agentRoleAssistant,
+          relatedMessageIds,
+          role,
           0,
-          agentMemoryTypeSummary,
+          type,
         ],
       );
     }
 
-    insertSummary('scriptAgent:$projectId', 'script_summary_old', '旧剧本摘要', 1);
-    insertSummary('scriptAgent:$projectId', 'script_summary_new', '新剧本摘要', 2);
-    insertSummary(
-      'productionAgent:$projectId',
-      'production_summary',
-      '制作摘要',
-      3,
+    insertMemory(
+      isolationKey: 'scriptAgent:$projectId',
+      id: 'script_msg_1',
+      content: '用户设定李澈来自寒山。',
+      createTime: 1,
+      type: agentMemoryTypeMessage,
+      role: agentRoleUser,
+    );
+    insertMemory(
+      isolationKey: 'scriptAgent:$projectId',
+      id: 'script_msg_2',
+      content: '助手确认李澈不能写成反派。',
+      createTime: 2,
+      type: agentMemoryTypeMessage,
+    );
+    insertMemory(
+      isolationKey: 'scriptAgent:$projectId',
+      id: 'script_summary_old',
+      content: '旧剧本摘要',
+      createTime: 3,
+      type: agentMemoryTypeSummary,
+    );
+    insertMemory(
+      isolationKey: 'scriptAgent:$projectId',
+      id: 'script_summary_new',
+      content: '新剧本摘要',
+      createTime: 4,
+      type: agentMemoryTypeSummary,
+      relatedMessageIds: '["script_msg_1","script_msg_2"]',
+    );
+    insertMemory(
+      isolationKey: 'productionAgent:$projectId',
+      id: 'production_summary',
+      content: '制作摘要',
+      createTime: 5,
+      type: agentMemoryTypeSummary,
     );
 
+    final scriptSummaries =
+        engine.agentMemorySummaries(projectId, family: agentFamilyScript);
+    expect(
+      scriptSummaries.map((item) => item.content),
+      ['新剧本摘要', '旧剧本摘要'],
+    );
+    expect(scriptSummaries.first.relatedMessageIds,
+        ['script_msg_1', 'script_msg_2']);
     expect(
       engine
-          .agentMemorySummaries(projectId, family: agentFamilyScript)
+          .agentMemorySummaryMessages(
+            projectId,
+            scriptSummaries.first.id,
+            family: agentFamilyScript,
+          )
           .map((item) => item.content),
-      ['新剧本摘要', '旧剧本摘要'],
+      ['用户设定李澈来自寒山。', '助手确认李澈不能写成反派。'],
     );
     expect(
       engine

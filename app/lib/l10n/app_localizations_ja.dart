@@ -2100,6 +2100,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentMemorySummaryEmpty => '履歴要約はまだありません。要約するメッセージ数に達すると自動生成されます。';
 
   @override
+  String agentMemoryRelatedMessagesCount(int count) {
+    return '関連原文 $count';
+  }
+
+  @override
   String get agentMemoryAdd => '記憶を追加';
 
   @override

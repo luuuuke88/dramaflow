@@ -110,12 +110,14 @@ class AgentMemoryRecord {
   final String content;
   final int createdAt;
   final String embedding;
+  final List<String> relatedMessageIds;
   const AgentMemoryRecord({
     required this.id,
     required this.name,
     required this.content,
     required this.createdAt,
     required this.embedding,
+    this.relatedMessageIds = const [],
   });
 
   factory AgentMemoryRecord.fromRow(Map<String, Object?> row) =>
@@ -125,6 +127,7 @@ class AgentMemoryRecord {
         content: row['content'] as String? ?? '',
         createdAt: row['createTime'] as int? ?? 0,
         embedding: row['embedding'] as String? ?? '',
+        relatedMessageIds: _decodeAgentMemoryIdList(row['relatedMessageIds']),
       );
 
   AgentMemoryRecord withEmbedding(String value) => AgentMemoryRecord(
@@ -133,7 +136,24 @@ class AgentMemoryRecord {
         content: content,
         createdAt: createdAt,
         embedding: value,
+        relatedMessageIds: relatedMessageIds,
       );
+}
+
+List<String> _decodeAgentMemoryIdList(Object? value) {
+  if (value is! String || value.trim().isEmpty) return const [];
+  try {
+    final decoded = jsonDecode(value);
+    if (decoded is List) {
+      return [
+        for (final item in decoded)
+          if (item is String && item.trim().isNotEmpty) item.trim(),
+      ];
+    }
+  } catch (_) {
+    return const [];
+  }
+  return const [];
 }
 
 const _agentSkillType = 'builtin-agent';
@@ -2567,7 +2587,7 @@ extension AgentApi on Engine {
     String family = _scriptAgentFamily,
   }) {
     final rows = db.select(
-      'SELECT id,name,content,createTime,embedding FROM memories '
+      'SELECT id,name,content,createTime,embedding,relatedMessageIds FROM memories '
       'WHERE isolationKey=? AND type=? '
       'ORDER BY createTime DESC, id DESC',
       [
@@ -2576,6 +2596,30 @@ extension AgentApi on Engine {
       ],
     );
     return [for (final row in rows) AgentMemoryRecord.fromRow(row)];
+  }
+
+  List<AgentMemoryRecord> agentMemorySummaryMessages(
+    int projectId,
+    String summaryId, {
+    String family = _scriptAgentFamily,
+  }) {
+    final isolationKey =
+        _agentConversationIsolationKey(projectId, family: family);
+    final row = db.select(
+      'SELECT relatedMessageIds FROM memories '
+      'WHERE isolationKey=? AND id=? AND type=?',
+      [isolationKey, summaryId, agentMemoryTypeSummary],
+    ).firstOrNull;
+    final ids = _decodeAgentMemoryIdList(row?['relatedMessageIds']);
+    if (ids.isEmpty) return const [];
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final rows = db.select(
+      'SELECT id,name,content,createTime,embedding,relatedMessageIds FROM memories '
+      'WHERE isolationKey=? AND type=? AND id IN ($placeholders) '
+      'ORDER BY createTime ASC, id ASC',
+      [isolationKey, agentMemoryTypeMessage, ...ids],
+    );
+    return [for (final item in rows) AgentMemoryRecord.fromRow(item)];
   }
 
   String saveAgentMemory(

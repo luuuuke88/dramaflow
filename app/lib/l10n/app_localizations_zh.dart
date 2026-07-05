@@ -2086,6 +2086,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentMemorySummaryEmpty => '暂无历史摘要。对话达到摘要触发消息数后会自动生成。';
 
   @override
+  String agentMemoryRelatedMessagesCount(int count) {
+    return '关联原文 $count';
+  }
+
+  @override
   String get agentMemoryAdd => '新增记忆';
 
   @override

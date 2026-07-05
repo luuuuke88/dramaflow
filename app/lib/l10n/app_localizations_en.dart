@@ -2157,6 +2157,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'No history summaries yet. They are generated after the message summary threshold is reached.';
 
   @override
+  String agentMemoryRelatedMessagesCount(int count) {
+    return '$count source messages';
+  }
+
+  @override
   String get agentMemoryAdd => 'Add memory';
 
   @override

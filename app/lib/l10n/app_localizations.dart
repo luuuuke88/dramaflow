@@ -4108,6 +4108,12 @@ abstract class AppLocalizations {
   /// **'暂无历史摘要。对话达到摘要触发消息数后会自动生成。'**
   String get agentMemorySummaryEmpty;
 
+  /// No description provided for @agentMemoryRelatedMessagesCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'关联原文 {count}'**
+  String agentMemoryRelatedMessagesCount(int count);
+
   /// No description provided for @agentMemoryAdd.
   ///
   /// In zh, this message translates to:
