@@ -4676,6 +4676,119 @@ description: >
         isNot(contains('script_execution_custom')));
   });
 
+  test('Agent tool list honors ToonFlow subagent skill attribution', () async {
+    engine.saveCustomAgentSkill(
+      id: 'script_skeleton_exact_skill',
+      name: '故事骨架专属技能',
+      description: '只给故事骨架执行 Agent 使用。',
+      script: r'return "skeleton";',
+    );
+    engine.saveCustomAgentSkill(
+      id: 'script_adaptation_exact_skill',
+      name: '改编策略专属技能',
+      description: '只给改编策略执行 Agent 使用。',
+      script: r'return "adaptation";',
+    );
+    engine.saveCustomAgentSkill(
+      id: 'production_director_plan_exact_skill',
+      name: '导演规划专属技能',
+      description: '只给导演规划执行 Agent 使用。',
+      script: r'return "director";',
+    );
+    engine.saveCustomAgentSkill(
+      id: 'production_storyboard_table_exact_skill',
+      name: '分镜表专属技能',
+      description: '只给分镜表执行 Agent 使用。',
+      script: r'return "table";',
+    );
+    db.execute(
+      'INSERT INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+      ['script_execution_skeleton', 'script_skeleton_exact_skill'],
+    );
+    db.execute(
+      'INSERT INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+      ['script_execution_adaptation', 'script_adaptation_exact_skill'],
+    );
+    db.execute(
+      'INSERT INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+      [
+        'production_execution_director_plan',
+        'production_director_plan_exact_skill'
+      ],
+    );
+    db.execute(
+      'INSERT INTO o_skillAttribution (attribution,skillId) VALUES (?,?)',
+      [
+        'production_execution_storyboard_table',
+        'production_storyboard_table_exact_skill'
+      ],
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '搭建寒山篇前三集骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+    ];
+    await engine.sendAgentMessage(projectId, '先做故事骨架', autoMode: false);
+
+    expect(gateway.stages.last, 'scriptAgent:storySkeletonAgent');
+    expect(
+        gateway.toolNamesByCall.last, contains('script_skeleton_exact_skill'));
+    expect(gateway.toolNamesByCall.last,
+        isNot(contains('script_adaptation_exact_skill')));
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_adaptationStrategy',
+        const {'prompt': '制定寒山篇改编策略'},
+      ),
+      const AgentTurnResult.text(
+        '<adaptationStrategy>前三集突出寒山压迫感</adaptationStrategy>',
+      ),
+    ];
+    await engine.sendAgentMessage(projectId, '再做改编策略', autoMode: false);
+
+    expect(gateway.stages.last, 'scriptAgent:adaptationStrategyAgent');
+    expect(gateway.toolNamesByCall.last,
+        contains('script_adaptation_exact_skill'));
+    expect(gateway.toolNamesByCall.last,
+        isNot(contains('script_skeleton_exact_skill')));
+
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做第一集导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>第一集冷色调快节奏</scriptPlan>'),
+    ];
+    await engine.sendAgentMessage(projectId, '制作导演计划', autoMode: false);
+
+    expect(gateway.stages.last, 'productionAgent:directorPlanAgent');
+    expect(gateway.toolNamesByCall.last,
+        contains('production_director_plan_exact_skill'));
+    expect(gateway.toolNamesByCall.last,
+        isNot(contains('production_storyboard_table_exact_skill')));
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_table',
+        {'prompt': '做第一集分镜表', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<storyboardTable>近景|横移</storyboardTable>'),
+    ];
+    await engine.sendAgentMessage(projectId, '制作分镜表', autoMode: false);
+
+    expect(gateway.stages.last, 'productionAgent:storyboardTableAgent');
+    expect(gateway.toolNamesByCall.last,
+        contains('production_storyboard_table_exact_skill'));
+    expect(gateway.toolNamesByCall.last,
+        isNot(contains('production_director_plan_exact_skill')));
+  });
+
   test(
       'ScriptAgentOrchestrator runs planning subagents and stores scriptAgent workspace data',
       () async {

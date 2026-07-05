@@ -2697,20 +2697,20 @@ extension AgentApi on Engine {
 
   List<AgentToolDef> _agentTools({String? stage}) {
     final skills = agentSkills();
-    final attribution = stage == null ? null : _agentToolAttribution(stage);
-    final attributionMap = attribution == null
+    final attributions = stage == null ? null : _agentToolAttributions(stage);
+    final attributionMap = attributions == null || attributions.isEmpty
         ? const <String, Set<String>>{}
         : _skillAttributionMap();
     final markdownSkills = _activatableMarkdownSkills(
       skills,
-      attribution: attribution,
+      attributions: attributions,
       attributionMap: attributionMap,
     );
     final tools = <AgentToolDef>[];
     for (final skill in skills) {
       if (!_shouldExposeAgentTool(
         skill,
-        attribution: attribution,
+        attributions: attributions,
         attributionMap: attributionMap,
       )) {
         continue;
@@ -2727,20 +2727,20 @@ extension AgentApi on Engine {
       _agentTools(stage: stage);
 
   List<AgentSkill> _markdownSkillsForStage(String stage) {
-    final attribution = _agentToolAttribution(stage);
-    final attributionMap = attribution == null
+    final attributions = _agentToolAttributions(stage);
+    final attributionMap = attributions == null || attributions.isEmpty
         ? const <String, Set<String>>{}
         : _skillAttributionMap();
     return _activatableMarkdownSkills(
       agentSkills(),
-      attribution: attribution,
+      attributions: attributions,
       attributionMap: attributionMap,
     );
   }
 
   bool _shouldExposeAgentTool(
     AgentSkill skill, {
-    required String? attribution,
+    required Set<String>? attributions,
     required Map<String, Set<String>> attributionMap,
   }) {
     if (!skill.enabled || skill.type == _markdownAgentSkillType) {
@@ -2748,14 +2748,14 @@ extension AgentApi on Engine {
     }
     return _matchesSkillAttribution(
       skill,
-      attribution: attribution,
+      attributions: attributions,
       attributionMap: attributionMap,
     );
   }
 
   List<AgentSkill> _activatableMarkdownSkills(
     List<AgentSkill> skills, {
-    required String? attribution,
+    required Set<String>? attributions,
     required Map<String, Set<String>> attributionMap,
   }) {
     return [
@@ -2764,7 +2764,7 @@ extension AgentApi on Engine {
             skill.type == _markdownAgentSkillType &&
             _matchesSkillAttribution(
               skill,
-              attribution: attribution,
+              attributions: attributions,
               attributionMap: attributionMap,
             ))
           skill,
@@ -2773,15 +2773,15 @@ extension AgentApi on Engine {
 
   bool _matchesSkillAttribution(
     AgentSkill skill, {
-    required String? attribution,
+    required Set<String>? attributions,
     required Map<String, Set<String>> attributionMap,
   }) {
-    if (attribution == null) return true;
+    if (attributions == null || attributions.isEmpty) return true;
     final skillAttributions = attributionMap[skill.id];
     if (skillAttributions == null || skillAttributions.isEmpty) {
       return true;
     }
-    return skillAttributions.contains(attribution);
+    return skillAttributions.any(attributions.contains);
   }
 
   AgentToolDef _agentToolDef(AgentSkill skill) {
@@ -2831,10 +2831,55 @@ extension AgentApi on Engine {
     return result;
   }
 
-  String? _agentToolAttribution(String stage) {
-    final definition = agentStageDefinitions
-        .where((definition) => definition.key == stage)
-        .firstOrNull;
+  Set<String>? _agentToolAttributions(String stage) {
+    final exact = switch (stage) {
+      'scriptAgent' || 'scriptAgent:decisionAgent' => {'script_agent_decision'},
+      'scriptAgent:storySkeletonAgent' => {
+          'script_execution_skeleton',
+          'script_agent_execution',
+        },
+      'scriptAgent:adaptationStrategyAgent' => {
+          'script_execution_adaptation',
+          'script_agent_execution',
+        },
+      'scriptAgent:scriptAgent' => {
+          'script_execution_script',
+          'script_agent_execution',
+        },
+      'scriptAgent:supervisionAgent' => {'script_agent_supervision'},
+      'productionAgent' || 'productionAgent:decisionAgent' => {
+          'production_agent_decision'
+        },
+      'productionAgent:deriveAssetsAgent' => {
+          'production_execution_derive_assets',
+          'production_agent_execution',
+        },
+      'productionAgent:generateAssetsAgent' => {
+          'production_execution_generate_assets',
+          'production_agent_execution',
+        },
+      'productionAgent:directorPlanAgent' => {
+          'production_execution_director_plan',
+          'production_agent_execution',
+        },
+      'productionAgent:storyboardGenAgent' => {
+          'production_execution_storyboard_gen',
+          'production_agent_execution',
+        },
+      'productionAgent:storyboardPanelAgent' => {
+          'production_execution_storyboard_panel',
+          'production_agent_execution',
+        },
+      'productionAgent:storyboardTableAgent' => {
+          'production_execution_storyboard_table',
+          'production_agent_execution',
+        },
+      'productionAgent:supervisionAgent' => {'production_agent_supervision'},
+      _ => null,
+    };
+    if (exact != null) return exact;
+
+    final definition = agentStageDefinition(stage);
     if (definition == null) return null;
     final family = switch (definition.family) {
       _scriptAgentFamily => 'script_agent',
@@ -2849,7 +2894,7 @@ extension AgentApi on Engine {
       _ => null,
     };
     if (role == null) return null;
-    return '${family}_$role';
+    return {'${family}_$role'};
   }
 
   AgentToolDef? _defaultTool(String id) {
