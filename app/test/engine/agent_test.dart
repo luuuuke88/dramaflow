@@ -1585,6 +1585,51 @@ return `参考图：${refs}`;
     expect(msg.content, '规则：每句台词不超过二十字。');
   });
 
+  test('SkillRuntime skips repeated activate_skill content injection',
+      () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '技能正文：短剧台词要短。',
+      extraFiles: {
+        'references/rules.md': '规则：每句台词不超过二十字。',
+      },
+    );
+    engine.saveMarkdownAgentSkill(filePath: skillFile.path);
+
+    gateway.turns = [
+      AgentTurnResult.tool('activate_skill', const {'name': 'style_polisher'}),
+    ];
+    await engine.sendAgentMessage(projectId, '激活文风技能', autoMode: false);
+
+    final first = engine.agentMessages(projectId).last;
+    expect(first.toolName, 'activate_skill');
+    expect(first.content, contains('技能正文：短剧台词要短。'));
+    expect(first.content, contains('<file>references/rules.md</file>'));
+
+    gateway.turns = [
+      AgentTurnResult.tool('activate_skill', const {'name': 'style_polisher'}),
+    ];
+    await engine.sendAgentMessage(projectId, '再次激活文风技能', autoMode: false);
+
+    final second = engine.agentMessages(projectId).last;
+    expect(second.toolName, 'activate_skill');
+    expect(second.content, '技能 "style_polisher" 已激活，无需重复加载。');
+    expect(second.content, isNot(contains('技能正文：短剧台词要短。')));
+    expect(second.content, isNot(contains('<skill_resources>')));
+
+    gateway.turns = [
+      AgentTurnResult.tool('read_skill_file', const {
+        'path': 'references/rules.md',
+      }),
+    ];
+    await engine.sendAgentMessage(projectId, '读取技能规则', autoMode: false);
+
+    final read = engine.agentMessages(projectId).last;
+    expect(read.toolName, 'read_skill_file');
+    expect(read.content, '规则：每句台词不超过二十字。');
+  });
+
   test('SkillRuntime 激活后会注入后续 Agent system prompt', () async {
     final skillFile = _writeSkillFixture(
       dir,

@@ -2903,6 +2903,11 @@ extension AgentApi on Engine {
               (args['name'] ?? args['skillName'] ?? '').toString().trim();
           if (skillName.isEmpty) return '缺少 name 参数。';
           final skill = activateAgentSkill(skillName);
+          final activeNames = _activatedAgentSkillNames(activatedSkills);
+          if (activeNames.contains(skill.name) ||
+              activeNames.contains(skill.id)) {
+            return '技能 "${skill.name}" 已激活，无需重复加载。';
+          }
           return _formatActivatedAgentSkill(skill);
         case 'read_skill_file':
           var skillName =
