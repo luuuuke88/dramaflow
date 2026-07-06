@@ -186,6 +186,7 @@ const _customAgentSkillType = 'custom-js-agent';
 const _markdownAgentSkillType = markdownAgentSkillType;
 const _customJsConsoleMethods = {'log', 'info', 'warn', 'error', 'debug'};
 const _agentDeploymentType = 'agent-stage';
+const _agentToolAuditRoleSuffixes = {':tool'};
 
 final _tools = <AgentToolDef>[
   const AgentToolDef(
@@ -6739,6 +6740,7 @@ extension AgentApi on Engine {
     String? stage,
     List<String> activatedSkills = const [],
     Set<String> excludedMemoryIds = const {},
+    Set<String> excludedRoleSuffixes = const {},
   }) async {
     try {
       switch (name) {
@@ -6756,13 +6758,18 @@ extension AgentApi on Engine {
                 args['excludeMemoryRoles'] ??
                 args['excludedMemoryRoles'],
           );
-          final excludeRoleSuffixes = _coerceStringSet(
+          final requestedExcludeRoleSuffixes = _coerceStringSet(
             args['excludeRoleSuffixes'] ??
                 args['excludeRoleSuffix'] ??
                 args['excludedRoleSuffixes'] ??
                 args['excludeMemoryRoleSuffixes'] ??
                 args['excludedMemoryRoleSuffixes'],
           );
+          final excludeRoleSuffixes = {
+            ...excludedRoleSuffixes,
+            if (requestedExcludeRoleSuffixes != null)
+              ...requestedExcludeRoleSuffixes,
+          };
           final types = _deepRetrieveMemoryTypes(args);
           final requestedExcludeIds = _coerceStringSet(
             args['excludeIds'] ??
@@ -7409,6 +7416,7 @@ extension AgentApi on Engine {
           family: _scriptAgentFamily,
         ),
         query: prompt,
+        excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       final system = _agentSystemPrompt(
         searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
@@ -7447,6 +7455,7 @@ extension AgentApi on Engine {
         stage: stage,
         activatedSkills: activeSkillContexts,
         excludedMemoryIds: _agentMemoryContextIds(memoryContext),
+        excludedRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       await _recordAgentToolAuditMemory(
         projectId,
@@ -7892,6 +7901,7 @@ extension AgentApi on Engine {
           family: _productionAgentFamily,
         ),
         query: prompt,
+        excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       final system = _agentSystemPrompt(
         searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
@@ -7932,6 +7942,7 @@ extension AgentApi on Engine {
         stage: stage,
         activatedSkills: activeSkillContexts,
         excludedMemoryIds: _agentMemoryContextIds(memoryContext),
+        excludedRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       await _recordAgentToolAuditMemory(
         projectId,

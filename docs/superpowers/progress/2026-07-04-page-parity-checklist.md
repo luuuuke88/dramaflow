@@ -128,6 +128,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetri
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` accepting `excludeRoleSuffix` / `excludeRoleSuffixes`, so Agents can filter all stage-specific tool-audit roles ending in `:tool` without enumerating every decision or subAgent role.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent and ProductionAgent sub Agents automatically excluding stage-specific `:tool` audit memories from both their injected system memory context and internal `deepRetrieve` calls, so execution Agents retrieve user constraints and creative decisions instead of prior tool logs.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` migrating legacy token summary embeddings through the injected `AgentMemoryEmbeddingProvider`, so semantic summary recall still works after swapping embedding strategies.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.

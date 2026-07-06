@@ -8932,7 +8932,7 @@ description: >-
     expect(gateway.lastSystem, contains('李澈是正派角色'));
   });
 
-  test('ScriptAgent 子 Agent deepRetrieve 默认排除已注入的上下文记忆', () async {
+  test('ScriptAgent 子 Agent 系统上下文默认排除工具审计记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
       ['agent.memory.ragLimit', '1'],
@@ -8946,7 +8946,12 @@ description: >-
       ['agent.memory.messagesPerSummary', '20'],
     );
     final now = DateTime.now().millisecondsSinceEpoch;
-    void insertMessage(String id, String content, int offset) {
+    void insertMessage({
+      required String id,
+      required String content,
+      required String role,
+      required int offset,
+    }) {
       db.execute(
         'INSERT INTO memories '
         '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
@@ -8959,7 +8964,75 @@ description: >-
           embeddingJson(content),
           'scriptAgent:$projectId',
           '[]',
-          agentRoleAssistant,
+          role,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'script_sub_context_tool_noise',
+      content: '工具审计：霜刃戒律 霜刃戒律 霜刃戒律 已传给工具调用。',
+      role: 'assistant:execution:storySkeleton:tool',
+      offset: 0,
+    );
+    insertMessage(
+      id: 'script_sub_context_user_keep',
+      content: '用户设定：霜刃戒律要求李澈先保护沈微。',
+      role: agentRoleUser,
+      offset: 1,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '霜刃戒律'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>霜刃戒律骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先运行故事骨架 Agent', autoMode: false);
+
+    expect(gateway.systems[1], contains('script_sub_context_user_keep'));
+    expect(gateway.systems[1], contains('李澈先保护沈微'));
+    expect(
+        gateway.systems[1], isNot(contains('script_sub_context_tool_noise')));
+    expect(gateway.systems[1], isNot(contains('已传给工具调用')));
+  });
+
+  test('ScriptAgent 子 Agent deepRetrieve 默认排除已注入上下文与工具审计记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage(
+      String id,
+      String content,
+      int offset, {
+      String role = agentRoleAssistant,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
           0,
           agentMemoryTypeMessage,
         ],
@@ -8968,13 +9041,19 @@ description: >-
 
     insertMessage(
       'sub_context_seen',
-      '霜刃戒律 霜刃戒律：李澈不能滥杀无辜。',
+      '霜刃戒律 霜刃戒律 霜刃戒律 霜刃戒律：李澈不能滥杀无辜。',
       0,
+    );
+    insertMessage(
+      'sub_context_tool_noise',
+      '工具审计噪声：霜刃戒律 霜刃戒律 霜刃戒律 已传给工具调用。',
+      1,
+      role: 'assistant:execution:storySkeleton:tool',
     );
     insertMessage(
       'sub_context_unread',
       '霜刃戒律：沈微不能提前暴露灵根。',
-      1,
+      2,
     );
     gateway.turns = [
       AgentTurnResult.tool(
@@ -9005,6 +9084,7 @@ description: >-
     final payloadText = deepRetrieveAudit['content'] as String;
     expect(payloadText, contains('沈微不能提前暴露灵根'));
     expect(payloadText, isNot(contains('李澈不能滥杀无辜')));
+    expect(payloadText, isNot(contains('工具审计噪声')));
   });
 
   test('ScriptAgent 子 Agent 输出按 ToonFlow memoryKey 写入记忆', () async {
@@ -9497,7 +9577,7 @@ description: >-
     expect(gateway.lastSystem, isNot(contains('剧本私有记忆')));
   });
 
-  test('ProductionAgent 子 Agent deepRetrieve 默认排除已注入的上下文记忆', () async {
+  test('ProductionAgent 子 Agent 系统上下文默认排除工具审计记忆', () async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
     db.execute(
@@ -9513,7 +9593,12 @@ description: >-
       ['agent.memory.messagesPerSummary', '20'],
     );
     final now = DateTime.now().millisecondsSinceEpoch;
-    void insertMessage(String id, String content, int offset) {
+    void insertMessage({
+      required String id,
+      required String content,
+      required String role,
+      required int offset,
+    }) {
       db.execute(
         'INSERT INTO memories '
         '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
@@ -9526,7 +9611,78 @@ description: >-
           embeddingJson(content),
           'productionAgent:$projectId',
           '[]',
-          agentRoleAssistant,
+          role,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'production_sub_context_tool_noise',
+      content: '工具审计：镜湖调度 镜湖调度 镜湖调度 已传给工具调用。',
+      role: 'assistant:execution:directorPlan:tool',
+      offset: 0,
+    );
+    insertMessage(
+      id: 'production_sub_context_user_keep',
+      content: '用户设定：镜湖调度要求第二镜保持贴地跟拍。',
+      role: agentRoleUser,
+      offset: 1,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '镜湖调度', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>镜湖调度计划</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作画布：运行导演计划 Agent',
+        autoMode: false);
+
+    expect(gateway.systems[1], contains('production_sub_context_user_keep'));
+    expect(gateway.systems[1], contains('第二镜保持贴地跟拍'));
+    expect(gateway.systems[1],
+        isNot(contains('production_sub_context_tool_noise')));
+    expect(gateway.systems[1], isNot(contains('已传给工具调用')));
+  });
+
+  test('ProductionAgent 子 Agent deepRetrieve 默认排除已注入上下文与工具审计记忆', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage(
+      String id,
+      String content,
+      int offset, {
+      String role = agentRoleAssistant,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'productionAgent:$projectId',
+          '[]',
+          role,
           0,
           agentMemoryTypeMessage,
         ],
@@ -9535,13 +9691,19 @@ description: >-
 
     insertMessage(
       'production_context_seen',
-      '镜湖调度 镜湖调度：开场不能使用俯拍大远景。',
+      '镜湖调度 镜湖调度 镜湖调度 镜湖调度：开场不能使用俯拍大远景。',
       0,
+    );
+    insertMessage(
+      'production_context_tool_noise',
+      '工具审计噪声：镜湖调度 镜湖调度 镜湖调度 已传给工具调用。',
+      1,
+      role: 'assistant:execution:directorPlan:tool',
     );
     insertMessage(
       'production_context_unread',
       '镜湖调度：第二镜必须保持贴地跟拍。',
-      1,
+      2,
     );
     gateway.turns = [
       AgentTurnResult.tool(
@@ -9575,6 +9737,7 @@ description: >-
     final payloadText = deepRetrieveAudit['content'] as String;
     expect(payloadText, contains('贴地跟拍'));
     expect(payloadText, isNot(contains('俯拍大远景')));
+    expect(payloadText, isNot(contains('工具审计噪声')));
   });
 
   test('ProductionAgent 子 Agent 暴露项目画风和导演手册技能', () async {

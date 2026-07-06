@@ -218,6 +218,7 @@ class AgentMemoryService {
     required String isolationKey,
     required String query,
     Set<String>? excludeRelatedIds,
+    Set<String>? excludeRoleSuffixes,
     CancelToken? cancelToken,
   }) async {
     final settings = readSettings();
@@ -225,6 +226,9 @@ class AgentMemoryService {
     final tokens = memorySearchTokens(normalized);
     final queryEmbedding = embeddingProvider.embeddingFromText(normalized);
     final excludedRelatedIdFilter = _normalizeIdFilter(excludeRelatedIds);
+    final excludedRoleSuffixFilter = _normalizeRoleFilter(
+      excludeRoleSuffixes,
+    );
     final rankedMessages = settings.ragLimit <= 0
         ? const <(int, AgentMemoryEntry)>[]
         : _rankMessageCandidates(
@@ -233,6 +237,7 @@ class AgentMemoryService {
             tokens: tokens,
             queryEmbedding: queryEmbedding,
             excludeIds: excludedRelatedIdFilter,
+            excludeRoleSuffixes: excludedRoleSuffixFilter,
           );
     final relatedRaw = await _relatedMessagesForQuery(
       query: query,
@@ -251,7 +256,14 @@ class AgentMemoryService {
             ))
               AgentMemoryEntry.fromRow(row),
           ];
-    final summaries = summariesDesc.reversed.toList();
+    final summaries = _filterEntries(
+      summariesDesc.reversed,
+      null,
+      null,
+      null,
+      null,
+      excludedRoleSuffixFilter,
+    );
     final related = _attachSourceSummaries(relatedRaw, summaries);
     final recentDesc = settings.shortTermLimit <= 0
         ? const <AgentMemoryEntry>[]
@@ -265,7 +277,14 @@ class AgentMemoryService {
             ))
               AgentMemoryEntry.fromRow(row),
           ];
-    final recent = recentDesc.reversed.toList();
+    final recent = _filterEntries(
+      recentDesc.reversed,
+      null,
+      null,
+      null,
+      null,
+      excludedRoleSuffixFilter,
+    );
     return AgentMemoryContext(
       relatedMessages: related,
       summaries: summaries,
@@ -557,6 +576,7 @@ class AgentMemoryService {
     required Map<String, int> queryEmbedding,
     bool onlyUnsummarized = false,
     Set<String>? excludeIds,
+    Set<String>? excludeRoleSuffixes,
   }) {
     if (normalized.isEmpty) return const [];
     final messages = db.select(
@@ -570,6 +590,9 @@ class AgentMemoryService {
     for (final row in messages) {
       var entry = AgentMemoryEntry.fromRow(row);
       if (excludeIds != null && excludeIds.contains(entry.id)) continue;
+      if (!_matchesExcludedRoleSuffixFilter(entry, excludeRoleSuffixes)) {
+        continue;
+      }
       entry = _entryWithProviderEmbedding(
         entry,
         isolationKey: isolationKey,
