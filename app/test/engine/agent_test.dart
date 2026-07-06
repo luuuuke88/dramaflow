@@ -1654,6 +1654,50 @@ return JSON.stringify({ labels, slots });
     });
   });
 
+  test('自定义脚本技能：支持字符串 padEnd 和 repeat', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_string_pad_repeat_runtime',
+      name: '字符串补齐重复脚本运行时',
+      description: '验证自定义技能兼容模型常写的 padEnd 和 repeat 文本整理。',
+      script: r'''
+const normalized = args.name.trim().toLowerCase().replaceAll(' ', '-');
+const title = args.name.trim().toUpperCase();
+const padded = normalized.padEnd(12, '_');
+const divider = '='.repeat(3);
+return JSON.stringify({ normalized, title, padded, divider });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'name': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_string_pad_repeat_runtime', const {
+        'name': '  Li Che  ',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用字符串补齐重复脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_string_pad_repeat_runtime');
+    expect(jsonDecode(msg.content), {
+      'normalized': 'li-che',
+      'title': 'LI CHE',
+      'padded': 'li-che______',
+      'divider': '===',
+    });
+  });
+
   test('自定义脚本技能：支持 concat flat reverse 整理多来源参考图', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_array_compose_runtime',

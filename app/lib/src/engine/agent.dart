@@ -1721,7 +1721,14 @@ class _CustomAgentSkillRuntime {
               _stringifyInterpolation(_evaluate(args.first)),
             );
       case 'padStart':
+      case 'padEnd':
         return _padString(
+          '${value ?? ''}',
+          method: method,
+          args: args,
+        );
+      case 'repeat':
+        return _repeatString(
           '${value ?? ''}',
           method: method,
           args: args,
@@ -2078,7 +2085,23 @@ class _CustomAgentSkillRuntime {
       buffer.write(padSource);
     }
     final padding = buffer.toString().substring(0, needed);
-    return '$padding$value';
+    return method == 'padEnd' ? '$value$padding' : '$padding$value';
+  }
+
+  String _repeatString(
+    String value, {
+    required String method,
+    required List<String> args,
+  }) {
+    if (args.length != 1) _badMethodArgs(method);
+    final count = _toInt(_evaluate(args.single));
+    if (count < 0 || count > 10000) _badMethodArgs(method);
+    if (count == 0 || value.isEmpty) return '';
+    final buffer = StringBuffer();
+    for (var index = 0; index < count; index++) {
+      buffer.write(value);
+    }
+    return buffer.toString();
   }
 
   String _numberToFixed(Object? value, List<String> args) {
