@@ -10944,7 +10944,21 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       containsAll(
           ['prompt', 'instruction', 'task', 'input', 'request', 'message']),
     );
-    expect(productionProperties.keys, contains('scriptId'));
+    expect(
+      productionProperties.keys,
+      containsAll([
+        'scriptId',
+        'episodeId',
+        'episodesId',
+        'scriptIds',
+        'episodeIds',
+        'script_id',
+        'episode_id',
+        'episodes_id',
+        'script_ids',
+        'episode_ids',
+      ]),
+    );
     expect(productionTool.schema['required'], isNull);
   });
 
@@ -10981,6 +10995,38 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(
       gateway.lastMessages.last['content'],
       '用 request 字段制作第一集导演计划',
+    );
+  });
+
+  test('制作子 Agent 工具调用接受 episodeId 别名定位剧本', () async {
+    engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final secondScriptId =
+        engine.addScript(projectId: projectId, name: '第二集', content: '沈微入局');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'request': '为第二集做导演计划', 'episodeId': secondScriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>第二集镜湖调度</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：做第二集导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(gateway.stages.last, 'productionAgent:directorPlanAgent');
+    final content = gateway.lastMessages
+        .map((message) => message['content'])
+        .whereType<String>()
+        .join('\n');
+    expect(content, contains('当前剧本：第二集'));
+    expect(content, contains('剧本内容：沈微入局'));
+    expect(
+      _productionAgentWorkData(db, projectId, secondScriptId)['scriptPlan'],
+      '第二集镜湖调度',
     );
   });
 

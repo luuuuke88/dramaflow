@@ -236,7 +236,50 @@ const Map<String, dynamic> _productionSubAgentToolSchema = <String, dynamic>{
   'type': 'object',
   'properties': <String, dynamic>{
     ..._subAgentPromptAliasProperties,
-    'scriptId': {'type': 'integer'},
+    'scriptId': {
+      'type': 'integer',
+      'description': '目标剧本 id。',
+    },
+    'episodeId': {
+      'type': 'integer',
+      'description': 'scriptId 的 episode 别名。',
+    },
+    'episodesId': {
+      'type': 'integer',
+      'description': 'scriptId 的 ToonFlow 旧字段别名。',
+    },
+    'script_id': {
+      'type': 'integer',
+      'description': 'scriptId 的 snake_case 别名。',
+    },
+    'episode_id': {
+      'type': 'integer',
+      'description': 'episodeId 的 snake_case 别名。',
+    },
+    'episodes_id': {
+      'type': 'integer',
+      'description': 'episodesId 的 snake_case 别名。',
+    },
+    'scriptIds': {
+      'type': 'array',
+      'items': {'type': 'integer'},
+      'description': '可选。多个剧本 id；当前子 Agent 使用第一项作为目标剧本。',
+    },
+    'episodeIds': {
+      'type': 'array',
+      'items': {'type': 'integer'},
+      'description': 'scriptIds 的 episode 别名。',
+    },
+    'script_ids': {
+      'type': 'array',
+      'items': {'type': 'integer'},
+      'description': 'scriptIds 的 snake_case 别名。',
+    },
+    'episode_ids': {
+      'type': 'array',
+      'items': {'type': 'integer'},
+      'description': 'episodeIds 的 snake_case 别名。',
+    },
   },
 };
 

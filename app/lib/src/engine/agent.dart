@@ -8066,9 +8066,19 @@ extension AgentApi on Engine {
       _escapeXmlText(value).replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 
   int? _productionScriptId(int projectId, Map<String, dynamic> args) {
-    final direct = _coerceInt(args['scriptId'] ?? args['episodesId']);
+    final direct = _coerceInt(args['scriptId'] ??
+        args['episodeId'] ??
+        args['episodesId'] ??
+        args['script_id'] ??
+        args['episode_id'] ??
+        args['episodes_id']);
     if (direct != null) return direct;
-    final fromList = _intListAny(args, const ['scriptIds', 'episodeIds']);
+    final fromList = _intListAny(args, const [
+      'scriptIds',
+      'episodeIds',
+      'script_ids',
+      'episode_ids',
+    ]);
     if (fromList != null && fromList.isNotEmpty) return fromList.first;
     final rows = scripts(projectId);
     return rows.isEmpty ? null : rows.first.id;
