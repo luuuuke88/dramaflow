@@ -1007,6 +1007,85 @@ void main() {
     ]);
   });
 
+  test('Agent 可按当前剧本资产引用分析参考图', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final decoyId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '误绑角色',
+      describe: '不属于本集',
+    );
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    final sceneId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '寒山宗门',
+      describe: '冷白山门',
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, roleId]);
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, sceneId]);
+    engine.saveAssetImage(
+      assetsId: decoyId,
+      projectId: projectId,
+      base64Image: base64Encode([137, 80, 78, 71, 0]),
+      type: 'role',
+    );
+    engine.saveAssetImage(
+      assetsId: roleId,
+      projectId: projectId,
+      base64Image: base64Encode([137, 80, 78, 71, 1]),
+      type: 'role',
+    );
+    engine.saveAssetImage(
+      assetsId: sceneId,
+      projectId: projectId,
+      base64Image: base64Encode([137, 80, 78, 71, 2]),
+      type: 'scene',
+    );
+    gateway.imageAnalysisResults = const [
+      'A001角色参考：李澈少年剑修。',
+      'A002场景参考：寒山宗门冷白云雾。',
+    ];
+    gateway.turns = [
+      AgentTurnResult.tool('analyze_reference_image', {
+        'scriptId': scriptId,
+        'assetRefs': const ['A001', 'A002'],
+        'prompt': '按资产引用分析一致性',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 A001 A002 分析参考图',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final visionTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'analyze_reference_image');
+    final properties = visionTool.schema['properties'] as Map;
+    expect(properties, contains('assetRef'));
+    expect(properties, contains('assetRefs'));
+
+    final msg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(msg.toolName, 'analyze_reference_image');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['sources'], ['asset:李澈', 'asset:寒山宗门']);
+    expect(payload['analysis'], contains('A001角色参考'));
+    expect(payload['analysis'], contains('A002场景参考'));
+    expect(payload['analysis'], isNot(contains('误绑角色')));
+    expect(gateway.imageAnalysisPaths, hasLength(2));
+  });
+
   test('Agent 顶层配音工具接受 ToonFlow 自然角色号别名', () async {
     engine.addAsset(
       projectId: projectId,

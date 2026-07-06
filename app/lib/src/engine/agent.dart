@@ -1790,6 +1790,14 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'prompt 的自然别名。',
         },
+        'scriptId': {
+          'type': 'integer',
+          'description': '可选。当前剧本 id，用于解析 A001 这类 ToonFlow 资产引用。',
+        },
+        'script_id': {
+          'type': 'integer',
+          'description': 'scriptId 的 snake_case 别名。',
+        },
         'imagePath': {
           'type': 'string',
           'description': '本地图片绝对路径。',
@@ -1834,6 +1842,15 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'string'},
           'description': '项目资产名称列表，用于一次分析多张资产参考图。',
+        },
+        'assetRef': {
+          'type': 'string',
+          'description': 'ToonFlow 资产引用，例如 A001；传 scriptId 时按当前剧本资产表解析。',
+        },
+        'assetRefs': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'ToonFlow 资产引用列表，例如 ["A001","A002"]。',
         },
         'imageId': {
           'type': 'integer',
@@ -10492,6 +10509,29 @@ extension AgentApi on Engine {
         ]) ??
         const <String>[]) {
       add(_agentReferenceImageArg(projectId, {'assetName': assetName}));
+    }
+    final scriptId = _productionScriptId(projectId, args);
+    for (final assetRef in _stringListAny(args, const [
+          'assetRef',
+          'assetRefs',
+          'asset_ref',
+          'asset_refs',
+          'assetCode',
+          'assetCodes',
+          'asset_code',
+          'asset_codes',
+          '资产引用',
+          '资产引用列表',
+        ]) ??
+        const <String>[]) {
+      final ids = _productionAssetIdsFromRefs(
+        projectId,
+        [assetRef],
+        scriptId: scriptId,
+      );
+      for (final id in ids) {
+        add(_agentAssetImagePath(id));
+      }
     }
     for (final storyboardId in _intListAny(args, const [
           'storyboardIds',
