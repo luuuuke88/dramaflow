@@ -1,6 +1,7 @@
 // Agent 体系正在按 ToonFlow 的 scriptAgent / productionAgent 分层形态推进。
 // 当前文件保留旧 UI/API 入口，并逐步把 stage registry、记忆、技能和 orchestrator
 // 拆到独立纯 Dart 模块。所有会生成媒体或改业务表的动作仍走现有 engine API 与 o_tasks。
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -2720,23 +2721,21 @@ class _CustomAgentSkillRuntime {
         return [for (final match in matches) match.group(0) ?? ''];
       }
       final match = matches.first;
-      return [
-        for (var i = 0; i <= match.groupCount; i++) match.group(i),
-      ];
+      return _customJsMatch(text, match);
     }
     final needle = _stringifyInterpolation(matcher);
     if (needle.isEmpty) return [''];
-    return text.contains(needle) ? [needle] : null;
+    final index = text.indexOf(needle);
+    return index >= 0
+        ? _CustomJsMatch([needle], index: index, input: text)
+        : null;
   }
 
   List<List<Object?>> _matchAllString(String text, Object? matcher) {
     if (matcher is _CustomJsRegExp) {
       return [
         for (final match in matcher.regExp.allMatches(text))
-          [
-            for (var index = 0; index <= match.groupCount; index++)
-              match.group(index),
-          ],
+          _customJsMatch(text, match),
       ];
     }
     final needle = _stringifyInterpolation(matcher);
@@ -2746,11 +2745,21 @@ class _CustomAgentSkillRuntime {
     while (start <= text.length) {
       final index = text.indexOf(needle, start);
       if (index < 0) break;
-      matches.add([needle]);
+      matches.add(_CustomJsMatch([needle], index: index, input: text));
       start = index + needle.length;
     }
     return matches;
   }
+
+  _CustomJsMatch _customJsMatch(String input, RegExpMatch match) =>
+      _CustomJsMatch(
+        [
+          for (var index = 0; index <= match.groupCount; index++)
+            match.group(index)
+        ],
+        index: match.start,
+        input: input,
+      );
 
   String _replaceString(
     String text,
@@ -3416,10 +3425,7 @@ class _CustomAgentSkillRuntime {
             ? _nextGlobalRegExpMatch(value, text)
             : value.regExp.firstMatch(text);
         if (match == null) return null;
-        return [
-          for (var index = 0; index <= match.groupCount; index++)
-            match.group(index),
-        ];
+        return _customJsMatch(text, match);
       case 'test':
         if (args.length != 1) _badMethodArgs(method);
         return value.regExp.hasMatch(_stringifyInterpolation(
@@ -4213,6 +4219,10 @@ class _CustomAgentSkillRuntime {
 
   Object? _readProperty(Object? value, String property) {
     if (value is Map) return value[property];
+    if (value is _CustomJsMatch) {
+      if (property == 'index') return value.index;
+      if (property == 'input') return value.input;
+    }
     if (value is _CustomJsRegExp && property == 'lastIndex') {
       return value.lastIndex;
     }
@@ -4294,6 +4304,34 @@ class _CustomAgentSkillRuntime {
 
 class _CustomJsNoAssignment {
   const _CustomJsNoAssignment();
+}
+
+class _CustomJsMatch extends ListBase<Object?> {
+  final List<Object?> _groups;
+  final int index;
+  final String input;
+
+  _CustomJsMatch(
+    List<Object?> groups, {
+    required this.index,
+    required this.input,
+  }) : _groups = groups;
+
+  @override
+  int get length => _groups.length;
+
+  @override
+  set length(int length) {
+    _groups.length = length;
+  }
+
+  @override
+  Object? operator [](int index) => _groups[index];
+
+  @override
+  void operator []=(int index, Object? value) {
+    _groups[index] = value;
+  }
 }
 
 class _CustomJsBuiltin {

@@ -5078,6 +5078,71 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持正则匹配结果 index 和 input 元数据', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regex_match_metadata_runtime',
+      name: '正则匹配元数据脚本运行时',
+      description: '验证自定义技能兼容模型常写的 match.index 和 match.input。',
+      script: r'''
+const first = args.workspace.match(/<storyboardItem\b[^>]*videoDesc="([^"]+)"/);
+const all = [...args.workspace.matchAll(/<storyboardItem\b[^>]*videoDesc="([^"]+)"/g)];
+const exec = /duration="([^"]+)"/.exec(args.workspace);
+return JSON.stringify({
+  firstIndex: first.index,
+  firstInputSame: first.input === args.workspace,
+  firstDesc: first[1].trim(),
+  allIndexes: all.map(match => match.index),
+  allInputSame: all.every(match => match.input === args.workspace),
+  execIndex: exec.index,
+  execDuration: exec[1],
+  execInputSame: exec.input === args.workspace,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+        },
+      },
+    );
+
+    const workspace = '''
+<scriptPlan>寒山宗门外，雪夜开场。</scriptPlan>
+<storyboardItem videoDesc=" 雪夜山门 " duration="3秒"></storyboardItem>
+<storyboardItem videoDesc="李澈拔剑" duration="2.5s"></storyboardItem>
+''';
+    final itemPattern = RegExp(r'<storyboardItem\b[^>]*videoDesc="([^"]+)"');
+    final durationPattern = RegExp(r'duration="([^"]+)"');
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_regex_match_metadata_runtime', const {
+        'workspace': workspace,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用正则匹配元数据脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regex_match_metadata_runtime');
+    expect(jsonDecode(msg.content), {
+      'firstIndex': itemPattern.firstMatch(workspace)!.start,
+      'firstInputSame': true,
+      'firstDesc': '雪夜山门',
+      'allIndexes': [
+        for (final match in itemPattern.allMatches(workspace)) match.start,
+      ],
+      'allInputSame': true,
+      'execIndex': durationPattern.firstMatch(workspace)!.start,
+      'execDuration': '3秒',
+      'execInputSame': true,
+    });
+  });
+
   test('自定义脚本技能：支持 RegExp 构造和 test 筛选资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regexp_test_runtime',
