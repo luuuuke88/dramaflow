@@ -338,6 +338,21 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。excludeIds 的语义化别名。',
         },
+        'seenMemoryIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。已读过的 memory id 列表，等价于 excludeIds。',
+        },
+        'memoryIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。模型常用的已读 memory id 别名，等价于 excludeIds。',
+        },
+        'readMemoryIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。已读取 memory id 别名，等价于 excludeIds。',
+        },
       },
     },
   ),
@@ -7491,12 +7506,20 @@ extension AgentApi on Engine {
               ...requestedExcludeRoleSuffixes,
           };
           final types = _deepRetrieveMemoryTypes(args);
-          final requestedExcludeIds = _coerceStringSet(
-            args['excludeIds'] ??
-                args['excludeMemoryIds'] ??
-                args['excludedMemoryIds'] ??
-                args['excludeId'],
-          );
+          final requestedExcludeIds = _coerceStringSetAny(args, const [
+            'excludeIds',
+            'excludeMemoryIds',
+            'excludedMemoryIds',
+            'excludeId',
+            'memoryIds',
+            'seenMemoryIds',
+            'seenIds',
+            'readMemoryIds',
+            'readIds',
+            'previousMemoryIds',
+            'previouslyReadMemoryIds',
+            'previouslyReadIds',
+          ]);
           final excludeIds = {
             ...excludedMemoryIds,
             if (requestedExcludeIds != null) ...requestedExcludeIds,
@@ -7902,6 +7925,18 @@ extension AgentApi on Engine {
       }
     } else {
       add(raw);
+    }
+    return values.isEmpty ? null : values;
+  }
+
+  Set<String>? _coerceStringSetAny(
+    Map<String, dynamic> args,
+    List<String> keys,
+  ) {
+    final values = <String>{};
+    for (final key in keys) {
+      final parsed = _coerceStringSet(args[key]);
+      if (parsed != null) values.addAll(parsed);
     }
     return values.isEmpty ? null : values;
   }
