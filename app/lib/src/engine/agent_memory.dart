@@ -431,6 +431,7 @@ class AgentMemoryService {
             sourceSummaryIds:
                 sourceSummaryIdsByMessageId[row['id'] as String] ?? const [],
           ),
+          isolationKey: isolationKey,
           normalized: normalized,
           tokens: tokens,
           queryEmbedding: queryEmbedding,
@@ -502,6 +503,20 @@ class AgentMemoryService {
   int _rerankCandidateLimit(AgentMemorySettings settings) =>
       (settings.ragLimit * 3).clamp(settings.ragLimit, 20).toInt();
 
+  AgentMemoryEntry _entryWithProviderEmbedding(
+    AgentMemoryEntry entry, {
+    required String isolationKey,
+  }) {
+    final embedding =
+        embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
+    if (embedding == entry.embedding) return entry;
+    db.execute(
+      'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
+      [embedding, entry.id, isolationKey],
+    );
+    return entry.copyWith(embedding: embedding);
+  }
+
   List<(int, AgentMemoryEntry)> _rankMessageCandidates({
     required String isolationKey,
     required String normalized,
@@ -522,15 +537,10 @@ class AgentMemoryService {
     for (final row in messages) {
       var entry = AgentMemoryEntry.fromRow(row);
       if (excludeIds != null && excludeIds.contains(entry.id)) continue;
-      if (entry.embedding.trim().isEmpty) {
-        final embedding =
-            embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
-        db.execute(
-          'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
-          [embedding, entry.id, isolationKey],
-        );
-        entry = entry.copyWith(embedding: embedding);
-      }
+      entry = _entryWithProviderEmbedding(
+        entry,
+        isolationKey: isolationKey,
+      );
       final score = embeddingProvider.score(
         name: entry.name,
         content: entry.content,
@@ -595,16 +605,10 @@ class AgentMemoryService {
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in summaries) {
-      var entry = AgentMemoryEntry.fromRow(row);
-      if (entry.embedding.trim().isEmpty) {
-        final embedding =
-            embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
-        db.execute(
-          'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
-          [embedding, entry.id, isolationKey],
-        );
-        entry = entry.copyWith(embedding: embedding);
-      }
+      final entry = _entryWithProviderEmbedding(
+        AgentMemoryEntry.fromRow(row),
+        isolationKey: isolationKey,
+      );
       final score = embeddingProvider.score(
         name: entry.name,
         content: entry.content,
@@ -651,16 +655,10 @@ class AgentMemoryService {
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in notes) {
-      var entry = AgentMemoryEntry.fromRow(row);
-      if (entry.embedding.trim().isEmpty) {
-        final embedding =
-            embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
-        db.execute(
-          'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
-          [embedding, entry.id, isolationKey],
-        );
-        entry = entry.copyWith(embedding: embedding);
-      }
+      final entry = _entryWithProviderEmbedding(
+        AgentMemoryEntry.fromRow(row),
+        isolationKey: isolationKey,
+      );
       final score = embeddingProvider.score(
         name: entry.name,
         content: entry.content,
@@ -693,11 +691,16 @@ class AgentMemoryService {
   }
 
   AgentMemoryEntry _withTrace(
-    AgentMemoryEntry entry, {
+    AgentMemoryEntry source, {
+    required String isolationKey,
     required String normalized,
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
   }) {
+    final entry = _entryWithProviderEmbedding(
+      source,
+      isolationKey: isolationKey,
+    );
     final score = embeddingProvider.score(
       name: entry.name,
       content: entry.content,

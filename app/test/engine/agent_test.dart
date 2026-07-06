@@ -6398,6 +6398,99 @@ description: >-
     expect(gateway.textCallCount, 0);
   });
 
+  test(
+      'AgentMemoryService deepRetrieve 会用注入 embedding provider 迁移旧 summary embedding',
+      () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    const embeddingProvider = _SemanticMemoryEmbeddingProvider();
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+      embeddingProvider: embeddingProvider,
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          offset.isEven ? agentRoleUser : agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'semantic_summary_msg_1',
+      '用户设定：李澈和沈微之间有不可背弃的师徒契约。',
+      0,
+    );
+    insertMessage(
+      'semantic_summary_msg_2',
+      '助手确认：后续所有分镜都要遵守这段关系约束。',
+      1,
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'semantic_summary_noise',
+        '寒山场景设定',
+        '用户设定：寒山宗门外景需要云海远景。',
+        now + 2,
+        embeddingJson('用户设定：寒山宗门外景需要云海远景。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        0,
+        agentMemoryTypeSummary,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'semantic_summary_contract',
+        '关系约束',
+        '李澈和沈微之间有不可背弃的师徒契约，关系约束必须延续。',
+        now + 3,
+        embeddingJson('李澈和沈微之间有不可背弃的师徒契约，关系约束必须延续。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['semantic_summary_msg_1', 'semantic_summary_msg_2']),
+        agentRoleAssistant,
+        0,
+        agentMemoryTypeSummary,
+      ],
+    );
+    gateway.textResults = const [
+      TextResult('["semantic_summary_contract"]'),
+    ];
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '师承羁绊',
+    );
+
+    expect(records.map((item) => item.id),
+        ['semantic_summary_msg_1', 'semantic_summary_msg_2']);
+    expect(records.map((item) => item.sourceSummaryIds), [
+      ['semantic_summary_contract'],
+      ['semantic_summary_contract'],
+    ]);
+    expect(gateway.textCallCount, 1);
+  });
+
   test('AgentMemoryService deepRetrieveSummaryLimit 为 0 时不绕回已摘要 message',
       () async {
     final now = DateTime.now().millisecondsSinceEpoch;
