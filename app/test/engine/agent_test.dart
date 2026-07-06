@@ -5218,6 +5218,87 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持数组 indexOf 和 lastIndexOf 搜索', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_index_runtime',
+      name: '数组索引搜索脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 selectedIds.indexOf(asset.id) 和 list.lastIndexOf(id)。',
+      script: r'''
+const selectedNames = args.assets
+  .filter(asset => args.selectedIds.indexOf(asset.id) >= 0)
+  .map(asset => asset.name.trim())
+  .join('、');
+return JSON.stringify({
+  selectedNames,
+  firstRole: args.types.indexOf('role'),
+  secondRoleFromOne: args.types.indexOf('role', 1),
+  missingSceneFromTail: args.types.indexOf('scene', -1),
+  lastRole: args.types.lastIndexOf('role'),
+  lastRoleBeforeTail: args.types.lastIndexOf('role', 1),
+  negativeLastScene: args.types.lastIndexOf('scene', -2),
+  missingId: args.selectedIds.indexOf(999),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'selectedIds': {
+            'type': 'array',
+            'items': {'type': 'number'},
+          },
+          'types': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'id': {'type': 'number'},
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_index_runtime', const {
+        'selectedIds': [10, 103],
+        'types': ['role', 'scene', 'role', 'tool'],
+        'assets': [
+          {'id': 1, 'name': '误匹配角色'},
+          {'id': 10, 'name': ' 李澈 '},
+          {'id': 103, 'name': ' 沈微 '},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组索引搜索脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_index_runtime');
+    expect(jsonDecode(msg.content), {
+      'selectedNames': '李澈、沈微',
+      'firstRole': 0,
+      'secondRoleFromOne': 2,
+      'missingSceneFromTail': -1,
+      'lastRole': 2,
+      'lastRoleBeforeTail': 0,
+      'negativeLastScene': 1,
+      'missingId': -1,
+    });
+  });
+
   test('自定义脚本技能：支持函数和方法调用参数 spread', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_call_spread_runtime',

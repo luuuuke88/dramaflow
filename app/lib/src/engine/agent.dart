@@ -1599,6 +1599,13 @@ class _CustomAgentSkillRuntime {
         return _replaceAllString(text, matcher, args[1]);
       case 'indexOf':
         if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        if (value is Iterable && value is! String) {
+          return _arrayIndexOf(
+            value.toList(),
+            _evaluate(args.first),
+            args.length == 2 ? _toInt(_evaluate(args[1])) : 0,
+          );
+        }
         final text = '${value ?? ''}';
         final needle = _stringifyInterpolation(_evaluate(args.first));
         final start = args.length == 2
@@ -1607,6 +1614,14 @@ class _CustomAgentSkillRuntime {
         return text.indexOf(needle, start);
       case 'lastIndexOf':
         if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        if (value is Iterable && value is! String) {
+          final items = value.toList();
+          return _arrayLastIndexOf(
+            items,
+            _evaluate(args.first),
+            args.length == 2 ? _toInt(_evaluate(args[1])) : items.length - 1,
+          );
+        }
         final text = '${value ?? ''}';
         final needle = _stringifyInterpolation(_evaluate(args.first));
         final start = args.length == 2
@@ -2014,6 +2029,23 @@ class _CustomAgentSkillRuntime {
     }
     final padding = buffer.toString().substring(0, needed);
     return '$padding$value';
+  }
+
+  int _arrayIndexOf(List<Object?> items, Object? needle, int fromIndex) {
+    final start = _normalizeSliceIndex(fromIndex, items.length);
+    for (var index = start; index < items.length; index++) {
+      if (_compareValues(items[index], needle, '===')) return index;
+    }
+    return -1;
+  }
+
+  int _arrayLastIndexOf(List<Object?> items, Object? needle, int fromIndex) {
+    final start = _normalizeArrayLastSearchStart(fromIndex, items.length);
+    if (start < 0) return -1;
+    for (var index = start; index >= 0; index--) {
+      if (_compareValues(items[index], needle, '===')) return index;
+    }
+    return -1;
   }
 
   List<String> _forInKeys(Object? value, String expression) {
@@ -2920,6 +2952,12 @@ class _CustomAgentSkillRuntime {
   int _normalizeLastSearchStart(int value, int length) {
     if (value < 0) return -1;
     return value.clamp(0, length).toInt();
+  }
+
+  int _normalizeArrayLastSearchStart(int value, int length) {
+    if (length == 0) return -1;
+    if (value < 0) return length + value;
+    return value.clamp(0, length - 1).toInt();
   }
 
   int _normalizeSubstringIndex(int value, int length) {
