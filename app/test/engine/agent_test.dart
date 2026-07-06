@@ -10954,6 +10954,77 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持 queries 多查询合并召回', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage('multi_query_role', '角色约束：李澈必须保持正派，不能反派化。', 0);
+    insertMessage('multi_query_scene', '场景画风：寒山山门保持冷白云雾和低机位压迫感。', 1);
+    insertMessage('multi_query_noise', '噪声记忆：市集喜剧桥段可以更热闹。', 2);
+
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queries': ['李澈正派约束', '寒山山门冷白低机位'],
+        'limit': 4,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '同时找角色约束和场景画风',
+      autoMode: false,
+    );
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = deepRetrieveTool.schema['properties'] as Map;
+    expect(properties, contains('queries'));
+    expect(properties, contains('queryList'));
+    expect(properties, contains('keywords'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['queries'], ['李澈正派约束', '寒山山门冷白低机位']);
+    expect(payload['memories'], contains('角色约束：李澈必须保持正派，不能反派化。'));
+    expect(payload['memories'], contains('场景画风：寒山山门保持冷白云雾和低机位压迫感。'));
+    expect(payload['memories'], isNot(contains('噪声记忆：市集喜剧桥段可以更热闹。')));
+    final recordIds = [
+      for (final record in payload['records'] as List)
+        (record as Map)['id'] as String,
+    ];
+    expect(recordIds, containsAll(['multi_query_role', 'multi_query_scene']));
+    expect(recordIds.toSet(), hasLength(recordIds.length));
+  });
+
   test('Agent 记忆：deepRetrieve schema 暴露模型常见 RAG 字段别名', () async {
     gateway.turns = [const AgentTurnResult.text('收到')];
 

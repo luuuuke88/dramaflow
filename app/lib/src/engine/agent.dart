@@ -921,6 +921,46 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'keyword 的简写别名。',
         },
+        'queries': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。多查询列表，会按顺序召回并合并去重。',
+        },
+        'queryList': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'queries 的自然语言别名。',
+        },
+        'query_list': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'queryList 的 snake_case 别名。',
+        },
+        'keywords': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'queries 的关键词列表别名。',
+        },
+        'keywordList': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'keywords 的自然语言别名。',
+        },
+        'keyword_list': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'keywordList 的 snake_case 别名。',
+        },
+        '查询列表': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'queries 的中文别名。',
+        },
+        '关键词列表': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'keywords 的中文别名。',
+        },
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -9616,21 +9656,8 @@ extension AgentApi on Engine {
             ],
           });
         case 'deepRetrieve':
-          final keyword = (args['keyword'] ??
-                  args['关键词'] ??
-                  args['query'] ??
-                  args['查询'] ??
-                  args['question'] ??
-                  args['问题'] ??
-                  args['text'] ??
-                  args['文本'] ??
-                  args['prompt'] ??
-                  args['提示词'] ??
-                  args['q'] ??
-                  '')
-              .toString()
-              .trim();
-          if (keyword.isEmpty) return '缺少 keyword 参数。';
+          final queries = _deepRetrieveQueries(args);
+          if (queries.isEmpty) return '缺少 keyword 参数。';
           final roles = _coerceStringSet(
             args['roles'] ??
                 args['role'] ??
@@ -9712,22 +9739,28 @@ extension AgentApi on Engine {
                 args['分数阈值'] ??
                 args['threshold'],
           );
-          final records = await _agentMemoryService(
-            family: agentFamily,
-          ).deepRetrieve(
-            isolationKey: _agentConversationIsolationKey(
-              projectId,
-              family: agentFamily,
-            ),
-            keyword: keyword,
-            roles: roles,
-            excludeRoles: excludeRoles,
-            excludeRoleSuffixes: excludeRoleSuffixes,
-            types: types,
-            excludeIds: excludeIds,
-            minScore: minScore,
-            noteIsolationKey: _agentMemoryIsolationKey(projectId),
-          );
+          final memoryService = _agentMemoryService(family: agentFamily);
+          final records = <AgentMemoryEntry>[];
+          for (final query in queries) {
+            final queryExcludeIds = {
+              ...excludeIds,
+              for (final record in records) record.id,
+            };
+            records.addAll(await memoryService.deepRetrieve(
+              isolationKey: _agentConversationIsolationKey(
+                projectId,
+                family: agentFamily,
+              ),
+              keyword: query,
+              roles: roles,
+              excludeRoles: excludeRoles,
+              excludeRoleSuffixes: excludeRoleSuffixes,
+              types: types,
+              excludeIds: queryExcludeIds,
+              minScore: minScore,
+              noteIsolationKey: _agentMemoryIsolationKey(projectId),
+            ));
+          }
           final rawLimit = args['limit'] ??
               args['topK'] ??
               args['top_k'] ??
@@ -9740,8 +9773,10 @@ extension AgentApi on Engine {
               args['返回数量'] ??
               args['k'];
           final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
-          final limitedRecords =
-              limit == null ? records : records.take(limit).toList();
+          final mergedRecords = _dedupeAgentMemoryEntries(records);
+          final limitedRecords = limit == null
+              ? mergedRecords
+              : mergedRecords.take(limit).toList();
           if (limitedRecords.isEmpty) {
             return jsonEncode({
               'found': false,
@@ -9750,6 +9785,7 @@ extension AgentApi on Engine {
           }
           return jsonEncode({
             'found': true,
+            'queries': queries,
             'memories': [
               for (final record in limitedRecords) record.content,
             ],
@@ -10566,6 +10602,47 @@ extension AgentApi on Engine {
 
     add(raw);
     return values.isEmpty ? null : values;
+  }
+
+  List<String> _deepRetrieveQueries(Map<String, dynamic> args) {
+    final values = <String>[];
+    void addAll(Iterable<String>? items) {
+      if (items == null) return;
+      for (final item in items) {
+        final trimmed = item.trim();
+        if (trimmed.isNotEmpty && !values.contains(trimmed)) {
+          values.add(trimmed);
+        }
+      }
+    }
+
+    final single = _stringArgAny(args, const [
+      'keyword',
+      '关键词',
+      'query',
+      '查询',
+      'question',
+      '问题',
+      'text',
+      '文本',
+      'prompt',
+      '提示词',
+      'q',
+    ]);
+    if (single.isNotEmpty) values.add(single);
+    addAll(_stringListAny(args, const [
+      'queries',
+      'queryList',
+      'query_list',
+      'keywords',
+      'keywordList',
+      'keyword_list',
+      '查询列表',
+      '关键词列表',
+      '问题列表',
+      'prompts',
+    ]));
+    return values;
   }
 
   Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {

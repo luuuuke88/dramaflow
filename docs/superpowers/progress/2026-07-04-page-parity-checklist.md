@@ -284,6 +284,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the superv
 
 Recent Agent/RAG Update: `app/test/engine/providers_test.dart`, `app/test/engine/agent_test.dart`, and `app/test/widgets/settings_screen_test.dart` now cover an `agent_vision` multimodal text binding plus the `analyze_reference_image` Agent tool, so ProductionAgent can resolve project asset/reference images by natural asset name and ask an OpenAI-compatible vision model to extract style, character, scene, and prompt keywords.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` accepting multi-query aliases such as `queries`, `queryList`, and `keywords`, merging per-query recall results while excluding already-returned memory ids and preserving traceable `records`, so decision and sub Agents can retrieve multiple semantic threads in one RAG tool call.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
