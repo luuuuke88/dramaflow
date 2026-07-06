@@ -6900,6 +6900,55 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(properties, contains('relativePath'));
   });
 
+  test('SkillRuntime read_skill_file 支持模型常见技能名称别名', () async {
+    final styleSkill = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '技能正文：短剧台词要短。',
+      extraFiles: {
+        'references/rules.md': '文风规则：每句台词不超过二十字。',
+      },
+    );
+    final dialogueSkill = _writeSkillFixture(
+      dir,
+      id: 'dialogue_checker',
+      body: '技能正文：检查台词潜台词。',
+      extraFiles: {
+        'references/rules.md': '台词规则：每句都要带人物意图。',
+      },
+    );
+    engine
+      ..saveMarkdownAgentSkill(filePath: styleSkill.path)
+      ..saveMarkdownAgentSkill(filePath: dialogueSkill.path);
+
+    gateway.turns = [
+      AgentTurnResult.tool('activate_skill', const {'name': 'style_polisher'}),
+      AgentTurnResult.tool(
+        'activate_skill',
+        const {'name': 'dialogue_checker'},
+      ),
+      AgentTurnResult.tool('read_skill_file', const {
+        'skill': 'dialogue_checker',
+        'file': 'references/rules.md',
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '读取台词技能规则', autoMode: true);
+
+    final read = engine.agentMessages(projectId).lastWhere(
+          (message) => message.toolName == 'read_skill_file',
+        );
+    expect(read.content, contains('台词规则：每句都要带人物意图。'));
+    expect(read.content, isNot(contains('文风规则')));
+
+    final readSkillFileTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'read_skill_file');
+    final properties = readSkillFileTool.schema['properties'] as Map;
+    expect(properties, contains('skill'));
+    expect(properties, contains('skillId'));
+    expect(properties, contains('skill_name'));
+  });
+
   test('SkillRuntime 激活后会注入后续 Agent system prompt', () async {
     final skillFile = _writeSkillFixture(
       dir,

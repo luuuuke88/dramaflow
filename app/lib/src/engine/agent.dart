@@ -335,6 +335,22 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'name': {'type': 'string'},
+        'skill': {
+          'type': 'string',
+          'description': 'name 的自然别名，适合模型按“技能”组织参数。',
+        },
+        'skillName': {
+          'type': 'string',
+          'description': 'name 的驼峰别名。',
+        },
+        'skillId': {
+          'type': 'string',
+          'description': 'name 的技能 id 别名。',
+        },
+        'skill_name': {
+          'type': 'string',
+          'description': 'name 的 snake_case 别名。',
+        },
         'filePath': {
           'type': 'string',
           'description': '资源文件的相对路径，来自 activate_skill 返回的 skill_resources',
@@ -7058,8 +7074,14 @@ extension AgentApi on Engine {
           }
           return _formatActivatedAgentSkill(skill);
         case 'read_skill_file':
-          var skillName =
-              (args['name'] ?? args['skillName'] ?? '').toString().trim();
+          var skillName = (args['name'] ??
+                  args['skill'] ??
+                  args['skillName'] ??
+                  args['skillId'] ??
+                  args['skill_name'] ??
+                  '')
+              .toString()
+              .trim();
           final filePath = (args['filePath'] ??
                   args['path'] ??
                   args['file'] ??
