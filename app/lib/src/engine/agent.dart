@@ -462,7 +462,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色 等过滤提示。',
+        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色/minSimilarity 等过滤提示。',
   },
   'retrievalPlan': {
     'type': 'array',
@@ -12097,6 +12097,10 @@ extension AgentApi on Engine {
 
     void addValue(Object? raw) {
       if (raw == null) return;
+      if (raw is num) {
+        values.add(raw);
+        return;
+      }
       if (raw is String) {
         if (raw.trim().isNotEmpty) values.add(raw);
         return;
@@ -12263,6 +12267,30 @@ extension AgentApi on Engine {
         '排除角色后缀',
       ]);
 
+  List<Object?> _agentMemoryQueryPlanScoreThresholdValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'minScore',
+        'min_score',
+        'minimumScore',
+        'minimum_score',
+        'scoreThreshold',
+        'score_threshold',
+        '最低分',
+        '分数阈值',
+        'threshold',
+        'minSimilarity',
+        'min_similarity',
+        'minimumSimilarity',
+        'minimum_similarity',
+        'similarityThreshold',
+        'similarity_threshold',
+        '相似度',
+        '最低相似度',
+        '相似度阈值',
+      ]);
+
   bool _shouldIncludeVisualReferenceMemories(Map<String, dynamic> args) =>
       (_coerceBool(args['includeVisualReferences'] ??
               args['visualReferences'] ??
@@ -12386,7 +12414,7 @@ extension AgentApi on Engine {
           args['threshold'],
     );
     if (explicitScore != null) return explicitScore;
-    return _coerceAgentMemoryScoreThreshold(
+    final explicitSimilarity = _coerceAgentMemoryScoreThreshold(
       args['minSimilarity'] ??
           args['min_similarity'] ??
           args['minimumSimilarity'] ??
@@ -12397,6 +12425,12 @@ extension AgentApi on Engine {
           args['最低相似度'] ??
           args['相似度阈值'],
     );
+    if (explicitSimilarity != null) return explicitSimilarity;
+    for (final value in _agentMemoryQueryPlanScoreThresholdValues(args)) {
+      final threshold = _coerceAgentMemoryScoreThreshold(value);
+      if (threshold != null) return threshold;
+    }
+    return null;
   }
 
   int? _coerceAgentMemoryScoreThreshold(Object? raw) {
