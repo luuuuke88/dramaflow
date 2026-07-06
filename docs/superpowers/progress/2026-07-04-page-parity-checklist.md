@@ -266,6 +266,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgen
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent and ProductionAgent XML outputs preserving CDATA text inside script content, video descriptions, and image prompts, so model-authored fields containing angle brackets or raw ampersands are not mangled by XML tag stripping.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent storyboard-panel XML collecting repeated asset child elements such as multiple `<assetName>` nodes, so model-authored structured XML can bind all referenced role/scene/tool assets instead of only the first one.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.

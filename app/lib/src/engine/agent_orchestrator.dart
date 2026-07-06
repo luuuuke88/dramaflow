@@ -1742,7 +1742,8 @@ List<int> _storyboardAssetIds(String attrs, [String body = '']) => _dedupeInts([
         'associatedAssetIds',
         'associated_asset_ids',
       ])
-        ...parseIntListText(_elementValue(body, key)),
+        for (final value in _elementValues(body, key))
+          ...parseIntListText(value),
     ]);
 
 List<String> _storyboardAssetRefs(String attrs, [String body = '']) =>
@@ -1784,7 +1785,8 @@ List<String> _storyboardAssetRefs(String attrs, [String body = '']) =>
         'asset_name',
         'asset_names',
       ])
-        ...parseStringListText(_elementValue(body, key)),
+        for (final value in _elementValues(body, key))
+          ...parseStringListText(value),
     ]);
 
 List<String> parseStringListText(String source) {
@@ -1897,10 +1899,15 @@ String _fieldValueAny(String attrs, String body, List<String> names) {
 }
 
 String _elementValue(String source, String name) {
+  final values = _elementValues(source, name);
+  return values.isEmpty ? '' : values.first;
+}
+
+List<String> _elementValues(String source, String name) {
   final escaped = RegExp.escape(name);
-  final match = RegExp(
+  final matches = RegExp(
     '<$escaped\\b[^>]*>([\\s\\S]*?)</$escaped>',
     caseSensitive: false,
-  ).firstMatch(source);
-  return match?.group(1) ?? '';
+  ).allMatches(source);
+  return [for (final match in matches) match.group(1) ?? ''];
 }

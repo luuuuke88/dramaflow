@@ -16646,6 +16646,55 @@ description: 只属于水墨视觉项目
     expect(rows.single.assetIds, [roleId]);
   });
 
+  test('ProductionAgent storyboard panel XML accepts repeated asset elements',
+      () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    final sceneId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '寒山宗门',
+      describe: '冷白山门',
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, roleId]);
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, sceneId]);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'prompt': '写第一集分镜面板', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('''
+<storyboardItem>
+  <videoDesc>李澈站在寒山宗门前</videoDesc>
+  <imagePrompt>冷白山门，少年停步，远景</imagePrompt>
+  <assetName>李澈</assetName>
+  <assetName>寒山宗门</assetName>
+</storyboardItem>
+'''),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '写重复资产字段分镜面板',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows, hasLength(1));
+    expect(rows.single.videoDesc, '李澈站在寒山宗门前');
+    expect(rows.single.assetIds, [roleId, sceneId]);
+  });
+
   test('ProductionAgent storyboard panel XML preserves CDATA field text',
       () async {
     final scriptId =
