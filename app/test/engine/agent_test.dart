@@ -10910,6 +10910,44 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('子 Agent 工具 schema 暴露常见任务字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(projectId, '规划故事骨架', autoMode: false);
+
+    final scriptTool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'run_sub_agent_storySkeleton',
+    );
+    final scriptProperties = scriptTool.schema['properties'] as Map;
+    expect(
+      scriptProperties.keys,
+      containsAll(
+          ['prompt', 'instruction', 'task', 'input', 'request', 'message']),
+    );
+    expect(scriptTool.schema['required'], isNull);
+
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：做导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final productionTool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'run_sub_agent_director_plan',
+    );
+    final productionProperties = productionTool.schema['properties'] as Map;
+    expect(
+      productionProperties.keys,
+      containsAll(
+          ['prompt', 'instruction', 'task', 'input', 'request', 'message']),
+    );
+    expect(productionProperties.keys, contains('scriptId'));
+    expect(productionTool.schema['required'], isNull);
+  });
+
   test('子 Agent 工具调用接受常见提示词别名作为执行任务', () async {
     gateway.turns = [
       AgentTurnResult.tool(

@@ -200,90 +200,81 @@ const _productionAgentReadWriteTools = <AgentToolDef>[
   ),
 ];
 
+const Map<String, dynamic> _subAgentPromptAliasProperties = <String, dynamic>{
+  'prompt': {
+    'type': 'string',
+    'description': '子 Agent 要执行的具体任务。',
+  },
+  'instruction': {
+    'type': 'string',
+    'description': 'prompt 的指令别名。',
+  },
+  'task': {
+    'type': 'string',
+    'description': 'prompt 的任务别名。',
+  },
+  'input': {
+    'type': 'string',
+    'description': 'prompt 的输入别名。',
+  },
+  'request': {
+    'type': 'string',
+    'description': 'prompt 的请求别名。',
+  },
+  'message': {
+    'type': 'string',
+    'description': 'prompt 的消息别名。',
+  },
+};
+
+const Map<String, dynamic> _scriptSubAgentToolSchema = <String, dynamic>{
+  'type': 'object',
+  'properties': _subAgentPromptAliasProperties,
+};
+
+const Map<String, dynamic> _productionSubAgentToolSchema = <String, dynamic>{
+  'type': 'object',
+  'properties': <String, dynamic>{
+    ..._subAgentPromptAliasProperties,
+    'scriptId': {'type': 'integer'},
+  },
+};
+
 const _productionAgentSubAgentTools = <AgentToolDef>[
   AgentToolDef(
     name: 'run_sub_agent_derive_assets',
     description: '运行执行导演子 Agent，完成衍生资产分析与写入。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-        'scriptId': {'type': 'integer'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _productionSubAgentToolSchema,
   ),
   AgentToolDef(
     name: 'run_sub_agent_generate_assets',
     description: '运行执行导演子 Agent，提交衍生资产图片生成任务。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-        'scriptId': {'type': 'integer'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _productionSubAgentToolSchema,
   ),
   AgentToolDef(
     name: 'run_sub_agent_director_plan',
     description: '运行执行导演子 Agent，输出 <scriptPlan> 并写入工作区。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-        'scriptId': {'type': 'integer'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _productionSubAgentToolSchema,
   ),
   AgentToolDef(
     name: 'run_sub_agent_storyboard_gen',
     description: '运行执行导演子 Agent，提交分镜首帧图生成任务。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-        'scriptId': {'type': 'integer'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _productionSubAgentToolSchema,
   ),
   AgentToolDef(
     name: 'run_sub_agent_storyboard_panel',
     description: '运行执行导演子 Agent，输出 <storyboardItem> 并写入分镜面板。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-        'scriptId': {'type': 'integer'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _productionSubAgentToolSchema,
   ),
   AgentToolDef(
     name: 'run_sub_agent_storyboard_table',
     description: '运行执行导演子 Agent，输出 <storyboardTable> 并写入工作区。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-        'scriptId': {'type': 'integer'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _productionSubAgentToolSchema,
   ),
   AgentToolDef(
     name: 'run_sub_agent_supervision',
     description: '运行制作监督层子 Agent 并写入制作工作区。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-        'scriptId': {'type': 'integer'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _productionSubAgentToolSchema,
   ),
 ];
 
@@ -291,46 +282,22 @@ const _scriptAgentSubAgentTools = <AgentToolDef>[
   AgentToolDef(
     name: 'run_sub_agent_storySkeleton',
     description: '运行故事骨架执行 Agent，完成后把 <storySkeleton> 写入工作区。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _scriptSubAgentToolSchema,
   ),
   AgentToolDef(
     name: 'run_sub_agent_adaptationStrategy',
     description: '运行改编策略执行 Agent，完成后把 <adaptationStrategy> 写入工作区。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _scriptSubAgentToolSchema,
   ),
   AgentToolDef(
     name: 'run_sub_agent_script',
     description: '运行剧本编写执行 Agent，完成后把 <scriptItem> 写入剧本表。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _scriptSubAgentToolSchema,
   ),
   AgentToolDef(
     name: 'run_supervision_agent',
     description: '运行监督层 Agent，对执行层产物做独立审核并写入工作区。',
-    schema: {
-      'type': 'object',
-      'properties': {
-        'prompt': {'type': 'string'},
-      },
-      'required': ['prompt'],
-    },
+    schema: _scriptSubAgentToolSchema,
   ),
 ];
 
