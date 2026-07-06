@@ -4230,8 +4230,10 @@ class _CustomAgentSkillRuntime {
   }
 
   _CustomJsDate _newDate(List<String> args) {
-    if (args.length > 1) _badMethodArgs('Date');
     if (args.isEmpty) return _CustomJsDate(DateTime.now().toUtc());
+    if (args.length > 1) {
+      return _CustomJsDate(_dateTimeFromDateParts(args));
+    }
     return _CustomJsDate(_toDateTime(_evaluate(args.single)));
   }
 
@@ -4376,6 +4378,9 @@ class _CustomAgentSkillRuntime {
       case 'parse':
         if (args.length != 1) _badMethodArgs(method);
         return _toDateTime(_evaluate(args.single)).millisecondsSinceEpoch;
+      case 'UTC':
+        if (args.isEmpty || args.length > 7) _badMethodArgs(method);
+        return _dateTimeFromDateParts(args).millisecondsSinceEpoch;
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_builtin_method',
@@ -4435,6 +4440,22 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  DateTime _dateTimeFromDateParts(List<String> args) {
+    final values = _evaluateCallArguments(args).map(_toInt).toList();
+    if (values.isEmpty || values.length > 7) _badMethodArgs('Date');
+    final year =
+        values[0] >= 0 && values[0] <= 99 ? values[0] + 1900 : values[0];
+    return DateTime.utc(
+      year,
+      values.length > 1 ? values[1] + 1 : 1,
+      values.length > 2 ? values[2] : 1,
+      values.length > 3 ? values[3] : 0,
+      values.length > 4 ? values[4] : 0,
+      values.length > 5 ? values[5] : 0,
+      values.length > 6 ? values[6] : 0,
+    );
   }
 
   Object? _callSetInstanceMethod(

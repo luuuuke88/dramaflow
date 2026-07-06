@@ -3069,6 +3069,71 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Date 多参数构造和 UTC 静态方法', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_date_multi_arg_runtime',
+      name: 'Date 多参数脚本运行时',
+      description: '验证自定义技能兼容模型常写的 new Date(y,m,d) 和 Date.UTC。',
+      script: r'''
+const scheduled = new Date(
+  args.year,
+  args.month,
+  args.day,
+  args.hour,
+  args.minute,
+  args.second,
+  args.ms,
+);
+const startOfMonth = new Date(Date.UTC(args.year, args.month, 1));
+return JSON.stringify({
+  scheduledIso: scheduled.toISOString(),
+  scheduledTime: scheduled.getTime(),
+  startIso: startOfMonth.toISOString(),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'year': {'type': 'number'},
+          'month': {'type': 'number'},
+          'day': {'type': 'number'},
+          'hour': {'type': 'number'},
+          'minute': {'type': 'number'},
+          'second': {'type': 'number'},
+          'ms': {'type': 'number'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_date_multi_arg_runtime', const {
+        'year': 2026,
+        'month': 6,
+        'day': 8,
+        'hour': 9,
+        'minute': 10,
+        'second': 11,
+        'ms': 120,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Date 多参数脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_date_multi_arg_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'scheduledIso': '2026-07-08T09:10:11.120Z',
+      'scheduledTime': 1783501811120,
+      'startIso': '2026-07-01T00:00:00.000Z',
+    });
+  });
+
   test('自定义脚本技能：支持回调数组解构处理 Object.entries', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_destructure_runtime',
