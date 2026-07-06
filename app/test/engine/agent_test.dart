@@ -3139,6 +3139,76 @@ if (args.assets.length === 0) {
     expect(msg.content, '已收到 2 个资产');
   });
 
+  test('自定义脚本技能：支持 switch case 归类资产', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_switch_runtime',
+      name: 'switch 分类脚本运行时',
+      description: '验证自定义技能兼容模型常写的 switch/case/default 分类逻辑。',
+      script: r'''
+const buckets = { role: [], scene: [], other: [] };
+for (const asset of args.assets) {
+  switch (asset.type) {
+    case 'role':
+      buckets.role.push(asset.name.trim());
+      break;
+    case 'scene':
+      buckets.scene.push(asset.name.trim());
+      break;
+    case 'tool':
+    case 'audio':
+      buckets.other.push(`asset:${asset.name.trim()}`);
+      break;
+    default:
+      buckets.other.push(`misc:${asset.name.trim()}`);
+  }
+}
+return JSON.stringify(buckets);
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_switch_runtime', const {
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 '},
+          {'type': 'scene', 'name': '寒山宗门'},
+          {'type': 'tool', 'name': '灵剑'},
+          {'type': 'audio', 'name': '风雪声'},
+          {'type': 'unknown', 'name': '残卷'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 switch 分类脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_switch_runtime');
+    expect(jsonDecode(msg.content), {
+      'role': ['李澈'],
+      'scene': ['寒山宗门'],
+      'other': ['asset:灵剑', 'asset:风雪声', 'misc:残卷'],
+    });
+  });
+
   test('自定义脚本技能：支持 for of 遍历分镜并累计结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_for_of_runtime',

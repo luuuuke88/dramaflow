@@ -634,6 +634,12 @@ class _CustomAgentSkillRuntime {
         if (result != null) return result;
         continue;
       }
+      final switchStatement = _readSwitchStatement(trimmed);
+      if (switchStatement != null) {
+        final result = _runSwitchStatement(switchStatement);
+        if (result != null) return result;
+        continue;
+      }
       final whileStatement = _readWhileStatement(trimmed);
       if (whileStatement != null) {
         var guard = 0;
@@ -855,6 +861,225 @@ class _CustomAgentSkillRuntime {
       errorName: errorName,
       catchBody: catchBody.text,
     );
+  }
+
+  _CustomJsStatementResult? _runSwitchStatement(
+    _CustomJsSwitchStatement statement,
+  ) {
+    final value = _evaluate(statement.expression);
+    var startIndex = -1;
+    var defaultIndex = -1;
+    for (var i = 0; i < statement.clauses.length; i++) {
+      final clause = statement.clauses[i];
+      if (clause.matchExpression == null) {
+        defaultIndex = i;
+        continue;
+      }
+      if (_compareValues(value, _evaluate(clause.matchExpression!), '===')) {
+        startIndex = i;
+        break;
+      }
+    }
+    if (startIndex < 0) startIndex = defaultIndex;
+    if (startIndex < 0) return null;
+    for (var i = startIndex; i < statement.clauses.length; i++) {
+      final result = _runStatements(statement.clauses[i].body);
+      if (result is _CustomJsBreakValue) return null;
+      if (result != null) return result;
+    }
+    return null;
+  }
+
+  _CustomJsSwitchStatement? _readSwitchStatement(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
+    if (!_startsWithWord(source, 0, 'switch')) return null;
+    var index = _skipWhitespace(source, 'switch'.length);
+    if (index >= source.length || source[index] != '(') return null;
+    final expression = _readBalanced(source, index, '(', ')');
+    index = _skipWhitespace(source, expression.end);
+    if (index >= source.length || source[index] != '{') return null;
+    final body = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, body.end);
+    if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
+      return null;
+    }
+    return _CustomJsSwitchStatement(
+      expression: expression.text,
+      clauses: _readSwitchClauses(body.text),
+    );
+  }
+
+  List<_CustomJsSwitchClause> _readSwitchClauses(String body) {
+    final first = _readNextSwitchLabel(body, 0);
+    if (first == null) {
+      if (body.trim().isNotEmpty) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_switch',
+        });
+      }
+      return const [];
+    }
+    if (body.substring(0, first.start).trim().isNotEmpty) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_switch',
+      });
+    }
+    final clauses = <_CustomJsSwitchClause>[];
+    _CustomJsSwitchLabel? label = first;
+    while (label != null) {
+      final next = _readNextSwitchLabel(body, label.bodyStart);
+      clauses.add(
+        _CustomJsSwitchClause(
+          matchExpression: label.matchExpression,
+          body: body.substring(label.bodyStart, next?.start ?? body.length),
+        ),
+      );
+      label = next;
+    }
+    return clauses;
+  }
+
+  _CustomJsSwitchLabel? _readNextSwitchLabel(String source, int start) {
+    var quote = '';
+    var escaped = false;
+    var paren = 0;
+    var bracket = 0;
+    var brace = 0;
+    for (var i = start; i < source.length; i++) {
+      final char = source[i];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char == r'\') {
+        escaped = true;
+        continue;
+      }
+      if (quote.isNotEmpty) {
+        if (char == quote) quote = '';
+        continue;
+      }
+      final regexLiteral = _readRegexLiteral(
+        source,
+        i,
+        requireStartContext: true,
+      );
+      if (regexLiteral != null) {
+        i = regexLiteral.end - 1;
+        continue;
+      }
+      if (char == '"' || char == "'" || char == '`') {
+        quote = char;
+        continue;
+      }
+      if (char == '(') paren++;
+      if (char == ')') paren--;
+      if (char == '[') bracket++;
+      if (char == ']') bracket--;
+      if (char == '{') brace++;
+      if (char == '}') brace--;
+      if (paren != 0 || bracket != 0 || brace != 0) continue;
+      if (_startsWithWord(source, i, 'case')) {
+        final expressionStart = _skipWhitespace(source, i + 'case'.length);
+        final colon = _findSwitchCaseColon(source, expressionStart);
+        if (colon < 0) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_switch_case',
+          });
+        }
+        final expression = source.substring(expressionStart, colon).trim();
+        if (expression.isEmpty) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_switch_case',
+          });
+        }
+        return _CustomJsSwitchLabel(
+          matchExpression: expression,
+          start: i,
+          bodyStart: colon + 1,
+        );
+      }
+      if (_startsWithWord(source, i, 'default')) {
+        final colon = _findSwitchCaseColon(
+          source,
+          _skipWhitespace(source, i + 'default'.length),
+        );
+        if (colon < 0) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_switch_default',
+          });
+        }
+        final beforeColon =
+            source.substring(i + 'default'.length, colon).trim();
+        if (beforeColon.isNotEmpty) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_switch_default',
+          });
+        }
+        return _CustomJsSwitchLabel(
+          matchExpression: null,
+          start: i,
+          bodyStart: colon + 1,
+        );
+      }
+    }
+    return null;
+  }
+
+  int _findSwitchCaseColon(String source, int start) {
+    var quote = '';
+    var escaped = false;
+    var paren = 0;
+    var bracket = 0;
+    var brace = 0;
+    var ternaryDepth = 0;
+    for (var i = start; i < source.length; i++) {
+      final char = source[i];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char == r'\') {
+        escaped = true;
+        continue;
+      }
+      if (quote.isNotEmpty) {
+        if (char == quote) quote = '';
+        continue;
+      }
+      final regexLiteral = _readRegexLiteral(
+        source,
+        i,
+        requireStartContext: true,
+      );
+      if (regexLiteral != null) {
+        i = regexLiteral.end - 1;
+        continue;
+      }
+      if (char == '"' || char == "'" || char == '`') {
+        quote = char;
+        continue;
+      }
+      if (char == '(') paren++;
+      if (char == ')') paren--;
+      if (char == '[') bracket++;
+      if (char == ']') bracket--;
+      if (char == '{') brace++;
+      if (char == '}') brace--;
+      if (paren != 0 || bracket != 0 || brace != 0) continue;
+      if (char == '?') {
+        ternaryDepth++;
+        continue;
+      }
+      if (char == ':') {
+        if (ternaryDepth > 0) {
+          ternaryDepth--;
+          continue;
+        }
+        return i;
+      }
+    }
+    return -1;
   }
 
   _CustomJsFunction? _readFunctionDeclaration(String statement) {
@@ -3987,6 +4212,38 @@ class _CustomJsIfStatement {
   });
 }
 
+class _CustomJsSwitchStatement {
+  final String expression;
+  final List<_CustomJsSwitchClause> clauses;
+
+  const _CustomJsSwitchStatement({
+    required this.expression,
+    required this.clauses,
+  });
+}
+
+class _CustomJsSwitchClause {
+  final String? matchExpression;
+  final String body;
+
+  const _CustomJsSwitchClause({
+    required this.matchExpression,
+    required this.body,
+  });
+}
+
+class _CustomJsSwitchLabel {
+  final String? matchExpression;
+  final int start;
+  final int bodyStart;
+
+  const _CustomJsSwitchLabel({
+    required this.matchExpression,
+    required this.start,
+    required this.bodyStart,
+  });
+}
+
 class _CustomJsForStatement {
   final String initializer;
   final String condition;
@@ -4203,6 +4460,7 @@ bool _isTopLevelBlockStatement(String source) {
   final trimmed = source.trimLeft();
   return _startsWithWord(trimmed, 0, 'if') ||
       _startsWithWord(trimmed, 0, 'try') ||
+      _startsWithWord(trimmed, 0, 'switch') ||
       _startsWithWord(trimmed, 0, 'function') ||
       _startsWithWord(trimmed, 0, 'while') ||
       _startsWithWord(trimmed, 0, 'for');
