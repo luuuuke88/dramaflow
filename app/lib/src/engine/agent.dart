@@ -1529,9 +1529,17 @@ class _CustomAgentSkillRuntime {
           'expression': trimmed,
         });
       }
-      result[_objectLiteralKey(rawKey)] = _evaluate(valueExpr);
+      result[_evaluateObjectLiteralKey(rawKey)] = _evaluate(valueExpr);
     }
     return result;
+  }
+
+  String _evaluateObjectLiteralKey(String rawKey) {
+    final computed = _literalInner(rawKey.trim(), '[', ']');
+    if (computed != null) {
+      return _stringifyPropertyKey(_evaluate(computed));
+    }
+    return _objectLiteralKey(rawKey);
   }
 
   Object? _callMethod(Object? value, String method, List<String> args) {
@@ -3338,6 +3346,13 @@ class _CustomAgentSkillRuntime {
 
   String _stringifyInterpolation(Object? value) {
     if (value == null) return '';
+    if (value is String) return value;
+    if (value is num || value is bool) return '$value';
+    return jsonEncode(value);
+  }
+
+  String _stringifyPropertyKey(Object? value) {
+    if (value == null) return 'null';
     if (value is String) return value;
     if (value is num || value is bool) return '$value';
     return jsonEncode(value);

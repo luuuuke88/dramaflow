@@ -2240,6 +2240,62 @@ return JSON.stringify({
     ]);
   });
 
+  test('自定义脚本技能：支持对象字面量计算属性名', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_computed_object_key_runtime',
+      name: '动态对象键脚本运行时',
+      description: '验证自定义技能兼容模型常写的 { [type]: value } 动态 payload。',
+      script: r'''
+const entries = args.assets.map(asset => ({
+  [asset.type]: asset.name.trim(),
+  [`${asset.type}Id`]: asset.id,
+}));
+return JSON.stringify(Object.assign({}, ...entries));
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'id': {'type': 'number'},
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_computed_object_key_runtime', const {
+        'assets': [
+          {'id': 101, 'type': 'role', 'name': ' 李澈 '},
+          {'id': 202, 'type': 'scene', 'name': '寒山宗门'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用动态对象键脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_computed_object_key_runtime');
+    expect(jsonDecode(msg.content), {
+      'role': '李澈',
+      'roleId': 101,
+      'scene': '寒山宗门',
+      'sceneId': 202,
+    });
+  });
+
   test('自定义脚本技能：短路表达式返回 JS 风格操作数', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_short_circuit_runtime',
