@@ -1086,6 +1086,87 @@ void main() {
     expect(gateway.imageAnalysisPaths, hasLength(2));
   });
 
+  test('Agent 视觉分析可保存为长期记忆并被 memory_get 召回', () async {
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    engine.saveAssetImage(
+      assetsId: roleId,
+      projectId: projectId,
+      base64Image: base64Encode([137, 80, 78, 71]),
+      type: 'role',
+    );
+    gateway.imageAnalysisResult = '视觉设定：李澈是冷白水墨风少年剑修，衣袍低饱和，轮廓清晰。';
+    gateway.turns = [
+      const AgentTurnResult.tool('analyze_reference_image', {
+        'assetName': '李澈',
+        'prompt': '提炼角色视觉设定',
+        'remember': true,
+        'memoryName': '李澈视觉参考',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '分析并记住李澈参考图',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final visionTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'analyze_reference_image');
+    final properties = visionTool.schema['properties'] as Map;
+    expect(properties, contains('remember'));
+    expect(properties, contains('saveMemory'));
+    expect(properties, contains('memoryName'));
+
+    final analyzeMsg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(analyzeMsg.toolName, 'analyze_reference_image');
+    final analyzePayload =
+        jsonDecode(analyzeMsg.content) as Map<String, dynamic>;
+    expect(analyzePayload['memory'], {
+      'saved': true,
+      'id': isA<String>(),
+      'type': agentMemoryTypeNote,
+      'scope': 'long_term',
+      'name': '李澈视觉参考',
+    });
+
+    final longTerm = engine.agentLongTermMemories(projectId);
+    final saved = longTerm.singleWhere((item) => item.name == '李澈视觉参考');
+    expect(saved.content, contains('asset:李澈'));
+    expect(saved.content, contains('冷白水墨风少年剑修'));
+
+    gateway.turns = [
+      const AgentTurnResult.tool('memory_get', {
+        'query': '李澈 冷白水墨 少年剑修',
+        'scope': 'long_term',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '查一下李澈视觉设定',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final memoryMsg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(memoryMsg.toolName, 'memory_get');
+    final memoryPayload = jsonDecode(memoryMsg.content) as Map<String, dynamic>;
+    expect(memoryPayload['found'], isTrue);
+    expect(memoryPayload['notes'], contains(saved.content));
+    expect(
+      memoryPayload['records'],
+      contains(isA<Map>().having((record) => record['id'], 'id', saved.id)),
+    );
+  });
+
   test('Agent 顶层配音工具接受 ToonFlow 自然角色号别名', () async {
     engine.addAsset(
       projectId: projectId,

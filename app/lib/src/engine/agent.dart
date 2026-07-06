@@ -1790,6 +1790,22 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'prompt 的自然别名。',
         },
+        'remember': {
+          'type': 'boolean',
+          'description': '可选。为 true 时，将视觉分析结果保存为项目长期记忆。',
+        },
+        'saveMemory': {
+          'type': 'boolean',
+          'description': 'remember 的自然语言别名。',
+        },
+        'memoryName': {
+          'type': 'string',
+          'description': '可选。保存长期记忆时使用的名称。',
+        },
+        'memory_name': {
+          'type': 'string',
+          'description': 'memoryName 的 snake_case 别名。',
+        },
         'scriptId': {
           'type': 'integer',
           'description': '可选。当前剧本 id，用于解析 A001 这类 ToonFlow 资产引用。',
@@ -10426,12 +10442,14 @@ extension AgentApi on Engine {
       });
     }
     if (analyses.length == 1) {
-      return jsonEncode({
+      final payload = <String, dynamic>{
         'analysis': analyses.single['analysis'],
         'source': analyses.single['source'],
-      });
+      };
+      _maybeRememberImageAnalysis(projectId, args, payload, analyses);
+      return jsonEncode(payload);
     }
-    return jsonEncode({
+    final payload = <String, dynamic>{
       'analysis': analyses
           .map((item) => '${item['source']}: ${item['analysis']}')
           .join('\n\n'),
@@ -10439,7 +10457,52 @@ extension AgentApi on Engine {
         for (final item in analyses) item['source'],
       ],
       'analyses': analyses,
-    });
+    };
+    _maybeRememberImageAnalysis(projectId, args, payload, analyses);
+    return jsonEncode(payload);
+  }
+
+  void _maybeRememberImageAnalysis(
+    int projectId,
+    Map<String, dynamic> args,
+    Map<String, dynamic> payload,
+    List<Map<String, String>> analyses,
+  ) {
+    final shouldRemember = _coerceBool(args['remember'] ??
+            args['saveMemory'] ??
+            args['save_memory'] ??
+            args['记住'] ??
+            args['保存记忆'] ??
+            args['写入记忆']) ??
+        false;
+    if (!shouldRemember) return;
+    final name = _stringArgAny(args, const [
+      'memoryName',
+      'memory_name',
+      '记忆名称',
+      'title',
+      '标题',
+    ]);
+    final memoryName = name.isEmpty ? '视觉参考分析' : name;
+    final content = [
+      '视觉参考分析：$memoryName',
+      for (final item in analyses) ...[
+        '来源：${item['source']}',
+        item['analysis'] ?? '',
+      ],
+    ].where((line) => line.trim().isNotEmpty).join('\n');
+    final id = saveAgentMemory(
+      projectId,
+      name: memoryName,
+      content: content,
+    );
+    payload['memory'] = {
+      'saved': true,
+      'id': id,
+      'type': agentMemoryTypeNote,
+      'scope': 'long_term',
+      'name': memoryName,
+    };
   }
 
   List<({String path, String source})> _agentReferenceImageArgs(
@@ -10735,6 +10798,33 @@ extension AgentApi on Engine {
   int? _coerceInt(Object? raw) {
     if (raw is num) return raw.toInt();
     if (raw is String) return int.tryParse(raw.trim());
+    return null;
+  }
+
+  bool? _coerceBool(Object? raw) {
+    if (raw is bool) return raw;
+    if (raw is num) return raw != 0;
+    if (raw is String) {
+      switch (raw.trim().toLowerCase()) {
+        case 'true':
+        case 'yes':
+        case 'y':
+        case '1':
+        case 'on':
+        case '是':
+        case '记住':
+        case '保存':
+          return true;
+        case 'false':
+        case 'no':
+        case 'n':
+        case '0':
+        case 'off':
+        case '否':
+        case '不保存':
+          return false;
+      }
+    }
     return null;
   }
 
