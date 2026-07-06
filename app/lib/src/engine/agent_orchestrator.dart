@@ -184,6 +184,129 @@ const Map<String, dynamic> _storyboardImageIdListAliasProperties =
   },
 };
 
+const Map<String, dynamic> _storyboardWriteAliasProperties = <String, dynamic>{
+  'scriptId': {'type': 'integer'},
+  'episodeId': {
+    'type': 'integer',
+    'description': 'scriptId 的剧集语义别名。',
+  },
+  'episodesId': {
+    'type': 'integer',
+    'description': 'scriptId 的 ToonFlow 旧字段别名。',
+  },
+  'script_id': {
+    'type': 'integer',
+    'description': 'scriptId 的 snake_case 别名。',
+  },
+  'episode_id': {
+    'type': 'integer',
+    'description': 'episodeId 的 snake_case 别名。',
+  },
+  'episodes_id': {
+    'type': 'integer',
+    'description': 'episodesId 的 snake_case 别名。',
+  },
+  'videoDesc': {
+    'type': 'string',
+    'description': '分镜视频描述。',
+  },
+  'videoDescription': {
+    'type': 'string',
+    'description': 'videoDesc 的自然语言别名。',
+  },
+  'description': {
+    'type': 'string',
+    'description': 'videoDesc 的通用描述别名。',
+  },
+  'shotDesc': {
+    'type': 'string',
+    'description': 'videoDesc 的镜头描述别名。',
+  },
+  'video_desc': {
+    'type': 'string',
+    'description': 'videoDesc 的 snake_case 别名。',
+  },
+  'video_description': {
+    'type': 'string',
+    'description': 'videoDescription 的 snake_case 别名。',
+  },
+  'shot_desc': {
+    'type': 'string',
+    'description': 'shotDesc 的 snake_case 别名。',
+  },
+  'prompt': {
+    'type': ['string', 'null'],
+    'description': '分镜首帧图片提示词。',
+  },
+  'imagePrompt': {
+    'type': ['string', 'null'],
+    'description': 'prompt 的图片语义别名。',
+  },
+  'image_prompt': {
+    'type': ['string', 'null'],
+    'description': 'imagePrompt 的 snake_case 别名。',
+  },
+  'track': {'type': 'string'},
+  'duration': {
+    'type': ['number', 'string'],
+    'description': '分镜时长。',
+  },
+  'durationSec': {
+    'type': ['number', 'string'],
+    'description': 'duration 的秒数别名。',
+  },
+  'duration_sec': {
+    'type': ['number', 'string'],
+    'description': 'durationSec 的 snake_case 别名。',
+  },
+  'associateAssetsIds': {
+    'type': ['array', 'null'],
+    'items': {'type': 'integer'},
+    'description': '分镜关联资产 id 列表。',
+  },
+  'assetIds': {
+    'type': ['array', 'null'],
+    'items': {'type': 'integer'},
+    'description': 'associateAssetsIds 的资产语义别名。',
+  },
+  'asset_ids': {
+    'type': ['array', 'null'],
+    'items': {'type': 'integer'},
+    'description': 'assetIds 的 snake_case 别名。',
+  },
+  'associate_asset_ids': {
+    'type': ['array', 'null'],
+    'items': {'type': 'integer'},
+    'description': 'associateAssetsIds 的 snake_case 别名。',
+  },
+  'associatedAssetIds': {
+    'type': ['array', 'null'],
+    'items': {'type': 'integer'},
+    'description': 'associateAssetsIds 的常见拼写别名。',
+  },
+  'associated_asset_ids': {
+    'type': ['array', 'null'],
+    'items': {'type': 'integer'},
+    'description': 'associatedAssetIds 的 snake_case 别名。',
+  },
+  'shouldGenerateImage': {
+    'type': ['boolean', 'string', 'number'],
+    'description': '是否后续生成首帧图。',
+  },
+  'generateImage': {
+    'type': ['boolean', 'string', 'number'],
+    'description': 'shouldGenerateImage 的简写别名。',
+  },
+  'should_generate_image': {
+    'type': ['boolean', 'string', 'number'],
+    'description': 'shouldGenerateImage 的 snake_case 别名。',
+  },
+  'generate_image': {
+    'type': ['boolean', 'string', 'number'],
+    'description': 'generateImage 的 snake_case 别名。',
+  },
+};
+
 const _productionAgentReadWriteTools = <AgentToolDef>[
   AgentToolDef(
     name: 'get_flowData',
@@ -256,21 +379,7 @@ const _productionAgentReadWriteTools = <AgentToolDef>[
     description: '新增分镜面板项到制作工作区和分镜表。',
     schema: {
       'type': 'object',
-      'properties': {
-        'scriptId': {'type': 'integer'},
-        'videoDesc': {'type': 'string'},
-        'prompt': {
-          'type': ['string', 'null']
-        },
-        'track': {'type': 'string'},
-        'duration': {'type': 'number'},
-        'associateAssetsIds': {
-          'type': ['array', 'null'],
-          'items': {'type': 'integer'},
-        },
-        'shouldGenerateImage': {'type': 'string'},
-      },
-      'required': ['videoDesc'],
+      'properties': _storyboardWriteAliasProperties,
     },
   ),
 ];

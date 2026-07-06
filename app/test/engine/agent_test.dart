@@ -11022,6 +11022,48 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(tool.schema['required'], isNull);
   });
 
+  test('制作执行工具 schema 暴露分镜写入字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：写分镜面板',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final tool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'add_flowData_storyboard',
+    );
+    final properties = tool.schema['properties'] as Map;
+    expect(
+      properties.keys,
+      containsAll([
+        'videoDesc',
+        'videoDescription',
+        'description',
+        'shotDesc',
+        'video_desc',
+        'video_description',
+        'shot_desc',
+        'prompt',
+        'imagePrompt',
+        'image_prompt',
+        'associateAssetsIds',
+        'assetIds',
+        'asset_ids',
+        'associate_asset_ids',
+        'associatedAssetIds',
+        'associated_asset_ids',
+        'shouldGenerateImage',
+        'generateImage',
+        'should_generate_image',
+        'generate_image',
+      ]),
+    );
+    expect(tool.schema['required'], isNull);
+  });
+
   test('子 Agent 工具调用接受常见提示词别名作为执行任务', () async {
     gateway.turns = [
       AgentTurnResult.tool(
@@ -11162,6 +11204,49 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
       contains('storyboard_image_generation'),
     );
+  });
+
+  test('制作执行工具调用接受分镜写入字段别名', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'request': '写第一集分镜', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool('add_flowData_storyboard', {
+        'videoDescription': '李澈踏入寒山宗门',
+        'imagePrompt': '冷色调，少年入山，远景',
+        'track': '主线',
+        'duration': '3.5',
+        'asset_ids': [roleId],
+        'generateImage': false,
+        'scriptId': scriptId,
+      }),
+      const AgentTurnResult.text('分镜已写入'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：写分镜面板',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows, hasLength(1));
+    expect(rows.single.videoDesc, '李澈踏入寒山宗门');
+    expect(rows.single.prompt, '冷色调，少年入山，远景');
+    expect(rows.single.duration, '3.5');
+    expect(rows.single.track, '主线');
+    expect(rows.single.shouldGenerateImage, 0);
+    expect(rows.single.assetIds, [roleId]);
   });
 
   test(

@@ -7530,6 +7530,19 @@ extension AgentApi on Engine {
     return null;
   }
 
+  Object? _argAny(Map<String, dynamic> args, List<String> keys) {
+    for (final key in keys) {
+      if (args.containsKey(key)) return args[key];
+    }
+    return null;
+  }
+
+  String _stringArgAny(Map<String, dynamic> args, List<String> keys) {
+    final raw = _argAny(args, keys);
+    if (raw == null) return '';
+    return raw.toString().trim();
+  }
+
   List<int>? _coerceIntList(Object? raw) {
     if (raw == null) return null;
     if (raw is Iterable) {
@@ -8333,16 +8346,44 @@ extension AgentApi on Engine {
   ) {
     final scriptId = _productionScriptId(projectId, args);
     if (scriptId == null) return '缺少 scriptId 参数。';
+    final shouldGenerateImage = _argAny(args, const [
+      'shouldGenerateImage',
+      'generateImage',
+      'should_generate_image',
+      'generate_image',
+    ]);
     final item = ProductionStoryboardItem(
-      videoDesc: (args['videoDesc'] ?? '').toString(),
-      prompt: (args['prompt'] ?? '').toString(),
-      track: (args['track'] ?? '').toString(),
-      duration: (args['duration'] ?? '').toString(),
-      associateAssetIds:
-          _intListAny(args, const ['associateAssetsIds', 'assetIds']) ??
-              const [],
+      videoDesc: _stringArgAny(args, const [
+        'videoDesc',
+        'videoDescription',
+        'description',
+        'shotDesc',
+        'video_desc',
+        'video_description',
+        'shot_desc',
+      ]),
+      prompt: _stringArgAny(args, const [
+        'prompt',
+        'imagePrompt',
+        'image_prompt',
+      ]),
+      track: _stringArgAny(args, const ['track']),
+      duration: _stringArgAny(args, const [
+        'duration',
+        'durationSec',
+        'duration_sec',
+      ]),
+      associateAssetIds: _intListAny(args, const [
+            'associateAssetsIds',
+            'assetIds',
+            'asset_ids',
+            'associate_asset_ids',
+            'associatedAssetIds',
+            'associated_asset_ids',
+          ]) ??
+          const [],
       shouldGenerateImage: _argBool(
-        args['shouldGenerateImage'],
+        shouldGenerateImage,
         defaultValue: true,
       ),
     );
