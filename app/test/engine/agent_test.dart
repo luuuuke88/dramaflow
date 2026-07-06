@@ -2948,6 +2948,66 @@ return `${String(projectName).trim()}:${total}`;
     expect(msg.content, '测试短剧:6.5');
   });
 
+  test('自定义脚本技能：支持 Boolean 全局转换和 filter(Boolean)', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_boolean_filter_runtime',
+      name: '布尔转换脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Boolean(...) 和 filter(Boolean)。',
+      script: r'''
+const rawNames = args.assets
+  .map(asset => asset.name?.trim())
+  .filter(Boolean);
+const hasPrompt = Boolean(args.prompt?.trim());
+const hasEmpty = Boolean(args.emptyText?.trim());
+return JSON.stringify({
+  names: rawNames.join('、'),
+  hasPrompt,
+  hasEmpty,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'prompt': {'type': 'string'},
+          'emptyText': {'type': 'string'},
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_boolean_filter_runtime', const {
+        'prompt': '  分镜提示词  ',
+        'emptyText': '   ',
+        'assets': [
+          {'name': ' 李澈 '},
+          {'name': ''},
+          {},
+          {'name': '寒山宗门'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用布尔转换脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_boolean_filter_runtime');
+    expect(jsonDecode(msg.content), {
+      'names': '李澈、寒山宗门',
+      'hasPrompt': true,
+      'hasEmpty': false,
+    });
+  });
+
   test('自定义脚本技能：支持 parseFloat 和 parseInt 全局解析', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_parse_runtime',

@@ -134,6 +134,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers regex r
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS array callback source arguments such as `(item, index, all) => ...`, so custom skills can deduplicate assets and inspect peer storyboard rows with the original array available inside callbacks.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Boolean(...)` and `filter(Boolean)`, so custom skills can compact mapped storyboard/asset lists with model-authored truthiness filters.
+
 Mobile Evidence: `app/test/widgets/production_screen_test.dart` covers 390px Agent entry from production. `app/test/widgets/agent_chat_screen_test.dart` covers 390px Agent clear-memory confirmation, built-in capability info, skill editing, custom-skill creation, and long-term memory add/edit through fullscreen mobile forms while persisting the skill and memory definitions.
 
 Known Gaps: Full ToonFlow multi-layer Agent orchestration and external model/vector RAG are not fully replicated. Custom skill execution now has a v1 `custom-js-agent` bridge for common model-authored JS-like scripts, including control-flow branches and simple loops, but it is not yet a full QuickJS/flutter_js runtime. Current long-term memory is a local, editable, token-embedding note store over the existing `memories` table; `ragLimit`, summary/deepRetrieve controls, summary-source expansion, optional model reranking, and an injectable embedding provider boundary are configurable/tested, but a production-grade embedding model/vector store remains unimplemented.

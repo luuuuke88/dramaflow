@@ -408,6 +408,7 @@ class _CustomAgentSkillRuntime {
           'projectId': projectId,
           'args': _customJsMutableValue(args),
           'Array': const _CustomJsBuiltin('Array'),
+          'Boolean': const _CustomJsBuiltin('Boolean'),
           'console': const _CustomJsBuiltin('console'),
           'Date': const _CustomJsBuiltin('Date'),
           'Error': const _CustomJsBuiltin('Error'),
@@ -2232,6 +2233,10 @@ class _CustomAgentSkillRuntime {
   Object? _callBuiltinFunction(String objectName, List<String> args) {
     final values = _evaluateCallArguments(args);
     switch (objectName) {
+      case 'Boolean':
+        if (values.length > 1) _badMethodArgs(objectName);
+        if (values.isEmpty) return false;
+        return _isTruthy(values.single);
       case 'Number':
         if (values.length > 1) _badMethodArgs(objectName);
         if (values.isEmpty) return 0;
@@ -2265,6 +2270,18 @@ class _CustomAgentSkillRuntime {
           'reason': 'custom_skill_builtin_function',
           'object': objectName,
         });
+    }
+  }
+
+  Object? _callBuiltinCallback(
+    _CustomJsBuiltin function,
+    List<Object?> values,
+  ) {
+    switch (function.name) {
+      case 'Boolean':
+        return _isTruthy(values.isEmpty ? null : values.first);
+      default:
+        _badMethodArgs(function.name);
     }
   }
 
@@ -2736,6 +2753,9 @@ class _CustomAgentSkillRuntime {
     final arrow = _findTopLevelArrow(callback);
     if (arrow < 0) {
       final function = _evaluate(callback);
+      if (function is _CustomJsBuiltin) {
+        return _callBuiltinCallback(function, values);
+      }
       if (function is _CustomJsFunction) {
         return _callCustomFunctionWithValues(function, values);
       }
