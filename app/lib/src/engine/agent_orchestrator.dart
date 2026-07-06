@@ -1579,7 +1579,7 @@ List<ScriptAgentScriptItem> parseScriptAgentScriptItems(String source) {
   for (final match in matches) {
     final attrs = match.group(1) ?? '';
     final body = match.group(2) ?? '';
-    final name = _attributeValueAny(attrs, const [
+    final name = _fieldValueAny(attrs, body, const [
       'name',
       'scriptName',
       'episodeName',
@@ -1589,11 +1589,15 @@ List<ScriptAgentScriptItem> parseScriptAgentScriptItems(String source) {
     ]).trim();
     if (name.isEmpty) continue;
 
-    final contentMatch = RegExp(
-      r'<content\b[^>]*>([\s\S]*?)</content>',
-      caseSensitive: false,
-    ).firstMatch(body);
-    final rawContent = contentMatch?.group(1) ?? body;
+    final contentField = _fieldValueAny(attrs, body, const [
+      'content',
+      'scriptContent',
+      'episodeContent',
+      'body',
+      'script_content',
+      'episode_content',
+    ]);
+    final rawContent = contentField.trim().isEmpty ? body : contentField;
     final content = decodeXmlEntities(stripXmlTags(rawContent).trim());
     if (content.isEmpty) continue;
     items.add(ScriptAgentScriptItem(
@@ -1634,7 +1638,7 @@ List<ProductionStoryboardItem> parseProductionStoryboardItems(String source) {
 
   for (final match in pairedMatches) {
     final attrs = match.group(1) ?? '';
-    final body = stripXmlTags(match.group(2) ?? '').trim();
+    final body = match.group(2) ?? '';
     final item = _storyboardItemFromAttrs(attrs, body: body);
     if (item != null) items.add(item);
   }
@@ -1655,7 +1659,7 @@ ProductionStoryboardItem? _storyboardItemFromAttrs(
   String attrs, {
   String body = '',
 }) {
-  final rawVideoDesc = _attributeValueAny(attrs, const [
+  final rawVideoDesc = _fieldValueAny(attrs, body, const [
     'videoDesc',
     'videoDescription',
     'description',
@@ -1665,22 +1669,29 @@ ProductionStoryboardItem? _storyboardItemFromAttrs(
     'shot_desc',
   ]);
   final videoDesc = decodeXmlEntities(
-    (rawVideoDesc.trim().isEmpty ? body : rawVideoDesc).trim(),
+    (rawVideoDesc.trim().isEmpty
+            ? stripXmlTags(body)
+            : stripXmlTags(rawVideoDesc))
+        .trim(),
   );
   if (videoDesc.isEmpty) return null;
-  final prompt = decodeXmlEntities(_attributeValueAny(attrs, const [
+  final prompt =
+      decodeXmlEntities(stripXmlTags(_fieldValueAny(attrs, body, const [
     'prompt',
     'imagePrompt',
     'image_prompt',
-  ]).trim());
-  final track = decodeXmlEntities(_attributeValue(attrs, 'track').trim());
-  final duration = decodeXmlEntities(_attributeValueAny(attrs, const [
+  ])).trim());
+  final track = decodeXmlEntities(stripXmlTags(
+    _fieldValueAny(attrs, body, const ['track']),
+  ).trim());
+  final duration =
+      decodeXmlEntities(stripXmlTags(_fieldValueAny(attrs, body, const [
     'duration',
     'durationSec',
     'duration_sec',
-  ]).trim());
+  ])).trim());
   final shouldGenerateImage = _truthyText(
-    _attributeValueAny(attrs, const [
+    _fieldValueAny(attrs, body, const [
       'shouldGenerateImage',
       'generateImage',
       'should_generate_image',
@@ -1693,13 +1704,13 @@ ProductionStoryboardItem? _storyboardItemFromAttrs(
     prompt: prompt,
     track: track,
     duration: duration,
-    associateAssetIds: _storyboardAssetIds(attrs),
-    associateAssetRefs: _storyboardAssetRefs(attrs),
+    associateAssetIds: _storyboardAssetIds(attrs, body),
+    associateAssetRefs: _storyboardAssetRefs(attrs, body),
     shouldGenerateImage: shouldGenerateImage,
   );
 }
 
-List<int> _storyboardAssetIds(String attrs) => _dedupeInts([
+List<int> _storyboardAssetIds(String attrs, [String body = '']) => _dedupeInts([
       for (final key in const [
         'associateAssetsIds',
         'assetIds',
@@ -1709,9 +1720,19 @@ List<int> _storyboardAssetIds(String attrs) => _dedupeInts([
         'associated_asset_ids',
       ])
         ...parseIntListText(_attributeValue(attrs, key)),
+      for (final key in const [
+        'associateAssetsIds',
+        'assetIds',
+        'asset_ids',
+        'associate_asset_ids',
+        'associatedAssetIds',
+        'associated_asset_ids',
+      ])
+        ...parseIntListText(_elementValue(body, key)),
     ]);
 
-List<String> _storyboardAssetRefs(String attrs) => _dedupeStrings([
+List<String> _storyboardAssetRefs(String attrs, [String body = '']) =>
+    _dedupeStrings([
       for (final key in const [
         'associateAssetsIds',
         'assetIds',
@@ -1731,6 +1752,25 @@ List<String> _storyboardAssetRefs(String attrs) => _dedupeStrings([
         'asset_names',
       ])
         ...parseStringListText(_attributeValue(attrs, key)),
+      for (final key in const [
+        'associateAssetsIds',
+        'assetIds',
+        'asset_ids',
+        'associate_asset_ids',
+        'associatedAssetIds',
+        'associated_asset_ids',
+        'assetName',
+        'assetNames',
+        'roleName',
+        'roleNames',
+        'sceneName',
+        'sceneNames',
+        'toolName',
+        'toolNames',
+        'asset_name',
+        'asset_names',
+      ])
+        ...parseStringListText(_elementValue(body, key)),
     ]);
 
 List<String> parseStringListText(String source) {
@@ -1830,4 +1870,23 @@ String _attributeValueAny(String attrs, List<String> names) {
     if (value.trim().isNotEmpty) return value;
   }
   return '';
+}
+
+String _fieldValueAny(String attrs, String body, List<String> names) {
+  final attrValue = _attributeValueAny(attrs, names);
+  if (attrValue.trim().isNotEmpty) return attrValue;
+  for (final name in names) {
+    final value = _elementValue(body, name);
+    if (value.trim().isNotEmpty) return value;
+  }
+  return '';
+}
+
+String _elementValue(String source, String name) {
+  final escaped = RegExp.escape(name);
+  final match = RegExp(
+    '<$escaped\\b[^>]*>([\\s\\S]*?)</$escaped>',
+    caseSensitive: false,
+  ).firstMatch(source);
+  return match?.group(1) ?? '';
 }

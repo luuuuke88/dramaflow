@@ -14536,6 +14536,33 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(rows[1].content, '寒山试剑。');
   });
 
+  test('ScriptAgentOrchestrator accepts scriptItem child element fields',
+      () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_script',
+        const {'prompt': '写第一集'},
+      ),
+      const AgentTurnResult.text('''
+<scriptItem>
+  <name>第一集</name>
+  <content>李澈入山。</content>
+</scriptItem>
+<scriptItem>
+  <episodeName>第二集</episodeName>
+  <scriptContent>寒山试剑。</scriptContent>
+</scriptItem>
+'''),
+    ];
+
+    await engine.sendAgentMessage(projectId, '生成子元素剧本正文', autoMode: false);
+
+    final rows = engine.scripts(projectId);
+    expect(rows.map((row) => row.name), ['第一集', '第二集']);
+    expect(rows[0].content, '李澈入山。');
+    expect(rows[1].content, '寒山试剑。');
+  });
+
   test('ScriptAgentOrchestrator ignores partial scriptItem attribute names',
       () async {
     gateway.turns = [
@@ -16546,6 +16573,53 @@ description: 只属于水墨视觉项目
     expect(rows, hasLength(1));
     expect(rows.single.videoDesc, '李澈抬头望向山门匾额');
     expect(rows.single.prompt, '冷白山门，少年抬头，近景');
+    expect(rows.single.duration, '2.5');
+    expect(rows.single.shouldGenerateImage, 0);
+    expect(rows.single.assetIds, [roleId]);
+  });
+
+  test('ProductionAgent storyboard panel XML accepts child element fields',
+      () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, roleId]);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'prompt': '写第一集分镜面板', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('''
+<storyboardItem>
+  <videoDesc>李澈穿过寒山宗门</videoDesc>
+  <imagePrompt>冷白山门，少年入山，远景</imagePrompt>
+  <track>主线</track>
+  <generateImage>false</generateImage>
+  <durationSec>2.5</durationSec>
+  <assetNames>["李澈"]</assetNames>
+</storyboardItem>
+'''),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '写子元素字段分镜面板',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows, hasLength(1));
+    expect(rows.single.videoDesc, '李澈穿过寒山宗门');
+    expect(rows.single.prompt, '冷白山门，少年入山，远景');
+    expect(rows.single.track, '主线');
     expect(rows.single.duration, '2.5');
     expect(rows.single.shouldGenerateImage, 0);
     expect(rows.single.assetIds, [roleId]);
