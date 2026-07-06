@@ -5237,6 +5237,69 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持同步 async function 和 await 表达式', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_sync_async_await_runtime',
+      name: '同步 async await 脚本运行时',
+      description: '验证自定义技能兼容模型常写的纯计算 async function/await helper。',
+      script: r'''
+async function normalizeShot(shot, index) {
+  const desc = await shot.videoDesc.trim();
+  const duration = await Number(shot.duration ?? 1);
+  return `${index + 1}.${desc}:${duration}s`;
+}
+
+const labels = [];
+for (const [index, shot] of args.storyboards.entries()) {
+  if (shot.disabled || !shot.videoDesc?.trim()) {
+    continue;
+  }
+  labels.push(await normalizeShot(shot, index));
+}
+
+return labels.join('、');
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_sync_async_await_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 ', 'duration': 3},
+          {'videoDesc': '', 'duration': 4},
+          {'videoDesc': '废弃镜头', 'duration': 8, 'disabled': true},
+          {'videoDesc': '李澈拔剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用同步 async await 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_sync_async_await_runtime');
+    expect(msg.content, '1.雪夜山门:3s、4.李澈拔剑:1s');
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',

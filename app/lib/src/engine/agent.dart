@@ -2971,8 +2971,9 @@ class _CustomAgentSkillRuntime {
 
   _CustomJsFunction? _readFunctionDeclaration(String statement) {
     final source = _trimTrailingSemicolon(statement.trim());
-    if (!_startsWithWord(source, 0, 'function')) return null;
-    var index = _skipWhitespace(source, 'function'.length);
+    final functionStart = _readFunctionKeywordStart(source);
+    if (functionStart == null) return null;
+    var index = _skipWhitespace(source, functionStart + 'function'.length);
     final name = _readIdentifier(source, index);
     if (name == null) return null;
     index = _skipWhitespace(source, name.end);
@@ -2998,8 +2999,9 @@ class _CustomAgentSkillRuntime {
     String fallbackName,
   ) {
     final source = _trimTrailingSemicolon(expression.trim());
-    if (!_startsWithWord(source, 0, 'function')) return null;
-    var index = _skipWhitespace(source, 'function'.length);
+    final functionStart = _readFunctionKeywordStart(source);
+    if (functionStart == null) return null;
+    var index = _skipWhitespace(source, functionStart + 'function'.length);
     var functionName = fallbackName;
     final name = _readIdentifier(source, index);
     if (name != null) {
@@ -3021,6 +3023,13 @@ class _CustomAgentSkillRuntime {
       params: params,
       body: body.text,
     );
+  }
+
+  int? _readFunctionKeywordStart(String source) {
+    if (_startsWithWord(source, 0, 'function')) return 0;
+    if (!_startsWithWord(source, 0, 'async')) return null;
+    final index = _skipWhitespace(source, 'async'.length);
+    return _startsWithWord(source, index, 'function') ? index : null;
   }
 
   _CustomJsWhileStatement? _readWhileStatement(String statement) {
@@ -3468,6 +3477,15 @@ class _CustomAgentSkillRuntime {
   Object? _evaluate(String expression) {
     final expr = _trimTrailingSemicolon(expression.trim());
     if (expr.isEmpty) return '';
+    if (_startsWithWord(expr, 0, 'await')) {
+      final awaited = expr.substring('await'.length).trim();
+      if (awaited.isEmpty) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_await',
+        });
+      }
+      return _evaluate(awaited);
+    }
     final grouped = _unwrapOuterParens(expr);
     if (grouped != null) return _evaluate(grouped);
     final assignmentExpression = _evaluateAssignmentExpression(expr);
@@ -6872,6 +6890,12 @@ bool _isTopLevelBlockStatement(String source) {
       _startsWithWord(trimmed, 0, 'try') ||
       _startsWithWord(trimmed, 0, 'switch') ||
       _startsWithWord(trimmed, 0, 'function') ||
+      (_startsWithWord(trimmed, 0, 'async') &&
+          _startsWithWord(
+            trimmed,
+            _skipWhitespace(trimmed, 'async'.length),
+            'function',
+          )) ||
       _startsWithWord(trimmed, 0, 'while') ||
       _startsWithWord(trimmed, 0, 'for');
 }

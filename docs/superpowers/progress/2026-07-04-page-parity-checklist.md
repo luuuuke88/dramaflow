@@ -404,6 +404,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers anonymous function-expression callbacks such as `map(function (item) { ... })`, `filter(function (...) { ... })`, and `reduce(function (...) { ... })`, so model-authored ToonFlow-style helper scripts no longer need to rewrite ordinary JavaScript callbacks into arrow functions or predeclared function names.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `async function` declarations and top-level `await` expressions in custom skills, so model-authored pure helper scripts that add harmless async/await syntax can still normalize storyboard and asset payloads without enabling external async IO.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible Set iteration through `set.forEach(...)`, `set.keys()`, `set.values()`, and `set.entries()`, including the native Set callback argument pattern `(value, value, set)`, so model-authored asset de-duplication helpers can iterate Sets the same way they would in ordinary JavaScript.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Map.forEach((value, key, map) => ...)` callback source arguments, so model-authored asset indexes can inspect map size or re-read sibling entries while iterating ToonFlow-style helper data.
