@@ -10356,6 +10356,71 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(gateway.textCallCount, 0);
   });
 
+  test('AgentMemoryService 写入 gateway message 和 summary 时同步向量索引', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '2'],
+    );
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+      embeddingProvider: GatewayAgentMemoryEmbeddingProvider(
+        gateway,
+        stage: 'agent_embedding',
+      ),
+    );
+    gateway.embeddingForText = (input) {
+      if (input.contains('第一条')) return const [0.1, 0.2];
+      if (input.contains('第二条')) return const [0.3, 0.4];
+      if (input.contains('摘要')) return const [0.5, 0.6];
+      return const [0.7, 0.8];
+    };
+    gateway.textResults = const [TextResult('摘要：李澈保护沈微。')];
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    final firstId = await service.add(
+      isolationKey: 'scriptAgent:$projectId',
+      role: agentRoleUser,
+      content: '第一条：李澈必须保护沈微。',
+      createTime: now,
+    );
+    await service.add(
+      isolationKey: 'scriptAgent:$projectId',
+      role: agentRoleAssistant,
+      content: '第二条：后续剧情保持这个承诺。',
+      createTime: now + 1,
+    );
+
+    final firstVector = db.select(
+      'SELECT isolationKey,type,provider,model,dimension,vector '
+      'FROM o_memoryVector WHERE memoryId=?',
+      [firstId],
+    ).single;
+    expect(firstVector['isolationKey'], 'scriptAgent:$projectId');
+    expect(firstVector['type'], agentMemoryTypeMessage);
+    expect(firstVector['provider'], 'gateway');
+    expect(firstVector['model'], 'agent_embedding');
+    expect(firstVector['dimension'], 2);
+    expect(jsonDecode(firstVector['vector'] as String), [0.1, 0.2]);
+
+    final summaryId = db.select(
+      'SELECT id FROM memories WHERE isolationKey=? AND type=?',
+      ['scriptAgent:$projectId', agentMemoryTypeSummary],
+    ).single['id'] as String;
+    final summaryVector = db.select(
+      'SELECT isolationKey,type,provider,model,dimension,vector '
+      'FROM o_memoryVector WHERE memoryId=?',
+      [summaryId],
+    ).single;
+    expect(summaryVector['isolationKey'], 'scriptAgent:$projectId');
+    expect(summaryVector['type'], agentMemoryTypeSummary);
+    expect(summaryVector['provider'], 'gateway');
+    expect(summaryVector['model'], 'agent_embedding');
+    expect(summaryVector['dimension'], 2);
+    expect(jsonDecode(summaryVector['vector'] as String), [0.5, 0.6]);
+  });
+
   test('AgentMemoryService get 可开启模型重排过滤相关 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(

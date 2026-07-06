@@ -210,6 +210,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers external `
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` and `app/test/engine/db_v3_test.dart` now cover the v8 `o_memoryVector` table and scope index, plus external `agent_embedding` backfill syncing dense vectors into that index and deleting the index row when a long-term memory is removed.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `AgentMemoryService` synchronizing gateway-backed message and summary embeddings into `o_memoryVector` at write time, so conversation RAG has a dense-vector index immediately instead of waiting for a later search-triggered backfill.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String(...).padEnd(...)` and string-literal `.repeat(...)`, so custom skills can build fixed-width labels, dividers, and normalized helper text with ordinary model-authored JavaScript.

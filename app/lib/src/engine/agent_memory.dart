@@ -312,22 +312,38 @@ class AgentMemoryService {
     if (trimmed.isEmpty) return '';
     final now = createTime ?? DateTime.now().millisecondsSinceEpoch;
     final id = 'agent_msg_${DateTime.now().microsecondsSinceEpoch}';
+    final trimmedName = name.trim();
+    final embedding = await embeddingProvider.embeddingJson(
+      '$trimmedName $trimmed',
+    );
     db.execute(
       'INSERT INTO memories '
       '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
       'VALUES (?,?,?,?,?,?,?,?,?,?)',
       [
         id,
-        name.trim(),
+        trimmedName,
         trimmed,
         now,
-        await embeddingProvider.embeddingJson('$name $trimmed'),
+        embedding,
         isolationKey,
         '[]',
         role,
         _isToolAuditRole(role) ? 1 : 0,
         agentMemoryTypeMessage,
       ],
+    );
+    _syncMemoryVectorIndex(
+      AgentMemoryEntry(
+        id: id,
+        name: trimmedName,
+        content: trimmed,
+        createdAt: now,
+        embedding: embedding,
+        role: role,
+        type: agentMemoryTypeMessage,
+      ),
+      isolationKey: isolationKey,
     );
     await _summarizeIfNeeded(isolationKey, cancelToken: cancelToken);
     return id;
@@ -1350,22 +1366,37 @@ class AgentMemoryService {
 
     final ids = [for (final row in rows) row['id'] as String];
     final now = DateTime.now().millisecondsSinceEpoch;
+    final summaryId = 'agent_sum_${DateTime.now().microsecondsSinceEpoch}';
+    final summaryEmbedding = await embeddingProvider.embeddingJson(summary);
     db.execute(
       'INSERT INTO memories '
       '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
       'VALUES (?,?,?,?,?,?,?,?,?,?)',
       [
-        'agent_sum_${DateTime.now().microsecondsSinceEpoch}',
+        summaryId,
         '对话摘要',
         summary,
         now,
-        await embeddingProvider.embeddingJson(summary),
+        summaryEmbedding,
         isolationKey,
         jsonEncode(ids),
         'assistant',
         0,
         agentMemoryTypeSummary,
       ],
+    );
+    _syncMemoryVectorIndex(
+      AgentMemoryEntry(
+        id: summaryId,
+        name: '对话摘要',
+        content: summary,
+        createdAt: now,
+        embedding: summaryEmbedding,
+        role: 'assistant',
+        type: agentMemoryTypeSummary,
+        relatedMessageIds: ids,
+      ),
+      isolationKey: isolationKey,
     );
     final placeholders = List.filled(ids.length, '?').join(',');
     db.execute(
