@@ -416,6 +416,7 @@ class _CustomAgentSkillRuntime {
           'Math': const _CustomJsBuiltin('Math'),
           'Number': const _CustomJsBuiltin('Number'),
           'Object': const _CustomJsBuiltin('Object'),
+          'RegExp': const _CustomJsBuiltin('RegExp'),
           'String': const _CustomJsBuiltin('String'),
           'parseFloat': const _CustomJsBuiltin('parseFloat'),
           'parseInt': const _CustomJsBuiltin('parseInt'),
@@ -1171,16 +1172,10 @@ class _CustomAgentSkillRuntime {
     }
     if (_isQuoted(expr)) return _unquote(expr);
     final regexLiteral = _readRegexLiteral(expr, 0);
-    if (regexLiteral != null && regexLiteral.end == expr.length) {
-      return _CustomJsRegExp(
-        RegExp(
-          regexLiteral.pattern,
-          caseSensitive: !regexLiteral.flags.contains('i'),
-          multiLine: regexLiteral.flags.contains('m'),
-          dotAll: regexLiteral.flags.contains('s'),
-        ),
-        global: regexLiteral.flags.contains('g'),
-      );
+    if (regexLiteral != null) {
+      final value = _customJsRegExp(regexLiteral.pattern, regexLiteral.flags);
+      if (regexLiteral.end == expr.length) return value;
+      return _evaluateValueChain(value, expr, regexLiteral.end);
     }
     final arrayLiteral = _literalInner(expr, '[', ']');
     if (arrayLiteral != null) return _evaluateArrayLiteral(arrayLiteral);
@@ -1439,6 +1434,7 @@ class _CustomAgentSkillRuntime {
       'Date' => _newDate(args),
       'Map' => _newMap(args),
       'Array' => _newArray(args),
+      'RegExp' => _newRegExp(args),
       'Error' => _newError(args),
       _ => throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_constructor',
@@ -1544,6 +1540,9 @@ class _CustomAgentSkillRuntime {
     }
     if (value is _CustomJsMap) {
       return _callMapInstanceMethod(value, method, args);
+    }
+    if (value is _CustomJsRegExp) {
+      return _callRegExpInstanceMethod(value, method, args);
     }
     switch (method) {
       case 'trim':
@@ -2082,6 +2081,8 @@ class _CustomAgentSkillRuntime {
         return _stringifyInterpolation(values.single);
       case 'Array':
         return _arrayConstructor(values);
+      case 'RegExp':
+        return _regExpFromValues(values);
       case 'Error':
         if (values.length > 1) _badMethodArgs(objectName);
         return _CustomJsError(
@@ -2241,6 +2242,41 @@ class _CustomAgentSkillRuntime {
     );
   }
 
+  _CustomJsRegExp _newRegExp(List<String> args) =>
+      _regExpFromValues(_evaluateCallArguments(args));
+
+  _CustomJsRegExp _regExpFromValues(List<Object?> values) {
+    if (values.length > 2) _badMethodArgs('RegExp');
+    if (values.length == 1 && values.single is _CustomJsRegExp) {
+      return values.single as _CustomJsRegExp;
+    }
+    final pattern = values.isEmpty ? '' : _stringifyInterpolation(values.first);
+    final flags = values.length == 2 ? _stringifyInterpolation(values[1]) : '';
+    return _customJsRegExp(pattern, flags);
+  }
+
+  _CustomJsRegExp _customJsRegExp(String pattern, String flags) {
+    final unsupported = flags
+        .split('')
+        .where((flag) => flag.isNotEmpty && !'gimsu'.contains(flag))
+        .toList();
+    if (unsupported.isNotEmpty) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_regexp_flags',
+        'flags': flags,
+      });
+    }
+    return _CustomJsRegExp(
+      RegExp(
+        pattern,
+        caseSensitive: !flags.contains('i'),
+        multiLine: flags.contains('m'),
+        dotAll: flags.contains('s'),
+      ),
+      global: flags.contains('g'),
+    );
+  }
+
   int _arrayLikeLength(Map<Object?, Object?> source) {
     final raw = source['length'];
     if (raw == null) return 0;
@@ -2384,6 +2420,25 @@ class _CustomAgentSkillRuntime {
   List<List<Object?>> _customJsMapEntries(_CustomJsMap value) => [
         for (final entry in value.values.entries) [entry.key, entry.value],
       ];
+
+  Object? _callRegExpInstanceMethod(
+    _CustomJsRegExp value,
+    String method,
+    List<String> args,
+  ) {
+    switch (method) {
+      case 'test':
+        if (args.length != 1) _badMethodArgs(method);
+        return value.regExp.hasMatch(_stringifyInterpolation(
+          _evaluate(args.single),
+        ));
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_method',
+          'method': method,
+        });
+    }
+  }
 
   Object? _callMathMethod(String method, List<String> args) {
     final numbers = _forEachArg<num>(args, _toNum);

@@ -3459,6 +3459,66 @@ return JSON.stringify(shots);
     ]);
   });
 
+  test('自定义脚本技能：支持 RegExp 构造和 test 筛选资产', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regexp_test_runtime',
+      name: '动态正则筛选脚本运行时',
+      description: '验证自定义技能兼容模型常写的 new RegExp(...).test(...)。',
+      script: r'''
+const allowed = new RegExp(args.typePattern, 'i');
+const selected = args.assets
+  .filter(asset => allowed.test(asset.type) && /^(role|scene)$/i.test(asset.type))
+  .map(asset => asset.name.trim())
+  .join('、');
+const hasVideoPrompt = RegExp(args.promptPattern, 'i').test(args.workspace);
+return JSON.stringify({
+  selected,
+  hasVideoPrompt,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'typePattern': {'type': 'string'},
+          'promptPattern': {'type': 'string'},
+          'workspace': {'type': 'string'},
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_regexp_test_runtime', const {
+        'typePattern': 'role|scene',
+        'promptPattern': 'videoDesc',
+        'workspace': '<storyboardItem videoDesc="雪夜山门"></storyboardItem>',
+        'assets': [
+          {'type': 'ROLE', 'name': ' 李澈 '},
+          {'type': 'scene', 'name': '寒山宗门'},
+          {'type': 'tool', 'name': '长剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用动态正则筛选脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regexp_test_runtime');
+    expect(jsonDecode(msg.content), {
+      'selected': '李澈、寒山宗门',
+      'hasVideoPrompt': true,
+    });
+  });
+
   test('自定义脚本技能：支持正则 replace 清洗工作区 XML', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regex_replace_runtime',
