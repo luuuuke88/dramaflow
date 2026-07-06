@@ -462,7 +462,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象。',
+        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围 等记忆范围提示。',
   },
   'retrievalPlan': {
     'type': 'array',
@@ -12118,6 +12118,92 @@ extension AgentApi on Engine {
     return values.isEmpty ? null : values;
   }
 
+  List<Object?> _agentMemoryQueryPlanMemoryTypeValues(
+    Map<String, dynamic> args,
+  ) {
+    final values = <Object?>[];
+
+    void addValue(Object? raw) {
+      if (raw == null) return;
+      if (raw is String) {
+        if (raw.trim().isNotEmpty) values.add(raw);
+        return;
+      }
+      if (raw is Iterable) {
+        final strings = <String>[];
+        for (final item in raw) {
+          if (item is String) {
+            final trimmed = item.trim();
+            if (trimmed.isNotEmpty) strings.add(trimmed);
+          } else {
+            addValue(item);
+          }
+        }
+        if (strings.isNotEmpty) values.add(strings);
+      }
+    }
+
+    void addNode(Object? raw) {
+      if (raw == null) return;
+      if (raw is Map) {
+        for (final key in const [
+          'types',
+          'type',
+          '类型',
+          'memoryTypes',
+          'memoryType',
+          'memory_types',
+          'memory_type',
+          '记忆类型',
+          'scopes',
+          'scope',
+          '范围',
+          'memoryScopes',
+          'memoryScope',
+          'memory_scopes',
+          'memory_scope',
+          '记忆范围',
+        ]) {
+          addValue(raw[key]);
+        }
+        for (final key in const [
+          'queryPlan',
+          'retrievalPlan',
+          'searchPlan',
+          'searchQueries',
+          'plannedQueries',
+          '查询计划',
+          '检索计划',
+          '搜索计划',
+          'items',
+          'steps',
+        ]) {
+          addNode(raw[key]);
+        }
+        return;
+      }
+      if (raw is Iterable) {
+        for (final item in raw) {
+          addNode(item);
+        }
+      }
+    }
+
+    for (final key in const [
+      'queryPlan',
+      'retrievalPlan',
+      'searchPlan',
+      'searchQueries',
+      'plannedQueries',
+      '查询计划',
+      '检索计划',
+      '搜索计划',
+    ]) {
+      addNode(args[key]);
+    }
+    return values;
+  }
+
   bool _shouldIncludeVisualReferenceMemories(Map<String, dynamic> args) =>
       (_coerceBool(args['includeVisualReferences'] ??
               args['visualReferences'] ??
@@ -12350,7 +12436,7 @@ extension AgentApi on Engine {
   Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {
     final values = <String>{};
 
-    void addMemoryType(Object? raw) {
+    void addMemoryType(Object? raw, {bool includeUnknown = true}) {
       final items = _coerceStringSet(raw);
       if (items == null) return;
       for (final item in items) {
@@ -12403,7 +12489,7 @@ extension AgentApi on Engine {
               ..add(agentMemoryTypeNote);
             break;
           default:
-            values.add(item);
+            if (includeUnknown) values.add(item);
         }
       }
     }
@@ -12424,6 +12510,9 @@ extension AgentApi on Engine {
           args['memory_scopes'] ??
           args['memory_scope'],
     );
+    for (final value in _agentMemoryQueryPlanMemoryTypeValues(args)) {
+      addMemoryType(value, includeUnknown: false);
+    }
     return values.isEmpty ? null : values;
   }
 

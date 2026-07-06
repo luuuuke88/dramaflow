@@ -11229,6 +11229,101 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：结构化查询计划可携带记忆范围', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '寒山视觉长期设定',
+      content: '长期设定：寒山山门保持冷白云雾和低机位压迫感。',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'query_plan_scope_noise',
+        '',
+        '普通聊天噪声：寒山山门可以改成热闹暖色市集。',
+        now,
+        embeddingJson('普通聊天噪声：寒山山门可以改成热闹暖色市集。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {'query': '寒山山门冷白低机位', 'scope': 'long_term'},
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {'查询': '寒山山门冷白低机位', '记忆范围': '长期记忆'},
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按计划项里的范围查长期视觉设定',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], isEmpty);
+    expect(memoryGetPayload['summaries'], isEmpty);
+    expect(memoryGetPayload['recent'], isEmpty);
+    expect(memoryGetPayload['notes'], [
+      '长期设定：寒山山门保持冷白云雾和低机位压迫感。',
+    ]);
+    expect(
+      memoryGetPayload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', noteId)
+            .having((record) => record['scope'], 'scope', 'long_term'),
+      ),
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '长期设定：寒山山门保持冷白云雾和低机位压迫感。',
+    ]);
+    expect(
+      deepRetrievePayload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', noteId)
+            .having((record) => record['scope'], 'scope', 'long_term'),
+      ),
+    );
+  });
+
   test('Agent 记忆工具可显式召回视觉参考长期记忆', () async {
     final visualId = engine.saveAgentMemory(
       projectId,
