@@ -676,6 +676,135 @@ void main() {
     expect(related['scriptId'], secondScript);
   });
 
+  test('Agent 顶层媒体工具接受 ToonFlow 自然镜头号别名', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final storyboardA = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      videoDesc: '第一镜',
+    );
+    final storyboardB = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      videoDesc: '第二镜',
+    );
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      videoDesc: '第三镜',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('generate_shot_images', {
+        'scriptId': scriptId,
+        'shotNo': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只生成第二镜首帧',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final imageTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'generate_shot_images');
+    final imageProperties = imageTool.schema['properties'] as Map;
+    expect(imageProperties, contains('shotNo'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('1 个分镜'),
+    );
+    final imageTask = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['storyboard_image_generation'],
+    ).single;
+    final imageRelated = jsonDecode(imageTask['relatedObjects'] as String)
+        as Map<String, dynamic>;
+    expect(imageRelated['ids'], [storyboardB]);
+    expect(imageRelated['ids'], isNot(contains(storyboardA)));
+
+    engine.setStoryboardImage(storyboardA, 'images/a.png');
+    engine.setStoryboardImage(storyboardB, 'images/b.png');
+    gateway.turns = [
+      AgentTurnResult.tool('generate_videos', {
+        'scriptId': scriptId,
+        'storyboardNo': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只生成第二镜视频',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final videoTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'generate_videos');
+    final videoProperties = videoTool.schema['properties'] as Map;
+    expect(videoProperties, contains('storyboardNo'));
+    final videoTask = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['video_generation'],
+    ).single;
+    final videoRelated = jsonDecode(videoTask['relatedObjects'] as String)
+        as Map<String, dynamic>;
+    final trackIds = (videoRelated['trackIds'] as List)
+        .map((value) => (value as num).toInt())
+        .toList();
+    expect(trackIds, hasLength(1));
+    final storyboardRow = db.select(
+        'SELECT id FROM o_storyboard WHERE trackId=?',
+        [trackIds.single]).single;
+    expect(storyboardRow['id'], storyboardB);
+  });
+
+  test('Agent 自然镜头号未匹配时不会回退成全量媒体任务', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      videoDesc: '第一镜',
+    );
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      videoDesc: '第二镜',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('generate_shot_images', {
+        'scriptId': scriptId,
+        'shotNo': 99,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只生成第 99 镜首帧',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('未找到匹配分镜'),
+    );
+    final imageTasks = db.select(
+      'SELECT id FROM o_tasks WHERE taskClass=?',
+      ['storyboard_image_generation'],
+    );
+    expect(imageTasks, isEmpty);
+  });
+
   test('工具执行失败时返回中文可见错误摘要而非崩溃', () async {
     gateway.turns = [
       AgentTurnResult.tool('generate_storyboards', const {}), // 缺 scriptId

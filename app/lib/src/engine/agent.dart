@@ -967,6 +967,33 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'integer'},
           'description': 'shotIds 的 snake_case 别名。',
         },
+        'shotNo': {
+          'type': 'integer',
+          'description': '按当前剧本分镜顺序的自然镜头号，例如 2 表示第二镜。',
+        },
+        'shotNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'shotNo 的数组形式。',
+        },
+        'storyboardNo': {
+          'type': 'integer',
+          'description': 'shotNo 的分镜语义别名。',
+        },
+        'storyboardNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardNo 的数组形式。',
+        },
+        'storyboardIndex': {
+          'type': 'integer',
+          'description': 'shotNo 的索引语义别名，按分镜顺序匹配。',
+        },
+        'storyboardIndexes': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardIndex 的数组形式。',
+        },
       },
     },
   ),
@@ -1016,6 +1043,33 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'integer'},
           'description': 'shotIds 的 snake_case 别名。',
+        },
+        'shotNo': {
+          'type': 'integer',
+          'description': '按当前剧本分镜顺序的自然镜头号，例如 2 表示第二镜。',
+        },
+        'shotNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'shotNo 的数组形式。',
+        },
+        'storyboardNo': {
+          'type': 'integer',
+          'description': 'shotNo 的分镜语义别名。',
+        },
+        'storyboardNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardNo 的数组形式。',
+        },
+        'storyboardIndex': {
+          'type': 'integer',
+          'description': 'shotNo 的索引语义别名，按分镜顺序匹配。',
+        },
+        'storyboardIndexes': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardIndex 的数组形式。',
         },
       },
     },
@@ -8736,39 +8790,27 @@ extension AgentApi on Engine {
         case 'generate_shot_images':
           final scriptId = _agentScriptIdArg(projectId, args);
           if (scriptId == null) return '缺少 scriptId 参数。';
-          final ids = _intListAny(args, const [
-                'storyboardIds',
-                'storyboard_ids',
-                'storyboardId',
-                'storyboard_id',
-                'shotIds',
-                'shot_ids',
-                'shotId',
-                'shot_id',
-              ]) ??
-              storyboards(scriptId).map((s) => s.id).toList();
-          if (ids.isEmpty) return '该剧本暂无分镜。';
+          final selectedIds = _agentStoryboardIdsArg(scriptId, args);
+          final ids =
+              selectedIds ?? storyboards(scriptId).map((s) => s.id).toList();
+          if (ids.isEmpty) {
+            return selectedIds == null ? '该剧本暂无分镜。' : '未找到匹配分镜。';
+          }
           final taskId =
               batchGenerateStoryboardImages(projectId, ids, compulsory: true);
           return '已提交首帧图生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
         case 'generate_videos':
           final scriptId = _agentScriptIdArg(projectId, args);
           if (scriptId == null) return '缺少 scriptId 参数。';
-          final ids = _intListAny(args, const [
-                'storyboardIds',
-                'storyboard_ids',
-                'storyboardId',
-                'storyboard_id',
-                'shotIds',
-                'shot_ids',
-                'shotId',
-                'shot_id',
-              ]) ??
+          final selectedIds = _agentStoryboardIdsArg(scriptId, args);
+          final ids = selectedIds ??
               storyboards(scriptId)
                   .where((s) => s.filePath != null)
                   .map((s) => s.id)
                   .toList();
-          if (ids.isEmpty) return '该剧本没有已生成首帧图的分镜。';
+          if (ids.isEmpty) {
+            return selectedIds == null ? '该剧本没有已生成首帧图的分镜。' : '未找到匹配分镜。';
+          }
           final taskId = batchGenerateVideos(projectId, ids);
           return '已提交视频生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
         case 'bind_audio':
@@ -8888,6 +8930,46 @@ extension AgentApi on Engine {
       if (index >= 0 && index < rows.length) ids.add(rows[index].id);
     }
     return ids.isEmpty ? null : ids;
+  }
+
+  List<int>? _agentStoryboardIdsArg(int scriptId, Map<String, dynamic> args) {
+    final direct = _intListAny(args, const [
+      'storyboardIds',
+      'storyboard_ids',
+      'storyboardId',
+      'storyboard_id',
+      'shotIds',
+      'shot_ids',
+      'shotId',
+      'shot_id',
+    ]);
+    if (direct != null) return direct;
+    final shotNumbers = _intListAny(args, const [
+      'shotNo',
+      'shotNos',
+      'shotIndex',
+      'shotIndexes',
+      'storyboardNo',
+      'storyboardNos',
+      'storyboardIndex',
+      'storyboardIndexes',
+      'shot_no',
+      'shot_nos',
+      'shot_index',
+      'shot_indexes',
+      'storyboard_no',
+      'storyboard_nos',
+      'storyboard_index',
+      'storyboard_indexes',
+    ]);
+    if (shotNumbers == null) return null;
+    final rows = storyboards(scriptId);
+    final ids = <int>[];
+    for (final number in shotNumbers) {
+      final index = number - 1;
+      if (index >= 0 && index < rows.length) ids.add(rows[index].id);
+    }
+    return ids;
   }
 
   List<int>? _intListAny(Map<String, dynamic> args, List<String> keys) {
