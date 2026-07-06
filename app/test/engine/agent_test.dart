@@ -8426,7 +8426,7 @@ description: >-
     expect(gateway.textCallCount, 0);
   });
 
-  test('AgentMemoryService clear 按 scope 清空 message summary note', () {
+  test('AgentMemoryService clear 按 ToonFlow 语义维护 message-summary 关系', () {
     final service = AgentMemoryService(
       db,
       gateway,
@@ -8435,7 +8435,12 @@ description: >-
     const isolationKey = 'scriptAgent:scope-clear';
     const otherIsolationKey = 'productionAgent:scope-clear';
 
-    void insertMemory(String id, String key, String type) {
+    void insertMemory(
+      String id,
+      String key,
+      String type, {
+      int summarized = 0,
+    }) {
       db.execute(
         'INSERT INTO memories '
         '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
@@ -8449,13 +8454,14 @@ description: >-
           key,
           '[]',
           'assistant',
-          0,
+          summarized,
           type,
         ],
       );
     }
 
-    insertMemory('scope_msg', isolationKey, agentMemoryTypeMessage);
+    insertMemory('scope_msg', isolationKey, agentMemoryTypeMessage,
+        summarized: 1);
     insertMemory('scope_sum', isolationKey, agentMemoryTypeSummary);
     insertMemory('scope_note', isolationKey, agentMemoryTypeNote);
     insertMemory('other_msg', otherIsolationKey, agentMemoryTypeMessage);
@@ -8470,13 +8476,22 @@ description: >-
 
     service.clear(isolationKey: isolationKey, scope: agentMemoryTypeMessage);
 
-    expect(
-        typesFor(isolationKey), [agentMemoryTypeNote, agentMemoryTypeSummary]);
+    expect(typesFor(isolationKey), [agentMemoryTypeNote]);
     expect(typesFor(otherIsolationKey), [agentMemoryTypeMessage]);
+
+    insertMemory('scope_msg_after', isolationKey, agentMemoryTypeMessage,
+        summarized: 1);
+    insertMemory('scope_sum_after', isolationKey, agentMemoryTypeSummary);
 
     service.clear(isolationKey: isolationKey, scope: agentMemoryTypeSummary);
 
-    expect(typesFor(isolationKey), [agentMemoryTypeNote]);
+    expect(
+        typesFor(isolationKey), [agentMemoryTypeMessage, agentMemoryTypeNote]);
+    final resetRow = db.select(
+      'SELECT summarized FROM memories WHERE id=? AND isolationKey=?',
+      ['scope_msg_after', isolationKey],
+    ).single;
+    expect(resetRow['summarized'], 0);
     expect(typesFor(otherIsolationKey), [agentMemoryTypeMessage]);
 
     service.clear(isolationKey: isolationKey, scope: 'all');

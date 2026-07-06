@@ -649,6 +649,25 @@ class AgentMemoryService {
       agentMemoryTypeNote,
     };
     if (!allowedScopes.contains(trimmedScope)) return;
+    if (trimmedScope == agentMemoryTypeMessage) {
+      db.execute(
+        'DELETE FROM memories WHERE isolationKey=? AND type IN (?,?)',
+        [isolationKey, agentMemoryTypeMessage, agentMemoryTypeSummary],
+      );
+      return;
+    }
+    if (trimmedScope == agentMemoryTypeSummary) {
+      db.execute(
+        'UPDATE memories SET summarized=0 '
+        'WHERE isolationKey=? AND type=? AND summarized=1',
+        [isolationKey, agentMemoryTypeMessage],
+      );
+      db.execute(
+        'DELETE FROM memories WHERE isolationKey=? AND type=?',
+        [isolationKey, agentMemoryTypeSummary],
+      );
+      return;
+    }
     db.execute(
       'DELETE FROM memories WHERE isolationKey=? AND type=?',
       [isolationKey, trimmedScope],

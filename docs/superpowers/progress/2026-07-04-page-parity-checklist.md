@@ -140,6 +140,8 @@ Recent Agent/RAG Update: `app/test/engine/providers_test.dart`, `app/test/engine
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers long-term `note` memory search using the bound `agent_embedding` provider, including semantic cross-language recall and migration of stored note embeddings from legacy token JSON to gateway-vector JSON.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style memory clearing semantics: clearing `message` also removes dependent `summary` records, while clearing `summary` resets summarized messages back to `summarized=0` so they can re-enter short-term memory and future summarization.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String.matchAll(...)` with regex capture groups and array spread, so custom skills can batch-extract storyboard fields from XML-like Agent workspace text.
