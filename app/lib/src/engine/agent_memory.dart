@@ -964,29 +964,31 @@ class AgentMemoryService {
 
   Set<String>? _normalizeTypeFilter(Set<String>? types) {
     if (types == null) return null;
-    final normalized = {
-      for (final type in types)
-        if (_normalizeMemoryType(type) != null) _normalizeMemoryType(type)!,
-    };
+    final normalized = <String>{};
+    for (final type in types) {
+      normalized.addAll(_normalizeMemoryTypes(type));
+    }
     return normalized;
   }
 
-  String? _normalizeMemoryType(String type) {
+  Set<String> _normalizeMemoryTypes(String type) {
     final value = type.trim().toLowerCase();
     return switch (value) {
-      'message' ||
-      'messages' ||
-      'chat' ||
-      'conversation' =>
-        agentMemoryTypeMessage,
-      'summary' || 'summaries' => agentMemoryTypeSummary,
-      'note' ||
-      'notes' ||
-      'long_term' ||
-      'long-term' ||
-      'longterm' =>
-        agentMemoryTypeNote,
-      _ => null,
+      'message' || 'messages' || 'chat' => {agentMemoryTypeMessage},
+      'conversation' || 'conversations' || 'history' => {
+          agentMemoryTypeMessage,
+          agentMemoryTypeSummary,
+        },
+      'summary' || 'summaries' => {agentMemoryTypeSummary},
+      'note' || 'notes' || 'long_term' || 'long-term' || 'longterm' => {
+          agentMemoryTypeNote
+        },
+      'all' => {
+          agentMemoryTypeMessage,
+          agentMemoryTypeSummary,
+          agentMemoryTypeNote,
+        },
+      _ => const {},
     };
   }
 

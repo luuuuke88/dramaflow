@@ -314,6 +314,34 @@ final _tools = <AgentToolDef>[
           },
           'description': '可选。只返回这些类型的记忆。',
         },
+        'memoryType': {
+          'type': 'string',
+          'enum': [
+            'message',
+            'summary',
+            'note',
+            'conversation',
+            'long_term',
+            'all'
+          ],
+          'description':
+              '可选。type/scope 的语义化别名，可用 conversation、long_term 或 all 表示记忆层级。',
+        },
+        'memoryTypes': {
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': [
+              'message',
+              'summary',
+              'note',
+              'conversation',
+              'long_term',
+              'all',
+            ],
+          },
+          'description': '可选。memoryType 的数组形式。',
+        },
         'scope': {
           'type': 'string',
           'enum': ['conversation', 'summary', 'long_term', 'all'],
