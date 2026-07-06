@@ -1988,6 +1988,85 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持数组解构 rest 保留剩余参考项', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_rest_runtime',
+      name: '数组 rest 解构脚本运行时',
+      description: '验证自定义技能兼容模型常写的 [first, ...rest] 参考图整理。',
+      script: r'''
+const [coverImage, ...referenceImages] = args.images;
+const rows = args.rows.map(([type, firstName, ...otherNames]) => ({
+  type,
+  firstName,
+  otherNames: otherNames.join('/'),
+  total: otherNames.length + 1,
+}));
+return JSON.stringify({
+  cover: coverImage.name.trim(),
+  referenceCount: referenceImages.length,
+  referenceNames: referenceImages.map(image => image.name.trim()).join('、'),
+  rows,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'images': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+          'rows': {
+            'type': 'array',
+            'items': {'type': 'array'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_rest_runtime', const {
+        'images': [
+          {'name': ' 首帧图 '},
+          {'name': ' 角色参考 '},
+          {'name': '场景参考'},
+        ],
+        'rows': [
+          ['role', '李澈', '沈微', '师尊'],
+          ['scene', '寒山宗门'],
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组 rest 解构脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_rest_runtime');
+    expect(jsonDecode(msg.content), {
+      'cover': '首帧图',
+      'referenceCount': 2,
+      'referenceNames': '角色参考、场景参考',
+      'rows': [
+        {
+          'type': 'role',
+          'firstName': '李澈',
+          'otherNames': '沈微/师尊',
+          'total': 3,
+        },
+        {
+          'type': 'scene',
+          'firstName': '寒山宗门',
+          'otherNames': '',
+          'total': 1,
+        },
+      ],
+    });
+  });
+
   test('自定义脚本技能：支持块状箭头回调 return', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_block_callback_runtime',

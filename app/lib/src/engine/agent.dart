@@ -3119,7 +3119,7 @@ class _CustomAgentSkillRuntime {
   bool _isValidCallbackParam(String param) {
     final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
     if (validName.hasMatch(param)) return true;
-    final arrayDestructured = _arrayDestructureNames(param);
+    final arrayDestructured = _arrayDestructureBindings(param);
     if (arrayDestructured != null && arrayDestructured.isNotEmpty) {
       return true;
     }
@@ -3194,8 +3194,8 @@ class _CustomAgentSkillRuntime {
       }
       return;
     }
-    final names = _arrayDestructureNames(name);
-    if (names == null || names.isEmpty) _badMethodArgs(method);
+    final arrayBindings = _arrayDestructureBindings(name);
+    if (arrayBindings == null || arrayBindings.isEmpty) _badMethodArgs(method);
     if (value is! Iterable || value is String) {
       throw EngineException(errLlmFormat, {
         'reason': 'custom_skill_destructure',
@@ -3203,10 +3203,20 @@ class _CustomAgentSkillRuntime {
       });
     }
     final items = value.toList();
-    for (var i = 0; i < names.length; i++) {
+    for (var i = 0; i < arrayBindings.length; i++) {
+      final binding = arrayBindings[i];
+      if (binding.isRest) {
+        _bindUniqueCallbackName(
+          bindings,
+          binding.bindingName,
+          items.sublist(i),
+          method,
+        );
+        continue;
+      }
       _bindUniqueCallbackName(
         bindings,
-        names[i],
+        binding.bindingName,
         i < items.length ? items[i] : null,
         method,
       );
@@ -3223,19 +3233,37 @@ class _CustomAgentSkillRuntime {
     bindings[name] = value;
   }
 
-  List<String>? _arrayDestructureNames(String param) {
+  List<_CustomJsArrayDestructureBinding>? _arrayDestructureBindings(
+    String param,
+  ) {
     final source = param.trim();
     final inner = _literalInner(source, '[', ']');
     if (inner == null) return null;
     final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
-    final names = _splitTopLevel(inner, ',')
+    final items = _splitTopLevel(inner, ',')
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toList();
-    if (names.isEmpty || names.any((name) => !validName.hasMatch(name))) {
+    if (items.isEmpty) return null;
+    final bindings = <_CustomJsArrayDestructureBinding>[];
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      final isRest = item.startsWith('...');
+      final bindingName = isRest ? item.substring(3).trim() : item;
+      if (!validName.hasMatch(bindingName)) return null;
+      if (isRest &&
+          (i != items.length - 1 || bindings.any((item) => item.isRest))) {
+        return null;
+      }
+      bindings.add(_CustomJsArrayDestructureBinding(
+        bindingName: bindingName,
+        isRest: isRest,
+      ));
+    }
+    if (bindings.isEmpty) {
       return null;
     }
-    return names;
+    return bindings;
   }
 
   List<_CustomJsObjectDestructureBinding>? _objectDestructureBindings(
@@ -3547,6 +3575,16 @@ class _CustomJsObjectDestructureBinding {
     required this.fieldName,
     required this.bindingName,
     required this.defaultExpression,
+    required this.isRest,
+  });
+}
+
+class _CustomJsArrayDestructureBinding {
+  final String bindingName;
+  final bool isRest;
+
+  const _CustomJsArrayDestructureBinding({
+    required this.bindingName,
     required this.isRest,
   });
 }
