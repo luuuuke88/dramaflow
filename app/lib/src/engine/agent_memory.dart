@@ -860,6 +860,18 @@ class AgentMemoryService {
     Set<String>? excludeRoleSuffixes,
   }) async {
     if (normalized.isEmpty) return const [];
+    final indexed = await _rankIndexedGatewayCandidates(
+      isolationKey: isolationKey,
+      type: agentMemoryTypeMessage,
+      normalized: normalized,
+      tokens: tokens,
+      queryEmbedding: queryEmbedding,
+      onlyUnsummarized: onlyUnsummarized,
+      excludeIds: excludeIds,
+      excludeRoles: excludeRoles,
+      excludeRoleSuffixes: excludeRoleSuffixes,
+    );
+    if (indexed != null && indexed.isNotEmpty) return indexed;
     final messages = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? '
@@ -929,12 +941,93 @@ class AgentMemoryService {
     ];
   }
 
+  Future<List<(int, AgentMemoryEntry)>?> _rankIndexedGatewayCandidates({
+    required String isolationKey,
+    required String type,
+    required String normalized,
+    required Set<String> tokens,
+    required Map<String, int> queryEmbedding,
+    bool onlyUnsummarized = false,
+    Set<String>? excludeIds,
+    Set<String>? excludeRoles,
+    Set<String>? excludeRoleSuffixes,
+  }) async {
+    final (provider, model) = _memoryVectorSignature();
+    if (provider != 'gateway' || !_isGatewayEmbeddingMap(queryEmbedding)) {
+      return null;
+    }
+    final rows = db.select(
+      'SELECT m.id AS id,m.name AS name,m.content AS content,'
+      'm.createTime AS createTime,m.embedding AS embedding,'
+      'm.relatedMessageIds AS relatedMessageIds,m.role AS role,'
+      'm.type AS type,v.dimension AS vectorDimension,'
+      'v.vector AS vectorJson '
+      'FROM o_memoryVector v '
+      'JOIN memories m ON m.id=v.memoryId '
+      'AND m.isolationKey=v.isolationKey AND m.type=v.type '
+      'WHERE v.isolationKey=? AND v.type=? AND v.provider=? AND v.model=? '
+      '${onlyUnsummarized ? 'AND COALESCE(m.summarized,0)=0 ' : ''}'
+      'ORDER BY m.createTime DESC, m.id DESC',
+      [isolationKey, type, provider, model],
+    );
+    if (rows.isEmpty) return null;
+    final scored = <(int, AgentMemoryEntry)>[];
+    for (final row in rows) {
+      var entry = AgentMemoryEntry.fromRow(row);
+      if (excludeIds != null && excludeIds.contains(entry.id)) continue;
+      if (!_matchesExcludedRoleFilter(entry, excludeRoles)) continue;
+      if (!_matchesExcludedRoleSuffixFilter(entry, excludeRoleSuffixes)) {
+        continue;
+      }
+      final vector = _decodeStoredGatewayVector(row['vectorJson']);
+      final dimension = row['vectorDimension'] as int? ?? vector.length;
+      if (vector.isEmpty || dimension != vector.length) continue;
+      entry = entry.copyWith(embedding: gatewayEmbeddingJsonFromVector(vector));
+      final score = await embeddingProvider.score(
+        name: entry.name,
+        content: entry.content,
+        query: normalized,
+        tokens: tokens,
+        queryEmbedding: queryEmbedding,
+        memoryEmbedding: entry.embedding,
+      );
+      if (score > 0) {
+        scored.add((
+          score,
+          entry.copyWith(
+            score: score,
+            matchedTokens: await embeddingProvider.matchedTokens(
+              name: entry.name,
+              content: entry.content,
+              query: normalized,
+              tokens: tokens,
+            ),
+          ),
+        ));
+      }
+    }
+    scored.sort((a, b) {
+      final byScore = b.$1.compareTo(a.$1);
+      if (byScore != 0) return byScore;
+      return b.$2.createdAt.compareTo(a.$2.createdAt);
+    });
+    return scored;
+  }
+
   Future<List<(int, AgentMemoryEntry)>> _rankSummaryCandidates({
     required String isolationKey,
     required String normalized,
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
   }) async {
+    final indexed = await _rankIndexedGatewayCandidates(
+      isolationKey: isolationKey,
+      type: agentMemoryTypeSummary,
+      normalized: normalized,
+      tokens: tokens,
+      queryEmbedding: queryEmbedding,
+    );
+    if (indexed != null && indexed.isNotEmpty) return indexed;
     final summaries = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? '
@@ -985,6 +1078,14 @@ class AgentMemoryService {
     required Map<String, int> queryEmbedding,
   }) async {
     if (normalized.isEmpty) return const [];
+    final indexed = await _rankIndexedGatewayCandidates(
+      isolationKey: isolationKey,
+      type: agentMemoryTypeNote,
+      normalized: normalized,
+      tokens: tokens,
+      queryEmbedding: queryEmbedding,
+    );
+    if (indexed != null && indexed.isNotEmpty) return indexed;
     final notes = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? '

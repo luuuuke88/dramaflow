@@ -10421,6 +10421,85 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(jsonDecode(summaryVector['vector'] as String), [0.5, 0.6]);
   });
 
+  test('AgentMemoryService get 走 gateway 向量索引时不逐条回填未索引候选', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+      embeddingProvider: GatewayAgentMemoryEmbeddingProvider(
+        gateway,
+        stage: 'agent_embedding',
+      ),
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'indexed_gateway_msg',
+        '',
+        '用户设定：李澈必须保护沈微。',
+        now,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'unindexed_gateway_noise',
+        '',
+        '旧消息：山门远景和云雾氛围。',
+        now + 1,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_memoryVector '
+      '(memoryId,isolationKey,type,provider,model,dimension,vector,updatedAt) '
+      'VALUES (?,?,?,?,?,?,?,?)',
+      [
+        'indexed_gateway_msg',
+        'scriptAgent:$projectId',
+        agentMemoryTypeMessage,
+        'gateway',
+        'agent_embedding',
+        2,
+        jsonEncode([1.0, 0.0]),
+        now,
+      ],
+    );
+    gateway.embeddingForText = (input) {
+      if (input.contains('保护沈微')) return const [1, 0];
+      return const [0, 1];
+    };
+
+    final context = await service.get(
+      isolationKey: 'scriptAgent:$projectId',
+      query: '保护沈微',
+    );
+
+    expect(context.relatedMessages.map((item) => item.id),
+        ['indexed_gateway_msg']);
+    expect(gateway.embeddingInputs, ['保护沈微']);
+  });
+
   test('AgentMemoryService get 可开启模型重排过滤相关 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
