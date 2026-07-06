@@ -359,6 +359,7 @@ class AgentMemoryService {
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
     int? minScore,
+    bool excludeIdsFromContext = false,
     CancelToken? cancelToken,
   }) async {
     final settings = readSettings();
@@ -373,6 +374,12 @@ class AgentMemoryService {
     );
     final scoreThreshold =
         _normalizeScoreThreshold(minScore ?? settings.minScore);
+    final excludedIds = excludeIdsFromContext
+        ? excludedRelatedIdFilter?.toList() ?? const <String>[]
+        : const <String>[];
+    final excludedIdSql = excludedIds.isEmpty
+        ? ''
+        : 'AND id NOT IN (${List.filled(excludedIds.length, '?').join(',')}) ';
     final rankedMessages = settings.ragLimit <= 0
         ? const <(int, AgentMemoryEntry)>[]
         : [
@@ -399,8 +406,14 @@ class AgentMemoryService {
             for (final row in db.select(
               'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
               'FROM memories WHERE isolationKey=? AND type=? '
+              '$excludedIdSql'
               'ORDER BY createTime DESC, id DESC LIMIT ?',
-              [isolationKey, agentMemoryTypeSummary, settings.summaryLimit],
+              [
+                isolationKey,
+                agentMemoryTypeSummary,
+                ...excludedIds,
+                settings.summaryLimit,
+              ],
             ))
               AgentMemoryEntry.fromRow(row),
           ];
@@ -419,9 +432,15 @@ class AgentMemoryService {
             for (final row in db.select(
               'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
               'FROM memories WHERE isolationKey=? AND type=? '
+              '$excludedIdSql'
               'AND COALESCE(summarized,0)=0 '
               'ORDER BY createTime DESC, id DESC LIMIT ?',
-              [isolationKey, agentMemoryTypeMessage, settings.shortTermLimit],
+              [
+                isolationKey,
+                agentMemoryTypeMessage,
+                ...excludedIds,
+                settings.shortTermLimit,
+              ],
             ))
               AgentMemoryEntry.fromRow(row),
           ];

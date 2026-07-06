@@ -8715,6 +8715,122 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(summaries, isEmpty);
   });
 
+  test('Agent 记忆：memory_get 工具返回普通 RAG 上下文', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMemory({
+      required String id,
+      required String content,
+      required int offset,
+      required String type,
+      String name = '',
+      String role = agentRoleAssistant,
+      int summarized = 0,
+      List<String> relatedMessageIds = const [],
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          name,
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          jsonEncode(relatedMessageIds),
+          role,
+          summarized,
+          type,
+        ],
+      );
+    }
+
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '1'],
+    );
+    insertMemory(
+      id: 'memory_get_msg',
+      content: '用户明确要求：李澈正派设定必须保留，不能反派化。',
+      offset: 0,
+      type: 'message',
+      role: agentRoleUser,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'memory_get_summary',
+      name: '寒山线摘要',
+      content: '寒山线已经确认李澈是正派角色，外冷内热。',
+      offset: 1,
+      type: 'summary',
+      relatedMessageIds: const ['memory_get_msg'],
+    );
+    insertMemory(
+      id: 'memory_get_recent',
+      content: '用户刚刚补充沈微要和李澈同行入山。',
+      offset: 2,
+      type: 'message',
+      role: agentRoleUser,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '李澈正派设定',
+        'limit': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '按普通记忆找李澈设定', autoMode: false);
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties, contains('query'));
+    expect(properties, contains('limit'));
+    expect(properties, contains('minScore'));
+    expect(properties, contains('excludeMemoryIds'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_get');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], ['用户明确要求：李澈正派设定必须保留，不能反派化。']);
+    expect(payload['summaries'], ['寒山线已经确认李澈是正派角色，外冷内热。']);
+    expect(payload['recent'], ['用户刚刚补充沈微要和李澈同行入山。']);
+    final records = payload['records'] as List;
+    expect(
+      records,
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', 'memory_get_msg')
+            .having((record) => record['scope'], 'scope', 'conversation')
+            .having((record) => record['content'], 'content',
+                contains('李澈正派设定必须保留')),
+      ),
+    );
+    expect(
+      records,
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', 'memory_get_summary')
+            .having((record) => record['scope'], 'scope', 'summary'),
+      ),
+    );
+    expect(
+      records,
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', 'memory_get_recent')
+            .having((record) => record['scope'], 'scope', 'conversation'),
+      ),
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具从 summary 展开原始 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

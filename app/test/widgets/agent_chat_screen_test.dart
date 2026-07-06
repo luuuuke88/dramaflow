@@ -558,8 +558,11 @@ void main() {
     expect(skill.type, 'custom-js-agent');
     expect(skill.schema['required'], ['text']);
     expect(skill.script, r'return `ok:${args.text}`;');
-    await tester.drag(find.byType(ListView).last, const Offset(0, -1000));
-    await tester.pumpAndSettle();
+    final skillList = find.byType(ListView).last;
+    for (var i = 0; i < 4 && !tester.any(find.text('自定义回声')); i++) {
+      await tester.drag(skillList, const Offset(0, -800));
+      await tester.pumpAndSettle();
+    }
     expect(find.text('自定义回声'), findsOneWidget);
   });
 

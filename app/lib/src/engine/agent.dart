@@ -215,6 +215,161 @@ const _agentToolAuditRoleSuffixes = {':tool'};
 
 final _tools = <AgentToolDef>[
   const AgentToolDef(
+    name: 'memory_get',
+    description: '调用 ToonFlow Memory.get 普通记忆检索，按查询返回相关原始对话、历史摘要和近期未摘要对话。'
+        '适合先快速找当前上下文，不做 deepRetrieve 的 summary 判别展开。',
+    schema: {
+      'type': 'object',
+      'properties': {
+        'query': {
+          'type': 'string',
+          'description': '要检索的记忆查询文本。',
+        },
+        'question': {
+          'type': 'string',
+          'description': 'query 的自然语言别名。',
+        },
+        'text': {
+          'type': 'string',
+          'description': 'query 的文本别名。',
+        },
+        'prompt': {
+          'type': 'string',
+          'description': 'query 的提示词别名。',
+        },
+        'keyword': {
+          'type': 'string',
+          'description': 'query 的关键词别名。',
+        },
+        'limit': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。限制返回的相关原始对话条数，默认使用全局 RAG 配置。',
+        },
+        'topK': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。limit 的常见 RAG 别名。',
+        },
+        'top_k': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。topK 的 snake_case 别名。',
+        },
+        'maxResults': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。limit 的自然语言别名。',
+        },
+        'max_results': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。maxResults 的 snake_case 别名。',
+        },
+        'k': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。topK 的简写别名。',
+        },
+        'minScore': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。只返回分数不低于该值的高置信相关对话。',
+        },
+        'scoreThreshold': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。minScore 的自然语言别名。',
+        },
+        'score_threshold': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。scoreThreshold 的 snake_case 别名。',
+        },
+        'excludeRole': {
+          'type': 'string',
+          'description': '可选。排除指定 role 的记忆，例如 assistant:decision:tool。',
+        },
+        'excludeRoles': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。排除这些 role 的记忆，用于避开工具审计噪声。',
+        },
+        'excludeRoleSuffix': {
+          'type': 'string',
+          'description': '可选。排除 role 以该后缀结尾的记忆，例如 :tool。',
+        },
+        'excludeRoleSuffixes': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。排除 role 以这些后缀结尾的记忆。',
+        },
+        'excludeIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。排除这些已读 memory id，避免重复返回同一条记忆。',
+        },
+        'excludeMemoryIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。excludeIds 的语义化别名。',
+        },
+        'seenMemoryIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。已读过的 memory id 列表，等价于 excludeIds。',
+        },
+        'memoryIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。模型常用的已读 memory id 别名，等价于 excludeIds。',
+        },
+        'readMemoryIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。已读取 memory id 别名，等价于 excludeIds。',
+        },
+        'records': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description':
+              '可选。上一轮 memory_get/deepRetrieve 返回的 records，可原样传回以排除已读记忆。',
+        },
+        'seenRecords': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': '可选。已读 records，等价于从 records 中提取 id 后加入 excludeIds。',
+        },
+        'readRecords': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': '可选。已读取 records，等价于 seenRecords。',
+        },
+      },
+    },
+  ),
+  const AgentToolDef(
     name: 'deepRetrieve',
     description: '按关键词深度召回 Agent 历史摘要，并展开相关原始对话消息。'
         '用于找回较早的角色设定、剧情约束、制作决策。'
@@ -7718,6 +7873,127 @@ extension AgentApi on Engine {
   }) async {
     try {
       switch (name) {
+        case 'memory_get':
+          final query = (args['query'] ??
+                  args['question'] ??
+                  args['text'] ??
+                  args['prompt'] ??
+                  args['keyword'] ??
+                  args['q'] ??
+                  '')
+              .toString()
+              .trim();
+          if (query.isEmpty) return '缺少 query 参数。';
+          final requestedExcludeRoles = _coerceStringSet(
+            args['excludeRoles'] ??
+                args['excludeRole'] ??
+                args['excludedRoles'] ??
+                args['excludeMemoryRoles'] ??
+                args['excludedMemoryRoles'],
+          );
+          final excludeRoles = {
+            ...excludedRoles,
+            if (requestedExcludeRoles != null) ...requestedExcludeRoles,
+          };
+          final requestedExcludeRoleSuffixes = _coerceStringSet(
+            args['excludeRoleSuffixes'] ??
+                args['excludeRoleSuffix'] ??
+                args['excludedRoleSuffixes'] ??
+                args['excludeMemoryRoleSuffixes'] ??
+                args['excludedMemoryRoleSuffixes'],
+          );
+          final excludeRoleSuffixes = {
+            ...excludedRoleSuffixes,
+            if (requestedExcludeRoleSuffixes != null)
+              ...requestedExcludeRoleSuffixes,
+          };
+          final requestedExcludeIds = _coerceMemoryIdSetAny(args, const [
+            'excludeIds',
+            'excludeMemoryIds',
+            'excludedMemoryIds',
+            'excludeId',
+            'excludeRecords',
+            'memoryIds',
+            'seenMemoryIds',
+            'seenIds',
+            'seenRecords',
+            'readMemoryIds',
+            'readIds',
+            'readRecords',
+            'records',
+            'previousMemoryIds',
+            'previouslyReadMemoryIds',
+            'previouslyReadIds',
+            'previousRecords',
+            'previouslyReadRecords',
+          ]);
+          final excludeIds = {
+            ...excludedMemoryIds,
+            if (requestedExcludeIds != null) ...requestedExcludeIds,
+          };
+          final minScore = _coerceInt(
+            args['minScore'] ??
+                args['min_score'] ??
+                args['minimumScore'] ??
+                args['minimum_score'] ??
+                args['scoreThreshold'] ??
+                args['score_threshold'] ??
+                args['threshold'],
+          );
+          final context = await _agentMemoryService(
+            family: agentFamily,
+          ).get(
+            isolationKey: _agentConversationIsolationKey(
+              projectId,
+              family: agentFamily,
+            ),
+            query: query,
+            excludeRelatedIds: excludeIds,
+            excludeRoles: excludeRoles,
+            excludeRoleSuffixes: excludeRoleSuffixes,
+            minScore: minScore,
+            excludeIdsFromContext: true,
+          );
+          final rawLimit = args['limit'] ??
+              args['topK'] ??
+              args['top_k'] ??
+              args['maxResults'] ??
+              args['max_results'] ??
+              args['max'] ??
+              args['count'] ??
+              args['k'];
+          final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
+          final relatedMessages = limit == null
+              ? context.relatedMessages
+              : context.relatedMessages.take(limit).toList();
+          if (relatedMessages.isEmpty &&
+              context.summaries.isEmpty &&
+              context.recentMessages.isEmpty) {
+            return jsonEncode({
+              'found': false,
+              'message': '未找到相关记忆',
+            });
+          }
+          return jsonEncode({
+            'found': true,
+            'memories': [
+              for (final record in relatedMessages) record.content,
+            ],
+            'summaries': [
+              for (final record in context.summaries) record.content,
+            ],
+            'recent': [
+              for (final record in context.recentMessages) record.content,
+            ],
+            'records': [
+              for (final record in _dedupeAgentMemoryEntries([
+                ...relatedMessages,
+                ...context.summaries,
+                ...context.recentMessages,
+              ]))
+                _agentMemoryRecordPayload(record),
+            ],
+          });
         case 'deepRetrieve':
           final keyword = (args['keyword'] ??
                   args['query'] ??
@@ -7829,20 +8105,7 @@ extension AgentApi on Engine {
             ],
             'records': [
               for (final record in limitedRecords)
-                {
-                  'id': record.id,
-                  'type': record.type,
-                  'scope': _deepRetrieveRecordScope(record),
-                  'name': record.name,
-                  'createTime': record.createdAt,
-                  'role': record.role,
-                  if (record.sourceSummaryIds.isNotEmpty)
-                    'sourceSummaryIds': record.sourceSummaryIds,
-                  if (record.score != null) 'score': record.score,
-                  if (record.matchedTokens.isNotEmpty)
-                    'matchedTokens': record.matchedTokens,
-                  'content': record.content,
-                },
+                _agentMemoryRecordPayload(record),
             ],
           });
         case 'activate_skill':
@@ -8311,6 +8574,36 @@ extension AgentApi on Engine {
         return 'conversation';
     }
   }
+
+  List<AgentMemoryEntry> _dedupeAgentMemoryEntries(
+    Iterable<AgentMemoryEntry> records,
+  ) {
+    final seen = <String>{};
+    final result = <AgentMemoryEntry>[];
+    for (final record in records) {
+      final id = record.id.trim();
+      if (id.isNotEmpty && !seen.add(id)) continue;
+      result.add(record);
+    }
+    return result;
+  }
+
+  Map<String, dynamic> _agentMemoryRecordPayload(AgentMemoryEntry record) => {
+        'id': record.id,
+        'type': record.type,
+        'scope': _deepRetrieveRecordScope(record),
+        'name': record.name,
+        'createTime': record.createdAt,
+        'role': record.role,
+        if (record.relatedMessageIds.isNotEmpty)
+          'relatedMessageIds': record.relatedMessageIds,
+        if (record.sourceSummaryIds.isNotEmpty)
+          'sourceSummaryIds': record.sourceSummaryIds,
+        if (record.score != null) 'score': record.score,
+        if (record.matchedTokens.isNotEmpty)
+          'matchedTokens': record.matchedTokens,
+        'content': record.content,
+      };
 
   Map<String, dynamic> _scriptAgentWorkspace(int projectId) {
     final row = db.select(
