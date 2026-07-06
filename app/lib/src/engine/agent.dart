@@ -1766,10 +1766,18 @@ class _CustomAgentSkillRuntime {
         }
         return true;
       case 'reduce':
-        if (args.length != 2 || value is! Iterable) _badMethodArgs(method);
-        Object? accumulator = _evaluate(args[1]);
-        var index = 0;
-        for (final item in value) {
+        if (args.isEmpty || args.length > 2 || value is! Iterable) {
+          _badMethodArgs(method);
+        }
+        final items = value.toList();
+        if (args.length == 1 && items.isEmpty) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_reduce_empty',
+          });
+        }
+        Object? accumulator = args.length == 2 ? _evaluate(args[1]) : items[0];
+        var index = args.length == 2 ? 0 : 1;
+        for (final item in items.skip(index)) {
           accumulator = _evaluateReduceCallback(
             method,
             args.first,

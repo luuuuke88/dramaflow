@@ -3638,6 +3638,63 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 reduce 省略初始值时使用首项作为累加器', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_reduce_no_initial_runtime',
+      name: '无初始值归并脚本运行时',
+      description: '验证自定义技能兼容模型常写的 reduce(callback) 写法。',
+      script: r'''
+const longest = args.durations.reduce((best, value) => value > best ? value : best);
+const heroShot = args.shots.reduce((best, shot) =>
+  shot.score > best.score ? shot : best
+);
+return JSON.stringify({
+  longest,
+  hero: `${heroShot.index}.${heroShot.videoDesc.trim()}`,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'durations': {
+            'type': 'array',
+            'items': {'type': 'number'},
+          },
+          'shots': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_reduce_no_initial_runtime', const {
+        'durations': [2, 8, 5],
+        'shots': [
+          {'index': 1, 'videoDesc': ' 李澈入场 ', 'score': 4},
+          {'index': 2, 'videoDesc': '沈微拔剑', 'score': 9},
+          {'index': 3, 'videoDesc': '群像对峙', 'score': 6},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用无初始值归并脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_reduce_no_initial_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'longest': 8,
+      'hero': '2.沈微拔剑',
+    });
+  });
+
   test('自定义脚本技能：支持 flatMap 展开嵌套分镜参考图', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_flat_map_runtime',
