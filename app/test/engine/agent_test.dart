@@ -1037,6 +1037,30 @@ void main() {
     expect(audit.single['content'], contains('已提交事件生成任务'));
   });
 
+  test('监督 Agent 接受中文自然放行结论', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.supervision.enabled', '1'],
+    );
+    final novelId = engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),
+    ]).single;
+    gateway.turns = [
+      AgentTurnResult.tool('generate_events', {
+        'novelIds': [novelId],
+      }),
+      const AgentTurnResult.text('可以执行：章节范围明确。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '生成事件', autoMode: false);
+
+    expect(engine.agentMessages(projectId).last.toolName, 'generate_events');
+    expect(
+      db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
+      contains('event_generation'),
+    );
+  });
+
   test('监督 Agent 可拦截决策工具调用且不提交任务', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',

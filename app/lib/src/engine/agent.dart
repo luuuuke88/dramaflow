@@ -8687,7 +8687,11 @@ extension AgentApi on Engine {
     if (upper.startsWith('APPROVE') ||
         text.startsWith('同意') ||
         text.startsWith('通过') ||
-        text.startsWith('可执行')) {
+        text.startsWith('可执行') ||
+        text.startsWith('可以执行') ||
+        text.startsWith('允许执行') ||
+        text.startsWith('放行') ||
+        text.startsWith('批准')) {
       return null;
     }
     if (upper.startsWith('REJECT')) {
