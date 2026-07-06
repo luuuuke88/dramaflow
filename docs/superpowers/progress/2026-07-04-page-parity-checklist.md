@@ -310,6 +310,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_ge
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` and `deepRetrieve` exposing and accepting natural ordering aliases such as `orderBy`, `sortBy`, `sortOrder`, and `排序`, allowing Agents to request relevance order, latest-first recall, or chronological oldest-first context when reconstructing story decisions.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` and `deepRetrieve` exposing and accepting similarity-threshold aliases such as `minSimilarity`, `min_similarity`, `similarityThreshold`, and `相似度阈值`, while also normalizing fractional `threshold` values like `0.8` into the existing 1-100 score filter so model-authored RAG calls can use vector-search wording without leaking weak memories.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.

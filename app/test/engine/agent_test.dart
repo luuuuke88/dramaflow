@@ -11756,6 +11756,125 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(payload['memories'], isNot(contains('用户补充：李澈来自寒山宗门。')));
   });
 
+  test('Agent 记忆：memory_get 和 deepRetrieve 工具支持相似度阈值别名', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage('similarity_high', '用户明确要求：李澈正派设定必须保留，不能反派化。', 0);
+    insertMessage('similarity_low', '用户补充：李澈来自寒山宗门。', 1);
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '李澈正派设定',
+        'minSimilarity': 0.8,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'query': '李澈正派设定',
+        '相似度阈值': '0.8',
+      }),
+      AgentTurnResult.tool('memory_get', const {
+        'query': '李澈正派设定',
+        'threshold': 0.8,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '找相似度足够高的李澈设定',
+      autoMode: true,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final memoryGetProperties = memoryGetTool.schema['properties'] as Map;
+    expect(
+      memoryGetProperties.keys,
+      containsAll([
+        'minSimilarity',
+        'min_similarity',
+        'similarityThreshold',
+        '相似度阈值',
+      ]),
+    );
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final deepRetrieveProperties = deepRetrieveTool.schema['properties'] as Map;
+    expect(
+      deepRetrieveProperties.keys,
+      containsAll([
+        'minSimilarity',
+        'min_similarity',
+        'similarityThreshold',
+        '相似度阈值',
+      ]),
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve', 'memory_get']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      memoryGetPayload['memories'],
+      contains('用户明确要求：李澈正派设定必须保留，不能反派化。'),
+    );
+    expect(
+      memoryGetPayload['memories'],
+      isNot(contains('用户补充：李澈来自寒山宗门。')),
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages[1].content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      deepRetrievePayload['memories'],
+      contains('用户明确要求：李澈正派设定必须保留，不能反派化。'),
+    );
+    expect(
+      deepRetrievePayload['memories'],
+      isNot(contains('用户补充：李澈来自寒山宗门。')),
+    );
+
+    final thresholdPayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(thresholdPayload['found'], isTrue);
+    expect(
+      thresholdPayload['memories'],
+      contains('用户明确要求：李澈正派设定必须保留，不能反派化。'),
+    );
+    expect(
+      thresholdPayload['memories'],
+      isNot(contains('用户补充：李澈来自寒山宗门。')),
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具支持 topK/maxResults 自然数量别名', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     void insertMessage(String id, String content, int offset) {

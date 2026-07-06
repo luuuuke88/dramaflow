@@ -836,6 +836,60 @@ final _tools = <AgentToolDef>[
           'minimum': 1,
           'description': '可选。scoreThreshold 的简写别名。',
         },
+        'minSimilarity': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。相似度阈值别名，0.8 等价于 minScore=80。',
+        },
+        'min_similarity': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。minSimilarity 的 snake_case 别名。',
+        },
+        'minimumSimilarity': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。minSimilarity 的自然语言别名。',
+        },
+        'minimum_similarity': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。minimumSimilarity 的 snake_case 别名。',
+        },
+        'similarityThreshold': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。相似度阈值别名，0.8 等价于 minScore=80。',
+        },
+        'similarity_threshold': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。similarityThreshold 的 snake_case 别名。',
+        },
+        '相似度': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': 'minSimilarity 的中文别名。',
+        },
+        '最低相似度': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': 'minimumSimilarity 的中文别名。',
+        },
+        '相似度阈值': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': 'similarityThreshold 的中文别名。',
+        },
         '最低分': {
           'type': 'integer',
           'minimum': 1,
@@ -1331,6 +1385,60 @@ final _tools = <AgentToolDef>[
           'type': 'integer',
           'minimum': 1,
           'description': '可选。scoreThreshold 的简写别名。',
+        },
+        'minSimilarity': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。相似度阈值别名，0.8 等价于 minScore=80。',
+        },
+        'min_similarity': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。minSimilarity 的 snake_case 别名。',
+        },
+        'minimumSimilarity': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。minSimilarity 的自然语言别名。',
+        },
+        'minimum_similarity': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。minimumSimilarity 的 snake_case 别名。',
+        },
+        'similarityThreshold': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。相似度阈值别名，0.8 等价于 minScore=80。',
+        },
+        'similarity_threshold': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': '可选。similarityThreshold 的 snake_case 别名。',
+        },
+        '相似度': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': 'minSimilarity 的中文别名。',
+        },
+        '最低相似度': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': 'minimumSimilarity 的中文别名。',
+        },
+        '相似度阈值': {
+          'type': ['number', 'string'],
+          'minimum': 0,
+          'maximum': 1,
+          'description': 'similarityThreshold 的中文别名。',
         },
         '最低分': {
           'type': 'integer',
@@ -10414,17 +10522,7 @@ extension AgentApi on Engine {
             ...excludedMemoryIds,
             if (requestedExcludeIds != null) ...requestedExcludeIds,
           };
-          final minScore = _coerceInt(
-            args['minScore'] ??
-                args['min_score'] ??
-                args['minimumScore'] ??
-                args['minimum_score'] ??
-                args['scoreThreshold'] ??
-                args['score_threshold'] ??
-                args['最低分'] ??
-                args['分数阈值'] ??
-                args['threshold'],
-          );
+          final minScore = _agentMemoryMinScore(args);
           final timeRange = _agentMemoryTimeRange(args);
           final sortMode = _agentMemorySortMode(args);
           final rawLimit = args['limit'] ??
@@ -10656,17 +10754,7 @@ extension AgentApi on Engine {
             ...excludedMemoryIds,
             if (requestedExcludeIds != null) ...requestedExcludeIds,
           };
-          final minScore = _coerceInt(
-            args['minScore'] ??
-                args['min_score'] ??
-                args['minimumScore'] ??
-                args['minimum_score'] ??
-                args['scoreThreshold'] ??
-                args['score_threshold'] ??
-                args['最低分'] ??
-                args['分数阈值'] ??
-                args['threshold'],
-          );
+          final minScore = _agentMemoryMinScore(args);
           final timeRange = _agentMemoryTimeRange(args);
           final sortMode = _agentMemorySortMode(args);
           final rawLimit = args['limit'] ??
@@ -11999,6 +12087,52 @@ extension AgentApi on Engine {
     if (a == null) return b;
     if (b == null) return a;
     return math.max(a, b);
+  }
+
+  int? _agentMemoryMinScore(Map<String, dynamic> args) {
+    final explicitScore = _coerceAgentMemoryScoreThreshold(
+      args['minScore'] ??
+          args['min_score'] ??
+          args['minimumScore'] ??
+          args['minimum_score'] ??
+          args['scoreThreshold'] ??
+          args['score_threshold'] ??
+          args['最低分'] ??
+          args['分数阈值'] ??
+          args['threshold'],
+    );
+    if (explicitScore != null) return explicitScore;
+    return _coerceAgentMemoryScoreThreshold(
+      args['minSimilarity'] ??
+          args['min_similarity'] ??
+          args['minimumSimilarity'] ??
+          args['minimum_similarity'] ??
+          args['similarityThreshold'] ??
+          args['similarity_threshold'] ??
+          args['相似度'] ??
+          args['最低相似度'] ??
+          args['相似度阈值'],
+    );
+  }
+
+  int? _coerceAgentMemoryScoreThreshold(Object? raw) {
+    if (raw == null) return null;
+    var isPercent = false;
+    num? value;
+    if (raw is num) {
+      value = raw;
+    } else if (raw is String) {
+      var text = raw.trim();
+      if (text.isEmpty) return null;
+      if (text.endsWith('%')) {
+        isPercent = true;
+        text = text.substring(0, text.length - 1).trim();
+      }
+      value = num.tryParse(text);
+    }
+    if (value == null || !value.isFinite || value <= 0) return null;
+    if (!isPercent && value <= 1) return (value * 100).round().clamp(1, 100);
+    return value.round().clamp(1, 100);
   }
 
   String _agentMemorySortMode(Map<String, dynamic> args) {
