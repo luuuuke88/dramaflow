@@ -1616,6 +1616,61 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Array.reverse 原地反转语义', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_reverse_mutation_runtime',
+      name: '原地反转脚本运行时',
+      description: '验证自定义技能兼容模型常写的 refs.reverse(); refs.map(...) 语义。',
+      script: r'''
+const refs = args.refs.map(ref => ref.name.trim());
+const returned = refs.reverse();
+returned.push('补充镜头');
+return JSON.stringify({
+  sameObject: returned === refs,
+  refs: refs.join('>'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'refs': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_reverse_mutation_runtime', const {
+        'refs': [
+          {'name': ' 李澈正脸 '},
+          {'name': '寒山宗门'},
+          {'name': ' 沈微侧脸 '},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用原地反转脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_reverse_mutation_runtime');
+    expect(jsonDecode(msg.content), {
+      'sameObject': true,
+      'refs': '沈微侧脸>寒山宗门>李澈正脸>补充镜头',
+    });
+  });
+
   test('自定义脚本技能：支持 Set 去重和 has/add/delete', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_set_runtime',

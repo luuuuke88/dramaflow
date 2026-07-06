@@ -1899,6 +1899,11 @@ class _CustomAgentSkillRuntime {
         if (args.isNotEmpty || value is! Iterable || value is String) {
           _badMethodArgs(method);
         }
+        if (value is List) {
+          final reversed = value.reversed.toList();
+          value.setAll(0, reversed);
+          return value;
+        }
         return value.toList().reversed.toList();
       case 'slice':
         if (args.length > 2) _badMethodArgs(method);
