@@ -462,7 +462,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色/minSimilarity/createdAfter/orderBy 等过滤提示。',
+        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色/minSimilarity/createdAfter/orderBy/limit 等过滤提示。',
   },
   'retrievalPlan': {
     'type': 'array',
@@ -10560,18 +10560,7 @@ extension AgentApi on Engine {
           final minScore = _agentMemoryMinScore(args);
           final timeRange = _agentMemoryTimeRange(args);
           final sortMode = _agentMemorySortMode(args);
-          final rawLimit = args['limit'] ??
-              args['topK'] ??
-              args['top_k'] ??
-              args['maxResults'] ??
-              args['max_results'] ??
-              args['max'] ??
-              args['count'] ??
-              args['数量'] ??
-              args['条数'] ??
-              args['返回数量'] ??
-              args['k'];
-          final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
+          final limit = _agentMemoryLimit(args);
           final includeMessages =
               types == null || types.contains(agentMemoryTypeMessage);
           final includeSummaries =
@@ -10766,18 +10755,7 @@ extension AgentApi on Engine {
           final minScore = _agentMemoryMinScore(args);
           final timeRange = _agentMemoryTimeRange(args);
           final sortMode = _agentMemorySortMode(args);
-          final rawLimit = args['limit'] ??
-              args['topK'] ??
-              args['top_k'] ??
-              args['maxResults'] ??
-              args['max_results'] ??
-              args['max'] ??
-              args['count'] ??
-              args['数量'] ??
-              args['条数'] ??
-              args['返回数量'] ??
-              args['k'];
-          final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
+          final limit = _agentMemoryLimit(args);
           final memoryService = _agentMemoryService(family: agentFamily);
           final records = <AgentMemoryEntry>[];
           for (final query in queries) {
@@ -12565,6 +12543,47 @@ extension AgentApi on Engine {
     if (!isPercent && value <= 1) return (value * 100).round().clamp(1, 100);
     return value.round().clamp(1, 100);
   }
+
+  int? _agentMemoryLimit(Map<String, dynamic> args) {
+    final explicitRaw = args['limit'] ??
+        args['topK'] ??
+        args['top_k'] ??
+        args['maxResults'] ??
+        args['max_results'] ??
+        args['max'] ??
+        args['count'] ??
+        args['数量'] ??
+        args['条数'] ??
+        args['返回数量'] ??
+        args['k'];
+    final explicitLimit = _coerceInt(explicitRaw);
+    if (explicitLimit != null) return explicitLimit.clamp(1, 50).toInt();
+    if (explicitRaw != null && explicitRaw.toString().trim().isNotEmpty) {
+      return null;
+    }
+    for (final value in _agentMemoryQueryPlanLimitValues(args)) {
+      final planLimit = _coerceInt(value);
+      if (planLimit != null) return planLimit.clamp(1, 50).toInt();
+    }
+    return null;
+  }
+
+  List<Object?> _agentMemoryQueryPlanLimitValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'limit',
+        'topK',
+        'top_k',
+        'maxResults',
+        'max_results',
+        'max',
+        'count',
+        '数量',
+        '条数',
+        '返回数量',
+        'k',
+      ]);
 
   String _agentMemorySortMode(Map<String, dynamic> args) {
     final explicitRaw = args['orderBy'] ??

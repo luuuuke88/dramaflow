@@ -11943,6 +11943,133 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     ]);
   });
 
+  test('Agent 记忆：结构化查询计划可携带返回数量限制', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_limit_memory_get_old',
+      content: '旧记忆：青碑限量甲子第一次记录，保留宗门门规。',
+      offset: 1,
+      role: 'assistant:limit:get',
+    );
+    insertMessage(
+      id: 'query_plan_limit_memory_get_new',
+      content: '新记忆：青碑限量甲子第二次记录，增加宗门门规。',
+      offset: 2,
+      role: 'assistant:limit:get',
+    );
+    insertMessage(
+      id: 'query_plan_limit_deep_old',
+      content: '旧记忆：赤桥限量乙卯第一次记录，保留低机位。',
+      offset: 3,
+      role: 'assistant:limit:deep',
+    );
+    insertMessage(
+      id: 'query_plan_limit_deep_new',
+      content: '新记忆：赤桥限量乙卯第二次记录，增加俯拍。',
+      offset: 4,
+      role: 'assistant:limit:deep',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '青碑限量甲子',
+            'limit': 1,
+            'orderBy': 'oldest',
+            'memoryRoles': ['assistant:limit:get'],
+          },
+        ],
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '赤桥限量乙卯',
+            '数量': 1,
+            '排序': '最旧',
+            '记忆角色': ['assistant:limit:deep'],
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按计划项里的返回数量限制查制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_limit_memory_get_old'],
+    );
+    expect(memoryGetPayload['memories'], [
+      '旧记忆：青碑限量甲子第一次记录，保留宗门门规。',
+    ]);
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_limit_deep_old'],
+    );
+    expect(deepRetrievePayload['memories'], [
+      '旧记忆：赤桥限量乙卯第一次记录，保留低机位。',
+    ]);
+  });
+
   test('Agent 记忆工具可显式召回视觉参考长期记忆', () async {
     final visualId = engine.saveAgentMemory(
       projectId,
