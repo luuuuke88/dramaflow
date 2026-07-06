@@ -4123,6 +4123,61 @@ return `资产顺序：${ordered}`;
     expect(msg.content, '资产顺序：1.A-李澈、2.B-沈微、3.C-寒山宗门');
   });
 
+  test('自定义脚本技能：支持 Array.sort 原地排序语义', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_sort_mutation_runtime',
+      name: '原地排序脚本运行时',
+      description: '验证自定义技能兼容模型常写的 assets.sort(...); assets.map(...) 语义。',
+      script: r'''
+const assets = args.assets;
+const returned = assets.sort((a, b) => a.priority - b.priority);
+return JSON.stringify({
+  assets: assets.map(asset => asset.name.trim()).join('>'),
+  returned: returned.map(asset => asset.name.trim()).join('>'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+                'priority': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_sort_mutation_runtime', const {
+        'assets': [
+          {'name': ' 李澈 ', 'priority': 30},
+          {'name': '寒山宗门', 'priority': 10},
+          {'name': '沈微', 'priority': 20},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用原地排序脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_sort_mutation_runtime');
+    expect(jsonDecode(msg.content), {
+      'assets': '寒山宗门>沈微>李澈',
+      'returned': '寒山宗门>沈微>李澈',
+    });
+  });
+
   test('自定义脚本技能：支持 find some every 检查资产完整度', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_find_some_every_runtime',
