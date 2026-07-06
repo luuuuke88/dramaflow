@@ -1620,6 +1620,10 @@ List<ScriptAgentScriptItem> parseScriptAgentScriptItems(String source) {
     ));
   }
 
+  if (items.isEmpty) {
+    items.addAll(_scriptItemsFromJson(source));
+  }
+
   return items;
 }
 
@@ -1666,7 +1670,215 @@ List<ProductionStoryboardItem> parseProductionStoryboardItems(String source) {
     if (item != null) items.add(item);
   }
 
+  if (items.isEmpty) {
+    items.addAll(_storyboardItemsFromJson(source));
+  }
+
   return items;
+}
+
+List<ScriptAgentScriptItem> _scriptItemsFromJson(String source) {
+  final decoded = _decodeStructuredJson(source);
+  if (decoded == null) return const [];
+  final rows = decoded is List ? decoded : [decoded];
+  final items = <ScriptAgentScriptItem>[];
+  for (final row in rows) {
+    if (row is! Map) continue;
+    final item = _scriptItemFromJsonMap(row);
+    if (item != null) items.add(item);
+  }
+  return items;
+}
+
+ScriptAgentScriptItem? _scriptItemFromJsonMap(Map row) {
+  final name = _jsonValueAny(row, const [
+    'name',
+    'scriptName',
+    'episodeName',
+    'title',
+    'script_name',
+    'episode_name',
+  ]).trim();
+  if (name.isEmpty) return null;
+  final content = _jsonValueAny(row, const [
+    'content',
+    'scriptContent',
+    'episodeContent',
+    'body',
+    'script_content',
+    'episode_content',
+  ]).trim();
+  if (content.isEmpty) return null;
+  return ScriptAgentScriptItem(name: name, content: content);
+}
+
+List<ProductionStoryboardItem> _storyboardItemsFromJson(String source) {
+  final decoded = _decodeStructuredJson(source);
+  if (decoded == null) return const [];
+  final rows = decoded is List ? decoded : [decoded];
+  final items = <ProductionStoryboardItem>[];
+  for (final row in rows) {
+    if (row is! Map) continue;
+    final item = _storyboardItemFromJsonMap(row);
+    if (item != null) items.add(item);
+  }
+  return items;
+}
+
+ProductionStoryboardItem? _storyboardItemFromJsonMap(Map row) {
+  final videoDesc = _jsonValueAny(row, const [
+    'videoDesc',
+    'videoDescription',
+    'description',
+    'shotDesc',
+    'video_desc',
+    'video_description',
+    'shot_desc',
+  ]).trim();
+  if (videoDesc.isEmpty) return null;
+  final prompt = _jsonValueAny(row, const [
+    'prompt',
+    'imagePrompt',
+    'image_prompt',
+  ]).trim();
+  final track = _jsonValueAny(row, const ['track']).trim();
+  final duration = _jsonValueAny(row, const [
+    'duration',
+    'durationSec',
+    'duration_sec',
+  ]).trim();
+  final shouldGenerateImage = _truthyValue(
+    _jsonRawValueAny(row, const [
+      'shouldGenerateImage',
+      'generateImage',
+      'should_generate_image',
+      'generate_image',
+    ]),
+    defaultValue: true,
+  );
+  return ProductionStoryboardItem(
+    videoDesc: videoDesc,
+    prompt: prompt,
+    track: track,
+    duration: duration,
+    associateAssetIds: _storyboardAssetIdsFromJson(row),
+    associateAssetRefs: _storyboardAssetRefsFromJson(row),
+    shouldGenerateImage: shouldGenerateImage,
+  );
+}
+
+Object? _decodeStructuredJson(String source) {
+  final candidates = <String>[];
+  final text = source.trim();
+  if (text.isNotEmpty) candidates.add(text);
+
+  final fenced = RegExp(
+    r'^```(?:json)?\s*([\s\S]*?)\s*```$',
+    caseSensitive: false,
+  ).firstMatch(text);
+  if (fenced != null) candidates.add(fenced.group(1)?.trim() ?? '');
+
+  final arrayStart = text.indexOf('[');
+  final arrayEnd = text.lastIndexOf(']');
+  if (arrayStart >= 0 && arrayEnd > arrayStart) {
+    candidates.add(text.substring(arrayStart, arrayEnd + 1));
+  }
+  final objectStart = text.indexOf('{');
+  final objectEnd = text.lastIndexOf('}');
+  if (objectStart >= 0 && objectEnd > objectStart) {
+    candidates.add(text.substring(objectStart, objectEnd + 1));
+  }
+
+  for (final candidate in candidates) {
+    if (candidate.trim().isEmpty) continue;
+    try {
+      return jsonDecode(candidate);
+    } catch (_) {
+      // Try the next shape; model outputs often wrap JSON in prose/fences.
+    }
+  }
+  return null;
+}
+
+String _jsonValueAny(Map row, List<String> keys) {
+  final raw = _jsonRawValueAny(row, keys);
+  if (raw == null) return '';
+  if (raw is List) {
+    return raw
+        .map((item) => item?.toString().trim() ?? '')
+        .where((item) => item.isNotEmpty)
+        .join('、');
+  }
+  return raw.toString();
+}
+
+Object? _jsonRawValueAny(Map row, List<String> keys) {
+  for (final key in keys) {
+    if (row.containsKey(key)) return row[key];
+  }
+  return null;
+}
+
+List<int> _storyboardAssetIdsFromJson(Map row) => _dedupeInts([
+      for (final key in const [
+        'associateAssetsIds',
+        'assetIds',
+        'asset_ids',
+        'associate_asset_ids',
+        'associatedAssetIds',
+        'associated_asset_ids',
+      ])
+        ..._jsonIntList(row[key]),
+    ]);
+
+List<String> _storyboardAssetRefsFromJson(Map row) => _dedupeStrings([
+      for (final key in const [
+        'associateAssetsIds',
+        'assetIds',
+        'asset_ids',
+        'associate_asset_ids',
+        'associatedAssetIds',
+        'associated_asset_ids',
+        'assetName',
+        'assetNames',
+        'roleName',
+        'roleNames',
+        'sceneName',
+        'sceneNames',
+        'toolName',
+        'toolNames',
+        'asset_name',
+        'asset_names',
+      ])
+        ..._jsonStringList(row[key]),
+    ]);
+
+List<int> _jsonIntList(Object? raw) {
+  if (raw == null) return const [];
+  if (raw is List) {
+    return [
+      for (final item in raw)
+        if (_intFromDynamic(item) != null) _intFromDynamic(item)!,
+    ];
+  }
+  return parseIntListText(raw.toString());
+}
+
+List<String> _jsonStringList(Object? raw) {
+  if (raw == null) return const [];
+  if (raw is List) {
+    return [
+      for (final item in raw)
+        if (item.toString().trim().isNotEmpty) item.toString().trim(),
+    ];
+  }
+  return parseStringListText(raw.toString());
+}
+
+bool _truthyValue(Object? value, {required bool defaultValue}) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  return _truthyText(value?.toString() ?? '', defaultValue: defaultValue);
 }
 
 ProductionStoryboardItem? _storyboardItemFromAttrs(
