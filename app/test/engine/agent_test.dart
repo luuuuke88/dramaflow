@@ -8784,6 +8784,81 @@ description: >-
     expect(gateway.lastSystem, contains('李澈是正派角色'));
   });
 
+  test('ScriptAgent 子 Agent deepRetrieve 默认排除已注入的上下文记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'sub_context_seen',
+      '霜刃戒律 霜刃戒律：李澈不能滥杀无辜。',
+      0,
+    );
+    insertMessage(
+      'sub_context_unread',
+      '霜刃戒律：沈微不能提前暴露灵根。',
+      1,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '霜刃戒律'},
+      ),
+      AgentTurnResult.tool(
+        'deepRetrieve',
+        const {'keyword': '霜刃戒律'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山禁忌骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先运行故事骨架 Agent', autoMode: false);
+
+    expect(gateway.systems[1], contains('sub_context_seen'));
+    final toolMsg = engine.agentMessages(projectId).lastWhere(
+        (message) => message.toolName == 'run_sub_agent_storySkeleton');
+    expect(toolMsg.content, contains('故事骨架 Agent 已写入工作区'));
+    final auditRows = db.select(
+      'SELECT content FROM memories '
+      'WHERE isolationKey=? AND role=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'assistant:execution:storySkeleton:tool'],
+    );
+    final deepRetrieveAudit = auditRows.singleWhere(
+      (row) => (row['content'] as String).contains('deepRetrieve'),
+    );
+    final payloadText = deepRetrieveAudit['content'] as String;
+    expect(payloadText, contains('沈微不能提前暴露灵根'));
+    expect(payloadText, isNot(contains('李澈不能滥杀无辜')));
+  });
+
   test('ScriptAgent 子 Agent 输出按 ToonFlow memoryKey 写入记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
@@ -9272,6 +9347,86 @@ description: >-
     expect(gateway.lastSystem, contains('相关历史记忆'));
     expect(gateway.lastSystem, contains('冷白山门'));
     expect(gateway.lastSystem, isNot(contains('剧本私有记忆')));
+  });
+
+  test('ProductionAgent 子 Agent deepRetrieve 默认排除已注入的上下文记忆', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'productionAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'production_context_seen',
+      '镜湖调度 镜湖调度：开场不能使用俯拍大远景。',
+      0,
+    );
+    insertMessage(
+      'production_context_unread',
+      '镜湖调度：第二镜必须保持贴地跟拍。',
+      1,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '镜湖调度', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool(
+        'deepRetrieve',
+        const {'keyword': '镜湖调度'},
+      ),
+      const AgentTurnResult.text('<scriptPlan>镜湖调度计划</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作画布：运行导演计划 Agent',
+        autoMode: false);
+
+    expect(gateway.systems[1], contains('production_context_seen'));
+    final toolMsg = engine
+        .agentMessages(projectId, family: agentFamilyProduction)
+        .lastWhere(
+            (message) => message.toolName == 'run_sub_agent_director_plan');
+    expect(toolMsg.content, contains('导演计划 Agent 已写入工作区'));
+    final auditRows = db.select(
+      'SELECT content FROM memories '
+      'WHERE isolationKey=? AND role=? ORDER BY createTime ASC, id ASC',
+      ['productionAgent:$projectId', 'assistant:execution:directorPlan:tool'],
+    );
+    final deepRetrieveAudit = auditRows.singleWhere(
+      (row) => (row['content'] as String).contains('deepRetrieve'),
+    );
+    final payloadText = deepRetrieveAudit['content'] as String;
+    expect(payloadText, contains('贴地跟拍'));
+    expect(payloadText, isNot(contains('俯拍大远景')));
   });
 
   test('ProductionAgent 子 Agent 暴露项目画风和导演手册技能', () async {

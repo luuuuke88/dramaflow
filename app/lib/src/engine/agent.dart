@@ -5995,6 +5995,15 @@ extension AgentApi on Engine {
     return '<$tag ${attrs.join(' ')}>${_escapeXmlText(memory.content)}</$tag>';
   }
 
+  Set<String> _agentMemoryContextIds(AgentMemoryContext context) => {
+        for (final memory in context.relatedMessages)
+          if (memory.id.trim().isNotEmpty) memory.id,
+        for (final summary in context.summaries)
+          if (summary.id.trim().isNotEmpty) summary.id,
+        for (final memory in context.recentMessages)
+          if (memory.id.trim().isNotEmpty) memory.id,
+      };
+
   String _formatAvailableAgentSkills(List<AgentSkill> skills) {
     final buffer = StringBuffer()
       ..writeln('## Skills')
@@ -7360,15 +7369,16 @@ extension AgentApi on Engine {
         activatedSkills,
         _activatedAgentSkillContextsFromHistory(history),
       );
+      final memoryContext = await memoryService.get(
+        isolationKey: _agentConversationIsolationKey(
+          projectId,
+          family: _scriptAgentFamily,
+        ),
+        query: prompt,
+      );
       final system = _agentSystemPrompt(
         searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
-        context: await memoryService.get(
-          isolationKey: _agentConversationIsolationKey(
-            projectId,
-            family: _scriptAgentFamily,
-          ),
-          query: prompt,
-        ),
+        context: memoryContext,
         base: _scriptAgentSubAgentSystem(stage),
         activatedSkills: activeSkillContexts,
         availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
@@ -7402,6 +7412,7 @@ extension AgentApi on Engine {
         agentFamily: _scriptAgentFamily,
         stage: stage,
         activatedSkills: activeSkillContexts,
+        excludedMemoryIds: _agentMemoryContextIds(memoryContext),
       );
       await _recordAgentToolAuditMemory(
         projectId,
@@ -7841,15 +7852,16 @@ extension AgentApi on Engine {
         activatedSkills,
         _activatedAgentSkillContextsFromHistory(history),
       );
+      final memoryContext = await memoryService.get(
+        isolationKey: _agentConversationIsolationKey(
+          projectId,
+          family: _productionAgentFamily,
+        ),
+        query: prompt,
+      );
       final system = _agentSystemPrompt(
         searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
-        context: await memoryService.get(
-          isolationKey: _agentConversationIsolationKey(
-            projectId,
-            family: _productionAgentFamily,
-          ),
-          query: prompt,
-        ),
+        context: memoryContext,
         base: _productionAgentSubAgentSystem(stage),
         activatedSkills: activeSkillContexts,
         availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
@@ -7885,6 +7897,7 @@ extension AgentApi on Engine {
         agentFamily: _productionAgentFamily,
         stage: stage,
         activatedSkills: activeSkillContexts,
+        excludedMemoryIds: _agentMemoryContextIds(memoryContext),
       );
       await _recordAgentToolAuditMemory(
         projectId,

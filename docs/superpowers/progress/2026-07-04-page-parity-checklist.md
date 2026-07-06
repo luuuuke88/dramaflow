@@ -122,6 +122,8 @@ Recent Agent/RAG Evidence: `app/test/engine/agent_test.dart` covers `deepRetriev
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` accepting explicit `excludeIds` / `excludeMemoryIds` tool arguments and merging them with internal current-turn exclusions, so multi-turn Agents can avoid re-reading memory ids they already consumed.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers script and production sub Agents automatically excluding memory ids already injected into their current RAG system context when they call `deepRetrieve`, so execution-layer Agents expand to unread context instead of echoing the same memory.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` migrating legacy token summary embeddings through the injected `AgentMemoryEmbeddingProvider`, so semantic summary recall still works after swapping embedding strategies.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
