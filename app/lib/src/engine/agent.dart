@@ -1777,7 +1777,8 @@ final _tools = <AgentToolDef>[
   AgentToolDef(
     name: 'analyze_reference_image',
     description: '用多模态文本模型分析本地参考图，提炼画风、角色外观、场景构图或可复用生图关键词。'
-        '可传 imagePath/imageRelPath，或用 assetName/assetId/imageId/storyboardId 定位项目内图片。',
+        '可传 imagePath/imageRelPath，或用 assetName/assetId/imageId/storyboardId 定位项目内图片；'
+        '复数字段可一次分析多张参考图。',
     schema: const {
       'type': 'object',
       'properties': {
@@ -1793,29 +1794,64 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': '本地图片绝对路径。',
         },
+        'imagePaths': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '本地图片绝对路径列表，用于一次分析多张参考图。',
+        },
         'imageRelPath': {
           'type': 'string',
           'description': '媒体库相对路径。',
+        },
+        'imageRelPaths': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '媒体库相对路径列表，用于一次分析多张参考图。',
         },
         'filePath': {
           'type': 'string',
           'description': 'imagePath/imageRelPath 的常见别名。',
         },
+        'filePaths': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'imagePaths/imageRelPaths 的常见列表别名。',
+        },
         'assetId': {
           'type': 'integer',
           'description': '项目资产 id，使用该资产当前选中的参考图。',
+        },
+        'assetIds': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': '项目资产 id 列表，用于一次分析多张资产参考图。',
         },
         'assetName': {
           'type': 'string',
           'description': '按项目资产名称精确匹配，使用该资产当前选中的参考图。',
         },
+        'assetNames': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '项目资产名称列表，用于一次分析多张资产参考图。',
+        },
         'imageId': {
           'type': 'integer',
           'description': 'o_image 图片 id。',
         },
+        'imageIds': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'o_image 图片 id 列表。',
+        },
         'storyboardId': {
           'type': 'integer',
           'description': '分镜 id，使用分镜首帧图。',
+        },
+        'storyboardIds': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': '分镜 id 列表，逐个使用分镜首帧图。',
         },
       },
     },
@@ -10347,9 +10383,9 @@ extension AgentApi on Engine {
       return '当前网关不支持图片理解。';
     }
     final vision = baseGateway as ImageUnderstandingGateway;
-    final resolved = _agentReferenceImageArg(projectId, args);
-    if (resolved == null) {
-      return '缺少可分析的参考图。请传入 imagePath、imageRelPath、assetName、assetId、imageId 或 storyboardId。';
+    final resolvedImages = _agentReferenceImageArgs(projectId, args);
+    if (resolvedImages.isEmpty) {
+      return '缺少可分析的参考图。请传入 imagePath、imageRelPath、assetName、assetId、imageId、storyboardId 或对应复数字段。';
     }
     final prompt = _stringArgAny(args, const [
       'prompt',
@@ -10358,15 +10394,118 @@ extension AgentApi on Engine {
       '问题',
       '提示词',
     ]);
-    final result = await vision.analyzeImage(
-      prompt.isEmpty ? '请提炼这张参考图的画风、主体特征、构图、色彩和可复用生图关键词。' : prompt,
-      resolved.path,
-      stage: 'agent_vision',
-    );
+    final promptText =
+        prompt.isEmpty ? '请提炼这张参考图的画风、主体特征、构图、色彩和可复用生图关键词。' : prompt;
+    final analyses = <Map<String, String>>[];
+    for (final image in resolvedImages) {
+      final result = await vision.analyzeImage(
+        promptText,
+        image.path,
+        stage: 'agent_vision',
+      );
+      analyses.add({
+        'source': image.source,
+        'analysis': result.content,
+      });
+    }
+    if (analyses.length == 1) {
+      return jsonEncode({
+        'analysis': analyses.single['analysis'],
+        'source': analyses.single['source'],
+      });
+    }
     return jsonEncode({
-      'analysis': result.content,
-      'source': resolved.source,
+      'analysis': analyses
+          .map((item) => '${item['source']}: ${item['analysis']}')
+          .join('\n\n'),
+      'sources': [
+        for (final item in analyses) item['source'],
+      ],
+      'analyses': analyses,
     });
+  }
+
+  List<({String path, String source})> _agentReferenceImageArgs(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final resolved = <({String path, String source})>[];
+    final seen = <String>{};
+
+    void add(({String path, String source})? image) {
+      if (image == null) return;
+      final key = '${image.source}\n${image.path}';
+      if (seen.add(key)) resolved.add(image);
+    }
+
+    for (final path in _stringListAny(args, const [
+          'imagePaths',
+          'image_paths',
+          'paths',
+          'filePaths',
+          'file_paths',
+          '图片路径列表',
+          '文件路径列表',
+        ]) ??
+        const <String>[]) {
+      add(_agentReferenceImageArg(projectId, {'imagePath': path}));
+    }
+    for (final relPath in _stringListAny(args, const [
+          'imageRelPaths',
+          'image_rel_paths',
+          'relPaths',
+          'rel_paths',
+          'mediaPaths',
+          'media_paths',
+          '媒体路径列表',
+        ]) ??
+        const <String>[]) {
+      add(_agentReferenceImageArg(projectId, {'imageRelPath': relPath}));
+    }
+    for (final imageId in _intListAny(args, const [
+          'imageIds',
+          'image_ids',
+          '图片Ids',
+          '图片IDs',
+        ]) ??
+        const <int>[]) {
+      add(_agentReferenceImageArg(projectId, {'imageId': imageId}));
+    }
+    for (final assetId in _intListAny(args, const [
+          'assetIds',
+          'asset_ids',
+          'assetsIds',
+          'assets_ids',
+          '素材Ids',
+          '素材IDs',
+        ]) ??
+        const <int>[]) {
+      add(_agentReferenceImageArg(projectId, {'assetId': assetId}));
+    }
+    for (final assetName in _stringListAny(args, const [
+          'assetNames',
+          'asset_names',
+          'names',
+          '素材名称列表',
+          '角色名列表',
+          '资产名称列表',
+        ]) ??
+        const <String>[]) {
+      add(_agentReferenceImageArg(projectId, {'assetName': assetName}));
+    }
+    for (final storyboardId in _intListAny(args, const [
+          'storyboardIds',
+          'storyboard_ids',
+          'shotIds',
+          'shot_ids',
+          '分镜Ids',
+          '分镜IDs',
+        ]) ??
+        const <int>[]) {
+      add(_agentReferenceImageArg(projectId, {'storyboardId': storyboardId}));
+    }
+    add(_agentReferenceImageArg(projectId, args));
+    return resolved;
   }
 
   ({String path, String source})? _agentReferenceImageArg(

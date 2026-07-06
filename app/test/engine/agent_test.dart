@@ -935,6 +935,78 @@ void main() {
     });
   });
 
+  test('Agent 可一次分析多张参考图并返回分图视觉描述', () async {
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    final sceneId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '寒山山门',
+      describe: '宗门入口',
+    );
+    engine.saveAssetImage(
+      assetsId: roleId,
+      projectId: projectId,
+      base64Image: base64Encode([137, 80, 78, 71, 1]),
+      type: 'role',
+    );
+    engine.saveAssetImage(
+      assetsId: sceneId,
+      projectId: projectId,
+      base64Image: base64Encode([137, 80, 78, 71, 2]),
+      type: 'scene',
+    );
+    gateway.imageAnalysisResults = const [
+      '角色参考：少年剑修，冷白衣袍，轮廓清晰。',
+      '场景参考：山门高耸，云雾压低，冷白低饱和。',
+    ];
+    gateway.turns = [
+      const AgentTurnResult.tool('analyze_reference_image', {
+        'assetNames': ['李澈', '寒山山门'],
+        'prompt': '分别提炼角色和场景的一致性关键词',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '同时分析角色和场景参考图',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final visionTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'analyze_reference_image');
+    final properties = visionTool.schema['properties'] as Map;
+    expect(properties, contains('assetNames'));
+    expect(properties, contains('imagePaths'));
+    expect(gateway.imageAnalysisPrompts, [
+      '分别提炼角色和场景的一致性关键词',
+      '分别提炼角色和场景的一致性关键词',
+    ]);
+    expect(gateway.imageAnalysisPaths, hasLength(2));
+    final msg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(msg.toolName, 'analyze_reference_image');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['sources'], ['asset:李澈', 'asset:寒山山门']);
+    expect(payload['analysis'], contains('角色参考：少年剑修'));
+    expect(payload['analysis'], contains('场景参考：山门高耸'));
+    expect(payload['analyses'], [
+      {
+        'source': 'asset:李澈',
+        'analysis': '角色参考：少年剑修，冷白衣袍，轮廓清晰。',
+      },
+      {
+        'source': 'asset:寒山山门',
+        'analysis': '场景参考：山门高耸，云雾压低，冷白低饱和。',
+      },
+    ]);
+  });
+
   test('Agent 顶层配音工具接受 ToonFlow 自然角色号别名', () async {
     engine.addAsset(
       projectId: projectId,
@@ -17857,6 +17929,7 @@ class _Gateway implements ProviderGateway, ImageUnderstandingGateway {
   List<String> imageAnalysisPrompts = const [];
   List<String> imageAnalysisPaths = const [];
   String imageAnalysisResult = '';
+  List<String> imageAnalysisResults = const [];
   List<double> Function(String input)? embeddingForText;
   int callCount = 0;
   int textCallCount = 0;
@@ -17927,6 +18000,10 @@ class _Gateway implements ProviderGateway, ImageUnderstandingGateway {
   }) async {
     imageAnalysisPrompts = [...imageAnalysisPrompts, prompt];
     imageAnalysisPaths = [...imageAnalysisPaths, imageAbsPath];
+    final index = imageAnalysisPaths.length - 1;
+    if (index < imageAnalysisResults.length) {
+      return TextResult(imageAnalysisResults[index]);
+    }
     return TextResult(imageAnalysisResult);
   }
 

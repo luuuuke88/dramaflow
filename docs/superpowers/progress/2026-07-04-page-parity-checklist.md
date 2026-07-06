@@ -284,6 +284,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the superv
 
 Recent Agent/RAG Update: `app/test/engine/providers_test.dart`, `app/test/engine/agent_test.dart`, and `app/test/widgets/settings_screen_test.dart` now cover an `agent_vision` multimodal text binding plus the `analyze_reference_image` Agent tool, so ProductionAgent can resolve project asset/reference images by natural asset name and ask an OpenAI-compatible vision model to extract style, character, scene, and prompt keywords.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `analyze_reference_image` accepting multiple reference selectors such as `assetNames` and `imagePaths`, running the vision model per image and returning both combined analysis text and per-source `analyses`, so production Agents can compare character, scene, and style references in one tool call.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` accepting multi-query aliases such as `queries`, `queryList`, and `keywords`, merging per-query recall results while excluding already-returned memory ids and preserving traceable `records`, so decision and sub Agents can retrieve multiple semantic threads in one RAG tool call.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` accepting multi-query aliases such as `queries`, `queryList`, and `keywords`, merging ordinary Memory.get contexts while excluding already-returned memory ids and preserving traceable `records`, so decision and sub Agents can fetch role, scene, and style context in one lightweight RAG call before escalating to deepRetrieve.
