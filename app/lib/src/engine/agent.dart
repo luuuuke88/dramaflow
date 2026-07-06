@@ -1568,6 +1568,11 @@ class _CustomAgentSkillRuntime {
       case 'toString':
         _expectNoArgs(method, args);
         return '${value ?? ''}';
+      case 'localeCompare':
+        if (args.isEmpty || args.length > 3) _badMethodArgs(method);
+        return '${value ?? ''}'.compareTo(
+          _stringifyInterpolation(_evaluate(args.first)),
+        );
       case 'split':
         if (args.length > 1) _badMethodArgs(method);
         final text = '${value ?? ''}';

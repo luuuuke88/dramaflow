@@ -4070,6 +4070,59 @@ return `重点角色：${topRoles}`;
     expect(msg.content, '重点角色：1.沈微:50、2.李澈:30');
   });
 
+  test('自定义脚本技能：支持 localeCompare 按名称排序资产', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_locale_compare_runtime',
+      name: '名称排序脚本运行时',
+      description: '验证自定义技能兼容模型常写的 name.localeCompare(...) 排序。',
+      script: r'''
+const ordered = args.assets
+  .filter(asset => asset.enabled !== false)
+  .sort((a, b) => a.name.trim().localeCompare(b.name.trim()))
+  .map((asset, index) => `${index + 1}.${asset.name.trim()}`)
+  .join('、');
+return `资产顺序：${ordered}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+                'enabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_locale_compare_runtime', const {
+        'assets': [
+          {'name': ' C-寒山宗门 '},
+          {'name': 'A-李澈'},
+          {'name': 'D-废稿', 'enabled': false},
+          {'name': ' B-沈微 '},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用名称排序脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_locale_compare_runtime');
+    expect(msg.content, '资产顺序：1.A-李澈、2.B-沈微、3.C-寒山宗门');
+  });
+
   test('自定义脚本技能：支持 find some every 检查资产完整度', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_find_some_every_runtime',
