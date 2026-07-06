@@ -420,6 +420,41 @@ const _agentMemoryTimeRangeToolSchema = {
     'description': 'recentDays 的中文别名。',
   },
 };
+const _agentMemorySortToolSchema = {
+  'orderBy': {
+    'type': 'string',
+    'enum': [
+      'relevance',
+      'score',
+      'latest',
+      'newest',
+      'oldest',
+      'chronological',
+      'createTime',
+    ],
+    'description': '可选。控制返回记忆排序：相关性、最新优先或时间正序。',
+  },
+  'sortBy': {
+    'type': 'string',
+    'description': 'orderBy 的自然语言别名。',
+  },
+  'sortOrder': {
+    'type': 'string',
+    'description': 'orderBy 的排序方向别名，可用 latest/newest/oldest。',
+  },
+  'order': {
+    'type': 'string',
+    'description': 'orderBy 的简写别名。',
+  },
+  '排序': {
+    'type': 'string',
+    'description': 'orderBy 的中文别名，可用相关性、最新、最旧、时间顺序。',
+  },
+  '排序方式': {
+    'type': 'string',
+    'description': 'sortBy 的中文别名。',
+  },
+};
 
 final _tools = <AgentToolDef>[
   const AgentToolDef(
@@ -812,6 +847,7 @@ final _tools = <AgentToolDef>[
           'description': 'scoreThreshold 的中文别名。',
         },
         ..._agentMemoryTimeRangeToolSchema,
+        ..._agentMemorySortToolSchema,
         'role': {
           'type': 'string',
           'description':
@@ -1307,6 +1343,7 @@ final _tools = <AgentToolDef>[
           'description': 'scoreThreshold 的中文别名。',
         },
         ..._agentMemoryTimeRangeToolSchema,
+        ..._agentMemorySortToolSchema,
         'maxResults': {
           'type': 'integer',
           'minimum': 1,
@@ -10389,6 +10426,7 @@ extension AgentApi on Engine {
                 args['threshold'],
           );
           final timeRange = _agentMemoryTimeRange(args);
+          final sortMode = _agentMemorySortMode(args);
           final rawLimit = args['limit'] ??
               args['topK'] ??
               args['top_k'] ??
@@ -10479,20 +10517,31 @@ extension AgentApi on Engine {
               limit: limit ?? 2,
             ));
           }
-          final dedupedRelatedMessages =
-              _dedupeAgentMemoryEntries(relatedMessageRecords);
+          final dedupedRelatedMessages = _sortAgentMemoryEntries(
+            _dedupeAgentMemoryEntries(relatedMessageRecords),
+            sortMode,
+          );
           final relatedMessages = includeMessages
               ? (limit == null
                   ? dedupedRelatedMessages
                   : dedupedRelatedMessages.take(limit).toList())
               : const <AgentMemoryEntry>[];
           final summaries = includeSummaries
-              ? _dedupeAgentMemoryEntries(summaryRecords)
+              ? _sortAgentMemoryEntries(
+                  _dedupeAgentMemoryEntries(summaryRecords),
+                  sortMode,
+                )
               : const <AgentMemoryEntry>[];
           final recentMessages = includeMessages
-              ? _dedupeAgentMemoryEntries(recentMessageRecords)
+              ? _sortAgentMemoryEntries(
+                  _dedupeAgentMemoryEntries(recentMessageRecords),
+                  sortMode,
+                )
               : const <AgentMemoryEntry>[];
-          final dedupedNotes = _dedupeAgentMemoryEntries(noteRecords);
+          final dedupedNotes = _sortAgentMemoryEntries(
+            _dedupeAgentMemoryEntries(noteRecords),
+            sortMode,
+          );
           final notes =
               limit == null ? dedupedNotes : dedupedNotes.take(limit).toList();
           if (relatedMessages.isEmpty &&
@@ -10619,6 +10668,7 @@ extension AgentApi on Engine {
                 args['threshold'],
           );
           final timeRange = _agentMemoryTimeRange(args);
+          final sortMode = _agentMemorySortMode(args);
           final rawLimit = args['limit'] ??
               args['topK'] ??
               args['top_k'] ??
@@ -10664,7 +10714,10 @@ extension AgentApi on Engine {
               limit: limit ?? 2,
             ));
           }
-          final mergedRecords = _dedupeAgentMemoryEntries(records);
+          final mergedRecords = _sortAgentMemoryEntries(
+            _dedupeAgentMemoryEntries(records),
+            sortMode,
+          );
           final limitedRecords = limit == null
               ? mergedRecords
               : mergedRecords.take(limit).toList();
@@ -11946,6 +11999,79 @@ extension AgentApi on Engine {
     if (a == null) return b;
     if (b == null) return a;
     return math.max(a, b);
+  }
+
+  String _agentMemorySortMode(Map<String, dynamic> args) {
+    final raw = (args['orderBy'] ??
+            args['sortBy'] ??
+            args['sortOrder'] ??
+            args['order'] ??
+            args['排序'] ??
+            args['排序方式'] ??
+            '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    switch (raw) {
+      case 'oldest':
+      case 'oldest_first':
+      case 'oldest-first':
+      case 'asc':
+      case 'ascending':
+      case 'chronological':
+      case 'create_time_asc':
+      case 'createtime_asc':
+      case 'time_asc':
+      case '最旧':
+      case '最早':
+      case '时间顺序':
+      case '正序':
+        return 'oldest';
+      case 'latest':
+      case 'newest':
+      case 'latest_first':
+      case 'latest-first':
+      case 'newest_first':
+      case 'newest-first':
+      case 'desc':
+      case 'descending':
+      case 'recent':
+      case 'create_time_desc':
+      case 'createtime_desc':
+      case 'time_desc':
+      case '最新':
+      case '最近':
+      case '倒序':
+        return 'latest';
+      case 'relevance':
+      case 'relevant':
+      case 'score':
+      case 'rank':
+      case 'ranking':
+      case '相关性':
+      case '分数':
+      case '默认':
+      case '':
+        return 'relevance';
+      default:
+        return 'relevance';
+    }
+  }
+
+  List<AgentMemoryEntry> _sortAgentMemoryEntries(
+    List<AgentMemoryEntry> entries,
+    String sortMode,
+  ) {
+    if (sortMode == 'relevance' || entries.length < 2) return entries;
+    final sorted = entries.toList();
+    sorted.sort((a, b) {
+      final byTime = sortMode == 'oldest'
+          ? a.createdAt.compareTo(b.createdAt)
+          : b.createdAt.compareTo(a.createdAt);
+      if (byTime != 0) return byTime;
+      return a.id.compareTo(b.id);
+    });
+    return sorted;
   }
 
   Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {

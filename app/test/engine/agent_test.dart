@@ -13260,6 +13260,155 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_get 和 deepRetrieve 工具支持自然排序别名', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMemory({
+      required String id,
+      required String isolationKey,
+      required String content,
+      required int createTime,
+      required String type,
+      String name = '',
+      String role = agentRoleUser,
+      int summarized = 0,
+      List<String> relatedMessageIds = const [],
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          name,
+          content,
+          createTime,
+          embeddingJson(content),
+          isolationKey,
+          jsonEncode(relatedMessageIds),
+          role,
+          summarized,
+          type,
+        ],
+      );
+    }
+
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    insertMemory(
+      id: 'sort_new_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: '霜刃戒律：第二次记录，李澈必须在山门前救沈微。',
+      createTime: now + 2,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'sort_old_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: '霜刃戒律：第一次记录，李澈不能滥杀。',
+      createTime: now + 1,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'sort_new_note',
+      isolationKey: 'project:$projectId',
+      content: '霜刃戒律长期记忆：第二条，沈微必须保留镜湖线索。',
+      createTime: now + 2,
+      type: agentMemoryTypeNote,
+      name: '霜刃戒律二',
+    );
+    insertMemory(
+      id: 'sort_old_note',
+      isolationKey: 'project:$projectId',
+      content: '霜刃戒律长期记忆：第一条，李澈不能滥杀。',
+      createTime: now + 1,
+      type: agentMemoryTypeNote,
+      name: '霜刃戒律一',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '霜刃戒律 李澈',
+        'orderBy': 'oldest',
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'query': '霜刃戒律',
+        'scope': 'long_term',
+        '排序': '最旧',
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按时间顺序回顾霜刃戒律',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final memoryGetProperties = memoryGetTool.schema['properties'] as Map;
+    expect(
+      memoryGetProperties.keys,
+      containsAll(['orderBy', 'sortBy', 'sortOrder', '排序']),
+    );
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final deepRetrieveProperties = deepRetrieveTool.schema['properties'] as Map;
+    expect(
+      deepRetrieveProperties.keys,
+      containsAll(['orderBy', 'sortBy', 'sortOrder', '排序']),
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      memoryGetPayload['memories'],
+      [
+        '霜刃戒律：第一次记录，李澈不能滥杀。',
+        '霜刃戒律：第二次记录，李澈必须在山门前救沈微。',
+      ],
+    );
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['sort_old_msg', 'sort_new_msg'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      deepRetrievePayload['memories'],
+      [
+        '霜刃戒律长期记忆：第一条，李澈不能滥杀。',
+        '霜刃戒律长期记忆：第二条，沈微必须保留镜湖线索。',
+      ],
+    );
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['sort_old_note', 'sort_new_note'],
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具返回可追踪 records 元数据', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
