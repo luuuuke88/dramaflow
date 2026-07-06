@@ -2298,6 +2298,60 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Array.of 组合引用列表', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_of_runtime',
+      name: 'Array.of 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Array.of(...) 快速组合列表。',
+      script: r'''
+const references = Array.of(args.hero, args.scene, ...args.extras)
+  .filter(Boolean)
+  .map((item, index) => `${index + 1}.${item.name.trim()}`);
+const empty = Array.of();
+return JSON.stringify({
+  references: references.join('、'),
+  emptyLength: empty.length,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'hero': {'type': 'object'},
+          'scene': {'type': 'object'},
+          'extras': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_of_runtime', const {
+        'hero': {'name': ' 李澈 '},
+        'scene': {'name': '寒山宗门'},
+        'extras': [
+          {'name': ' 霜剑 '},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Array.of 脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_of_runtime');
+    expect(jsonDecode(msg.content), {
+      'references': '1.李澈、2.寒山宗门、3.霜剑',
+      'emptyLength': 0,
+    });
+  });
+
   test('自定义脚本技能：支持 Array 构造 fill 和字符串 padStart', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_array_fill_pad_runtime',

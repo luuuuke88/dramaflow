@@ -4143,6 +4143,7 @@ class _CustomAgentSkillRuntime {
           return _evaluate(args.single) is List;
         }
         if (method == 'from') return _arrayFrom(args);
+        if (method == 'of') return _evaluateCallArguments(args);
         break;
       case 'console':
         if (_customJsConsoleMethods.contains(method)) {
