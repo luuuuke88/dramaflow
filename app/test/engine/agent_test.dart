@@ -5354,6 +5354,64 @@ return labels.join('、');
     expect(msg.content, '1.山门落雪、2.灵剑出鞘');
   });
 
+  test('自定义脚本技能：支持 Promise.all 内的同步 async 箭头回调', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_async_arrow_promise_runtime',
+      name: 'Promise async 箭头脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 await Promise.all(list.map(async (...) => ...)) 纯数据整理。',
+      script: r'''
+const labels = await Promise.all(
+  args.storyboards
+    .filter(shot => !shot.disabled && !!shot.videoDesc?.trim())
+    .map(async (shot, index) => {
+      const desc = await shot.videoDesc.trim();
+      return Promise.resolve(`${index + 1}.${desc}`);
+    })
+);
+
+return labels.join('、');
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_async_arrow_promise_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 宗门晨练 '},
+          {'videoDesc': ''},
+          {'videoDesc': '废弃镜头', 'disabled': true},
+          {'videoDesc': '灵阵亮起'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise async 箭头脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_async_arrow_promise_runtime');
+    expect(msg.content, '1.宗门晨练、2.灵阵亮起');
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',

@@ -6543,6 +6543,9 @@ class _CustomAgentSkillRuntime {
 
   List<String> _parseCallbackParams(String source, String method) {
     var params = source.trim();
+    if (_startsWithWord(params, 0, 'async')) {
+      params = params.substring('async'.length).trim();
+    }
     if (params.startsWith('(') && params.endsWith(')')) {
       params = params.substring(1, params.length - 1);
     }
