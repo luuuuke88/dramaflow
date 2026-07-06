@@ -721,6 +721,46 @@ final _tools = <AgentToolDef>[
           'enum': ['conversation', 'summary', 'long_term', 'all'],
           'description': 'memoryScope 的 snake_case 别名。',
         },
+        'includeVisualReferences': {
+          'type': 'boolean',
+          'description': '可选。为 true 时额外召回项目长期记忆中的视觉参考/画风参考 note。',
+        },
+        'visualReferences': {
+          'type': 'boolean',
+          'description': 'includeVisualReferences 的自然语言别名。',
+        },
+        'include_visual_references': {
+          'type': 'boolean',
+          'description': 'includeVisualReferences 的 snake_case 别名。',
+        },
+        'visual_references': {
+          'type': 'boolean',
+          'description': 'visualReferences 的 snake_case 别名。',
+        },
+        'includeStyleReferences': {
+          'type': 'boolean',
+          'description': 'includeVisualReferences 的画风语义别名。',
+        },
+        'styleReferences': {
+          'type': 'boolean',
+          'description': 'visualReferences 的画风语义别名。',
+        },
+        '包含视觉参考': {
+          'type': 'boolean',
+          'description': 'includeVisualReferences 的中文别名。',
+        },
+        '视觉参考': {
+          'type': 'boolean',
+          'description': 'visualReferences 的中文别名。',
+        },
+        '包含画风参考': {
+          'type': 'boolean',
+          'description': 'includeStyleReferences 的中文别名。',
+        },
+        '画风参考': {
+          'type': 'boolean',
+          'description': 'styleReferences 的中文别名。',
+        },
         'excludeRole': {
           'type': 'string',
           'description': '可选。排除指定 role 的记忆，例如 assistant:decision:tool。',
@@ -1284,6 +1324,46 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'enum': ['conversation', 'summary', 'long_term', 'all'],
           'description': 'memoryScope 的 snake_case 别名。',
+        },
+        'includeVisualReferences': {
+          'type': 'boolean',
+          'description': '可选。为 true 时额外召回项目长期记忆中的视觉参考/画风参考 note。',
+        },
+        'visualReferences': {
+          'type': 'boolean',
+          'description': 'includeVisualReferences 的自然语言别名。',
+        },
+        'include_visual_references': {
+          'type': 'boolean',
+          'description': 'includeVisualReferences 的 snake_case 别名。',
+        },
+        'visual_references': {
+          'type': 'boolean',
+          'description': 'visualReferences 的 snake_case 别名。',
+        },
+        'includeStyleReferences': {
+          'type': 'boolean',
+          'description': 'includeVisualReferences 的画风语义别名。',
+        },
+        'styleReferences': {
+          'type': 'boolean',
+          'description': 'visualReferences 的画风语义别名。',
+        },
+        '包含视觉参考': {
+          'type': 'boolean',
+          'description': 'includeVisualReferences 的中文别名。',
+        },
+        '视觉参考': {
+          'type': 'boolean',
+          'description': 'visualReferences 的中文别名。',
+        },
+        '包含画风参考': {
+          'type': 'boolean',
+          'description': 'includeStyleReferences 的中文别名。',
+        },
+        '画风参考': {
+          'type': 'boolean',
+          'description': 'styleReferences 的中文别名。',
         },
         'excludeIds': {
           'type': 'array',
@@ -8716,6 +8796,31 @@ extension AgentApi on Engine {
     return result;
   }
 
+  List<AgentMemoryEntry> _visualReferenceMemoryEntries(
+    int projectId, {
+    Set<String> excludeIds = const {},
+    int limit = 2,
+  }) =>
+      [
+        for (final record in _productionVisualReferenceMemories(
+          projectId,
+          excludeIds: excludeIds,
+          limit: limit,
+        ))
+          AgentMemoryEntry(
+            id: record.id,
+            name: record.name,
+            content: record.content,
+            createdAt: record.createdAt,
+            embedding: record.embedding,
+            role: _agentMemoryRole,
+            type: agentMemoryTypeNote,
+            relatedMessageIds: record.relatedMessageIds,
+            score: record.score,
+            matchedTokens: record.matchedTokens,
+          ),
+      ];
+
   String _memoryEmbeddingJson(String name, String content) {
     final settings = _readAgentMemorySettings();
     return TokenAgentMemoryEmbeddingProvider(
@@ -9821,7 +9926,11 @@ extension AgentApi on Engine {
           });
         case 'memory_get':
           final queries = _deepRetrieveQueries(args);
-          if (queries.isEmpty) return '缺少 query 参数。';
+          final includeVisualReferences =
+              _shouldIncludeVisualReferenceMemories(args);
+          if (queries.isEmpty && !includeVisualReferences) {
+            return '缺少 query 参数。';
+          }
           final roles = _coerceStringSet(
             args['roles'] ??
                 args['role'] ??
@@ -9978,6 +10087,19 @@ extension AgentApi on Engine {
               ));
             }
           }
+          if (includeVisualReferences) {
+            noteRecords.addAll(_visualReferenceMemoryEntries(
+              projectId,
+              excludeIds: {
+                ...excludeIds,
+                for (final record in relatedMessageRecords) record.id,
+                for (final record in summaryRecords) record.id,
+                for (final record in recentMessageRecords) record.id,
+                for (final record in noteRecords) record.id,
+              },
+              limit: limit ?? 2,
+            ));
+          }
           final dedupedRelatedMessages =
               _dedupeAgentMemoryEntries(relatedMessageRecords);
           final relatedMessages = includeMessages
@@ -10031,7 +10153,11 @@ extension AgentApi on Engine {
           });
         case 'deepRetrieve':
           final queries = _deepRetrieveQueries(args);
-          if (queries.isEmpty) return '缺少 keyword 参数。';
+          final includeVisualReferences =
+              _shouldIncludeVisualReferenceMemories(args);
+          if (queries.isEmpty && !includeVisualReferences) {
+            return '缺少 keyword 参数。';
+          }
           final roles = _coerceStringSet(
             args['roles'] ??
                 args['role'] ??
@@ -10113,6 +10239,18 @@ extension AgentApi on Engine {
                 args['分数阈值'] ??
                 args['threshold'],
           );
+          final rawLimit = args['limit'] ??
+              args['topK'] ??
+              args['top_k'] ??
+              args['maxResults'] ??
+              args['max_results'] ??
+              args['max'] ??
+              args['count'] ??
+              args['数量'] ??
+              args['条数'] ??
+              args['返回数量'] ??
+              args['k'];
+          final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
           final memoryService = _agentMemoryService(family: agentFamily);
           final records = <AgentMemoryEntry>[];
           for (final query in queries) {
@@ -10135,18 +10273,16 @@ extension AgentApi on Engine {
               noteIsolationKey: _agentMemoryIsolationKey(projectId),
             ));
           }
-          final rawLimit = args['limit'] ??
-              args['topK'] ??
-              args['top_k'] ??
-              args['maxResults'] ??
-              args['max_results'] ??
-              args['max'] ??
-              args['count'] ??
-              args['数量'] ??
-              args['条数'] ??
-              args['返回数量'] ??
-              args['k'];
-          final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
+          if (includeVisualReferences) {
+            records.addAll(_visualReferenceMemoryEntries(
+              projectId,
+              excludeIds: {
+                ...excludeIds,
+                for (final record in records) record.id,
+              },
+              limit: limit ?? 2,
+            ));
+          }
           final mergedRecords = _dedupeAgentMemoryEntries(records);
           final limitedRecords = limit == null
               ? mergedRecords
@@ -11320,6 +11456,21 @@ extension AgentApi on Engine {
     ]));
     return values;
   }
+
+  bool _shouldIncludeVisualReferenceMemories(Map<String, dynamic> args) =>
+      (_coerceBool(args['includeVisualReferences'] ??
+              args['visualReferences'] ??
+              args['include_visual_references'] ??
+              args['visual_references'] ??
+              args['includeStyleReferences'] ??
+              args['styleReferences'] ??
+              args['include_style_references'] ??
+              args['style_references'] ??
+              args['包含视觉参考'] ??
+              args['视觉参考'] ??
+              args['包含画风参考'] ??
+              args['画风参考']) ??
+          false);
 
   Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {
     final values = <String>{};

@@ -10841,6 +10841,109 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(recordIds.toSet(), hasLength(recordIds.length));
   });
 
+  test('Agent 记忆工具可显式召回视觉参考长期记忆', () async {
+    final visualId = engine.saveAgentMemory(
+      projectId,
+      name: '项目视觉参考',
+      content: '视觉参考分析：冷白水墨、低饱和云雾留白，人物服饰避免高饱和霓虹。',
+    );
+    engine.saveAgentMemory(
+      projectId,
+      name: '剧情设定',
+      content: '长期设定：第二集必须保留宗门试炼，不直接进入大战。',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '下一步导演计划',
+        'includeVisualReferences': true,
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '取出视觉参考辅助导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final memoryGetProperties = memoryGetTool.schema['properties'] as Map;
+    expect(
+      memoryGetProperties.keys,
+      containsAll([
+        'includeVisualReferences',
+        'visualReferences',
+        'include_visual_references',
+        'visual_references',
+        '包含视觉参考',
+        '视觉参考',
+      ]),
+    );
+
+    final memoryGetMsg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(memoryGetMsg.toolName, 'memory_get');
+    final memoryGetPayload =
+        jsonDecode(memoryGetMsg.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      memoryGetPayload['notes'],
+      contains('视觉参考分析：冷白水墨、低饱和云雾留白，人物服饰避免高饱和霓虹。'),
+    );
+    expect(
+      memoryGetPayload['records'],
+      contains(isA<Map>().having((record) => record['id'], 'id', visualId)),
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '下一步导演计划',
+        'visualReferences': true,
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '深度召回视觉参考辅助导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final deepRetrieveProperties = deepRetrieveTool.schema['properties'] as Map;
+    expect(
+      deepRetrieveProperties.keys,
+      containsAll([
+        'includeVisualReferences',
+        'visualReferences',
+        'include_visual_references',
+        'visual_references',
+        '包含视觉参考',
+        '视觉参考',
+      ]),
+    );
+
+    final deepRetrieveMsg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(deepRetrieveMsg.toolName, 'deepRetrieve');
+    final deepRetrievePayload =
+        jsonDecode(deepRetrieveMsg.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      deepRetrievePayload['memories'],
+      contains('视觉参考分析：冷白水墨、低饱和云雾留白，人物服饰避免高饱和霓虹。'),
+    );
+    expect(
+      deepRetrievePayload['records'],
+      contains(isA<Map>().having((record) => record['id'], 'id', visualId)),
+    );
+  });
+
   test('Agent 记忆：memory_get 工具支持中文查询和范围别名', () async {
     final noteId = engine.saveAgentMemory(
       projectId,
