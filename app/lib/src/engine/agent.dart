@@ -3373,6 +3373,16 @@ class _CustomAgentSkillRuntime {
     List<String> args,
   ) {
     switch (method) {
+      case 'exec':
+        if (args.length != 1) _badMethodArgs(method);
+        final match = value.regExp.firstMatch(_stringifyInterpolation(
+          _evaluate(args.single),
+        ));
+        if (match == null) return null;
+        return [
+          for (var index = 0; index <= match.groupCount; index++)
+            match.group(index),
+        ];
       case 'test':
         if (args.length != 1) _badMethodArgs(method);
         return value.regExp.hasMatch(_stringifyInterpolation(

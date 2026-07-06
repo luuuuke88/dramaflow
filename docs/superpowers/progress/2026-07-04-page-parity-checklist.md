@@ -224,6 +224,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Math.r
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String.matchAll(...)` with regex capture groups and array spread, so custom skills can batch-extract storyboard fields from XML-like Agent workspace text.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers regex-literal `.exec(...)` with capture-group extraction and null fallback, so custom skills can parse the first storyboard/item tag using common model-authored JavaScript.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new RegExp(pattern, flags)`, `RegExp(pattern, flags)`, and regex-literal `.test(...)`, so custom skills can dynamically filter assets and workspace text with model-authored regular expressions.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-style regex replacement capture groups such as `replace(/.../g, '$1@$2')`, so custom skills can clean storyboard XML/text without leaking literal `$1` placeholders into Agent outputs.

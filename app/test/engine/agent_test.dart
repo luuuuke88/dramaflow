@@ -4969,6 +4969,54 @@ return JSON.stringify(shots);
     ]);
   });
 
+  test('自定义脚本技能：支持 RegExp.exec 提取首个匹配分组', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regex_exec_runtime',
+      name: '正则首个匹配脚本运行时',
+      description: '验证自定义技能兼容模型常写的 /.../.exec(text) 分镜解析。',
+      script: r'''
+const shot = /<storyboardItem\b[^>]*videoDesc="([^"]+)"[^>]*duration="([^"]+)"/.exec(args.workspace);
+const sound = /sound="([^"]+)"/.exec(args.workspace);
+return JSON.stringify({
+  found: Boolean(shot),
+  desc: shot ? shot[1].trim() : '',
+  duration: shot ? shot[2] : '',
+  sound: sound ? sound[1] : 'none',
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_regex_exec_runtime', const {
+        'workspace':
+            '<storyboardItem videoDesc=" 雪夜山门 " duration="3秒"></storyboardItem>',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用正则首个匹配脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regex_exec_runtime');
+    expect(jsonDecode(msg.content), {
+      'found': true,
+      'desc': '雪夜山门',
+      'duration': '3秒',
+      'sound': 'none',
+    });
+  });
+
   test('自定义脚本技能：支持 RegExp 构造和 test 筛选资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regexp_test_runtime',
