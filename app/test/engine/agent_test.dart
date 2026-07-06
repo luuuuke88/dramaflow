@@ -9607,7 +9607,7 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     await engine.sendAgentMessage(projectId, '先做寒山故事骨架', autoMode: false);
 
     final rows = db.select(
-      'SELECT role,content FROM memories '
+      'SELECT role,name,content FROM memories '
       'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
       ['scriptAgent:$projectId', 'message'],
     );
@@ -9617,6 +9617,7 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     final subAgentMemory = rows.singleWhere(
       (row) => row['role'] == 'assistant:execution:storySkeleton',
     );
+    expect(subAgentMemory['name'], '编剧');
     expect(subAgentMemory['content'], '寒山篇三集骨架');
   });
 
@@ -9935,6 +9936,13 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
 
     data = _scriptAgentWorkData(db, projectId);
     expect(data['supervision'], contains('节奏成立'));
+    final supervisionMemory = db.select(
+      'SELECT name,content FROM memories '
+      'WHERE isolationKey=? AND role=? AND type=?',
+      ['scriptAgent:$projectId', 'assistant:supervision', 'message'],
+    ).single;
+    expect(supervisionMemory['name'], '编辑');
+    expect(supervisionMemory['content'], '监督结论：节奏成立。');
   });
 
   test('ScriptAgentOrchestrator parses script subagent XML into scripts',
@@ -10535,7 +10543,7 @@ description: 只属于水墨视觉项目
     await engine.sendAgentMessage(projectId, '制作画布：做寒山导演计划', autoMode: false);
 
     final rows = db.select(
-      'SELECT role,content FROM memories '
+      'SELECT role,name,content FROM memories '
       'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
       ['productionAgent:$projectId', 'message'],
     );
@@ -10545,6 +10553,7 @@ description: 只属于水墨视觉项目
     final subAgentMemory = rows.singleWhere(
       (row) => row['role'] == 'assistant:execution:directorPlan',
     );
+    expect(subAgentMemory['name'], '执行导演');
     expect(subAgentMemory['content'], '低机位跟拍寒山山门');
 
     gateway.turns = [
@@ -10558,7 +10567,7 @@ description: 只属于水墨视觉项目
     await engine.sendAgentMessage(projectId, '制作分镜表', autoMode: false);
 
     final updatedRows = db.select(
-      'SELECT role,content FROM memories '
+      'SELECT role,name,content FROM memories '
       'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
       ['productionAgent:$projectId', 'message'],
     );
@@ -10567,6 +10576,7 @@ description: 只属于水墨视觉项目
     final storyboardTableMemory = updatedRows.singleWhere(
       (row) => row['role'] == 'assistant:execution:storyboardTable',
     );
+    expect(storyboardTableMemory['name'], '执行导演');
     expect(storyboardTableMemory['content'], '山门压迫|低机位');
   });
 
@@ -10772,6 +10782,13 @@ description: 只属于水墨视觉项目
 
     final flowData = _productionAgentWorkData(db, projectId, scriptId);
     expect(flowData['supervision'], contains('制作链路通过'));
+    final supervisionMemory = db.select(
+      'SELECT name,content FROM memories '
+      'WHERE isolationKey=? AND role=? AND type=?',
+      ['productionAgent:$projectId', 'assistant:supervision', 'message'],
+    ).single;
+    expect(supervisionMemory['name'], '监制');
+    expect(supervisionMemory['content'], '监督结论：制作链路通过。');
   });
 }
 

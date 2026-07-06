@@ -6645,6 +6645,7 @@ extension AgentApi on Engine {
     required String family,
     required String role,
     required String content,
+    String name = '',
   }) async {
     try {
       return await _agentMemoryService(family: family).add(
@@ -6653,6 +6654,7 @@ extension AgentApi on Engine {
           family: family,
         ),
         role: role,
+        name: name,
         content: content,
       );
     } catch (_) {
@@ -7478,6 +7480,7 @@ extension AgentApi on Engine {
           projectId,
           family: _scriptAgentFamily,
           role: _scriptAgentSubAgentMemoryRole(stage),
+          name: _scriptAgentSubAgentMemoryName(stage),
           content: stripXmlTags(text).trim(),
         );
         return text;
@@ -7601,6 +7604,11 @@ extension AgentApi on Engine {
       default:
         return 'assistant:execution';
     }
+  }
+
+  String _scriptAgentSubAgentMemoryName(String stage) {
+    if (stage == scriptAgentSupervisionStage) return '编辑';
+    return '编剧';
   }
 
   String _escapeXmlText(String value) => value
@@ -8007,6 +8015,7 @@ extension AgentApi on Engine {
           projectId,
           family: _productionAgentFamily,
           role: _productionAgentSubAgentMemoryRole(stage),
+          name: _productionAgentSubAgentMemoryName(stage),
           content: stripXmlTags(text).trim(),
         );
         return text;
@@ -8109,6 +8118,11 @@ extension AgentApi on Engine {
       default:
         return 'assistant:execution';
     }
+  }
+
+  String _productionAgentSubAgentMemoryName(String stage) {
+    if (stage == productionAgentSupervisionStage) return '监制';
+    return '执行导演';
   }
 
   void _ensureProjectProductionMarkdownSkills(int projectId) {
