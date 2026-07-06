@@ -144,6 +144,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-s
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow stage main Markdown skills being automatically injected into the Agent system prompt when files such as `script_agent_decision.md` are seeded, while ordinary stage-visible optional skills remain listed for explicit `activate_skill` calls instead of being injected by default.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style decision-Agent project context injection: ScriptAgent decision turns receive project type, intro, visual manual, video ratio, and chapter count, while ProductionAgent decision turns receive the configured image/video model names and multi-parameter status before ordinary chat history.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String.matchAll(...)` with regex capture groups and array spread, so custom skills can batch-extract storyboard fields from XML-like Agent workspace text.

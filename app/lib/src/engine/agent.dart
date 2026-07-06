@@ -6337,7 +6337,11 @@ extension AgentApi on Engine {
         activatedSkills: _activatedAgentSkillContexts(messages),
         availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
       );
+      final projectContext =
+          _agentDecisionProjectInfo(projectId, agentFamily).trim();
       final history = [
+        if (projectContext.isNotEmpty)
+          {'role': 'assistant', 'content': projectContext},
         for (final m in messages)
           {
             'role': m.role == agentRoleTool ? 'assistant' : m.role,
@@ -7509,6 +7513,13 @@ extension AgentApi on Engine {
     return '';
   }
 
+  String _agentDecisionProjectInfo(int projectId, String agentFamily) {
+    if (agentFamily == _productionAgentFamily) {
+      return _productionAgentDecisionProjectInfo(projectId);
+    }
+    return _scriptAgentProjectInfo(projectId);
+  }
+
   String _scriptAgentProjectInfo(int projectId) {
     final project = db
         .select('SELECT * FROM o_project WHERE id=?', [projectId]).firstOrNull;
@@ -7522,6 +7533,38 @@ extension AgentApi on Engine {
       '目标改编视频画幅：${project?['videoRatio'] ?? '16:9'}',
       '章节数量：$chapterCount章',
     ].join('\n');
+  }
+
+  String _productionAgentDecisionProjectInfo(int projectId) {
+    final project = db.select(
+      'SELECT imageModel,videoModel,mode FROM o_project WHERE id=?',
+      [projectId],
+    ).firstOrNull;
+    return [
+      '项目使用的模型如下：',
+      '图像模型：${_modelNameWithoutProvider(project?['imageModel'])}',
+      '视频模型：${_modelNameWithoutProvider(project?['videoModel'])}',
+      '多参：${_projectModeIsMultiParameter(project?['mode']) ? '是' : '否'}',
+    ].join('\n');
+  }
+
+  String _modelNameWithoutProvider(Object? raw) {
+    final text = (raw ?? '').toString().trim();
+    if (text.isEmpty) return '未配置';
+    final separator = text.indexOf(':');
+    if (separator < 0 || separator == text.length - 1) return text;
+    return text.substring(separator + 1);
+  }
+
+  bool _projectModeIsMultiParameter(Object? raw) {
+    if (raw is List) return true;
+    final text = (raw ?? '').toString().trim();
+    if (text.isEmpty) return false;
+    try {
+      return jsonDecode(text) is List;
+    } catch (_) {
+      return false;
+    }
   }
 
   String _scriptAgentSubAgentSystem(String stage) {

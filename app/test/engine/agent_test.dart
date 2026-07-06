@@ -9281,6 +9281,67 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         contains('制作画布：生成导演计划'));
   });
 
+  test('scriptAgent 决策消息注入 ToonFlow 项目信息', () async {
+    db.execute(
+      'UPDATE o_project SET type=?, intro=?, artStyle=?, videoRatio=? '
+      'WHERE id=?',
+      ['玄幻修仙', '石泉村少年入山测灵。', '国风水墨', '9:16', projectId],
+    );
+    engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '选丁', chapterData: '选丁原文'),
+      ChapterItem(index: 2, reel: '正文卷', chapter: '测灵', chapterData: '测灵原文'),
+    ]);
+    gateway.turns = [const AgentTurnResult.text('剧本决策已记录。')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '规划前三集',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final content = gateway.lastMessages
+        .map((message) => message['content'])
+        .whereType<String>()
+        .join('\n');
+    expect(content, contains('## 项目信息'));
+    expect(content, contains('小说名称：Agent测试'));
+    expect(content, contains('小说类型：玄幻修仙'));
+    expect(content, contains('小说简介：石泉村少年入山测灵。'));
+    expect(content, contains('目标改编影视视觉手册|画风：国风水墨'));
+    expect(content, contains('目标改编视频画幅：9:16'));
+    expect(content, contains('章节数量：2章'));
+  });
+
+  test('productionAgent 决策消息注入 ToonFlow 模型信息', () async {
+    db.execute(
+      'UPDATE o_project SET imageModel=?, videoModel=?, mode=? WHERE id=?',
+      [
+        'azt:gpt-image-2',
+        'volcengine:doubao-seedance-2-0-mini-260615',
+        jsonEncode(['role', 'scene']),
+        projectId,
+      ],
+    );
+    gateway.turns = [const AgentTurnResult.text('制作决策已记录。')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：生成导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final content = gateway.lastMessages
+        .map((message) => message['content'])
+        .whereType<String>()
+        .join('\n');
+    expect(content, contains('项目使用的模型如下：'));
+    expect(content, contains('图像模型：gpt-image-2'));
+    expect(content, contains('视频模型：doubao-seedance-2-0-mini-260615'));
+    expect(content, contains('多参：是'));
+  });
+
   test(
       'ScriptAgentOrchestrator uses decision stage and exposes script subagent tools',
       () async {
