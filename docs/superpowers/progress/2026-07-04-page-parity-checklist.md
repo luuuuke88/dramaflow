@@ -192,6 +192,8 @@ Recent Agent/RAG Update: `app/test/widgets/agent_chat_screen_test.dart` now cove
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers local long-term-memory embeddings carrying a ToonFlow-style `modelOnnxFile`/`modelDtype` signature, with missing or stale local embeddings rebuilt through the configured Agent memory provider instead of staying as anonymous legacy token maps.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers model-reranked `Memory.get` parsing ordinal selections such as `第 2 条` back to candidate memory ids, so RAG rerank failures caused by non-JSON model output do not fall back to noisy local vector ordering.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` exposing and accepting already-read memory id aliases such as `seenMemoryIds`, `memoryIds`, and `readMemoryIds`, so multi-turn decision/sub Agents can avoid repeatedly retrieving the same `records` even when the model uses natural RAG field names.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.

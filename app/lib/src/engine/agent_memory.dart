@@ -1647,6 +1647,12 @@ List<String>? _parseSelectedMemoryIds(
     if (allowed.contains(id) && seen.add(id)) selected.add(id);
   }
 
+  void addOrdinal(Object? value) {
+    final index = _candidateOrdinal(value);
+    if (index == null || index < 1 || index > candidates.length) return;
+    addId(candidates[index - 1].id);
+  }
+
   final trimmed = source.trim();
   if (trimmed.isEmpty) return null;
   try {
@@ -1654,6 +1660,7 @@ List<String>? _parseSelectedMemoryIds(
     if (decoded is List) {
       for (final item in decoded) {
         addId(item);
+        addOrdinal(item);
       }
       return selected;
     }
@@ -1671,6 +1678,7 @@ List<String>? _parseSelectedMemoryIds(
       if (ids is List) {
         for (final item in ids) {
           addId(item);
+          addOrdinal(item);
         }
         return selected;
       }
@@ -1682,7 +1690,70 @@ List<String>? _parseSelectedMemoryIds(
   for (final id in allowed) {
     if (trimmed.contains(id)) addId(id);
   }
+  if (selected.isEmpty) {
+    for (final ordinal in _candidateOrdinalsFromText(trimmed)) {
+      addOrdinal(ordinal);
+    }
+  }
   return selected.isEmpty ? null : selected;
+}
+
+int? _candidateOrdinal(Object? value) {
+  if (value is num) return value.toInt();
+  final text = '$value'.trim();
+  if (text.isEmpty) return null;
+  final numeric = int.tryParse(text);
+  if (numeric != null) return numeric;
+  return _chineseOrdinal(text);
+}
+
+List<int> _candidateOrdinalsFromText(String source) {
+  final ordinals = <int>[];
+  void add(int? value) {
+    if (value == null || value < 1 || ordinals.contains(value)) return;
+    ordinals.add(value);
+  }
+
+  for (final match
+      in RegExp(r'(?:第\s*)?(\d+)\s*(?:条|个|项|号|#)?').allMatches(source)) {
+    add(int.tryParse(match.group(1)!));
+  }
+  for (final match
+      in RegExp(r'第?\s*([一二三四五六七八九十]+)\s*(?:条|个|项|号)').allMatches(source)) {
+    add(_chineseOrdinal(match.group(1)!));
+  }
+  return ordinals;
+}
+
+int? _chineseOrdinal(String source) {
+  final text = source.trim();
+  if (text.isEmpty) return null;
+  const digits = {
+    '一': 1,
+    '二': 2,
+    '两': 2,
+    '三': 3,
+    '四': 4,
+    '五': 5,
+    '六': 6,
+    '七': 7,
+    '八': 8,
+    '九': 9,
+  };
+  if (digits[text] != null) return digits[text];
+  if (text == '十') return 10;
+  if (text.startsWith('十')) {
+    final ones = text.substring(1);
+    return 10 + (digits[ones] ?? 0);
+  }
+  final tenIndex = text.indexOf('十');
+  if (tenIndex > 0) {
+    final tens = digits[text.substring(0, tenIndex)];
+    if (tens == null) return null;
+    final onesText = text.substring(tenIndex + 1);
+    return tens * 10 + (onesText.isEmpty ? 0 : digits[onesText] ?? 0);
+  }
+  return null;
 }
 
 List<String> _decodeStringList(Object? value) {

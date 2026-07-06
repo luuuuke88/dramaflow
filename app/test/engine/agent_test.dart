@@ -9944,6 +9944,67 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(gateway.textStages, ['scriptAgent:decisionAgent']);
   });
 
+  test('AgentMemoryService get 重排可解析模型返回的候选序号', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.rerankEnabled', '1'],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'rerank_ordinal_relevant',
+        '',
+        '用户明确要求李澈保持正派，不能被写成反派。',
+        now,
+        embeddingJson('用户明确要求李澈保持正派，不能被写成反派。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'rerank_ordinal_noise',
+        '',
+        '道具标签：李澈正派 李澈正派 匾额用于山门背景，和角色立场无关。',
+        now + 1,
+        embeddingJson('道具标签：李澈正派 李澈正派 匾额用于山门背景，和角色立场无关。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    gateway.textResults = const [TextResult('第 2 条最相关')];
+
+    final context = await service.get(
+      isolationKey: 'scriptAgent:$projectId',
+      query: '李澈正派',
+    );
+
+    expect(context.relatedMessages.map((item) => item.id),
+        ['rerank_ordinal_relevant']);
+    expect(gateway.textCallCount, 1);
+  });
+
   test('AgentMemoryService get 返回相关记忆、历史摘要和未摘要近期对话', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
