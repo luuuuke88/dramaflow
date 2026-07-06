@@ -162,6 +162,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `get_p
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers long-term `note` memory search using the bound `agent_embedding` provider, including semantic cross-language recall and migration of stored note embeddings from legacy token JSON to gateway-vector JSON.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers RAG search reading compatible gateway vectors directly from `o_memoryVector`, so upgraded/blank stored memories can rank against the cached dense-vector index without triggering a remote embedding call for every memory row.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style memory clearing semantics: clearing `message` also removes dependent `summary` records, while clearing `summary` resets summarized messages back to `summarized=0` so they can re-enter short-term memory and future summarization.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow stage main Markdown skills being automatically injected into the Agent system prompt when files such as `script_agent_decision.md` are seeded, while ordinary stage-visible optional skills remain listed for explicit `activate_skill` calls instead of being injected by default.

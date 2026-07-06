@@ -654,7 +654,7 @@ class AgentMemoryService {
       );
       final entries = <AgentMemoryEntry>[];
       for (final row in rows) {
-        final entry = await _entryWithProviderEmbedding(
+        final entry = await _entryWithSearchEmbedding(
           AgentMemoryEntry.fromRow(row),
           isolationKey: isolationKey,
         );
@@ -762,6 +762,35 @@ class AgentMemoryService {
     return updated;
   }
 
+  Future<AgentMemoryEntry> _entryWithSearchEmbedding(
+    AgentMemoryEntry entry, {
+    required String isolationKey,
+  }) async {
+    final indexed =
+        _entryWithIndexedMemoryVector(entry, isolationKey: isolationKey);
+    if (indexed != null) return indexed;
+    return _entryWithProviderEmbedding(entry, isolationKey: isolationKey);
+  }
+
+  AgentMemoryEntry? _entryWithIndexedMemoryVector(
+    AgentMemoryEntry entry, {
+    required String isolationKey,
+  }) {
+    final (provider, model) = _memoryVectorSignature();
+    if (provider != 'gateway') return null;
+    final row = db.select(
+      'SELECT type,dimension,vector FROM o_memoryVector '
+      'WHERE memoryId=? AND isolationKey=? AND provider=? AND model=? '
+      'LIMIT 1',
+      [entry.id, isolationKey, provider, model],
+    ).firstOrNull;
+    if (row == null || row['type'] != entry.type) return null;
+    final vector = _decodeStoredGatewayVector(row['vector']);
+    final dimension = row['dimension'] as int? ?? vector.length;
+    if (vector.isEmpty || dimension != vector.length) return null;
+    return entry.copyWith(embedding: gatewayEmbeddingJsonFromVector(vector));
+  }
+
   void _syncMemoryVectorIndex(
     AgentMemoryEntry entry, {
     required String isolationKey,
@@ -830,7 +859,7 @@ class AgentMemoryService {
       if (!_matchesExcludedRoleSuffixFilter(entry, excludeRoleSuffixes)) {
         continue;
       }
-      entry = await _entryWithProviderEmbedding(
+      entry = await _entryWithSearchEmbedding(
         entry,
         isolationKey: isolationKey,
       );
@@ -898,7 +927,7 @@ class AgentMemoryService {
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in summaries) {
-      final entry = await _entryWithProviderEmbedding(
+      final entry = await _entryWithSearchEmbedding(
         AgentMemoryEntry.fromRow(row),
         isolationKey: isolationKey,
       );
@@ -948,7 +977,7 @@ class AgentMemoryService {
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in notes) {
-      final entry = await _entryWithProviderEmbedding(
+      final entry = await _entryWithSearchEmbedding(
         AgentMemoryEntry.fromRow(row),
         isolationKey: isolationKey,
       );
@@ -990,7 +1019,7 @@ class AgentMemoryService {
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
   }) async {
-    final entry = await _entryWithProviderEmbedding(
+    final entry = await _entryWithSearchEmbedding(
       source,
       isolationKey: isolationKey,
     );
@@ -1569,6 +1598,20 @@ List<double> _decodeGatewayEmbeddingVector(String value) {
     if (maxDimension < 0) return const [];
     return _finiteGatewayEmbeddingVector([
       for (var i = 0; i <= maxDimension; i++) sparse[i] ?? 0,
+    ]);
+  } catch (_) {
+    return const [];
+  }
+}
+
+List<double> _decodeStoredGatewayVector(Object? value) {
+  if (value is! String) return const [];
+  try {
+    final decoded = jsonDecode(value);
+    if (decoded is! List) return const [];
+    return _finiteGatewayEmbeddingVector([
+      for (final item in decoded)
+        if (item is num) item.toDouble(),
     ]);
   } catch (_) {
     return const [];

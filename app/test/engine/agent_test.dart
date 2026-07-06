@@ -8033,6 +8033,61 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('长期记忆：RAG 可直接使用 o_memoryVector 索引避免逐条远程回填', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.agent_embedding', 'fake:embed'],
+    );
+    final keepId = engine.saveAgentMemory(
+      projectId,
+      name: 'Indexed Keep',
+      content: '索引命中：李澈必须保护沈微。',
+    );
+    final noiseId = engine.saveAgentMemory(
+      projectId,
+      name: 'Indexed Noise',
+      content: '索引噪声：山门远景和云雾。',
+    );
+    db.execute(
+      'UPDATE memories SET embedding=? WHERE id IN (?,?)',
+      ['', keepId, noiseId],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final item in [
+      (keepId, [1.0, 0.0]),
+      (noiseId, [0.0, 1.0]),
+    ]) {
+      db.execute(
+        'INSERT OR REPLACE INTO o_memoryVector '
+        '(memoryId,isolationKey,type,provider,model,dimension,vector,updatedAt) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [
+          item.$1,
+          'project:$projectId',
+          agentMemoryTypeNote,
+          'gateway',
+          'agent_embedding',
+          item.$2.length,
+          jsonEncode(item.$2),
+          now,
+        ],
+      );
+    }
+    gateway.embeddingForText = (input) {
+      if (input.contains('保护沈微')) return const [1, 0];
+      return const [0, 1];
+    };
+
+    final matched = await engine.searchAgentMemories(
+      projectId,
+      '保护沈微',
+      limit: 1,
+    );
+
+    expect(matched.map((item) => item.id), [keepId]);
+    expect(gateway.embeddingInputs, ['保护沈微']);
+  });
+
   test('Agent 记忆：对话写入 memories message 并达到阈值生成 summary', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
