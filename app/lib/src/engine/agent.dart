@@ -19,6 +19,7 @@ import 'compose_episode.dart';
 import 'engine.dart';
 import 'errors.dart';
 import 'events.dart';
+import 'manuals.dart';
 import 'novel.dart';
 import 'providers/gateway.dart' show ImageUnderstandingGateway;
 import 'providers/openai_text.dart' show AgentToolDef, AgentTurnResult;
@@ -1867,6 +1868,41 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'string'},
           'description': 'ToonFlow 资产引用列表，例如 ["A001","A002"]。',
+        },
+        'projectArtStyle': {
+          'type': 'boolean',
+          'description': '为 true 时，分析当前项目 artStyle 对应的视觉手册或画风封面图。',
+        },
+        'useProjectArtStyle': {
+          'type': 'boolean',
+          'description': 'projectArtStyle 的自然语言别名。',
+        },
+        'artStyleName': {
+          'type': 'string',
+          'description': '按视觉手册名或画风库名称匹配封面图。',
+        },
+        'artStyleNames': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'artStyleName 的数组形式。',
+        },
+        'visualManualName': {
+          'type': 'string',
+          'description': '按视觉手册名称匹配封面图。',
+        },
+        'visualManualNames': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'visualManualName 的数组形式。',
+        },
+        'styleName': {
+          'type': 'string',
+          'description': 'artStyleName 的自然语言别名。',
+        },
+        'styleNames': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'styleName 的数组形式。',
         },
         'imageId': {
           'type': 'integer',
@@ -10623,6 +10659,11 @@ extension AgentApi on Engine {
         add(_agentAssetImagePath(id));
       }
     }
+    for (final styleName in _agentReferenceStyleNames(projectId, args)) {
+      for (final image in _agentStyleReferenceImages(styleName)) {
+        add(image);
+      }
+    }
     for (final storyboardId in _intListAny(args, const [
           'storyboardIds',
           'storyboard_ids',
@@ -10641,6 +10682,97 @@ extension AgentApi on Engine {
       }
     }
     add(_agentReferenceImageArg(projectId, args));
+    return resolved;
+  }
+
+  List<String> _agentReferenceStyleNames(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final names = <String>[];
+    final seen = <String>{};
+
+    void addName(String name) {
+      final trimmed = name.trim();
+      if (trimmed.isEmpty || !seen.add(trimmed)) return;
+      names.add(trimmed);
+    }
+
+    for (final name in _stringListAny(args, const [
+          'artStyleName',
+          'artStyleNames',
+          'art_style_name',
+          'art_style_names',
+          'styleName',
+          'styleNames',
+          'style_name',
+          'style_names',
+          'visualManualName',
+          'visualManualNames',
+          'visual_manual_name',
+          'visual_manual_names',
+          'visualManual',
+          'visualManuals',
+          'visual_manual',
+          'visual_manuals',
+          'artStyle',
+          'artStyles',
+          '画风',
+          '画风名称',
+          '视觉手册',
+          '视觉手册名称',
+        ]) ??
+        const <String>[]) {
+      addName(name);
+    }
+
+    final shouldUseProjectStyle = _coerceBool(
+          args['projectArtStyle'] ??
+              args['useProjectArtStyle'] ??
+              args['project_art_style'] ??
+              args['项目画风'] ??
+              args['当前画风'],
+        ) ??
+        false;
+    if (shouldUseProjectStyle) {
+      final projectStyle = db
+              .select('SELECT artStyle FROM o_project WHERE id=?', [projectId])
+              .firstOrNull?['artStyle']
+              ?.toString() ??
+          '';
+      addName(projectStyle);
+    }
+    return names;
+  }
+
+  List<({String path, String source})> _agentStyleReferenceImages(
+    String styleName,
+  ) {
+    final resolved = <({String path, String source})>[];
+    for (final pack in visualManuals()) {
+      if (pack.name != styleName && pack.pack != styleName) continue;
+      for (final imagePath in pack.images) {
+        if (File(imagePath).existsSync()) {
+          resolved.add((path: imagePath, source: 'visualManual:${pack.name}'));
+        }
+      }
+    }
+
+    final rows = db.select(
+      'SELECT name,label,fileUrl FROM o_artStyle WHERE name=? OR label=? '
+      'ORDER BY id ASC',
+      [styleName, styleName],
+    );
+    for (final row in rows) {
+      final path = _agentMediaImageAbsPath(row['fileUrl']);
+      if (path == null) continue;
+      final sourceName = (row['name'] as String? ?? styleName).trim();
+      resolved.add((
+        path: path,
+        source: 'artStyle:${sourceName.isEmpty ? styleName : sourceName}',
+      ));
+    }
+
     return resolved;
   }
 

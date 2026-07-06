@@ -4,12 +4,14 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/agent.dart';
 import 'package:dramaflow/src/engine/agent_memory.dart';
+import 'package:dramaflow/src/engine/art_style.dart';
 import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/events.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/novel.dart';
 import 'package:dramaflow/src/engine/novel_parse.dart';
@@ -1140,6 +1142,83 @@ void main() {
     expect(jsonDecode(msg.content), {
       'analysis': '第二镜首帧：寒山山门冷白云雾，低机位。',
       'source': 'storyboard:$secondStoryboard',
+    });
+  });
+
+  test('Agent 可按项目画风分析视觉手册封面参考图', () async {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      imageBytesBase64: [
+        base64Encode([137, 80, 78, 71, 9])
+      ],
+      data: {for (final key in visualManualKeys) key: '$key 内容'},
+    );
+    final coverPath = engine.visualManuals().single.images.single;
+    db.execute(
+        'UPDATE o_project SET artStyle=? WHERE id=?', ['国风水墨', projectId]);
+    gateway.imageAnalysisResult = '项目画风：冷白水墨、低饱和、云雾留白。';
+    gateway.turns = [
+      const AgentTurnResult.tool('analyze_reference_image', {
+        'projectArtStyle': true,
+        'prompt': '提炼项目视觉手册封面画风',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '分析项目画风封面',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final visionTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'analyze_reference_image');
+    final properties = visionTool.schema['properties'] as Map;
+    expect(properties, contains('projectArtStyle'));
+    expect(properties, contains('visualManualName'));
+    expect(gateway.imageAnalysisPrompts.single, '提炼项目视觉手册封面画风');
+    expect(gateway.imageAnalysisPaths.single, coverPath);
+
+    final msg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(msg.toolName, 'analyze_reference_image');
+    expect(jsonDecode(msg.content), {
+      'analysis': '项目画风：冷白水墨、低饱和、云雾留白。',
+      'source': 'visualManual:国风水墨',
+    });
+  });
+
+  test('Agent 可按画风库名称分析画风封面参考图', () async {
+    engine.addArtStyle(
+      name: '赛博霓虹',
+      prompt: 'neon cyberpunk',
+      base64Image: base64Encode([137, 80, 78, 71, 10]),
+    );
+    final coverRel = engine.artStyles().single.fileUrl!;
+    final coverPath = engine.mediaAbsPath(coverRel);
+    gateway.imageAnalysisResult = '画风库封面：高饱和霓虹、赛博城市、强对比光。';
+    gateway.turns = [
+      const AgentTurnResult.tool('analyze_reference_image', {
+        'artStyleName': '赛博霓虹',
+        'prompt': '提炼画风库封面',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '分析画风库封面',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(gateway.imageAnalysisPrompts, ['提炼画风库封面']);
+    expect(gateway.imageAnalysisPaths, [coverPath]);
+    final msg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(msg.toolName, 'analyze_reference_image');
+    expect(jsonDecode(msg.content), {
+      'analysis': '画风库封面：高饱和霓虹、赛博城市、强对比光。',
+      'source': 'artStyle:赛博霓虹',
     });
   });
 
