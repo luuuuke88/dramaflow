@@ -1885,6 +1885,72 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Object.groupBy 和 Map.groupBy 分组资产', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_group_by_runtime',
+      name: '分组脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Object.groupBy/Map.groupBy 资产分组。',
+      script: r'''
+const grouped = Object.groupBy(args.assets, asset => asset.type);
+const frontLoaded = Object.groupBy(args.assets, (asset, index) =>
+  index < 2 ? 'front' : asset.type);
+const groupedMap = Map.groupBy(args.assets, asset => asset.type);
+return JSON.stringify({
+  keys: Object.keys(grouped).sort().join('|'),
+  roles: grouped.role.map(asset => asset.name.trim()).join('、'),
+  sceneCount: grouped.scene.length,
+  front: frontLoaded.front.map(asset => asset.name.trim()).join('、'),
+  mapKeys: Array.from(groupedMap.keys()).sort().join('|'),
+  tools: groupedMap.get('tool').map(asset => asset.name.trim()).join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_group_by_runtime', const {
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 '},
+          {'type': 'scene', 'name': '寒山宗门'},
+          {'type': 'tool', 'name': ' 霜剑 '},
+          {'type': 'role', 'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用分组脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_group_by_runtime');
+    expect(jsonDecode(msg.content), {
+      'keys': 'role|scene|tool',
+      'roles': '李澈、沈微',
+      'sceneCount': 1,
+      'front': '李澈、寒山宗门',
+      'mapKeys': 'role|scene|tool',
+      'tools': '霜剑',
+    });
+  });
+
   test('自定义脚本技能：支持 Math.sqrt 计算画幅尺寸', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_math_sqrt_runtime',

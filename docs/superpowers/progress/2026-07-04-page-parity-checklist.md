@@ -282,6 +282,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgen
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Object.groupBy(...)` and `Map.groupBy(...)`, so model-authored skills can group role/scene/tool assets or storyboard rows without rewriting modern JavaScript grouping helpers into manual reducers.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Array.of(...)` plus spread arguments, so model-authored skills can quickly compose reference/image/asset lists before filtering and mapping them.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers Date instance getters such as `getFullYear()`, `getMonth()`, `getDate()`, `getHours()`, and their UTC variants, so model-authored skills can create deterministic batch names and media export keys from ordinary JavaScript date code.

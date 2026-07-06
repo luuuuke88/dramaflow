@@ -4361,6 +4361,9 @@ class _CustomAgentSkillRuntime {
         return _callMathMethod(method, args);
       case 'Number':
         return _callNumberMethod(method, args);
+      case 'Map':
+        if (method == 'groupBy') return _mapGroupBy(args);
+        break;
       case 'Object':
         return _callObjectMethod(method, args);
     }
@@ -4922,6 +4925,8 @@ class _CustomAgentSkillRuntime {
         return _objectAssign(args);
       case 'fromEntries':
         return _objectFromEntries(args);
+      case 'groupBy':
+        return _objectGroupBy(args);
       case 'hasOwn':
         final values = _evaluateCallArguments(args);
         if (values.length != 2) _badMethodArgs(method);
@@ -5008,6 +5013,52 @@ class _CustomAgentSkillRuntime {
       result['${pair[0]}'] = pair[1];
     }
     return result;
+  }
+
+  Map<String, Object?> _objectGroupBy(List<String> args) {
+    if (args.length != 2) _badMethodArgs('groupBy');
+    final items = _groupBySourceItems(args.first, 'groupBy');
+    final result = <String, Object?>{};
+    for (var index = 0; index < items.length; index++) {
+      final key = _stringifyPropertyKey(_evaluateCallback(
+        'groupBy',
+        args[1],
+        items[index],
+        index,
+        source: items,
+      ));
+      (result.putIfAbsent(key, () => <Object?>[]) as List<Object?>)
+          .add(items[index]);
+    }
+    return result;
+  }
+
+  _CustomJsMap _mapGroupBy(List<String> args) {
+    if (args.length != 2) _badMethodArgs('groupBy');
+    final items = _groupBySourceItems(args.first, 'groupBy');
+    final result = _CustomJsMap(<Object?, Object?>{});
+    for (var index = 0; index < items.length; index++) {
+      final key = _evaluateCallback(
+        'groupBy',
+        args[1],
+        items[index],
+        index,
+        source: items,
+      );
+      final existingKey = _customJsMapKey(result, key) ?? key;
+      (result.values.putIfAbsent(existingKey, () => <Object?>[])
+              as List<Object?>)
+          .add(items[index]);
+    }
+    return result;
+  }
+
+  List<Object?> _groupBySourceItems(String sourceExpression, String method) {
+    final source = _evaluate(sourceExpression);
+    if (source is String) return source.split('');
+    if (source is _CustomJsMap) return _customJsMapEntries(source);
+    if (source is Iterable) return source.toList();
+    _badMethodArgs(method);
   }
 
   Object? _evaluateCallback(
