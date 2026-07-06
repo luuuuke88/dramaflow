@@ -1506,6 +1506,65 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Map.forEach 用 value 和 key 聚合', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_map_foreach_runtime',
+      name: 'Map forEach 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 map.forEach((value, key) => ...)。',
+      script: r'''
+const assetsById = new Map(Object.entries(args.assetsById));
+let labels = [];
+let totalDuration = 0;
+assetsById.forEach((asset, id) => {
+  if (asset.enabled === false) {
+    return;
+  }
+  labels.push(`${id}:${asset.name.trim()}`);
+  totalDuration += asset.duration ?? 0;
+});
+return JSON.stringify({
+  labels: labels.join('、'),
+  totalDuration,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assetsById': {'type': 'object'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_map_foreach_runtime', const {
+        'assetsById': {
+          'A001': {'name': ' 李澈 ', 'duration': 2},
+          'A002': {
+            'name': '废弃镜头',
+            'duration': 99,
+            'enabled': false,
+          },
+          'A003': {'name': '沈微', 'duration': 3},
+        },
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Map forEach 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_map_foreach_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'labels': 'A001:李澈、A003:沈微',
+      'totalDuration': 5,
+    });
+  });
+
   test('自定义脚本技能：支持 Date 时间戳和 ISO 时间格式', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_date_runtime',

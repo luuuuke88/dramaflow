@@ -2219,6 +2219,12 @@ class _CustomAgentSkillRuntime {
       case 'entries':
         _expectNoArgs(method, args);
         return _customJsMapEntries(value);
+      case 'forEach':
+        if (args.length != 1) _badMethodArgs(method);
+        for (final entry in value.values.entries) {
+          _evaluateCallback(method, args.single, entry.value, entry.key);
+        }
+        return null;
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_method',
@@ -2366,7 +2372,7 @@ class _CustomAgentSkillRuntime {
     String method,
     String callback,
     Object? item,
-    int index,
+    Object? index,
   ) {
     final arrow = _findTopLevelArrow(callback);
     if (arrow < 0) {
