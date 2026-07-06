@@ -8831,6 +8831,134 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_get 工具支持 roles 只返回指定角色上下文', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMemory({
+      required String id,
+      required String content,
+      required int offset,
+      required String type,
+      required String role,
+      String name = '',
+      int summarized = 0,
+      List<String> relatedMessageIds = const [],
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          name,
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          jsonEncode(relatedMessageIds),
+          role,
+          summarized,
+          type,
+        ],
+      );
+    }
+
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '4'],
+    );
+    insertMemory(
+      id: 'memory_get_role_user_msg',
+      content: '用户提到李澈来自寒山宗门。',
+      offset: 0,
+      type: 'message',
+      role: agentRoleUser,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'memory_get_role_assistant_msg',
+      content: '助手确认李澈必须救沈微，保持正派立场。',
+      offset: 1,
+      type: 'message',
+      role: agentRoleAssistant,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'memory_get_role_user_summary',
+      name: '用户约束摘要',
+      content: '用户设定李澈来自寒山。',
+      offset: 2,
+      type: 'summary',
+      role: agentRoleUser,
+      relatedMessageIds: const ['memory_get_role_user_msg'],
+    );
+    insertMemory(
+      id: 'memory_get_role_assistant_summary',
+      name: '执行结论摘要',
+      content: '助手执行结论：李澈保持正派并救沈微。',
+      offset: 3,
+      type: 'summary',
+      role: agentRoleAssistant,
+      relatedMessageIds: const ['memory_get_role_assistant_msg'],
+    );
+    insertMemory(
+      id: 'memory_get_role_user_recent',
+      content: '用户近期补充李澈要低调入山。',
+      offset: 4,
+      type: 'message',
+      role: agentRoleUser,
+    );
+    insertMemory(
+      id: 'memory_get_role_assistant_recent',
+      content: '助手近期整理：李澈入山镜头保持克制。',
+      offset: 5,
+      type: 'message',
+      role: agentRoleAssistant,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '李澈',
+        'roles': [agentRoleAssistant],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只找助手侧整理过的李澈记忆',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties, contains('role'));
+    expect(properties, contains('roles'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_get');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], everyElement(contains('助手')));
+    expect(payload['summaries'], everyElement(contains('助手')));
+    expect(payload['recent'], everyElement(contains('助手')));
+    final records = payload['records'] as List;
+    expect(records, isNotEmpty);
+    expect(
+      records,
+      everyElement(
+        isA<Map>().having(
+          (record) => record['role'],
+          'role',
+          agentRoleAssistant,
+        ),
+      ),
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具从 summary 展开原始 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

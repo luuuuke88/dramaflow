@@ -292,6 +292,16 @@ final _tools = <AgentToolDef>[
           'minimum': 1,
           'description': '可选。scoreThreshold 的 snake_case 别名。',
         },
+        'role': {
+          'type': 'string',
+          'description':
+              '可选。只返回指定 role 的记忆，例如 user 或 assistant:execution:script。',
+        },
+        'roles': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。只返回这些 role 的普通 RAG 上下文。',
+        },
         'excludeRole': {
           'type': 'string',
           'description': '可选。排除指定 role 的记忆，例如 assistant:decision:tool。',
@@ -7884,6 +7894,9 @@ extension AgentApi on Engine {
               .toString()
               .trim();
           if (query.isEmpty) return '缺少 query 参数。';
+          final roles = _coerceStringSet(
+            args['roles'] ?? args['role'] ?? args['memoryRoles'],
+          );
           final requestedExcludeRoles = _coerceStringSet(
             args['excludeRoles'] ??
                 args['excludeRole'] ??
@@ -7948,6 +7961,7 @@ extension AgentApi on Engine {
               family: agentFamily,
             ),
             query: query,
+            roles: roles,
             excludeRelatedIds: excludeIds,
             excludeRoles: excludeRoles,
             excludeRoleSuffixes: excludeRoleSuffixes,

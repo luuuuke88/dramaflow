@@ -355,6 +355,7 @@ class AgentMemoryService {
   Future<AgentMemoryContext> get({
     required String isolationKey,
     required String query,
+    Set<String>? roles,
     Set<String>? excludeRelatedIds,
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
@@ -367,6 +368,7 @@ class AgentMemoryService {
     final tokens = memorySearchTokens(normalized);
     final queryEmbedding =
         await embeddingProvider.embeddingFromText(normalized);
+    final roleFilter = _normalizeRoleFilter(roles);
     final excludedRelatedIdFilter = _normalizeIdFilter(excludeRelatedIds);
     final excludedRoleFilter = _normalizeRoleFilter(excludeRoles);
     final excludedRoleSuffixFilter = _normalizeRoleFilter(
@@ -380,6 +382,10 @@ class AgentMemoryService {
     final excludedIdSql = excludedIds.isEmpty
         ? ''
         : 'AND id NOT IN (${List.filled(excludedIds.length, '?').join(',')}) ';
+    final includedRoles = roleFilter?.toList() ?? const <String>[];
+    final roleSql = includedRoles.isEmpty
+        ? ''
+        : 'AND role IN (${List.filled(includedRoles.length, '?').join(',')}) ';
     final rankedMessages = settings.ragLimit <= 0
         ? const <(int, AgentMemoryEntry)>[]
         : [
@@ -388,6 +394,7 @@ class AgentMemoryService {
               normalized: normalized,
               tokens: tokens,
               queryEmbedding: queryEmbedding,
+              roles: roleFilter,
               excludeIds: excludedRelatedIdFilter,
               excludeRoles: excludedRoleFilter,
               excludeRoleSuffixes: excludedRoleSuffixFilter,
@@ -407,11 +414,13 @@ class AgentMemoryService {
               'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
               'FROM memories WHERE isolationKey=? AND type=? '
               '$excludedIdSql'
+              '$roleSql'
               'ORDER BY createTime DESC, id DESC LIMIT ?',
               [
                 isolationKey,
                 agentMemoryTypeSummary,
                 ...excludedIds,
+                ...includedRoles,
                 settings.summaryLimit,
               ],
             ))
@@ -419,7 +428,7 @@ class AgentMemoryService {
           ];
     final summaries = _filterEntries(
       summariesDesc.reversed,
-      null,
+      roleFilter,
       null,
       null,
       excludedRoleFilter,
@@ -433,12 +442,14 @@ class AgentMemoryService {
               'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
               'FROM memories WHERE isolationKey=? AND type=? '
               '$excludedIdSql'
+              '$roleSql'
               'AND COALESCE(summarized,0)=0 '
               'ORDER BY createTime DESC, id DESC LIMIT ?',
               [
                 isolationKey,
                 agentMemoryTypeMessage,
                 ...excludedIds,
+                ...includedRoles,
                 settings.shortTermLimit,
               ],
             ))
@@ -446,7 +457,7 @@ class AgentMemoryService {
           ];
     final recent = _filterEntries(
       recentDesc.reversed,
-      null,
+      roleFilter,
       null,
       null,
       excludedRoleFilter,
@@ -907,6 +918,7 @@ class AgentMemoryService {
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
     bool onlyUnsummarized = false,
+    Set<String>? roles,
     Set<String>? excludeIds,
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
@@ -919,6 +931,7 @@ class AgentMemoryService {
       tokens: tokens,
       queryEmbedding: queryEmbedding,
       onlyUnsummarized: onlyUnsummarized,
+      roles: roles,
       excludeIds: excludeIds,
       excludeRoles: excludeRoles,
       excludeRoleSuffixes: excludeRoleSuffixes,
@@ -934,6 +947,7 @@ class AgentMemoryService {
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in messages) {
       var entry = AgentMemoryEntry.fromRow(row);
+      if (!_matchesRoleFilter(entry, roles)) continue;
       if (excludeIds != null && excludeIds.contains(entry.id)) continue;
       if (!_matchesExcludedRoleFilter(entry, excludeRoles)) continue;
       if (!_matchesExcludedRoleSuffixFilter(entry, excludeRoleSuffixes)) {
@@ -1000,6 +1014,7 @@ class AgentMemoryService {
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
     bool onlyUnsummarized = false,
+    Set<String>? roles,
     Set<String>? excludeIds,
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
@@ -1026,6 +1041,7 @@ class AgentMemoryService {
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in rows) {
       var entry = AgentMemoryEntry.fromRow(row);
+      if (!_matchesRoleFilter(entry, roles)) continue;
       if (excludeIds != null && excludeIds.contains(entry.id)) continue;
       if (!_matchesExcludedRoleFilter(entry, excludeRoles)) continue;
       if (!_matchesExcludedRoleSuffixFilter(entry, excludeRoleSuffixes)) {
