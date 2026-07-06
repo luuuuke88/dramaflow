@@ -208,6 +208,11 @@ const _customJsSetMethods = {
   'values',
   'entries',
   'forEach',
+  'union',
+  'intersection',
+  'difference',
+  'isSubsetOf',
+  'isDisjointFrom',
 };
 const _agentDeploymentType = 'agent-stage';
 const _agentToolAuditRoles = {agentRoleTool};
@@ -4731,6 +4736,31 @@ class _CustomAgentSkillRuntime {
           _evaluateCallback(method, args.single, item, item, source: value);
         }
         return null;
+      case 'union':
+        final other = _setOperationItems(args, method);
+        return {
+          for (final item in value) item,
+          for (final item in other)
+            if (!_setContains(value, item)) item,
+        };
+      case 'intersection':
+        final other = _setOperationItems(args, method);
+        return {
+          for (final item in value)
+            if (_setContains(other, item)) item,
+        };
+      case 'difference':
+        final other = _setOperationItems(args, method);
+        return {
+          for (final item in value)
+            if (!_setContains(other, item)) item,
+        };
+      case 'isSubsetOf':
+        final other = _setOperationItems(args, method);
+        return value.every((item) => _setContains(other, item));
+      case 'isDisjointFrom':
+        final other = _setOperationItems(args, method);
+        return value.every((item) => !_setContains(other, item));
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_method',
@@ -4738,6 +4768,20 @@ class _CustomAgentSkillRuntime {
         });
     }
   }
+
+  Set<Object?> _setOperationItems(List<String> args, String method) {
+    if (args.length != 1) _badMethodArgs(method);
+    final other = _evaluate(args.single);
+    if (other is Set) return other.cast<Object?>();
+    if (other is Iterable && other is! String) return other.toSet();
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_set_method',
+      'method': method,
+    });
+  }
+
+  bool _setContains(Iterable source, Object? needle) =>
+      source.any((item) => _compareValues(item, needle, '==='));
 
   Object? _callMapInstanceMethod(
     _CustomJsMap value,

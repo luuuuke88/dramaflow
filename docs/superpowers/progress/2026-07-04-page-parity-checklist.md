@@ -284,6 +284,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Ar
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Object.groupBy(...)` and `Map.groupBy(...)`, so model-authored skills can group role/scene/tool assets or storyboard rows without rewriting modern JavaScript grouping helpers into manual reducers.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Set.prototype.union(...)`, `intersection(...)`, `difference(...)`, `isSubsetOf(...)`, and `isDisjointFrom(...)`, so model-authored skills can compare required storyboard assets with existing role/scene/tool references and identify missing generation candidates.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Array.of(...)` plus spread arguments, so model-authored skills can quickly compose reference/image/asset lists before filtering and mapping them.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers Date instance getters such as `getFullYear()`, `getMonth()`, `getDate()`, `getHours()`, and their UTC variants, so model-authored skills can create deterministic batch names and media export keys from ordinary JavaScript date code.

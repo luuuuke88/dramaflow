@@ -2847,6 +2847,72 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Set 集合运算检查资产覆盖', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_set_operations_runtime',
+      name: 'Set 集合运算脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Set union/intersection/difference。',
+      script: r'''
+const required = new Set(args.requiredAssets.map(asset => asset.trim()));
+const existing = new Set(args.existingAssets.map(asset => asset.trim()));
+const optional = new Set(args.optionalAssets.map(asset => asset.trim()));
+const missing = required.difference(existing);
+const matched = required.intersection(existing);
+const candidates = missing.union(optional);
+return JSON.stringify({
+  matched: Array.from(matched).sort().join('、'),
+  missing: Array.from(missing).sort().join('、'),
+  candidates: Array.from(candidates).sort().join('、'),
+  complete: required.isSubsetOf(existing),
+  hasOptionalGap: optional.isDisjointFrom(existing),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'requiredAssets': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'existingAssets': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'optionalAssets': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_set_operations_runtime', const {
+        'requiredAssets': [' A001 ', 'A002', 'A003'],
+        'existingAssets': ['A001', 'A003', 'A004'],
+        'optionalAssets': ['A005', ' A006 '],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Set 集合运算脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_set_operations_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'matched': 'A001、A003',
+      'missing': 'A002',
+      'candidates': 'A002、A005、A006',
+      'complete': false,
+      'hasOptionalGap': true,
+    });
+  });
+
   test('自定义脚本技能：支持 Map 索引和 entries values keys', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_map_runtime',
