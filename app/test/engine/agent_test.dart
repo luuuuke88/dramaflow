@@ -12727,6 +12727,121 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     ]);
   });
 
+  test('Agent 记忆：结构化查询计划近期对话返回数量互不串味', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertRecent({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertRecent(
+      id: 'query_plan_recent_a_old',
+      content: 'A组旧近期：青灯计划保留第一版门规。',
+      offset: 1,
+      role: 'assistant:item-recent:a',
+    );
+    insertRecent(
+      id: 'query_plan_recent_a_new',
+      content: 'A组新近期：青灯计划改成第二版门规。',
+      offset: 2,
+      role: 'assistant:item-recent:a',
+    );
+    insertRecent(
+      id: 'query_plan_recent_b_old',
+      content: 'B组旧近期：雪桥执行保留第一版低机位。',
+      offset: 3,
+      role: 'assistant:item-recent:b',
+    );
+    insertRecent(
+      id: 'query_plan_recent_b_new',
+      content: 'B组新近期：雪桥执行改成第二版俯拍。',
+      offset: 4,
+      role: 'assistant:item-recent:b',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '青灯计划',
+            'memoryRoles': ['assistant:item-recent:a'],
+            'scope': 'conversation',
+            'limit': 1,
+            'orderBy': 'latest',
+          },
+          {
+            'query': '雪桥执行',
+            'memoryRoles': ['assistant:item-recent:b'],
+            'scope': 'conversation',
+            'limit': 1,
+            'orderBy': 'oldest',
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按每个计划项自己的数量限制查近期对话',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .single;
+    expect(msg.toolName, 'memory_get');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['recent'], [
+      'A组新近期：青灯计划改成第二版门规。',
+      'B组旧近期：雪桥执行保留第一版低机位。',
+    ]);
+    expect(
+      (payload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_recent_a_new', 'query_plan_recent_b_old'],
+    );
+  });
+
   test('Agent 记忆：结构化查询计划可携带已读记忆排除', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

@@ -10597,7 +10597,11 @@ extension AgentApi on Engine {
                 requestSortMode,
                 requestLimit,
               ));
-              recentMessageRecords.addAll(context.recentMessages);
+              recentMessageRecords.addAll(_limitAgentMemoryEntries(
+                context.recentMessages,
+                requestSortMode,
+                requestLimit,
+              ));
             }
             if (includeSummaries) {
               summaryRecords.addAll(_limitAgentMemoryEntries(
