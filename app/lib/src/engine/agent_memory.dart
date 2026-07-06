@@ -277,12 +277,14 @@ class AgentMemoryService {
     required String isolationKey,
     required String keyword,
     Set<String>? roles,
+    Set<String>? excludeRoles,
     Set<String>? types,
     Set<String>? excludeIds,
     String? noteIsolationKey,
     CancelToken? cancelToken,
   }) async {
     final roleFilter = _normalizeRoleFilter(roles);
+    final excludedRoleFilter = _normalizeRoleFilter(excludeRoles);
     final typeFilter = _normalizeTypeFilter(types);
     final excludedIdFilter = _normalizeIdFilter(excludeIds);
     final allowMessages =
@@ -309,6 +311,7 @@ class AgentMemoryService {
               roleFilter,
               typeFilter,
               excludedIdFilter,
+              excludedRoleFilter,
             ).take(settings.ragLimit))
               item.$2,
           ]
@@ -365,6 +368,7 @@ class AgentMemoryService {
             roleFilter,
             typeFilter,
             excludedIdFilter,
+            excludedRoleFilter,
           ),
           if (allowMessages)
             for (final message in _filterRankedEntries(
@@ -372,6 +376,7 @@ class AgentMemoryService {
               roleFilter,
               typeFilter,
               excludedIdFilter,
+              excludedRoleFilter,
             ).take(settings.ragLimit))
               message.$2,
         ]);
@@ -389,6 +394,7 @@ class AgentMemoryService {
           roleFilter,
           typeFilter,
           excludedIdFilter,
+          excludedRoleFilter,
         ).take(settings.ragLimit))
           item.$2,
       ]);
@@ -399,6 +405,7 @@ class AgentMemoryService {
         roleFilter,
         typeFilter,
         excludedIdFilter,
+        excludedRoleFilter,
       ));
     }
     final directMatches = _filterRankedEntries(
@@ -412,6 +419,7 @@ class AgentMemoryService {
       roleFilter,
       typeFilter,
       excludedIdFilter,
+      excludedRoleFilter,
     ).take(settings.ragLimit);
     for (final message in directMatches) {
       if (!ids.contains(message.$2.id)) ids.add(message.$2.id);
@@ -436,12 +444,17 @@ class AgentMemoryService {
           tokens: tokens,
           queryEmbedding: queryEmbedding,
         ),
-    ], roleFilter, typeFilter, excludedIdFilter);
+    ], roleFilter, typeFilter, excludedIdFilter, excludedRoleFilter);
     if (expanded.isEmpty && summaries.isNotEmpty) {
       return allowSummaries
           ? withNotes(
               _filterEntries(
-                  summaries, roleFilter, typeFilter, excludedIdFilter),
+                summaries,
+                roleFilter,
+                typeFilter,
+                excludedIdFilter,
+                excludedRoleFilter,
+              ),
             )
           : noteMatches;
     }
@@ -452,6 +465,7 @@ class AgentMemoryService {
           roleFilter,
           typeFilter,
           excludedIdFilter,
+          excludedRoleFilter,
         ),
         ...expanded,
       ]);
@@ -769,6 +783,12 @@ class AgentMemoryService {
   bool _matchesRoleFilter(AgentMemoryEntry entry, Set<String>? roles) =>
       roles == null || roles.contains(entry.role);
 
+  bool _matchesExcludedRoleFilter(
+    AgentMemoryEntry entry,
+    Set<String>? roles,
+  ) =>
+      roles == null || !roles.contains(entry.role);
+
   bool _matchesTypeFilter(String type, Set<String>? types) =>
       types == null || types.contains(type);
 
@@ -779,9 +799,11 @@ class AgentMemoryService {
     AgentMemoryEntry entry,
     Set<String>? roles,
     Set<String>? types,
-    Set<String>? excludeIds,
-  ) =>
+    Set<String>? excludeIds, [
+    Set<String>? excludeRoles,
+  ]) =>
       _matchesRoleFilter(entry, roles) &&
+      _matchesExcludedRoleFilter(entry, excludeRoles) &&
       _matchesTypeFilter(entry.type, types) &&
       _matchesIdFilter(entry, excludeIds);
 
@@ -789,21 +811,38 @@ class AgentMemoryService {
     Iterable<AgentMemoryEntry> entries,
     Set<String>? roles,
     Set<String>? types,
-    Set<String>? excludeIds,
-  ) =>
+    Set<String>? excludeIds, [
+    Set<String>? excludeRoles,
+  ]) =>
       [
         for (final entry in entries)
-          if (_matchesEntryFilter(entry, roles, types, excludeIds)) entry
+          if (_matchesEntryFilter(
+            entry,
+            roles,
+            types,
+            excludeIds,
+            excludeRoles,
+          ))
+            entry
       ];
 
   Iterable<(int, AgentMemoryEntry)> _filterRankedEntries(
     Iterable<(int, AgentMemoryEntry)> entries,
     Set<String>? roles,
     Set<String>? types,
-    Set<String>? excludeIds,
-  ) sync* {
+    Set<String>? excludeIds, [
+    Set<String>? excludeRoles,
+  ]) sync* {
     for (final item in entries) {
-      if (_matchesEntryFilter(item.$2, roles, types, excludeIds)) yield item;
+      if (_matchesEntryFilter(
+        item.$2,
+        roles,
+        types,
+        excludeIds,
+        excludeRoles,
+      )) {
+        yield item;
+      }
     }
   }
 
