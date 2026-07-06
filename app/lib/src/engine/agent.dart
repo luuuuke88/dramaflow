@@ -1713,19 +1713,33 @@ class _CustomAgentSkillRuntime {
         return index == null ? null : items[index];
       case 'map':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
         final mapped = <Object?>[];
         var index = 0;
-        for (final item in value) {
-          mapped.add(_evaluateCallback(method, args.single, item, index));
+        for (final item in items) {
+          mapped.add(_evaluateCallback(
+            method,
+            args.single,
+            item,
+            index,
+            source: items,
+          ));
           index++;
         }
         return mapped;
       case 'flatMap':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
         final mapped = <Object?>[];
         var index = 0;
-        for (final item in value) {
-          final result = _evaluateCallback(method, args.single, item, index);
+        for (final item in items) {
+          final result = _evaluateCallback(
+            method,
+            args.single,
+            item,
+            index,
+            source: items,
+          );
           if (result is Iterable && result is! String) {
             mapped.addAll(result);
           } else {
@@ -1744,54 +1758,96 @@ class _CustomAgentSkillRuntime {
         return flattened;
       case 'filter':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
         final filtered = <Object?>[];
         var index = 0;
-        for (final item in value) {
-          final keep = _evaluateCallback(method, args.single, item, index);
+        for (final item in items) {
+          final keep = _evaluateCallback(
+            method,
+            args.single,
+            item,
+            index,
+            source: items,
+          );
           if (_isTruthy(keep)) filtered.add(item);
           index++;
         }
         return filtered;
       case 'forEach':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
         var index = 0;
-        for (final item in value) {
-          _evaluateCallback(method, args.single, item, index);
+        for (final item in items) {
+          _evaluateCallback(
+            method,
+            args.single,
+            item,
+            index,
+            source: items,
+          );
           index++;
         }
         return null;
       case 'find':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
         var index = 0;
-        for (final item in value) {
-          final matched = _evaluateCallback(method, args.single, item, index);
+        for (final item in items) {
+          final matched = _evaluateCallback(
+            method,
+            args.single,
+            item,
+            index,
+            source: items,
+          );
           if (_isTruthy(matched)) return item;
           index++;
         }
         return null;
       case 'findIndex':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
         var index = 0;
-        for (final item in value) {
-          final matched = _evaluateCallback(method, args.single, item, index);
+        for (final item in items) {
+          final matched = _evaluateCallback(
+            method,
+            args.single,
+            item,
+            index,
+            source: items,
+          );
           if (_isTruthy(matched)) return index;
           index++;
         }
         return -1;
       case 'some':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
         var index = 0;
-        for (final item in value) {
-          final matched = _evaluateCallback(method, args.single, item, index);
+        for (final item in items) {
+          final matched = _evaluateCallback(
+            method,
+            args.single,
+            item,
+            index,
+            source: items,
+          );
           if (_isTruthy(matched)) return true;
           index++;
         }
         return false;
       case 'every':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
         var index = 0;
-        for (final item in value) {
-          final matched = _evaluateCallback(method, args.single, item, index);
+        for (final item in items) {
+          final matched = _evaluateCallback(
+            method,
+            args.single,
+            item,
+            index,
+            source: items,
+          );
           if (!_isTruthy(matched)) return false;
           index++;
         }
@@ -2269,7 +2325,13 @@ class _CustomAgentSkillRuntime {
     if (args.length == 1) return values;
     return [
       for (var index = 0; index < values.length; index++)
-        _evaluateCallback('from', args[1], values[index], index),
+        _evaluateCallback(
+          'from',
+          args[1],
+          values[index],
+          index,
+          source: values,
+        ),
     ];
   }
 
@@ -2667,20 +2729,22 @@ class _CustomAgentSkillRuntime {
     String method,
     String callback,
     Object? item,
-    Object? index,
-  ) {
+    Object? index, {
+    Object? source,
+  }) {
+    final values = source == null ? [item, index] : [item, index, source];
     final arrow = _findTopLevelArrow(callback);
     if (arrow < 0) {
       final function = _evaluate(callback);
       if (function is _CustomJsFunction) {
-        return _callCustomFunctionWithValues(function, [item, index]);
+        return _callCustomFunctionWithValues(function, values);
       }
       _badMethodArgs(method);
     }
     final params = _parseCallbackParams(callback.substring(0, arrow), method);
     final body = callback.substring(arrow + 2).trim();
     return _withScopeBindings(
-      _bindCallbackParams(params, [item, index], method),
+      _bindCallbackParams(params, values, method),
       () => _evaluateCallbackBody(method, body),
     );
   }

@@ -1019,6 +1019,64 @@ return `长镜头：${shots}`;
     expect(msg.content, '长镜头：李澈救人、沈微回望');
   });
 
+  test('自定义脚本技能：支持数组回调第三参数访问原数组', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_callback_source_runtime',
+      name: '数组回调原数组脚本运行时',
+      description: '验证自定义技能兼容模型常写的 (item, index, all) => ...。',
+      script: r'''
+const uniqueNames = args.assets
+  .filter((asset, index, all) =>
+    all.findIndex(candidate => candidate.name.trim() === asset.name.trim()) === index)
+  .map((asset, index, all) => `${index + 1}/${all.length}:${asset.name.trim()}`)
+  .join('、');
+const peerTypes = args.assets
+  .filter((asset, index, all) =>
+    all.some((candidate, peerIndex) =>
+      peerIndex !== index && candidate.type === asset.type))
+  .map(asset => asset.type)
+  .join(',');
+return JSON.stringify({ uniqueNames, peerTypes });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+          'custom_script_array_callback_source_runtime', const {
+        'assets': [
+          {'type': 'role', 'name': ' 李澈 '},
+          {'type': 'role', 'name': '李澈'},
+          {'type': 'scene', 'name': '寒山宗门'},
+          {'type': 'scene', 'name': '雪谷'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组回调原数组脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_callback_source_runtime');
+    expect(jsonDecode(msg.content), {
+      'uniqueNames': '1/3:李澈、2/3:寒山宗门、3/3:雪谷',
+      'peerTypes': 'role,role,scene,scene',
+    });
+  });
+
   test('自定义脚本技能：支持乘除取模计算镜头时长', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_multiplicative_runtime',
