@@ -1649,6 +1649,9 @@ class _CustomAgentSkillRuntime {
       case 'match':
         if (args.length != 1) _badMethodArgs(method);
         return _matchString('${value ?? ''}', _evaluate(args.single));
+      case 'matchAll':
+        if (args.length != 1) _badMethodArgs(method);
+        return _matchAllString('${value ?? ''}', _evaluate(args.single));
       case 'has':
         if (args.length != 1 || value is! Set) _badMethodArgs(method);
         final needle = _evaluate(args.single);
@@ -1954,6 +1957,29 @@ class _CustomAgentSkillRuntime {
     final needle = _stringifyInterpolation(matcher);
     if (needle.isEmpty) return [''];
     return text.contains(needle) ? [needle] : null;
+  }
+
+  List<List<Object?>> _matchAllString(String text, Object? matcher) {
+    if (matcher is _CustomJsRegExp) {
+      return [
+        for (final match in matcher.regExp.allMatches(text))
+          [
+            for (var index = 0; index <= match.groupCount; index++)
+              match.group(index),
+          ],
+      ];
+    }
+    final needle = _stringifyInterpolation(matcher);
+    if (needle.isEmpty) return const [];
+    final matches = <List<Object?>>[];
+    var start = 0;
+    while (start <= text.length) {
+      final index = text.indexOf(needle, start);
+      if (index < 0) break;
+      matches.add([needle]);
+      start = index + needle.length;
+    }
+    return matches;
   }
 
   String _replaceString(String text, Object? matcher, String replacement) {
