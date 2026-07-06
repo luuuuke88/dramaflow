@@ -12651,6 +12651,92 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：结构化查询计划视觉参考按项顺序合并', () async {
+    final visualId = engine.saveAgentMemory(
+      projectId,
+      name: '项目视觉参考',
+      content: '视觉参考分析：冷白云雾、水墨留白。',
+    );
+    final ordinaryId = engine.saveAgentMemory(
+      projectId,
+      name: '剧情长期设定',
+      content: '长期设定：xi_ordinary_second 第三集必须保留宗门试炼。',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': 'visual_plan_slot',
+            '视觉参考': true,
+            'scope': 'long_term',
+            'minSimilarity': 0.8,
+          },
+          {
+            'query': 'xi_ordinary_second',
+            'scope': 'long_term',
+            'minSimilarity': 0.8,
+          },
+        ],
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': 'visual_plan_slot',
+            '画风参考': true,
+            '范围': '长期记忆',
+            '相似度阈值': 0.8,
+          },
+          {
+            '查询': 'xi_ordinary_second',
+            '范围': '长期记忆',
+            '相似度阈值': 0.8,
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按计划项顺序召回视觉参考和长期设定',
+      autoMode: true,
+      family: agentFamilyProduction,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId, family: agentFamilyProduction)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      [visualId, ordinaryId],
+    );
+    expect(memoryGetPayload['notes'], [
+      '视觉参考分析：冷白云雾、水墨留白。',
+      '长期设定：xi_ordinary_second 第三集必须保留宗门试炼。',
+    ]);
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      [visualId, ordinaryId],
+    );
+    expect(deepRetrievePayload['memories'], [
+      '视觉参考分析：冷白云雾、水墨留白。',
+      '长期设定：xi_ordinary_second 第三集必须保留宗门试炼。',
+    ]);
+  });
+
   test('Agent 记忆：结构化查询计划可在 queries 包裹项里携带过滤', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

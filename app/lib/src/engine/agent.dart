@@ -10557,6 +10557,8 @@ extension AgentApi on Engine {
             final timeRange = _agentMemoryTimeRange(requestArgs);
             final requestSortMode = _agentMemorySortMode(requestArgs);
             final requestLimit = request.limit;
+            final requestIncludeVisualReferences =
+                _shouldIncludeVisualReferenceMemories(requestArgs);
             final includeMessages =
                 types == null || types.contains(agentMemoryTypeMessage);
             final includeSummaries =
@@ -10628,8 +10630,22 @@ extension AgentApi on Engine {
                 requestLimit,
               ));
             }
+            if (requestIncludeVisualReferences) {
+              noteRecords.addAll(_visualReferenceMemoryEntries(
+                projectId,
+                excludeIds: {
+                  ...queryExcludeIds,
+                  for (final record in context.relatedMessages) record.id,
+                  for (final record in context.summaries) record.id,
+                  for (final record in context.recentMessages) record.id,
+                  for (final record in noteRecords) record.id,
+                },
+                limit:
+                    requestLimit ?? _agentMemoryDirectLimit(requestArgs) ?? 2,
+              ));
+            }
           }
-          if (includeVisualReferences) {
+          if (queryRequests.isEmpty && includeVisualReferences) {
             noteRecords.addAll(_visualReferenceMemoryEntries(
               projectId,
               excludeIds: {
@@ -10738,6 +10754,8 @@ extension AgentApi on Engine {
             final timeRange = _agentMemoryTimeRange(requestArgs);
             final requestSortMode = _agentMemorySortMode(requestArgs);
             final requestLimit = request.limit;
+            final requestIncludeVisualReferences =
+                _shouldIncludeVisualReferenceMemories(requestArgs);
             final excludeIds =
                 _agentMemoryExcludeIds(requestArgs, excludedMemoryIds);
             final queryExcludeIds = {
@@ -10764,8 +10782,19 @@ extension AgentApi on Engine {
               requestSortMode,
               requestLimit,
             ));
+            if (requestIncludeVisualReferences) {
+              records.addAll(_visualReferenceMemoryEntries(
+                projectId,
+                excludeIds: {
+                  ...queryExcludeIds,
+                  for (final record in records) record.id,
+                },
+                limit:
+                    requestLimit ?? _agentMemoryDirectLimit(requestArgs) ?? 2,
+              ));
+            }
           }
-          if (includeVisualReferences) {
+          if (queryRequests.isEmpty && includeVisualReferences) {
             records.addAll(_visualReferenceMemoryEntries(
               projectId,
               excludeIds: {
