@@ -9057,6 +9057,117 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_add 工具写入普通 message 记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_add', const {
+        'role': agentRoleUser,
+        'name': '用户约束',
+        'content': '用户明确要求：李澈不能黑化，第三集必须救沈微。',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '把这个用户约束写进记忆',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_add');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties, contains('content'));
+    expect(properties, contains('role'));
+    expect(properties, contains('scope'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_add');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['saved'], isTrue);
+    expect(payload['type'], agentMemoryTypeMessage);
+    expect(payload['scope'], 'conversation');
+    final memoryId = payload['id'] as String;
+    expect(memoryId, isNotEmpty);
+
+    final row = db.select(
+      'SELECT id,name,content,role,type,summarized FROM memories '
+      'WHERE id=? AND isolationKey=?',
+      [memoryId, 'scriptAgent:$projectId'],
+    ).single;
+    expect(row['name'], '用户约束');
+    expect(row['content'], '用户明确要求：李澈不能黑化，第三集必须救沈微。');
+    expect(row['role'], agentRoleUser);
+    expect(row['type'], agentMemoryTypeMessage);
+    expect(row['summarized'], 0);
+  });
+
+  test('Agent 记忆：memory_add 工具支持 long_term scope 写入长期 note', () async {
+    gateway.turns = [
+      AgentTurnResult.tool('memory_add', const {
+        'scope': 'long_term',
+        'name': '角色底线',
+        'content': '长期设定：沈微不能背叛李澈，只能被误会。',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '把角色底线写到长期记忆',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'memory_add');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['saved'], isTrue);
+    expect(payload['type'], agentMemoryTypeNote);
+    expect(payload['scope'], 'long_term');
+    final memoryId = payload['id'] as String;
+
+    final longTerm = engine.agentLongTermMemories(projectId);
+    expect(longTerm.map((item) => item.id), contains(memoryId));
+    expect(longTerm.singleWhere((item) => item.id == memoryId).content,
+        '长期设定：沈微不能背叛李澈，只能被误会。');
+  });
+
+  test('Agent 记忆：memory_add 工具支持 conversation scope 别名写入 message', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_add', const {
+        'scope': 'conversation',
+        'content': '执行决策：第二集结尾保留寒山钟声伏笔。',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '把执行决策写进普通记忆',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'memory_add');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['saved'], isTrue);
+    expect(payload['type'], agentMemoryTypeMessage);
+    expect(payload['scope'], 'conversation');
+
+    final rows = db.select(
+      'SELECT content,type FROM memories WHERE id=? AND isolationKey=?',
+      [payload['id'], 'scriptAgent:$projectId'],
+    );
+    expect(rows, hasLength(1));
+    expect(rows.single['content'], '执行决策：第二集结尾保留寒山钟声伏笔。');
+    expect(rows.single['type'], agentMemoryTypeMessage);
+  });
+
   test('Agent 记忆：deepRetrieve 工具从 summary 展开原始 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

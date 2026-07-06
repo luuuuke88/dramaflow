@@ -215,6 +215,67 @@ const _agentToolAuditRoleSuffixes = {':tool'};
 
 final _tools = <AgentToolDef>[
   const AgentToolDef(
+    name: 'memory_add',
+    description: '调用 ToonFlow Memory.add 写入 Agent 记忆。'
+        '默认写入当前 Agent 家族的普通 message 记忆并参与摘要；显式 long_term/note 时写入项目长期记忆。',
+    schema: {
+      'type': 'object',
+      'properties': {
+        'content': {
+          'type': 'string',
+          'description': '要写入记忆的正文内容。',
+        },
+        'text': {
+          'type': 'string',
+          'description': 'content 的自然语言别名。',
+        },
+        'memory': {
+          'type': 'string',
+          'description': 'content 的语义化别名。',
+        },
+        'note': {
+          'type': 'string',
+          'description': 'content 的长期记忆别名。',
+        },
+        'name': {
+          'type': 'string',
+          'description': '可选。记忆名称或摘要标签。',
+        },
+        'title': {
+          'type': 'string',
+          'description': 'name 的自然语言别名。',
+        },
+        'role': {
+          'type': 'string',
+          'description': '可选。普通 message 记忆的 role，默认 user。',
+        },
+        'type': {
+          'type': 'string',
+          'enum': ['message', 'note'],
+          'description': '可选。写入 message 普通记忆或 note 长期记忆。',
+        },
+        'memoryType': {
+          'type': 'string',
+          'enum': ['message', 'conversation', 'note', 'long_term'],
+          'description': '可选。type/scope 的语义化别名。',
+        },
+        'scope': {
+          'type': 'string',
+          'enum': ['conversation', 'long_term'],
+          'description': '可选。conversation 写普通记忆；long_term 写长期记忆。',
+        },
+        'createTime': {
+          'type': 'integer',
+          'description': '可选。普通 message 记忆的创建时间毫秒时间戳。',
+        },
+        'create_time': {
+          'type': 'integer',
+          'description': 'createTime 的 snake_case 别名。',
+        },
+      },
+    },
+  ),
+  const AgentToolDef(
     name: 'memory_get',
     description: '调用 ToonFlow Memory.get 普通记忆检索，按查询返回相关原始对话、历史摘要和近期未摘要对话。'
         '适合先快速找当前上下文，不做 deepRetrieve 的 summary 判别展开。',
@@ -7938,6 +7999,76 @@ extension AgentApi on Engine {
   }) async {
     try {
       switch (name) {
+        case 'memory_add':
+          final content = (args['content'] ??
+                  args['text'] ??
+                  args['memory'] ??
+                  args['note'] ??
+                  args['value'] ??
+                  args['message'] ??
+                  args['prompt'] ??
+                  args['input'] ??
+                  '')
+              .toString()
+              .trim();
+          if (content.isEmpty) return '缺少 content 参数。';
+          final memoryName =
+              (args['name'] ?? args['title'] ?? args['label'] ?? '')
+                  .toString()
+                  .trim();
+          final role = (args['role'] ??
+                  args['memoryRole'] ??
+                  args['authorRole'] ??
+                  agentRoleUser)
+              .toString()
+              .trim();
+          final addType = _memoryAddType(args);
+          if (addType == null) {
+            return 'memory_add 只支持一次写入 conversation/message 或 long_term/note。';
+          }
+          if (addType == agentMemoryTypeNote) {
+            final id = saveAgentMemory(
+              projectId,
+              name: memoryName.isEmpty ? '长期记忆' : memoryName,
+              content: content,
+            );
+            return jsonEncode({
+              'saved': true,
+              'id': id,
+              'type': agentMemoryTypeNote,
+              'scope': 'long_term',
+              'name': memoryName.isEmpty ? '长期记忆' : memoryName,
+              'role': _agentMemoryRole,
+              'content': content,
+            });
+          }
+          final createTime = _coerceInt(
+            args['createTime'] ??
+                args['create_time'] ??
+                args['timestamp'] ??
+                args['time'],
+          );
+          final id = await _agentMemoryService(
+            family: agentFamily,
+          ).add(
+            isolationKey: _agentConversationIsolationKey(
+              projectId,
+              family: agentFamily,
+            ),
+            role: role.isEmpty ? agentRoleUser : role,
+            name: memoryName,
+            content: content,
+            createTime: createTime,
+          );
+          return jsonEncode({
+            'saved': id.isNotEmpty,
+            'id': id,
+            'type': agentMemoryTypeMessage,
+            'scope': 'conversation',
+            'name': memoryName,
+            'role': role.isEmpty ? agentRoleUser : role,
+            'content': content,
+          });
         case 'memory_get':
           final query = (args['query'] ??
                   args['question'] ??
@@ -8668,6 +8799,51 @@ extension AgentApi on Engine {
           args['memoryScope'],
     );
     return values.isEmpty ? null : values;
+  }
+
+  String? _memoryAddType(Map<String, dynamic> args) {
+    final values = <String>{};
+
+    void add(Object? raw) {
+      final items = _coerceStringSet(raw);
+      if (items == null) return;
+      for (final item in items) {
+        switch (item.trim().toLowerCase()) {
+          case 'message':
+          case 'messages':
+          case 'conversation':
+          case 'conversations':
+          case 'chat':
+          case 'history':
+            values.add(agentMemoryTypeMessage);
+            break;
+          case 'note':
+          case 'notes':
+          case 'long_term':
+          case 'long-term':
+          case 'longterm':
+          case 'project':
+            values.add(agentMemoryTypeNote);
+            break;
+          default:
+            values.add('__unsupported__');
+        }
+      }
+    }
+
+    add(args['types'] ??
+        args['type'] ??
+        args['memoryTypes'] ??
+        args['memoryType']);
+    add(
+      args['scopes'] ??
+          args['scope'] ??
+          args['memoryScopes'] ??
+          args['memoryScope'],
+    );
+    if (values.isEmpty) return agentMemoryTypeMessage;
+    if (values.length != 1 || values.contains('__unsupported__')) return null;
+    return values.single;
   }
 
   String _deepRetrieveRecordScope(AgentMemoryEntry record) {
