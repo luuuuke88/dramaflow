@@ -407,6 +407,7 @@ class _CustomAgentSkillRuntime {
           'projectId': projectId,
           'args': _customJsMutableValue(args),
           'Array': const _CustomJsBuiltin('Array'),
+          'Date': const _CustomJsBuiltin('Date'),
           'JSON': const _CustomJsBuiltin('JSON'),
           'Math': const _CustomJsBuiltin('Math'),
           'Number': const _CustomJsBuiltin('Number'),
@@ -1410,20 +1411,20 @@ class _CustomAgentSkillRuntime {
     if (index >= expression.length || expression[index] != '(') return null;
     final call = _readBalanced(expression, index, '(', ')');
     index = _skipWhitespace(expression, call.end);
-    if (index != expression.length) return null;
     final args = _splitTopLevel(call.text, ',')
         .where((part) => part.trim().isNotEmpty)
         .map((part) => part.trim())
         .toList();
-    switch (name.text) {
-      case 'Set':
-        return _newSet(args);
-      default:
-        throw EngineException(errLlmFormat, {
+    final value = switch (name.text) {
+      'Set' => _newSet(args),
+      'Date' => _newDate(args),
+      _ => throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_constructor',
           'constructor': name.text,
-        });
-    }
+        }),
+    };
+    if (index == expression.length) return value;
+    return _evaluateValueChain(value, expression, index);
   }
 
   Object? _evaluateDeleteExpression(String expression) {
@@ -1511,6 +1512,9 @@ class _CustomAgentSkillRuntime {
   Object? _callMethod(Object? value, String method, List<String> args) {
     if (value is _CustomJsBuiltin) {
       return _callBuiltinMethod(value.name, method, args);
+    }
+    if (value is _CustomJsDate) {
+      return _callDateInstanceMethod(value, method, args);
     }
     switch (method) {
       case 'trim':
@@ -2002,6 +2006,8 @@ class _CustomAgentSkillRuntime {
         break;
       case 'JSON':
         return _callJsonMethod(method, args);
+      case 'Date':
+        return _callDateStaticMethod(method, args);
       case 'Math':
         return _callMathMethod(method, args);
       case 'Object':
@@ -2050,6 +2056,12 @@ class _CustomAgentSkillRuntime {
     });
   }
 
+  _CustomJsDate _newDate(List<String> args) {
+    if (args.length > 1) _badMethodArgs('Date');
+    if (args.isEmpty) return _CustomJsDate(DateTime.now().toUtc());
+    return _CustomJsDate(_toDateTime(_evaluate(args.single)));
+  }
+
   int _arrayLikeLength(Map<Object?, Object?> source) {
     final raw = source['length'];
     if (raw == null) return 0;
@@ -2082,6 +2094,46 @@ class _CustomAgentSkillRuntime {
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_builtin_method',
           'object': 'JSON',
+          'method': method,
+        });
+    }
+  }
+
+  Object? _callDateStaticMethod(String method, List<String> args) {
+    switch (method) {
+      case 'now':
+        _expectNoArgs(method, args);
+        return DateTime.now().millisecondsSinceEpoch;
+      case 'parse':
+        if (args.length != 1) _badMethodArgs(method);
+        return _toDateTime(_evaluate(args.single)).millisecondsSinceEpoch;
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_builtin_method',
+          'object': 'Date',
+          'method': method,
+        });
+    }
+  }
+
+  Object? _callDateInstanceMethod(
+    _CustomJsDate value,
+    String method,
+    List<String> args,
+  ) {
+    switch (method) {
+      case 'getTime':
+      case 'valueOf':
+        _expectNoArgs(method, args);
+        return value.value.millisecondsSinceEpoch;
+      case 'toISOString':
+      case 'toJSON':
+      case 'toString':
+        _expectNoArgs(method, args);
+        return value.value.toUtc().toIso8601String();
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_method',
           'method': method,
         });
     }
@@ -2361,6 +2413,22 @@ class _CustomAgentSkillRuntime {
     final parsed =
         integer ? int.parse(match.group(0)!) : num.parse(match.group(0)!);
     return parsed;
+  }
+
+  DateTime _toDateTime(Object? value) {
+    if (value is _CustomJsDate) return value.value;
+    if (value is num) {
+      return DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true);
+    }
+    final source = '${value ?? ''}'.trim();
+    try {
+      return DateTime.parse(source).toUtc();
+    } catch (_) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_date',
+        'value': value,
+      });
+    }
   }
 
   List<T> _forEachArg<T>(
@@ -2719,6 +2787,11 @@ class _CustomAgentSkillRuntime {
 class _CustomJsBuiltin {
   final String name;
   const _CustomJsBuiltin(this.name);
+}
+
+class _CustomJsDate {
+  final DateTime value;
+  const _CustomJsDate(this.value);
 }
 
 class _CustomJsFunction {

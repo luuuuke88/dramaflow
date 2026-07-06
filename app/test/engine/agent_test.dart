@@ -1441,6 +1441,75 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Date 时间戳和 ISO 时间格式', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_date_runtime',
+      name: 'Date 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Date.parse/new Date 时间标记。',
+      script: r'''
+const base = Date.parse(args.baseIso);
+const items = args.items.map((item, index) => ({
+  id: item.id,
+  createTime: base + index * 1000,
+  createIso: new Date(base + index * 1000).toISOString(),
+}));
+const startedAt = new Date(args.startedAt);
+return JSON.stringify({
+  firstIso: items[0].createIso,
+  secondTime: items[1].createTime,
+  startedTime: startedAt.getTime(),
+  startedIso: startedAt.toJSON(),
+  nowIsPositive: Date.now() > 0,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'baseIso': {'type': 'string'},
+          'startedAt': {'type': 'number'},
+          'items': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'id': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_date_runtime', const {
+        'baseIso': '2026-07-06T00:00:00.000Z',
+        'startedAt': 1783296000000,
+        'items': [
+          {'id': 'shot-1'},
+          {'id': 'shot-2'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Date 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_date_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'firstIso': '2026-07-06T00:00:00.000Z',
+      'secondTime': 1783296001000,
+      'startedTime': 1783296000000,
+      'startedIso': '2026-07-06T00:00:00.000Z',
+      'nowIsPositive': true,
+    });
+  });
+
   test('自定义脚本技能：支持回调数组解构处理 Object.entries', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_destructure_runtime',
