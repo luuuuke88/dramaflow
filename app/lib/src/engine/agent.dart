@@ -1791,6 +1791,18 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'prompt 的自然别名。',
         },
+        'query': {
+          'type': 'string',
+          'description': 'prompt 的查询语义别名。',
+        },
+        '问题': {
+          'type': 'string',
+          'description': 'prompt 的中文别名。',
+        },
+        '提示词': {
+          'type': 'string',
+          'description': 'prompt 的中文别名。',
+        },
         'remember': {
           'type': 'boolean',
           'description': '可选。为 true 时，将视觉分析结果保存为项目长期记忆。',
@@ -1799,6 +1811,22 @@ final _tools = <AgentToolDef>[
           'type': 'boolean',
           'description': 'remember 的自然语言别名。',
         },
+        'save_memory': {
+          'type': 'boolean',
+          'description': 'saveMemory 的 snake_case 别名。',
+        },
+        '记住': {
+          'type': 'boolean',
+          'description': 'remember 的中文别名。',
+        },
+        '保存记忆': {
+          'type': 'boolean',
+          'description': 'remember 的中文别名。',
+        },
+        '写入记忆': {
+          'type': 'boolean',
+          'description': 'remember 的中文别名。',
+        },
         'memoryName': {
           'type': 'string',
           'description': '可选。保存长期记忆时使用的名称。',
@@ -1806,6 +1834,18 @@ final _tools = <AgentToolDef>[
         'memory_name': {
           'type': 'string',
           'description': 'memoryName 的 snake_case 别名。',
+        },
+        '记忆名称': {
+          'type': 'string',
+          'description': 'memoryName 的中文别名。',
+        },
+        'title': {
+          'type': 'string',
+          'description': 'memoryName 的标题语义别名。',
+        },
+        '标题': {
+          'type': 'string',
+          'description': 'memoryName 的中文标题别名。',
         },
         'scriptId': {
           'type': 'integer',
@@ -1873,36 +1913,113 @@ final _tools = <AgentToolDef>[
           'type': 'boolean',
           'description': '为 true 时，分析当前项目 artStyle 对应的视觉手册或画风封面图。',
         },
+        'project_art_style': {
+          'type': 'boolean',
+          'description': 'projectArtStyle 的 snake_case 别名。',
+        },
         'useProjectArtStyle': {
           'type': 'boolean',
           'description': 'projectArtStyle 的自然语言别名。',
         },
+        'use_project_art_style': {
+          'type': 'boolean',
+          'description': 'useProjectArtStyle 的 snake_case 别名。',
+        },
+        '项目画风': {
+          'type': 'boolean',
+          'description': 'projectArtStyle 的中文别名。',
+        },
+        '当前画风': {
+          'type': 'boolean',
+          'description': 'projectArtStyle 的中文别名。',
+        },
         'artStyleName': {
           'type': 'string',
           'description': '按视觉手册名或画风库名称匹配封面图。',
+        },
+        'art_style_name': {
+          'type': 'string',
+          'description': 'artStyleName 的 snake_case 别名。',
         },
         'artStyleNames': {
           'type': 'array',
           'items': {'type': 'string'},
           'description': 'artStyleName 的数组形式。',
         },
+        'art_style_names': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'artStyleNames 的 snake_case 别名。',
+        },
         'visualManualName': {
           'type': 'string',
           'description': '按视觉手册名称匹配封面图。',
+        },
+        'visual_manual_name': {
+          'type': 'string',
+          'description': 'visualManualName 的 snake_case 别名。',
         },
         'visualManualNames': {
           'type': 'array',
           'items': {'type': 'string'},
           'description': 'visualManualName 的数组形式。',
         },
+        'visual_manual_names': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'visualManualNames 的 snake_case 别名。',
+        },
+        'visualManual': {
+          'type': 'string',
+          'description': 'visualManualName 的常见别名。',
+        },
+        'visualManuals': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'visualManualNames 的常见别名。',
+        },
         'styleName': {
           'type': 'string',
           'description': 'artStyleName 的自然语言别名。',
+        },
+        'style_name': {
+          'type': 'string',
+          'description': 'styleName 的 snake_case 别名。',
         },
         'styleNames': {
           'type': 'array',
           'items': {'type': 'string'},
           'description': 'styleName 的数组形式。',
+        },
+        'style_names': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'styleNames 的 snake_case 别名。',
+        },
+        'artStyle': {
+          'type': 'string',
+          'description': 'artStyleName 的常见别名。',
+        },
+        'artStyles': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'artStyleNames 的常见别名。',
+        },
+        '画风': {
+          'type': 'string',
+          'description': 'artStyleName/styleName 的中文别名。',
+        },
+        '画风名称': {
+          'type': 'string',
+          'description': 'artStyleName/styleName 的中文别名。',
+        },
+        '视觉手册': {
+          'type': 'string',
+          'description': 'visualManualName 的中文别名。',
+        },
+        '视觉手册名称': {
+          'type': 'string',
+          'description': 'visualManualName 的中文别名。',
         },
         'imageId': {
           'type': 'integer',

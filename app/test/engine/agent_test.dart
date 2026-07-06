@@ -1188,6 +1188,82 @@ void main() {
     });
   });
 
+  test('Agent 视觉分析 schema 暴露项目画风和保存记忆中文别名', () async {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      imageBytesBase64: [
+        base64Encode([137, 80, 78, 71, 12])
+      ],
+      data: {for (final key in visualManualKeys) key: '$key 内容'},
+    );
+    final coverPath = engine.visualManuals().single.images.single;
+    db.execute(
+        'UPDATE o_project SET artStyle=? WHERE id=?', ['国风水墨', projectId]);
+    gateway.imageAnalysisResult = '项目画风：冷白水墨、云雾留白、人物轮廓清晰。';
+    gateway.turns = [
+      const AgentTurnResult.tool('analyze_reference_image', {
+        '项目画风': true,
+        '提示词': '提炼项目画风',
+        '保存记忆': true,
+        '记忆名称': '项目画风视觉参考',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '分析项目画风并保存成记忆',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final visionTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'analyze_reference_image');
+    final properties = (visionTool.schema['properties'] as Map).keys;
+    expect(
+      properties,
+      containsAll([
+        'project_art_style',
+        'use_project_art_style',
+        '项目画风',
+        '当前画风',
+        'art_style_name',
+        'visual_manual_name',
+        '画风',
+        '画风名称',
+        '视觉手册',
+        '视觉手册名称',
+        'save_memory',
+        '记住',
+        '保存记忆',
+        '写入记忆',
+        '记忆名称',
+        '标题',
+      ]),
+    );
+    expect(gateway.imageAnalysisPrompts.single, '提炼项目画风');
+    expect(gateway.imageAnalysisPaths.single, coverPath);
+
+    final msg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(msg.toolName, 'analyze_reference_image');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['analysis'], '项目画风：冷白水墨、云雾留白、人物轮廓清晰。');
+    expect(payload['source'], 'visualManual:国风水墨');
+    expect(payload['memory'], {
+      'saved': true,
+      'id': isA<String>(),
+      'type': agentMemoryTypeNote,
+      'scope': 'long_term',
+      'name': '项目画风视觉参考',
+    });
+
+    final saved = engine
+        .agentLongTermMemories(projectId)
+        .singleWhere((item) => item.name == '项目画风视觉参考');
+    expect(saved.content, contains('visualManual:国风水墨'));
+    expect(saved.content, contains('云雾留白'));
+  });
+
   test('Agent 可按画风库名称分析画风封面参考图', () async {
     engine.addArtStyle(
       name: '赛博霓虹',
