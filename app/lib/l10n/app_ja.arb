@@ -761,6 +761,7 @@
   "agentMemoryShortTermLimit": "短期コンテキスト件数",
   "agentMemorySummaryLimit": "履歴要約件数",
   "agentMemoryDeepRetrieveSummaryLimit": "deepRetrieve 要約件数",
+  "agentMemoryMinScore": "最小想起スコア",
   "agentMemoryModelOnnxFile": "ローカル埋め込みモデルファイル",
   "agentMemoryModelDtype": "埋め込みモデル dtype",
   "agentMemoryRerankEnabled": "モデルで RAG を再順位付け",

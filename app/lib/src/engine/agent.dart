@@ -7043,6 +7043,7 @@ extension AgentApi on Engine {
     int? summaryLimit,
     int? ragLimit,
     int? deepRetrieveSummaryLimit,
+    int? minScore,
     bool? rerankEnabled,
     List<String>? modelOnnxFile,
     String? modelDtype,
@@ -7099,6 +7100,15 @@ extension AgentApi on Engine {
         deepRetrieveSummaryLimit,
         min: 0,
         max: 50,
+      );
+    }
+    if (minScore != null) {
+      _writeAgentIntSettingWithLegacy(
+        'agent.memory.minScore',
+        'minScore',
+        minScore,
+        min: 0,
+        max: agentMemoryMaxScoreThreshold,
       );
     }
     if (rerankEnabled != null) {

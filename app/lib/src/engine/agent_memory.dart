@@ -10,6 +10,7 @@ import 'providers/gateway.dart';
 const agentMemoryTypeMessage = 'message';
 const agentMemoryTypeSummary = 'summary';
 const agentMemoryTypeNote = 'note';
+const agentMemoryMaxScoreThreshold = 1000000000000;
 const _agentMemoryToolRole = 'tool';
 const agentMemoryScopeAll = 'all';
 
@@ -80,6 +81,7 @@ class AgentMemorySettings {
   final int summaryLimit;
   final int ragLimit;
   final int deepRetrieveSummaryLimit;
+  final int minScore;
   final bool rerankEnabled;
   final List<String> modelOnnxFile;
   final String modelDtype;
@@ -91,6 +93,7 @@ class AgentMemorySettings {
     this.summaryLimit = 10,
     this.ragLimit = 3,
     this.deepRetrieveSummaryLimit = 5,
+    this.minScore = 0,
     this.rerankEnabled = false,
     this.modelOnnxFile = const [
       'all-MiniLM-L6-v2',
@@ -368,7 +371,8 @@ class AgentMemoryService {
     final excludedRoleSuffixFilter = _normalizeRoleFilter(
       excludeRoleSuffixes,
     );
-    final scoreThreshold = _normalizeScoreThreshold(minScore);
+    final scoreThreshold =
+        _normalizeScoreThreshold(minScore ?? settings.minScore);
     final rankedMessages = settings.ragLimit <= 0
         ? const <(int, AgentMemoryEntry)>[]
         : [
@@ -455,7 +459,9 @@ class AgentMemoryService {
     );
     final typeFilter = _normalizeTypeFilter(types);
     final excludedIdFilter = _normalizeIdFilter(excludeIds);
-    final scoreThreshold = _normalizeScoreThreshold(minScore);
+    final settings = readSettings();
+    final scoreThreshold =
+        _normalizeScoreThreshold(minScore ?? settings.minScore);
     final allowMessages =
         _matchesTypeFilter(agentMemoryTypeMessage, typeFilter);
     final allowSummaries =
@@ -464,7 +470,6 @@ class AgentMemoryService {
     final explicitSummaries =
         typeFilter?.contains(agentMemoryTypeSummary) == true;
     if (!allowMessages && !allowSummaries && !allowNotes) return const [];
-    final settings = readSettings();
     final normalized = normalizeMemoryText(keyword);
     final tokens = memorySearchTokens(normalized);
     final queryEmbedding =
@@ -676,8 +681,12 @@ class AgentMemoryService {
     required String isolationKey,
     required String query,
     int limit = 5,
+    int? minScore,
   }) async {
     if (limit <= 0) return const [];
+    final settings = readSettings();
+    final scoreThreshold =
+        _normalizeScoreThreshold(minScore ?? settings.minScore);
     final normalized = normalizeMemoryText(query);
     if (normalized.isEmpty) {
       final rows = db.select(
@@ -692,7 +701,10 @@ class AgentMemoryService {
           AgentMemoryEntry.fromRow(row),
           isolationKey: isolationKey,
         );
-        entries.add(entry.copyWith(score: 1, matchedTokens: const []));
+        final traced = entry.copyWith(score: 1, matchedTokens: const []);
+        if (_matchesEntryScoreThreshold(traced, scoreThreshold)) {
+          entries.add(traced);
+        }
       }
       return entries;
     }
@@ -706,7 +718,10 @@ class AgentMemoryService {
       tokens: tokens,
       queryEmbedding: queryEmbedding,
     );
-    return [for (final item in ranked.take(limit)) item.$2];
+    return [
+      for (final item in ranked)
+        if (_matchesRankedScoreThreshold(item, scoreThreshold)) item.$2,
+    ].take(limit).toList();
   }
 
   void clear({
@@ -1448,6 +1463,13 @@ class AgentMemoryService {
           defaultValue: 5,
           min: 0,
           max: 50,
+        ),
+        minScore: _intSetting(
+          'agent.memory.minScore',
+          legacyKey: 'minScore',
+          defaultValue: 0,
+          min: 0,
+          max: agentMemoryMaxScoreThreshold,
         ),
         rerankEnabled: _boolSetting(
           'agent.memory.rerankEnabled',

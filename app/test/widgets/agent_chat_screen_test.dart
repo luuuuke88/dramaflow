@@ -800,6 +800,10 @@ void main() {
       '7',
     );
     await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-min-score-field')),
+      '80',
+    );
+    await tester.enterText(
       find.byKey(const ValueKey('agent-memory-model-onnx-file-field')),
       'custom-embedding/onnx/model_fp32.onnx',
     );
@@ -830,6 +834,8 @@ void main() {
     expect(setting('ragLimit'), '2');
     expect(setting('agent.memory.deepRetrieveSummaryLimit'), '7');
     expect(setting('deepRetrieveSummaryLimit'), '7');
+    expect(setting('agent.memory.minScore'), '80');
+    expect(setting('minScore'), '80');
     expect(setting('agent.memory.rerankEnabled'), '1');
     expect(
       setting('agent.memory.modelOnnxFile'),

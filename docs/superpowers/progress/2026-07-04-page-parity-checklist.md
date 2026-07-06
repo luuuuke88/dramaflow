@@ -216,6 +216,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers gateway RA
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` score thresholds through `minScore` / `scoreThreshold` at both Agent-tool and `AgentMemoryService` layers, so decision and sub Agents can ask RAG to ignore weak local matches instead of filling context with low-signal memories.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` and `app/test/widgets/agent_chat_screen_test.dart` now cover configurable `agent.memory.minScore` / `minScore` thresholds for ordinary `Memory.get`, long-term note search, and `deepRetrieve`, plus the Agent memory settings UI field that persists the ToonFlow-compatible keys.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String(...).padEnd(...)` and string-literal `.repeat(...)`, so custom skills can build fixed-width labels, dividers, and normalized helper text with ordinary model-authored JavaScript.

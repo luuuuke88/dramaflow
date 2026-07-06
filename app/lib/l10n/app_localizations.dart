@@ -4216,6 +4216,12 @@ abstract class AppLocalizations {
   /// **'深度召回摘要数'**
   String get agentMemoryDeepRetrieveSummaryLimit;
 
+  /// No description provided for @agentMemoryMinScore.
+  ///
+  /// In zh, this message translates to:
+  /// **'最低召回分数'**
+  String get agentMemoryMinScore;
+
   /// No description provided for @agentMemoryModelOnnxFile.
   ///
   /// In zh, this message translates to:

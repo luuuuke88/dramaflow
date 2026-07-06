@@ -1601,6 +1601,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
   late final TextEditingController _summaryLimitCtrl;
   late final TextEditingController _limitCtrl;
   late final TextEditingController _deepRetrieveSummaryLimitCtrl;
+  late final TextEditingController _minScoreCtrl;
   late final TextEditingController _modelOnnxFileCtrl;
   late final TextEditingController _modelDtypeCtrl;
   late bool _rerankEnabled;
@@ -1621,6 +1622,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     _deepRetrieveSummaryLimitCtrl = TextEditingController(
       text: settings.deepRetrieveSummaryLimit.toString(),
     );
+    _minScoreCtrl = TextEditingController(text: settings.minScore.toString());
     _modelOnnxFileCtrl =
         TextEditingController(text: settings.modelOnnxFile.join('/'));
     _modelDtypeCtrl = TextEditingController(text: settings.modelDtype);
@@ -1635,6 +1637,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     _summaryLimitCtrl.dispose();
     _limitCtrl.dispose();
     _deepRetrieveSummaryLimitCtrl.dispose();
+    _minScoreCtrl.dispose();
     _modelOnnxFileCtrl.dispose();
     _modelDtypeCtrl.dispose();
     super.dispose();
@@ -1655,6 +1658,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     _limitCtrl.text = settings.ragLimit.toString();
     _deepRetrieveSummaryLimitCtrl.text =
         settings.deepRetrieveSummaryLimit.toString();
+    _minScoreCtrl.text = settings.minScore.toString();
     _modelOnnxFileCtrl.text = settings.modelOnnxFile.join('/');
     _modelDtypeCtrl.text = settings.modelDtype;
     _rerankEnabled = settings.rerankEnabled;
@@ -1675,6 +1679,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     final ragLimit = _parse(_limitCtrl, min: 0);
     final deepRetrieveSummaryLimit =
         _parse(_deepRetrieveSummaryLimitCtrl, min: 0);
+    final minScore = _parse(_minScoreCtrl, min: 0);
     final modelOnnxFile = _parseModelOnnxFile();
     final modelDtype = _modelDtypeCtrl.text.trim();
     if (messagesPerSummary == null ||
@@ -1683,6 +1688,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
         summaryLimit == null ||
         ragLimit == null ||
         deepRetrieveSummaryLimit == null ||
+        minScore == null ||
         modelOnnxFile.isEmpty ||
         modelDtype.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1701,6 +1707,7 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
               summaryLimit: summaryLimit,
               ragLimit: ragLimit,
               deepRetrieveSummaryLimit: deepRetrieveSummaryLimit,
+              minScore: minScore,
               rerankEnabled: _rerankEnabled,
               modelOnnxFile: modelOnnxFile,
               modelDtype: modelDtype,
@@ -1832,6 +1839,12 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
                   'agent-memory-deep-retrieve-summary-limit-field',
                 ),
                 hintText: '0-50',
+              ),
+              _numberField(
+                label: l10n.agentMemoryMinScore,
+                controller: _minScoreCtrl,
+                key: const ValueKey('agent-memory-min-score-field'),
+                hintText: '0-$agentMemoryMaxScoreThreshold',
               ),
               _textField(
                 label: l10n.agentMemoryModelOnnxFile,

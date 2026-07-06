@@ -2157,6 +2157,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentMemoryDeepRetrieveSummaryLimit => 'deepRetrieve 要約件数';
 
   @override
+  String get agentMemoryMinScore => '最小想起スコア';
+
+  @override
   String get agentMemoryModelOnnxFile => 'ローカル埋め込みモデルファイル';
 
   @override

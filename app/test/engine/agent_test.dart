@@ -8397,6 +8397,32 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(injected, 2);
   });
 
+  test('长期记忆：minScore 设置会过滤弱相关 note', () async {
+    final keepId = engine.saveAgentMemory(
+      projectId,
+      name: '角色约束',
+      content: '用户明确要求：李澈正派设定必须保留，不能反派化。',
+    );
+    engine.saveAgentMemory(
+      projectId,
+      name: '角色出身',
+      content: '用户补充：李澈来自寒山宗门。',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.minScore', '80'],
+    );
+
+    final matched = await engine.searchAgentMemories(
+      projectId,
+      '李澈正派设定',
+      limit: 5,
+    );
+
+    expect(matched.map((item) => item.id), [keepId]);
+    expect(matched.single.score, greaterThanOrEqualTo(80));
+  });
+
   test('长期记忆：写入本地 embedding，搜索旧记录时自动回填', () async {
     engine.setAgentMemorySettings(
       modelOnnxFile: const ['custom-embedding', 'onnx', 'model_fp32.onnx'],
@@ -10423,6 +10449,49 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(records.single.score, greaterThanOrEqualTo(80));
   });
 
+  test('AgentMemoryService deepRetrieve 使用 minScore 设置过滤弱相关 message', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.minScore', '80'],
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          0,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('service_setting_score_high', '用户明确要求：李澈正派设定必须保留，不能反派化。', 0);
+    insertMessage('service_setting_score_low', '用户补充：李澈来自寒山宗门。', 1);
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '李澈正派设定',
+    );
+
+    expect(records.map((item) => item.id), ['service_setting_score_high']);
+    expect(records.single.score, greaterThanOrEqualTo(80));
+  });
+
   test('AgentMemoryService deepRetrieve 支持 types=all 召回对话和长期记忆', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
@@ -10776,6 +10845,49 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(
         context.relatedMessages.map((item) => item.id), ['rag_relevant_msg']);
     expect(gateway.textCallCount, 0);
+  });
+
+  test('AgentMemoryService get 使用 minScore 设置过滤弱相关 message', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.minScore', '80'],
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('get_score_high', '用户明确要求：李澈正派设定必须保留，不能反派化。', 0);
+    insertMessage('get_score_low', '用户补充：李澈来自寒山宗门。', 1);
+
+    final context = await service.get(
+      isolationKey: 'scriptAgent:$projectId',
+      query: '李澈正派设定',
+    );
+
+    expect(context.relatedMessages.map((item) => item.id), ['get_score_high']);
+    expect(context.relatedMessages.single.score, greaterThanOrEqualTo(80));
   });
 
   test('AgentMemoryService 摘要前会跳过遗留未摘要工具审计记忆', () async {

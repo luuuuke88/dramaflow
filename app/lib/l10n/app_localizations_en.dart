@@ -2216,6 +2216,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'deepRetrieve summary limit';
 
   @override
+  String get agentMemoryMinScore => 'Minimum recall score';
+
+  @override
   String get agentMemoryModelOnnxFile => 'Local embedding model file';
 
   @override

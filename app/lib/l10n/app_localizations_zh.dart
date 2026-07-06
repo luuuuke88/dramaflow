@@ -2143,6 +2143,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentMemoryDeepRetrieveSummaryLimit => '深度召回摘要数';
 
   @override
+  String get agentMemoryMinScore => '最低召回分数';
+
+  @override
   String get agentMemoryModelOnnxFile => '本地向量模型文件';
 
   @override
