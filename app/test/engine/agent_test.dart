@@ -11688,6 +11688,132 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：结构化查询计划可携带时间窗口', () async {
+    const baseTime = 1900000000000;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int createTime,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          createTime,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_time_memory_get_old',
+      content: '旧记忆：玄天策划甲子采用暖色市集。',
+      createTime: baseTime,
+    );
+    insertMessage(
+      id: 'query_plan_time_memory_get_new',
+      content: '新记忆：玄天策划甲子保持冷白山门。',
+      createTime: baseTime + 1000,
+    );
+    insertMessage(
+      id: 'query_plan_time_deep_old',
+      content: '旧记忆：霜岭执行乙卯删除低机位。',
+      createTime: baseTime,
+    );
+    insertMessage(
+      id: 'query_plan_time_deep_new',
+      content: '新记忆：霜岭执行乙卯保留低机位。',
+      createTime: baseTime + 1000,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '玄天策划甲子',
+            'createdAfter': baseTime + 500,
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '霜岭执行乙卯',
+            '开始时间': baseTime + 500,
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按计划项里的时间窗口查制作期记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], ['新记忆：玄天策划甲子保持冷白山门。']);
+    expect(
+      memoryGetPayload['records'],
+      everyElement(
+        isA<Map>().having(
+          (record) => record['createTime'],
+          'createTime',
+          greaterThanOrEqualTo(baseTime + 500),
+        ),
+      ),
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], ['新记忆：霜岭执行乙卯保留低机位。']);
+    expect(
+      deepRetrievePayload['records'],
+      everyElement(
+        isA<Map>().having(
+          (record) => record['createTime'],
+          'createTime',
+          greaterThanOrEqualTo(baseTime + 500),
+        ),
+      ),
+    );
+  });
+
   test('Agent 记忆工具可显式召回视觉参考长期记忆', () async {
     final visualId = engine.saveAgentMemory(
       projectId,

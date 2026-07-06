@@ -462,7 +462,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色/minSimilarity 等过滤提示。',
+        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色/minSimilarity/createdAfter 等过滤提示。',
   },
   'retrievalPlan': {
     'type': 'array',
@@ -12307,23 +12307,30 @@ extension AgentApi on Engine {
           false);
 
   AgentMemoryTimeRange? _agentMemoryTimeRange(Map<String, dynamic> args) {
-    final absoluteCreatedAfter = _coerceInt(
-      args['createdAfter'] ??
-          args['createTimeAfter'] ??
-          args['created_at_after'] ??
-          args['since'] ??
-          args['after'] ??
-          args['startTime'] ??
-          args['start_time'] ??
-          args['fromTime'] ??
-          args['from_time'] ??
-          args['开始时间'] ??
-          args['之后'],
+    final explicitCreatedAfter = _maxNullableInt(
+      _coerceInt(
+        args['createdAfter'] ??
+            args['createTimeAfter'] ??
+            args['created_at_after'] ??
+            args['since'] ??
+            args['after'] ??
+            args['startTime'] ??
+            args['start_time'] ??
+            args['fromTime'] ??
+            args['from_time'] ??
+            args['开始时间'] ??
+            args['之后'],
+      ),
+      _agentMemoryRelativeCreatedAfter(args),
     );
-    final relativeCreatedAfter = _agentMemoryRelativeCreatedAfter(args);
-    final createdAfter =
-        _maxNullableInt(absoluteCreatedAfter, relativeCreatedAfter);
-    final createdBefore = _coerceInt(
+    final planCreatedAfter = explicitCreatedAfter == null
+        ? _maxNullableInt(
+            _firstCoercedInt(_agentMemoryQueryPlanCreatedAfterValues(args)),
+            _agentMemoryQueryPlanRelativeCreatedAfter(args),
+          )
+        : null;
+    final createdAfter = explicitCreatedAfter ?? planCreatedAfter;
+    final explicitCreatedBefore = _coerceInt(
       args['createdBefore'] ??
           args['createTimeBefore'] ??
           args['created_at_before'] ??
@@ -12336,11 +12343,55 @@ extension AgentApi on Engine {
           args['结束时间'] ??
           args['之前'],
     );
+    final createdBefore = explicitCreatedBefore ??
+        _firstCoercedInt(_agentMemoryQueryPlanCreatedBeforeValues(args));
     if (createdAfter == null && createdBefore == null) return null;
     return AgentMemoryTimeRange(
       createdAfter: createdAfter,
       createdBefore: createdBefore,
     );
+  }
+
+  List<Object?> _agentMemoryQueryPlanCreatedAfterValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'createdAfter',
+        'createTimeAfter',
+        'created_at_after',
+        'since',
+        'after',
+        'startTime',
+        'start_time',
+        'fromTime',
+        'from_time',
+        '开始时间',
+        '之后',
+      ]);
+
+  List<Object?> _agentMemoryQueryPlanCreatedBeforeValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'createdBefore',
+        'createTimeBefore',
+        'created_at_before',
+        'until',
+        'before',
+        'endTime',
+        'end_time',
+        'toTime',
+        'to_time',
+        '结束时间',
+        '之前',
+      ]);
+
+  int? _firstCoercedInt(Iterable<Object?> rawValues) {
+    for (final raw in rawValues) {
+      final value = _coerceInt(raw);
+      if (value != null) return value;
+    }
+    return null;
   }
 
   int? _agentMemoryRelativeCreatedAfter(Map<String, dynamic> args) {
@@ -12389,6 +12440,68 @@ extension AgentApi on Engine {
               args['lastDays'] ??
               args['withinDays'] ??
               args['最近天'],
+          const Duration(days: 1).inMilliseconds,
+        );
+    if (recentMs == null) return null;
+    return DateTime.now().millisecondsSinceEpoch - recentMs;
+  }
+
+  int? _agentMemoryQueryPlanRelativeCreatedAfter(Map<String, dynamic> args) {
+    int? valueMs(Iterable<Object?> rawValues, int multiplier) {
+      final value = _firstCoercedInt(rawValues);
+      if (value == null || value <= 0) return null;
+      return value * multiplier;
+    }
+
+    final recentMs = valueMs(
+          _agentMemoryQueryPlanFilterValues(args, const [
+            'recentMs',
+            'recentMillis',
+            'recentMilliseconds',
+            'lastMs',
+            'lastMillis',
+            'lastMilliseconds',
+            'withinMs',
+            'withinMillis',
+            'withinMilliseconds',
+            '最近毫秒',
+          ]),
+          1,
+        ) ??
+        valueMs(
+          _agentMemoryQueryPlanFilterValues(args, const [
+            'recentSeconds',
+            'lastSeconds',
+            'withinSeconds',
+            '最近秒',
+          ]),
+          const Duration(seconds: 1).inMilliseconds,
+        ) ??
+        valueMs(
+          _agentMemoryQueryPlanFilterValues(args, const [
+            'recentMinutes',
+            'lastMinutes',
+            'withinMinutes',
+            '最近分钟',
+          ]),
+          const Duration(minutes: 1).inMilliseconds,
+        ) ??
+        valueMs(
+          _agentMemoryQueryPlanFilterValues(args, const [
+            'recentHours',
+            'lastHours',
+            'withinHours',
+            '最近小时',
+          ]),
+          const Duration(hours: 1).inMilliseconds,
+        ) ??
+        valueMs(
+          _agentMemoryQueryPlanFilterValues(args, const [
+            'recentDays',
+            'lastDays',
+            'withinDays',
+            '最近天',
+          ]),
           const Duration(days: 1).inMilliseconds,
         );
     if (recentMs == null) return null;
