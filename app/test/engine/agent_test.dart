@@ -3072,6 +3072,70 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Number.isFinite/Number.isNaN 和全局 isFinite/isNaN', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_number_predicate_runtime',
+      name: '数字判定脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Number.isFinite/isNaN 和全局 isFinite/isNaN。',
+      script: r'''
+const durations = args.shots
+  .map(shot => parseFloat(shot.duration))
+  .filter(value => Number.isFinite(value));
+const unsafeNaN = 0 / 0;
+const unsafeInfinity = 1 / 0;
+return JSON.stringify({
+  total: durations.reduce((sum, value) => sum + value, 0),
+  numberNaN: Number.isNaN(unsafeNaN),
+  globalNaN: isNaN(unsafeNaN),
+  numberFiniteInfinity: Number.isFinite(unsafeInfinity),
+  globalFiniteInfinity: isFinite(unsafeInfinity),
+  globalFiniteString: isFinite('12.5'),
+  globalNaNText: isNaN('bad-duration'),
+  numberNaNText: Number.isNaN('bad-duration'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'shots': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_number_predicate_runtime', const {
+        'shots': [
+          {'duration': '3秒'},
+          {'duration': '2.5s'},
+          {'duration': '1'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数字判定脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_number_predicate_runtime');
+    expect(jsonDecode(msg.content), {
+      'total': 6.5,
+      'numberNaN': true,
+      'globalNaN': true,
+      'numberFiniteInfinity': false,
+      'globalFiniteInfinity': false,
+      'globalFiniteString': true,
+      'globalNaNText': true,
+      'numberNaNText': false,
+    });
+  });
+
   test('自定义脚本技能：支持 parseFloat 和 parseInt 全局解析', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_parse_runtime',

@@ -419,6 +419,8 @@ class _CustomAgentSkillRuntime {
           'Object': const _CustomJsBuiltin('Object'),
           'RegExp': const _CustomJsBuiltin('RegExp'),
           'String': const _CustomJsBuiltin('String'),
+          'isFinite': const _CustomJsBuiltin('isFinite'),
+          'isNaN': const _CustomJsBuiltin('isNaN'),
           'parseFloat': const _CustomJsBuiltin('parseFloat'),
           'parseInt': const _CustomJsBuiltin('parseInt'),
         };
@@ -2268,6 +2270,12 @@ class _CustomAgentSkillRuntime {
           integer: true,
           radix: radix,
         );
+      case 'isFinite':
+        if (values.length != 1) _badMethodArgs(objectName);
+        return _isFiniteNumber(values.single, coerce: true);
+      case 'isNaN':
+        if (values.length != 1) _badMethodArgs(objectName);
+        return _isNaNNumber(values.single, coerce: true);
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_builtin_function',
@@ -2313,6 +2321,8 @@ class _CustomAgentSkillRuntime {
         return _callDateStaticMethod(method, args);
       case 'Math':
         return _callMathMethod(method, args);
+      case 'Number':
+        return _callNumberMethod(method, args);
       case 'Object':
         return _callObjectMethod(method, args);
     }
@@ -2657,6 +2667,24 @@ class _CustomAgentSkillRuntime {
     }
   }
 
+  Object? _callNumberMethod(String method, List<String> args) {
+    final values = _evaluateCallArguments(args);
+    switch (method) {
+      case 'isFinite':
+        if (values.length != 1) _badMethodArgs(method);
+        return _isFiniteNumber(values.single, coerce: false);
+      case 'isNaN':
+        if (values.length != 1) _badMethodArgs(method);
+        return _isNaNNumber(values.single, coerce: false);
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_builtin_method',
+          'object': 'Number',
+          'method': method,
+        });
+    }
+  }
+
   Object? _callObjectMethod(String method, List<String> args) {
     switch (method) {
       case 'assign':
@@ -2958,6 +2986,26 @@ class _CustomAgentSkillRuntime {
   }
 
   bool _hasOwnProperty(Object? value, Object? key) => _hasProperty(value, key);
+
+  bool _isFiniteNumber(Object? value, {required bool coerce}) {
+    final number = coerce ? _coerceNumberPredicateNum(value) : value;
+    return number is num && number.isFinite;
+  }
+
+  bool _isNaNNumber(Object? value, {required bool coerce}) {
+    final number = coerce ? _coerceNumberPredicateNum(value) : value;
+    if (coerce && number == null) return true;
+    return number is num && number.isNaN;
+  }
+
+  num? _coerceNumberPredicateNum(Object? value) {
+    if (value == null) return 0;
+    if (value is bool) return value ? 1 : 0;
+    if (value is num) return value;
+    final text = '$value'.trim();
+    if (text.isEmpty) return 0;
+    return num.tryParse(text);
+  }
 
   Map<String, Object?> _customJsErrorObject(Object error) {
     if (error is _CustomJsError) {
