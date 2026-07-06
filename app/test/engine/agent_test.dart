@@ -14004,6 +14004,18 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'assets_ids',
         'derive_asset_ids',
         'derive_assets_ids',
+        'assetName',
+        'assetNames',
+        'deriveAssetName',
+        'deriveAssetNames',
+        'childAssetName',
+        'childAssetNames',
+        'asset_name',
+        'asset_names',
+        'derive_asset_name',
+        'derive_asset_names',
+        'child_asset_name',
+        'child_asset_names',
       ]),
     );
     expect(tool.schema['required'], isNull);
@@ -14103,6 +14115,14 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'storyboard_ids',
         'shot_ids',
         'panel_ids',
+        'shotNo',
+        'shotNos',
+        'storyboardNo',
+        'storyboardNos',
+        'shot_no',
+        'shot_nos',
+        'storyboard_no',
+        'storyboard_nos',
       ]),
     );
     expect(tool.schema['required'], isNull);
@@ -14540,6 +14560,51 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('制作执行工具调用接受 assetName 别名生成衍生资产图片', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final parentAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    final childAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈战损造型',
+      describe: '衣甲破损',
+      parentAssetsId: parentAssetId,
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, childAssetId]);
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_generate_assets',
+        {'request': '生成衍生资产图片', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool('generate_deriveAsset', const {
+        'assetName': '李澈战损造型',
+      }),
+      const AgentTurnResult.text('开始生成'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：生成衍生资产图片',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final task = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['asset_image_generation'],
+    ).single;
+    final related =
+        jsonDecode(task['relatedObjects'] as String) as Map<String, dynamic>;
+    expect(related['ids'], [childAssetId]);
+  });
+
   test('制作执行工具调用接受 shotIds 别名生成分镜首帧', () async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
@@ -14570,6 +14635,47 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
       contains('storyboard_image_generation'),
     );
+  });
+
+  test('制作执行工具调用接受 shotNo 别名生成分镜首帧', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final firstStoryboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '第一镜',
+    );
+    final secondStoryboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '第二镜',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_gen',
+        {'request': '生成第二镜首帧', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool('generate_storyboard', const {
+        'shotNo': 2,
+      }),
+      const AgentTurnResult.text('开始生成'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：生成第二镜首帧',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final task = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['storyboard_image_generation'],
+    ).single;
+    final related =
+        jsonDecode(task['relatedObjects'] as String) as Map<String, dynamic>;
+    expect(related['ids'], [secondStoryboardId]);
+    expect(related['ids'], isNot(contains(firstStoryboardId)));
   });
 
   test('制作执行工具调用接受分镜写入字段别名', () async {

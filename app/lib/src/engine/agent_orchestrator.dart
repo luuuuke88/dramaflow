@@ -420,6 +420,66 @@ const Map<String, dynamic> _assetImageIdListAliasProperties = <String, dynamic>{
     'items': {'type': 'integer'},
     'description': 'deriveAssetsIds 的 snake_case 别名。',
   },
+  'assetName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': '按资产名称精确匹配。',
+  },
+  'assetNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'assetName 的复数别名。',
+  },
+  'deriveAssetName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': '按衍生资产名称精确匹配。',
+  },
+  'deriveAssetNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'deriveAssetName 的复数别名。',
+  },
+  'childAssetName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': '按子资产名称精确匹配。',
+  },
+  'childAssetNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'childAssetName 的复数别名。',
+  },
+  'asset_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'assetName 的 snake_case 别名。',
+  },
+  'asset_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'assetNames 的 snake_case 别名。',
+  },
+  'derive_asset_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'deriveAssetName 的 snake_case 别名。',
+  },
+  'derive_asset_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'deriveAssetNames 的 snake_case 别名。',
+  },
+  'child_asset_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'childAssetName 的 snake_case 别名。',
+  },
+  'child_asset_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'childAssetNames 的 snake_case 别名。',
+  },
 };
 
 const Map<String, dynamic> _storyboardImageIdListAliasProperties =
@@ -458,6 +518,46 @@ const Map<String, dynamic> _storyboardImageIdListAliasProperties =
     'type': 'array',
     'items': {'type': 'integer'},
     'description': 'panelIds 的 snake_case 别名。',
+  },
+  'shotNo': {
+    'type': ['integer', 'array', 'string'],
+    'items': {'type': 'integer'},
+    'description': '按当前剧本分镜顺序选择镜头，例如 2 表示第二镜。',
+  },
+  'shotNos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'shotNo 的复数别名。',
+  },
+  'storyboardNo': {
+    'type': ['integer', 'array', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'shotNo 的分镜语义别名。',
+  },
+  'storyboardNos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'storyboardNo 的复数别名。',
+  },
+  'shot_no': {
+    'type': ['integer', 'array', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'shotNo 的 snake_case 别名。',
+  },
+  'shot_nos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'shotNos 的 snake_case 别名。',
+  },
+  'storyboard_no': {
+    'type': ['integer', 'array', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'storyboardNo 的 snake_case 别名。',
+  },
+  'storyboard_nos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'storyboardNos 的 snake_case 别名。',
   },
 };
 

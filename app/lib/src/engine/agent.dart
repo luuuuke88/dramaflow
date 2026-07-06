@@ -10316,17 +10316,11 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final ids = _intListAny(args, const [
-      'ids',
-      'assetIds',
-      'assetsIds',
-      'deriveAssetIds',
-      'deriveAssetsIds',
-      'asset_ids',
-      'assets_ids',
-      'derive_asset_ids',
-      'derive_assets_ids',
-    ]);
+    final ids = _productionAssetIdsArg(
+      projectId,
+      args,
+      scriptId: _productionScriptId(projectId, args),
+    );
     if (ids == null || ids.isEmpty) return '缺少 ids 参数。';
     final items = <({int assetsId, String? refImageBase64})>[
       for (final id in ids) (assetsId: id, refImageBase64: null),
@@ -10340,15 +10334,7 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final ids = _intListAny(args, const [
-      'ids',
-      'storyboardIds',
-      'shotIds',
-      'panelIds',
-      'storyboard_ids',
-      'shot_ids',
-      'panel_ids',
-    ]);
+    final ids = _productionStoryboardIdsArg(projectId, args);
     if (ids == null || ids.isEmpty) return '缺少 ids 参数。';
     final taskId = batchGenerateStoryboardImages(
       projectId,
@@ -10358,6 +10344,90 @@ extension AgentApi on Engine {
     );
     if (taskId == 0) return '没有可生成的分镜。';
     return '已提交分镜首帧图生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
+  }
+
+  List<int>? _productionAssetIdsArg(
+    int projectId,
+    Map<String, dynamic> args, {
+    int? scriptId,
+  }) {
+    final direct = _intListAny(args, const [
+      'ids',
+      'assetIds',
+      'assetsIds',
+      'deriveAssetIds',
+      'deriveAssetsIds',
+      'assetId',
+      'assetsId',
+      'deriveAssetId',
+      'deriveAssetsId',
+      'asset_ids',
+      'assets_ids',
+      'derive_asset_ids',
+      'derive_assets_ids',
+      'asset_id',
+      'assets_id',
+      'derive_asset_id',
+      'derive_assets_id',
+    ]);
+    if (direct != null) return direct;
+
+    final names = _stringListAny(args, const [
+      'assetName',
+      'assetNames',
+      'deriveAssetName',
+      'deriveAssetNames',
+      'childAssetName',
+      'childAssetNames',
+      'asset_name',
+      'asset_names',
+      'derive_asset_name',
+      'derive_asset_names',
+      'child_asset_name',
+      'child_asset_names',
+    ]);
+    if (names == null) return null;
+    final wanted = names.map((name) => name.trim()).toSet();
+    final linkedIds = scriptId == null
+        ? null
+        : db
+            .select('SELECT assetId FROM o_scriptAssets WHERE scriptId=?',
+                [scriptId])
+            .map((row) => row['assetId'] as int)
+            .toSet();
+    return [
+      for (final row in db.select(
+        'SELECT id,name FROM o_assets WHERE projectId=? ORDER BY id',
+        [projectId],
+      ))
+        if (wanted.contains((row['name'] as String? ?? '').trim()) &&
+            (linkedIds == null || linkedIds.contains(row['id'] as int)))
+          row['id'] as int,
+    ];
+  }
+
+  List<int>? _productionStoryboardIdsArg(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final direct = _intListAny(args, const [
+      'ids',
+      'storyboardIds',
+      'shotIds',
+      'panelIds',
+      'storyboardId',
+      'shotId',
+      'panelId',
+      'storyboard_ids',
+      'shot_ids',
+      'panel_ids',
+      'storyboard_id',
+      'shot_id',
+      'panel_id',
+    ]);
+    if (direct != null) return direct;
+    final scriptId = _productionScriptId(projectId, args);
+    return scriptId == null ? null : _agentStoryboardIdsArg(scriptId, args);
   }
 
   String _productionAgentAddStoryboard(
