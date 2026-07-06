@@ -1543,8 +1543,22 @@ String extractXmlTagText(String source, String tagName) {
   return decodeXmlEntities(stripXmlTags(match.group(1) ?? '').trim());
 }
 
-String stripXmlTags(String source) =>
-    source.replaceAll(RegExp(r'<[^>]+>'), '').trim();
+String stripXmlTags(String source) {
+  final cdataSections = <String>[];
+  final protectedSource = source.replaceAllMapped(
+    RegExp(r'<!\[CDATA\[([\s\S]*?)\]\]>'),
+    (match) {
+      final index = cdataSections.length;
+      cdataSections.add(match.group(1) ?? '');
+      return '__DRAMAFLOW_CDATA_${index}__';
+    },
+  );
+  var text = protectedSource.replaceAll(RegExp(r'<[^>]+>'), '');
+  for (var i = 0; i < cdataSections.length; i++) {
+    text = text.replaceAll('__DRAMAFLOW_CDATA_${i}__', cdataSections[i]);
+  }
+  return text.trim();
+}
 
 String decodeXmlEntities(String source) {
   final named = source
