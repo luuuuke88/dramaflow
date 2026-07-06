@@ -1157,8 +1157,6 @@ class _CustomAgentSkillRuntime {
         groupedChain.end,
       );
     }
-    final jsonStringify = _jsonStringifyInner(expr);
-    if (jsonStringify != null) return jsonEncode(_evaluate(jsonStringify));
     final newExpression = _evaluateNewExpression(expr);
     if (newExpression != null) return newExpression;
     final deleteExpression = _evaluateDeleteExpression(expr);
@@ -2591,8 +2589,7 @@ class _CustomAgentSkillRuntime {
           });
         }
       case 'stringify':
-        if (args.length != 1) _badMethodArgs(method);
-        return jsonEncode(_evaluate(args.single));
+        return _jsonStringify(args);
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_builtin_method',
@@ -2600,6 +2597,28 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  String _jsonStringify(List<String> args) {
+    if (args.isEmpty || args.length > 3) _badMethodArgs('stringify');
+    final values = _evaluateCallArguments(args);
+    if (values.length >= 2 && values[1] != null) {
+      _badMethodArgs('stringify');
+    }
+    final indent = values.length >= 3 ? _jsonStringifyIndent(values[2]) : null;
+    if (indent == null || indent.isEmpty) return jsonEncode(values.first);
+    return JsonEncoder.withIndent(indent).convert(values.first);
+  }
+
+  String? _jsonStringifyIndent(Object? value) {
+    if (value == null) return null;
+    if (value is num) {
+      final count = value.toInt().clamp(0, 10).toInt();
+      return count <= 0 ? null : ' ' * count;
+    }
+    final text = _stringifyInterpolation(value);
+    if (text.isEmpty) return null;
+    return text.length > 10 ? text.substring(0, 10) : text;
   }
 
   Object? _callDateStaticMethod(String method, List<String> args) {
@@ -4482,11 +4501,6 @@ _Token _readBalanced(String source, int start, String open, String close) {
     }
   }
   throw EngineException(errLlmFormat, {'reason': 'custom_skill_balanced'});
-}
-
-String? _jsonStringifyInner(String expr) {
-  if (!expr.startsWith('JSON.stringify(') || !expr.endsWith(')')) return null;
-  return _readBalanced(expr, 'JSON.stringify'.length, '(', ')').text;
 }
 
 String _trimTrailingSemicolon(String source) {

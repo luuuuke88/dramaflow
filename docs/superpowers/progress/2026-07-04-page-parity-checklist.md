@@ -168,6 +168,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers numeric `toFixed(...)` formatting on mapped durations, reduced totals, and grouped arithmetic expressions such as `(Number(ratio) * 100).toFixed()`, so model-authored skills can emit stable duration/percentage strings without falling back to manual rounding.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `JSON.stringify(value, null, space)` pretty output with numeric and string indentation, so model-authored skills can return readable workspace/storyboard JSON without failing on the common three-argument stringify form.
+
 Mobile Evidence: `app/test/widgets/production_screen_test.dart` covers 390px Agent entry from production. `app/test/widgets/agent_chat_screen_test.dart` covers 390px Agent clear-memory confirmation, built-in capability info, skill editing, custom-skill creation, and long-term memory add/edit through fullscreen mobile forms while persisting the skill and memory definitions.
 
 Known Gaps: Full ToonFlow multi-layer Agent orchestration and external model/vector RAG are not fully replicated. Custom skill execution now has a v1 `custom-js-agent` bridge for common model-authored JS-like scripts, including control-flow branches and simple loops, but it is not yet a full QuickJS/flutter_js runtime. Current long-term memory is a local, editable, token-embedding note store over the existing `memories` table; `ragLimit`, summary/deepRetrieve controls, summary-source expansion, optional model reranking, and an injectable embedding provider boundary are configurable/tested, but a production-grade embedding model/vector store remains unimplemented.

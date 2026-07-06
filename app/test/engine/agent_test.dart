@@ -3966,6 +3966,100 @@ return JSON.stringify({
     );
   });
 
+  test('自定义脚本技能：支持 JSON.stringify pretty 输出', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_json_stringify_pretty_runtime',
+      name: 'JSON 格式化脚本运行时',
+      description: '验证自定义技能兼容模型常写的 JSON.stringify(value, null, 2)。',
+      script: r'''
+const payload = {
+  project: args.name.trim(),
+  shots: args.shots.map((shot, index) => ({
+    index: index + 1,
+    desc: shot.desc.trim(),
+    duration: Number(shot.duration ?? 1),
+  })),
+};
+const pretty = JSON.stringify(payload, null, 2);
+const tabbed = JSON.stringify(payload.shots, null, '\t');
+return JSON.stringify({ pretty, tabbed });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'name': {'type': 'string'},
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'desc': {'type': 'string'},
+                'duration': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'custom_script_json_stringify_pretty_runtime',
+        const {
+          'name': ' 测试短剧 ',
+          'shots': [
+            {'desc': ' 雪夜山门 ', 'duration': '3'},
+            {'desc': '李澈拔剑', 'duration': '2.5'},
+          ],
+        },
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 JSON 格式化脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_json_stringify_pretty_runtime');
+    final decoded = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(
+      decoded['pretty'],
+      '{\n'
+      '  "project": "测试短剧",\n'
+      '  "shots": [\n'
+      '    {\n'
+      '      "index": 1,\n'
+      '      "desc": "雪夜山门",\n'
+      '      "duration": 3\n'
+      '    },\n'
+      '    {\n'
+      '      "index": 2,\n'
+      '      "desc": "李澈拔剑",\n'
+      '      "duration": 2.5\n'
+      '    }\n'
+      '  ]\n'
+      '}',
+    );
+    expect(
+      decoded['tabbed'],
+      '[\n'
+      '\t{\n'
+      '\t\t"index": 1,\n'
+      '\t\t"desc": "雪夜山门",\n'
+      '\t\t"duration": 3\n'
+      '\t},\n'
+      '\t{\n'
+      '\t\t"index": 2,\n'
+      '\t\t"desc": "李澈拔剑",\n'
+      '\t\t"duration": 2.5\n'
+      '\t}\n'
+      ']',
+    );
+  });
+
   test('自定义脚本技能：支持 try catch 兜底 JSON 解析失败', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_try_catch_runtime',
