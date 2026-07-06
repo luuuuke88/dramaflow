@@ -409,6 +409,7 @@ class _CustomAgentSkillRuntime {
           'Array': const _CustomJsBuiltin('Array'),
           'Date': const _CustomJsBuiltin('Date'),
           'JSON': const _CustomJsBuiltin('JSON'),
+          'Map': const _CustomJsBuiltin('Map'),
           'Math': const _CustomJsBuiltin('Math'),
           'Number': const _CustomJsBuiltin('Number'),
           'Object': const _CustomJsBuiltin('Object'),
@@ -1418,6 +1419,7 @@ class _CustomAgentSkillRuntime {
     final value = switch (name.text) {
       'Set' => _newSet(args),
       'Date' => _newDate(args),
+      'Map' => _newMap(args),
       _ => throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_constructor',
           'constructor': name.text,
@@ -1452,6 +1454,10 @@ class _CustomAgentSkillRuntime {
       if (trimmed.isEmpty) continue;
       if (trimmed.startsWith('...')) {
         final spread = _evaluate(trimmed.substring(3).trim());
+        if (spread is _CustomJsMap) {
+          result.addAll(_customJsMapEntries(spread));
+          continue;
+        }
         if (spread is! Iterable) {
           throw EngineException(errLlmFormat, {
             'reason': 'custom_skill_array_spread',
@@ -1515,6 +1521,9 @@ class _CustomAgentSkillRuntime {
     }
     if (value is _CustomJsDate) {
       return _callDateInstanceMethod(value, method, args);
+    }
+    if (value is _CustomJsMap) {
+      return _callMapInstanceMethod(value, method, args);
     }
     switch (method) {
       case 'trim':
@@ -2026,6 +2035,8 @@ class _CustomAgentSkillRuntime {
     final values = <Object?>[];
     if (source is String) {
       values.addAll(source.split(''));
+    } else if (source is _CustomJsMap) {
+      values.addAll(_customJsMapEntries(source));
     } else if (source is Iterable) {
       values.addAll(source);
     } else if (source is Map) {
@@ -2060,6 +2071,39 @@ class _CustomAgentSkillRuntime {
     if (args.length > 1) _badMethodArgs('Date');
     if (args.isEmpty) return _CustomJsDate(DateTime.now().toUtc());
     return _CustomJsDate(_toDateTime(_evaluate(args.single)));
+  }
+
+  _CustomJsMap _newMap(List<String> args) {
+    if (args.length > 1) _badMethodArgs('Map');
+    final result = _CustomJsMap(<Object?, Object?>{});
+    if (args.isEmpty) return result;
+    final source = _evaluate(args.single);
+    if (source == null) return result;
+    if (source is _CustomJsMap) {
+      result.values.addAll(source.values);
+      return result;
+    }
+    if (source is Map) {
+      for (final entry in source.entries) {
+        result.values[entry.key] = entry.value;
+      }
+      return result;
+    }
+    if (source is Iterable && source is! String) {
+      for (final item in source) {
+        final pair = item is Iterable ? item.toList() : null;
+        if (pair == null || pair.length < 2) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_map_constructor',
+          });
+        }
+        result.values[pair[0]] = pair[1];
+      }
+      return result;
+    }
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_map_constructor',
+    });
   }
 
   int _arrayLikeLength(Map<Object?, Object?> source) {
@@ -2138,6 +2182,67 @@ class _CustomAgentSkillRuntime {
         });
     }
   }
+
+  Object? _callMapInstanceMethod(
+    _CustomJsMap value,
+    String method,
+    List<String> args,
+  ) {
+    switch (method) {
+      case 'get':
+        if (args.length != 1) _badMethodArgs(method);
+        final key = _customJsMapKey(value, _evaluate(args.single));
+        return key == null ? null : value.values[key];
+      case 'set':
+        if (args.length != 2) _badMethodArgs(method);
+        value.values[_evaluate(args.first)] = _evaluate(args[1]);
+        return value;
+      case 'has':
+        if (args.length != 1) _badMethodArgs(method);
+        return _customJsMapKey(value, _evaluate(args.single)) != null;
+      case 'delete':
+        if (args.length != 1) _badMethodArgs(method);
+        final key = _customJsMapKey(value, _evaluate(args.single));
+        if (key == null) return false;
+        value.values.remove(key);
+        return true;
+      case 'clear':
+        _expectNoArgs(method, args);
+        value.values.clear();
+        return null;
+      case 'keys':
+        _expectNoArgs(method, args);
+        return _customJsMapKeys(value);
+      case 'values':
+        _expectNoArgs(method, args);
+        return _customJsMapValues(value);
+      case 'entries':
+        _expectNoArgs(method, args);
+        return _customJsMapEntries(value);
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_method',
+          'method': method,
+        });
+    }
+  }
+
+  Object? _customJsMapKey(_CustomJsMap value, Object? key) {
+    for (final existing in value.values.keys) {
+      if (_compareValues(existing, key, '===')) return existing;
+    }
+    return null;
+  }
+
+  List<Object?> _customJsMapKeys(_CustomJsMap value) =>
+      [for (final entry in value.values.entries) entry.key];
+
+  List<Object?> _customJsMapValues(_CustomJsMap value) =>
+      [for (final entry in value.values.entries) entry.value];
+
+  List<List<Object?>> _customJsMapEntries(_CustomJsMap value) => [
+        for (final entry in value.values.entries) [entry.key, entry.value],
+      ];
 
   Object? _callMathMethod(String method, List<String> args) {
     final numbers = _forEachArg<num>(args, _toNum);
@@ -2723,6 +2828,7 @@ class _CustomAgentSkillRuntime {
   Object? _readProperty(Object? value, String property) {
     if (value is Map) return value[property];
     if (property == 'size' && value is Set) return value.length;
+    if (property == 'size' && value is _CustomJsMap) return value.values.length;
     if (property == 'length') {
       if (value is String) return value.length;
       if (value is Iterable) return value.length;
@@ -2792,6 +2898,11 @@ class _CustomJsBuiltin {
 class _CustomJsDate {
   final DateTime value;
   const _CustomJsDate(this.value);
+}
+
+class _CustomJsMap {
+  final Map<Object?, Object?> values;
+  const _CustomJsMap(this.values);
 }
 
 class _CustomJsFunction {

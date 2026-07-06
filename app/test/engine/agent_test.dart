@@ -1441,6 +1441,71 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Map 索引和 entries values keys', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_map_runtime',
+      name: 'Map 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 new Map(Object.entries(...)) 索引。',
+      script: r'''
+const assetsById = new Map(Object.entries(args.assetsById));
+assetsById.delete('A003');
+assetsById.set('A004', { type: 'tool', name: ' 灵剑 ' });
+const selected = args.selectedIds
+  .filter(id => assetsById.has(id))
+  .map(id => assetsById.get(id).name.trim())
+  .join('、');
+return JSON.stringify({
+  selected,
+  size: assetsById.size,
+  keys: Array.from(assetsById.keys()).join('|'),
+  values: Array.from(assetsById.values()).map(asset => asset.type).join('|'),
+  entries: Array.from(assetsById.entries())
+    .map(([id, asset]) => `${id}:${asset.name.trim()}`)
+    .join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'selectedIds': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'assetsById': {'type': 'object'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_map_runtime', const {
+        'selectedIds': ['A002', 'A003', 'A004'],
+        'assetsById': {
+          'A001': {'type': 'role', 'name': ' 李澈 '},
+          'A002': {'type': 'scene', 'name': '寒山宗门'},
+          'A003': {'type': 'tool', 'name': '废弃道具'},
+        },
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Map 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_map_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'selected': '寒山宗门、灵剑',
+      'size': 3,
+      'keys': 'A001|A002|A004',
+      'values': 'role|scene|tool',
+      'entries': 'A001:李澈、A002:寒山宗门、A004:灵剑',
+    });
+  });
+
   test('自定义脚本技能：支持 Date 时间戳和 ISO 时间格式', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_date_runtime',
