@@ -381,6 +381,36 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。已读取 memory id 别名，等价于 excludeIds。',
         },
+        'records': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': '可选。上一轮 deepRetrieve 返回的 records，可原样传回以排除已读记忆。',
+        },
+        'seenRecords': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': '可选。已读 records，等价于从 records 中提取 id 后加入 excludeIds。',
+        },
+        'readRecords': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': '可选。已读取 records，等价于 seenRecords。',
+        },
       },
     },
   ),
@@ -7534,19 +7564,25 @@ extension AgentApi on Engine {
               ...requestedExcludeRoleSuffixes,
           };
           final types = _deepRetrieveMemoryTypes(args);
-          final requestedExcludeIds = _coerceStringSetAny(args, const [
+          final requestedExcludeIds = _coerceMemoryIdSetAny(args, const [
             'excludeIds',
             'excludeMemoryIds',
             'excludedMemoryIds',
             'excludeId',
+            'excludeRecords',
             'memoryIds',
             'seenMemoryIds',
             'seenIds',
+            'seenRecords',
             'readMemoryIds',
             'readIds',
+            'readRecords',
+            'records',
             'previousMemoryIds',
             'previouslyReadMemoryIds',
             'previouslyReadIds',
+            'previousRecords',
+            'previouslyReadRecords',
           ]);
           final excludeIds = {
             ...excludedMemoryIds,
@@ -7957,15 +7993,52 @@ extension AgentApi on Engine {
     return values.isEmpty ? null : values;
   }
 
-  Set<String>? _coerceStringSetAny(
+  Set<String>? _coerceMemoryIdSetAny(
     Map<String, dynamic> args,
     List<String> keys,
   ) {
     final values = <String>{};
     for (final key in keys) {
-      final parsed = _coerceStringSet(args[key]);
+      final parsed = _coerceMemoryIdSet(args[key]);
       if (parsed != null) values.addAll(parsed);
     }
+    return values.isEmpty ? null : values;
+  }
+
+  Set<String>? _coerceMemoryIdSet(Object? raw) {
+    final values = <String>{};
+    void add(Object? value) {
+      if (value is String) {
+        for (final part in value.split(',')) {
+          final trimmed = part.trim();
+          if (trimmed.isNotEmpty) values.add(trimmed);
+        }
+        return;
+      }
+      if (value is List) {
+        for (final item in value) {
+          add(item);
+        }
+        return;
+      }
+      if (value is Map) {
+        for (final key in const [
+          'id',
+          'memoryId',
+          'memory_id',
+          'messageId',
+          'message_id',
+          'summaryId',
+          'summary_id',
+          'noteId',
+          'note_id',
+        ]) {
+          add(value[key]);
+        }
+      }
+    }
+
+    add(raw);
     return values.isEmpty ? null : values;
   }
 

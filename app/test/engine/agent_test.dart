@@ -8990,6 +8990,62 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect((records.single as Map<String, dynamic>)['id'], 'alias_keep_memory');
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持 records 字段排除已读记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final keepId = engine.saveAgentMemory(
+      projectId,
+      name: '角色补充',
+      content: '长期设定：李澈需要保护沈微，不能让沈微黑化。',
+    );
+    final seenId = engine.saveAgentMemory(
+      projectId,
+      name: '角色禁忌',
+      content: '长期设定：李澈滥杀 李澈滥杀 是严禁的。',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', {
+        'query': '李澈滥杀',
+        'scope': 'long_term',
+        'records': [
+          {
+            'id': seenId,
+            'type': 'note',
+            'scope': 'long_term',
+            'content': '长期设定：李澈滥杀 李澈滥杀 是严禁的。',
+          },
+        ],
+        'topK': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '继续找还没读过的李澈禁忌记忆',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = deepRetrieveTool.schema['properties'] as Map;
+    expect(properties, contains('records'));
+    expect(properties, contains('seenRecords'));
+    expect(properties, contains('readRecords'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], ['长期设定：李澈需要保护沈微，不能让沈微黑化。']);
+    final records = payload['records'] as List;
+    expect(records, hasLength(1));
+    expect((records.single as Map<String, dynamic>)['id'], keepId);
+  });
+
   test('Agent 记忆：deepRetrieve 工具返回可追踪 records 元数据', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
