@@ -6761,6 +6761,85 @@ description: >-
     expect(readTool.description, isNot(contains('style_polisher')));
   });
 
+  test('SkillRuntime read_skill_file schema lists stage-visible resource files',
+      () async {
+    final scriptSkillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '剧本技能正文。',
+      extraFiles: {
+        'references/rules.md': '文风规则。',
+        'references/tone.md': '语气规则。',
+      },
+    );
+    final productionSkillFile = _writeSkillFixture(
+      dir,
+      id: 'director_checker',
+      body: '制作技能正文。',
+      extraFiles: {
+        'references/lens.md': '镜头规则。',
+      },
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: scriptSkillFile.path,
+      attribution: 'script_agent_decision',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: productionSkillFile.path,
+      attribution: 'production_agent_decision',
+    );
+
+    gateway.turns = [const AgentTurnResult.text('剧本规划已记录。')];
+    await engine.sendAgentMessage(
+      projectId,
+      '规划前三集',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    var readTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'read_skill_file');
+    var properties =
+        Map<String, dynamic>.from(readTool.schema['properties'] as Map);
+    for (final key in [
+      'filePath',
+      'path',
+      'file',
+      'filename',
+      'relativePath'
+    ]) {
+      final schema = Map<String, dynamic>.from(properties[key] as Map);
+      expect(schema['enum'], ['references/rules.md', 'references/tone.md']);
+    }
+    expect(readTool.description, contains('references/rules.md'));
+    expect(readTool.description, isNot(contains('references/lens.md')));
+
+    gateway.turns = [const AgentTurnResult.text('制作规划已记录。')];
+    await engine.sendAgentMessage(
+      projectId,
+      '制作导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    readTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'read_skill_file');
+    properties =
+        Map<String, dynamic>.from(readTool.schema['properties'] as Map);
+    for (final key in [
+      'filePath',
+      'path',
+      'file',
+      'filename',
+      'relativePath'
+    ]) {
+      final schema = Map<String, dynamic>.from(properties[key] as Map);
+      expect(schema['enum'], ['references/lens.md']);
+    }
+    expect(readTool.description, contains('references/lens.md'));
+    expect(readTool.description, isNot(contains('references/rules.md')));
+  });
+
   test('SkillRuntime lists stage-visible Markdown skills in system prompt',
       () async {
     final scriptSkillFile = _writeSkillFixture(

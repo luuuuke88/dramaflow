@@ -5076,6 +5076,9 @@ extension AgentApi on Engine {
   ) {
     if (markdownSkills.isEmpty) return tool;
     final names = [for (final skill in markdownSkills) skill.name];
+    final resources = tool.name == 'read_skill_file'
+        ? _markdownSkillResourceFiles(markdownSkills)
+        : const <String>[];
     final schema = Map<String, dynamic>.from(tool.schema);
     final properties =
         Map<String, dynamic>.from(schema['properties'] as Map? ?? const {});
@@ -5085,12 +5088,50 @@ extension AgentApi on Engine {
       fieldSchema['enum'] = names;
       properties[key] = fieldSchema;
     }
+    if (resources.isNotEmpty) {
+      for (final key in [
+        'filePath',
+        'path',
+        'file',
+        'filename',
+        'relativePath',
+      ]) {
+        final fieldSchema =
+            Map<String, dynamic>.from(properties[key] as Map? ?? const {});
+        fieldSchema['enum'] = resources;
+        properties[key] = fieldSchema;
+      }
+    }
     schema['properties'] = properties;
+    final resourceDescription =
+        resources.isEmpty ? '' : ' 可读资源：${resources.join('、')}。';
     return AgentToolDef(
       name: tool.name,
-      description: '${tool.description} 可用技能：${names.join('、')}。',
+      description:
+          '${tool.description} 可用技能：${names.join('、')}。$resourceDescription',
       schema: schema,
     );
+  }
+
+  List<String> _markdownSkillResourceFiles(List<AgentSkill> markdownSkills) {
+    final values = <String>[];
+    final seen = <String>{};
+    for (final skill in markdownSkills) {
+      final row = db.select(
+        'SELECT path,md5 FROM o_skillList WHERE id=? AND type=?',
+        [skill.id, _markdownAgentSkillType],
+      ).firstOrNull;
+      if (row == null) continue;
+      final resources = _decodeMarkdownSkillResources(row['md5']);
+      for (final file in listAgentSkillResourceFiles(
+        row['path'] as String? ?? '',
+        workspaceDirs: resources.workspaceDirs,
+        attachedSkillDirs: resources.attachedSkillDirs,
+      )) {
+        if (seen.add(file)) values.add(file);
+      }
+    }
+    return values;
   }
 
   Map<String, Set<String>> _skillAttributionMap() {

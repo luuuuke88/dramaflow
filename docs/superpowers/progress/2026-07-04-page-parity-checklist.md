@@ -158,6 +158,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `read_skil
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `read_skill_file` mirroring stage-visible Markdown skill enums across `name` and its skill-name aliases, so models see the same constrained ToonFlow-style skill choices when reading resources as they do when activating skills.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `read_skill_file` mirroring stage-visible Markdown resource-file enums across `filePath`, `path`, `file`, `filename`, and `relativePath`, so models can choose valid ToonFlow-style skill resources without inventing relative paths or leaking resources from another Agent family.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `read_skill_file` exposing and accepting common model-authored file path aliases (`file`, `filename`, `relativePath`) in addition to `filePath`/`path`, so activated ToonFlow-style Markdown skills remain usable when the LLM names the resource argument naturally.
 
 Recent Agent/RAG Update: `app/test/widgets/agent_chat_screen_test.dart` now covers ToonFlow-compatible unprefixed memory config keys for `messagesPerSummary`, `summaryMaxLength`, `shortTermLimit`, `summaryLimit`, `ragLimit`, and `deepRetrieveSummaryLimit`, so DramaFlow preserves its namespaced Agent settings while exporting the runtime keys ToonFlow routes expect.
