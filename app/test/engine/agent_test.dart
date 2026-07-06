@@ -1975,6 +1975,69 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Set forEach keys values entries 迭代', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_set_iteration_runtime',
+      name: 'Set 迭代脚本运行时',
+      description: '验证自定义技能兼容模型常写的 set.forEach/values/entries。',
+      script: r'''
+const unique = new Set(args.assets.map(asset => asset.type.trim()));
+const visited = [];
+unique.forEach(function (value, duplicateValue, source) {
+  visited.push(`${value}:${duplicateValue}:${source.size}`);
+});
+
+return JSON.stringify({
+  values: Array.from(unique.values()).join('|'),
+  keys: Array.from(unique.keys()).join('|'),
+  entries: Array.from(unique.entries()).map(([key, value]) => `${key}=${value}`).join('|'),
+  visited: visited.join('|'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'type': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_set_iteration_runtime', const {
+        'assets': [
+          {'type': ' role '},
+          {'type': 'scene'},
+          {'type': 'role'},
+          {'type': 'tool'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Set 迭代脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_set_iteration_runtime');
+    expect(jsonDecode(msg.content), {
+      'values': 'role|scene|tool',
+      'keys': 'role|scene|tool',
+      'entries': 'role=role|scene=scene|tool=tool',
+      'visited': 'role:role:3|scene:scene:3|tool:tool:3',
+    });
+  });
+
   test('自定义脚本技能：支持 Map 索引和 entries values keys', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_map_runtime',

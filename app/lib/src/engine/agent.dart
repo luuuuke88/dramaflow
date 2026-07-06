@@ -198,6 +198,16 @@ const _agentSkillType = 'builtin-agent';
 const _customAgentSkillType = 'custom-js-agent';
 const _markdownAgentSkillType = markdownAgentSkillType;
 const _customJsConsoleMethods = {'log', 'info', 'warn', 'error', 'debug'};
+const _customJsSetMethods = {
+  'has',
+  'add',
+  'delete',
+  'clear',
+  'keys',
+  'values',
+  'entries',
+  'forEach',
+};
 const _agentDeploymentType = 'agent-stage';
 const _agentToolAuditRoles = {agentRoleTool};
 const _agentToolAuditRoleSuffixes = {':tool'};
@@ -1694,6 +1704,9 @@ class _CustomAgentSkillRuntime {
     if (value is _CustomJsRegExp) {
       return _callRegExpInstanceMethod(value, method, args);
     }
+    if (value is Set && _customJsSetMethods.contains(method)) {
+      return _callSetInstanceMethod(value, method, args);
+    }
     switch (method) {
       case 'trim':
         _expectNoArgs(method, args);
@@ -2838,6 +2851,53 @@ class _CustomAgentSkillRuntime {
       case 'toString':
         _expectNoArgs(method, args);
         return value.value.toUtc().toIso8601String();
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_method',
+          'method': method,
+        });
+    }
+  }
+
+  Object? _callSetInstanceMethod(
+    Set value,
+    String method,
+    List<String> args,
+  ) {
+    switch (method) {
+      case 'has':
+        if (args.length != 1) _badMethodArgs(method);
+        final needle = _evaluate(args.single);
+        return value.any((item) => _compareValues(item, needle, '==='));
+      case 'add':
+        if (args.length != 1) _badMethodArgs(method);
+        value.add(_evaluate(args.single));
+        return value;
+      case 'delete':
+        if (args.length != 1) _badMethodArgs(method);
+        final needle = _evaluate(args.single);
+        final currentLength = value.length;
+        value.removeWhere((item) => _compareValues(item, needle, '==='));
+        return value.length != currentLength;
+      case 'clear':
+        _expectNoArgs(method, args);
+        value.clear();
+        return null;
+      case 'keys':
+      case 'values':
+        _expectNoArgs(method, args);
+        return [for (final item in value) item];
+      case 'entries':
+        _expectNoArgs(method, args);
+        return [
+          for (final item in value) [item, item],
+        ];
+      case 'forEach':
+        if (args.length != 1) _badMethodArgs(method);
+        for (final item in value) {
+          _evaluateCallback(method, args.single, item, item, source: value);
+        }
+        return null;
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_method',
