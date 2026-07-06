@@ -315,6 +315,110 @@ const _agentMemoryTimeRangeToolSchema = {
     'type': 'integer',
     'description': 'until/before 的中文别名。',
   },
+  'recentMs': {
+    'type': 'integer',
+    'description': '可选。只返回最近 N 毫秒内创建的记忆。',
+  },
+  'recentMilliseconds': {
+    'type': 'integer',
+    'description': 'recentMs 的自然语言别名。',
+  },
+  'recentMillis': {
+    'type': 'integer',
+    'description': 'recentMs 的常见毫秒别名。',
+  },
+  'lastMs': {
+    'type': 'integer',
+    'description': 'recentMs 的 last/within 语义别名。',
+  },
+  'lastMilliseconds': {
+    'type': 'integer',
+    'description': 'lastMs 的自然语言别名。',
+  },
+  'lastMillis': {
+    'type': 'integer',
+    'description': 'lastMs 的常见毫秒别名。',
+  },
+  'withinMs': {
+    'type': 'integer',
+    'description': 'recentMs 的 within 语义别名。',
+  },
+  'withinMilliseconds': {
+    'type': 'integer',
+    'description': 'withinMs 的自然语言别名。',
+  },
+  'withinMillis': {
+    'type': 'integer',
+    'description': 'withinMs 的常见毫秒别名。',
+  },
+  'recentSeconds': {
+    'type': 'integer',
+    'description': '可选。只返回最近 N 秒内创建的记忆。',
+  },
+  'lastSeconds': {
+    'type': 'integer',
+    'description': 'recentSeconds 的 last/within 语义别名。',
+  },
+  'withinSeconds': {
+    'type': 'integer',
+    'description': 'recentSeconds 的 within 语义别名。',
+  },
+  'recentMinutes': {
+    'type': 'integer',
+    'description': '可选。只返回最近 N 分钟内创建的记忆。',
+  },
+  'lastMinutes': {
+    'type': 'integer',
+    'description': 'recentMinutes 的 last/within 语义别名。',
+  },
+  'withinMinutes': {
+    'type': 'integer',
+    'description': 'recentMinutes 的 within 语义别名。',
+  },
+  'recentHours': {
+    'type': 'integer',
+    'description': '可选。只返回最近 N 小时内创建的记忆。',
+  },
+  'lastHours': {
+    'type': 'integer',
+    'description': 'recentHours 的 last/within 语义别名。',
+  },
+  'withinHours': {
+    'type': 'integer',
+    'description': 'recentHours 的 within 语义别名。',
+  },
+  'recentDays': {
+    'type': 'integer',
+    'description': '可选。只返回最近 N 天内创建的记忆。',
+  },
+  'lastDays': {
+    'type': 'integer',
+    'description': 'recentDays 的 last/within 语义别名。',
+  },
+  'withinDays': {
+    'type': 'integer',
+    'description': 'recentDays 的 within 语义别名。',
+  },
+  '最近毫秒': {
+    'type': 'integer',
+    'description': 'recentMs 的中文别名。',
+  },
+  '最近秒': {
+    'type': 'integer',
+    'description': 'recentSeconds 的中文别名。',
+  },
+  '最近分钟': {
+    'type': 'integer',
+    'description': 'recentMinutes 的中文别名。',
+  },
+  '最近小时': {
+    'type': 'integer',
+    'description': 'recentHours 的中文别名。',
+  },
+  '最近天': {
+    'type': 'integer',
+    'description': 'recentDays 的中文别名。',
+  },
 };
 
 final _tools = <AgentToolDef>[
@@ -11750,7 +11854,7 @@ extension AgentApi on Engine {
           false);
 
   AgentMemoryTimeRange? _agentMemoryTimeRange(Map<String, dynamic> args) {
-    final createdAfter = _coerceInt(
+    final absoluteCreatedAfter = _coerceInt(
       args['createdAfter'] ??
           args['createTimeAfter'] ??
           args['created_at_after'] ??
@@ -11763,6 +11867,9 @@ extension AgentApi on Engine {
           args['开始时间'] ??
           args['之后'],
     );
+    final relativeCreatedAfter = _agentMemoryRelativeCreatedAfter(args);
+    final createdAfter =
+        _maxNullableInt(absoluteCreatedAfter, relativeCreatedAfter);
     final createdBefore = _coerceInt(
       args['createdBefore'] ??
           args['createTimeBefore'] ??
@@ -11781,6 +11888,64 @@ extension AgentApi on Engine {
       createdAfter: createdAfter,
       createdBefore: createdBefore,
     );
+  }
+
+  int? _agentMemoryRelativeCreatedAfter(Map<String, dynamic> args) {
+    int? valueMs(Object? raw, int multiplier) {
+      final value = _coerceInt(raw);
+      if (value == null || value <= 0) return null;
+      return value * multiplier;
+    }
+
+    final recentMs = valueMs(
+          args['recentMs'] ??
+              args['recentMillis'] ??
+              args['recentMilliseconds'] ??
+              args['lastMs'] ??
+              args['lastMillis'] ??
+              args['lastMilliseconds'] ??
+              args['withinMs'] ??
+              args['withinMillis'] ??
+              args['withinMilliseconds'] ??
+              args['最近毫秒'],
+          1,
+        ) ??
+        valueMs(
+          args['recentSeconds'] ??
+              args['lastSeconds'] ??
+              args['withinSeconds'] ??
+              args['最近秒'],
+          const Duration(seconds: 1).inMilliseconds,
+        ) ??
+        valueMs(
+          args['recentMinutes'] ??
+              args['lastMinutes'] ??
+              args['withinMinutes'] ??
+              args['最近分钟'],
+          const Duration(minutes: 1).inMilliseconds,
+        ) ??
+        valueMs(
+          args['recentHours'] ??
+              args['lastHours'] ??
+              args['withinHours'] ??
+              args['最近小时'],
+          const Duration(hours: 1).inMilliseconds,
+        ) ??
+        valueMs(
+          args['recentDays'] ??
+              args['lastDays'] ??
+              args['withinDays'] ??
+              args['最近天'],
+          const Duration(days: 1).inMilliseconds,
+        );
+    if (recentMs == null) return null;
+    return DateTime.now().millisecondsSinceEpoch - recentMs;
+  }
+
+  int? _maxNullableInt(int? a, int? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return math.max(a, b);
   }
 
   Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {

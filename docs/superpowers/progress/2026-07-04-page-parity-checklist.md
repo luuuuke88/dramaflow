@@ -306,6 +306,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_ge
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` and `deepRetrieve` exposing and accepting time-window aliases such as `createdAfter`, `createdBefore`, `since`, `until`, `开始时间`, and `结束时间`, with `AgentMemoryService` filtering message, summary, and long-term note recall by `createTime` before limit application so Agents can ask for only a specific production period's memories.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` and `deepRetrieve` accepting relative recency aliases such as `recentMinutes`, `lastMinutes`, `withinMinutes`, and `最近分钟`, translating them into `createTime` lower bounds so Agents can naturally ask for memories from the last few minutes, hours, or days without computing timestamps themselves.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.

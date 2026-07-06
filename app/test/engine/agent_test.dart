@@ -13119,6 +13119,147 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_get 和 deepRetrieve 工具支持相对最近时间别名', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMemory({
+      required String id,
+      required String isolationKey,
+      required String content,
+      required int createTime,
+      required String type,
+      String name = '',
+      String role = agentRoleUser,
+      int summarized = 0,
+      List<String> relatedMessageIds = const [],
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          name,
+          content,
+          createTime,
+          embeddingJson(content),
+          isolationKey,
+          jsonEncode(relatedMessageIds),
+          role,
+          summarized,
+          type,
+        ],
+      );
+    }
+
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '5'],
+    );
+    insertMemory(
+      id: 'recent_old_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: '旧记忆：镜湖誓言要求李澈护送沈微。',
+      createTime: now - const Duration(minutes: 10).inMilliseconds,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'recent_keep_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: '最近记忆：镜湖誓言要求李澈护送沈微并隐藏身份。',
+      createTime: now - const Duration(minutes: 1).inMilliseconds,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'recent_old_note',
+      isolationKey: 'project:$projectId',
+      content: '旧长期记忆：镜湖路线从山门出发。',
+      createTime: now - const Duration(minutes: 10).inMilliseconds,
+      type: agentMemoryTypeNote,
+      name: '旧镜湖路线',
+    );
+    insertMemory(
+      id: 'recent_keep_note',
+      isolationKey: 'project:$projectId',
+      content: '最近长期记忆：镜湖路线必须绕开守山阵。',
+      createTime: now - const Duration(minutes: 1).inMilliseconds,
+      type: agentMemoryTypeNote,
+      name: '新镜湖路线',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '镜湖誓言 李澈 沈微',
+        'recentMinutes': 5,
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'query': '镜湖路线',
+        'scope': 'long_term',
+        '最近分钟': 5,
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只召回最近几分钟的镜湖设定',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final memoryGetProperties = memoryGetTool.schema['properties'] as Map;
+    expect(
+      memoryGetProperties.keys,
+      containsAll(['recentMinutes', 'lastMinutes', 'withinMinutes', '最近分钟']),
+    );
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final deepRetrieveProperties = deepRetrieveTool.schema['properties'] as Map;
+    expect(
+      deepRetrieveProperties.keys,
+      containsAll(['recentMinutes', 'lastMinutes', 'withinMinutes', '最近分钟']),
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], ['最近记忆：镜湖誓言要求李澈护送沈微并隐藏身份。']);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['recent_keep_msg'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], ['最近长期记忆：镜湖路线必须绕开守山阵。']);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['recent_keep_note'],
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具返回可追踪 records 元数据', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
