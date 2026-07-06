@@ -336,6 +336,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` and `deepRetrieve` tool schemas declaring query-plan fields as array-or-object inputs, so model-authored Agents can discover wrapped RAG plans such as `{ "queries": [...] }` instead of being guided toward flat arrays only.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers multi-item structured query plans keeping each item's filters isolated, so `memory_get` and `deepRetrieve` apply item-level `memoryRoles` / `记忆角色` and similarity thresholds per query instead of merging all plan filters into one noisy global retrieval pass.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.

@@ -12446,6 +12446,174 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     ]);
   });
 
+  test('Agent 记忆：结构化查询计划多项过滤互不串味', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_item_get_a_keep',
+      content: 'alpha_blue_artifact：青霜道具必须发蓝光。',
+      offset: 1,
+      role: 'assistant:item:get:a',
+    );
+    insertMessage(
+      id: 'query_plan_item_get_a_noise',
+      content: 'alpha_blue_artifact 噪声：青霜道具可以发红光。',
+      offset: 2,
+      role: 'assistant:item:get:b',
+    );
+    insertMessage(
+      id: 'query_plan_item_get_b_keep',
+      content: 'beta_fog_gate：玄门场景必须保留雾门。',
+      offset: 3,
+      role: 'assistant:item:get:b',
+    );
+    insertMessage(
+      id: 'query_plan_item_get_b_noise',
+      content: 'beta_fog_gate 噪声：玄门场景可以改晴天。',
+      offset: 4,
+      role: 'assistant:item:get:a',
+    );
+    insertMessage(
+      id: 'query_plan_item_deep_a_keep',
+      content: 'gamma_water_array：龙舟阵法必须保留青色水纹。',
+      offset: 5,
+      role: 'assistant:item:deep:a',
+    );
+    insertMessage(
+      id: 'query_plan_item_deep_a_noise',
+      content: 'gamma_water_array 噪声：龙舟阵法可以改成火纹。',
+      offset: 6,
+      role: 'assistant:item:deep:b',
+    );
+    insertMessage(
+      id: 'query_plan_item_deep_b_keep',
+      content: 'delta_cloud_ritual：云台礼法必须保留三拜。',
+      offset: 7,
+      role: 'assistant:item:deep:b',
+    );
+    insertMessage(
+      id: 'query_plan_item_deep_b_noise',
+      content: 'delta_cloud_ritual 噪声：云台礼法可以删掉三拜。',
+      offset: 8,
+      role: 'assistant:item:deep:a',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': 'alpha_blue_artifact',
+            'memoryRoles': ['assistant:item:get:a'],
+            'minSimilarity': 0.8,
+          },
+          {
+            'query': 'beta_fog_gate',
+            'memoryRoles': ['assistant:item:get:b'],
+            'minSimilarity': 0.8,
+          },
+        ],
+        'limit': 6,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': 'gamma_water_array',
+            '记忆角色': ['assistant:item:deep:a'],
+            '相似度阈值': 0.8,
+          },
+          {
+            '查询': 'delta_cloud_ritual',
+            '记忆角色': ['assistant:item:deep:b'],
+            '相似度阈值': 0.8,
+          },
+        ],
+        'limit': 6,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按每个计划项自己的角色过滤查记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    final memoryGetRecordIds = [
+      for (final record in memoryGetPayload['records'] as List)
+        (record as Map<String, dynamic>)['id'],
+    ];
+    expect(
+      memoryGetRecordIds,
+      containsAll(['query_plan_item_get_a_keep', 'query_plan_item_get_b_keep']),
+    );
+    expect(memoryGetRecordIds, isNot(contains('query_plan_item_get_a_noise')));
+    expect(memoryGetRecordIds, isNot(contains('query_plan_item_get_b_noise')));
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    final deepRetrieveRecordIds = [
+      for (final record in deepRetrievePayload['records'] as List)
+        (record as Map<String, dynamic>)['id'],
+    ];
+    expect(
+      deepRetrieveRecordIds,
+      containsAll(
+          ['query_plan_item_deep_a_keep', 'query_plan_item_deep_b_keep']),
+    );
+    expect(
+        deepRetrieveRecordIds, isNot(contains('query_plan_item_deep_a_noise')));
+    expect(
+        deepRetrieveRecordIds, isNot(contains('query_plan_item_deep_b_noise')));
+  });
+
   test('Agent 记忆工具可显式召回视觉参考长期记忆', () async {
     final visualId = engine.saveAgentMemory(
       projectId,
