@@ -10528,7 +10528,7 @@ extension AgentApi on Engine {
           }
           final baseExcludeIds =
               _agentMemoryExcludeIds(args, excludedMemoryIds);
-          final sortMode = _agentMemorySortMode(args);
+          final sortMode = _agentMemoryDirectSortMode(args) ?? 'relevance';
           final limit = _agentMemoryDirectLimit(args);
           final memoryService = _agentMemoryService(family: agentFamily);
           final relatedMessageRecords = <AgentMemoryEntry>[];
@@ -10714,7 +10714,7 @@ extension AgentApi on Engine {
           }
           final baseExcludeIds =
               _agentMemoryExcludeIds(args, excludedMemoryIds);
-          final sortMode = _agentMemorySortMode(args);
+          final sortMode = _agentMemoryDirectSortMode(args) ?? 'relevance';
           final limit = _agentMemoryDirectLimit(args);
           final memoryService = _agentMemoryService(family: agentFamily);
           final records = <AgentMemoryEntry>[];
@@ -12878,6 +12878,21 @@ extension AgentApi on Engine {
       if (planMode != null) return planMode;
     }
     return 'relevance';
+  }
+
+  String? _agentMemoryDirectSortMode(Map<String, dynamic> args) {
+    final explicitRaw = args['orderBy'] ??
+        args['sortBy'] ??
+        args['sortOrder'] ??
+        args['order'] ??
+        args['排序'] ??
+        args['排序方式'];
+    final explicitMode = _coerceAgentMemorySortMode(explicitRaw);
+    if (explicitMode != null) return explicitMode;
+    if (explicitRaw != null && explicitRaw.toString().trim().isNotEmpty) {
+      return 'relevance';
+    }
+    return null;
   }
 
   List<Object?> _agentMemoryQueryPlanSortModeValues(

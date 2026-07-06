@@ -11993,6 +11993,173 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     ]);
   });
 
+  test('Agent 记忆：结构化查询计划多项排序互不串味', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_item_sort_get_a_old',
+      content: 'iota_sort_get_a：甲组旧记录必须保留蓝火。',
+      offset: 1,
+      role: 'assistant:item-sort:get:a',
+    );
+    insertMessage(
+      id: 'query_plan_item_sort_get_a_new',
+      content: 'iota_sort_get_a：甲组新记录必须保留蓝火。',
+      offset: 2,
+      role: 'assistant:item-sort:get:a',
+    );
+    insertMessage(
+      id: 'query_plan_item_sort_get_b_old',
+      content: 'kappa_sort_get_b：乙组旧记录必须保留雾门。',
+      offset: 3,
+      role: 'assistant:item-sort:get:b',
+    );
+    insertMessage(
+      id: 'query_plan_item_sort_get_b_new',
+      content: 'kappa_sort_get_b：乙组新记录必须保留雾门。',
+      offset: 4,
+      role: 'assistant:item-sort:get:b',
+    );
+    insertMessage(
+      id: 'query_plan_item_sort_deep_a_old',
+      content: 'lambda_sort_deep_a：丙组旧记录必须保留水纹。',
+      offset: 5,
+      role: 'assistant:item-sort:deep:a',
+    );
+    insertMessage(
+      id: 'query_plan_item_sort_deep_a_new',
+      content: 'lambda_sort_deep_a：丙组新记录必须保留水纹。',
+      offset: 6,
+      role: 'assistant:item-sort:deep:a',
+    );
+    insertMessage(
+      id: 'query_plan_item_sort_deep_b_old',
+      content: 'mu_sort_deep_b：丁组旧记录必须保留云台。',
+      offset: 7,
+      role: 'assistant:item-sort:deep:b',
+    );
+    insertMessage(
+      id: 'query_plan_item_sort_deep_b_new',
+      content: 'mu_sort_deep_b：丁组新记录必须保留云台。',
+      offset: 8,
+      role: 'assistant:item-sort:deep:b',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': 'iota_sort_get_a',
+            'memoryRoles': ['assistant:item-sort:get:a'],
+            'orderBy': 'latest',
+            'minSimilarity': 0.8,
+          },
+          {
+            'query': 'kappa_sort_get_b',
+            'memoryRoles': ['assistant:item-sort:get:b'],
+            'orderBy': 'oldest',
+            'minSimilarity': 0.8,
+          },
+        ],
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': 'lambda_sort_deep_a',
+            '记忆角色': ['assistant:item-sort:deep:a'],
+            '排序': '最新',
+            '相似度阈值': 0.8,
+          },
+          {
+            '查询': 'mu_sort_deep_b',
+            '记忆角色': ['assistant:item-sort:deep:b'],
+            '排序': '最旧',
+            '相似度阈值': 0.8,
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按每个计划项自己的排序查记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      [
+        'query_plan_item_sort_get_a_new',
+        'query_plan_item_sort_get_a_old',
+        'query_plan_item_sort_get_b_old',
+        'query_plan_item_sort_get_b_new',
+      ],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      [
+        'query_plan_item_sort_deep_a_new',
+        'query_plan_item_sort_deep_a_old',
+        'query_plan_item_sort_deep_b_old',
+        'query_plan_item_sort_deep_b_new',
+      ],
+    );
+  });
+
   test('Agent 记忆：结构化查询计划可携带返回数量限制', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
