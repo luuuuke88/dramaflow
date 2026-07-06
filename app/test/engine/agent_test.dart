@@ -12949,6 +12949,176 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect((records.single as Map<String, dynamic>)['id'], keepId);
   });
 
+  test('Agent 记忆：memory_get 和 deepRetrieve 工具支持时间窗口别名', () async {
+    const baseTime = 1000000000;
+    void insertMemory({
+      required String id,
+      required String isolationKey,
+      required String content,
+      required int createTime,
+      required String type,
+      String name = '',
+      String role = agentRoleUser,
+      int summarized = 0,
+      List<String> relatedMessageIds = const [],
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          name,
+          content,
+          createTime,
+          embeddingJson(content),
+          isolationKey,
+          jsonEncode(relatedMessageIds),
+          role,
+          summarized,
+          type,
+        ],
+      );
+    }
+
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '5'],
+    );
+    insertMemory(
+      id: 'time_old_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: '窗口外旧记忆：李澈正派设定来自寒山。',
+      createTime: baseTime,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'time_keep_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: '窗口内记忆：李澈正派设定来自寒山戒律。',
+      createTime: baseTime + 1000,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'time_new_recent',
+      isolationKey: 'scriptAgent:$projectId',
+      content: '窗口外新近记忆：李澈正派设定已经用于最新分镜。',
+      createTime: baseTime + 2000,
+      type: agentMemoryTypeMessage,
+    );
+    insertMemory(
+      id: 'time_keep_summary',
+      isolationKey: 'scriptAgent:$projectId',
+      content: '窗口内摘要：李澈正派设定已经锁定。',
+      createTime: baseTime + 1100,
+      type: agentMemoryTypeSummary,
+      name: '窗口摘要',
+      role: agentRoleAssistant,
+      relatedMessageIds: const ['time_keep_msg'],
+    );
+    insertMemory(
+      id: 'time_old_note',
+      isolationKey: 'project:$projectId',
+      content: '窗口外旧长期记忆：沈微护送路线走山门。',
+      createTime: baseTime,
+      type: agentMemoryTypeNote,
+      name: '旧护送路线',
+    );
+    insertMemory(
+      id: 'time_keep_note',
+      isolationKey: 'project:$projectId',
+      content: '窗口内长期记忆：沈微护送路线必须经过镜湖。',
+      createTime: baseTime + 1000,
+      type: agentMemoryTypeNote,
+      name: '镜湖护送路线',
+    );
+    insertMemory(
+      id: 'time_new_note',
+      isolationKey: 'project:$projectId',
+      content: '窗口外新长期记忆：沈微护送路线改为雪桥。',
+      createTime: baseTime + 2000,
+      type: agentMemoryTypeNote,
+      name: '雪桥护送路线',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '李澈正派设定',
+        'createdAfter': baseTime + 500,
+        'createdBefore': baseTime + 1500,
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'query': '沈微护送路线',
+        'scope': 'long_term',
+        'since': baseTime + 500,
+        'until': baseTime + 1500,
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按时间窗口召回李澈和沈微设定',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final memoryGetProperties = memoryGetTool.schema['properties'] as Map;
+    expect(
+      memoryGetProperties.keys,
+      containsAll(['createdAfter', 'createdBefore', 'since', 'until', '开始时间']),
+    );
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final deepRetrieveProperties = deepRetrieveTool.schema['properties'] as Map;
+    expect(
+      deepRetrieveProperties.keys,
+      containsAll(['createdAfter', 'createdBefore', 'since', 'until', '结束时间']),
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], ['窗口内记忆：李澈正派设定来自寒山戒律。']);
+    expect(memoryGetPayload['summaries'], ['窗口内摘要：李澈正派设定已经锁定。']);
+    expect(memoryGetPayload['recent'], isEmpty);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['time_keep_msg', 'time_keep_summary'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], ['窗口内长期记忆：沈微护送路线必须经过镜湖。']);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['time_keep_note'],
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具返回可追踪 records 元数据', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

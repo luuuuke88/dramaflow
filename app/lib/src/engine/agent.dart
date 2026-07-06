@@ -226,6 +226,96 @@ const _customJsSetMethods = {
 const _agentDeploymentType = 'agent-stage';
 const _agentToolAuditRoles = {agentRoleTool};
 const _agentToolAuditRoleSuffixes = {':tool'};
+const _agentMemoryTimeRangeToolSchema = {
+  'createdAfter': {
+    'type': 'integer',
+    'description': '可选。只返回 createTime 大于等于该毫秒时间戳的记忆。',
+  },
+  'createdBefore': {
+    'type': 'integer',
+    'description': '可选。只返回 createTime 小于等于该毫秒时间戳的记忆。',
+  },
+  'createTimeAfter': {
+    'type': 'integer',
+    'description': 'createdAfter 的 createTime 语义别名。',
+  },
+  'createTimeBefore': {
+    'type': 'integer',
+    'description': 'createdBefore 的 createTime 语义别名。',
+  },
+  'created_at_after': {
+    'type': 'integer',
+    'description': 'createdAfter 的 snake_case 别名。',
+  },
+  'created_at_before': {
+    'type': 'integer',
+    'description': 'createdBefore 的 snake_case 别名。',
+  },
+  'since': {
+    'type': 'integer',
+    'description': 'createdAfter 的自然语言别名，表示从该时间之后开始召回。',
+  },
+  'until': {
+    'type': 'integer',
+    'description': 'createdBefore 的自然语言别名，表示召回到该时间为止。',
+  },
+  'after': {
+    'type': 'integer',
+    'description': 'since 的简写别名。',
+  },
+  'before': {
+    'type': 'integer',
+    'description': 'until 的简写别名。',
+  },
+  'startTime': {
+    'type': 'integer',
+    'description': 'createdAfter 的时间范围起点别名。',
+  },
+  'start_time': {
+    'type': 'integer',
+    'description': 'startTime 的 snake_case 别名。',
+  },
+  'endTime': {
+    'type': 'integer',
+    'description': 'createdBefore 的时间范围终点别名。',
+  },
+  'end_time': {
+    'type': 'integer',
+    'description': 'endTime 的 snake_case 别名。',
+  },
+  'fromTime': {
+    'type': 'integer',
+    'description': 'startTime 的自然语言别名。',
+  },
+  'from_time': {
+    'type': 'integer',
+    'description': 'fromTime 的 snake_case 别名。',
+  },
+  'toTime': {
+    'type': 'integer',
+    'description': 'endTime 的自然语言别名。',
+  },
+  'to_time': {
+    'type': 'integer',
+    'description': 'toTime 的 snake_case 别名。',
+  },
+  '开始时间': {
+    'type': 'integer',
+    'description': 'createdAfter/startTime 的中文别名。',
+  },
+  '结束时间': {
+    'type': 'integer',
+    'description': 'createdBefore/endTime 的中文别名。',
+  },
+  '之后': {
+    'type': 'integer',
+    'description': 'since/after 的中文别名。',
+  },
+  '之前': {
+    'type': 'integer',
+    'description': 'until/before 的中文别名。',
+  },
+};
 
 final _tools = <AgentToolDef>[
   const AgentToolDef(
@@ -617,6 +707,7 @@ final _tools = <AgentToolDef>[
           'minimum': 1,
           'description': 'scoreThreshold 的中文别名。',
         },
+        ..._agentMemoryTimeRangeToolSchema,
         'role': {
           'type': 'string',
           'description':
@@ -1111,6 +1202,7 @@ final _tools = <AgentToolDef>[
           'minimum': 1,
           'description': 'scoreThreshold 的中文别名。',
         },
+        ..._agentMemoryTimeRangeToolSchema,
         'maxResults': {
           'type': 'integer',
           'minimum': 1,
@@ -10192,6 +10284,7 @@ extension AgentApi on Engine {
                 args['分数阈值'] ??
                 args['threshold'],
           );
+          final timeRange = _agentMemoryTimeRange(args);
           final rawLimit = args['limit'] ??
               args['topK'] ??
               args['top_k'] ??
@@ -10234,6 +10327,7 @@ extension AgentApi on Engine {
                     excludeRoles: excludeRoles,
                     excludeRoleSuffixes: excludeRoleSuffixes,
                     minScore: minScore,
+                    timeRange: timeRange,
                     excludeIdsFromContext: true,
                   )
                 : const AgentMemoryContext();
@@ -10263,6 +10357,7 @@ extension AgentApi on Engine {
                 types: const {agentMemoryTypeNote},
                 excludeIds: noteExcludeIds,
                 minScore: minScore,
+                timeRange: timeRange,
                 noteIsolationKey: _agentMemoryIsolationKey(projectId),
               ));
             }
@@ -10419,6 +10514,7 @@ extension AgentApi on Engine {
                 args['分数阈值'] ??
                 args['threshold'],
           );
+          final timeRange = _agentMemoryTimeRange(args);
           final rawLimit = args['limit'] ??
               args['topK'] ??
               args['top_k'] ??
@@ -10450,6 +10546,7 @@ extension AgentApi on Engine {
               types: types,
               excludeIds: queryExcludeIds,
               minScore: minScore,
+              timeRange: timeRange,
               noteIsolationKey: _agentMemoryIsolationKey(projectId),
             ));
           }
@@ -11651,6 +11748,40 @@ extension AgentApi on Engine {
               args['包含画风参考'] ??
               args['画风参考']) ??
           false);
+
+  AgentMemoryTimeRange? _agentMemoryTimeRange(Map<String, dynamic> args) {
+    final createdAfter = _coerceInt(
+      args['createdAfter'] ??
+          args['createTimeAfter'] ??
+          args['created_at_after'] ??
+          args['since'] ??
+          args['after'] ??
+          args['startTime'] ??
+          args['start_time'] ??
+          args['fromTime'] ??
+          args['from_time'] ??
+          args['开始时间'] ??
+          args['之后'],
+    );
+    final createdBefore = _coerceInt(
+      args['createdBefore'] ??
+          args['createTimeBefore'] ??
+          args['created_at_before'] ??
+          args['until'] ??
+          args['before'] ??
+          args['endTime'] ??
+          args['end_time'] ??
+          args['toTime'] ??
+          args['to_time'] ??
+          args['结束时间'] ??
+          args['之前'],
+    );
+    if (createdAfter == null && createdBefore == null) return null;
+    return AgentMemoryTimeRange(
+      createdAfter: createdAfter,
+      createdBefore: createdBefore,
+    );
+  }
 
   Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {
     final values = <String>{};

@@ -119,6 +119,22 @@ class AgentMemoryContext {
       relatedMessages.isEmpty && summaries.isEmpty && recentMessages.isEmpty;
 }
 
+class AgentMemoryTimeRange {
+  final int? createdAfter;
+  final int? createdBefore;
+
+  const AgentMemoryTimeRange({
+    this.createdAfter,
+    this.createdBefore,
+  });
+
+  bool get isEmpty => createdAfter == null && createdBefore == null;
+
+  bool contains(int timestamp) =>
+      (createdAfter == null || timestamp >= createdAfter!) &&
+      (createdBefore == null || timestamp <= createdBefore!);
+}
+
 abstract class AgentMemoryEmbeddingProvider {
   const AgentMemoryEmbeddingProvider();
 
@@ -360,6 +376,7 @@ class AgentMemoryService {
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
     int? minScore,
+    AgentMemoryTimeRange? timeRange,
     bool excludeIdsFromContext = false,
     CancelToken? cancelToken,
   }) async {
@@ -376,6 +393,8 @@ class AgentMemoryService {
     );
     final scoreThreshold =
         _normalizeScoreThreshold(minScore ?? settings.minScore);
+    final timeFilter = _normalizeTimeRange(timeRange);
+    final (timeSql, timeArgs) = _timeRangeSql('createTime', timeFilter);
     final excludedIds = excludeIdsFromContext
         ? excludedRelatedIdFilter?.toList() ?? const <String>[]
         : const <String>[];
@@ -398,6 +417,7 @@ class AgentMemoryService {
               excludeIds: excludedRelatedIdFilter,
               excludeRoles: excludedRoleFilter,
               excludeRoleSuffixes: excludedRoleSuffixFilter,
+              timeRange: timeFilter,
             ))
               if (_matchesRankedScoreThreshold(item, scoreThreshold)) item,
           ];
@@ -415,12 +435,14 @@ class AgentMemoryService {
               'FROM memories WHERE isolationKey=? AND type=? '
               '$excludedIdSql'
               '$roleSql'
+              '$timeSql'
               'ORDER BY createTime DESC, id DESC LIMIT ?',
               [
                 isolationKey,
                 agentMemoryTypeSummary,
                 ...excludedIds,
                 ...includedRoles,
+                ...timeArgs,
                 settings.summaryLimit,
               ],
             ))
@@ -433,6 +455,8 @@ class AgentMemoryService {
       null,
       excludedRoleFilter,
       excludedRoleSuffixFilter,
+      null,
+      timeFilter,
     );
     final related = _attachSourceSummaries(relatedRaw, summaries);
     final recentDesc = settings.shortTermLimit <= 0
@@ -443,6 +467,7 @@ class AgentMemoryService {
               'FROM memories WHERE isolationKey=? AND type=? '
               '$excludedIdSql'
               '$roleSql'
+              '$timeSql'
               'AND COALESCE(summarized,0)=0 '
               'ORDER BY createTime DESC, id DESC LIMIT ?',
               [
@@ -450,6 +475,7 @@ class AgentMemoryService {
                 agentMemoryTypeMessage,
                 ...excludedIds,
                 ...includedRoles,
+                ...timeArgs,
                 settings.shortTermLimit,
               ],
             ))
@@ -462,6 +488,8 @@ class AgentMemoryService {
       null,
       excludedRoleFilter,
       excludedRoleSuffixFilter,
+      null,
+      timeFilter,
     );
     return AgentMemoryContext(
       relatedMessages: related,
@@ -479,6 +507,7 @@ class AgentMemoryService {
     Set<String>? types,
     Set<String>? excludeIds,
     int? minScore,
+    AgentMemoryTimeRange? timeRange,
     String? noteIsolationKey,
     CancelToken? cancelToken,
   }) async {
@@ -492,6 +521,7 @@ class AgentMemoryService {
     final settings = readSettings();
     final scoreThreshold =
         _normalizeScoreThreshold(minScore ?? settings.minScore);
+    final timeFilter = _normalizeTimeRange(timeRange);
     final allowMessages =
         _matchesTypeFilter(agentMemoryTypeMessage, typeFilter);
     final allowSummaries =
@@ -510,6 +540,7 @@ class AgentMemoryService {
             normalized: normalized,
             tokens: tokens,
             queryEmbedding: queryEmbedding,
+            timeRange: timeFilter,
           )
         : const <(int, AgentMemoryEntry)>[];
     final noteMatches = allowNotes && noteIsolationKey != null
@@ -535,6 +566,7 @@ class AgentMemoryService {
       normalized: normalized,
       tokens: tokens,
       queryEmbedding: queryEmbedding,
+      timeRange: timeFilter,
     );
     final localCandidates = [
       for (final item in scored)
@@ -573,6 +605,7 @@ class AgentMemoryService {
           tokens: tokens,
           queryEmbedding: queryEmbedding,
           onlyUnsummarized: true,
+          timeRange: timeFilter,
         );
         return withNotes([
           ..._filterEntries(
@@ -583,6 +616,7 @@ class AgentMemoryService {
             excludedRoleFilter,
             excludedRoleSuffixFilter,
             scoreThreshold,
+            timeFilter,
           ),
           if (allowMessages)
             for (final message in _filterRankedEntries(
@@ -593,6 +627,7 @@ class AgentMemoryService {
               excludedRoleFilter,
               excludedRoleSuffixFilter,
               scoreThreshold,
+              timeFilter,
             ).take(settings.ragLimit))
               message.$2,
         ]);
@@ -606,6 +641,7 @@ class AgentMemoryService {
             tokens: tokens,
             queryEmbedding: queryEmbedding,
             onlyUnsummarized: scored.isNotEmpty,
+            timeRange: timeFilter,
           ),
           roleFilter,
           typeFilter,
@@ -613,6 +649,7 @@ class AgentMemoryService {
           excludedRoleFilter,
           excludedRoleSuffixFilter,
           scoreThreshold,
+          timeFilter,
         ).take(settings.ragLimit))
           item.$2,
       ]);
@@ -626,6 +663,7 @@ class AgentMemoryService {
         excludedRoleFilter,
         excludedRoleSuffixFilter,
         scoreThreshold,
+        timeFilter,
       ));
     }
     final directMatches = _filterRankedEntries(
@@ -635,6 +673,7 @@ class AgentMemoryService {
         tokens: tokens,
         queryEmbedding: queryEmbedding,
         onlyUnsummarized: true,
+        timeRange: timeFilter,
       ),
       roleFilter,
       typeFilter,
@@ -642,17 +681,20 @@ class AgentMemoryService {
       excludedRoleFilter,
       excludedRoleSuffixFilter,
       scoreThreshold,
+      timeFilter,
     ).take(settings.ragLimit);
     for (final message in directMatches) {
       if (!ids.contains(message.$2.id)) ids.add(message.$2.id);
     }
 
     final placeholders = List.filled(ids.length, '?').join(',');
+    final (timeSql, timeArgs) = _timeRangeSql('createTime', timeFilter);
     final rows = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? AND id IN ($placeholders) '
+      '$timeSql'
       'ORDER BY createTime ASC, id ASC',
-      [isolationKey, agentMemoryTypeMessage, ...ids],
+      [isolationKey, agentMemoryTypeMessage, ...ids, ...timeArgs],
     );
     final expanded = _filterEntries(
       [
@@ -674,6 +716,7 @@ class AgentMemoryService {
       excludedRoleFilter,
       excludedRoleSuffixFilter,
       scoreThreshold,
+      timeFilter,
     );
     if (expanded.isEmpty && summaries.isNotEmpty) {
       return allowSummaries
@@ -686,6 +729,7 @@ class AgentMemoryService {
                 excludedRoleFilter,
                 excludedRoleSuffixFilter,
                 scoreThreshold,
+                timeFilter,
               ),
             )
           : noteMatches;
@@ -700,6 +744,7 @@ class AgentMemoryService {
           excludedRoleFilter,
           excludedRoleSuffixFilter,
           scoreThreshold,
+          timeFilter,
         ),
         ...expanded,
       ]);
@@ -922,6 +967,7 @@ class AgentMemoryService {
     Set<String>? excludeIds,
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
+    AgentMemoryTimeRange? timeRange,
   }) async {
     if (normalized.isEmpty) return const [];
     final indexed = await _rankIndexedGatewayCandidates(
@@ -935,14 +981,17 @@ class AgentMemoryService {
       excludeIds: excludeIds,
       excludeRoles: excludeRoles,
       excludeRoleSuffixes: excludeRoleSuffixes,
+      timeRange: timeRange,
     );
     if (indexed != null && indexed.isNotEmpty) return indexed;
+    final (timeSql, timeArgs) = _timeRangeSql('createTime', timeRange);
     final messages = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? '
       '${onlyUnsummarized ? 'AND summarized=0 ' : ''}'
+      '$timeSql'
       'ORDER BY createTime DESC, id DESC',
-      [isolationKey, agentMemoryTypeMessage],
+      [isolationKey, agentMemoryTypeMessage, ...timeArgs],
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in messages) {
@@ -1018,11 +1067,13 @@ class AgentMemoryService {
     Set<String>? excludeIds,
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
+    AgentMemoryTimeRange? timeRange,
   }) async {
     final (provider, model) = _memoryVectorSignature();
     if (provider != 'gateway' || !_isGatewayEmbeddingMap(queryEmbedding)) {
       return null;
     }
+    final (timeSql, timeArgs) = _timeRangeSql('m.createTime', timeRange);
     final rows = db.select(
       'SELECT m.id AS id,m.name AS name,m.content AS content,'
       'm.createTime AS createTime,m.embedding AS embedding,'
@@ -1034,8 +1085,9 @@ class AgentMemoryService {
       'AND m.isolationKey=v.isolationKey AND m.type=v.type '
       'WHERE v.isolationKey=? AND v.type=? AND v.provider=? AND v.model=? '
       '${onlyUnsummarized ? 'AND COALESCE(m.summarized,0)=0 ' : ''}'
+      '$timeSql'
       'ORDER BY m.createTime DESC, m.id DESC',
-      [isolationKey, type, provider, model],
+      [isolationKey, type, provider, model, ...timeArgs],
     );
     if (rows.isEmpty) return null;
     final scored = <(int, AgentMemoryEntry)>[];
@@ -1087,6 +1139,7 @@ class AgentMemoryService {
     required String normalized,
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
+    AgentMemoryTimeRange? timeRange,
   }) async {
     final indexed = await _rankIndexedGatewayCandidates(
       isolationKey: isolationKey,
@@ -1094,13 +1147,16 @@ class AgentMemoryService {
       normalized: normalized,
       tokens: tokens,
       queryEmbedding: queryEmbedding,
+      timeRange: timeRange,
     );
     if (indexed != null && indexed.isNotEmpty) return indexed;
+    final (timeSql, timeArgs) = _timeRangeSql('createTime', timeRange);
     final summaries = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? '
+      '$timeSql'
       'ORDER BY createTime DESC, id DESC',
-      [isolationKey, agentMemoryTypeSummary],
+      [isolationKey, agentMemoryTypeSummary, ...timeArgs],
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in summaries) {
@@ -1144,6 +1200,7 @@ class AgentMemoryService {
     required String normalized,
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
+    AgentMemoryTimeRange? timeRange,
   }) async {
     if (normalized.isEmpty) return const [];
     final indexed = await _rankIndexedGatewayCandidates(
@@ -1152,13 +1209,16 @@ class AgentMemoryService {
       normalized: normalized,
       tokens: tokens,
       queryEmbedding: queryEmbedding,
+      timeRange: timeRange,
     );
     if (indexed != null && indexed.isNotEmpty) return indexed;
+    final (timeSql, timeArgs) = _timeRangeSql('createTime', timeRange);
     final notes = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? '
+      '$timeSql'
       'ORDER BY createTime DESC, id DESC',
-      [isolationKey, agentMemoryTypeNote],
+      [isolationKey, agentMemoryTypeNote, ...timeArgs],
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in notes) {
@@ -1292,6 +1352,30 @@ class AgentMemoryService {
     return normalized.isEmpty ? null : normalized;
   }
 
+  AgentMemoryTimeRange? _normalizeTimeRange(AgentMemoryTimeRange? range) {
+    if (range == null || range.isEmpty) return null;
+    return range;
+  }
+
+  (String, List<Object?>) _timeRangeSql(
+    String column,
+    AgentMemoryTimeRange? range,
+  ) {
+    final normalized = _normalizeTimeRange(range);
+    if (normalized == null) return ('', const <Object?>[]);
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (normalized.createdAfter != null) {
+      clauses.add('AND $column>=? ');
+      args.add(normalized.createdAfter);
+    }
+    if (normalized.createdBefore != null) {
+      clauses.add('AND $column<=? ');
+      args.add(normalized.createdBefore);
+    }
+    return (clauses.join(), args);
+  }
+
   bool _matchesRoleFilter(AgentMemoryEntry entry, Set<String>? roles) =>
       roles == null || roles.contains(entry.role);
 
@@ -1314,6 +1398,12 @@ class AgentMemoryService {
   bool _matchesIdFilter(AgentMemoryEntry entry, Set<String>? excludeIds) =>
       excludeIds == null || !excludeIds.contains(entry.id);
 
+  bool _matchesTimeRange(
+    AgentMemoryEntry entry,
+    AgentMemoryTimeRange? timeRange,
+  ) =>
+      timeRange == null || timeRange.contains(entry.createdAt);
+
   bool _matchesEntryFilter(
     AgentMemoryEntry entry,
     Set<String>? roles,
@@ -1321,12 +1411,14 @@ class AgentMemoryService {
     Set<String>? excludeIds, [
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
+    AgentMemoryTimeRange? timeRange,
   ]) =>
       _matchesRoleFilter(entry, roles) &&
       _matchesExcludedRoleFilter(entry, excludeRoles) &&
       _matchesExcludedRoleSuffixFilter(entry, excludeRoleSuffixes) &&
       _matchesTypeFilter(entry.type, types) &&
-      _matchesIdFilter(entry, excludeIds);
+      _matchesIdFilter(entry, excludeIds) &&
+      _matchesTimeRange(entry, timeRange);
 
   List<AgentMemoryEntry> _filterEntries(
     Iterable<AgentMemoryEntry> entries,
@@ -1336,6 +1428,7 @@ class AgentMemoryService {
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
     int? minScore,
+    AgentMemoryTimeRange? timeRange,
   ]) =>
       [
         for (final entry in entries)
@@ -1346,6 +1439,7 @@ class AgentMemoryService {
                 excludeIds,
                 excludeRoles,
                 excludeRoleSuffixes,
+                timeRange,
               ) &&
               _matchesEntryScoreThreshold(entry, minScore))
             entry
@@ -1359,6 +1453,7 @@ class AgentMemoryService {
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
     int? minScore,
+    AgentMemoryTimeRange? timeRange,
   ]) sync* {
     for (final item in entries) {
       if (_matchesRankedScoreThreshold(item, minScore) &&
@@ -1369,6 +1464,7 @@ class AgentMemoryService {
             excludeIds,
             excludeRoles,
             excludeRoleSuffixes,
+            timeRange,
           )) {
         yield item;
       }
