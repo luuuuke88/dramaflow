@@ -326,6 +326,10 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Array.indexOf(...)` and `Array.lastIndexOf(...)` including `fromIndex` and negative reverse-search offsets, so model-authored asset-selection scripts such as `selectedIds.indexOf(asset.id) >= 0` no longer get misread as string searches.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Array.findLast(...)` and `Array.findLastIndex(...)` with callback source arguments, so model-authored reference-image or storyboard selectors can choose the last valid candidate without rewriting to manual reverse loops.
+
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible non-mutating `Array.toSorted(...)` and `Array.toReversed(...)`, so model-authored helper scripts can derive ordered asset/storyboard views while preserving the original input arrays.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers numeric `toFixed(...)` formatting on mapped durations, reduced totals, and grouped arithmetic expressions such as `(Number(ratio) * 100).toFixed()`, so model-authored skills can emit stable duration/percentage strings without falling back to manual rounding.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `JSON.stringify(value, null, space)` pretty output with numeric and string indentation, so model-authored skills can return readable workspace/storyboard JSON without failing on the common three-argument stringify form.

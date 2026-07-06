@@ -3467,6 +3467,35 @@ class _CustomAgentSkillRuntime {
           index++;
         }
         return -1;
+      case 'findLast':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
+        for (var index = items.length - 1; index >= 0; index--) {
+          final item = items[index];
+          final matched = _evaluateCallback(
+            method,
+            args.single,
+            item,
+            index,
+            source: items,
+          );
+          if (_isTruthy(matched)) return item;
+        }
+        return null;
+      case 'findLastIndex':
+        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        final items = value is List ? value : value.toList();
+        for (var index = items.length - 1; index >= 0; index--) {
+          final matched = _evaluateCallback(
+            method,
+            args.single,
+            items[index],
+            index,
+            source: items,
+          );
+          if (_isTruthy(matched)) return index;
+        }
+        return -1;
       case 'some':
         if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
         final items = value is List ? value : value.toList();
@@ -3532,6 +3561,17 @@ class _CustomAgentSkillRuntime {
               : _evaluateSortComparator(method, args.single, a, b),
         );
         return sorted;
+      case 'toSorted':
+        if (args.length > 1 || value is! Iterable || value is String) {
+          _badMethodArgs(method);
+        }
+        final sorted = value.toList();
+        sorted.sort(
+          (a, b) => args.isEmpty
+              ? _stringifyInterpolation(a).compareTo(_stringifyInterpolation(b))
+              : _evaluateSortComparator(method, args.single, a, b),
+        );
+        return sorted;
       case 'reverse':
         if (args.isNotEmpty || value is! Iterable || value is String) {
           _badMethodArgs(method);
@@ -3540,6 +3580,11 @@ class _CustomAgentSkillRuntime {
           final reversed = value.reversed.toList();
           value.setAll(0, reversed);
           return value;
+        }
+        return value.toList().reversed.toList();
+      case 'toReversed':
+        if (args.isNotEmpty || value is! Iterable || value is String) {
+          _badMethodArgs(method);
         }
         return value.toList().reversed.toList();
       case 'keys':

@@ -6709,6 +6709,126 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 findLast 和 findLastIndex 定位最后可用参考图', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_find_last_runtime',
+      name: '倒序查找脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 findLast/findLastIndex 最后可用参考图选择。',
+      script: r'''
+const refs = args.references;
+const lastImage = refs.findLast(ref => ref.type === 'image' && ref.enabled !== false);
+const lastImageIndex = refs.findLastIndex(ref => ref.type === 'image' && ref.enabled !== false);
+const sourceChecked = refs.findLast((ref, index, source) =>
+  source.length === refs.length && index < source.length && ref.type === 'scene'
+);
+const missingAudio = refs.findLast(ref => ref.type === 'audio');
+return JSON.stringify({
+  lastImageName: lastImage.name.trim(),
+  lastImageIndex: lastImageIndex,
+  sourceCheckedName: sourceChecked.name.trim(),
+  missingAudioIsNull: missingAudio === null,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'references': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_find_last_runtime', const {
+        'references': [
+          {'type': 'image', 'name': ' 首帧 ', 'enabled': true},
+          {'type': 'scene', 'name': ' 寒山宗门 ', 'enabled': true},
+          {'type': 'image', 'name': '废弃参考', 'enabled': false},
+          {'type': 'image', 'name': ' 尾帧 ', 'enabled': true},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用倒序查找脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_find_last_runtime');
+    expect(jsonDecode(msg.content), {
+      'lastImageName': '尾帧',
+      'lastImageIndex': 3,
+      'sourceCheckedName': '寒山宗门',
+      'missingAudioIsNull': true,
+    });
+  });
+
+  test('自定义脚本技能：支持 toSorted 和 toReversed 的非原地数组语义', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_copy_sort_reverse_runtime',
+      name: '非原地排序反转脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 toSorted/toReversed，且不改变原数组。',
+      script: r'''
+const assets = args.assets;
+const sorted = assets.toSorted((a, b) => b.priority - a.priority);
+const reversedSteps = args.steps.toReversed();
+return JSON.stringify({
+  originalAssets: assets.map(asset => asset.name.trim()).join('>'),
+  sortedAssets: sorted.map(asset => asset.name.trim()).join('>'),
+  originalSteps: args.steps.join('>'),
+  reversedSteps: reversedSteps.join('>'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+          'steps': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_copy_sort_reverse_runtime', const {
+        'assets': [
+          {'name': ' 李澈 ', 'priority': 20},
+          {'name': '寒山宗门', 'priority': 10},
+          {'name': '沈微', 'priority': 30},
+        ],
+        'steps': ['构图', '首帧', '视频'],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用非原地排序反转脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_copy_sort_reverse_runtime');
+    expect(jsonDecode(msg.content), {
+      'originalAssets': '李澈>寒山宗门>沈微',
+      'sortedAssets': '沈微>李澈>寒山宗门',
+      'originalSteps': '构图>首帧>视频',
+      'reversedSteps': '视频>首帧>构图',
+    });
+  });
+
   test('自定义脚本技能：支持 findIndex 定位首个待处理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_find_index_runtime',
