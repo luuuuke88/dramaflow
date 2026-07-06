@@ -1984,8 +1984,14 @@ class _CustomAgentSkillRuntime {
   String _replaceString(String text, Object? matcher, String replacement) {
     if (matcher is _CustomJsRegExp) {
       return matcher.global
-          ? text.replaceAll(matcher.regExp, replacement)
-          : text.replaceFirst(matcher.regExp, replacement);
+          ? text.replaceAllMapped(
+              matcher.regExp,
+              (match) => _jsRegexReplacement(match, replacement),
+            )
+          : text.replaceFirstMapped(
+              matcher.regExp,
+              (match) => _jsRegexReplacement(match, replacement),
+            );
     }
     final from = _stringifyInterpolation(matcher);
     return from.isEmpty
@@ -1995,13 +2001,50 @@ class _CustomAgentSkillRuntime {
 
   String _replaceAllString(String text, Object? matcher, String replacement) {
     if (matcher is _CustomJsRegExp) {
-      return text.replaceAll(matcher.regExp, replacement);
+      return text.replaceAllMapped(
+        matcher.regExp,
+        (match) => _jsRegexReplacement(match, replacement),
+      );
     }
     final from = _stringifyInterpolation(matcher);
     if (from.isEmpty) {
       return '$replacement${text.split('').join(replacement)}$replacement';
     }
     return text.replaceAll(from, replacement);
+  }
+
+  String _jsRegexReplacement(Match match, String replacement) {
+    final buffer = StringBuffer();
+    for (var index = 0; index < replacement.length; index++) {
+      final char = replacement[index];
+      if (char != r'$' || index + 1 >= replacement.length) {
+        buffer.write(char);
+        continue;
+      }
+      final next = replacement[index + 1];
+      final firstDigit = int.tryParse(next);
+      if (firstDigit != null && firstDigit > 0) {
+        final secondIndex = index + 2;
+        final secondDigit = secondIndex < replacement.length
+            ? int.tryParse(replacement[secondIndex])
+            : null;
+        if (secondDigit != null) {
+          final twoDigit = firstDigit * 10 + secondDigit;
+          if (twoDigit <= match.groupCount) {
+            buffer.write(match.group(twoDigit) ?? '');
+            index += 2;
+            continue;
+          }
+        }
+        if (firstDigit <= match.groupCount) {
+          buffer.write(match.group(firstDigit) ?? '');
+          index++;
+          continue;
+        }
+      }
+      buffer.write(char);
+    }
+    return buffer.toString();
   }
 
   Object? _callFunction(Object? value, String name, List<String> args) {
