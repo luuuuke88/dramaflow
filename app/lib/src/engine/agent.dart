@@ -408,6 +408,7 @@ class _CustomAgentSkillRuntime {
           'args': _customJsMutableValue(args),
           'Array': const _CustomJsBuiltin('Array'),
           'Date': const _CustomJsBuiltin('Date'),
+          'Error': const _CustomJsBuiltin('Error'),
           'JSON': const _CustomJsBuiltin('JSON'),
           'Map': const _CustomJsBuiltin('Map'),
           'Math': const _CustomJsBuiltin('Math'),
@@ -437,6 +438,21 @@ class _CustomAgentSkillRuntime {
       if (trimmed.isEmpty) continue;
       if (trimmed == 'break') return const _CustomJsBreakValue();
       if (trimmed == 'continue') return const _CustomJsContinueValue();
+      if (_startsWithWord(trimmed, 0, 'throw')) {
+        final expression = _trimTrailingSemicolon(
+          trimmed.substring('throw'.length).trim(),
+        );
+        if (expression.isEmpty) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_throw',
+          });
+        }
+        final error = _evaluate(expression);
+        throw error ??
+            EngineException(errLlmFormat, {
+              'reason': 'custom_skill_throw_null',
+            });
+      }
       final function = _readFunctionDeclaration(trimmed);
       if (function != null) {
         _scope[function.name] = function;
@@ -1420,6 +1436,7 @@ class _CustomAgentSkillRuntime {
       'Set' => _newSet(args),
       'Date' => _newDate(args),
       'Map' => _newMap(args),
+      'Error' => _newError(args),
       _ => throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_constructor',
           'constructor': name.text,
@@ -1989,6 +2006,11 @@ class _CustomAgentSkillRuntime {
         if (values.length > 1) _badMethodArgs(objectName);
         if (values.isEmpty) return '';
         return _stringifyInterpolation(values.single);
+      case 'Error':
+        if (values.length > 1) _badMethodArgs(objectName);
+        return _CustomJsError(
+          values.isEmpty ? '' : _stringifyInterpolation(values.single),
+        );
       case 'parseFloat':
         if (values.length != 1) _badMethodArgs(objectName);
         return _parseNumericPrefix(values.single, integer: false);
@@ -2112,6 +2134,13 @@ class _CustomAgentSkillRuntime {
     throw EngineException(errLlmFormat, {
       'reason': 'custom_skill_map_constructor',
     });
+  }
+
+  _CustomJsError _newError(List<String> args) {
+    if (args.length > 1) _badMethodArgs('Error');
+    return _CustomJsError(
+      args.isEmpty ? '' : _stringifyInterpolation(_evaluate(args.single)),
+    );
   }
 
   int _arrayLikeLength(Map<Object?, Object?> source) {
@@ -2580,6 +2609,12 @@ class _CustomAgentSkillRuntime {
   }
 
   Map<String, Object?> _customJsErrorObject(Object error) {
+    if (error is _CustomJsError) {
+      return {
+        'name': error.name,
+        'message': error.message,
+      };
+    }
     if (error is EngineException) {
       return {
         'name': 'EngineException',
@@ -2917,6 +2952,14 @@ class _CustomJsDate {
 class _CustomJsMap {
   final Map<Object?, Object?> values;
   const _CustomJsMap(this.values);
+}
+
+class _CustomJsError {
+  final String message;
+
+  const _CustomJsError(this.message);
+
+  String get name => 'Error';
 }
 
 class _CustomJsFunction {

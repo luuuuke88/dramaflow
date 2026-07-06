@@ -3196,6 +3196,61 @@ try {
     );
   });
 
+  test('自定义脚本技能：支持 throw new Error 并在 catch 读取 message', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_throw_error_runtime',
+      name: '显式错误脚本运行时',
+      description: '验证自定义技能兼容模型常写的 throw new Error(...) 校验写法。',
+      script: r'''
+function requireField(value, label) {
+  if (!value?.trim()) {
+    throw new Error(`${label}不能为空`);
+  }
+  return value.trim();
+}
+
+try {
+  const title = requireField(args.title, '标题');
+  return JSON.stringify({ ok: true, title });
+} catch (err) {
+  return JSON.stringify({
+    ok: false,
+    errorName: err.name,
+    message: err.message,
+  });
+}
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'title': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_throw_error_runtime', const {
+        'title': '   ',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用显式错误脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_throw_error_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'ok': false,
+      'errorName': 'Error',
+      'message': '标题不能为空',
+    });
+  });
+
   test('自定义脚本技能：支持正则 match 提取分镜工作区 XML', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regex_match_runtime',
