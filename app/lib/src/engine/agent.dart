@@ -7567,6 +7567,22 @@ extension AgentApi on Engine {
     return null;
   }
 
+  String _agentPromptArg(Map<String, dynamic> args) {
+    const keys = [
+      'prompt',
+      'instruction',
+      'task',
+      'input',
+      'request',
+      'message'
+    ];
+    for (final key in keys) {
+      final text = (args[key] ?? '').toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+    return '';
+  }
+
   Set<String>? _coerceStringSet(Object? raw) {
     final values = <String>{};
     void add(Object? value) {
@@ -7849,9 +7865,7 @@ extension AgentApi on Engine {
     required String stage,
     List<String> activatedSkills = const [],
   }) async {
-    final prompt = (args['prompt'] ?? args['instruction'] ?? args['task'] ?? '')
-        .toString()
-        .trim();
+    final prompt = _agentPromptArg(args);
     final history = <Map<String, String>>[
       {'role': 'assistant', 'content': _scriptAgentProjectInfo(projectId)},
       {
@@ -8395,9 +8409,7 @@ extension AgentApi on Engine {
     required String stage,
     List<String> activatedSkills = const [],
   }) async {
-    final prompt = (args['prompt'] ?? args['instruction'] ?? args['task'] ?? '')
-        .toString()
-        .trim();
+    final prompt = _agentPromptArg(args);
     final history = <Map<String, String>>[
       {
         'role': 'assistant',

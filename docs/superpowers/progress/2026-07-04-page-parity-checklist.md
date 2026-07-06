@@ -138,6 +138,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetri
 
 Recent Agent/RAG Update: `app/test/engine/providers_test.dart`, `app/test/engine/agent_test.dart`, `app/test/engine/engine_facade_test.dart`, and `app/test/widgets/settings_screen_test.dart` now cover OpenAI-compatible `/embeddings` parsing, the `binding.agent_embedding` stage kind, settings-page binding/testing for embedding models, and Agent memory recall through a bound gateway embedding model with token fallback.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers script and production sub Agent tool calls accepting common prompt aliases such as `message` and `request`, so decision Agents can pass natural task fields without execution sub Agents falling back to generic "continue current task" prompts.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers long-term `note` memory search using the bound `agent_embedding` provider, including semantic cross-language recall and migration of stored note embeddings from legacy token JSON to gateway-vector JSON.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style memory clearing semantics: clearing `message` also removes dependent `summary` records, while clearing `summary` resets summarized messages back to `summarized=0` so they can re-enter short-term memory and future summarization.

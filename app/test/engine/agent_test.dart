@@ -10910,6 +10910,42 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('子 Agent 工具调用接受常见提示词别名作为执行任务', () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'message': '用 message 字段搭建寒山篇骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先做故事骨架', autoMode: false);
+
+    expect(gateway.stages.last, 'scriptAgent:storySkeletonAgent');
+    expect(
+      gateway.lastMessages.last['content'],
+      '用 message 字段搭建寒山篇骨架',
+    );
+
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'request': '用 request 字段制作第一集导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>第一集导演计划</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作导演计划', autoMode: false);
+
+    expect(gateway.stages.last, 'productionAgent:directorPlanAgent');
+    expect(
+      gateway.lastMessages.last['content'],
+      '用 request 字段制作第一集导演计划',
+    );
+  });
+
   test(
       'ProductionAgent subagents receive production memory context without script leakage',
       () async {
