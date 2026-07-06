@@ -11121,6 +11121,114 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(recordIds.toSet(), hasLength(recordIds.length));
   });
 
+  test('Agent 记忆：memory_get 和 deepRetrieve 工具支持结构化查询计划', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage('query_plan_role', '角色约束：李澈必须保持正派，不能反派化。', 0);
+    insertMessage('query_plan_scene', '场景画风：寒山山门保持冷白云雾和低机位压迫感。', 1);
+    insertMessage('query_plan_noise', '噪声记忆：市集喜剧桥段可以更热闹。', 2);
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {'query': '李澈正派约束', 'reason': '角色一致性'},
+          {
+            'keywords': ['寒山山门冷白低机位'],
+            'scope': 'visual',
+          },
+        ],
+        'limit': 4,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {'q': '李澈正派约束'},
+          {'查询': '寒山山门冷白低机位'},
+        ],
+        'limit': 4,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按结构化查询计划找角色和场景上下文',
+      autoMode: true,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final memoryGetProperties = memoryGetTool.schema['properties'] as Map;
+    expect(
+      memoryGetProperties.keys,
+      containsAll(['queryPlan', 'retrievalPlan', 'searchQueries', '查询计划']),
+    );
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final deepRetrieveProperties = deepRetrieveTool.schema['properties'] as Map;
+    expect(
+      deepRetrieveProperties.keys,
+      containsAll(['queryPlan', 'retrievalPlan', 'searchQueries', '查询计划']),
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['queries'], ['李澈正派约束', '寒山山门冷白低机位']);
+    expect(memoryGetPayload['memories'], contains('角色约束：李澈必须保持正派，不能反派化。'));
+    expect(memoryGetPayload['memories'], contains('场景画风：寒山山门保持冷白云雾和低机位压迫感。'));
+    expect(memoryGetPayload['memories'], isNot(contains('噪声记忆：市集喜剧桥段可以更热闹。')));
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['queries'], ['李澈正派约束', '寒山山门冷白低机位']);
+    expect(deepRetrievePayload['memories'], contains('角色约束：李澈必须保持正派，不能反派化。'));
+    expect(
+        deepRetrievePayload['memories'], contains('场景画风：寒山山门保持冷白云雾和低机位压迫感。'));
+    expect(
+      deepRetrievePayload['memories'],
+      isNot(contains('噪声记忆：市集喜剧桥段可以更热闹。')),
+    );
+  });
+
   test('Agent 记忆工具可显式召回视觉参考长期记忆', () async {
     final visualId = engine.saveAgentMemory(
       projectId,

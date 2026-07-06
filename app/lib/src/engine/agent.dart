@@ -455,6 +455,65 @@ const _agentMemorySortToolSchema = {
     'description': 'sortBy 的中文别名。',
   },
 };
+const _agentMemoryQueryPlanToolSchema = {
+  'queryPlan': {
+    'type': 'array',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description':
+        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象。',
+  },
+  'retrievalPlan': {
+    'type': 'array',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'queryPlan 的 RAG 检索计划别名。',
+  },
+  'searchPlan': {
+    'type': 'array',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'queryPlan 的搜索计划别名。',
+  },
+  'searchQueries': {
+    'type': 'array',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'queryPlan 的查询数组别名。',
+  },
+  'plannedQueries': {
+    'type': 'array',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'queryPlan 的计划查询别名。',
+  },
+  '查询计划': {
+    'type': 'array',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'queryPlan 的中文别名。',
+  },
+  '检索计划': {
+    'type': 'array',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'retrievalPlan 的中文别名。',
+  },
+  '搜索计划': {
+    'type': 'array',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'searchPlan 的中文别名。',
+  },
+};
 
 final _tools = <AgentToolDef>[
   const AgentToolDef(
@@ -735,6 +794,7 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': 'keywords 的中文别名。',
         },
+        ..._agentMemoryQueryPlanToolSchema,
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -1333,6 +1393,7 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': 'keywords 的中文别名。',
         },
+        ..._agentMemoryQueryPlanToolSchema,
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -11976,7 +12037,85 @@ extension AgentApi on Engine {
       '问题列表',
       'prompts',
     ]));
+    addAll(_agentMemoryQueryPlanQueries(args));
     return values;
+  }
+
+  List<String>? _agentMemoryQueryPlanQueries(Map<String, dynamic> args) {
+    final values = <String>[];
+    void addText(Object? raw) {
+      final items = _coerceStringList(raw);
+      if (items == null) return;
+      for (final item in items) {
+        final trimmed = item.trim();
+        if (trimmed.isNotEmpty && !values.contains(trimmed)) {
+          values.add(trimmed);
+        }
+      }
+    }
+
+    void addNode(Object? raw) {
+      if (raw == null) return;
+      if (raw is Map) {
+        for (final key in const [
+          'query',
+          'q',
+          'keyword',
+          '关键词',
+          '查询',
+          'question',
+          '问题',
+          'text',
+          '文本',
+          'prompt',
+          '提示词',
+          'queryText',
+          'query_text',
+          'searchText',
+          'search_text',
+          'term',
+        ]) {
+          addText(raw[key]);
+        }
+        for (final key in const [
+          'queries',
+          'queryList',
+          'query_list',
+          'keywords',
+          'keywordList',
+          'keyword_list',
+          'terms',
+          '查询列表',
+          '关键词列表',
+          'items',
+          'steps',
+        ]) {
+          addNode(raw[key]);
+        }
+        return;
+      }
+      if (raw is Iterable) {
+        for (final item in raw) {
+          addNode(item);
+        }
+        return;
+      }
+      addText(raw);
+    }
+
+    for (final key in const [
+      'queryPlan',
+      'retrievalPlan',
+      'searchPlan',
+      'searchQueries',
+      'plannedQueries',
+      '查询计划',
+      '检索计划',
+      '搜索计划',
+    ]) {
+      addNode(args[key]);
+    }
+    return values.isEmpty ? null : values;
   }
 
   bool _shouldIncludeVisualReferenceMemories(Map<String, dynamic> args) =>
