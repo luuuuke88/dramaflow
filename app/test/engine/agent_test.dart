@@ -4545,6 +4545,64 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 reduce 回调 index 和 source 参数', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_reduce_index_source_runtime',
+      name: '归并索引脚本运行时',
+      description: '验证自定义技能兼容模型常写的 reduce((acc, item, index, array) => ...)。',
+      script: r'''
+const lines = args.shots.reduce((list, shot, index, all) => [
+  ...list,
+  `${index + 1}/${all.length}.${shot.videoDesc.trim()}:${shot.duration}s`,
+], []);
+return JSON.stringify({
+  lines: lines.join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'custom_script_reduce_index_source_runtime',
+        const {
+          'shots': [
+            {'videoDesc': ' 雪夜山门 ', 'duration': 2},
+            {'videoDesc': '李澈拔剑', 'duration': 3},
+            {'videoDesc': '沈微回眸 ', 'duration': 4},
+          ],
+        },
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用归并索引脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_reduce_index_source_runtime');
+    expect(jsonDecode(msg.content), {
+      'lines': '1/3.雪夜山门:2s、2/3.李澈拔剑:3s、3/3.沈微回眸:4s',
+    });
+  });
+
   test('自定义脚本技能：支持 reduce 省略初始值时使用首项作为累加器', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_reduce_no_initial_runtime',

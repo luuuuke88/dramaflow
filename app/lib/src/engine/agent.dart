@@ -1882,6 +1882,7 @@ class _CustomAgentSkillRuntime {
             accumulator,
             item,
             index,
+            items,
           );
           index++;
         }
@@ -2819,23 +2820,21 @@ class _CustomAgentSkillRuntime {
     Object? accumulator,
     Object? item,
     int index,
+    List<Object?> source,
   ) {
+    final values = [accumulator, item, index, source];
     final arrow = _findTopLevelArrow(callback);
     if (arrow < 0) {
       final function = _evaluate(callback);
       if (function is _CustomJsFunction) {
-        return _callCustomFunctionWithValues(
-          function,
-          [accumulator, item, index],
-        );
+        return _callCustomFunctionWithValues(function, values);
       }
       _badMethodArgs(method);
     }
     final params = _parseCallbackParams(callback.substring(0, arrow), method);
-    if (params.length != 2) _badMethodArgs(method);
+    if (params.length > values.length) _badMethodArgs(method);
     final body = callback.substring(arrow + 2).trim();
-    final bindings = _bindCallbackParams(params, [accumulator, item], method);
-    bindings.putIfAbsent('index', () => index);
+    final bindings = _bindCallbackParams(params, values, method);
     return _withScopeBindings(
       bindings,
       () => _evaluateCallbackBody(method, body),
