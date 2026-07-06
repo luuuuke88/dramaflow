@@ -4709,6 +4709,51 @@ try {
     );
   });
 
+  test('自定义脚本技能：支持 try catch finally 清理逻辑', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_try_catch_finally_runtime',
+      name: 'try catch finally 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 finally 清理逻辑。',
+      script: r'''
+const log = [];
+
+try {
+  log.push('try');
+  throw new Error(args.reason);
+} catch (err) {
+  log.push(`catch:${err.message}`);
+} finally {
+  log.push('finally');
+}
+
+return log.join('|');
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'reason': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_try_catch_finally_runtime', const {
+        'reason': '资产解析失败',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 try catch finally 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_try_catch_finally_runtime');
+    expect(msg.content, 'try|catch:资产解析失败|finally');
+  });
+
   test('自定义脚本技能：支持 throw new Error 并在 catch 读取 message', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_throw_error_runtime',

@@ -607,21 +607,37 @@ class _CustomAgentSkillRuntime {
       }
       final tryStatement = _readTryStatement(trimmed);
       if (tryStatement != null) {
+        _CustomJsStatementResult? pendingResult;
+        Object? pendingError;
+        var hasPendingError = false;
         try {
-          final result = _runStatements(tryStatement.body);
-          if (result != null) return result;
+          pendingResult = _runStatements(tryStatement.body);
         } catch (error) {
-          final bindings = tryStatement.errorName == null
-              ? <String, Object?>{}
-              : <String, Object?>{
-                  tryStatement.errorName!: _customJsErrorObject(error),
-                };
-          final result = _withScopeBindings(
-            bindings,
-            () => _runStatements(tryStatement.catchBody),
-          );
-          if (result != null) return result;
+          final catchBody = tryStatement.catchBody;
+          if (catchBody == null) {
+            pendingError = error;
+            hasPendingError = true;
+          } else {
+            final bindings = tryStatement.errorName == null
+                ? <String, Object?>{}
+                : <String, Object?>{
+                    tryStatement.errorName!: _customJsErrorObject(error),
+                  };
+            pendingResult = _withScopeBindings(
+              bindings,
+              () => _runStatements(catchBody),
+            );
+          }
         }
+        final finallyBody = tryStatement.finallyBody;
+        if (finallyBody != null) {
+          final finallyResult = _runStatements(finallyBody);
+          if (finallyResult != null) return finallyResult;
+        }
+        if (hasPendingError) {
+          throw pendingError!;
+        }
+        if (pendingResult != null) return pendingResult;
         continue;
       }
       final ifStatement = _readIfStatement(trimmed);
@@ -835,31 +851,44 @@ class _CustomAgentSkillRuntime {
     if (index >= source.length || source[index] != '{') return null;
     final body = _readBalanced(source, index, '{', '}');
     index = _skipWhitespace(source, body.end);
-    if (!_startsWithWord(source, index, 'catch')) return null;
-    index = _skipWhitespace(source, index + 'catch'.length);
     String? errorName;
-    if (index < source.length && source[index] == '(') {
-      final rawParam = _readBalanced(source, index, '(', ')');
-      final param = rawParam.text.trim();
-      if (param.isNotEmpty) {
-        final identifier = _readIdentifier(param, 0);
-        if (identifier == null || identifier.end != param.length) {
-          return null;
+    String? catchBody;
+    if (_startsWithWord(source, index, 'catch')) {
+      index = _skipWhitespace(source, index + 'catch'.length);
+      if (index < source.length && source[index] == '(') {
+        final rawParam = _readBalanced(source, index, '(', ')');
+        final param = rawParam.text.trim();
+        if (param.isNotEmpty) {
+          final identifier = _readIdentifier(param, 0);
+          if (identifier == null || identifier.end != param.length) {
+            return null;
+          }
+          errorName = param;
         }
-        errorName = param;
+        index = _skipWhitespace(source, rawParam.end);
       }
-      index = _skipWhitespace(source, rawParam.end);
+      if (index >= source.length || source[index] != '{') return null;
+      final rawCatchBody = _readBalanced(source, index, '{', '}');
+      catchBody = rawCatchBody.text;
+      index = _skipWhitespace(source, rawCatchBody.end);
     }
-    if (index >= source.length || source[index] != '{') return null;
-    final catchBody = _readBalanced(source, index, '{', '}');
-    index = _skipWhitespace(source, catchBody.end);
+    String? finallyBody;
+    if (_startsWithWord(source, index, 'finally')) {
+      index = _skipWhitespace(source, index + 'finally'.length);
+      if (index >= source.length || source[index] != '{') return null;
+      final rawFinallyBody = _readBalanced(source, index, '{', '}');
+      finallyBody = rawFinallyBody.text;
+      index = _skipWhitespace(source, rawFinallyBody.end);
+    }
+    if (catchBody == null && finallyBody == null) return null;
     if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
       return null;
     }
     return _CustomJsTryStatement(
       body: body.text,
       errorName: errorName,
-      catchBody: catchBody.text,
+      catchBody: catchBody,
+      finallyBody: finallyBody,
     );
   }
 
@@ -4191,12 +4220,14 @@ class _CustomJsContinueValue extends _CustomJsStatementResult {
 class _CustomJsTryStatement {
   final String body;
   final String? errorName;
-  final String catchBody;
+  final String? catchBody;
+  final String? finallyBody;
 
   const _CustomJsTryStatement({
     required this.body,
     required this.errorName,
     required this.catchBody,
+    required this.finallyBody,
   });
 }
 
@@ -4440,7 +4471,8 @@ List<String> _splitStatements(String script) {
           brace == 0 &&
           _isTopLevelBlockStatement(buffer.toString()) &&
           !_nextTopLevelWordIs(script, i + 1, 'else') &&
-          !_nextTopLevelWordIs(script, i + 1, 'catch')) {
+          !_nextTopLevelWordIs(script, i + 1, 'catch') &&
+          !_nextTopLevelWordIs(script, i + 1, 'finally')) {
         statements.add(buffer.toString());
         buffer.clear();
       }
