@@ -8633,6 +8633,87 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 instanceof 类型分支', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_instanceof_runtime',
+      name: 'instanceof 类型分支脚本运行时',
+      description: '验证自定义技能兼容模型常写的 value instanceof Array/Date/Map/Set/Error。',
+      script: r'''
+const startedAt = new Date(args.startedAt);
+const assetMap = new Map(Object.entries(args.assetsById));
+const selected = new Set(args.selectedIds);
+function helper() {
+  return 'ok';
+}
+let caught = null;
+try {
+  throw new Error('bad storyboard payload');
+} catch (error) {
+  caught = error;
+}
+return JSON.stringify({
+  assetsIsArray: args.assets instanceof Array,
+  startedAtIsDate: startedAt instanceof Date,
+  mapIsMap: assetMap instanceof Map,
+  selectedIsSet: selected instanceof Set,
+  caughtIsError: caught instanceof Error,
+  plainObjectIsObject: args.assetsById instanceof Object,
+  stringIsStringObject: args.assets[0].name instanceof String,
+  helperIsFunction: helper instanceof Function,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'startedAt': {'type': 'integer'},
+          'selectedIds': {
+            'type': 'array',
+            'items': {'type': 'number'},
+          },
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+          'assetsById': {'type': 'object'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_instanceof_runtime', const {
+        'startedAt': 1704067200000,
+        'selectedIds': [1, 2],
+        'assets': [
+          {'name': '李澈'},
+        ],
+        'assetsById': {
+          'A001': {'name': '李澈'},
+        },
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 instanceof 类型分支脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_instanceof_runtime');
+    expect(jsonDecode(msg.content), {
+      'assetsIsArray': true,
+      'startedAtIsDate': true,
+      'mapIsMap': true,
+      'selectedIsSet': true,
+      'caughtIsError': true,
+      'plainObjectIsObject': true,
+      'stringIsStringObject': false,
+      'helperIsFunction': true,
+    });
+  });
+
   test('自定义脚本技能：支持 delete 操作符清理对象字段', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_delete_operator_runtime',

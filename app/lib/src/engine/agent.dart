@@ -2408,12 +2408,14 @@ class _CustomAgentSkillRuntime {
           'console': const _CustomJsBuiltin('console'),
           'Date': const _CustomJsBuiltin('Date'),
           'Error': const _CustomJsBuiltin('Error'),
+          'Function': const _CustomJsBuiltin('Function'),
           'JSON': const _CustomJsBuiltin('JSON'),
           'Map': const _CustomJsBuiltin('Map'),
           'Math': const _CustomJsBuiltin('Math'),
           'Number': const _CustomJsBuiltin('Number'),
           'Object': const _CustomJsBuiltin('Object'),
           'RegExp': const _CustomJsBuiltin('RegExp'),
+          'Set': const _CustomJsBuiltin('Set'),
           'String': const _CustomJsBuiltin('String'),
           'isFinite': const _CustomJsBuiltin('isFinite'),
           'isNaN': const _CustomJsBuiltin('isNaN'),
@@ -2477,7 +2479,7 @@ class _CustomAgentSkillRuntime {
             final bindings = tryStatement.errorName == null
                 ? <String, Object?>{}
                 : <String, Object?>{
-                    tryStatement.errorName!: _customJsErrorObject(error),
+                    tryStatement.errorName!: _customJsCatchValue(error),
                   };
             pendingResult = _withScopeBindings(
               bindings,
@@ -3579,6 +3581,14 @@ class _CustomAgentSkillRuntime {
       );
     }
 
+    final instanceOf = _readTopLevelInstanceofOperator(expr);
+    if (instanceOf != null) {
+      return _customJsInstanceOf(
+        _evaluate(instanceOf.left),
+        _evaluate(instanceOf.right),
+      );
+    }
+
     final typeofExpression = _evaluateTypeofExpression(expr);
     if (typeofExpression != null) return typeofExpression;
 
@@ -3669,6 +3679,38 @@ class _CustomAgentSkillRuntime {
       return 'function';
     }
     return 'object';
+  }
+
+  bool _customJsInstanceOf(Object? value, Object? constructor) {
+    if (constructor is! _CustomJsBuiltin) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_instanceof',
+      });
+    }
+    return switch (constructor.name) {
+      'Array' => value is List,
+      'Date' => value is _CustomJsDate,
+      'Map' => value is _CustomJsMap,
+      'Set' => value is Set,
+      'RegExp' => value is _CustomJsRegExp,
+      'Error' => value is _CustomJsError,
+      'Function' => value is _CustomJsFunction || value is _CustomJsBuiltin,
+      'Object' => value != null &&
+          (value is Map ||
+              value is List ||
+              value is Set ||
+              value is _CustomJsDate ||
+              value is _CustomJsMap ||
+              value is _CustomJsRegExp ||
+              value is _CustomJsError ||
+              value is _CustomJsFunction ||
+              value is _CustomJsBuiltin),
+      'String' || 'Number' || 'Boolean' => false,
+      _ => throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_instanceof_constructor',
+          'constructor': constructor.name,
+        }),
+    };
   }
 
   Object? _evaluateAssignmentExpression(String expression) {
@@ -5976,12 +6018,9 @@ class _CustomAgentSkillRuntime {
     return num.tryParse(text);
   }
 
-  Map<String, Object?> _customJsErrorObject(Object error) {
+  Object? _customJsCatchValue(Object error) {
     if (error is _CustomJsError) {
-      return {
-        'name': error.name,
-        'message': error.message,
-      };
+      return error;
     }
     if (error is EngineException) {
       return {
@@ -6358,6 +6397,10 @@ class _CustomAgentSkillRuntime {
     }
     if (property == 'size' && value is Set) return value.length;
     if (property == 'size' && value is _CustomJsMap) return value.values.length;
+    if (value is _CustomJsError) {
+      if (property == 'name') return value.name;
+      if (property == 'message') return value.message;
+    }
     if (property == 'length') {
       if (value is String) return value.length;
       if (value is Iterable) return value.length;
@@ -7160,10 +7203,69 @@ _ComparisonToken? _readTopLevelInOperator(String source) {
   return null;
 }
 
+_ComparisonToken? _readTopLevelInstanceofOperator(String source) {
+  const operator = 'instanceof';
+  var quote = '';
+  var escaped = false;
+  var paren = 0;
+  var bracket = 0;
+  var brace = 0;
+
+  for (var i = 0; i < source.length - operator.length + 1; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      continue;
+    }
+    final regexLiteral = _readRegexLiteral(
+      source,
+      i,
+      requireStartContext: true,
+    );
+    if (regexLiteral != null) {
+      i = regexLiteral.end - 1;
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      continue;
+    }
+    if (char == '(') paren++;
+    if (char == ')') paren--;
+    if (char == '[') bracket++;
+    if (char == ']') bracket--;
+    if (char == '{') brace++;
+    if (char == '}') brace--;
+    if (paren != 0 || bracket != 0 || brace != 0) continue;
+    if (!_isTopLevelWordAt(source, i, operator)) continue;
+    final left = source.substring(0, i).trim();
+    final right = source.substring(i + operator.length).trim();
+    if (left.isEmpty || right.isEmpty) return null;
+    return _ComparisonToken(
+      left: left,
+      right: right,
+      operator: operator,
+    );
+  }
+  return null;
+}
+
 bool _isTopLevelInAt(String source, int index) {
-  if (!source.startsWith('in', index)) return false;
+  return _isTopLevelWordAt(source, index, 'in');
+}
+
+bool _isTopLevelWordAt(String source, int index, String word) {
+  if (!source.startsWith(word, index)) return false;
   final before = index - 1;
-  final after = index + 2;
+  final after = index + word.length;
   if (before >= 0 && _isIdentPart(source.codeUnitAt(before))) return false;
   if (after < source.length && _isIdentPart(source.codeUnitAt(after))) {
     return false;

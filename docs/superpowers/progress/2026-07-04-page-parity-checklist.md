@@ -412,6 +412,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `typeof` checks such as `typeof value === 'string'`, `typeof notDeclared`, `typeof null`, and `typeof helper`, so model-authored custom skills can guard mixed asset/storyboard fields before trimming, formatting, or branching.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `instanceof` checks such as `value instanceof Array/Date/Map/Set/Error/Object/Function`, so model-authored custom skills can branch on common runtime values without brittle manual shape checks.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible variable logical assignment (`name ||= fallback`, `value ??= fallback`, and `enabled &&= gate`), so model-authored cleanup scripts can use the same short-circuit assignment style already supported for object members.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `switch` / `case` / `default` control flow with fall-through and `break`, so model-authored ToonFlow-style helper scripts can classify roles, scenes, tools, and fallback asset types without rewriting category logic into long `if/else` chains.
