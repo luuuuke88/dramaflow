@@ -4039,6 +4039,67 @@ return JSON.stringify(normalized);
     ]);
   });
 
+  test('自定义脚本技能：支持 structuredClone 复制并改写分镜 payload', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_structured_clone_runtime',
+      name: 'structuredClone 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 structuredClone(args) 防止改写原始入参。',
+      script: r'''
+const cloned = structuredClone(args.storyboards);
+cloned[0].videoDesc = cloned[0].videoDesc.trim();
+cloned[0].refs.push('首帧');
+cloned[1].refs = [...cloned[1].refs, '角色参考'];
+return JSON.stringify({
+  clonedFirst: `${cloned[0].videoDesc}:${cloned[0].refs.join('|')}`,
+  clonedSecond: `${cloned[1].videoDesc}:${cloned[1].refs.join('|')}`,
+  originalFirst: `${args.storyboards[0].videoDesc}:${args.storyboards[0].refs.join('|')}`,
+  originalSecond: `${args.storyboards[1].videoDesc}:${args.storyboards[1].refs.join('|')}`,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_structured_clone_runtime', const {
+        'storyboards': [
+          {
+            'videoDesc': ' 寒山宗门 ',
+            'refs': ['A001'],
+          },
+          {
+            'videoDesc': '李澈拔剑',
+            'refs': ['A002'],
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 structuredClone 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_structured_clone_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'clonedFirst': '寒山宗门:A001|首帧',
+      'clonedSecond': '李澈拔剑:A002|角色参考',
+      'originalFirst': ' 寒山宗门 :A001',
+      'originalSecond': '李澈拔剑:A002',
+    });
+  });
+
   test('自定义脚本技能：支持一元逻辑表达式筛选资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_unary_runtime',

@@ -1846,6 +1846,7 @@ class _CustomAgentSkillRuntime {
           'isNaN': const _CustomJsBuiltin('isNaN'),
           'parseFloat': const _CustomJsBuiltin('parseFloat'),
           'parseInt': const _CustomJsBuiltin('parseInt'),
+          'structuredClone': const _CustomJsBuiltin('structuredClone'),
         };
 
   String run(String script) {
@@ -4312,6 +4313,9 @@ class _CustomAgentSkillRuntime {
           integer: true,
           radix: radix,
         );
+      case 'structuredClone':
+        if (values.length != 1) _badMethodArgs(objectName);
+        return _structuredClone(values.single);
       case 'isFinite':
         if (values.length != 1) _badMethodArgs(objectName);
         return _isFiniteNumber(values.single, coerce: true);
@@ -4324,6 +4328,34 @@ class _CustomAgentSkillRuntime {
           'object': objectName,
         });
     }
+  }
+
+  Object? _structuredClone(Object? value) {
+    if (value is Map) {
+      return <String, Object?>{
+        for (final entry in value.entries)
+          '${entry.key}': _structuredClone(entry.value),
+      };
+    }
+    if (value is _CustomJsMap) {
+      return _CustomJsMap(<Object?, Object?>{
+        for (final entry in value.values.entries)
+          _structuredClone(entry.key): _structuredClone(entry.value),
+      });
+    }
+    if (value is Set) {
+      return <Object?>{for (final item in value) _structuredClone(item)};
+    }
+    if (value is Iterable && value is! String) {
+      return [for (final item in value) _structuredClone(item)];
+    }
+    if (value is _CustomJsDate) {
+      return _CustomJsDate(value.value);
+    }
+    if (value is _CustomJsError) {
+      return _CustomJsError(value.message);
+    }
+    return value;
   }
 
   Object? _callBuiltinCallback(
