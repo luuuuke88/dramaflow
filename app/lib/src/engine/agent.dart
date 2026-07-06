@@ -1149,6 +1149,14 @@ class _CustomAgentSkillRuntime {
     if (expr.isEmpty) return '';
     final grouped = _unwrapOuterParens(expr);
     if (grouped != null) return _evaluate(grouped);
+    final groupedChain = _readGroupedValueChain(expr);
+    if (groupedChain != null) {
+      return _evaluateValueChain(
+        _evaluate(groupedChain.text),
+        expr,
+        groupedChain.end,
+      );
+    }
     final jsonStringify = _jsonStringifyInner(expr);
     if (jsonStringify != null) return jsonEncode(_evaluate(jsonStringify));
     final newExpression = _evaluateNewExpression(expr);
@@ -1576,6 +1584,8 @@ class _CustomAgentSkillRuntime {
       case 'toString':
         _expectNoArgs(method, args);
         return '${value ?? ''}';
+      case 'toFixed':
+        return _numberToFixed(value, args);
       case 'localeCompare':
         if (args.isEmpty || args.length > 3) _badMethodArgs(method);
         return '${value ?? ''}'.compareTo(
@@ -2029,6 +2039,15 @@ class _CustomAgentSkillRuntime {
     }
     final padding = buffer.toString().substring(0, needed);
     return '$padding$value';
+  }
+
+  String _numberToFixed(Object? value, List<String> args) {
+    if (args.length > 1 || value is! num) _badMethodArgs('toFixed');
+    final fractionDigits = args.isEmpty ? 0 : _toInt(_evaluate(args.single));
+    if (fractionDigits < 0 || fractionDigits > 100) _badMethodArgs('toFixed');
+    if (value.isNaN) return 'NaN';
+    if (value.isInfinite) return value.isNegative ? '-Infinity' : 'Infinity';
+    return value.toStringAsFixed(fractionDigits);
   }
 
   int _arrayIndexOf(List<Object?> items, Object? needle, int fromIndex) {
@@ -4487,6 +4506,24 @@ String? _unwrapOuterParens(String expr) {
   } catch (_) {
     return null;
   }
+}
+
+_Token? _readGroupedValueChain(String expr) {
+  if (!expr.startsWith('(')) return null;
+  try {
+    final balanced = _readBalanced(expr, 0, '(', ')');
+    final index = _skipWhitespace(expr, balanced.end);
+    if (index >= expr.length) return null;
+    if (expr.startsWith('?.', index) ||
+        expr[index] == '.' ||
+        expr[index] == '[' ||
+        expr[index] == '(') {
+      return balanced;
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
 }
 
 bool _isQuoted(String expr) =>

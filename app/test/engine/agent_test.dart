@@ -3397,6 +3397,68 @@ return `${String(projectName).trim()}:${total}`;
     expect(msg.content, '测试短剧:6.5');
   });
 
+  test('自定义脚本技能：支持数字 toFixed 格式化', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_number_to_fixed_runtime',
+      name: '数字格式化脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Number(value).toFixed(1) 时长格式化。',
+      script: r'''
+const durations = args.shots.map(shot => Number(shot.duration ?? 1));
+const labels = durations
+  .map((duration, index) => `${index + 1}.${duration.toFixed(1)}s`)
+  .join('、');
+const total = durations.reduce((sum, duration) => sum + duration, 0);
+return JSON.stringify({
+  labels,
+  total: total.toFixed(2),
+  percent: (Number(args.ratio) * 100).toFixed(),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'ratio': {'type': 'number'},
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'duration': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_number_to_fixed_runtime', const {
+        'ratio': 0.756,
+        'shots': [
+          {'duration': '3'},
+          {'duration': '2.25'},
+          {},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数字格式化脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_number_to_fixed_runtime');
+    expect(jsonDecode(msg.content), {
+      'labels': '1.3.0s、2.2.3s、3.1.0s',
+      'total': '6.25',
+      'percent': '76',
+    });
+  });
+
   test('自定义脚本技能：支持 Boolean 全局转换和 filter(Boolean)', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_boolean_filter_runtime',
