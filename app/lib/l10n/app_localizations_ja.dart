@@ -1867,6 +1867,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get stageStoryboardGenDescription => '話数をカットとプロンプトに分解';
 
   @override
+  String get stageAgentEmbeddingTitle => 'エージェント埋め込み';
+
+  @override
+  String get stageAgentEmbeddingDescription => 'エージェント記憶検索用の意味ベクトルを生成';
+
+  @override
   String get stageAssetImageTitle => '素材画像生成';
 
   @override
@@ -2866,6 +2872,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get modelKindTts => '音声';
+
+  @override
+  String get modelKindEmbedding => '埋め込み';
 
   @override
   String get providerProtocolVolcengine => 'Volcengine';

@@ -53,6 +53,45 @@ Future<TextResult> openaiGenerateText(
       completionTokens: (usage['completion_tokens'] as num?)?.toInt() ?? 0);
 }
 
+Future<List<double>> openaiGenerateEmbedding(
+  Dio dio,
+  ResolvedModel model,
+  String input, {
+  CancelToken? cancelToken,
+}) async {
+  final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
+  final res = await dio.post(
+    '$base/embeddings',
+    data: {
+      'model': model.modelId,
+      'input': input,
+    },
+    options: Options(
+      headers: model.apiKey.isEmpty
+          ? const <String, String>{}
+          : {'Authorization': 'Bearer ${model.apiKey}'},
+      sendTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 300),
+      validateStatus: (s) => s != null && s < 400,
+    ),
+    cancelToken: cancelToken,
+  );
+  final data = res.data;
+  if (data is Map) {
+    final items = data['data'];
+    if (items is List && items.isNotEmpty) {
+      final embedding = (items.first as Map?)?['embedding'];
+      if (embedding is List && embedding.isNotEmpty) {
+        return [
+          for (final value in embedding)
+            if (value is num) value.toDouble(),
+        ];
+      }
+    }
+  }
+  throw EngineException(errLlmFormat, {'message': _head(data)});
+}
+
 String _head(Object? data) {
   final s = data.toString();
   return s.length > 300 ? s.substring(0, 300) : s;

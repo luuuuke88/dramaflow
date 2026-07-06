@@ -1915,6 +1915,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Splits episodes into shots and shot prompts';
 
   @override
+  String get stageAgentEmbeddingTitle => 'Agent Embeddings';
+
+  @override
+  String get stageAgentEmbeddingDescription =>
+      'Generates semantic vectors for Agent memory retrieval';
+
+  @override
   String get stageAssetImageTitle => 'Asset Image Generation';
 
   @override
@@ -2935,6 +2942,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get modelKindTts => 'Voice';
+
+  @override
+  String get modelKindEmbedding => 'Embedding';
 
   @override
   String get providerProtocolVolcengine => 'Volcengine';

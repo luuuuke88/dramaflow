@@ -136,6 +136,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `Memory.ge
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` migrating legacy token summary embeddings through the injected `AgentMemoryEmbeddingProvider`, so semantic summary recall still works after swapping embedding strategies.
 
+Recent Agent/RAG Update: `app/test/engine/providers_test.dart`, `app/test/engine/agent_test.dart`, `app/test/engine/engine_facade_test.dart`, and `app/test/widgets/settings_screen_test.dart` now cover OpenAI-compatible `/embeddings` parsing, the `binding.agent_embedding` stage kind, settings-page binding/testing for embedding models, and Agent memory recall through a bound gateway embedding model with token fallback.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String.matchAll(...)` with regex capture groups and array spread, so custom skills can batch-extract storyboard fields from XML-like Agent workspace text.

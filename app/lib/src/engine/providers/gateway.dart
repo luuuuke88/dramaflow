@@ -114,6 +114,12 @@ class HttpProviderGateway implements ProviderGateway {
         cancelToken: cancelToken);
   }
 
+  Future<List<double>> generateEmbedding(String input,
+      {required String stage, CancelToken? cancelToken}) {
+    final model = resolveStage(db, stage);
+    return openaiGenerateEmbedding(dio, model, input, cancelToken: cancelToken);
+  }
+
   @override
   Future<Map<String, dynamic>> generateToolJson(
     String system,
@@ -247,6 +253,15 @@ class HttpProviderGateway implements ProviderGateway {
       {CancelToken? cancelToken}) async {
     final sw = Stopwatch()..start();
     await openaiGenerateText(dio, model, '', '只回复OK', cancelToken: cancelToken);
+    sw.stop();
+    return sw.elapsedMilliseconds;
+  }
+
+  Future<int> testEmbeddingModel(ResolvedModel model,
+      {CancelToken? cancelToken}) async {
+    final sw = Stopwatch()..start();
+    await openaiGenerateEmbedding(dio, model, 'connectivity test',
+        cancelToken: cancelToken);
     sw.stop();
     return sw.elapsedMilliseconds;
   }

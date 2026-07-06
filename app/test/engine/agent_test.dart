@@ -9074,6 +9074,71 @@ description: >-
     expect(gateway.lastSystem, isNot(contains('工具结果噪声')));
   });
 
+  test('Agent turn system prompt 可通过绑定 embedding 模型召回语义相关记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.agent_embedding', 'fake:embed'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'remote_semantic_keep',
+        '',
+        'mentor bond rule: Li Che must protect Shen Wei before entering Hanshan.',
+        now,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'remote_semantic_noise',
+        '',
+        'market comedy beat with no relationship constraint.',
+        now + 1,
+        '',
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    gateway.embeddingForText = (input) {
+      final normalized = input.toLowerCase();
+      if (normalized.contains('mentor bond') || input.contains('师承羁绊')) {
+        return const [1, 0];
+      }
+      return const [0, 1];
+    };
+    gateway.turns = [const AgentTurnResult.text('会保留师承羁绊。')];
+
+    await engine.sendAgentMessage(projectId, '师承羁绊怎么处理', autoMode: false);
+
+    expect(gateway.embeddingInputs, contains('师承羁绊怎么处理'));
+    expect(gateway.lastSystem, contains('remote_semantic_keep'));
+    expect(gateway.lastSystem, contains('mentor bond rule'));
+    expect(gateway.lastSystem, isNot(contains('remote_semantic_noise')));
+  });
+
   test('productionAgent 对话记忆使用独立 isolationKey 和摘要阶段', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
@@ -10631,6 +10696,8 @@ class _Gateway implements ProviderGateway {
   List<String> stages = const [];
   List<String> textStages = const [];
   List<List<String>> toolNamesByCall = const [];
+  List<String> embeddingInputs = const [];
+  List<double> Function(String input)? embeddingForText;
   int callCount = 0;
   int textCallCount = 0;
   bool shouldThrow = false;
@@ -10642,6 +10709,7 @@ class _Gateway implements ProviderGateway {
     systems = [];
     textStages = [];
     toolNamesByCall = [];
+    embeddingInputs = [];
   }
 
   List<AgentTurnResult> get turns => _turns;
@@ -10680,6 +10748,12 @@ class _Gateway implements ProviderGateway {
     }
     textCallCount++;
     return const TextResult('');
+  }
+
+  Future<List<double>> generateEmbedding(String input,
+      {required String stage, CancelToken? cancelToken}) async {
+    embeddingInputs = [...embeddingInputs, input];
+    return embeddingForText?.call(input) ?? const [0];
   }
 
   @override

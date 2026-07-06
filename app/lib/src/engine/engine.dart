@@ -925,6 +925,8 @@ WHERE id=?
         return http.testImageModel(resolved);
       case 'video':
         return http.testVideoModel(resolved);
+      case 'embedding':
+        return http.testEmbeddingModel(resolved);
       default:
         throw const EngineException(errModelMissing, {'reason': '该模态暂不支持连通测试'});
     }
@@ -1229,7 +1231,7 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
       throw const EngineException(errModelMissing, {'reason': '模型 ID 不能为空'});
     }
     final kind = (model['kind'] ?? 'text').toString();
-    if (!{'text', 'image', 'video', 'tts'}.contains(kind)) {
+    if (!{'text', 'image', 'video', 'tts', 'embedding'}.contains(kind)) {
       throw const EngineException(errModelMissing, {'reason': '模型类型无效'});
     }
     return {

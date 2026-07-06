@@ -145,6 +145,31 @@ void main() {
     });
   });
 
+  group('generateEmbedding', () {
+    test('OpenAI 兼容 embeddings 解析向量并发送模型与输入', () async {
+      final adapter = FakeAdapter((o) => jsonBody({
+            'data': [
+              {
+                'embedding': [0.25, -0.5, 1]
+              }
+            ],
+          }));
+      bindModel('agent_embedding', 'embedding', modelId: 'embed-1');
+
+      final vector = await gw(adapter).generateEmbedding(
+        '寒山师承羁绊',
+        stage: 'agent_embedding',
+      );
+
+      expect(vector, [0.25, -0.5, 1.0]);
+      final request = adapter.requests.single;
+      expect(request.path, endsWith('/embeddings'));
+      final body = request.data as Map;
+      expect(body['model'], 'embed-1');
+      expect(body['input'], '寒山师承羁绊');
+    });
+  });
+
   group('generateImage', () {
     test('b64 落盘且 prompt 注入尺寸指令', () async {
       final adapter = FakeAdapter((o) => jsonBody({

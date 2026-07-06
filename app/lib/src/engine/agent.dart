@@ -4758,7 +4758,22 @@ extension AgentApi on Engine {
         summaryStage: family == _productionAgentFamily
             ? productionAgentDecisionStage
             : scriptAgentDecisionStage,
+        embeddingProvider: _agentMemoryEmbeddingProvider(),
       );
+
+  AgentMemoryEmbeddingProvider _agentMemoryEmbeddingProvider() {
+    final row = db
+        .select(
+          "SELECT value FROM o_setting WHERE key='binding.agent_embedding'",
+        )
+        .firstOrNull;
+    final binding = (row?['value'] as String? ?? '').trim();
+    if (binding.isEmpty) return const TokenAgentMemoryEmbeddingProvider();
+    return GatewayAgentMemoryEmbeddingProvider(
+      gateway,
+      stage: 'agent_embedding',
+    );
+  }
 
   List<AgentToolDef> get agentTools {
     return _agentTools();

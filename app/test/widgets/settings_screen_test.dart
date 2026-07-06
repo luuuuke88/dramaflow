@@ -48,6 +48,13 @@ class _RecordingHttpGateway extends HttpProviderGateway {
     calls.add('video:${model.modelId}');
     return 33;
   }
+
+  @override
+  Future<int> testEmbeddingModel(ResolvedModel model,
+      {CancelToken? cancelToken}) async {
+    calls.add('embedding:${model.modelId}');
+    return 44;
+  }
 }
 
 class _FailingFileSelector extends FileSelectorPlatform {
@@ -287,7 +294,7 @@ void main() {
     expect(find.text('Old Gateway'), findsNothing);
   });
 
-  testWidgets('移动端设置页：分模态连通测试可选择图片和视频模型', (tester) async {
+  testWidgets('移动端设置页：分模态连通测试可选择图片、视频和向量模型', (tester) async {
     engine.dispose();
     final db = openEngineDb(':memory:');
     final media = MediaStore(p.join(dir.path, 'media'));
@@ -324,6 +331,12 @@ void main() {
         'kind': 'video',
         'enabled': true,
       },
+      {
+        'modelId': 'local-embed',
+        'label': '本地向量',
+        'kind': 'embedding',
+        'enabled': true,
+      },
     ]);
 
     tester.view.physicalSize = const Size(390, 760);
@@ -347,7 +360,17 @@ void main() {
     await tester.tap(find.text('测试').last);
     await tester.pumpAndSettle();
 
-    expect(gateway.calls, ['image:local-image', 'video:local-video']);
+    await tester.tap(find.byTooltip('测试连通').first);
+    await tester.pumpAndSettle();
+    await _chooseFirstDropdown(tester, '向量 · 本地向量');
+    await tester.tap(find.text('测试').last);
+    await tester.pumpAndSettle();
+
+    expect(gateway.calls, [
+      'image:local-image',
+      'video:local-video',
+      'embedding:local-embed',
+    ]);
   });
 
   testWidgets('移动端设置页：清空数据确认只清内容保留配置', (tester) async {

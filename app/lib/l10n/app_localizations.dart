@@ -3676,6 +3676,18 @@ abstract class AppLocalizations {
   /// **'按集拆解镜头与镜头提示词'**
   String get stageStoryboardGenDescription;
 
+  /// No description provided for @stageAgentEmbeddingTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 向量召回'**
+  String get stageAgentEmbeddingTitle;
+
+  /// No description provided for @stageAgentEmbeddingDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'为 Agent 记忆生成语义向量并进行召回'**
+  String get stageAgentEmbeddingDescription;
+
   /// No description provided for @stageAssetImageTitle.
   ///
   /// In zh, this message translates to:
@@ -5577,6 +5589,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'配音'**
   String get modelKindTts;
+
+  /// No description provided for @modelKindEmbedding.
+  ///
+  /// In zh, this message translates to:
+  /// **'向量'**
+  String get modelKindEmbedding;
 
   /// No description provided for @providerProtocolVolcengine.
   ///

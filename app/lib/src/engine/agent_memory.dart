@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -109,11 +111,11 @@ class AgentMemoryContext {
 abstract class AgentMemoryEmbeddingProvider {
   const AgentMemoryEmbeddingProvider();
 
-  String embeddingJson(String text);
+  FutureOr<String> embeddingJson(String text);
 
-  Map<String, int> embeddingFromText(String text);
+  FutureOr<Map<String, int>> embeddingFromText(String text);
 
-  int score({
+  FutureOr<int> score({
     required String name,
     required String content,
     required String query,
@@ -122,12 +124,14 @@ abstract class AgentMemoryEmbeddingProvider {
     required String memoryEmbedding,
   });
 
-  List<String> matchedTokens({
+  FutureOr<List<String>> matchedTokens({
     required String name,
     required String content,
     required String query,
     required Set<String> tokens,
   });
+
+  bool shouldRebuildStoredEmbedding(String embedding) => true;
 }
 
 class TokenAgentMemoryEmbeddingProvider extends AgentMemoryEmbeddingProvider {
@@ -169,6 +173,79 @@ class TokenAgentMemoryEmbeddingProvider extends AgentMemoryEmbeddingProvider {
       memoryMatchedTokens(name, content, query, tokens);
 }
 
+class GatewayAgentMemoryEmbeddingProvider extends AgentMemoryEmbeddingProvider {
+  final ProviderGateway gateway;
+  final String stage;
+  final AgentMemoryEmbeddingProvider fallback;
+
+  const GatewayAgentMemoryEmbeddingProvider(
+    this.gateway, {
+    required this.stage,
+    this.fallback = const TokenAgentMemoryEmbeddingProvider(),
+  });
+
+  @override
+  Future<String> embeddingJson(String text) async =>
+      jsonEncode(await embeddingFromText(text));
+
+  @override
+  Future<Map<String, int>> embeddingFromText(String text) async {
+    try {
+      final vector = await (gateway as dynamic).generateEmbedding(
+        text,
+        stage: stage,
+      ) as List<double>;
+      final embedding = gatewayEmbeddingFromVector(vector);
+      if (embedding.length > 1) return embedding;
+    } catch (_) {
+      // Remote/vector embedding must never make Agent memory unusable.
+    }
+    return fallback.embeddingFromText(text);
+  }
+
+  @override
+  FutureOr<int> score({
+    required String name,
+    required String content,
+    required String query,
+    required Set<String> tokens,
+    required Map<String, int> queryEmbedding,
+    required String memoryEmbedding,
+  }) {
+    final memory = _decodeMemoryEmbedding(memoryEmbedding);
+    if (_isGatewayEmbeddingMap(queryEmbedding) &&
+        _isGatewayEmbeddingMap(memory)) {
+      return _gatewayEmbeddingScore(queryEmbedding, memory);
+    }
+    return fallback.score(
+      name: name,
+      content: content,
+      query: query,
+      tokens: tokens,
+      queryEmbedding: queryEmbedding,
+      memoryEmbedding: memoryEmbedding,
+    );
+  }
+
+  @override
+  FutureOr<List<String>> matchedTokens({
+    required String name,
+    required String content,
+    required String query,
+    required Set<String> tokens,
+  }) =>
+      fallback.matchedTokens(
+        name: name,
+        content: content,
+        query: query,
+        tokens: tokens,
+      );
+
+  @override
+  bool shouldRebuildStoredEmbedding(String embedding) =>
+      !_isGatewayEmbeddingJson(embedding);
+}
+
 class AgentMemoryService {
   final Database db;
   final ProviderGateway gateway;
@@ -203,7 +280,7 @@ class AgentMemoryService {
         name.trim(),
         trimmed,
         now,
-        embeddingProvider.embeddingJson('$name $trimmed'),
+        await embeddingProvider.embeddingJson('$name $trimmed'),
         isolationKey,
         '[]',
         role,
@@ -226,7 +303,8 @@ class AgentMemoryService {
     final settings = readSettings();
     final normalized = normalizeMemoryText(query);
     final tokens = memorySearchTokens(normalized);
-    final queryEmbedding = embeddingProvider.embeddingFromText(normalized);
+    final queryEmbedding =
+        await embeddingProvider.embeddingFromText(normalized);
     final excludedRelatedIdFilter = _normalizeIdFilter(excludeRelatedIds);
     final excludedRoleFilter = _normalizeRoleFilter(excludeRoles);
     final excludedRoleSuffixFilter = _normalizeRoleFilter(
@@ -234,7 +312,7 @@ class AgentMemoryService {
     );
     final rankedMessages = settings.ragLimit <= 0
         ? const <(int, AgentMemoryEntry)>[]
-        : _rankMessageCandidates(
+        : await _rankMessageCandidates(
             isolationKey: isolationKey,
             normalized: normalized,
             tokens: tokens,
@@ -325,16 +403,20 @@ class AgentMemoryService {
     final settings = readSettings();
     final normalized = normalizeMemoryText(keyword);
     final tokens = memorySearchTokens(normalized);
-    final queryEmbedding = embeddingProvider.embeddingFromText(normalized);
+    final queryEmbedding =
+        await embeddingProvider.embeddingFromText(normalized);
+    final rankedNotes = allowNotes && noteIsolationKey != null
+        ? await _rankNoteCandidates(
+            isolationKey: noteIsolationKey,
+            normalized: normalized,
+            tokens: tokens,
+            queryEmbedding: queryEmbedding,
+          )
+        : const <(int, AgentMemoryEntry)>[];
     final noteMatches = allowNotes && noteIsolationKey != null
         ? [
             for (final item in _filterRankedEntries(
-              _rankNoteCandidates(
-                isolationKey: noteIsolationKey,
-                normalized: normalized,
-                tokens: tokens,
-                queryEmbedding: queryEmbedding,
-              ),
+              rankedNotes,
               roleFilter,
               typeFilter,
               excludedIdFilter,
@@ -348,7 +430,7 @@ class AgentMemoryService {
         noteMatches.isEmpty ? entries : [...noteMatches, ...entries];
     if (!allowMessages && !allowSummaries) return noteMatches;
 
-    final scored = _rankSummaryCandidates(
+    final scored = await _rankSummaryCandidates(
       isolationKey: isolationKey,
       normalized: normalized,
       tokens: tokens,
@@ -383,7 +465,7 @@ class AgentMemoryService {
     }
     if (ids.isEmpty) {
       if (summaries.isNotEmpty) {
-        final directMatches = _rankMessageCandidates(
+        final directMatches = await _rankMessageCandidates(
           isolationKey: isolationKey,
           normalized: normalized,
           tokens: tokens,
@@ -414,7 +496,7 @@ class AgentMemoryService {
       if (!allowMessages) return noteMatches;
       return withNotes([
         for (final item in _filterRankedEntries(
-          _rankMessageCandidates(
+          await _rankMessageCandidates(
             isolationKey: isolationKey,
             normalized: normalized,
             tokens: tokens,
@@ -441,7 +523,7 @@ class AgentMemoryService {
       ));
     }
     final directMatches = _filterRankedEntries(
-      _rankMessageCandidates(
+      await _rankMessageCandidates(
         isolationKey: isolationKey,
         normalized: normalized,
         tokens: tokens,
@@ -468,7 +550,7 @@ class AgentMemoryService {
     final expanded = _filterEntries(
       [
         for (final row in rows)
-          _withTrace(
+          await _withTrace(
             AgentMemoryEntry.fromRow(row).copyWith(
               sourceSummaryIds:
                   sourceSummaryIdsByMessageId[row['id'] as String] ?? const [],
@@ -559,12 +641,16 @@ class AgentMemoryService {
   int _rerankCandidateLimit(AgentMemorySettings settings) =>
       (settings.ragLimit * 3).clamp(settings.ragLimit, 20).toInt();
 
-  AgentMemoryEntry _entryWithProviderEmbedding(
+  Future<AgentMemoryEntry> _entryWithProviderEmbedding(
     AgentMemoryEntry entry, {
     required String isolationKey,
-  }) {
+  }) async {
+    if (entry.embedding.trim().isNotEmpty &&
+        !embeddingProvider.shouldRebuildStoredEmbedding(entry.embedding)) {
+      return entry;
+    }
     final embedding =
-        embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
+        await embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
     if (embedding == entry.embedding) return entry;
     db.execute(
       'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
@@ -573,7 +659,7 @@ class AgentMemoryService {
     return entry.copyWith(embedding: embedding);
   }
 
-  List<(int, AgentMemoryEntry)> _rankMessageCandidates({
+  Future<List<(int, AgentMemoryEntry)>> _rankMessageCandidates({
     required String isolationKey,
     required String normalized,
     required Set<String> tokens,
@@ -582,7 +668,7 @@ class AgentMemoryService {
     Set<String>? excludeIds,
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
-  }) {
+  }) async {
     if (normalized.isEmpty) return const [];
     final messages = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
@@ -599,11 +685,11 @@ class AgentMemoryService {
       if (!_matchesExcludedRoleSuffixFilter(entry, excludeRoleSuffixes)) {
         continue;
       }
-      entry = _entryWithProviderEmbedding(
+      entry = await _entryWithProviderEmbedding(
         entry,
         isolationKey: isolationKey,
       );
-      final score = embeddingProvider.score(
+      final score = await embeddingProvider.score(
         name: entry.name,
         content: entry.content,
         query: normalized,
@@ -616,7 +702,7 @@ class AgentMemoryService {
           score,
           entry.copyWith(
             score: score,
-            matchedTokens: embeddingProvider.matchedTokens(
+            matchedTokens: await embeddingProvider.matchedTokens(
               name: entry.name,
               content: entry.content,
               query: normalized,
@@ -653,12 +739,12 @@ class AgentMemoryService {
     ];
   }
 
-  List<(int, AgentMemoryEntry)> _rankSummaryCandidates({
+  Future<List<(int, AgentMemoryEntry)>> _rankSummaryCandidates({
     required String isolationKey,
     required String normalized,
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
-  }) {
+  }) async {
     final summaries = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
       'FROM memories WHERE isolationKey=? AND type=? '
@@ -667,11 +753,11 @@ class AgentMemoryService {
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in summaries) {
-      final entry = _entryWithProviderEmbedding(
+      final entry = await _entryWithProviderEmbedding(
         AgentMemoryEntry.fromRow(row),
         isolationKey: isolationKey,
       );
-      final score = embeddingProvider.score(
+      final score = await embeddingProvider.score(
         name: entry.name,
         content: entry.content,
         query: normalized,
@@ -684,7 +770,7 @@ class AgentMemoryService {
           score,
           entry.copyWith(
             score: score,
-            matchedTokens: embeddingProvider.matchedTokens(
+            matchedTokens: await embeddingProvider.matchedTokens(
               name: entry.name,
               content: entry.content,
               query: normalized,
@@ -702,12 +788,12 @@ class AgentMemoryService {
     return scored;
   }
 
-  List<(int, AgentMemoryEntry)> _rankNoteCandidates({
+  Future<List<(int, AgentMemoryEntry)>> _rankNoteCandidates({
     required String isolationKey,
     required String normalized,
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
-  }) {
+  }) async {
     if (normalized.isEmpty) return const [];
     final notes = db.select(
       'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
@@ -717,11 +803,11 @@ class AgentMemoryService {
     );
     final scored = <(int, AgentMemoryEntry)>[];
     for (final row in notes) {
-      final entry = _entryWithProviderEmbedding(
+      final entry = await _entryWithProviderEmbedding(
         AgentMemoryEntry.fromRow(row),
         isolationKey: isolationKey,
       );
-      final score = embeddingProvider.score(
+      final score = await embeddingProvider.score(
         name: entry.name,
         content: entry.content,
         query: normalized,
@@ -734,7 +820,7 @@ class AgentMemoryService {
           score,
           entry.copyWith(
             score: score,
-            matchedTokens: embeddingProvider.matchedTokens(
+            matchedTokens: await embeddingProvider.matchedTokens(
               name: entry.name,
               content: entry.content,
               query: normalized,
@@ -752,18 +838,18 @@ class AgentMemoryService {
     return scored;
   }
 
-  AgentMemoryEntry _withTrace(
+  Future<AgentMemoryEntry> _withTrace(
     AgentMemoryEntry source, {
     required String isolationKey,
     required String normalized,
     required Set<String> tokens,
     required Map<String, int> queryEmbedding,
-  }) {
-    final entry = _entryWithProviderEmbedding(
+  }) async {
+    final entry = await _entryWithProviderEmbedding(
       source,
       isolationKey: isolationKey,
     );
-    final score = embeddingProvider.score(
+    final score = await embeddingProvider.score(
       name: entry.name,
       content: entry.content,
       query: normalized,
@@ -773,7 +859,7 @@ class AgentMemoryService {
     );
     return entry.copyWith(
       score: score,
-      matchedTokens: embeddingProvider.matchedTokens(
+      matchedTokens: await embeddingProvider.matchedTokens(
         name: entry.name,
         content: entry.content,
         query: normalized,
@@ -1083,7 +1169,7 @@ class AgentMemoryService {
         '对话摘要',
         summary,
         now,
-        embeddingProvider.embeddingJson(summary),
+        await embeddingProvider.embeddingJson(summary),
         isolationKey,
         jsonEncode(ids),
         'assistant',
@@ -1173,6 +1259,20 @@ Set<String> memorySearchTokens(String query) {
 String embeddingJson(String text) =>
     jsonEncode(memoryEmbeddingFromText(normalizeMemoryText(text)));
 
+const _gatewayEmbeddingMarker = '__gateway_embedding_v1';
+const _gatewayEmbeddingScale = 1000000;
+
+Map<String, int> gatewayEmbeddingFromVector(List<double> vector) {
+  final embedding = <String, int>{_gatewayEmbeddingMarker: 1};
+  for (var i = 0; i < vector.length; i++) {
+    final value = vector[i];
+    if (!value.isFinite) continue;
+    final scaled = (value * _gatewayEmbeddingScale).round();
+    if (scaled != 0) embedding['d$i'] = scaled;
+  }
+  return embedding;
+}
+
 Map<String, int> memoryEmbeddingFromText(String text) {
   final tokens = memorySearchTokens(text);
   final embedding = <String, int>{};
@@ -1183,6 +1283,43 @@ Map<String, int> memoryEmbeddingFromText(String text) {
   return Map.fromEntries(
     embedding.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
   );
+}
+
+bool _isGatewayEmbeddingJson(String value) {
+  try {
+    final decoded = jsonDecode(value);
+    return decoded is Map && decoded[_gatewayEmbeddingMarker] == 1;
+  } catch (_) {
+    return false;
+  }
+}
+
+bool _isGatewayEmbeddingMap(Map<String, int> value) =>
+    value[_gatewayEmbeddingMarker] == 1;
+
+int _gatewayEmbeddingScore(
+  Map<String, int> query,
+  Map<String, int> memory,
+) {
+  var dot = 0.0;
+  var queryNorm = 0.0;
+  var memoryNorm = 0.0;
+  for (final entry in query.entries) {
+    if (!entry.key.startsWith('d')) continue;
+    final q = entry.value / _gatewayEmbeddingScale;
+    queryNorm += q * q;
+    final mValue = memory[entry.key];
+    if (mValue == null) continue;
+    dot += q * (mValue / _gatewayEmbeddingScale);
+  }
+  for (final entry in memory.entries) {
+    if (!entry.key.startsWith('d')) continue;
+    final m = entry.value / _gatewayEmbeddingScale;
+    memoryNorm += m * m;
+  }
+  if (dot <= 0 || queryNorm <= 0 || memoryNorm <= 0) return 0;
+  final cosine = dot / (math.sqrt(queryNorm) * math.sqrt(memoryNorm));
+  return (cosine * _gatewayEmbeddingScale).round();
 }
 
 int memoryScore(

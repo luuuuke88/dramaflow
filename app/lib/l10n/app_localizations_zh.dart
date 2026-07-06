@@ -1856,6 +1856,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get stageStoryboardGenDescription => '按集拆解镜头与镜头提示词';
 
   @override
+  String get stageAgentEmbeddingTitle => 'Agent 向量召回';
+
+  @override
+  String get stageAgentEmbeddingDescription => '为 Agent 记忆生成语义向量并进行召回';
+
+  @override
   String get stageAssetImageTitle => '素材图生成';
 
   @override
@@ -2849,6 +2855,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get modelKindTts => '配音';
+
+  @override
+  String get modelKindEmbedding => '向量';
 
   @override
   String get providerProtocolVolcengine => '火山引擎';

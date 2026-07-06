@@ -135,6 +135,28 @@ void main() {
     );
   });
 
+  test('setBinding 支持 Agent embedding 模型绑定', () async {
+    final provider = await engine.createProvider(
+      name: 'Embedding供应商',
+      protocol: 'openai_compatible',
+      baseUrl: 'https://api.test/v1',
+      apiKey: 'sk',
+    );
+    await engine.saveProviderModels(provider.id, [
+      {'modelId': 'embed-1', 'kind': 'embedding', 'enabled': true},
+      {'modelId': 'text-1', 'kind': 'text', 'enabled': true},
+    ]);
+
+    await engine.setBinding('agent_embedding', provider.id, 'embed-1');
+
+    expect((await engine.getBindings())['agent_embedding'],
+        '${provider.id}:embed-1');
+    expect(
+      () => engine.setBinding('agent_embedding', provider.id, 'text-1'),
+      throwsA(isA<EngineException>()),
+    );
+  });
+
   test('seeded ToonFlow prompt 可通过 getPrompt 读取', () async {
     final seeded = await Engine.boot(
       dataDir: p.join(dir.path, 'seeded'),
