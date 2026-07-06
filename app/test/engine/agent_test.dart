@@ -6544,6 +6544,44 @@ description: >-
     expect(gateway.lastSystem, isNot(contains('style_polisher')));
   });
 
+  test('SkillRuntime 自动注入 ToonFlow stage 主技能正文到 system prompt', () async {
+    final skillsRoot = Directory(p.join(dir.path, 'toonflow-main-skills'))
+      ..createSync(recursive: true);
+    final mainSkillFile =
+        File(p.join(skillsRoot.path, 'script_agent_decision.md'));
+    mainSkillFile.writeAsStringSync('''
+---
+name: script_agent_decision
+description: ToonFlow 剧本决策主技能
+---
+
+ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agent。
+''');
+    final optionalSkill = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '普通可选技能正文：只有 activate_skill 后才应进入上下文。',
+    );
+    engine.seedToonFlowMarkdownAgentSkills(skillsRoot.path);
+    engine.saveMarkdownAgentSkill(
+      filePath: optionalSkill.path,
+      attribution: 'script_agent_decision',
+    );
+
+    gateway.turns = [const AgentTurnResult.text('剧本决策已记录。')];
+    await engine.sendAgentMessage(
+      projectId,
+      '规划前三集',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    expect(gateway.lastSystem, contains('ToonFlow stage 主技能'));
+    expect(gateway.lastSystem, contains('先判断用户意图'));
+    expect(gateway.lastSystem, contains('<name>style_polisher</name>'));
+    expect(gateway.lastSystem, isNot(contains('普通可选技能正文')));
+  });
+
   test('SkillRuntime skips repeated activate_skill content injection',
       () async {
     final skillFile = _writeSkillFixture(

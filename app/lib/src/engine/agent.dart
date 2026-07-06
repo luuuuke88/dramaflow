@@ -5854,6 +5854,8 @@ extension AgentApi on Engine {
     List<AgentMemoryRecord> memories, {
     AgentMemoryContext? context,
     String? base,
+    String? stage,
+    int? projectId,
     List<String> activatedSkills = const [],
     List<AgentSkill> availableSkills = const [],
   }) {
@@ -5861,7 +5863,11 @@ extension AgentApi on Engine {
         '（事件提取→提取资产→生成分镜→生成首帧图→生成视频→配音绑定→合成）。'
         '每次只做用户明确要求或明显下一步需要的动作，不要臆造不存在的 id。'
         '如果不确定该做什么，先调用 get_status 查看进度。';
-    final promptBase = base ?? defaultBase;
+    final stageMainSkill = _stageMainMarkdownSkill(stage, projectId: projectId);
+    final promptBase = _formatStageMainSystemPrompt(
+      base ?? defaultBase,
+      stageMainSkill,
+    );
     final lines = <String>[];
     if (availableSkills.isNotEmpty) {
       lines.addAll([
@@ -5909,6 +5915,83 @@ extension AgentApi on Engine {
     }
     if (lines.isEmpty) return promptBase;
     return '$promptBase${lines.join('\n')}';
+  }
+
+  AgentSkillActivation? _stageMainMarkdownSkill(
+    String? stage, {
+    int? projectId,
+  }) {
+    final fileName = _stageMainSkillFileName(stage);
+    if (fileName == null) return null;
+    final attributions = _agentToolAttributions(stage!, projectId: projectId);
+    if (attributions == null || attributions.isEmpty) return null;
+    final placeholders = List.filled(attributions.length, '?').join(',');
+    final rows = db.select(
+      'SELECT s.id,s.name,s.description,s.path,s.md5 '
+      'FROM o_skillList s '
+      'JOIN o_skillAttribution a ON a.skillId=s.id '
+      'WHERE a.attribution IN ($placeholders) '
+      'AND s.type=? AND COALESCE(s.state,1)!=0 '
+      'ORDER BY s.createTime ASC, s.id ASC',
+      [...attributions, _markdownAgentSkillType],
+    );
+    for (final row in rows) {
+      final path = row['path'] as String? ?? '';
+      if (p.basename(path) == fileName) {
+        return _activateAgentSkillFromRow(row);
+      }
+    }
+    return null;
+  }
+
+  String? _stageMainSkillFileName(String? stage) {
+    switch (stage) {
+      case 'scriptAgent':
+      case scriptAgentDecisionStage:
+        return 'script_agent_decision.md';
+      case scriptAgentStorySkeletonStage:
+        return 'script_execution_skeleton.md';
+      case scriptAgentAdaptationStrategyStage:
+        return 'script_execution_adaptation.md';
+      case scriptAgentScriptStage:
+        return 'script_execution_script.md';
+      case scriptAgentSupervisionStage:
+        return 'script_agent_supervision.md';
+      case 'productionAgent':
+      case productionAgentDecisionStage:
+        return 'production_agent_decision.md';
+      case productionAgentDeriveAssetsStage:
+        return 'production_execution_derive_assets.md';
+      case productionAgentGenerateAssetsStage:
+        return 'production_execution_generate_assets.md';
+      case productionAgentDirectorPlanStage:
+        return 'production_execution_director_plan.md';
+      case productionAgentStoryboardGenStage:
+        return 'production_execution_storyboard_gen.md';
+      case productionAgentStoryboardPanelStage:
+        return 'production_execution_storyboard_panel.md';
+      case productionAgentStoryboardTableStage:
+        return 'production_execution_storyboard_table.md';
+      case productionAgentSupervisionStage:
+        return 'production_agent_supervision.md';
+      default:
+        return null;
+    }
+  }
+
+  String _formatStageMainSystemPrompt(
+    String base,
+    AgentSkillActivation? skill,
+  ) {
+    if (skill == null || skill.content.trim().isEmpty) return base;
+    final buffer = StringBuffer(base.trimRight())
+      ..writeln()
+      ..writeln()
+      ..writeln('## ToonFlow stage 主技能')
+      ..writeln('<skill_content name="${_escapeSkillPromptXml(skill.name)}">')
+      ..writeln(skill.content.trimRight())
+      ..write('</skill_content>');
+    return buffer.toString();
   }
 
   String _formatLongTermMemoryNote(AgentMemoryRecord memory) {
@@ -6249,6 +6332,8 @@ extension AgentApi on Engine {
           excludeRoles: _agentToolAuditRoles,
           excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
         ),
+        stage: stage,
+        projectId: projectId,
         activatedSkills: _activatedAgentSkillContexts(messages),
         availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
       );
@@ -6478,6 +6563,8 @@ extension AgentApi on Engine {
         excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       ),
       base: baseSystem,
+      stage: stage,
+      projectId: projectId,
       activatedSkills: _activatedAgentSkillContexts(messages),
       availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
     );
@@ -7369,6 +7456,8 @@ extension AgentApi on Engine {
         await searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
         context: memoryContext,
         base: _scriptAgentSubAgentSystem(stage),
+        stage: stage,
+        projectId: projectId,
         activatedSkills: activeSkillContexts,
         availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
       );
@@ -7856,6 +7945,8 @@ extension AgentApi on Engine {
         await searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
         context: memoryContext,
         base: _productionAgentSubAgentSystem(stage),
+        stage: stage,
+        projectId: projectId,
         activatedSkills: activeSkillContexts,
         availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
       );
