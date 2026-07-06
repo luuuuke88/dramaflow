@@ -2876,6 +2876,17 @@ class _CustomAgentSkillRuntime {
         continue;
       }
       final next = replacement[index + 1];
+      if (next == '<' && match is RegExpMatch) {
+        final end = replacement.indexOf('>', index + 2);
+        if (end > index + 2) {
+          final name = replacement.substring(index + 2, end);
+          if (match.groupNames.contains(name)) {
+            buffer.write(match.namedGroup(name) ?? '');
+            index = end;
+            continue;
+          }
+        }
+      }
       final firstDigit = int.tryParse(next);
       if (firstDigit != null && firstDigit > 0) {
         final secondIndex = index + 2;

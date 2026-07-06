@@ -5355,6 +5355,55 @@ return JSON.stringify({ compact, wrapped });
     });
   });
 
+  test('自定义脚本技能：支持正则 replace 的命名分组替换', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regex_replace_named_groups_runtime',
+      name: '正则命名分组替换脚本运行时',
+      description: r'验证自定义技能兼容模型常写的 replace(/.../, "$<name>")。',
+      script: r'''
+const compact = args.workspace
+  .replace(/<storyboardItem\b[^>]*videoDesc="(?<desc>[^"]+)"[^>]*duration="(?<duration>[^"]+)"[^>]*><\/storyboardItem>/g, '$<desc>@$<duration>')
+  .replace(/\s+/g, ' ')
+  .trim();
+const labeled = args.title.replace(/^(?<title>.*)$/,'《$<title>》');
+return JSON.stringify({ compact, labeled });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+          'title': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+          'custom_script_regex_replace_named_groups_runtime', const {
+        'workspace': '''
+<storyboardItem videoDesc="雪夜山门" duration="3秒"></storyboardItem>
+<storyboardItem videoDesc="李澈拔剑" duration="2.5s"></storyboardItem>
+''',
+        'title': '雪夜开场',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用正则命名分组替换脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regex_replace_named_groups_runtime');
+    expect(jsonDecode(msg.content), {
+      'compact': '雪夜山门@3秒 李澈拔剑@2.5s',
+      'labeled': '《雪夜开场》',
+    });
+  });
+
   test('自定义脚本技能：支持正则 replace 回调重写工作区文本', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regex_replace_callback_runtime',

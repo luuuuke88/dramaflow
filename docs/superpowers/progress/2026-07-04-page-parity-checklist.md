@@ -232,6 +232,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS rege
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers named regex capture metadata (`match.groups.name`) plus object helpers over groups, so custom skills can parse storyboard fields with model-authored `(?<field>...)` expressions.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS named regex replacement strings such as `$<desc>` and `$<duration>`, so custom skills can rewrite storyboard XML with named captures instead of brittle numeric group indexes.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new RegExp(pattern, flags)`, `RegExp(pattern, flags)`, and regex-literal `.test(...)`, so custom skills can dynamically filter assets and workspace text with model-authored regular expressions.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-style regex replacement capture groups such as `replace(/.../g, '$1@$2')`, so custom skills can clean storyboard XML/text without leaking literal `$1` placeholders into Agent outputs.
