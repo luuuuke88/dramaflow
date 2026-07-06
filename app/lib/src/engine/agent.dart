@@ -2828,6 +2828,7 @@ class _CustomAgentSkillRuntime {
           'Math': const _CustomJsBuiltin('Math'),
           'Number': const _CustomJsBuiltin('Number'),
           'Object': const _CustomJsBuiltin('Object'),
+          'Promise': const _CustomJsBuiltin('Promise'),
           'RegExp': const _CustomJsBuiltin('RegExp'),
           'Set': const _CustomJsBuiltin('Set'),
           'String': const _CustomJsBuiltin('String'),
@@ -5482,12 +5483,34 @@ class _CustomAgentSkillRuntime {
         break;
       case 'Object':
         return _callObjectMethod(method, args);
+      case 'Promise':
+        return _callPromiseMethod(method, args);
     }
     throw EngineException(errLlmFormat, {
       'reason': 'custom_skill_builtin_method',
       'object': objectName,
       'method': method,
     });
+  }
+
+  Object? _callPromiseMethod(String method, List<String> args) {
+    switch (method) {
+      case 'all':
+        if (args.length != 1) _badMethodArgs(method);
+        final value = _evaluate(args.single);
+        if (value is String) return value.split('');
+        if (value is _CustomJsMap) return _customJsMapEntries(value);
+        if (value is Iterable) return value.toList();
+        _badMethodArgs(method);
+      case 'resolve':
+        if (args.length > 1) _badMethodArgs(method);
+        return args.isEmpty ? null : _evaluate(args.single);
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_promise_method',
+          'method': method,
+        });
+    }
   }
 
   List<Object?> _arrayFrom(List<String> args) {

@@ -5300,6 +5300,60 @@ return labels.join('、');
     expect(msg.content, '1.雪夜山门:3s、4.李澈拔剑:1s');
   });
 
+  test('自定义脚本技能：支持 Promise.all 和 Promise.resolve 包裹同步结果', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_static_runtime',
+      name: 'Promise 静态工具脚本运行时',
+      description: '验证自定义技能兼容模型常写的 await Promise.all([...].map(...)) 纯数据整理。',
+      script: r'''
+const labels = await Promise.all(
+  args.storyboards
+    .filter(shot => !shot.disabled && !!shot.videoDesc?.trim())
+    .map((shot, index) => Promise.resolve(`${index + 1}.${shot.videoDesc.trim()}`))
+);
+
+return labels.join('、');
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_promise_static_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 山门落雪 '},
+          {'videoDesc': ''},
+          {'videoDesc': '废弃镜头', 'disabled': true},
+          {'videoDesc': '灵剑出鞘'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise 静态工具脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_static_runtime');
+    expect(msg.content, '1.山门落雪、2.灵剑出鞘');
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',
