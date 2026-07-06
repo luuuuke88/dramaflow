@@ -761,6 +761,8 @@
   "agentMemoryShortTermLimit": "Short-term context limit",
   "agentMemorySummaryLimit": "History summary limit",
   "agentMemoryDeepRetrieveSummaryLimit": "deepRetrieve summary limit",
+  "agentMemoryModelOnnxFile": "Local embedding model file",
+  "agentMemoryModelDtype": "Embedding model dtype",
   "agentMemoryRerankEnabled": "Model rerank RAG",
   "agentMemoryRerankHelp": "Use the model to select truly relevant source messages from local memory candidates.",
   "agentMemorySettingsSaved": "Agent memory settings saved",

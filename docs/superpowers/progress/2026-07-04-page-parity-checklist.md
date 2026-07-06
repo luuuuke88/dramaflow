@@ -152,6 +152,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-s
 
 Recent Agent/RAG Update: `app/test/widgets/agent_chat_screen_test.dart` now covers ToonFlow-compatible unprefixed memory config keys for `messagesPerSummary`, `summaryMaxLength`, `shortTermLimit`, `summaryLimit`, `ragLimit`, and `deepRetrieveSummaryLimit`, so DramaFlow preserves its namespaced Agent settings while exporting the runtime keys ToonFlow routes expect.
 
+Recent Agent/RAG Update: `app/test/widgets/agent_chat_screen_test.dart` now covers ToonFlow-compatible local embedding model config through `modelOnnxFile` and `modelDtype`, with the Agent memory settings UI accepting a path-like model file value while persisting ToonFlow's JSON-array setting format.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String.matchAll(...)` with regex capture groups and array spread, so custom skills can batch-extract storyboard fields from XML-like Agent workspace text.

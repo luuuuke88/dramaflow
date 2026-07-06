@@ -81,6 +81,8 @@ class AgentMemorySettings {
   final int ragLimit;
   final int deepRetrieveSummaryLimit;
   final bool rerankEnabled;
+  final List<String> modelOnnxFile;
+  final String modelDtype;
 
   const AgentMemorySettings({
     this.messagesPerSummary = 3,
@@ -90,6 +92,12 @@ class AgentMemorySettings {
     this.ragLimit = 3,
     this.deepRetrieveSummaryLimit = 5,
     this.rerankEnabled = false,
+    this.modelOnnxFile = const [
+      'all-MiniLM-L6-v2',
+      'onnx',
+      'model_fp16.onnx',
+    ],
+    this.modelDtype = 'fp16',
   });
 }
 
@@ -1178,6 +1186,20 @@ class AgentMemoryService {
           legacyKey: 'rerankEnabled',
           defaultValue: false,
         ),
+        modelOnnxFile: _stringListSetting(
+          'agent.memory.modelOnnxFile',
+          legacyKey: 'modelOnnxFile',
+          defaultValue: const [
+            'all-MiniLM-L6-v2',
+            'onnx',
+            'model_fp16.onnx',
+          ],
+        ),
+        modelDtype: _stringSetting(
+          'agent.memory.modelDtype',
+          legacyKey: 'modelDtype',
+          defaultValue: 'fp16',
+        ),
       );
 
   Future<void> _summarizeIfNeeded(
@@ -1292,6 +1314,46 @@ class AgentMemoryService {
     final normalized = value?.trim().toLowerCase();
     if (normalized == null || normalized.isEmpty) return defaultValue;
     return normalized == '1' || normalized == 'true' || normalized == 'yes';
+  }
+
+  String _stringSetting(
+    String key, {
+    required String legacyKey,
+    required String defaultValue,
+  }) {
+    final value = db.select('SELECT value FROM o_setting WHERE key=?',
+            [key]).firstOrNull?['value'] as String? ??
+        db.select('SELECT value FROM o_setting WHERE key=?',
+            [legacyKey]).firstOrNull?['value'] as String?;
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? defaultValue : trimmed;
+  }
+
+  List<String> _stringListSetting(
+    String key, {
+    required String legacyKey,
+    required List<String> defaultValue,
+  }) {
+    final value = _stringSetting(key, legacyKey: legacyKey, defaultValue: '');
+    if (value.isEmpty) return defaultValue;
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is List) {
+        final parts = [
+          for (final item in decoded)
+            if ('$item'.trim().isNotEmpty) '$item'.trim(),
+        ];
+        if (parts.isNotEmpty) return parts;
+      }
+    } catch (_) {
+      // Fall through to path-like parsing for user-entered compatibility values.
+    }
+    final parts = value
+        .split(RegExp(r'[\\/,\n]+'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    return parts.isEmpty ? defaultValue : parts;
   }
 }
 

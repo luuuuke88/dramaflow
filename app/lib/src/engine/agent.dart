@@ -6174,6 +6174,8 @@ extension AgentApi on Engine {
     int? ragLimit,
     int? deepRetrieveSummaryLimit,
     bool? rerankEnabled,
+    List<String>? modelOnnxFile,
+    String? modelDtype,
   }) {
     if (messagesPerSummary != null) {
       _writeAgentIntSettingWithLegacy(
@@ -6235,6 +6237,26 @@ extension AgentApi on Engine {
         rerankEnabled,
       );
     }
+    if (modelOnnxFile != null) {
+      final normalized = [
+        for (final part in modelOnnxFile)
+          if (part.trim().isNotEmpty) part.trim(),
+      ];
+      if (normalized.isNotEmpty) {
+        _writeAgentStringSettingWithLegacy(
+          'agent.memory.modelOnnxFile',
+          'modelOnnxFile',
+          jsonEncode(normalized),
+        );
+      }
+    }
+    if (modelDtype != null && modelDtype.trim().isNotEmpty) {
+      _writeAgentStringSettingWithLegacy(
+        'agent.memory.modelDtype',
+        'modelDtype',
+        modelDtype.trim(),
+      );
+    }
   }
 
   int _writeAgentIntSetting(
@@ -6275,6 +6297,21 @@ extension AgentApi on Engine {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
       [key, value ? '1' : '0'],
+    );
+  }
+
+  void _writeAgentStringSettingWithLegacy(
+    String key,
+    String legacyKey,
+    String value,
+  ) {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      [key, value],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      [legacyKey, value],
     );
   }
 

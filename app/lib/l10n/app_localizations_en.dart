@@ -2216,6 +2216,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'deepRetrieve summary limit';
 
   @override
+  String get agentMemoryModelOnnxFile => 'Local embedding model file';
+
+  @override
+  String get agentMemoryModelDtype => 'Embedding model dtype';
+
+  @override
   String get agentMemoryRerankEnabled => 'Model rerank RAG';
 
   @override

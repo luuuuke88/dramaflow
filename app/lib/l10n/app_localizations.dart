@@ -4216,6 +4216,18 @@ abstract class AppLocalizations {
   /// **'深度召回摘要数'**
   String get agentMemoryDeepRetrieveSummaryLimit;
 
+  /// No description provided for @agentMemoryModelOnnxFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地向量模型文件'**
+  String get agentMemoryModelOnnxFile;
+
+  /// No description provided for @agentMemoryModelDtype.
+  ///
+  /// In zh, this message translates to:
+  /// **'向量模型 dtype'**
+  String get agentMemoryModelDtype;
+
   /// No description provided for @agentMemoryRerankEnabled.
   ///
   /// In zh, this message translates to:

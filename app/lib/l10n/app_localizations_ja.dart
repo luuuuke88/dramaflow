@@ -2157,6 +2157,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentMemoryDeepRetrieveSummaryLimit => 'deepRetrieve 要約件数';
 
   @override
+  String get agentMemoryModelOnnxFile => 'ローカル埋め込みモデルファイル';
+
+  @override
+  String get agentMemoryModelDtype => '埋め込みモデル dtype';
+
+  @override
   String get agentMemoryRerankEnabled => 'モデルで RAG を再順位付け';
 
   @override

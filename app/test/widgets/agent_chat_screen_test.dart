@@ -770,6 +770,8 @@ void main() {
     expect(find.text('搜索记忆条数'), findsOneWidget);
     expect(find.text('深度召回摘要数'), findsOneWidget);
     expect(find.text('模型重排 RAG'), findsOneWidget);
+    expect(find.text('本地向量模型文件'), findsOneWidget);
+    expect(find.text('向量模型 dtype'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const ValueKey('agent-memory-messages-per-summary-field')),
@@ -797,6 +799,14 @@ void main() {
       ),
       '7',
     );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-model-onnx-file-field')),
+      'custom-embedding/onnx/model_fp32.onnx',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-memory-model-dtype-field')),
+      'fp32',
+    );
     await tester.tap(find.byKey(const ValueKey('agent-memory-rerank-switch')));
     await tester
         .ensureVisible(find.byKey(const ValueKey('agent-rag-limit-save')));
@@ -821,6 +831,16 @@ void main() {
     expect(setting('agent.memory.deepRetrieveSummaryLimit'), '7');
     expect(setting('deepRetrieveSummaryLimit'), '7');
     expect(setting('agent.memory.rerankEnabled'), '1');
+    expect(
+      setting('agent.memory.modelOnnxFile'),
+      '["custom-embedding","onnx","model_fp32.onnx"]',
+    );
+    expect(
+      setting('modelOnnxFile'),
+      '["custom-embedding","onnx","model_fp32.onnx"]',
+    );
+    expect(setting('agent.memory.modelDtype'), 'fp32');
+    expect(setting('modelDtype'), 'fp32');
   });
 
   testWidgets('记忆页可按类型清空摘要和长期记忆且保留对话', (tester) async {

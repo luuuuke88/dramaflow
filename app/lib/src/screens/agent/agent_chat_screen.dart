@@ -1601,6 +1601,8 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
   late final TextEditingController _summaryLimitCtrl;
   late final TextEditingController _limitCtrl;
   late final TextEditingController _deepRetrieveSummaryLimitCtrl;
+  late final TextEditingController _modelOnnxFileCtrl;
+  late final TextEditingController _modelDtypeCtrl;
   late bool _rerankEnabled;
 
   @override
@@ -1619,6 +1621,9 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     _deepRetrieveSummaryLimitCtrl = TextEditingController(
       text: settings.deepRetrieveSummaryLimit.toString(),
     );
+    _modelOnnxFileCtrl =
+        TextEditingController(text: settings.modelOnnxFile.join('/'));
+    _modelDtypeCtrl = TextEditingController(text: settings.modelDtype);
     _rerankEnabled = settings.rerankEnabled;
   }
 
@@ -1630,6 +1635,8 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     _summaryLimitCtrl.dispose();
     _limitCtrl.dispose();
     _deepRetrieveSummaryLimitCtrl.dispose();
+    _modelOnnxFileCtrl.dispose();
+    _modelDtypeCtrl.dispose();
     super.dispose();
   }
 
@@ -1648,8 +1655,16 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     _limitCtrl.text = settings.ragLimit.toString();
     _deepRetrieveSummaryLimitCtrl.text =
         settings.deepRetrieveSummaryLimit.toString();
+    _modelOnnxFileCtrl.text = settings.modelOnnxFile.join('/');
+    _modelDtypeCtrl.text = settings.modelDtype;
     _rerankEnabled = settings.rerankEnabled;
   }
+
+  List<String> _parseModelOnnxFile() => _modelOnnxFileCtrl.text
+      .split(RegExp(r'[\\/,\n]+'))
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
 
   Future<void> _save() async {
     final l10n = context.l10n;
@@ -1660,12 +1675,16 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
     final ragLimit = _parse(_limitCtrl, min: 0);
     final deepRetrieveSummaryLimit =
         _parse(_deepRetrieveSummaryLimitCtrl, min: 0);
+    final modelOnnxFile = _parseModelOnnxFile();
+    final modelDtype = _modelDtypeCtrl.text.trim();
     if (messagesPerSummary == null ||
         summaryMaxLength == null ||
         shortTermLimit == null ||
         summaryLimit == null ||
         ragLimit == null ||
-        deepRetrieveSummaryLimit == null) {
+        deepRetrieveSummaryLimit == null ||
+        modelOnnxFile.isEmpty ||
+        modelDtype.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.agentMemorySettingsInvalid)),
       );
@@ -1683,6 +1702,8 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
               ragLimit: ragLimit,
               deepRetrieveSummaryLimit: deepRetrieveSummaryLimit,
               rerankEnabled: _rerankEnabled,
+              modelOnnxFile: modelOnnxFile,
+              modelDtype: modelDtype,
             );
         _reloadFields();
         widget.onChanged();
@@ -1703,6 +1724,27 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
         key: key,
         controller: controller,
         keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hintText,
+          isDense: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _textField({
+    required String label,
+    required TextEditingController controller,
+    required Key key,
+    required String hintText,
+    double width = 146,
+  }) {
+    return SizedBox(
+      width: width,
+      child: TextField(
+        key: key,
+        controller: controller,
         decoration: InputDecoration(
           labelText: label,
           hintText: hintText,
@@ -1790,6 +1832,19 @@ class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
                   'agent-memory-deep-retrieve-summary-limit-field',
                 ),
                 hintText: '0-50',
+              ),
+              _textField(
+                label: l10n.agentMemoryModelOnnxFile,
+                controller: _modelOnnxFileCtrl,
+                key: const ValueKey('agent-memory-model-onnx-file-field'),
+                hintText: 'all-MiniLM-L6-v2/onnx/model_fp16.onnx',
+                width: 292,
+              ),
+              _textField(
+                label: l10n.agentMemoryModelDtype,
+                controller: _modelDtypeCtrl,
+                key: const ValueKey('agent-memory-model-dtype-field'),
+                hintText: 'fp16',
               ),
               SizedBox(
                 width: 292,

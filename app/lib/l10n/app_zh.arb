@@ -930,6 +930,8 @@
   "agentMemoryShortTermLimit": "短期上下文条数",
   "agentMemorySummaryLimit": "历史摘要条数",
   "agentMemoryDeepRetrieveSummaryLimit": "深度召回摘要数",
+  "agentMemoryModelOnnxFile": "本地向量模型文件",
+  "agentMemoryModelDtype": "向量模型 dtype",
   "agentMemoryRerankEnabled": "模型重排 RAG",
   "agentMemoryRerankHelp": "开启后会让模型从本地候选记忆中再筛选真正相关的原文。",
   "agentMemorySettingsSaved": "Agent 记忆设置已保存",
