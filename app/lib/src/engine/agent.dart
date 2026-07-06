@@ -687,6 +687,16 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。排除这些 role 的记忆，用于避开工具审计噪声。',
         },
+        '排除角色': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeRoles 的中文别名。',
+        },
+        '排除记忆角色': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeMemoryRoles 的中文别名。',
+        },
         'excludedRoles': {
           'type': ['array', 'string'],
           'items': {'type': 'string'},
@@ -726,10 +736,25 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。排除 role 以这些后缀结尾的记忆。',
         },
+        '排除角色后缀': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeRoleSuffixes 的中文别名。',
+        },
         'excludeIds': {
           'type': 'array',
           'items': {'type': 'string'},
           'description': '可选。排除这些已读 memory id，避免重复返回同一条记忆。',
+        },
+        '排除记忆': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeMemoryIds 的中文别名。',
+        },
+        '排除记忆Ids': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeMemoryIds 的中文 id 别名。',
         },
         'excludeMemoryIds': {
           'type': 'array',
@@ -745,6 +770,16 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'string'},
           'description': '可选。已读过的 memory id 列表，等价于 excludeIds。',
+        },
+        '已读记忆': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'seenMemoryIds 的中文别名。',
+        },
+        '已读记忆Ids': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'seenMemoryIds 的中文 id 别名。',
         },
         'seenIds': {
           'type': 'array',
@@ -801,6 +836,26 @@ final _tools = <AgentToolDef>[
             },
           },
           'description': '可选。已读取 records，等价于 seenRecords。',
+        },
+        '已读记录': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': 'seenRecords 的中文别名。',
+        },
+        '排除记录': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': 'excludeRecords 的中文别名。',
         },
         'previousRecords': {
           'type': 'array',
@@ -1012,6 +1067,16 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。排除这些 role 的记忆，用于避开工具审计噪声。',
         },
+        '排除角色': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeRoles 的中文别名。',
+        },
+        '排除记忆角色': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeMemoryRoles 的中文别名。',
+        },
         'excludedRoles': {
           'type': ['array', 'string'],
           'items': {'type': 'string'},
@@ -1050,6 +1115,11 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'string'},
           'description': '可选。排除 role 以这些后缀结尾的记忆，用于避开多阶段工具审计噪声。',
+        },
+        '排除角色后缀': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeRoleSuffixes 的中文别名。',
         },
         'type': {
           'type': 'string',
@@ -1137,6 +1207,16 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。排除这些已读 memory id，避免重复返回同一条记忆。',
         },
+        '排除记忆': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeMemoryIds 的中文别名。',
+        },
+        '排除记忆Ids': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeMemoryIds 的中文 id 别名。',
+        },
         'excludeMemoryIds': {
           'type': 'array',
           'items': {'type': 'string'},
@@ -1151,6 +1231,16 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'string'},
           'description': '可选。已读过的 memory id 列表，等价于 excludeIds。',
+        },
+        '已读记忆': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'seenMemoryIds 的中文别名。',
+        },
+        '已读记忆Ids': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'seenMemoryIds 的中文 id 别名。',
         },
         'seenIds': {
           'type': 'array',
@@ -1206,6 +1296,26 @@ final _tools = <AgentToolDef>[
             },
           },
           'description': '可选。已读取 records，等价于 seenRecords。',
+        },
+        '已读记录': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': 'seenRecords 的中文别名。',
+        },
+        '排除记录': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': 'excludeRecords 的中文别名。',
         },
         'previousRecords': {
           'type': 'array',
@@ -9297,7 +9407,9 @@ extension AgentApi on Engine {
                 args['excludeMemoryRoles'] ??
                 args['exclude_memory_roles'] ??
                 args['excludedMemoryRoles'] ??
-                args['excluded_memory_roles'],
+                args['excluded_memory_roles'] ??
+                args['排除角色'] ??
+                args['排除记忆角色'],
           );
           final excludeRoles = {
             ...excludedRoles,
@@ -9308,7 +9420,8 @@ extension AgentApi on Engine {
                 args['excludeRoleSuffix'] ??
                 args['excludedRoleSuffixes'] ??
                 args['excludeMemoryRoleSuffixes'] ??
-                args['excludedMemoryRoleSuffixes'],
+                args['excludedMemoryRoleSuffixes'] ??
+                args['排除角色后缀'],
           );
           final excludeRoleSuffixes = {
             ...excludedRoleSuffixes,
@@ -9322,13 +9435,19 @@ extension AgentApi on Engine {
             'excludedMemoryIds',
             'excludeId',
             'excludeRecords',
+            '排除记忆',
+            '排除记忆Ids',
             'memoryIds',
             'seenMemoryIds',
+            '已读记忆',
+            '已读记忆Ids',
             'seenIds',
             'seenRecords',
+            '已读记录',
             'readMemoryIds',
             'readIds',
             'readRecords',
+            '排除记录',
             'records',
             'previousMemoryIds',
             'previouslyReadMemoryIds',
@@ -9479,7 +9598,9 @@ extension AgentApi on Engine {
                 args['excludeMemoryRoles'] ??
                 args['exclude_memory_roles'] ??
                 args['excludedMemoryRoles'] ??
-                args['excluded_memory_roles'],
+                args['excluded_memory_roles'] ??
+                args['排除角色'] ??
+                args['排除记忆角色'],
           );
           final excludeRoles = {
             ...excludedRoles,
@@ -9490,7 +9611,8 @@ extension AgentApi on Engine {
                 args['excludeRoleSuffix'] ??
                 args['excludedRoleSuffixes'] ??
                 args['excludeMemoryRoleSuffixes'] ??
-                args['excludedMemoryRoleSuffixes'],
+                args['excludedMemoryRoleSuffixes'] ??
+                args['排除角色后缀'],
           );
           final excludeRoleSuffixes = {
             ...excludedRoleSuffixes,
@@ -9504,13 +9626,19 @@ extension AgentApi on Engine {
             'excludedMemoryIds',
             'excludeId',
             'excludeRecords',
+            '排除记忆',
+            '排除记忆Ids',
             'memoryIds',
             'seenMemoryIds',
+            '已读记忆',
+            '已读记忆Ids',
             'seenIds',
             'seenRecords',
+            '已读记录',
             'readMemoryIds',
             'readIds',
             'readRecords',
+            '排除记录',
             'records',
             'previousMemoryIds',
             'previouslyReadMemoryIds',

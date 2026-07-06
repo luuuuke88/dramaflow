@@ -11762,6 +11762,84 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect((records.single as Map<String, dynamic>)['id'], 'alias_keep_memory');
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持中文已读和排除角色别名', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage({
+      required String id,
+      required String content,
+      required String role,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'cn_seen_memory',
+      content: '已读记忆：寒山禁忌 寒山禁忌 是李澈不能滥杀。',
+      role: agentRoleAssistant,
+      offset: 0,
+    );
+    insertMessage(
+      id: 'cn_tool_noise_memory',
+      content: '工具审计：寒山禁忌 寒山禁忌 已经写入查询日志。',
+      role: 'assistant:decision:tool',
+      offset: 1,
+    );
+    insertMessage(
+      id: 'cn_keep_memory',
+      content: '新记忆：寒山禁忌还包括沈微不能黑化。',
+      role: agentRoleUser,
+      offset: 2,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        '查询': '寒山禁忌',
+        '已读记忆': ['cn_seen_memory'],
+        '排除角色': ['assistant:decision:tool'],
+        '数量': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '继续用中文参数找还没读过的寒山禁忌记忆',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = deepRetrieveTool.schema['properties'] as Map;
+    expect(properties, contains('已读记忆'));
+    expect(properties, contains('排除角色'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], ['新记忆：寒山禁忌还包括沈微不能黑化。']);
+    final records = payload['records'] as List;
+    expect(records, hasLength(1));
+    expect((records.single as Map<String, dynamic>)['id'], 'cn_keep_memory');
+  });
+
   test('Agent 记忆：deepRetrieve 工具支持 records 字段排除已读记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
