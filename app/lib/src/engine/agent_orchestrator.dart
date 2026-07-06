@@ -1600,6 +1600,10 @@ List<ScriptAgentScriptItem> parseScriptAgentScriptItems(String source) {
       'title',
       'script_name',
       'episode_name',
+      '剧本名称',
+      '脚本名称',
+      '集名',
+      '标题',
     ]).trim();
     if (name.isEmpty) continue;
 
@@ -1610,6 +1614,10 @@ List<ScriptAgentScriptItem> parseScriptAgentScriptItems(String source) {
       'body',
       'script_content',
       'episode_content',
+      '剧本内容',
+      '脚本内容',
+      '正文',
+      '内容',
     ]);
     final rawContent = contentField.trim().isEmpty ? body : contentField;
     final content = decodeXmlEntities(stripXmlTags(rawContent).trim());
@@ -1688,6 +1696,10 @@ List<ScriptAgentScriptItem> _scriptItemsFromJson(String source) {
     'episodeItems',
     'episode_items',
     'items',
+    '剧本',
+    '剧本列表',
+    '脚本',
+    '脚本列表',
     'data',
     'result',
     'results',
@@ -1709,6 +1721,10 @@ ScriptAgentScriptItem? _scriptItemFromJsonMap(Map row) {
     'title',
     'script_name',
     'episode_name',
+    '剧本名称',
+    '脚本名称',
+    '集名',
+    '标题',
   ]).trim();
   if (name.isEmpty) return null;
   final content = _jsonValueAny(row, const [
@@ -1718,6 +1734,10 @@ ScriptAgentScriptItem? _scriptItemFromJsonMap(Map row) {
     'body',
     'script_content',
     'episode_content',
+    '剧本内容',
+    '脚本内容',
+    '正文',
+    '内容',
   ]).trim();
   if (content.isEmpty) return null;
   return ScriptAgentScriptItem(name: name, content: content);
@@ -1734,6 +1754,10 @@ List<ProductionStoryboardItem> _storyboardItemsFromJson(String source) {
     'shotItems',
     'shot_items',
     'items',
+    '分镜',
+    '分镜列表',
+    '镜头',
+    '镜头列表',
     'data',
     'result',
     'results',
@@ -1756,18 +1780,34 @@ ProductionStoryboardItem? _storyboardItemFromJsonMap(Map row) {
     'video_desc',
     'video_description',
     'shot_desc',
+    '画面描述',
+    '视频描述',
+    '镜头描述',
+    '分镜描述',
   ]).trim();
   if (videoDesc.isEmpty) return null;
   final prompt = _jsonValueAny(row, const [
     'prompt',
     'imagePrompt',
     'image_prompt',
+    '提示词',
+    '图片提示词',
+    '图像提示词',
+    '首帧提示词',
   ]).trim();
-  final track = _jsonValueAny(row, const ['track']).trim();
+  final track = _jsonValueAny(row, const [
+    'track',
+    '轨道',
+    '分组',
+    '类别',
+  ]).trim();
   final duration = _jsonValueAny(row, const [
     'duration',
     'durationSec',
     'duration_sec',
+    '时长',
+    '持续时间',
+    '视频时长',
   ]).trim();
   final shouldGenerateImage = _truthyValue(
     _jsonRawValueAny(row, const [
@@ -1775,6 +1815,11 @@ ProductionStoryboardItem? _storyboardItemFromJsonMap(Map row) {
       'generateImage',
       'should_generate_image',
       'generate_image',
+      '是否生成图片',
+      '生成图片',
+      '需要生成图片',
+      '是否生图',
+      '生图',
     ]),
     defaultValue: true,
   );
@@ -1871,6 +1916,14 @@ List<int> _storyboardAssetIdsFromJson(Map row) => _dedupeInts([
         'associate_asset_ids',
         'associatedAssetIds',
         'associated_asset_ids',
+        '关联资产ID',
+        '关联资产Ids',
+        '关联资产ids',
+        '资产ID',
+        '资产Ids',
+        '资产ids',
+        '资产编号',
+        '关联资产编号',
       ])
         ..._jsonIntList(row[key]),
     ]);
@@ -1893,6 +1946,15 @@ List<String> _storyboardAssetRefsFromJson(Map row) => _dedupeStrings([
         'toolNames',
         'asset_name',
         'asset_names',
+        '关联资产',
+        '关联资产名称',
+        '资产名称',
+        '角色名称',
+        '场景名称',
+        '道具名称',
+        '角色名',
+        '场景名',
+        '道具名',
       ])
         ..._jsonStringList(row[key]),
     ]);
@@ -1937,6 +1999,10 @@ ProductionStoryboardItem? _storyboardItemFromAttrs(
     'video_desc',
     'video_description',
     'shot_desc',
+    '画面描述',
+    '视频描述',
+    '镜头描述',
+    '分镜描述',
   ]);
   final videoDesc = decodeXmlEntities(
     (rawVideoDesc.trim().isEmpty
@@ -1950,15 +2016,22 @@ ProductionStoryboardItem? _storyboardItemFromAttrs(
     'prompt',
     'imagePrompt',
     'image_prompt',
+    '提示词',
+    '图片提示词',
+    '图像提示词',
+    '首帧提示词',
   ])).trim());
   final track = decodeXmlEntities(stripXmlTags(
-    _fieldValueAny(attrs, body, const ['track']),
+    _fieldValueAny(attrs, body, const ['track', '轨道', '分组', '类别']),
   ).trim());
   final duration =
       decodeXmlEntities(stripXmlTags(_fieldValueAny(attrs, body, const [
     'duration',
     'durationSec',
     'duration_sec',
+    '时长',
+    '持续时间',
+    '视频时长',
   ])).trim());
   final shouldGenerateImage = _truthyText(
     _fieldValueAny(attrs, body, const [
@@ -1966,6 +2039,11 @@ ProductionStoryboardItem? _storyboardItemFromAttrs(
       'generateImage',
       'should_generate_image',
       'generate_image',
+      '是否生成图片',
+      '生成图片',
+      '需要生成图片',
+      '是否生图',
+      '生图',
     ]),
     defaultValue: true,
   );
@@ -1988,6 +2066,14 @@ List<int> _storyboardAssetIds(String attrs, [String body = '']) => _dedupeInts([
         'associate_asset_ids',
         'associatedAssetIds',
         'associated_asset_ids',
+        '关联资产ID',
+        '关联资产Ids',
+        '关联资产ids',
+        '资产ID',
+        '资产Ids',
+        '资产ids',
+        '资产编号',
+        '关联资产编号',
       ])
         ...parseIntListText(_attributeValue(attrs, key)),
       for (final key in const [
@@ -1997,6 +2083,14 @@ List<int> _storyboardAssetIds(String attrs, [String body = '']) => _dedupeInts([
         'associate_asset_ids',
         'associatedAssetIds',
         'associated_asset_ids',
+        '关联资产ID',
+        '关联资产Ids',
+        '关联资产ids',
+        '资产ID',
+        '资产Ids',
+        '资产ids',
+        '资产编号',
+        '关联资产编号',
       ])
         for (final value in _elementValues(body, key))
           ...parseIntListText(value),
@@ -2021,6 +2115,15 @@ List<String> _storyboardAssetRefs(String attrs, [String body = '']) =>
         'toolNames',
         'asset_name',
         'asset_names',
+        '关联资产',
+        '关联资产名称',
+        '资产名称',
+        '角色名称',
+        '场景名称',
+        '道具名称',
+        '角色名',
+        '场景名',
+        '道具名',
       ])
         ...parseStringListText(_attributeValue(attrs, key)),
       for (final key in const [
@@ -2040,6 +2143,15 @@ List<String> _storyboardAssetRefs(String attrs, [String body = '']) =>
         'toolNames',
         'asset_name',
         'asset_names',
+        '关联资产',
+        '关联资产名称',
+        '资产名称',
+        '角色名称',
+        '场景名称',
+        '道具名称',
+        '角色名',
+        '场景名',
+        '道具名',
       ])
         for (final value in _elementValues(body, key))
           ...parseStringListText(value),
@@ -2162,7 +2274,7 @@ String _elementValue(String source, String name) {
 List<String> _elementValues(String source, String name) {
   final escaped = RegExp.escape(name);
   final matches = RegExp(
-    '<$escaped\\b[^>]*>([\\s\\S]*?)</$escaped>',
+    '<$escaped(?:\\s[^>]*)?>([\\s\\S]*?)</$escaped>',
     caseSensitive: false,
   ).allMatches(source);
   return [for (final match in matches) match.group(1) ?? ''];

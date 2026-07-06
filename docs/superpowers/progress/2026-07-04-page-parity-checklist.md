@@ -272,6 +272,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgen
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent and ProductionAgent JSON outputs wrapped in common model/API container keys such as `scripts` and `storyboards`, including fenced JSON blocks, so sub Agents that return `{ "scripts": [...] }` or `{ "storyboards": [...] }` are unwrapped before writing rows.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Chinese model-authored ScriptAgent and ProductionAgent output fields such as `剧本名称` / `剧本内容` and `画面描述` / `图片提示词` / `是否生成图片` / `资产名称`, across both wrapped JSON and XML child-element forms, so Chinese sub Agent answers no longer need to mirror English ToonFlow field names exactly.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
