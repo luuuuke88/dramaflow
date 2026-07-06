@@ -11031,6 +11031,35 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(tool.schema['required'], isNull);
   });
 
+  test('制作执行工具 schema 暴露衍生资产删除 id 字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：删除衍生资产',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final tool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'del_deriveAsset',
+    );
+    final properties = tool.schema['properties'] as Map;
+    expect(
+      properties.keys,
+      containsAll([
+        'id',
+        'assetId',
+        'deriveAssetId',
+        'childAssetId',
+        'asset_id',
+        'derive_asset_id',
+        'child_asset_id',
+      ]),
+    );
+    expect(tool.schema['required'], isNull);
+  });
+
   test('制作执行工具 schema 暴露分镜首帧 id 字段别名', () async {
     gateway.turns = [const AgentTurnResult.text('收到')];
 
@@ -11213,6 +11242,52 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       db.select('SELECT assetId FROM o_scriptAssets WHERE scriptId=?',
           [scriptId]).map((row) => row['assetId']),
       contains(childId),
+    );
+  });
+
+  test('制作执行工具调用接受 deriveAssetId 别名删除衍生资产', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final parentAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    final childAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈战损造型',
+      describe: '衣甲破损',
+      parentAssetsId: parentAssetId,
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, childAssetId]);
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_derive_assets',
+        {'request': '删除错误衍生资产', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool(
+        'del_deriveAsset',
+        {'deriveAssetId': childAssetId, 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('衍生资产已删除'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：删除衍生资产',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(db.select('SELECT id FROM o_assets WHERE id=?', [childAssetId]),
+        isEmpty);
+    expect(
+      db.select(
+          'SELECT assetId FROM o_scriptAssets WHERE assetId=?', [childAssetId]),
+      isEmpty,
     );
   });
 

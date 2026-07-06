@@ -439,6 +439,59 @@ const Map<String, dynamic> _deriveAssetWriteAliasProperties = <String, dynamic>{
   },
 };
 
+const Map<String, dynamic> _deriveAssetDeleteIdAliasProperties =
+    <String, dynamic>{
+  'id': {
+    'type': 'integer',
+    'description': '要删除的衍生资产 id。',
+  },
+  'assetId': {
+    'type': 'integer',
+    'description': 'id 的资产语义别名。',
+  },
+  'deriveAssetId': {
+    'type': 'integer',
+    'description': 'id 的衍生资产语义别名。',
+  },
+  'childAssetId': {
+    'type': 'integer',
+    'description': 'id 的子资产语义别名。',
+  },
+  'asset_id': {
+    'type': 'integer',
+    'description': 'assetId 的 snake_case 别名。',
+  },
+  'derive_asset_id': {
+    'type': 'integer',
+    'description': 'deriveAssetId 的 snake_case 别名。',
+  },
+  'child_asset_id': {
+    'type': 'integer',
+    'description': 'childAssetId 的 snake_case 别名。',
+  },
+  'scriptId': {'type': 'integer'},
+  'episodeId': {
+    'type': 'integer',
+    'description': 'scriptId 的剧集语义别名。',
+  },
+  'episodesId': {
+    'type': 'integer',
+    'description': 'scriptId 的 ToonFlow 旧字段别名。',
+  },
+  'script_id': {
+    'type': 'integer',
+    'description': 'scriptId 的 snake_case 别名。',
+  },
+  'episode_id': {
+    'type': 'integer',
+    'description': 'episodeId 的 snake_case 别名。',
+  },
+  'episodes_id': {
+    'type': 'integer',
+    'description': 'episodesId 的 snake_case 别名。',
+  },
+};
+
 const _productionAgentReadWriteTools = <AgentToolDef>[
   AgentToolDef(
     name: 'get_flowData',
@@ -474,11 +527,7 @@ const _productionAgentReadWriteTools = <AgentToolDef>[
     description: '删除衍生资产。',
     schema: {
       'type': 'object',
-      'properties': {
-        'id': {'type': 'integer'},
-        'scriptId': {'type': 'integer'},
-      },
-      'required': ['id'],
+      'properties': _deriveAssetDeleteIdAliasProperties,
     },
   ),
   AgentToolDef(

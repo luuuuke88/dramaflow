@@ -8317,7 +8317,15 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final id = _coerceInt(args['id']);
+    final id = _coerceInt(_argAny(args, const [
+      'id',
+      'assetId',
+      'deriveAssetId',
+      'childAssetId',
+      'asset_id',
+      'derive_asset_id',
+      'child_asset_id',
+    ]));
     if (id == null) return '缺少 id 参数。';
     deleteAssets([id]);
     return '已删除衍生资产，ID: $id。';

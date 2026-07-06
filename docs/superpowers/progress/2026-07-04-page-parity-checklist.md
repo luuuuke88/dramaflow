@@ -148,6 +148,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `gener
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `add_deriveAsset` production execution tool exposing and accepting common derived-asset write aliases (`parentAssetId`, `assetName`, `description`, `episodeId`, and snake_case forms), so production sub Agents can create and update derived assets without brittle exact ToonFlow field names.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `del_deriveAsset` production execution tool exposing and accepting common derived-asset id aliases (`assetId`, `deriveAssetId`, `childAssetId`, and snake_case forms), so production sub Agents can delete incorrect derived assets without brittle exact `id` arguments.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `generate_storyboard` production execution tool exposing and accepting common storyboard/shot id aliases (`storyboardIds`, `shotIds`, `panelIds`, and snake_case forms), so production sub Agents can submit storyboard first-frame generation without brittle exact `ids` arguments.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `add_flowData_storyboard` production execution tool exposing and accepting common storyboard-write aliases (`videoDescription`, `imagePrompt`, `asset_ids`, `generateImage`, and snake_case forms), so production sub Agents can write storyboard panels without brittle exact ToonFlow field names.
