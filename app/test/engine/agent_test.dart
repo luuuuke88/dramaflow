@@ -9149,6 +9149,92 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(gateway.textCallCount, 1);
   });
 
+  test('AgentMemoryService deepRetrieve 可解析模型返回的 summary 候选序号', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.deepRetrieveSummaryLimit', '2'],
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'ordinal_summary_noise_msg',
+      '场景道具：寒山山门有李澈正派匾额，但不代表角色约束。',
+      0,
+    );
+    insertMessage(
+      'ordinal_summary_relevant_msg',
+      '用户明确要求李澈保持正派，不能被写成反派。',
+      1,
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ordinal_summary_relevant',
+        '李澈角色约束',
+        '李澈必须保持正派，不能反派化。',
+        now + 2,
+        embeddingJson('李澈必须保持正派，不能反派化。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['ordinal_summary_relevant_msg']),
+        agentRoleAssistant,
+        0,
+        agentMemoryTypeSummary,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'ordinal_summary_noise',
+        '寒山道具噪声',
+        '寒山李澈正派 寒山李澈正派 只是山门匾额道具，和角色约束无关。',
+        now + 3,
+        embeddingJson('寒山李澈正派 寒山李澈正派 只是山门匾额道具，和角色约束无关。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['ordinal_summary_noise_msg']),
+        agentRoleAssistant,
+        0,
+        agentMemoryTypeSummary,
+      ],
+    );
+    gateway.textResults = const [TextResult('第 2 条摘要最相关')];
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '寒山李澈正派',
+    );
+
+    expect(records.map((item) => item.id), ['ordinal_summary_relevant_msg']);
+    expect(gateway.textCallCount, 1);
+  });
+
   test('AgentMemoryService deepRetrieve 可直接返回没有来源消息的相关 summary', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(

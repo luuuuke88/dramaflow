@@ -1599,14 +1599,25 @@ Set<String>? _parseSelectedSummaryIds(
 ) {
   final allowed = {for (final candidate in candidates) candidate.id};
   final selected = <String>{};
+  void addId(Object? value) {
+    final id = '$value'.trim();
+    if (allowed.contains(id)) selected.add(id);
+  }
+
+  void addOrdinal(Object? value) {
+    final index = _candidateOrdinal(value);
+    if (index == null || index < 1 || index > candidates.length) return;
+    addId(candidates[index - 1].id);
+  }
+
   final trimmed = source.trim();
   if (trimmed.isEmpty) return null;
   try {
     final decoded = jsonDecode(trimmed);
     if (decoded is List) {
       for (final item in decoded) {
-        final id = '$item'.trim();
-        if (allowed.contains(id)) selected.add(id);
+        addId(item);
+        addOrdinal(item);
       }
       return selected;
     }
@@ -1619,8 +1630,8 @@ Set<String>? _parseSelectedSummaryIds(
           decoded['selected'];
       if (ids is List) {
         for (final item in ids) {
-          final id = '$item'.trim();
-          if (allowed.contains(id)) selected.add(id);
+          addId(item);
+          addOrdinal(item);
         }
         return selected;
       }
@@ -1631,6 +1642,11 @@ Set<String>? _parseSelectedSummaryIds(
   }
   for (final id in allowed) {
     if (trimmed.contains(id)) selected.add(id);
+  }
+  if (selected.isEmpty) {
+    for (final ordinal in _candidateOrdinalsFromText(trimmed)) {
+      addOrdinal(ordinal);
+    }
   }
   return selected.isEmpty ? null : selected;
 }
