@@ -16929,6 +16929,39 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(gateway.lastSystem, isNot(contains('剧本私有记忆')));
   });
 
+  test('ProductionAgent 子 Agent 自动注入视觉参考长期记忆', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    engine.saveAgentMemory(
+      projectId,
+      name: '项目视觉参考',
+      content: '视觉参考分析：冷白水墨、低饱和云雾留白，角色和场景都避免霓虹赛博色。',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '继续当前制作任务', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>导演计划沿用项目视觉参考</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：做导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(gateway.stages, [
+      'productionAgent:decisionAgent',
+      'productionAgent:directorPlanAgent',
+    ]);
+    expect(gateway.systems[1], contains('长期记忆'));
+    expect(gateway.systems[1], contains('name="项目视觉参考"'));
+    expect(gateway.systems[1], contains('冷白水墨'));
+    expect(gateway.systems[1], contains('避免霓虹赛博色'));
+  });
+
   test('ProductionAgent 子 Agent 系统上下文默认排除工具审计记忆', () async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');

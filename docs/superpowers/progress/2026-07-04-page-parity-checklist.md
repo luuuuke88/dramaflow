@@ -294,6 +294,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `analyze_r
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `analyze_reference_image` accepting `remember` / `saveMemory` and `memoryName`, saving the vision analysis as long-term note memory, and recalling it through `memory_get scope=long_term`, so reference-image understanding can become reusable RAG context instead of a one-off tool result.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent sub Agents automatically receiving recent visual-reference long-term notes even when the current task prompt does not repeat those style keywords, so saved reference-image analysis guides director planning and storyboard work instead of remaining a manual lookup.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` accepting multi-query aliases such as `queries`, `queryList`, and `keywords`, merging per-query recall results while excluding already-returned memory ids and preserving traceable `records`, so decision and sub Agents can retrieve multiple semantic threads in one RAG tool call.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` accepting multi-query aliases such as `queries`, `queryList`, and `keywords`, merging ordinary Memory.get contexts while excluding already-returned memory ids and preserving traceable `records`, so decision and sub Agents can fetch role, scene, and style context in one lightweight RAG call before escalating to deepRetrieve.

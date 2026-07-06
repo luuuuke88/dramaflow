@@ -8542,6 +8542,63 @@ extension AgentApi on Engine {
     return [for (final entry in entries) AgentMemoryRecord.fromEntry(entry)];
   }
 
+  Future<List<AgentMemoryRecord>> _agentPromptLongTermMemories(
+    int projectId,
+    String query, {
+    required String family,
+    required int limit,
+  }) async {
+    final matched = await searchAgentMemories(projectId, query, limit: limit);
+    if (family != _productionAgentFamily || limit <= 0) return matched;
+    final visual = _productionVisualReferenceMemories(
+      projectId,
+      excludeIds: {for (final memory in matched) memory.id},
+      limit: math.max(1, math.min(2, limit)),
+    );
+    return visual.isEmpty ? matched : [...matched, ...visual];
+  }
+
+  List<AgentMemoryRecord> _productionVisualReferenceMemories(
+    int projectId, {
+    Set<String> excludeIds = const {},
+    int limit = 2,
+  }) {
+    if (limit <= 0) return const [];
+    const patterns = [
+      '%视觉参考%',
+      '%参考图%',
+      '%画风%',
+      '%风格%',
+      '%visual%',
+      '%style%',
+    ];
+    final clauses =
+        List.filled(patterns.length, '(name LIKE ? OR content LIKE ?)')
+            .join(' OR ');
+    final args = <Object?>[
+      _agentMemoryIsolationKey(projectId),
+      _agentMemoryRole,
+      _agentMemoryType,
+      for (final pattern in patterns) ...[pattern, pattern],
+      limit + excludeIds.length,
+    ];
+    final rows = db.select(
+      'SELECT id,name,content,createTime,embedding,relatedMessageIds '
+      'FROM memories '
+      'WHERE isolationKey=? AND role=? AND type=? AND ($clauses) '
+      'ORDER BY createTime DESC, id DESC LIMIT ?',
+      args,
+    );
+    final result = <AgentMemoryRecord>[];
+    for (final row in rows) {
+      final record = AgentMemoryRecord.fromRow(row);
+      if (excludeIds.contains(record.id)) continue;
+      result.add(record);
+      if (result.length >= limit) break;
+    }
+    return result;
+  }
+
   String _memoryEmbeddingJson(String name, String content) {
     final settings = _readAgentMemorySettings();
     return TokenAgentMemoryEmbeddingProvider(
@@ -9092,7 +9149,12 @@ extension AgentApi on Engine {
           ? productionAgentDecisionStage
           : scriptAgentDecisionStage;
       final system = _agentSystemPrompt(
-        await searchAgentMemories(projectId, text, limit: _agentRagLimit()),
+        await _agentPromptLongTermMemories(
+          projectId,
+          text,
+          family: agentFamily,
+          limit: _agentRagLimit(),
+        ),
         context: await memoryService.get(
           isolationKey: conversationKey,
           query: text,
@@ -9322,8 +9384,12 @@ extension AgentApi on Engine {
     ].join('\n');
     final memoryService = _agentMemoryService(family: family);
     final system = _agentSystemPrompt(
-      await searchAgentMemories(projectId, reviewQuery,
-          limit: _agentRagLimit()),
+      await _agentPromptLongTermMemories(
+        projectId,
+        reviewQuery,
+        family: family,
+        limit: _agentRagLimit(),
+      ),
       context: await memoryService.get(
         isolationKey: _agentConversationIsolationKey(
           projectId,
@@ -11665,7 +11731,12 @@ extension AgentApi on Engine {
         excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       final system = _agentSystemPrompt(
-        await searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
+        await _agentPromptLongTermMemories(
+          projectId,
+          prompt,
+          family: _scriptAgentFamily,
+          limit: _agentRagLimit(),
+        ),
         context: memoryContext,
         base: _scriptAgentSubAgentSystem(stage),
         stage: stage,
@@ -12594,7 +12665,12 @@ extension AgentApi on Engine {
         excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       final system = _agentSystemPrompt(
-        await searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
+        await _agentPromptLongTermMemories(
+          projectId,
+          prompt,
+          family: _productionAgentFamily,
+          limit: _agentRagLimit(),
+        ),
         context: memoryContext,
         base: _productionAgentSubAgentSystem(stage),
         stage: stage,
