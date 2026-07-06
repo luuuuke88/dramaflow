@@ -372,6 +372,10 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'query 的关键词别名。',
         },
+        'q': {
+          'type': 'string',
+          'description': 'query 的简写别名。',
+        },
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -408,10 +412,37 @@ final _tools = <AgentToolDef>[
           'maximum': 50,
           'description': '可选。topK 的简写别名。',
         },
+        'max': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。maxResults 的简写别名。',
+        },
+        'count': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。返回数量别名。',
+        },
         'minScore': {
           'type': 'integer',
           'minimum': 1,
           'description': '可选。只返回分数不低于该值的高置信相关对话。',
+        },
+        'min_score': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。minScore 的 snake_case 别名。',
+        },
+        'minimumScore': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。minScore 的自然语言别名。',
+        },
+        'minimum_score': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。minimumScore 的 snake_case 别名。',
         },
         'scoreThreshold': {
           'type': 'integer',
@@ -423,6 +454,11 @@ final _tools = <AgentToolDef>[
           'minimum': 1,
           'description': '可选。scoreThreshold 的 snake_case 别名。',
         },
+        'threshold': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。scoreThreshold 的简写别名。',
+        },
         'role': {
           'type': 'string',
           'description':
@@ -432,6 +468,16 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'string'},
           'description': '可选。只返回这些 role 的普通 RAG 上下文。',
+        },
+        'memoryRoles': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'roles 的记忆角色别名。',
+        },
+        'memory_roles': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'memoryRoles 的 snake_case 别名。',
         },
         'type': {
           'type': 'string',
@@ -488,6 +534,16 @@ final _tools = <AgentToolDef>[
           },
           'description': '可选。按多个记忆层级召回。',
         },
+        'memoryScope': {
+          'type': 'string',
+          'enum': ['conversation', 'summary', 'long_term', 'all'],
+          'description': 'scope 的记忆范围别名。',
+        },
+        'memory_scope': {
+          'type': 'string',
+          'enum': ['conversation', 'summary', 'long_term', 'all'],
+          'description': 'memoryScope 的 snake_case 别名。',
+        },
         'excludeRole': {
           'type': 'string',
           'description': '可选。排除指定 role 的记忆，例如 assistant:decision:tool。',
@@ -496,6 +552,36 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'string'},
           'description': '可选。排除这些 role 的记忆，用于避开工具审计噪声。',
+        },
+        'excludedRoles': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeRoles 的过去式别名。',
+        },
+        'excluded_roles': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludedRoles 的 snake_case 别名。',
+        },
+        'excludeMemoryRoles': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeRoles 的记忆角色别名。',
+        },
+        'exclude_memory_roles': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeMemoryRoles 的 snake_case 别名。',
+        },
+        'excludedMemoryRoles': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeMemoryRoles 的过去式别名。',
+        },
+        'excluded_memory_roles': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludedMemoryRoles 的 snake_case 别名。',
         },
         'excludeRoleSuffix': {
           'type': 'string',
@@ -516,10 +602,20 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。excludeIds 的语义化别名。',
         },
+        'excludeId': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'excludeIds 的单数别名。',
+        },
         'seenMemoryIds': {
           'type': 'array',
           'items': {'type': 'string'},
           'description': '可选。已读过的 memory id 列表，等价于 excludeIds。',
+        },
+        'seenIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。seenMemoryIds 的简写别名。',
         },
         'memoryIds': {
           'type': 'array',
@@ -530,6 +626,16 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'string'},
           'description': '可选。已读取 memory id 别名，等价于 excludeIds。',
+        },
+        'readIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。readMemoryIds 的简写别名。',
+        },
+        'previousMemoryIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。上一轮已读 memory id 列表，等价于 excludeIds。',
         },
         'records': {
           'type': 'array',
@@ -561,6 +667,16 @@ final _tools = <AgentToolDef>[
             },
           },
           'description': '可选。已读取 records，等价于 seenRecords。',
+        },
+        'previousRecords': {
+          'type': 'array',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+            },
+          },
+          'description': '可选。上一轮已读 records，等价于 seenRecords。',
         },
       },
     },
@@ -8556,14 +8672,22 @@ extension AgentApi on Engine {
               .trim();
           if (query.isEmpty) return '缺少 query 参数。';
           final roles = _coerceStringSet(
-            args['roles'] ?? args['role'] ?? args['memoryRoles'],
+            args['roles'] ??
+                args['role'] ??
+                args['memoryRoles'] ??
+                args['memoryRole'] ??
+                args['memory_roles'] ??
+                args['memory_role'],
           );
           final requestedExcludeRoles = _coerceStringSet(
             args['excludeRoles'] ??
                 args['excludeRole'] ??
                 args['excludedRoles'] ??
+                args['excluded_roles'] ??
                 args['excludeMemoryRoles'] ??
-                args['excludedMemoryRoles'],
+                args['exclude_memory_roles'] ??
+                args['excludedMemoryRoles'] ??
+                args['excluded_memory_roles'],
           );
           final excludeRoles = {
             ...excludedRoles,
