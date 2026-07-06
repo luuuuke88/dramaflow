@@ -1616,8 +1616,10 @@ Set<String>? _parseSelectedSummaryIds(
     final decoded = jsonDecode(trimmed);
     if (decoded is List) {
       for (final item in decoded) {
-        addId(item);
-        addOrdinal(item);
+        for (final value in _selectedValueCandidates(item)) {
+          addId(value);
+          addOrdinal(value);
+        }
       }
       return selected;
     }
@@ -1630,8 +1632,10 @@ Set<String>? _parseSelectedSummaryIds(
           decoded['selected'];
       if (ids is List) {
         for (final item in ids) {
-          addId(item);
-          addOrdinal(item);
+          for (final value in _selectedValueCandidates(item)) {
+            addId(value);
+            addOrdinal(value);
+          }
         }
         return selected;
       }
@@ -1675,8 +1679,10 @@ List<String>? _parseSelectedMemoryIds(
     final decoded = jsonDecode(trimmed);
     if (decoded is List) {
       for (final item in decoded) {
-        addId(item);
-        addOrdinal(item);
+        for (final value in _selectedValueCandidates(item)) {
+          addId(value);
+          addOrdinal(value);
+        }
       }
       return selected;
     }
@@ -1693,8 +1699,10 @@ List<String>? _parseSelectedMemoryIds(
           decoded['selected'];
       if (ids is List) {
         for (final item in ids) {
-          addId(item);
-          addOrdinal(item);
+          for (final value in _selectedValueCandidates(item)) {
+            addId(value);
+            addOrdinal(value);
+          }
         }
         return selected;
       }
@@ -1712,6 +1720,31 @@ List<String>? _parseSelectedMemoryIds(
     }
   }
   return selected.isEmpty ? null : selected;
+}
+
+Iterable<Object?> _selectedValueCandidates(Object? value) sync* {
+  yield value;
+  if (value is! Map) return;
+  const keys = [
+    'id',
+    'memoryId',
+    'memory_id',
+    'messageId',
+    'message_id',
+    'summaryId',
+    'summary_id',
+    'selectedId',
+    'selected_id',
+    'relevantId',
+    'relevant_id',
+    'index',
+    'candidateIndex',
+    'candidate_index',
+    'ordinal',
+  ];
+  for (final key in keys) {
+    if (value.containsKey(key)) yield value[key];
+  }
 }
 
 int? _candidateOrdinal(Object? value) {

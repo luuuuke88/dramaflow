@@ -9149,6 +9149,96 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(gateway.textCallCount, 1);
   });
 
+  test('AgentMemoryService deepRetrieve 可解析带 reason 的对象数组摘要选择', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.deepRetrieveSummaryLimit', '2'],
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'object_summary_relevant_msg',
+      '用户强调李澈必须保持正派，不能被写成反派。',
+      0,
+    );
+    insertMessage(
+      'object_summary_noise_msg',
+      '用户提到寒山远景可以多一点云雾。',
+      1,
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'object_summary_relevant',
+        '李澈角色约束',
+        '李澈必须保持正派，不能反派化。',
+        now + 2,
+        embeddingJson('李澈必须保持正派，不能反派化。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['object_summary_relevant_msg']),
+        agentRoleAssistant,
+        0,
+        agentMemoryTypeSummary,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'object_summary_noise',
+        '寒山场景设定',
+        '寒山远景适合云雾和夜色。',
+        now + 3,
+        embeddingJson('寒山远景适合云雾和夜色。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['object_summary_noise_msg']),
+        agentRoleAssistant,
+        0,
+        agentMemoryTypeSummary,
+      ],
+    );
+    gateway.textResults = const [
+      TextResult(
+        '[{"summary_id":"object_summary_relevant","reason":"角色约束命中"}]',
+      ),
+    ];
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '寒山李澈正派',
+    );
+
+    expect(records.map((item) => item.id), ['object_summary_relevant_msg']);
+    expect(gateway.textCallCount, 1);
+  });
+
   test('AgentMemoryService deepRetrieve 可解析模型返回的 summary 候选序号', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final service = AgentMemoryService(
@@ -10088,6 +10178,71 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
 
     expect(context.relatedMessages.map((item) => item.id),
         ['rerank_ordinal_relevant']);
+    expect(gateway.textCallCount, 1);
+  });
+
+  test('AgentMemoryService get 重排可解析带 reason 的对象数组 message 选择', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.rerankEnabled', '1'],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'rerank_object_relevant',
+        '',
+        '用户明确要求李澈保持正派，不能被写成反派。',
+        now,
+        embeddingJson('用户明确要求李澈保持正派，不能被写成反派。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'rerank_object_noise',
+        '',
+        '道具标签：李澈正派 匾额用于山门背景，和角色立场无关。',
+        now + 1,
+        embeddingJson('道具标签：李澈正派 匾额用于山门背景，和角色立场无关。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    gateway.textResults = const [
+      TextResult(
+        '[{"message_id":"rerank_object_relevant","reason":"用户明确约束"}]',
+      ),
+    ];
+
+    final context = await service.get(
+      isolationKey: 'scriptAgent:$projectId',
+      query: '李澈正派',
+    );
+
+    expect(context.relatedMessages.map((item) => item.id),
+        ['rerank_object_relevant']);
     expect(gateway.textCallCount, 1);
   });
 
