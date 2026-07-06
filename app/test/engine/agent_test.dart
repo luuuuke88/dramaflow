@@ -1086,6 +1086,63 @@ void main() {
     expect(gateway.imageAnalysisPaths, hasLength(2));
   });
 
+  test('Agent 可按自然镜头号分析分镜首帧参考图', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final firstStoryboard = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      videoDesc: '第一镜，山脚远景',
+    );
+    final secondStoryboard = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      videoDesc: '第二镜，山门近景',
+    );
+    const firstRel = 'shots/first.png';
+    const secondRel = 'shots/second.png';
+    final firstFile = File(engine.mediaAbsPath(firstRel));
+    firstFile.parent.createSync(recursive: true);
+    firstFile.writeAsBytesSync([137, 80, 78, 71, 1]);
+    final secondFile = File(engine.mediaAbsPath(secondRel));
+    secondFile.parent.createSync(recursive: true);
+    secondFile.writeAsBytesSync([137, 80, 78, 71, 2]);
+    engine.setStoryboardImage(firstStoryboard, firstRel);
+    engine.setStoryboardImage(secondStoryboard, secondRel);
+    gateway.imageAnalysisResult = '第二镜首帧：寒山山门冷白云雾，低机位。';
+    gateway.turns = [
+      AgentTurnResult.tool('analyze_reference_image', {
+        'scriptId': scriptId,
+        'shotNo': 2,
+        'prompt': '分析第二镜首帧',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '分析第二镜首帧参考图',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final visionTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'analyze_reference_image');
+    final properties = visionTool.schema['properties'] as Map;
+    expect(properties, contains('shotNo'));
+    expect(properties, contains('storyboardNo'));
+    expect(gateway.imageAnalysisPrompts.single, '分析第二镜首帧');
+    expect(gateway.imageAnalysisPaths.single, secondFile.path);
+    expect(gateway.imageAnalysisPaths.single, isNot(firstFile.path));
+
+    final msg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(msg.toolName, 'analyze_reference_image');
+    expect(jsonDecode(msg.content), {
+      'analysis': '第二镜首帧：寒山山门冷白云雾，低机位。',
+      'source': 'storyboard:$secondStoryboard',
+    });
+  });
+
   test('Agent 视觉分析可保存为长期记忆并被 memory_get 召回', () async {
     final roleId = engine.addAsset(
       projectId: projectId,

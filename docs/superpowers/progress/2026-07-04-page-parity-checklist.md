@@ -288,6 +288,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `analyze_r
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `analyze_reference_image` accepting ToonFlow-style asset refs such as `A001` / `A002` through `assetRef` and `assetRefs`, resolving them with the current `scriptId` asset table before analysis, so production Agents can use the same asset identifiers in vision analysis, storyboard XML, and asset binding.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `analyze_reference_image` accepting natural storyboard selectors such as `shotNo` and `storyboardNo` with the current `scriptId`, resolving them to storyboard first-frame images before vision analysis, so production Agents can ask for "the second shot" without needing raw database storyboard ids.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `analyze_reference_image` accepting `remember` / `saveMemory` and `memoryName`, saving the vision analysis as long-term note memory, and recalling it through `memory_get scope=long_term`, so reference-image understanding can become reusable RAG context instead of a one-off tool result.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` accepting multi-query aliases such as `queries`, `queryList`, and `keywords`, merging per-query recall results while excluding already-returned memory ids and preserving traceable `records`, so decision and sub Agents can retrieve multiple semantic threads in one RAG tool call.

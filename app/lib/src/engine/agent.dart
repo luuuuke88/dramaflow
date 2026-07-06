@@ -1886,6 +1886,33 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'integer'},
           'description': '分镜 id 列表，逐个使用分镜首帧图。',
         },
+        'shotNo': {
+          'type': 'integer',
+          'description': '按当前剧本分镜顺序的自然镜头号，例如 2 表示第二镜。',
+        },
+        'shotNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'shotNo 的数组形式。',
+        },
+        'storyboardNo': {
+          'type': 'integer',
+          'description': 'shotNo 的分镜语义别名。',
+        },
+        'storyboardNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardNo 的数组形式。',
+        },
+        'storyboardIndex': {
+          'type': 'integer',
+          'description': 'shotNo 的索引语义别名，按分镜顺序匹配。',
+        },
+        'storyboardIndexes': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardIndex 的数组形式。',
+        },
       },
     },
   ),
@@ -10606,6 +10633,12 @@ extension AgentApi on Engine {
         ]) ??
         const <int>[]) {
       add(_agentReferenceImageArg(projectId, {'storyboardId': storyboardId}));
+    }
+    if (scriptId != null) {
+      for (final storyboardId
+          in _agentStoryboardIdsArg(scriptId, args) ?? const <int>[]) {
+        add(_agentReferenceImageArg(projectId, {'storyboardId': storyboardId}));
+      }
     }
     add(_agentReferenceImageArg(projectId, args));
     return resolved;
