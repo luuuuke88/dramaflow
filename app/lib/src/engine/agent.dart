@@ -624,13 +624,10 @@ class _CustomAgentSkillRuntime {
       }
       final forOfStatement = _readForOfStatement(trimmed);
       if (forOfStatement != null) {
-        final iterable = _evaluate(forOfStatement.iterable);
-        if (iterable is! Iterable || iterable is String) {
-          throw EngineException(errLlmFormat, {
-            'reason': 'custom_skill_for_of',
-            'expression': forOfStatement.iterable,
-          });
-        }
+        final iterable = _forOfIterable(
+          _evaluate(forOfStatement.iterable),
+          forOfStatement.iterable,
+        );
         for (final item in iterable) {
           final bindings = <String, Object?>{};
           _bindCallbackParam(
@@ -937,6 +934,15 @@ class _CustomAgentSkillRuntime {
       iterable: match.group(2)!.trim(),
       body: body.text,
     );
+  }
+
+  Iterable<Object?> _forOfIterable(Object? value, String expression) {
+    if (value is _CustomJsMap) return _customJsMapEntries(value);
+    if (value is Iterable && value is! String) return value;
+    throw EngineException(errLlmFormat, {
+      'reason': 'custom_skill_for_of',
+      'expression': expression,
+    });
   }
 
   _CustomJsForInStatement? _readForInStatement(String statement) {
