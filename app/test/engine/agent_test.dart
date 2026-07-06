@@ -10993,6 +10993,44 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(tool.schema['required'], isNull);
   });
 
+  test('制作执行工具 schema 暴露衍生资产写入字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：写衍生资产',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final tool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'add_deriveAsset',
+    );
+    final properties = tool.schema['properties'] as Map;
+    expect(
+      properties.keys,
+      containsAll([
+        'assetsId',
+        'assetId',
+        'parentAssetId',
+        'parentAssetsId',
+        'asset_id',
+        'assets_id',
+        'parent_asset_id',
+        'parent_assets_id',
+        'name',
+        'assetName',
+        'asset_name',
+        'desc',
+        'describe',
+        'description',
+        'assetDesc',
+        'asset_desc',
+      ]),
+    );
+    expect(tool.schema['required'], isNull);
+  });
+
   test('制作执行工具 schema 暴露分镜首帧 id 字段别名', () async {
     gateway.turns = [const AgentTurnResult.text('收到')];
 
@@ -11129,6 +11167,52 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(
       _productionAgentWorkData(db, projectId, secondScriptId)['scriptPlan'],
       '第二集镜湖调度',
+    );
+  });
+
+  test('制作执行工具调用接受衍生资产写入字段别名', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final parentAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_derive_assets',
+        {'request': '衍生战损造型', 'episodeId': scriptId},
+      ),
+      AgentTurnResult.tool(
+        'add_deriveAsset',
+        {
+          'parentAssetId': parentAssetId,
+          'assetName': '李澈战损造型',
+          'description': '衣甲破损，脸侧有血痕',
+          'episodeId': scriptId,
+        },
+      ),
+      const AgentTurnResult.text('衍生资产完成'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：写衍生资产',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final child = db.select(
+      'SELECT * FROM o_assets WHERE assetsId=? AND name=?',
+      [parentAssetId, '李澈战损造型'],
+    ).single;
+    final childId = child['id'] as int;
+    expect(child['describe'], '衣甲破损，脸侧有血痕');
+    expect(
+      db.select('SELECT assetId FROM o_scriptAssets WHERE scriptId=?',
+          [scriptId]).map((row) => row['assetId']),
+      contains(childId),
     );
   });
 

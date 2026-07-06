@@ -307,6 +307,138 @@ const Map<String, dynamic> _storyboardWriteAliasProperties = <String, dynamic>{
   },
 };
 
+const Map<String, dynamic> _deriveAssetWriteAliasProperties = <String, dynamic>{
+  'assetsId': {
+    'type': 'integer',
+    'description': '父资产 id。',
+  },
+  'assetId': {
+    'type': 'integer',
+    'description': 'assetsId 的单数语义别名。',
+  },
+  'parentAssetId': {
+    'type': 'integer',
+    'description': 'assetsId 的父资产语义别名。',
+  },
+  'parentAssetsId': {
+    'type': 'integer',
+    'description': 'assetsId 的 ToonFlow 复数字段别名。',
+  },
+  'asset_id': {
+    'type': 'integer',
+    'description': 'assetId 的 snake_case 别名。',
+  },
+  'assets_id': {
+    'type': 'integer',
+    'description': 'assetsId 的 snake_case 别名。',
+  },
+  'parent_asset_id': {
+    'type': 'integer',
+    'description': 'parentAssetId 的 snake_case 别名。',
+  },
+  'parent_assets_id': {
+    'type': 'integer',
+    'description': 'parentAssetsId 的 snake_case 别名。',
+  },
+  'id': {
+    'type': ['integer', 'null'],
+    'description': '可选。已有衍生资产 id；为空时新增。',
+  },
+  'deriveAssetId': {
+    'type': ['integer', 'null'],
+    'description': 'id 的衍生资产语义别名。',
+  },
+  'childAssetId': {
+    'type': ['integer', 'null'],
+    'description': 'id 的子资产语义别名。',
+  },
+  'derive_asset_id': {
+    'type': ['integer', 'null'],
+    'description': 'deriveAssetId 的 snake_case 别名。',
+  },
+  'child_asset_id': {
+    'type': ['integer', 'null'],
+    'description': 'childAssetId 的 snake_case 别名。',
+  },
+  'name': {
+    'type': 'string',
+    'description': '衍生资产名称。',
+  },
+  'assetName': {
+    'type': 'string',
+    'description': 'name 的资产语义别名。',
+  },
+  'deriveAssetName': {
+    'type': 'string',
+    'description': 'name 的衍生资产语义别名。',
+  },
+  'childAssetName': {
+    'type': 'string',
+    'description': 'name 的子资产语义别名。',
+  },
+  'asset_name': {
+    'type': 'string',
+    'description': 'assetName 的 snake_case 别名。',
+  },
+  'derive_asset_name': {
+    'type': 'string',
+    'description': 'deriveAssetName 的 snake_case 别名。',
+  },
+  'child_asset_name': {
+    'type': 'string',
+    'description': 'childAssetName 的 snake_case 别名。',
+  },
+  'desc': {
+    'type': 'string',
+    'description': '衍生资产描述。',
+  },
+  'describe': {
+    'type': 'string',
+    'description': 'desc 的 ToonFlow 资产描述别名。',
+  },
+  'description': {
+    'type': 'string',
+    'description': 'desc 的自然语言别名。',
+  },
+  'assetDesc': {
+    'type': 'string',
+    'description': 'desc 的资产描述别名。',
+  },
+  'assetDescription': {
+    'type': 'string',
+    'description': 'description 的资产语义别名。',
+  },
+  'asset_desc': {
+    'type': 'string',
+    'description': 'assetDesc 的 snake_case 别名。',
+  },
+  'asset_description': {
+    'type': 'string',
+    'description': 'assetDescription 的 snake_case 别名。',
+  },
+  'scriptId': {'type': 'integer'},
+  'episodeId': {
+    'type': 'integer',
+    'description': 'scriptId 的剧集语义别名。',
+  },
+  'episodesId': {
+    'type': 'integer',
+    'description': 'scriptId 的 ToonFlow 旧字段别名。',
+  },
+  'script_id': {
+    'type': 'integer',
+    'description': 'scriptId 的 snake_case 别名。',
+  },
+  'episode_id': {
+    'type': 'integer',
+    'description': 'episodeId 的 snake_case 别名。',
+  },
+  'episodes_id': {
+    'type': 'integer',
+    'description': 'episodesId 的 snake_case 别名。',
+  },
+};
+
 const _productionAgentReadWriteTools = <AgentToolDef>[
   AgentToolDef(
     name: 'get_flowData',
@@ -334,16 +466,7 @@ const _productionAgentReadWriteTools = <AgentToolDef>[
     description: '新增或更新某个父资产的衍生资产。',
     schema: {
       'type': 'object',
-      'properties': {
-        'assetsId': {'type': 'integer'},
-        'id': {
-          'type': ['integer', 'null']
-        },
-        'name': {'type': 'string'},
-        'desc': {'type': 'string'},
-        'scriptId': {'type': 'integer'},
-      },
-      'required': ['assetsId', 'name', 'desc'],
+      'properties': _deriveAssetWriteAliasProperties,
     },
   ),
   AgentToolDef(

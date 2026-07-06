@@ -8244,12 +8244,43 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final parentId = _coerceInt(args['assetsId']);
+    final parentId = _coerceInt(_argAny(args, const [
+      'assetsId',
+      'assetId',
+      'parentAssetId',
+      'parentAssetsId',
+      'asset_id',
+      'assets_id',
+      'parent_asset_id',
+      'parent_assets_id',
+    ]));
     if (parentId == null) return '缺少 assetsId 参数。';
-    final name = (args['name'] ?? '').toString().trim();
+    final name = _stringArgAny(args, const [
+      'name',
+      'assetName',
+      'deriveAssetName',
+      'childAssetName',
+      'asset_name',
+      'derive_asset_name',
+      'child_asset_name',
+    ]);
     if (name.isEmpty) return '缺少 name 参数。';
-    final desc = (args['desc'] ?? args['describe'] ?? '').toString().trim();
-    final id = _coerceInt(args['id']);
+    final desc = _stringArgAny(args, const [
+      'desc',
+      'describe',
+      'description',
+      'assetDesc',
+      'assetDescription',
+      'asset_desc',
+      'asset_description',
+    ]);
+    final id = _coerceInt(_argAny(args, const [
+      'id',
+      'deriveAssetId',
+      'childAssetId',
+      'derive_asset_id',
+      'child_asset_id',
+    ]));
     final parent = db
         .select('SELECT type FROM o_assets WHERE id=?', [parentId]).firstOrNull;
     if (parent == null) return '关联的资产不存在。';
