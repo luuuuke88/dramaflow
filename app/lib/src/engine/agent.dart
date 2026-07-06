@@ -462,7 +462,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色/minSimilarity/createdAfter 等过滤提示。',
+        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色/minSimilarity/createdAfter/orderBy 等过滤提示。',
   },
   'retrievalPlan': {
     'type': 'array',
@@ -12567,16 +12567,38 @@ extension AgentApi on Engine {
   }
 
   String _agentMemorySortMode(Map<String, dynamic> args) {
-    final raw = (args['orderBy'] ??
-            args['sortBy'] ??
-            args['sortOrder'] ??
-            args['order'] ??
-            args['排序'] ??
-            args['排序方式'] ??
-            '')
-        .toString()
-        .trim()
-        .toLowerCase();
+    final explicitRaw = args['orderBy'] ??
+        args['sortBy'] ??
+        args['sortOrder'] ??
+        args['order'] ??
+        args['排序'] ??
+        args['排序方式'];
+    final explicitMode = _coerceAgentMemorySortMode(explicitRaw);
+    if (explicitMode != null) return explicitMode;
+    if (explicitRaw != null && explicitRaw.toString().trim().isNotEmpty) {
+      return 'relevance';
+    }
+    for (final value in _agentMemoryQueryPlanSortModeValues(args)) {
+      final planMode = _coerceAgentMemorySortMode(value);
+      if (planMode != null) return planMode;
+    }
+    return 'relevance';
+  }
+
+  List<Object?> _agentMemoryQueryPlanSortModeValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'orderBy',
+        'sortBy',
+        'sortOrder',
+        'order',
+        '排序',
+        '排序方式',
+      ]);
+
+  String? _coerceAgentMemorySortMode(Object? rawValue) {
+    final raw = (rawValue ?? '').toString().trim().toLowerCase();
     switch (raw) {
       case 'oldest':
       case 'oldest_first':
@@ -12616,10 +12638,11 @@ extension AgentApi on Engine {
       case '相关性':
       case '分数':
       case '默认':
+        return 'relevance';
       case '':
-        return 'relevance';
+        return null;
       default:
-        return 'relevance';
+        return null;
     }
   }
 

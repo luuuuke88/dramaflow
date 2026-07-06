@@ -324,6 +324,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured query-plan items carrying time-window filters such as `createdAfter` or `开始时间`, so `memory_get` and `deepRetrieve` can restrict model-authored RAG plans to a specific production period without moving time filters to top-level tool arguments.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured query-plan items carrying natural ordering controls such as `orderBy` or `排序`, so `memory_get` and `deepRetrieve` can replay model-authored RAG plans chronologically or latest-first without requiring a separate top-level sort argument.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
