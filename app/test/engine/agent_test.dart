@@ -3639,6 +3639,77 @@ return JSON.stringify(shots);
     );
   });
 
+  test('自定义脚本技能：支持字符串和数组搜索位置参数', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_search_position_runtime',
+      name: '搜索位置参数脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 includes(value, fromIndex)、startsWith(value, position)、endsWith(value, endPosition)。',
+      script: r'''
+const text = args.workspace;
+const cleaned = args.lines
+  .filter(line => !line.startsWith('#', 0) && !line.endsWith('废弃', line.length - 1))
+  .join('|');
+const ids = args.ids
+  .filter(id => args.selectedIds.includes(id, 1))
+  .join(',');
+return JSON.stringify({
+  hasLaterSeedance: text.includes('Seedance', 8),
+  hasEarlySeedance: text.includes('Seedance', 0),
+  startsAtOffset: text.startsWith('Seedance', 5),
+  endsBeforeSuffix: text.endsWith('完成', text.length - 4),
+  cleaned,
+  ids,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+          'lines': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'ids': {
+            'type': 'array',
+            'items': {'type': 'number'},
+          },
+          'selectedIds': {
+            'type': 'array',
+            'items': {'type': 'number'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_search_position_runtime', const {
+        'workspace': '开场说明 Seedance 完成；复查 Seedance 完成 ###',
+        'lines': ['# 注释', '镜头一有效', '镜头二废弃x'],
+        'ids': [1, 2, 3],
+        'selectedIds': [1, 3],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用搜索位置参数脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_search_position_runtime');
+    expect(jsonDecode(msg.content), {
+      'hasLaterSeedance': true,
+      'hasEarlySeedance': true,
+      'startsAtOffset': true,
+      'endsBeforeSuffix': true,
+      'cleaned': '镜头一有效',
+      'ids': '3',
+    });
+  });
+
   test('自定义脚本技能：支持 indexOf substring 和字符串 slice 解析工作区', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_string_index_runtime',

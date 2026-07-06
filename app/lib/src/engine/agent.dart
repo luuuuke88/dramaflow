@@ -1637,15 +1637,24 @@ class _CustomAgentSkillRuntime {
         if (index < 0 || index >= text.length) return '';
         return text[index];
       case 'startsWith':
-        if (args.length != 1) _badMethodArgs(method);
-        return '${value ?? ''}'.startsWith(
-          _stringifyInterpolation(_evaluate(args.single)),
+        if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        final text = '${value ?? ''}';
+        final start = args.length == 2
+            ? _normalizeSearchStart(_toInt(_evaluate(args[1])), text.length)
+            : 0;
+        return text.startsWith(
+          _stringifyInterpolation(_evaluate(args.first)),
+          start,
         );
       case 'endsWith':
-        if (args.length != 1) _badMethodArgs(method);
-        return '${value ?? ''}'.endsWith(
-          _stringifyInterpolation(_evaluate(args.single)),
-        );
+        if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        final text = '${value ?? ''}';
+        final end = args.length == 2
+            ? _normalizeSearchStart(_toInt(_evaluate(args[1])), text.length)
+            : text.length;
+        return text.substring(0, end).endsWith(
+              _stringifyInterpolation(_evaluate(args.first)),
+            );
       case 'padStart':
         return _padString(
           '${value ?? ''}',
@@ -1653,12 +1662,22 @@ class _CustomAgentSkillRuntime {
           args: args,
         );
       case 'includes':
-        if (args.length != 1) _badMethodArgs(method);
-        final needle = _evaluate(args.single);
+        if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        final needle = _evaluate(args.first);
         if (value is Iterable && value is! String) {
-          return value.any((item) => _compareValues(item, needle, '==='));
+          final items = value is List ? value : value.toList();
+          final start = args.length == 2
+              ? _normalizeSliceIndex(_toInt(_evaluate(args[1])), items.length)
+              : 0;
+          return items
+              .skip(start)
+              .any((item) => _compareValues(item, needle, '==='));
         }
-        return '${value ?? ''}'.contains('${needle ?? ''}');
+        final text = '${value ?? ''}';
+        final start = args.length == 2
+            ? _normalizeSearchStart(_toInt(_evaluate(args[1])), text.length)
+            : 0;
+        return text.indexOf('${needle ?? ''}', start) >= 0;
       case 'hasOwnProperty':
         if (args.length != 1) _badMethodArgs(method);
         return _hasOwnProperty(value, _evaluate(args.single));
