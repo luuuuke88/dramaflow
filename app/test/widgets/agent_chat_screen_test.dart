@@ -809,12 +809,17 @@ void main() {
         as String;
 
     expect(setting('agent.memory.messagesPerSummary'), '4');
+    expect(setting('messagesPerSummary'), '4');
     expect(setting('agent.memory.summaryMaxLength'), '640');
+    expect(setting('summaryMaxLength'), '640');
     expect(setting('agent.memory.shortTermLimit'), '6');
+    expect(setting('shortTermLimit'), '6');
     expect(setting('agent.memory.summaryLimit'), '8');
+    expect(setting('summaryLimit'), '8');
     expect(setting('agent.memory.ragLimit'), '2');
     expect(setting('ragLimit'), '2');
     expect(setting('agent.memory.deepRetrieveSummaryLimit'), '7');
+    expect(setting('deepRetrieveSummaryLimit'), '7');
     expect(setting('agent.memory.rerankEnabled'), '1');
   });
 

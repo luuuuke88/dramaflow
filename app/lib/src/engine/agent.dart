@@ -6176,52 +6176,54 @@ extension AgentApi on Engine {
     bool? rerankEnabled,
   }) {
     if (messagesPerSummary != null) {
-      _writeAgentIntSetting(
+      _writeAgentIntSettingWithLegacy(
         'agent.memory.messagesPerSummary',
+        'messagesPerSummary',
         messagesPerSummary,
         min: 1,
         max: 50,
       );
     }
     if (summaryMaxLength != null) {
-      _writeAgentIntSetting(
+      _writeAgentIntSettingWithLegacy(
         'agent.memory.summaryMaxLength',
+        'summaryMaxLength',
         summaryMaxLength,
         min: 80,
         max: 4000,
       );
     }
     if (shortTermLimit != null) {
-      _writeAgentIntSetting(
+      _writeAgentIntSettingWithLegacy(
         'agent.memory.shortTermLimit',
+        'shortTermLimit',
         shortTermLimit,
         min: 0,
         max: 100,
       );
     }
     if (summaryLimit != null) {
-      _writeAgentIntSetting(
+      _writeAgentIntSettingWithLegacy(
         'agent.memory.summaryLimit',
+        'summaryLimit',
         summaryLimit,
         min: 0,
         max: 100,
       );
     }
     if (ragLimit != null) {
-      final normalized = _writeAgentIntSetting(
+      _writeAgentIntSettingWithLegacy(
         'agent.memory.ragLimit',
+        'ragLimit',
         ragLimit,
         min: 0,
         max: 50,
       );
-      db.execute(
-        'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
-        ['ragLimit', '$normalized'],
-      );
     }
     if (deepRetrieveSummaryLimit != null) {
-      _writeAgentIntSetting(
+      _writeAgentIntSettingWithLegacy(
         'agent.memory.deepRetrieveSummaryLimit',
+        'deepRetrieveSummaryLimit',
         deepRetrieveSummaryLimit,
         min: 0,
         max: 50,
@@ -6245,6 +6247,26 @@ extension AgentApi on Engine {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
       [key, '$normalized'],
+    );
+    return normalized;
+  }
+
+  int _writeAgentIntSettingWithLegacy(
+    String key,
+    String legacyKey,
+    int value, {
+    required int min,
+    required int max,
+  }) {
+    final normalized = _writeAgentIntSetting(
+      key,
+      value,
+      min: min,
+      max: max,
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      [legacyKey, '$normalized'],
     );
     return normalized;
   }
