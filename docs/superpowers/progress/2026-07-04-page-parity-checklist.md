@@ -316,6 +316,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_ge
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured query-plan items carrying memory scope/type hints such as `scope=long_term` or `记忆范围=长期记忆`, so `memory_get` and `deepRetrieve` can route model-authored RAG plans directly to long-term notes without requiring a separate top-level memory filter.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured query-plan items carrying memory role filters such as `memoryRoles` or `记忆角色`, so `memory_get` and `deepRetrieve` can retrieve execution-layer, user, assistant, or other stage-specific memories from model-authored RAG plans without mixing unrelated role noise.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
