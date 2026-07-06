@@ -1363,6 +1363,50 @@ return JSON.stringify({ calcW, calcH });
     });
   });
 
+  test('自定义脚本技能：支持 Math.random 和数字 toString 进制', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_math_random_runtime',
+      name: '随机编号脚本运行时',
+      description:
+          '验证自定义技能兼容 ToonFlow 常见的 Math.random().toString(36).slice(2) 写法。',
+      script: r'''
+const requestId = `toonflow_ima2_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+const temperature = 72 + Math.floor(Math.random() * 21) - 10;
+const suffix = requestId.slice(requestId.lastIndexOf('_') + 1);
+return JSON.stringify({
+  hasPrefix: requestId.startsWith('toonflow_ima2_'),
+  suffixNotEmpty: suffix.length > 0,
+  suffixLooksBase36: /^[0-9a-z.]+$/.test(suffix),
+  temperatureInRange: temperature >= 62 && temperature <= 82,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {},
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_math_random_runtime', const {}),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用随机编号脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_math_random_runtime');
+    expect(jsonDecode(msg.content), {
+      'hasPrefix': true,
+      'suffixNotEmpty': true,
+      'suffixLooksBase36': true,
+      'temperatureInRange': true,
+    });
+  });
+
   test('自定义脚本技能：支持 Object.hasOwn 和 hasOwnProperty 判断字段存在性', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_has_own_runtime',

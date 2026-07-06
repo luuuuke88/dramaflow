@@ -443,6 +443,7 @@ Object? _customJsMutableValue(Object? value) {
 // 受限 JS-like 解释器：只开放 projectId/args 和少量纯表达式，避免自定义技能触达系统资源。
 class _CustomAgentSkillRuntime {
   final Map<String, Object?> _scope;
+  final math.Random _random = math.Random();
 
   _CustomAgentSkillRuntime({
     required int projectId,
@@ -1623,7 +1624,11 @@ class _CustomAgentSkillRuntime {
         _expectNoArgs(method, args);
         return '${value ?? ''}'.toLowerCase();
       case 'toString':
-        _expectNoArgs(method, args);
+        if (args.length > 1) _badMethodArgs(method);
+        if (args.length == 1) {
+          if (value is! num) _badMethodArgs(method);
+          return _numberToRadixString(value, _toInt(_evaluate(args.single)));
+        }
         return '${value ?? ''}';
       case 'toFixed':
         return _numberToFixed(value, args);
@@ -2112,6 +2117,31 @@ class _CustomAgentSkillRuntime {
     if (value.isNaN) return 'NaN';
     if (value.isInfinite) return value.isNegative ? '-Infinity' : 'Infinity';
     return value.toStringAsFixed(fractionDigits);
+  }
+
+  String _numberToRadixString(num value, int radix) {
+    if (radix < 2 || radix > 36) _badMethodArgs('toString');
+    if (value.isNaN) return 'NaN';
+    if (value.isInfinite) return value.isNegative ? '-Infinity' : 'Infinity';
+    const digits = '0123456789abcdefghijklmnopqrstuvwxyz';
+    final negative = value < 0;
+    var absolute = value.abs();
+    final integerPart = absolute.floor();
+    var text = integerPart.toRadixString(radix);
+    var fraction = absolute - integerPart;
+    if (fraction > 0) {
+      final buffer = StringBuffer('$text.');
+      var guard = 0;
+      while (fraction > 0 && guard < 16) {
+        fraction *= radix;
+        final digit = fraction.floor();
+        buffer.write(digits[digit]);
+        fraction -= digit;
+        guard++;
+      }
+      text = buffer.toString();
+    }
+    return negative ? '-$text' : text;
   }
 
   int _arrayIndexOf(List<Object?> items, Object? needle, int fromIndex) {
@@ -2831,6 +2861,9 @@ class _CustomAgentSkillRuntime {
       case 'sqrt':
         if (numbers.length != 1) _badMethodArgs(method);
         return math.sqrt(numbers.single);
+      case 'random':
+        if (numbers.isNotEmpty) _badMethodArgs(method);
+        return _random.nextDouble();
       case 'max':
         if (numbers.isEmpty) _badMethodArgs(method);
         return numbers.reduce((a, b) => a > b ? a : b);
