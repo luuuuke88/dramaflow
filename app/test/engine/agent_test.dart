@@ -6947,6 +6947,35 @@ description: >-
     expect(toolAudit['content'], contains('章节 0 个'));
   });
 
+  test('Agent 记忆：工具审计记忆默认不参与自动摘要', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '2'],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('get_status', const {}),
+    ];
+
+    await engine.sendAgentMessage(projectId, '看一下寒山项目进度', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content,summarized FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    expect(rows.map((row) => row['role']),
+        [agentRoleUser, 'assistant:decision:tool', agentRoleTool]);
+    expect(rows.map((row) => row['summarized']), [0, 1, 1]);
+    expect(rows[1]['content'], contains('工具 get_status 执行结果'));
+    expect(rows.last['content'], contains('章节 0 个'));
+
+    final summaries = db.select(
+      'SELECT content FROM memories WHERE isolationKey=? AND type=?',
+      ['scriptAgent:$projectId', 'summary'],
+    );
+    expect(summaries, isEmpty);
+  });
+
   test('Agent 记忆：deepRetrieve 工具从 summary 展开原始 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
@@ -8417,6 +8446,58 @@ description: >-
     expect(
         context.relatedMessages.map((item) => item.id), ['rag_relevant_msg']);
     expect(gateway.textCallCount, 0);
+  });
+
+  test('AgentMemoryService 摘要前会跳过遗留未摘要工具审计记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '2'],
+    );
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'legacy_tool_audit',
+        '',
+        '工具审计噪声：寒山戒律 寒山戒律 已写入日志。',
+        now,
+        embeddingJson('工具审计噪声：寒山戒律 寒山戒律 已写入日志。'),
+        'scriptAgent:$projectId',
+        '[]',
+        'assistant:decision:tool',
+        0,
+        agentMemoryTypeMessage,
+      ],
+    );
+
+    final userMemoryId = await service.add(
+      isolationKey: 'scriptAgent:$projectId',
+      role: agentRoleUser,
+      content: '用户设定：寒山戒律要求李澈先保护沈微。',
+      createTime: now + 1,
+    );
+
+    final rows = db.select(
+      'SELECT id,summarized FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', agentMemoryTypeMessage],
+    );
+    expect(
+      {for (final row in rows) row['id']: row['summarized']},
+      {'legacy_tool_audit': 1, userMemoryId: 0},
+    );
+    final summaries = db.select(
+      'SELECT content FROM memories WHERE isolationKey=? AND type=?',
+      ['scriptAgent:$projectId', agentMemoryTypeSummary],
+    );
+    expect(summaries, isEmpty);
   });
 
   test('AgentMemoryService get 支持注入 embedding provider 召回语义相关 message',

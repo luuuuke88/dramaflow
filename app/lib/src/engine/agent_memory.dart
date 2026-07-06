@@ -8,6 +8,7 @@ import 'providers/gateway.dart';
 const agentMemoryTypeMessage = 'message';
 const agentMemoryTypeSummary = 'summary';
 const agentMemoryTypeNote = 'note';
+const _agentMemoryToolRole = 'tool';
 const agentMemoryScopeAll = 'all';
 
 class AgentMemoryEntry {
@@ -206,7 +207,7 @@ class AgentMemoryService {
         isolationKey,
         '[]',
         role,
-        0,
+        _isToolAuditRole(role) ? 1 : 0,
         agentMemoryTypeMessage,
       ],
     );
@@ -1037,6 +1038,7 @@ class AgentMemoryService {
     CancelToken? cancelToken,
   }) async {
     final settings = readSettings();
+    _markToolAuditMessagesSummarized(isolationKey);
     final rows = db.select(
       'SELECT id,role,content,createTime FROM memories '
       'WHERE isolationKey=? AND type=? AND COALESCE(summarized,0)=0 '
@@ -1089,6 +1091,25 @@ class AgentMemoryService {
       'UPDATE memories SET summarized=1 WHERE isolationKey=? AND type=? AND id IN ($placeholders)',
       [isolationKey, agentMemoryTypeMessage, ...ids],
     );
+  }
+
+  void _markToolAuditMessagesSummarized(String isolationKey) {
+    db.execute(
+      'UPDATE memories SET summarized=1 '
+      'WHERE isolationKey=? AND type=? AND COALESCE(summarized,0)=0 '
+      'AND (role=? OR role LIKE ?)',
+      [
+        isolationKey,
+        agentMemoryTypeMessage,
+        _agentMemoryToolRole,
+        '%:tool',
+      ],
+    );
+  }
+
+  bool _isToolAuditRole(String role) {
+    final normalized = role.trim();
+    return normalized == _agentMemoryToolRole || normalized.endsWith(':tool');
   }
 
   String _fallbackSummary(String source, AgentMemorySettings settings) {
