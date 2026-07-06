@@ -3160,7 +3160,27 @@ class _CustomAgentSkillRuntime {
           'param': name,
         });
       }
+      final explicitFields = {
+        for (final binding in objectBindings)
+          if (!binding.isRest) binding.fieldName,
+      };
       for (final binding in objectBindings) {
+        if (binding.isRest) {
+          final rest = <String, Object?>{};
+          for (final entry in value.entries) {
+            final key = '${entry.key}';
+            if (!explicitFields.contains(key)) {
+              rest[key] = entry.value;
+            }
+          }
+          _bindUniqueCallbackName(
+            bindings,
+            binding.bindingName,
+            rest,
+            method,
+          );
+          continue;
+        }
         var boundValue = value[binding.fieldName];
         if (boundValue == null && binding.defaultExpression != null) {
           boundValue = _evaluate(binding.defaultExpression!);
@@ -3225,11 +3245,17 @@ class _CustomAgentSkillRuntime {
     final inner = _literalInner(source, '{', '}');
     if (inner == null) return null;
     final bindings = <_CustomJsObjectDestructureBinding>[];
-    for (final item in _splitTopLevel(inner, ',')) {
+    final items = _splitTopLevel(inner, ',');
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
       final trimmed = item.trim();
       if (trimmed.isEmpty) continue;
       final binding = _readObjectDestructureBinding(trimmed);
       if (binding == null) return null;
+      if (binding.isRest &&
+          (i != items.length - 1 || bindings.any((item) => item.isRest))) {
+        return null;
+      }
       bindings.add(binding);
     }
     return bindings.isEmpty ? null : bindings;
@@ -3239,6 +3265,16 @@ class _CustomAgentSkillRuntime {
     String source,
   ) {
     final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
+    if (source.startsWith('...')) {
+      final bindingName = source.substring(3).trim();
+      if (!validName.hasMatch(bindingName)) return null;
+      return _CustomJsObjectDestructureBinding(
+        fieldName: '',
+        bindingName: bindingName,
+        defaultExpression: null,
+        isRest: true,
+      );
+    }
     final colon = _findTopLevelColon(source);
     final rawFieldName = colon < 0 ? null : source.substring(0, colon).trim();
     var bindingSource =
@@ -3260,6 +3296,7 @@ class _CustomAgentSkillRuntime {
       fieldName: fieldName,
       bindingName: bindingName,
       defaultExpression: defaultExpression,
+      isRest: false,
     );
   }
 
@@ -3504,11 +3541,13 @@ class _CustomJsObjectDestructureBinding {
   final String fieldName;
   final String bindingName;
   final String? defaultExpression;
+  final bool isRest;
 
   const _CustomJsObjectDestructureBinding({
     required this.fieldName,
     required this.bindingName,
     required this.defaultExpression,
+    required this.isRest,
   });
 }
 

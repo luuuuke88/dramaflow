@@ -4204,6 +4204,103 @@ return `分镜摘要：${names}`;
     expect(msg.content, '分镜摘要：1.雪夜山门:3s、2.李澈拔剑:1s');
   });
 
+  test('自定义脚本技能：支持对象解构 rest 保留剩余 payload', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_object_rest_runtime',
+      name: '对象 rest 解构脚本运行时',
+      description: '验证自定义技能兼容模型常写的 ({ id, ...payload }) => ...。',
+      script: r'''
+const { id: primaryId, type: primaryType, ...primaryPayload } = args.primary;
+const normalized = args.assets.map(({ id, type, ...payload }) => ({
+  id,
+  type,
+  payload: {
+    ...payload,
+    name: payload.name.trim(),
+    inheritedScene: primaryPayload.scene,
+  },
+}));
+return JSON.stringify({
+  primaryId,
+  primaryType,
+  primaryPayloadKeys: Object.keys(primaryPayload).sort().join('|'),
+  normalized,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'primary': {'type': 'object'},
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_object_rest_runtime', const {
+        'primary': {
+          'id': 1,
+          'type': 'role',
+          'name': ' 李澈 ',
+          'scene': '寒山宗门',
+          'temporary': true,
+        },
+        'assets': [
+          {
+            'id': 101,
+            'type': 'role',
+            'name': ' 沈微 ',
+            'prompt': '白衣剑修',
+          },
+          {
+            'id': 202,
+            'type': 'scene',
+            'name': ' 山门 ',
+            'weather': '雪夜',
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用对象 rest 解构脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_object_rest_runtime');
+    expect(jsonDecode(msg.content), {
+      'primaryId': 1,
+      'primaryType': 'role',
+      'primaryPayloadKeys': 'name|scene|temporary',
+      'normalized': [
+        {
+          'id': 101,
+          'type': 'role',
+          'payload': {
+            'name': '沈微',
+            'prompt': '白衣剑修',
+            'inheritedScene': '寒山宗门',
+          },
+        },
+        {
+          'id': 202,
+          'type': 'scene',
+          'payload': {
+            'name': '山门',
+            'weather': '雪夜',
+            'inheritedScene': '寒山宗门',
+          },
+        },
+      ],
+    });
+  });
+
   test('自定义脚本技能：支持 sort 和 slice 选择重点资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_sort_slice_runtime',
