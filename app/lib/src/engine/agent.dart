@@ -1644,6 +1644,9 @@ class _CustomAgentSkillRuntime {
           return value.any((item) => _compareValues(item, needle, '==='));
         }
         return '${value ?? ''}'.contains('${needle ?? ''}');
+      case 'hasOwnProperty':
+        if (args.length != 1) _badMethodArgs(method);
+        return _hasOwnProperty(value, _evaluate(args.single));
       case 'match':
         if (args.length != 1) _badMethodArgs(method);
         return _matchString('${value ?? ''}', _evaluate(args.single));
@@ -2660,6 +2663,10 @@ class _CustomAgentSkillRuntime {
         return _objectAssign(args);
       case 'fromEntries':
         return _objectFromEntries(args);
+      case 'hasOwn':
+        final values = _evaluateCallArguments(args);
+        if (values.length != 2) _badMethodArgs(method);
+        return _hasOwnProperty(values.first, values[1]);
       case 'keys':
       case 'values':
       case 'entries':
@@ -2949,6 +2956,8 @@ class _CustomAgentSkillRuntime {
     }
     return false;
   }
+
+  bool _hasOwnProperty(Object? value, Object? key) => _hasProperty(value, key);
 
   Map<String, Object?> _customJsErrorObject(Object error) {
     if (error is _CustomJsError) {
