@@ -1579,7 +1579,14 @@ List<ScriptAgentScriptItem> parseScriptAgentScriptItems(String source) {
   for (final match in matches) {
     final attrs = match.group(1) ?? '';
     final body = match.group(2) ?? '';
-    final name = _attributeValue(attrs, 'name').trim();
+    final name = _attributeValueAny(attrs, const [
+      'name',
+      'scriptName',
+      'episodeName',
+      'title',
+      'script_name',
+      'episode_name',
+    ]).trim();
     if (name.isEmpty) continue;
 
     final contentMatch = RegExp(
@@ -1806,12 +1813,12 @@ bool _truthyText(String source, {required bool defaultValue}) {
 String _attributeValue(String attrs, String name) {
   final escaped = RegExp.escape(name);
   final quoted = RegExp(
-    "$escaped\\s*=\\s*([\"'])(.*?)\\1",
+    "(?:^|\\s)$escaped\\s*=\\s*([\"'])(.*?)\\1",
     caseSensitive: false,
   ).firstMatch(attrs);
   if (quoted != null) return quoted.group(2) ?? '';
   final bare = RegExp(
-    '$escaped\\s*=\\s*([^\\s>]+)',
+    '(?:^|\\s)$escaped\\s*=\\s*([^\\s>]+)',
     caseSensitive: false,
   ).firstMatch(attrs);
   return bare?.group(1) ?? '';

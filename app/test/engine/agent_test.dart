@@ -14281,6 +14281,45 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         contains('剧本 Agent 已写入 2 个剧本'));
   });
 
+  test('ScriptAgentOrchestrator accepts scriptItem name aliases', () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_script',
+        const {'prompt': '写第一集'},
+      ),
+      const AgentTurnResult.text(
+        '<scriptItem episodeName="第一集"><content>李澈入山。</content></scriptItem>'
+        '<scriptItem scriptName="第二集">寒山试剑。</scriptItem>',
+      ),
+    ];
+
+    await engine.sendAgentMessage(projectId, '生成剧本正文', autoMode: false);
+
+    final rows = engine.scripts(projectId);
+    expect(rows.map((row) => row.name), ['第一集', '第二集']);
+    expect(rows[0].content, '李澈入山。');
+    expect(rows[1].content, '寒山试剑。');
+  });
+
+  test('ScriptAgentOrchestrator ignores partial scriptItem attribute names',
+      () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_script',
+        const {'prompt': '写第一集'},
+      ),
+      const AgentTurnResult.text(
+        '<scriptItem username="不该成为剧本名">李澈入山。</scriptItem>',
+      ),
+    ];
+
+    await engine.sendAgentMessage(projectId, '生成剧本正文', autoMode: false);
+
+    expect(engine.scripts(projectId), isEmpty);
+    expect(engine.agentMessages(projectId).last.content,
+        contains('剧本 Agent 未输出 scriptItem'));
+  });
+
   test(
       'ProductionAgentOrchestrator uses decision stage and exposes production subagent tools',
       () async {
