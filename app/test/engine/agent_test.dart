@@ -1964,6 +1964,69 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持数组 keys values entries 迭代', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_iteration_runtime',
+      name: '数组迭代器脚本运行时',
+      description: '验证自定义技能兼容模型常写的 array.keys/values/entries。',
+      script: r'''
+const labels = [];
+for (const [index, shot] of args.storyboards.entries()) {
+  if (!shot.videoDesc?.trim()) {
+    continue;
+  }
+  labels.push(`${index + 1}.${shot.videoDesc.trim()}`);
+}
+return JSON.stringify({
+  labels: labels.join('、'),
+  keys: Array.from(args.storyboards.keys()).join('|'),
+  values: args.storyboards.values()
+    .map(shot => shot.videoDesc?.trim() || '空镜')
+    .join('|'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_iteration_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 '},
+          {'videoDesc': ''},
+          {'videoDesc': '李澈拔剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组迭代器脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_iteration_runtime');
+    expect(jsonDecode(msg.content), {
+      'labels': '1.雪夜山门、3.李澈拔剑',
+      'keys': '0|1|2',
+      'values': '雪夜山门|空镜|李澈拔剑',
+    });
+  });
+
   test('自定义脚本技能：支持 Set 去重和 has/add/delete', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_set_runtime',

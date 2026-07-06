@@ -2538,6 +2538,13 @@ class _CustomAgentSkillRuntime {
           return value;
         }
         return value.toList().reversed.toList();
+      case 'keys':
+      case 'values':
+      case 'entries':
+        if (args.isNotEmpty || value is! Iterable || value is String) {
+          _badMethodArgs(method);
+        }
+        return _arrayIteratorValues(value.toList(), method);
       case 'slice':
         if (args.length > 2) _badMethodArgs(method);
         if (value is String) {
@@ -2572,6 +2579,16 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  List<Object?> _arrayIteratorValues(List<Object?> items, String method) {
+    if (method == 'values') return List<Object?>.from(items);
+    if (method == 'entries') {
+      return [
+        for (var index = 0; index < items.length; index++) [index, items[index]]
+      ];
+    }
+    return [for (var index = 0; index < items.length; index++) index];
   }
 
   List<Object?> _spliceList(List value, List<String> args) {

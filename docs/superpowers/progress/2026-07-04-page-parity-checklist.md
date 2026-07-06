@@ -262,6 +262,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible in-place `Array.reverse()`, so custom skills that reverse a generated reference/storyboard list and then continue reading the same variable match ordinary JavaScript behavior.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Array.keys()`, `Array.values()`, and `Array.entries()`, so model-authored scripts can use `for (const [index, shot] of storyboards.entries())` while numbering storyboard rows.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Array.reduce((acc, item, index, array) => ...)` callback arguments, so custom skills can number storyboard/reference rows and inspect the source list length while accumulating structured output.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers object-literal computed property names such as dynamic `[asset.type]` and template-literal keys, so model-authored skills can build dynamic Agent payloads without falling back to multi-step assignment.
