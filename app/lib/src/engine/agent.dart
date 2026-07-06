@@ -459,6 +459,46 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'query 的简写别名。',
         },
+        'queries': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。一次提供多个查询词，工具会合并检索结果并去重。',
+        },
+        'queryList': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'queries 的自然语言别名。',
+        },
+        'query_list': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'queryList 的 snake_case 别名。',
+        },
+        'keywords': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'queries 的关键词列表别名。',
+        },
+        'keywordList': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'keywords 的自然语言别名。',
+        },
+        'keyword_list': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'keywordList 的 snake_case 别名。',
+        },
+        '查询列表': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'queries 的中文别名。',
+        },
+        '关键词列表': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'keywords 的中文别名。',
+        },
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -9465,21 +9505,8 @@ extension AgentApi on Engine {
             'content': content,
           });
         case 'memory_get':
-          final query = (args['query'] ??
-                  args['查询'] ??
-                  args['question'] ??
-                  args['问题'] ??
-                  args['text'] ??
-                  args['文本'] ??
-                  args['prompt'] ??
-                  args['提示词'] ??
-                  args['keyword'] ??
-                  args['关键词'] ??
-                  args['q'] ??
-                  '')
-              .toString()
-              .trim();
-          if (query.isEmpty) return '缺少 query 参数。';
+          final queries = _deepRetrieveQueries(args);
+          if (queries.isEmpty) return '缺少 query 参数。';
           final roles = _coerceStringSet(
             args['roles'] ??
                 args['role'] ??
@@ -9579,60 +9606,92 @@ extension AgentApi on Engine {
               types == null || types.contains(agentMemoryTypeSummary);
           final includeNotes = types?.contains(agentMemoryTypeNote) == true;
           final memoryService = _agentMemoryService(family: agentFamily);
-          final context = includeMessages || includeSummaries
-              ? await memoryService.get(
-                  isolationKey: _agentConversationIsolationKey(
-                    projectId,
-                    family: agentFamily,
-                  ),
-                  query: query,
-                  roles: roles,
-                  excludeRelatedIds: excludeIds,
-                  excludeRoles: excludeRoles,
-                  excludeRoleSuffixes: excludeRoleSuffixes,
-                  minScore: minScore,
-                  excludeIdsFromContext: true,
-                )
-              : const AgentMemoryContext();
-          final noteRecords = includeNotes
-              ? await memoryService.deepRetrieve(
-                  isolationKey: _agentConversationIsolationKey(
-                    projectId,
-                    family: agentFamily,
-                  ),
-                  keyword: query,
-                  roles: roles,
-                  excludeRoles: excludeRoles,
-                  excludeRoleSuffixes: excludeRoleSuffixes,
-                  types: const {agentMemoryTypeNote},
-                  excludeIds: excludeIds,
-                  minScore: minScore,
-                  noteIsolationKey: _agentMemoryIsolationKey(projectId),
-                )
-              : const <AgentMemoryEntry>[];
+          final relatedMessageRecords = <AgentMemoryEntry>[];
+          final summaryRecords = <AgentMemoryEntry>[];
+          final recentMessageRecords = <AgentMemoryEntry>[];
+          final noteRecords = <AgentMemoryEntry>[];
+          for (final query in queries) {
+            final queryExcludeIds = {
+              ...excludeIds,
+              for (final record in relatedMessageRecords) record.id,
+              for (final record in summaryRecords) record.id,
+              for (final record in recentMessageRecords) record.id,
+              for (final record in noteRecords) record.id,
+            };
+            final context = includeMessages || includeSummaries
+                ? await memoryService.get(
+                    isolationKey: _agentConversationIsolationKey(
+                      projectId,
+                      family: agentFamily,
+                    ),
+                    query: query,
+                    roles: roles,
+                    excludeRelatedIds: queryExcludeIds,
+                    excludeRoles: excludeRoles,
+                    excludeRoleSuffixes: excludeRoleSuffixes,
+                    minScore: minScore,
+                    excludeIdsFromContext: true,
+                  )
+                : const AgentMemoryContext();
+            if (includeMessages) {
+              relatedMessageRecords.addAll(context.relatedMessages);
+              recentMessageRecords.addAll(context.recentMessages);
+            }
+            if (includeSummaries) {
+              summaryRecords.addAll(context.summaries);
+            }
+            if (includeNotes) {
+              final noteExcludeIds = {
+                ...queryExcludeIds,
+                for (final record in context.relatedMessages) record.id,
+                for (final record in context.summaries) record.id,
+                for (final record in context.recentMessages) record.id,
+              };
+              noteRecords.addAll(await memoryService.deepRetrieve(
+                isolationKey: _agentConversationIsolationKey(
+                  projectId,
+                  family: agentFamily,
+                ),
+                keyword: query,
+                roles: roles,
+                excludeRoles: excludeRoles,
+                excludeRoleSuffixes: excludeRoleSuffixes,
+                types: const {agentMemoryTypeNote},
+                excludeIds: noteExcludeIds,
+                minScore: minScore,
+                noteIsolationKey: _agentMemoryIsolationKey(projectId),
+              ));
+            }
+          }
+          final dedupedRelatedMessages =
+              _dedupeAgentMemoryEntries(relatedMessageRecords);
           final relatedMessages = includeMessages
               ? (limit == null
-                  ? context.relatedMessages
-                  : context.relatedMessages.take(limit).toList())
+                  ? dedupedRelatedMessages
+                  : dedupedRelatedMessages.take(limit).toList())
               : const <AgentMemoryEntry>[];
-          final summaries =
-              includeSummaries ? context.summaries : const <AgentMemoryEntry>[];
+          final summaries = includeSummaries
+              ? _dedupeAgentMemoryEntries(summaryRecords)
+              : const <AgentMemoryEntry>[];
           final recentMessages = includeMessages
-              ? context.recentMessages
+              ? _dedupeAgentMemoryEntries(recentMessageRecords)
               : const <AgentMemoryEntry>[];
+          final dedupedNotes = _dedupeAgentMemoryEntries(noteRecords);
           final notes =
-              limit == null ? noteRecords : noteRecords.take(limit).toList();
+              limit == null ? dedupedNotes : dedupedNotes.take(limit).toList();
           if (relatedMessages.isEmpty &&
               summaries.isEmpty &&
               recentMessages.isEmpty &&
               notes.isEmpty) {
             return jsonEncode({
               'found': false,
+              'queries': queries,
               'message': '未找到相关记忆',
             });
           }
           return jsonEncode({
             'found': true,
+            'queries': queries,
             'memories': [
               for (final record in relatedMessages) record.content,
             ],
