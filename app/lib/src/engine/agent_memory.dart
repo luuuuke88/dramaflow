@@ -219,6 +219,7 @@ class AgentMemoryService {
     required String isolationKey,
     required String query,
     Set<String>? excludeRelatedIds,
+    Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
     CancelToken? cancelToken,
   }) async {
@@ -227,6 +228,7 @@ class AgentMemoryService {
     final tokens = memorySearchTokens(normalized);
     final queryEmbedding = embeddingProvider.embeddingFromText(normalized);
     final excludedRelatedIdFilter = _normalizeIdFilter(excludeRelatedIds);
+    final excludedRoleFilter = _normalizeRoleFilter(excludeRoles);
     final excludedRoleSuffixFilter = _normalizeRoleFilter(
       excludeRoleSuffixes,
     );
@@ -238,6 +240,7 @@ class AgentMemoryService {
             tokens: tokens,
             queryEmbedding: queryEmbedding,
             excludeIds: excludedRelatedIdFilter,
+            excludeRoles: excludedRoleFilter,
             excludeRoleSuffixes: excludedRoleSuffixFilter,
           );
     final relatedRaw = await _relatedMessagesForQuery(
@@ -262,7 +265,7 @@ class AgentMemoryService {
       null,
       null,
       null,
-      null,
+      excludedRoleFilter,
       excludedRoleSuffixFilter,
     );
     final related = _attachSourceSummaries(relatedRaw, summaries);
@@ -283,7 +286,7 @@ class AgentMemoryService {
       null,
       null,
       null,
-      null,
+      excludedRoleFilter,
       excludedRoleSuffixFilter,
     );
     return AgentMemoryContext(
@@ -577,6 +580,7 @@ class AgentMemoryService {
     required Map<String, int> queryEmbedding,
     bool onlyUnsummarized = false,
     Set<String>? excludeIds,
+    Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
   }) {
     if (normalized.isEmpty) return const [];
@@ -591,6 +595,7 @@ class AgentMemoryService {
     for (final row in messages) {
       var entry = AgentMemoryEntry.fromRow(row);
       if (excludeIds != null && excludeIds.contains(entry.id)) continue;
+      if (!_matchesExcludedRoleFilter(entry, excludeRoles)) continue;
       if (!_matchesExcludedRoleSuffixFilter(entry, excludeRoleSuffixes)) {
         continue;
       }

@@ -573,6 +573,82 @@ void main() {
     expect(gateway.lastSystem, contains('李澈必须保持正派'));
   });
 
+  test('监督 Agent 复核上下文默认排除工具审计记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.supervision.enabled', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage({
+      required String id,
+      required String content,
+      required String role,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'supervision_tool_noise',
+      content: '工具审计噪声：寒山审核 寒山审核 寒山审核 已写入日志。',
+      role: 'assistant:decision:tool',
+      offset: 0,
+    );
+    insertMessage(
+      id: 'supervision_tool_result_noise',
+      content: '工具结果噪声：寒山审核 寒山审核 寒山审核 寒山审核 已写入日志。',
+      role: agentRoleTool,
+      offset: 1,
+    );
+    insertMessage(
+      id: 'supervision_user_keep',
+      content: '用户设定：寒山审核要求生成事件前先核对章节范围。',
+      role: agentRoleUser,
+      offset: 2,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('get_status', const {}),
+      const AgentTurnResult.text('APPROVE'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '寒山审核一下项目进度', autoMode: false);
+
+    expect(gateway.stages,
+        ['scriptAgent:decisionAgent', 'scriptAgent:supervisionAgent']);
+    expect(gateway.lastSystem, contains('supervision_user_keep'));
+    expect(gateway.lastSystem, contains('先核对章节范围'));
+    expect(gateway.lastSystem, isNot(contains('supervision_tool_noise')));
+    expect(
+        gateway.lastSystem, isNot(contains('supervision_tool_result_noise')));
+    expect(gateway.lastSystem, isNot(contains('工具审计噪声')));
+    expect(gateway.lastSystem, isNot(contains('工具结果噪声')));
+    expect(gateway.lastSystem, isNot(contains('寒山审核一下项目进度')));
+  });
+
   test('制作监督 Agent 复核工具调用时只注入 production 记忆上下文', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
@@ -8500,6 +8576,75 @@ description: >-
     expect(summaries, isEmpty);
   });
 
+  test('AgentMemoryService get 支持排除 exact role 和 role 后缀', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    void insertMessage({
+      required String id,
+      required String content,
+      required String role,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'get_tool_result_noise',
+      content: '寒山戒律 继续写寒山戒律 工具结果噪声。',
+      role: agentRoleTool,
+      offset: 0,
+    );
+    insertMessage(
+      id: 'get_tool_audit_noise',
+      content: '寒山戒律 继续写寒山戒律 工具审计噪声。',
+      role: 'assistant:decision:tool',
+      offset: 1,
+    );
+    insertMessage(
+      id: 'get_user_keep',
+      content: '用户设定：寒山戒律要求李澈先保护沈微。',
+      role: agentRoleUser,
+      offset: 2,
+    );
+
+    final context = await service.get(
+      isolationKey: 'scriptAgent:$projectId',
+      query: '继续写寒山戒律',
+      excludeRoles: {agentRoleTool},
+      excludeRoleSuffixes: const {':tool'},
+    );
+
+    expect(context.relatedMessages.map((item) => item.id), ['get_user_keep']);
+  });
+
   test('AgentMemoryService get 支持注入 embedding provider 召回语义相关 message',
       () async {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -8862,6 +9007,71 @@ description: >-
     expect(gateway.lastSystem, contains('寒山少主李澈不能写成反派'));
     expect(gateway.lastSystem, contains('寒山少主李澈是正派角色'));
     expect(gateway.lastSystem, contains('继续写寒山李澈入山'));
+  });
+
+  test('Agent turn system prompt 默认排除工具审计记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage({
+      required String id,
+      required String content,
+      required String role,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'decision_tool_noise',
+      content: '工具审计噪声：寒山戒律 寒山戒律 寒山戒律 已写入日志。',
+      role: 'assistant:decision:tool',
+      offset: 0,
+    );
+    insertMessage(
+      id: 'decision_tool_result_noise',
+      content: '工具结果噪声：寒山戒律 寒山戒律 寒山戒律 寒山戒律 已写入日志。',
+      role: agentRoleTool,
+      offset: 1,
+    );
+    insertMessage(
+      id: 'decision_user_keep',
+      content: '用户设定：寒山戒律要求李澈先保护沈微。',
+      role: agentRoleUser,
+      offset: 2,
+    );
+    gateway.turns = [const AgentTurnResult.text('收到，我会沿用寒山戒律。')];
+
+    await engine.sendAgentMessage(projectId, '继续写寒山戒律', autoMode: false);
+
+    expect(gateway.lastSystem, contains('decision_user_keep'));
+    expect(gateway.lastSystem, contains('李澈先保护沈微'));
+    expect(gateway.lastSystem, isNot(contains('decision_tool_noise')));
+    expect(gateway.lastSystem, isNot(contains('decision_tool_result_noise')));
+    expect(gateway.lastSystem, isNot(contains('工具审计噪声')));
+    expect(gateway.lastSystem, isNot(contains('工具结果噪声')));
   });
 
   test('productionAgent 对话记忆使用独立 isolationKey 和摘要阶段', () async {

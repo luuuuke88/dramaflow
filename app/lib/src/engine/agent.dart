@@ -186,6 +186,7 @@ const _customAgentSkillType = 'custom-js-agent';
 const _markdownAgentSkillType = markdownAgentSkillType;
 const _customJsConsoleMethods = {'log', 'info', 'warn', 'error', 'debug'};
 const _agentDeploymentType = 'agent-stage';
+const _agentToolAuditRoles = {agentRoleTool};
 const _agentToolAuditRoleSuffixes = {':tool'};
 
 final _tools = <AgentToolDef>[
@@ -6315,6 +6316,8 @@ extension AgentApi on Engine {
           isolationKey: conversationKey,
           query: text,
           excludeRelatedIds: excludedDeepRetrieveMemoryIds,
+          excludeRoles: _agentToolAuditRoles,
+          excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
         ),
         activatedSkills: _activatedAgentSkillContexts(messages),
         availableSkills: _markdownSkillsForStage(stage, projectId: projectId),
@@ -6423,6 +6426,7 @@ extension AgentApi on Engine {
         toolName: toolName,
         toolArgs: toolArgs,
         messages: messages,
+        excludedMemoryIds: excludedDeepRetrieveMemoryIds,
       );
       if (rejection != null) {
         final content = '监督 Agent 已拦截 $toolName：$rejection';
@@ -6448,6 +6452,8 @@ extension AgentApi on Engine {
         stage: stage,
         activatedSkills: _activatedAgentSkillContexts(messages),
         excludedMemoryIds: excludedDeepRetrieveMemoryIds,
+        excludedRoles: _agentToolAuditRoles,
+        excludedRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       if (supervisionWasEnabled) {
         await _recordAgentSummaryMemory(
@@ -6511,6 +6517,7 @@ extension AgentApi on Engine {
     required String toolName,
     required Map<String, dynamic> toolArgs,
     required List<AgentMessage> messages,
+    Set<String> excludedMemoryIds = const {},
   }) async {
     if (!agentSupervisionEnabled()) return null;
     final stage = _agentSupervisionStage(family);
@@ -6535,6 +6542,9 @@ extension AgentApi on Engine {
           family: family,
         ),
         query: reviewQuery,
+        excludeRelatedIds: excludedMemoryIds,
+        excludeRoles: _agentToolAuditRoles,
+        excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       ),
       base: baseSystem,
       activatedSkills: _activatedAgentSkillContexts(messages),
@@ -6740,6 +6750,7 @@ extension AgentApi on Engine {
     String? stage,
     List<String> activatedSkills = const [],
     Set<String> excludedMemoryIds = const {},
+    Set<String> excludedRoles = const {},
     Set<String> excludedRoleSuffixes = const {},
   }) async {
     try {
@@ -6751,13 +6762,17 @@ extension AgentApi on Engine {
           final roles = _coerceStringSet(
             args['roles'] ?? args['role'] ?? args['memoryRoles'],
           );
-          final excludeRoles = _coerceStringSet(
+          final requestedExcludeRoles = _coerceStringSet(
             args['excludeRoles'] ??
                 args['excludeRole'] ??
                 args['excludedRoles'] ??
                 args['excludeMemoryRoles'] ??
                 args['excludedMemoryRoles'],
           );
+          final excludeRoles = {
+            ...excludedRoles,
+            if (requestedExcludeRoles != null) ...requestedExcludeRoles,
+          };
           final requestedExcludeRoleSuffixes = _coerceStringSet(
             args['excludeRoleSuffixes'] ??
                 args['excludeRoleSuffix'] ??
@@ -7416,6 +7431,7 @@ extension AgentApi on Engine {
           family: _scriptAgentFamily,
         ),
         query: prompt,
+        excludeRoles: _agentToolAuditRoles,
         excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       final system = _agentSystemPrompt(
@@ -7455,6 +7471,7 @@ extension AgentApi on Engine {
         stage: stage,
         activatedSkills: activeSkillContexts,
         excludedMemoryIds: _agentMemoryContextIds(memoryContext),
+        excludedRoles: _agentToolAuditRoles,
         excludedRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       await _recordAgentToolAuditMemory(
@@ -7901,6 +7918,7 @@ extension AgentApi on Engine {
           family: _productionAgentFamily,
         ),
         query: prompt,
+        excludeRoles: _agentToolAuditRoles,
         excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       final system = _agentSystemPrompt(
@@ -7942,6 +7960,7 @@ extension AgentApi on Engine {
         stage: stage,
         activatedSkills: activeSkillContexts,
         excludedMemoryIds: _agentMemoryContextIds(memoryContext),
+        excludedRoles: _agentToolAuditRoles,
         excludedRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       await _recordAgentToolAuditMemory(

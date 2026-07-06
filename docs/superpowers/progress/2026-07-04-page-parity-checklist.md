@@ -132,6 +132,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgen
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers tool-result audit memories being retained for traceability while defaulting to `summarized=1`, plus legacy unsummarized `tool` / `:tool` rows being cleaned before automatic summarization, so tool logs do not pollute creative memory summaries or recent-context recall.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `Memory.get` accepting `excludeRoles` alongside `excludeRoleSuffixes`, plus decision and supervision Agents automatically excluding exact `tool` roles, stage-specific `:tool` audit roles, and current-turn user memory ids from injected RAG context, so review/decision prompts retrieve historical user constraints instead of echoing active prompts or prior tool logs.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` migrating legacy token summary embeddings through the injected `AgentMemoryEmbeddingProvider`, so semantic summary recall still works after swapping embedding strategies.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
