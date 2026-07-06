@@ -184,6 +184,7 @@ List<String> _decodeAgentMemoryIdList(Object? value) {
 const _agentSkillType = 'builtin-agent';
 const _customAgentSkillType = 'custom-js-agent';
 const _markdownAgentSkillType = markdownAgentSkillType;
+const _customJsConsoleMethods = {'log', 'info', 'warn', 'error', 'debug'};
 const _agentDeploymentType = 'agent-stage';
 
 final _tools = <AgentToolDef>[
@@ -407,6 +408,7 @@ class _CustomAgentSkillRuntime {
           'projectId': projectId,
           'args': _customJsMutableValue(args),
           'Array': const _CustomJsBuiltin('Array'),
+          'console': const _CustomJsBuiltin('console'),
           'Date': const _CustomJsBuiltin('Date'),
           'Error': const _CustomJsBuiltin('Error'),
           'JSON': const _CustomJsBuiltin('JSON'),
@@ -2042,6 +2044,12 @@ class _CustomAgentSkillRuntime {
           return _evaluate(args.single) is List;
         }
         if (method == 'from') return _arrayFrom(args);
+        break;
+      case 'console':
+        if (_customJsConsoleMethods.contains(method)) {
+          _evaluateCallArguments(args);
+          return null;
+        }
         break;
       case 'JSON':
         return _callJsonMethod(method, args);

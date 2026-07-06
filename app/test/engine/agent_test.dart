@@ -3251,6 +3251,66 @@ try {
     });
   });
 
+  test('自定义脚本技能：支持 console 调试调用作为安全空操作', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_console_runtime',
+      name: 'console 调试脚本运行时',
+      description: '验证自定义技能兼容模型常遗留的 console.log/info/warn/error/debug。',
+      script: r'''
+console.log('start', args.items.length);
+console.info('project', projectId);
+const selected = args.items
+  .filter(item => {
+    console.debug('checking', item.name);
+    return item.enabled !== false;
+  })
+  .map(item => item.name.trim());
+if (selected.length === 0) {
+  console.warn('empty selected list');
+}
+console.error('dry-run only');
+return JSON.stringify({
+  count: selected.length,
+  names: selected.join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'items': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_console_runtime', const {
+        'items': [
+          {'name': ' 李澈 ', 'enabled': true},
+          {'name': '废弃角色', 'enabled': false},
+          {'name': '沈微', 'enabled': true},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 console 调试脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_console_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'count': 2,
+      'names': '李澈、沈微',
+    });
+  });
+
   test('自定义脚本技能：支持正则 match 提取分镜工作区 XML', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regex_match_runtime',
