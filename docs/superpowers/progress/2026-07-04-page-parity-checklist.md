@@ -222,6 +222,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the Agent-
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` and ordinary `Memory.get` accepting `role` / `roles` include filters, so decision and sub Agents can retrieve only user constraints, assistant decisions, or a specific execution role instead of mixing every memory source.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Agent-callable `memory_get` accepting `scope=long_term` and `memoryType=long_term`, returning long-term note matches in a dedicated `notes` list plus traceable `records` while keeping conversation `memories` / `summaries` / `recent` empty for long-term-only calls.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String(...).padEnd(...)` and string-literal `.repeat(...)`, so custom skills can build fixed-width labels, dividers, and normalized helper text with ordinary model-authored JavaScript.

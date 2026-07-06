@@ -8959,6 +8959,104 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_get 工具支持 long_term scope 返回长期 note', () async {
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '角色随身物',
+      content: '长期设定：李澈佩戴青玉扳指，入山前不能摘下。',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'memory_get_long_term_chat_noise',
+        '',
+        '普通聊天噪声：李澈青玉扳指只是误传。',
+        now,
+        embeddingJson('普通聊天噪声：李澈青玉扳指只是误传。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '李澈青玉扳指',
+        'scope': 'long_term',
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只查长期设定里的李澈随身物',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties, contains('scope'));
+    expect(properties, contains('memoryType'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_get');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], isEmpty);
+    expect(payload['summaries'], isEmpty);
+    expect(payload['recent'], isEmpty);
+    expect(payload['notes'], ['长期设定：李澈佩戴青玉扳指，入山前不能摘下。']);
+    final records = payload['records'] as List;
+    expect(records, hasLength(1));
+    expect(
+      records.single,
+      isA<Map>()
+          .having((record) => record['id'], 'id', noteId)
+          .having((record) => record['type'], 'type', agentMemoryTypeNote)
+          .having((record) => record['scope'], 'scope', 'long_term')
+          .having(
+              (record) => record['content'], 'content', contains('李澈佩戴青玉扳指')),
+    );
+  });
+
+  test('Agent 记忆：memory_get 工具支持 memoryType=long_term 别名', () async {
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '角色信物',
+      content: '长期设定：沈微持有霜纹玉佩，关键反转前不能遗失。',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '沈微霜纹玉佩',
+        'memoryType': 'long_term',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 memoryType 查长期设定',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['notes'], ['长期设定：沈微持有霜纹玉佩，关键反转前不能遗失。']);
+    final records = payload['records'] as List;
+    expect(
+      records.single,
+      isA<Map>()
+          .having((record) => record['id'], 'id', noteId)
+          .having((record) => record['scope'], 'scope', 'long_term'),
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具从 summary 展开原始 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

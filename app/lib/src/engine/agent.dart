@@ -302,6 +302,61 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。只返回这些 role 的普通 RAG 上下文。',
         },
+        'type': {
+          'type': 'string',
+          'enum': ['message', 'summary', 'note'],
+          'description': '可选。只返回指定类型的记忆：message 原始对话，summary 摘要，note 长期记忆。',
+        },
+        'types': {
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': ['message', 'summary', 'note'],
+          },
+          'description': '可选。只返回这些类型的记忆。',
+        },
+        'memoryType': {
+          'type': 'string',
+          'enum': [
+            'message',
+            'summary',
+            'note',
+            'conversation',
+            'long_term',
+            'all'
+          ],
+          'description':
+              '可选。type/scope 的语义化别名，可用 conversation、long_term 或 all 表示记忆层级。',
+        },
+        'memoryTypes': {
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': [
+              'message',
+              'summary',
+              'note',
+              'conversation',
+              'long_term',
+              'all',
+            ],
+          },
+          'description': '可选。memoryType 的数组形式。',
+        },
+        'scope': {
+          'type': 'string',
+          'enum': ['conversation', 'summary', 'long_term', 'all'],
+          'description':
+              '可选。按记忆层级召回：conversation 对话记忆，summary 摘要，long_term 长期记忆，all 全部。',
+        },
+        'scopes': {
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': ['conversation', 'summary', 'long_term', 'all'],
+          },
+          'description': '可选。按多个记忆层级召回。',
+        },
         'excludeRole': {
           'type': 'string',
           'description': '可选。排除指定 role 的记忆，例如 assistant:decision:tool。',
@@ -7920,6 +7975,7 @@ extension AgentApi on Engine {
             if (requestedExcludeRoleSuffixes != null)
               ...requestedExcludeRoleSuffixes,
           };
+          final types = _deepRetrieveMemoryTypes(args);
           final requestedExcludeIds = _coerceMemoryIdSetAny(args, const [
             'excludeIds',
             'excludeMemoryIds',
@@ -7953,21 +8009,6 @@ extension AgentApi on Engine {
                 args['score_threshold'] ??
                 args['threshold'],
           );
-          final context = await _agentMemoryService(
-            family: agentFamily,
-          ).get(
-            isolationKey: _agentConversationIsolationKey(
-              projectId,
-              family: agentFamily,
-            ),
-            query: query,
-            roles: roles,
-            excludeRelatedIds: excludeIds,
-            excludeRoles: excludeRoles,
-            excludeRoleSuffixes: excludeRoleSuffixes,
-            minScore: minScore,
-            excludeIdsFromContext: true,
-          );
           final rawLimit = args['limit'] ??
               args['topK'] ??
               args['top_k'] ??
@@ -7977,12 +8018,59 @@ extension AgentApi on Engine {
               args['count'] ??
               args['k'];
           final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
-          final relatedMessages = limit == null
-              ? context.relatedMessages
-              : context.relatedMessages.take(limit).toList();
+          final includeMessages =
+              types == null || types.contains(agentMemoryTypeMessage);
+          final includeSummaries =
+              types == null || types.contains(agentMemoryTypeSummary);
+          final includeNotes = types?.contains(agentMemoryTypeNote) == true;
+          final memoryService = _agentMemoryService(family: agentFamily);
+          final context = includeMessages || includeSummaries
+              ? await memoryService.get(
+                  isolationKey: _agentConversationIsolationKey(
+                    projectId,
+                    family: agentFamily,
+                  ),
+                  query: query,
+                  roles: roles,
+                  excludeRelatedIds: excludeIds,
+                  excludeRoles: excludeRoles,
+                  excludeRoleSuffixes: excludeRoleSuffixes,
+                  minScore: minScore,
+                  excludeIdsFromContext: true,
+                )
+              : const AgentMemoryContext();
+          final noteRecords = includeNotes
+              ? await memoryService.deepRetrieve(
+                  isolationKey: _agentConversationIsolationKey(
+                    projectId,
+                    family: agentFamily,
+                  ),
+                  keyword: query,
+                  roles: roles,
+                  excludeRoles: excludeRoles,
+                  excludeRoleSuffixes: excludeRoleSuffixes,
+                  types: const {agentMemoryTypeNote},
+                  excludeIds: excludeIds,
+                  minScore: minScore,
+                  noteIsolationKey: _agentMemoryIsolationKey(projectId),
+                )
+              : const <AgentMemoryEntry>[];
+          final relatedMessages = includeMessages
+              ? (limit == null
+                  ? context.relatedMessages
+                  : context.relatedMessages.take(limit).toList())
+              : const <AgentMemoryEntry>[];
+          final summaries =
+              includeSummaries ? context.summaries : const <AgentMemoryEntry>[];
+          final recentMessages = includeMessages
+              ? context.recentMessages
+              : const <AgentMemoryEntry>[];
+          final notes =
+              limit == null ? noteRecords : noteRecords.take(limit).toList();
           if (relatedMessages.isEmpty &&
-              context.summaries.isEmpty &&
-              context.recentMessages.isEmpty) {
+              summaries.isEmpty &&
+              recentMessages.isEmpty &&
+              notes.isEmpty) {
             return jsonEncode({
               'found': false,
               'message': '未找到相关记忆',
@@ -7994,16 +8082,20 @@ extension AgentApi on Engine {
               for (final record in relatedMessages) record.content,
             ],
             'summaries': [
-              for (final record in context.summaries) record.content,
+              for (final record in summaries) record.content,
             ],
             'recent': [
-              for (final record in context.recentMessages) record.content,
+              for (final record in recentMessages) record.content,
+            ],
+            'notes': [
+              for (final record in notes) record.content,
             ],
             'records': [
               for (final record in _dedupeAgentMemoryEntries([
                 ...relatedMessages,
-                ...context.summaries,
-                ...context.recentMessages,
+                ...summaries,
+                ...recentMessages,
+                ...notes,
               ]))
                 _agentMemoryRecordPayload(record),
             ],
@@ -8523,19 +8615,19 @@ extension AgentApi on Engine {
 
   Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {
     final values = <String>{};
-    void addRaw(Object? raw) {
-      final items = _coerceStringSet(raw);
-      if (items != null) values.addAll(items);
-    }
 
-    void addScope(Object? raw) {
-      final scopes = _coerceStringSet(raw);
-      if (scopes == null) return;
-      for (final scope in scopes) {
-        switch (scope.trim().toLowerCase()) {
+    void addMemoryType(Object? raw) {
+      final items = _coerceStringSet(raw);
+      if (items == null) return;
+      for (final item in items) {
+        switch (item.trim().toLowerCase()) {
+          case 'message':
+          case 'messages':
+          case 'chat':
+            values.add(agentMemoryTypeMessage);
+            break;
           case 'conversation':
           case 'conversations':
-          case 'chat':
           case 'history':
             values
               ..add(agentMemoryTypeMessage)
@@ -8560,16 +8652,16 @@ extension AgentApi on Engine {
               ..add(agentMemoryTypeNote);
             break;
           default:
-            values.add(scope);
+            values.add(item);
         }
       }
     }
 
-    addRaw(args['types'] ??
+    addMemoryType(args['types'] ??
         args['type'] ??
         args['memoryTypes'] ??
         args['memoryType']);
-    addScope(
+    addMemoryType(
       args['scopes'] ??
           args['scope'] ??
           args['memoryScopes'] ??
