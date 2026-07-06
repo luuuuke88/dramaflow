@@ -4955,9 +4955,11 @@ extension AgentApi on Engine {
         continue;
       }
       final tool = _agentToolDef(skill);
-      tools.add(tool.name == 'activate_skill'
-          ? _activateSkillToolDef(tool, markdownSkills)
-          : tool);
+      tools.add(
+        tool.name == 'activate_skill' || tool.name == 'read_skill_file'
+            ? _skillNameEnumToolDef(tool, markdownSkills)
+            : tool,
+      );
     }
     return tools;
   }
@@ -5068,7 +5070,7 @@ extension AgentApi on Engine {
     );
   }
 
-  AgentToolDef _activateSkillToolDef(
+  AgentToolDef _skillNameEnumToolDef(
     AgentToolDef tool,
     List<AgentSkill> markdownSkills,
   ) {

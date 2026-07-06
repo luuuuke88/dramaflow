@@ -6701,6 +6701,66 @@ description: >-
     expect(nameSchema['enum'], ['director_checker']);
   });
 
+  test('SkillRuntime read_skill_file schema lists stage-visible skill aliases',
+      () async {
+    final scriptSkillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '剧本技能正文。',
+    );
+    final productionSkillFile = _writeSkillFixture(
+      dir,
+      id: 'director_checker',
+      body: '制作技能正文。',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: scriptSkillFile.path,
+      attribution: 'script_agent_decision',
+    );
+    engine.saveMarkdownAgentSkill(
+      filePath: productionSkillFile.path,
+      attribution: 'production_agent_decision',
+    );
+
+    gateway.turns = [const AgentTurnResult.text('剧本规划已记录。')];
+    await engine.sendAgentMessage(
+      projectId,
+      '规划前三集',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    var readTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'read_skill_file');
+    var properties =
+        Map<String, dynamic>.from(readTool.schema['properties'] as Map);
+    for (final key in ['name', 'skill', 'skillName', 'skillId', 'skill_name']) {
+      final schema = Map<String, dynamic>.from(properties[key] as Map);
+      expect(schema['enum'], ['style_polisher']);
+    }
+    expect(readTool.description, contains('style_polisher'));
+    expect(readTool.description, isNot(contains('director_checker')));
+
+    gateway.turns = [const AgentTurnResult.text('制作规划已记录。')];
+    await engine.sendAgentMessage(
+      projectId,
+      '制作导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    readTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'read_skill_file');
+    properties =
+        Map<String, dynamic>.from(readTool.schema['properties'] as Map);
+    for (final key in ['name', 'skill', 'skillName', 'skillId', 'skill_name']) {
+      final schema = Map<String, dynamic>.from(properties[key] as Map);
+      expect(schema['enum'], ['director_checker']);
+    }
+    expect(readTool.description, contains('director_checker'));
+    expect(readTool.description, isNot(contains('style_polisher')));
+  });
+
   test('SkillRuntime lists stage-visible Markdown skills in system prompt',
       () async {
     final scriptSkillFile = _writeSkillFixture(
