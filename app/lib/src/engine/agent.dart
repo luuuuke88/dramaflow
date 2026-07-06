@@ -244,6 +244,36 @@ final _tools = <AgentToolDef>[
           'maximum': 50,
           'description': '可选。限制返回的原始记忆条数，默认使用全局 RAG 配置。',
         },
+        'topK': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。limit 的常见 RAG 别名，限制返回的记忆条数。',
+        },
+        'top_k': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。topK 的 snake_case 别名。',
+        },
+        'maxResults': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。limit 的自然语言别名，限制返回结果数。',
+        },
+        'max_results': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。maxResults 的 snake_case 别名。',
+        },
+        'k': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。topK 的简写别名。',
+        },
         'role': {
           'type': 'string',
           'description': '可选。只返回指定 role 的记忆，例如 user 或 assistant:supervision。',
@@ -7196,7 +7226,14 @@ extension AgentApi on Engine {
             excludeIds: excludeIds,
             noteIsolationKey: _agentMemoryIsolationKey(projectId),
           );
-          final rawLimit = args['limit'] ?? args['max'] ?? args['count'];
+          final rawLimit = args['limit'] ??
+              args['topK'] ??
+              args['top_k'] ??
+              args['maxResults'] ??
+              args['max_results'] ??
+              args['max'] ??
+              args['count'] ??
+              args['k'];
           final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
           final limitedRecords =
               limit == null ? records : records.take(limit).toList();

@@ -8041,6 +8041,66 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect((payload['memories'] as List).single, contains('李澈'));
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持 topK/maxResults 自然数量别名', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          0,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('topk_msg_old', '旧制作记忆：寒山雪夜需要低机位压迫感。', 0);
+    insertMessage('topk_msg_mid', '中段制作记忆：寒山山门镜头需要蓝灰冷色。', 1);
+    insertMessage('topk_msg_new', '最新制作记忆：寒山首帧优先角色正脸。', 2);
+
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'query': '寒山制作记忆',
+        'topK': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '找两条寒山制作记忆',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = deepRetrieveTool.schema['properties'] as Map;
+    expect(properties, contains('topK'));
+    expect(properties, contains('top_k'));
+    expect(properties, contains('maxResults'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], isA<List>());
+    expect(payload['memories'], hasLength(2));
+    expect(
+      (payload['memories'] as List).join('\n'),
+      contains('寒山'),
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具支持 query/question/text 自然别名', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

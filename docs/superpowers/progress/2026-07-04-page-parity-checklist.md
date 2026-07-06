@@ -152,6 +152,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-s
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` exposing and accepting natural query aliases (`query`, `question`, `text`, `prompt`) in addition to `keyword`, so decision Agents handling vague "continue / next step / recall" prompts can call RAG tools with the parameter names models commonly emit.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` exposing and accepting common RAG count aliases such as `topK`, `top_k`, and `maxResults` in addition to `limit`, so decision/sub Agents can cap recalled memory with the parameter names models commonly emit.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `activate_skill` exposing and accepting common model-authored skill name aliases (`skill`, `skillName`, `skillId`, `skill_name`) in addition to `name`, with stage-visible skill enums mirrored across those aliases so model tool calls can activate ToonFlow-style Markdown skills without brittle argument naming.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `read_skill_file` accepting the same model-authored skill name aliases (`skill`, `skillName`, `skillId`, `skill_name`) when multiple skills are active, so Agents can disambiguate which activated ToonFlow-style Markdown skill resource to read without falling back to the brittle `name` field.
