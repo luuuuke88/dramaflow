@@ -10993,6 +10993,35 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(tool.schema['required'], isNull);
   });
 
+  test('制作执行工具 schema 暴露分镜首帧 id 字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：生成分镜首帧',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final tool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'generate_storyboard',
+    );
+    final properties = tool.schema['properties'] as Map;
+    expect(
+      properties.keys,
+      containsAll([
+        'ids',
+        'storyboardIds',
+        'shotIds',
+        'panelIds',
+        'storyboard_ids',
+        'shot_ids',
+        'panel_ids',
+      ]),
+    );
+    expect(tool.schema['required'], isNull);
+  });
+
   test('子 Agent 工具调用接受常见提示词别名作为执行任务', () async {
     gateway.turns = [
       AgentTurnResult.tool(
@@ -11100,6 +11129,38 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(
       db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
       contains('asset_image_generation'),
+    );
+  });
+
+  test('制作执行工具调用接受 shotIds 别名生成分镜首帧', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '寒山宗门远景',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_gen',
+        {'request': '生成分镜首帧', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool('generate_storyboard', {
+        'shotIds': [storyboardId],
+      }),
+      const AgentTurnResult.text('开始生成'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：生成分镜首帧',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(
+      db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
+      contains('storyboard_image_generation'),
     );
   });
 

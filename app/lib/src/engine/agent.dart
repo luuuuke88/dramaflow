@@ -8307,7 +8307,15 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final ids = _intListAny(args, const ['ids', 'storyboardIds']);
+    final ids = _intListAny(args, const [
+      'ids',
+      'storyboardIds',
+      'shotIds',
+      'panelIds',
+      'storyboard_ids',
+      'shot_ids',
+      'panel_ids',
+    ]);
     if (ids == null || ids.isEmpty) return '缺少 ids 参数。';
     final taskId = batchGenerateStoryboardImages(
       projectId,

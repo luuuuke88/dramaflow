@@ -145,6 +145,45 @@ const Map<String, dynamic> _assetImageIdListAliasProperties = <String, dynamic>{
   },
 };
 
+const Map<String, dynamic> _storyboardImageIdListAliasProperties =
+    <String, dynamic>{
+  'ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': '要生成首帧图的分镜 id 列表。',
+  },
+  'storyboardIds': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'ids 的分镜语义别名。',
+  },
+  'shotIds': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'ids 的镜头语义别名。',
+  },
+  'panelIds': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'ids 的分镜面板语义别名。',
+  },
+  'storyboard_ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'storyboardIds 的 snake_case 别名。',
+  },
+  'shot_ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'shotIds 的 snake_case 别名。',
+  },
+  'panel_ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'panelIds 的 snake_case 别名。',
+  },
+};
+
 const _productionAgentReadWriteTools = <AgentToolDef>[
   AgentToolDef(
     name: 'get_flowData',
@@ -209,13 +248,7 @@ const _productionAgentReadWriteTools = <AgentToolDef>[
     description: '为分镜提交首帧图生成任务。',
     schema: {
       'type': 'object',
-      'properties': {
-        'ids': {
-          'type': 'array',
-          'items': {'type': 'integer'},
-        },
-      },
-      'required': ['ids'],
+      'properties': _storyboardImageIdListAliasProperties,
     },
   ),
   AgentToolDef(
