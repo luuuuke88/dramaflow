@@ -228,6 +228,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Agent-call
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent and ProductionAgent execution sub Agents calling `memory_add` directly, with omitted `role` defaulting to the current execution/supervision stage role instead of `user`, so multi-layer Agent discoveries are attributed to the correct sub Agent memory lane.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers top-level Agent pipeline tools exposing and accepting ToonFlow/model-authored id aliases such as `novel_ids`, `script_ids`, `script_id`, `episodeId`, `episode_id`, and `storyboard_ids`, so decision Agents can submit event, asset, storyboard, first-frame, and video tasks without brittle exact field names.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String(...).padEnd(...)` and string-literal `.repeat(...)`, so custom skills can build fixed-width labels, dividers, and normalized helper text with ordinary model-authored JavaScript.

@@ -439,6 +439,143 @@ void main() {
     expect(engine.agentMessages(projectId).last.content, contains('1 个章节'));
   });
 
+  test('Agent 顶层批量工具接受 ToonFlow 列表 id 别名', () async {
+    final novelIds = engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),
+      ChapterItem(index: 2, reel: '正文卷', chapter: '二', chapterData: 'y'),
+    ]);
+    gateway.turns = [
+      AgentTurnResult.tool('generate_events', {
+        'novel_ids': '${novelIds.first}',
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '只生成第一章事件', autoMode: false);
+
+    final eventTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'generate_events');
+    final eventProperties = eventTool.schema['properties'] as Map;
+    expect(eventProperties, contains('novel_ids'));
+    expect(engine.agentMessages(projectId).last.content, contains('1 个章节'));
+
+    final scriptA =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'A');
+    engine.addScript(projectId: projectId, name: '第二集', content: 'B');
+    gateway.turns = [
+      AgentTurnResult.tool('extract_assets', {
+        'script_ids': '$scriptA',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只提取第一集资产',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final assetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'extract_assets');
+    final assetProperties = assetTool.schema['properties'] as Map;
+    expect(assetProperties, contains('script_ids'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('1 个剧本'),
+    );
+  });
+
+  test('Agent 顶层媒体工具接受 ToonFlow 剧本和分镜 id 别名', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final storyboardA =
+        engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final storyboardB =
+        engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+
+    gateway.turns = [
+      AgentTurnResult.tool('generate_storyboards', {
+        'script_id': scriptId,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '给第一集生成分镜',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final storyboardTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'generate_storyboards');
+    final storyboardProperties = storyboardTool.schema['properties'] as Map;
+    expect(storyboardProperties, contains('script_id'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('已提交分镜生成任务'),
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('generate_shot_images', {
+        'episodeId': scriptId,
+        'storyboard_ids': '$storyboardA',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只生成第一镜首帧',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final imageTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'generate_shot_images');
+    final imageProperties = imageTool.schema['properties'] as Map;
+    expect(imageProperties, contains('episodeId'));
+    expect(imageProperties, contains('storyboard_ids'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('1 个分镜'),
+    );
+
+    engine.setStoryboardImage(storyboardA, 'images/a.png');
+    engine.setStoryboardImage(storyboardB, 'images/b.png');
+    gateway.turns = [
+      AgentTurnResult.tool('generate_videos', {
+        'episode_id': scriptId,
+        'storyboardIds': [storyboardB],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只生成第二镜视频',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final videoTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'generate_videos');
+    final videoProperties = videoTool.schema['properties'] as Map;
+    expect(videoProperties, contains('episode_id'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('1 个分镜'),
+    );
+  });
+
   test('工具执行失败时返回中文可见错误摘要而非崩溃', () async {
     gateway.turns = [
       AgentTurnResult.tool('generate_storyboards', const {}), // 缺 scriptId

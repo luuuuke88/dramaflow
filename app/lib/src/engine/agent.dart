@@ -800,6 +800,21 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'integer'},
         },
+        'novel_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'novelIds 的 snake_case 别名，也兼容逗号分隔字符串。',
+        },
+        'chapterIds': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'novelIds 的章节语义别名。',
+        },
+        'chapter_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'chapterIds 的 snake_case 别名。',
+        },
       },
     },
   ),
@@ -813,6 +828,21 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'integer'},
         },
+        'script_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'scriptIds 的 snake_case 别名，也兼容逗号分隔字符串。',
+        },
+        'episodeIds': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'scriptIds 的集数语义别名。',
+        },
+        'episode_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'episodeIds 的 snake_case 别名。',
+        },
       },
     },
   ),
@@ -823,8 +853,19 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'scriptId': {'type': 'integer'},
+        'script_id': {
+          'type': 'integer',
+          'description': 'scriptId 的 snake_case 别名。',
+        },
+        'episodeId': {
+          'type': 'integer',
+          'description': 'scriptId 的集数语义别名。',
+        },
+        'episode_id': {
+          'type': 'integer',
+          'description': 'episodeId 的 snake_case 别名。',
+        },
       },
-      'required': ['scriptId'],
     },
   ),
   AgentToolDef(
@@ -834,12 +875,38 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'scriptId': {'type': 'integer'},
+        'script_id': {
+          'type': 'integer',
+          'description': 'scriptId 的 snake_case 别名。',
+        },
+        'episodeId': {
+          'type': 'integer',
+          'description': 'scriptId 的集数语义别名。',
+        },
+        'episode_id': {
+          'type': 'integer',
+          'description': 'episodeId 的 snake_case 别名。',
+        },
         'storyboardIds': {
           'type': 'array',
           'items': {'type': 'integer'},
         },
+        'storyboard_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardIds 的 snake_case 别名，也兼容逗号分隔字符串。',
+        },
+        'shotIds': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardIds 的镜头语义别名。',
+        },
+        'shot_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'shotIds 的 snake_case 别名。',
+        },
       },
-      'required': ['scriptId'],
     },
   ),
   AgentToolDef(
@@ -850,12 +917,38 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'scriptId': {'type': 'integer'},
+        'script_id': {
+          'type': 'integer',
+          'description': 'scriptId 的 snake_case 别名。',
+        },
+        'episodeId': {
+          'type': 'integer',
+          'description': 'scriptId 的集数语义别名。',
+        },
+        'episode_id': {
+          'type': 'integer',
+          'description': 'episodeId 的 snake_case 别名。',
+        },
         'storyboardIds': {
           'type': 'array',
           'items': {'type': 'integer'},
         },
+        'storyboard_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardIds 的 snake_case 别名，也兼容逗号分隔字符串。',
+        },
+        'shotIds': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'storyboardIds 的镜头语义别名。',
+        },
+        'shot_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'shotIds 的 snake_case 别名。',
+        },
       },
-      'required': ['scriptId'],
     },
   ),
   const AgentToolDef(
@@ -868,6 +961,21 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'integer'},
         },
+        'role_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'roleIds 的 snake_case 别名，也兼容逗号分隔字符串。',
+        },
+        'assetIds': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'roleIds 的资产语义别名。',
+        },
+        'asset_ids': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'assetIds 的 snake_case 别名。',
+        },
       },
     },
   ),
@@ -878,8 +986,19 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'scriptId': {'type': 'integer'},
+        'script_id': {
+          'type': 'integer',
+          'description': 'scriptId 的 snake_case 别名。',
+        },
+        'episodeId': {
+          'type': 'integer',
+          'description': 'scriptId 的集数语义别名。',
+        },
+        'episode_id': {
+          'type': 'integer',
+          'description': 'episodeId 的 snake_case 别名。',
+        },
       },
-      'required': ['scriptId'],
     },
   ),
 ];
@@ -7931,14 +8050,6 @@ extension AgentApi on Engine {
     }
   }
 
-  /// 模型经常用显式空数组表达"不指定具体 id，按默认全部执行"，
-  /// 与"未传该字段"语义相同：都应回退到调用方给出的默认集合。
-  List<int>? _intList(Map<String, dynamic> args, String key) {
-    final raw = args[key];
-    if (raw is! List || raw.isEmpty) return null;
-    return raw.map((e) => (e as num).toInt()).toList();
-  }
-
   int _agentRagLimit() {
     return agentRagLimit();
   }
@@ -8522,7 +8633,16 @@ extension AgentApi on Engine {
         case 'get_status':
           return _statusSummary(projectId);
         case 'generate_events':
-          final ids = _intList(args, 'novelIds') ??
+          final ids = _intListAny(args, const [
+                'novelIds',
+                'novel_ids',
+                'novelId',
+                'novel_id',
+                'chapterIds',
+                'chapter_ids',
+                'chapterId',
+                'chapter_id',
+              ]) ??
               novels(projectId, limit: 100000)
                   .data
                   .where((n) => n.eventState != 1)
@@ -8532,7 +8652,16 @@ extension AgentApi on Engine {
           final taskId = generateEvents(projectId, ids);
           return '已提交事件生成任务（任务 #$taskId），涉及 ${ids.length} 个章节。';
         case 'extract_assets':
-          final ids = _intList(args, 'scriptIds') ??
+          final ids = _intListAny(args, const [
+                'scriptIds',
+                'script_ids',
+                'scriptId',
+                'script_id',
+                'episodeIds',
+                'episode_ids',
+                'episodeId',
+                'episode_id',
+              ]) ??
               scripts(projectId)
                   .where((s) => s.extractState != 1)
                   .map((s) => s.id)
@@ -8541,23 +8670,41 @@ extension AgentApi on Engine {
           final taskId = extractAssets(ids, projectId);
           return '已提交资产提取任务（任务 #$taskId），涉及 ${ids.length} 个剧本。';
         case 'generate_storyboards':
-          final scriptId = (args['scriptId'] as num?)?.toInt();
+          final scriptId = _agentScriptIdArg(args);
           if (scriptId == null) return '缺少 scriptId 参数。';
           final taskId = generateStoryboards(projectId, scriptId);
           return '已提交分镜生成任务（任务 #$taskId）。';
         case 'generate_shot_images':
-          final scriptId = (args['scriptId'] as num?)?.toInt();
+          final scriptId = _agentScriptIdArg(args);
           if (scriptId == null) return '缺少 scriptId 参数。';
-          final ids = _intList(args, 'storyboardIds') ??
+          final ids = _intListAny(args, const [
+                'storyboardIds',
+                'storyboard_ids',
+                'storyboardId',
+                'storyboard_id',
+                'shotIds',
+                'shot_ids',
+                'shotId',
+                'shot_id',
+              ]) ??
               storyboards(scriptId).map((s) => s.id).toList();
           if (ids.isEmpty) return '该剧本暂无分镜。';
           final taskId =
               batchGenerateStoryboardImages(projectId, ids, compulsory: true);
           return '已提交首帧图生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
         case 'generate_videos':
-          final scriptId = (args['scriptId'] as num?)?.toInt();
+          final scriptId = _agentScriptIdArg(args);
           if (scriptId == null) return '缺少 scriptId 参数。';
-          final ids = _intList(args, 'storyboardIds') ??
+          final ids = _intListAny(args, const [
+                'storyboardIds',
+                'storyboard_ids',
+                'storyboardId',
+                'storyboard_id',
+                'shotIds',
+                'shot_ids',
+                'shotId',
+                'shot_id',
+              ]) ??
               storyboards(scriptId)
                   .where((s) => s.filePath != null)
                   .map((s) => s.id)
@@ -8566,7 +8713,16 @@ extension AgentApi on Engine {
           final taskId = batchGenerateVideos(projectId, ids);
           return '已提交视频生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
         case 'bind_audio':
-          final ids = _intList(args, 'roleIds') ??
+          final ids = _intListAny(args, const [
+                'roleIds',
+                'role_ids',
+                'roleId',
+                'role_id',
+                'assetIds',
+                'asset_ids',
+                'assetId',
+                'asset_id',
+              ]) ??
               roleAudioBindings(projectId)
                   .where((r) => r.audioAssetId == null)
                   .map((r) => r.roleId)
@@ -8575,7 +8731,7 @@ extension AgentApi on Engine {
           final taskId = batchBindAudio(projectId, ids);
           return '已提交配音匹配任务（任务 #$taskId），涉及 ${ids.length} 个角色。';
         case 'compose_episode':
-          final scriptId = (args['scriptId'] as num?)?.toInt();
+          final scriptId = _agentScriptIdArg(args);
           if (scriptId == null) return '缺少 scriptId 参数。';
           final result = await composeEpisode(projectId, scriptId);
           return '合成成功：${result.outputRelPath}'
@@ -8609,6 +8765,16 @@ extension AgentApi on Engine {
       if (parsed != null) return parsed;
     }
     return null;
+  }
+
+  int? _agentScriptIdArg(Map<String, dynamic> args) {
+    final ids = _intListAny(args, const [
+      'scriptId',
+      'script_id',
+      'episodeId',
+      'episode_id',
+    ]);
+    return ids?.first;
   }
 
   Object? _argAny(Map<String, dynamic> args, List<String> keys) {
