@@ -150,6 +150,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-s
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style decision-memory cleanup: user-visible decision replies remain intact, while `assistant:decision` memory strips XML-like blocks and tags before entering RAG/summarization.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` exposing and accepting natural query aliases (`query`, `question`, `text`, `prompt`) in addition to `keyword`, so decision Agents handling vague "continue / next step / recall" prompts can call RAG tools with the parameter names models commonly emit.
+
 Recent Agent/RAG Update: `app/test/widgets/agent_chat_screen_test.dart` now covers ToonFlow-compatible unprefixed memory config keys for `messagesPerSummary`, `summaryMaxLength`, `shortTermLimit`, `summaryLimit`, `ragLimit`, and `deepRetrieveSummaryLimit`, so DramaFlow preserves its namespaced Agent settings while exporting the runtime keys ToonFlow routes expect.
 
 Recent Agent/RAG Update: `app/test/widgets/agent_chat_screen_test.dart` now covers ToonFlow-compatible local embedding model config through `modelOnnxFile` and `modelDtype`, with the Agent memory settings UI accepting a path-like model file value while persisting ToonFlow's JSON-array setting format.

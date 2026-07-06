@@ -7466,6 +7466,57 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect((payload['memories'] as List).single, contains('李澈'));
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持 query/question/text 自然别名', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'alias_question_memory',
+        '',
+        '进度记忆：寒山分镜已经完成，下一步应生成首帧。',
+        now,
+        embeddingJson('进度记忆：寒山分镜已经完成，下一步应生成首帧。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        0,
+        agentMemoryTypeMessage,
+      ],
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'question': '寒山下一步进度',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '继续下一步',
+      autoMode: false,
+    );
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = deepRetrieveTool.schema['properties'] as Map;
+    expect(properties, contains('query'));
+    expect(properties, contains('question'));
+    expect(properties, contains('text'));
+    expect(properties, contains('prompt'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(
+      payload['memories'],
+      contains('进度记忆：寒山分镜已经完成，下一步应生成首帧。'),
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具支持按 role 过滤 summary 展开的原始 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

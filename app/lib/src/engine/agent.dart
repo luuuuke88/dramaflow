@@ -212,6 +212,22 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'keyword': {'type': 'string'},
+        'query': {
+          'type': 'string',
+          'description': 'keyword 的语义化别名，适合模型按“查询内容”组织参数。',
+        },
+        'question': {
+          'type': 'string',
+          'description': 'keyword 的自然语言别名，适合“继续/下一步/回想”场景。',
+        },
+        'text': {
+          'type': 'string',
+          'description': 'keyword 的文本别名。',
+        },
+        'prompt': {
+          'type': 'string',
+          'description': 'keyword 的提示词别名。',
+        },
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -283,7 +299,6 @@ final _tools = <AgentToolDef>[
           'description': '可选。excludeIds 的语义化别名。',
         },
       },
-      'required': ['keyword'],
     },
   ),
   const AgentToolDef(
@@ -6898,8 +6913,15 @@ extension AgentApi on Engine {
     try {
       switch (name) {
         case 'deepRetrieve':
-          final keyword =
-              (args['keyword'] ?? args['query'] ?? '').toString().trim();
+          final keyword = (args['keyword'] ??
+                  args['query'] ??
+                  args['question'] ??
+                  args['text'] ??
+                  args['prompt'] ??
+                  args['q'] ??
+                  '')
+              .toString()
+              .trim();
           if (keyword.isEmpty) return '缺少 keyword 参数。';
           final roles = _coerceStringSet(
             args['roles'] ?? args['role'] ?? args['memoryRoles'],
