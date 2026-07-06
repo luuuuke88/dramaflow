@@ -5712,6 +5712,64 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Number.isInteger 和 Number.isSafeInteger', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_number_integer_runtime',
+      name: 'Number 整数判定脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Number.isInteger/isSafeInteger 校验镜头号和资产 id。',
+      script: r'''
+const shotNos = args.shots.map(shot => Number(shot.no));
+const durations = args.shots.map(shot => Number.parseFloat(shot.duration));
+return JSON.stringify({
+  integerShotNos: shotNos.every(value => Number.isInteger(value)),
+  integerDurations: durations.map(value => Number.isInteger(value)).join('|'),
+  safeAssetId: Number.isSafeInteger(args.assetId),
+  unsafeAssetId: Number.isSafeInteger(args.unsafeAssetId),
+  safeFloat: Number.isSafeInteger(3.5),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'shots': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+          'assetId': {'type': 'number'},
+          'unsafeAssetId': {'type': 'number'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_number_integer_runtime', const {
+        'shots': [
+          {'no': '1', 'duration': '3s'},
+          {'no': 2, 'duration': '3.5s'},
+        ],
+        'assetId': 9007199254740991,
+        'unsafeAssetId': 9007199254740992,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Number 整数判定脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_number_integer_runtime');
+    expect(jsonDecode(msg.content), {
+      'integerShotNos': true,
+      'integerDurations': 'true|false',
+      'safeAssetId': true,
+      'unsafeAssetId': false,
+      'safeFloat': false,
+    });
+  });
+
   test('自定义脚本技能：支持 parseFloat 和 parseInt 全局解析', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_parse_runtime',

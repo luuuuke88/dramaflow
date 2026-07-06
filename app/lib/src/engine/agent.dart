@@ -5622,6 +5622,12 @@ class _CustomAgentSkillRuntime {
       case 'isNaN':
         if (values.length != 1) _badMethodArgs(method);
         return _isNaNNumber(values.single, coerce: false);
+      case 'isInteger':
+        if (values.length != 1) _badMethodArgs(method);
+        return _isIntegerNumber(values.single);
+      case 'isSafeInteger':
+        if (values.length != 1) _badMethodArgs(method);
+        return _isSafeIntegerNumber(values.single);
       case 'parseFloat':
         if (values.length != 1) _badMethodArgs(method);
         return _parseNumericPrefix(values.single, integer: false);
@@ -6007,6 +6013,16 @@ class _CustomAgentSkillRuntime {
     final number = coerce ? _coerceNumberPredicateNum(value) : value;
     if (coerce && number == null) return true;
     return number is num && number.isNaN;
+  }
+
+  bool _isIntegerNumber(Object? value) {
+    if (value is! num || !value.isFinite) return false;
+    return value.truncateToDouble() == value;
+  }
+
+  bool _isSafeIntegerNumber(Object? value) {
+    const maxSafeInteger = 9007199254740991;
+    return _isIntegerNumber(value) && (value as num).abs() <= maxSafeInteger;
   }
 
   num? _coerceNumberPredicateNum(Object? value) {
