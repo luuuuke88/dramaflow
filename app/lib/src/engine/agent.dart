@@ -815,6 +815,33 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'integer'},
           'description': 'chapterIds 的 snake_case 别名。',
         },
+        'chapterNo': {
+          'type': 'integer',
+          'description': '按导入顺序的自然章节号，例如 1 表示第一章。',
+        },
+        'chapterNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'chapterNo 的数组形式。',
+        },
+        'chapterIndex': {
+          'type': 'integer',
+          'description': 'chapterNo 的 ToonFlow 章节索引别名。',
+        },
+        'chapterIndexes': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'chapterIndex 的数组形式。',
+        },
+        'chapter_no': {
+          'type': 'integer',
+          'description': 'chapterNo 的 snake_case 别名。',
+        },
+        'chapter_nos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'chapterNos 的 snake_case 别名。',
+        },
       },
     },
   ),
@@ -843,6 +870,24 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'integer'},
           'description': 'episodeIds 的 snake_case 别名。',
         },
+        'episodeNo': {
+          'type': 'integer',
+          'description': '按剧本列表顺序的自然集号，例如 2 表示第二集。',
+        },
+        'episodeNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'episodeNo 的数组形式。',
+        },
+        'scriptNo': {
+          'type': 'integer',
+          'description': 'episodeNo 的剧本语义别名。',
+        },
+        'scriptNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'scriptNo 的数组形式。',
+        },
       },
     },
   ),
@@ -865,6 +910,14 @@ final _tools = <AgentToolDef>[
           'type': 'integer',
           'description': 'episodeId 的 snake_case 别名。',
         },
+        'episodeNo': {
+          'type': 'integer',
+          'description': '按剧本列表顺序的自然集号，例如 2 表示第二集。',
+        },
+        'scriptNo': {
+          'type': 'integer',
+          'description': 'episodeNo 的剧本语义别名。',
+        },
       },
     },
   ),
@@ -886,6 +939,14 @@ final _tools = <AgentToolDef>[
         'episode_id': {
           'type': 'integer',
           'description': 'episodeId 的 snake_case 别名。',
+        },
+        'episodeNo': {
+          'type': 'integer',
+          'description': '按剧本列表顺序的自然集号，例如 2 表示第二集。',
+        },
+        'scriptNo': {
+          'type': 'integer',
+          'description': 'episodeNo 的剧本语义别名。',
         },
         'storyboardIds': {
           'type': 'array',
@@ -928,6 +989,14 @@ final _tools = <AgentToolDef>[
         'episode_id': {
           'type': 'integer',
           'description': 'episodeId 的 snake_case 别名。',
+        },
+        'episodeNo': {
+          'type': 'integer',
+          'description': '按剧本列表顺序的自然集号，例如 2 表示第二集。',
+        },
+        'scriptNo': {
+          'type': 'integer',
+          'description': 'episodeNo 的剧本语义别名。',
         },
         'storyboardIds': {
           'type': 'array',
@@ -997,6 +1066,14 @@ final _tools = <AgentToolDef>[
         'episode_id': {
           'type': 'integer',
           'description': 'episodeId 的 snake_case 别名。',
+        },
+        'episodeNo': {
+          'type': 'integer',
+          'description': '按剧本列表顺序的自然集号，例如 2 表示第二集。',
+        },
+        'scriptNo': {
+          'type': 'integer',
+          'description': 'episodeNo 的剧本语义别名。',
         },
       },
     },
@@ -8633,16 +8710,7 @@ extension AgentApi on Engine {
         case 'get_status':
           return _statusSummary(projectId);
         case 'generate_events':
-          final ids = _intListAny(args, const [
-                'novelIds',
-                'novel_ids',
-                'novelId',
-                'novel_id',
-                'chapterIds',
-                'chapter_ids',
-                'chapterId',
-                'chapter_id',
-              ]) ??
+          final ids = _agentNovelIdsArg(projectId, args) ??
               novels(projectId, limit: 100000)
                   .data
                   .where((n) => n.eventState != 1)
@@ -8652,16 +8720,7 @@ extension AgentApi on Engine {
           final taskId = generateEvents(projectId, ids);
           return '已提交事件生成任务（任务 #$taskId），涉及 ${ids.length} 个章节。';
         case 'extract_assets':
-          final ids = _intListAny(args, const [
-                'scriptIds',
-                'script_ids',
-                'scriptId',
-                'script_id',
-                'episodeIds',
-                'episode_ids',
-                'episodeId',
-                'episode_id',
-              ]) ??
+          final ids = _agentScriptIdsArg(projectId, args) ??
               scripts(projectId)
                   .where((s) => s.extractState != 1)
                   .map((s) => s.id)
@@ -8670,12 +8729,12 @@ extension AgentApi on Engine {
           final taskId = extractAssets(ids, projectId);
           return '已提交资产提取任务（任务 #$taskId），涉及 ${ids.length} 个剧本。';
         case 'generate_storyboards':
-          final scriptId = _agentScriptIdArg(args);
+          final scriptId = _agentScriptIdArg(projectId, args);
           if (scriptId == null) return '缺少 scriptId 参数。';
           final taskId = generateStoryboards(projectId, scriptId);
           return '已提交分镜生成任务（任务 #$taskId）。';
         case 'generate_shot_images':
-          final scriptId = _agentScriptIdArg(args);
+          final scriptId = _agentScriptIdArg(projectId, args);
           if (scriptId == null) return '缺少 scriptId 参数。';
           final ids = _intListAny(args, const [
                 'storyboardIds',
@@ -8693,7 +8752,7 @@ extension AgentApi on Engine {
               batchGenerateStoryboardImages(projectId, ids, compulsory: true);
           return '已提交首帧图生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
         case 'generate_videos':
-          final scriptId = _agentScriptIdArg(args);
+          final scriptId = _agentScriptIdArg(projectId, args);
           if (scriptId == null) return '缺少 scriptId 参数。';
           final ids = _intListAny(args, const [
                 'storyboardIds',
@@ -8731,7 +8790,7 @@ extension AgentApi on Engine {
           final taskId = batchBindAudio(projectId, ids);
           return '已提交配音匹配任务（任务 #$taskId），涉及 ${ids.length} 个角色。';
         case 'compose_episode':
-          final scriptId = _agentScriptIdArg(args);
+          final scriptId = _agentScriptIdArg(projectId, args);
           if (scriptId == null) return '缺少 scriptId 参数。';
           final result = await composeEpisode(projectId, scriptId);
           return '合成成功：${result.outputRelPath}'
@@ -8759,6 +8818,78 @@ extension AgentApi on Engine {
     }
   }
 
+  List<int>? _agentNovelIdsArg(int projectId, Map<String, dynamic> args) {
+    final direct = _intListAny(args, const [
+      'novelIds',
+      'novel_ids',
+      'novelId',
+      'novel_id',
+      'chapterIds',
+      'chapter_ids',
+      'chapterId',
+      'chapter_id',
+    ]);
+    if (direct != null) return direct;
+    final chapterNumbers = _intListAny(args, const [
+      'chapterIndexs',
+      'chapterIndexes',
+      'chapterIndex',
+      'chapterNo',
+      'chapterNos',
+      'chapter_index',
+      'chapter_indexes',
+      'chapter_no',
+      'chapter_nos',
+    ]);
+    if (chapterNumbers == null) return null;
+    final wanted = chapterNumbers.toSet();
+    final ids = [
+      for (final chapter in novels(projectId, limit: 100000).data)
+        if (wanted.contains(chapter.chapterIndex)) chapter.id,
+    ];
+    return ids.isEmpty ? null : ids;
+  }
+
+  List<int>? _agentScriptIdsArg(int projectId, Map<String, dynamic> args) {
+    final direct = _intListAny(args, const [
+      'scriptIds',
+      'script_ids',
+      'scriptId',
+      'script_id',
+      'episodeIds',
+      'episode_ids',
+      'episodeId',
+      'episode_id',
+    ]);
+    if (direct != null) return direct;
+    final episodeNumbers = _intListAny(args, const [
+      'episodeNo',
+      'episodeNos',
+      'scriptNo',
+      'scriptNos',
+      'episodeIndex',
+      'episodeIndexes',
+      'scriptIndex',
+      'scriptIndexes',
+      'episode_no',
+      'episode_nos',
+      'script_no',
+      'script_nos',
+      'episode_index',
+      'episode_indexes',
+      'script_index',
+      'script_indexes',
+    ]);
+    if (episodeNumbers == null) return null;
+    final rows = scripts(projectId);
+    final ids = <int>[];
+    for (final number in episodeNumbers) {
+      final index = number - 1;
+      if (index >= 0 && index < rows.length) ids.add(rows[index].id);
+    }
+    return ids.isEmpty ? null : ids;
+  }
+
   List<int>? _intListAny(Map<String, dynamic> args, List<String> keys) {
     for (final key in keys) {
       final parsed = _coerceIntList(args[key]);
@@ -8767,13 +8898,8 @@ extension AgentApi on Engine {
     return null;
   }
 
-  int? _agentScriptIdArg(Map<String, dynamic> args) {
-    final ids = _intListAny(args, const [
-      'scriptId',
-      'script_id',
-      'episodeId',
-      'episode_id',
-    ]);
+  int? _agentScriptIdArg(int projectId, Map<String, dynamic> args) {
+    final ids = _agentScriptIdsArg(projectId, args);
     return ids?.first;
   }
 

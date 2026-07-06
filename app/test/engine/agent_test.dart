@@ -487,6 +487,69 @@ void main() {
     );
   });
 
+  test('Agent 顶层批量工具接受 ToonFlow 自然章节号和集号别名', () async {
+    engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '第一章', chapterData: 'x'),
+      ChapterItem(index: 2, reel: '正文卷', chapter: '第二章', chapterData: 'y'),
+    ]);
+    db.execute('DELETE FROM o_tasks');
+    gateway.turns = [
+      AgentTurnResult.tool('generate_events', const {
+        'chapterNo': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '只生成第二章事件', autoMode: false);
+
+    final eventTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'generate_events');
+    final eventProperties = eventTool.schema['properties'] as Map;
+    expect(eventProperties, contains('chapterNo'));
+    expect(engine.agentMessages(projectId).last.content, contains('1 个章节'));
+    final eventTask = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['event_generation'],
+    ).single;
+    final eventRelated = jsonDecode(eventTask['relatedObjects'] as String)
+        as Map<String, dynamic>;
+    expect(eventRelated['ids'], [2]);
+
+    engine.addScript(projectId: projectId, name: '第一集', content: 'A');
+    final secondScript =
+        engine.addScript(projectId: projectId, name: '第二集', content: 'B');
+    gateway.turns = [
+      AgentTurnResult.tool('extract_assets', const {
+        'episodeNo': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只提取第二集资产',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final assetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'extract_assets');
+    final assetProperties = assetTool.schema['properties'] as Map;
+    expect(assetProperties, contains('episodeNo'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('1 个剧本'),
+    );
+    final assetTask = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['asset_extraction'],
+    ).single;
+    final assetRelated = jsonDecode(assetTask['relatedObjects'] as String)
+        as Map<String, dynamic>;
+    expect(assetRelated['ids'], [secondScript]);
+  });
+
   test('Agent 顶层媒体工具接受 ToonFlow 剧本和分镜 id 别名', () async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
@@ -574,6 +637,43 @@ void main() {
           .content,
       contains('1 个分镜'),
     );
+  });
+
+  test('Agent 顶层媒体工具接受 ToonFlow 自然集号别名', () async {
+    engine.addScript(projectId: projectId, name: '第一集', content: 'A');
+    final secondScript =
+        engine.addScript(projectId: projectId, name: '第二集', content: 'B');
+    gateway.turns = [
+      AgentTurnResult.tool('generate_storyboards', const {
+        'episodeNo': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '给第二集生成分镜',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final storyboardTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'generate_storyboards');
+    final storyboardProperties = storyboardTool.schema['properties'] as Map;
+    expect(storyboardProperties, contains('episodeNo'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('已提交分镜生成任务'),
+    );
+    final task = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['storyboard_generate'],
+    ).single;
+    final related =
+        jsonDecode(task['relatedObjects'] as String) as Map<String, dynamic>;
+    expect(related['scriptId'], secondScript);
   });
 
   test('工具执行失败时返回中文可见错误摘要而非崩溃', () async {
