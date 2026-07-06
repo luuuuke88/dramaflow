@@ -3013,6 +3013,62 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Date 拆分年月日时分秒', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_date_parts_runtime',
+      name: 'Date 拆分脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Date getter 批次命名。',
+      script: r'''
+const date = new Date(args.iso);
+const batch = [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, '0'),
+  String(date.getDate()).padStart(2, '0'),
+  String(date.getHours()).padStart(2, '0'),
+  String(date.getMinutes()).padStart(2, '0'),
+  String(date.getSeconds()).padStart(2, '0'),
+].join('');
+return JSON.stringify({
+  batch,
+  utcYear: date.getUTCFullYear(),
+  utcMonth: date.getUTCMonth(),
+  utcDate: date.getUTCDate(),
+  utcDay: date.getUTCDay(),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'iso': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_date_parts_runtime', const {
+        'iso': '2026-07-08T09:10:11.000Z',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Date 拆分脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_date_parts_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'batch': '20260708091011',
+      'utcYear': 2026,
+      'utcMonth': 6,
+      'utcDate': 8,
+      'utcDay': 3,
+    });
+  });
+
   test('自定义脚本技能：支持回调数组解构处理 Object.entries', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_destructure_runtime',

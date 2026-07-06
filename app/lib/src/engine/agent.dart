@@ -4390,16 +4390,45 @@ class _CustomAgentSkillRuntime {
     String method,
     List<String> args,
   ) {
+    final utc = value.value.toUtc();
     switch (method) {
       case 'getTime':
       case 'valueOf':
         _expectNoArgs(method, args);
         return value.value.millisecondsSinceEpoch;
+      case 'getFullYear':
+      case 'getUTCFullYear':
+        _expectNoArgs(method, args);
+        return utc.year;
+      case 'getMonth':
+      case 'getUTCMonth':
+        _expectNoArgs(method, args);
+        return utc.month - 1;
+      case 'getDate':
+      case 'getUTCDate':
+        _expectNoArgs(method, args);
+        return utc.day;
+      case 'getDay':
+      case 'getUTCDay':
+        _expectNoArgs(method, args);
+        return utc.weekday % 7;
+      case 'getHours':
+      case 'getUTCHours':
+        _expectNoArgs(method, args);
+        return utc.hour;
+      case 'getMinutes':
+      case 'getUTCMinutes':
+        _expectNoArgs(method, args);
+        return utc.minute;
+      case 'getSeconds':
+      case 'getUTCSeconds':
+        _expectNoArgs(method, args);
+        return utc.second;
       case 'toISOString':
       case 'toJSON':
       case 'toString':
         _expectNoArgs(method, args);
-        return value.value.toUtc().toIso8601String();
+        return utc.toIso8601String();
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_method',

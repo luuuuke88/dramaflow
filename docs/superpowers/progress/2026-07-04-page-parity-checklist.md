@@ -268,6 +268,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Ar
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Array.of(...)` plus spread arguments, so model-authored skills can quickly compose reference/image/asset lists before filtering and mapping them.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers Date instance getters such as `getFullYear()`, `getMonth()`, `getDate()`, `getHours()`, and their UTC variants, so model-authored skills can create deterministic batch names and media export keys from ordinary JavaScript date code.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String(...).padEnd(...)` and string-literal `.repeat(...)`, so custom skills can build fixed-width labels, dividers, and normalized helper text with ordinary model-authored JavaScript.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Math.sqrt(...)` in ToonFlow-style aspect-ratio normalization formulas, so custom skills can compute image/video canvas dimensions with the same helper pattern used by provider scripts.
