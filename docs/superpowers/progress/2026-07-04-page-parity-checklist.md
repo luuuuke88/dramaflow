@@ -330,6 +330,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible non-mutating `Array.toSorted(...)` and `Array.toReversed(...)`, so model-authored helper scripts can derive ordered asset/storyboard views while preserving the original input arrays.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible non-mutating `Array.toSpliced(...)` and `Array.with(...)`, so model-authored skills can derive edited reference/storyboard lists without accidentally mutating the original Agent tool arguments.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers numeric `toFixed(...)` formatting on mapped durations, reduced totals, and grouped arithmetic expressions such as `(Number(ratio) * 100).toFixed()`, so model-authored skills can emit stable duration/percentage strings without falling back to manual rounding.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `JSON.stringify(value, null, space)` pretty output with numeric and string indentation, so model-authored skills can return readable workspace/storyboard JSON without failing on the common three-argument stringify form.

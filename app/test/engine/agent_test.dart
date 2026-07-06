@@ -6829,6 +6829,59 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 toSpliced 和 with 的非原地数组更新', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_copy_update_runtime',
+      name: '非原地数组更新脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 toSpliced/with，便于派生分镜和参考图列表。',
+      script: r'''
+const refs = args.references;
+const inserted = refs.toSpliced(1, 1, { id: 'R2b', name: ' 修正版中景 ' });
+const patched = refs.with(-1, { id: 'R9', name: ' 替换尾帧 ' });
+return JSON.stringify({
+  original: refs.map(ref => ref.id).join('>'),
+  inserted: inserted.map(ref => `${ref.id}:${ref.name.trim()}`).join('>'),
+  patched: patched.map(ref => `${ref.id}:${ref.name.trim()}`).join('>'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'references': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_copy_update_runtime', const {
+        'references': [
+          {'id': 'R1', 'name': ' 首帧 '},
+          {'id': 'R2', 'name': '中景'},
+          {'id': 'R3', 'name': '尾帧'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用非原地数组更新脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_copy_update_runtime');
+    expect(jsonDecode(msg.content), {
+      'original': 'R1>R2>R3',
+      'inserted': 'R1:首帧>R2b:修正版中景>R3:尾帧',
+      'patched': 'R1:首帧>R2:中景>R9:替换尾帧',
+    });
+  });
+
   test('自定义脚本技能：支持 findIndex 定位首个待处理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_find_index_runtime',
@@ -12155,11 +12208,33 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       );
     }
 
+    void insertVector(String id, String key, String type) {
+      db.execute(
+        'INSERT OR REPLACE INTO o_memoryVector '
+        '(memoryId,isolationKey,type,provider,model,dimension,vector,updatedAt) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [
+          id,
+          key,
+          type,
+          'gateway',
+          'agent_embedding',
+          2,
+          jsonEncode([1, 0]),
+          1000,
+        ],
+      );
+    }
+
     insertMemory('scope_msg', isolationKey, agentMemoryTypeMessage,
         summarized: 1);
     insertMemory('scope_sum', isolationKey, agentMemoryTypeSummary);
     insertMemory('scope_note', isolationKey, agentMemoryTypeNote);
     insertMemory('other_msg', otherIsolationKey, agentMemoryTypeMessage);
+    insertVector('scope_msg', isolationKey, agentMemoryTypeMessage);
+    insertVector('scope_sum', isolationKey, agentMemoryTypeSummary);
+    insertVector('scope_note', isolationKey, agentMemoryTypeNote);
+    insertVector('other_msg', otherIsolationKey, agentMemoryTypeMessage);
 
     List<String> typesFor(String key) => [
           for (final row in db.select(
@@ -12168,15 +12243,27 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
           ))
             row['type'] as String,
         ];
+    List<String> vectorIdsFor(String key) => [
+          for (final row in db.select(
+            'SELECT memoryId FROM o_memoryVector '
+            'WHERE isolationKey=? ORDER BY memoryId ASC',
+            [key],
+          ))
+            row['memoryId'] as String,
+        ];
 
     service.clear(isolationKey: isolationKey, scope: agentMemoryTypeMessage);
 
     expect(typesFor(isolationKey), [agentMemoryTypeNote]);
     expect(typesFor(otherIsolationKey), [agentMemoryTypeMessage]);
+    expect(vectorIdsFor(isolationKey), ['scope_note']);
+    expect(vectorIdsFor(otherIsolationKey), ['other_msg']);
 
     insertMemory('scope_msg_after', isolationKey, agentMemoryTypeMessage,
         summarized: 1);
     insertMemory('scope_sum_after', isolationKey, agentMemoryTypeSummary);
+    insertVector('scope_msg_after', isolationKey, agentMemoryTypeMessage);
+    insertVector('scope_sum_after', isolationKey, agentMemoryTypeSummary);
 
     service.clear(isolationKey: isolationKey, scope: agentMemoryTypeSummary);
 
@@ -12188,11 +12275,15 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     ).single;
     expect(resetRow['summarized'], 0);
     expect(typesFor(otherIsolationKey), [agentMemoryTypeMessage]);
+    expect(vectorIdsFor(isolationKey), ['scope_msg_after', 'scope_note']);
+    expect(vectorIdsFor(otherIsolationKey), ['other_msg']);
 
     service.clear(isolationKey: isolationKey, scope: 'all');
 
     expect(typesFor(isolationKey), isEmpty);
     expect(typesFor(otherIsolationKey), [agentMemoryTypeMessage]);
+    expect(vectorIdsFor(isolationKey), isEmpty);
+    expect(vectorIdsFor(otherIsolationKey), ['other_msg']);
   });
 
   test('AgentMemoryService get 普通 RAG 直接检索 message 而不展开 summary', () async {

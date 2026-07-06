@@ -3587,6 +3587,25 @@ class _CustomAgentSkillRuntime {
           _badMethodArgs(method);
         }
         return value.toList().reversed.toList();
+      case 'toSpliced':
+        if (args.isEmpty || value is! Iterable || value is String) {
+          _badMethodArgs(method);
+        }
+        final copied = value.toList();
+        _spliceList(copied, args);
+        return copied;
+      case 'with':
+        if (args.length != 2 || value is! Iterable || value is String) {
+          _badMethodArgs(method);
+        }
+        final copied = value.toList();
+        final index = _normalizeAtIndex(
+          _toInt(_evaluate(args.first)),
+          copied.length,
+        );
+        if (index == null) _badMethodArgs(method);
+        copied[index] = _evaluate(args[1]);
+        return copied;
       case 'keys':
       case 'values':
       case 'entries':
