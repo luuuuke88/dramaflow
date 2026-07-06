@@ -462,7 +462,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色 等过滤提示。',
+        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色 等过滤提示。',
   },
   'retrievalPlan': {
     'type': 'array',
@@ -10514,30 +10514,13 @@ extension AgentApi on Engine {
             return '缺少 query 参数。';
           }
           final roles = _agentMemoryRoles(args);
-          final requestedExcludeRoles = _coerceStringSet(
-            args['excludeRoles'] ??
-                args['excludeRole'] ??
-                args['excludedRoles'] ??
-                args['excluded_roles'] ??
-                args['excludeMemoryRoles'] ??
-                args['exclude_memory_roles'] ??
-                args['excludedMemoryRoles'] ??
-                args['excluded_memory_roles'] ??
-                args['排除角色'] ??
-                args['排除记忆角色'],
-          );
+          final requestedExcludeRoles = _agentMemoryExcludeRoles(args);
           final excludeRoles = {
             ...excludedRoles,
             if (requestedExcludeRoles != null) ...requestedExcludeRoles,
           };
-          final requestedExcludeRoleSuffixes = _coerceStringSet(
-            args['excludeRoleSuffixes'] ??
-                args['excludeRoleSuffix'] ??
-                args['excludedRoleSuffixes'] ??
-                args['excludeMemoryRoleSuffixes'] ??
-                args['excludedMemoryRoleSuffixes'] ??
-                args['排除角色后缀'],
-          );
+          final requestedExcludeRoleSuffixes =
+              _agentMemoryExcludeRoleSuffixes(args);
           final excludeRoleSuffixes = {
             ...excludedRoleSuffixes,
             if (requestedExcludeRoleSuffixes != null)
@@ -10737,30 +10720,13 @@ extension AgentApi on Engine {
             return '缺少 keyword 参数。';
           }
           final roles = _agentMemoryRoles(args);
-          final requestedExcludeRoles = _coerceStringSet(
-            args['excludeRoles'] ??
-                args['excludeRole'] ??
-                args['excludedRoles'] ??
-                args['excluded_roles'] ??
-                args['excludeMemoryRoles'] ??
-                args['exclude_memory_roles'] ??
-                args['excludedMemoryRoles'] ??
-                args['excluded_memory_roles'] ??
-                args['排除角色'] ??
-                args['排除记忆角色'],
-          );
+          final requestedExcludeRoles = _agentMemoryExcludeRoles(args);
           final excludeRoles = {
             ...excludedRoles,
             if (requestedExcludeRoles != null) ...requestedExcludeRoles,
           };
-          final requestedExcludeRoleSuffixes = _coerceStringSet(
-            args['excludeRoleSuffixes'] ??
-                args['excludeRoleSuffix'] ??
-                args['excludedRoleSuffixes'] ??
-                args['excludeMemoryRoleSuffixes'] ??
-                args['excludedMemoryRoleSuffixes'] ??
-                args['排除角色后缀'],
-          );
+          final requestedExcludeRoleSuffixes =
+              _agentMemoryExcludeRoleSuffixes(args);
           final excludeRoleSuffixes = {
             ...excludedRoleSuffixes,
             if (requestedExcludeRoleSuffixes != null)
@@ -12102,8 +12068,32 @@ extension AgentApi on Engine {
 
   List<Object?> _agentMemoryQueryPlanMemoryTypeValues(
     Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'types',
+        'type',
+        '类型',
+        'memoryTypes',
+        'memoryType',
+        'memory_types',
+        'memory_type',
+        '记忆类型',
+        'scopes',
+        'scope',
+        '范围',
+        'memoryScopes',
+        'memoryScope',
+        'memory_scopes',
+        'memory_scope',
+        '记忆范围',
+      ]);
+
+  List<Object?> _agentMemoryQueryPlanFilterValues(
+    Map<String, dynamic> args,
+    Iterable<String> valueKeys,
   ) {
     final values = <Object?>[];
+    final keySet = valueKeys.toSet();
 
     void addValue(Object? raw) {
       if (raw == null) return;
@@ -12128,24 +12118,7 @@ extension AgentApi on Engine {
     void addNode(Object? raw) {
       if (raw == null) return;
       if (raw is Map) {
-        for (final key in const [
-          'types',
-          'type',
-          '类型',
-          'memoryTypes',
-          'memoryType',
-          'memory_types',
-          'memory_type',
-          '记忆类型',
-          'scopes',
-          'scope',
-          '范围',
-          'memoryScopes',
-          'memoryScope',
-          'memory_scopes',
-          'memory_scope',
-          '记忆范围',
-        ]) {
+        for (final key in keySet) {
           addValue(raw[key]);
         }
         for (final key in const [
@@ -12208,80 +12181,87 @@ extension AgentApi on Engine {
   }
 
   List<Object?> _agentMemoryQueryPlanRoleValues(Map<String, dynamic> args) {
-    final values = <Object?>[];
-
-    void addValue(Object? raw) {
-      if (raw == null) return;
-      if (raw is String) {
-        if (raw.trim().isNotEmpty) values.add(raw);
-        return;
-      }
-      if (raw is Iterable) {
-        final strings = <String>[];
-        for (final item in raw) {
-          if (item is String) {
-            final trimmed = item.trim();
-            if (trimmed.isNotEmpty) strings.add(trimmed);
-          } else {
-            addValue(item);
-          }
-        }
-        if (strings.isNotEmpty) values.add(strings);
-      }
-    }
-
-    void addNode(Object? raw) {
-      if (raw == null) return;
-      if (raw is Map) {
-        for (final key in const [
-          'roles',
-          'role',
-          '角色',
-          'memoryRoles',
-          'memoryRole',
-          'memory_roles',
-          'memory_role',
-          '记忆角色',
-        ]) {
-          addValue(raw[key]);
-        }
-        for (final key in const [
-          'queryPlan',
-          'retrievalPlan',
-          'searchPlan',
-          'searchQueries',
-          'plannedQueries',
-          '查询计划',
-          '检索计划',
-          '搜索计划',
-          'items',
-          'steps',
-        ]) {
-          addNode(raw[key]);
-        }
-        return;
-      }
-      if (raw is Iterable) {
-        for (final item in raw) {
-          addNode(item);
-        }
-      }
-    }
-
-    for (final key in const [
-      'queryPlan',
-      'retrievalPlan',
-      'searchPlan',
-      'searchQueries',
-      'plannedQueries',
-      '查询计划',
-      '检索计划',
-      '搜索计划',
-    ]) {
-      addNode(args[key]);
-    }
-    return values;
+    return _agentMemoryQueryPlanFilterValues(args, const [
+      'roles',
+      'role',
+      '角色',
+      'memoryRoles',
+      'memoryRole',
+      'memory_roles',
+      'memory_role',
+      '记忆角色',
+    ]);
   }
+
+  Set<String>? _agentMemoryExcludeRoles(Map<String, dynamic> args) {
+    final values = <String>{};
+    void add(Object? raw) {
+      final items = _coerceStringSet(raw);
+      if (items != null) values.addAll(items);
+    }
+
+    add(args['excludeRoles'] ??
+        args['excludeRole'] ??
+        args['excludedRoles'] ??
+        args['excluded_roles'] ??
+        args['excludeMemoryRoles'] ??
+        args['exclude_memory_roles'] ??
+        args['excludedMemoryRoles'] ??
+        args['excluded_memory_roles'] ??
+        args['排除角色'] ??
+        args['排除记忆角色']);
+    for (final value in _agentMemoryQueryPlanExcludeRoleValues(args)) {
+      add(value);
+    }
+    return values.isEmpty ? null : values;
+  }
+
+  List<Object?> _agentMemoryQueryPlanExcludeRoleValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'excludeRoles',
+        'excludeRole',
+        'excludedRoles',
+        'excluded_roles',
+        'excludeMemoryRoles',
+        'exclude_memory_roles',
+        'excludedMemoryRoles',
+        'excluded_memory_roles',
+        '排除角色',
+        '排除记忆角色',
+      ]);
+
+  Set<String>? _agentMemoryExcludeRoleSuffixes(Map<String, dynamic> args) {
+    final values = <String>{};
+    void add(Object? raw) {
+      final items = _coerceStringSet(raw);
+      if (items != null) values.addAll(items);
+    }
+
+    add(args['excludeRoleSuffixes'] ??
+        args['excludeRoleSuffix'] ??
+        args['excludedRoleSuffixes'] ??
+        args['excludeMemoryRoleSuffixes'] ??
+        args['excludedMemoryRoleSuffixes'] ??
+        args['排除角色后缀']);
+    for (final value in _agentMemoryQueryPlanExcludeRoleSuffixValues(args)) {
+      add(value);
+    }
+    return values.isEmpty ? null : values;
+  }
+
+  List<Object?> _agentMemoryQueryPlanExcludeRoleSuffixValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'excludeRoleSuffixes',
+        'excludeRoleSuffix',
+        'excludedRoleSuffixes',
+        'excludeMemoryRoleSuffixes',
+        'excludedMemoryRoleSuffixes',
+        '排除角色后缀',
+      ]);
 
   bool _shouldIncludeVisualReferenceMemories(Map<String, dynamic> args) =>
       (_coerceBool(args['includeVisualReferences'] ??

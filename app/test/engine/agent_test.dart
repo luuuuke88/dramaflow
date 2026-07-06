@@ -11447,6 +11447,141 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：结构化查询计划可携带排除角色过滤', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_exclude_keep',
+      content: '用户约束：玄铁门规甲子必须保持冷峻。',
+      offset: 0,
+      role: agentRoleUser,
+    );
+    insertMessage(
+      id: 'query_plan_exclude_tool_noise',
+      content: '研究噪声：玄铁门规甲子可以改成喜剧。',
+      offset: 1,
+      role: 'assistant:research',
+    );
+    insertMessage(
+      id: 'query_plan_suffix_keep',
+      content: '助手结论：霜桥试炼乙卯保留低机位压迫感。',
+      offset: 2,
+      role: agentRoleAssistant,
+    );
+    insertMessage(
+      id: 'query_plan_suffix_tool_noise',
+      content: '草稿噪声：霜桥试炼乙卯可以省略低机位。',
+      offset: 3,
+      role: 'assistant:execution:script:scratch',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '玄铁门规甲子',
+            'excludeRoles': ['assistant:research'],
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '霜桥试炼乙卯',
+            '排除角色后缀': [':scratch'],
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按计划项里的排除角色过滤工具审计噪声',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '用户约束：玄铁门规甲子必须保持冷峻。',
+    ]);
+    expect(
+      memoryGetPayload['records'],
+      everyElement(
+        isA<Map>().having(
+          (record) => record['role'],
+          'role',
+          isNot('assistant:research'),
+        ),
+      ),
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '助手结论：霜桥试炼乙卯保留低机位压迫感。',
+    ]);
+    expect(
+      deepRetrievePayload['records'],
+      everyElement(
+        isA<Map>().having(
+          (record) => record['role'],
+          'role',
+          isNot(endsWith(':scratch')),
+        ),
+      ),
+    );
+  });
+
   test('Agent 记忆工具可显式召回视觉参考长期记忆', () async {
     final visualId = engine.saveAgentMemory(
       projectId,
