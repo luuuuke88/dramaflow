@@ -11229,6 +11229,56 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
+    gateway.turns = [
+      const AgentTurnResult.text('查看结构化查询计划 schema'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '查看 RAG 查询计划工具 schema',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    bool acceptsObjectPlan(Map<String, dynamic> property) {
+      final type = property['type'];
+      if (type is List) return type.contains('object');
+      return type == 'object';
+    }
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final memoryGetProperties =
+        memoryGetTool.schema['properties'] as Map<String, dynamic>;
+    final deepRetrieveProperties =
+        deepRetrieveTool.schema['properties'] as Map<String, dynamic>;
+
+    for (final key in const [
+      'queryPlan',
+      'retrievalPlan',
+      'searchPlan',
+      'searchQueries',
+      'plannedQueries',
+      '查询计划',
+      '检索计划',
+      '搜索计划',
+    ]) {
+      expect(
+        acceptsObjectPlan(memoryGetProperties[key] as Map<String, dynamic>),
+        isTrue,
+        reason: 'memory_get.$key should accept wrapped query-plan objects',
+      );
+      expect(
+        acceptsObjectPlan(deepRetrieveProperties[key] as Map<String, dynamic>),
+        isTrue,
+        reason: 'deepRetrieve.$key should accept wrapped query-plan objects',
+      );
+    }
+  });
+
   test('Agent 记忆：结构化查询计划可携带记忆范围', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',

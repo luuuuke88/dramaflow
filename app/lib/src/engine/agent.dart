@@ -457,57 +457,57 @@ const _agentMemorySortToolSchema = {
 };
 const _agentMemoryQueryPlanToolSchema = {
   'queryPlan': {
-    'type': 'array',
+    'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit 等过滤提示。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit 等过滤提示。',
   },
   'retrievalPlan': {
-    'type': 'array',
+    'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
     'description': 'queryPlan 的 RAG 检索计划别名。',
   },
   'searchPlan': {
-    'type': 'array',
+    'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
     'description': 'queryPlan 的搜索计划别名。',
   },
   'searchQueries': {
-    'type': 'array',
+    'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
     'description': 'queryPlan 的查询数组别名。',
   },
   'plannedQueries': {
-    'type': 'array',
+    'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
     'description': 'queryPlan 的计划查询别名。',
   },
   '查询计划': {
-    'type': 'array',
+    'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
     'description': 'queryPlan 的中文别名。',
   },
   '检索计划': {
-    'type': 'array',
+    'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
     'description': 'retrievalPlan 的中文别名。',
   },
   '搜索计划': {
-    'type': 'array',
+    'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
