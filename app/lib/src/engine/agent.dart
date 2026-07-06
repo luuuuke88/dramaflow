@@ -3899,7 +3899,7 @@ class _CustomAgentSkillRuntime {
           'reason': 'custom_skill_await',
         });
       }
-      return _evaluate(awaited);
+      return _unwrapPromiseValue(_evaluate(awaited));
     }
     final grouped = _unwrapOuterParens(expr);
     if (grouped != null) return _evaluate(grouped);
@@ -4414,6 +4414,9 @@ class _CustomAgentSkillRuntime {
     }
     if (value is _CustomJsMap) {
       return _callMapInstanceMethod(value, method, args);
+    }
+    if (value is _CustomJsPromiseValue) {
+      return _callPromiseInstanceMethod(value, method, args);
     }
     if (value is _CustomJsRegExp) {
       return _callRegExpInstanceMethod(value, method, args);
@@ -5497,19 +5500,45 @@ class _CustomAgentSkillRuntime {
     switch (method) {
       case 'all':
         if (args.length != 1) _badMethodArgs(method);
-        return _promiseIterableValues(args.single, method);
+        return [
+          for (final value in _promiseIterableValues(args.single, method))
+            _unwrapPromiseValue(value),
+        ];
       case 'allSettled':
         if (args.length != 1) _badMethodArgs(method);
         return [
           for (final value in _promiseIterableValues(args.single, method))
-            {'status': 'fulfilled', 'value': value},
+            {'status': 'fulfilled', 'value': _unwrapPromiseValue(value)},
         ];
       case 'resolve':
         if (args.length > 1) _badMethodArgs(method);
-        return args.isEmpty ? null : _evaluate(args.single);
+        return _CustomJsPromiseValue(
+          args.isEmpty ? null : _unwrapPromiseValue(_evaluate(args.single)),
+        );
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_promise_method',
+          'method': method,
+        });
+    }
+  }
+
+  Object? _callPromiseInstanceMethod(
+    _CustomJsPromiseValue promise,
+    String method,
+    List<String> args,
+  ) {
+    switch (method) {
+      case 'then':
+        if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        return _CustomJsPromiseValue(
+          _unwrapPromiseValue(
+            _evaluateCallback(method, args.first, promise.value, 0),
+          ),
+        );
+      default:
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_promise_instance_method',
           'method': method,
         });
     }
@@ -6869,6 +6898,9 @@ class _CustomAgentSkillRuntime {
     }
   }
 
+  Object? _unwrapPromiseValue(Object? value) =>
+      value is _CustomJsPromiseValue ? value.value : value;
+
   Object? _readProperty(Object? value, String property) {
     if (value is Map) return value[property];
     if (value is _CustomJsMatch) {
@@ -6932,6 +6964,7 @@ class _CustomAgentSkillRuntime {
   }
 
   String _stringifyReturn(Object? value) {
+    value = _unwrapPromiseValue(value);
     if (value == null) return '';
     if (value is String) return value;
     if (value is num || value is bool) return '$value';
@@ -6939,6 +6972,7 @@ class _CustomAgentSkillRuntime {
   }
 
   String _stringifyInterpolation(Object? value) {
+    value = _unwrapPromiseValue(value);
     if (value == null) return '';
     if (value is String) return value;
     if (value is num || value is bool) return '$value';
@@ -7006,6 +7040,11 @@ class _CustomJsDate {
 class _CustomJsMap {
   final Map<Object?, Object?> values;
   const _CustomJsMap(this.values);
+}
+
+class _CustomJsPromiseValue {
+  final Object? value;
+  const _CustomJsPromiseValue(this.value);
 }
 
 class _CustomJsError {

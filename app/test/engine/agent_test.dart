@@ -5473,6 +5473,54 @@ return labels;
     expect(msg.content, '1.雪落山门、2.主角回眸');
   });
 
+  test('自定义脚本技能：支持 Promise.resolve 后的同步 then 链', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_then_runtime',
+      name: 'Promise then 脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 Promise.resolve(value).then(...).then(...) 纯数据整理。',
+      script: r'''
+const label = await Promise.resolve(args.title)
+  .then(title => title.trim())
+  .then(title => `${title}:${args.storyboards.length}`);
+
+return label;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'title': {'type': 'string'},
+          'storyboards': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_promise_then_runtime', const {
+        'title': '  灵脉初醒  ',
+        'storyboards': [
+          {'videoDesc': '山门'},
+          {'videoDesc': '拔剑'},
+          {'videoDesc': '回眸'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise then 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_then_runtime');
+    expect(msg.content, '灵脉初醒:3');
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',
