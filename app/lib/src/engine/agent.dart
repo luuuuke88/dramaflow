@@ -1029,9 +1029,10 @@ class _CustomAgentSkillRuntime {
   }
 
   bool _runVariableUpdate(String statement) {
+    final source = _trimTrailingSemicolon(statement.trim());
     final postfix = RegExp(
       r'^([A-Za-z_][A-Za-z0-9_]*)\s*(\+\+|--)$',
-    ).firstMatch(statement);
+    ).firstMatch(source);
     if (postfix != null) {
       _updateNumericVariable(
         postfix.group(1)!,
@@ -1041,7 +1042,7 @@ class _CustomAgentSkillRuntime {
     }
     final prefix = RegExp(
       r'^(\+\+|--)\s*([A-Za-z_][A-Za-z0-9_]*)$',
-    ).firstMatch(statement);
+    ).firstMatch(source);
     if (prefix != null) {
       _updateNumericVariable(
         prefix.group(2)!,
@@ -1049,9 +1050,33 @@ class _CustomAgentSkillRuntime {
       );
       return true;
     }
+    final logical = RegExp(
+      r'^([A-Za-z_][A-Za-z0-9_]*)\s*(\|\||&&|\?\?)=\s*([\s\S]+)$',
+    ).firstMatch(source);
+    if (logical != null) {
+      final name = logical.group(1)!;
+      if (!_scope.containsKey(name)) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_unknown_variable',
+          'expression': name,
+        });
+      }
+      final current = _scope[name];
+      final operator = logical.group(2)!;
+      final shouldWrite = switch (operator) {
+        '||' => !_isTruthy(current),
+        '&&' => _isTruthy(current),
+        '??' => current == null,
+        _ => false,
+      };
+      if (shouldWrite) {
+        _scope[name] = _evaluate(logical.group(3)!);
+      }
+      return true;
+    }
     final compound = RegExp(
       r'^([A-Za-z_][A-Za-z0-9_]*)\s*([+-])=\s*([\s\S]+)$',
-    ).firstMatch(statement);
+    ).firstMatch(source);
     if (compound != null) {
       final delta = _toNum(_evaluate(compound.group(3)!));
       _updateNumericVariable(

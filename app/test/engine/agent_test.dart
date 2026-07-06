@@ -6460,6 +6460,79 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持普通变量逻辑赋值', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_variable_logical_assignment_runtime',
+      name: '变量逻辑赋值脚本运行时',
+      description: '验证自定义技能兼容模型常写的 name ||= fallback 和 value ??= fallback。',
+      script: r'''
+let name = args.name.trim();
+name ||= '未命名';
+let prompt = args.prompt;
+prompt ??= `${name}:默认提示词`;
+let caption = args.caption;
+caption ??= '备用字幕';
+let publish = args.publish;
+publish &&= args.allowPublish;
+let zero = 0;
+zero ||= 7;
+let existing = '已有';
+existing &&= `${existing}-通过`;
+return JSON.stringify({
+  name,
+  prompt,
+  caption,
+  publish,
+  zero,
+  existing,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'name': {'type': 'string'},
+          'prompt': {'type': 'string'},
+          'caption': {'type': 'string'},
+          'publish': {'type': 'boolean'},
+          'allowPublish': {'type': 'boolean'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'custom_script_variable_logical_assignment_runtime',
+        const {
+          'name': '   ',
+          'prompt': null,
+          'caption': '',
+          'publish': true,
+          'allowPublish': false,
+        },
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用变量逻辑赋值脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_variable_logical_assignment_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'name': '未命名',
+      'prompt': '未命名:默认提示词',
+      'caption': '',
+      'publish': false,
+      'zero': 7,
+      'existing': '已有-通过',
+    });
+  });
+
   test('自定义脚本技能：支持对象属性和数组索引逻辑赋值', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_logical_assignment_runtime',
