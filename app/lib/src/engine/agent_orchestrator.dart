@@ -1648,18 +1648,37 @@ ProductionStoryboardItem? _storyboardItemFromAttrs(
   String attrs, {
   String body = '',
 }) {
+  final rawVideoDesc = _attributeValueAny(attrs, const [
+    'videoDesc',
+    'videoDescription',
+    'description',
+    'shotDesc',
+    'video_desc',
+    'video_description',
+    'shot_desc',
+  ]);
   final videoDesc = decodeXmlEntities(
-    (_attributeValue(attrs, 'videoDesc').trim().isEmpty
-            ? body
-            : _attributeValue(attrs, 'videoDesc'))
-        .trim(),
+    (rawVideoDesc.trim().isEmpty ? body : rawVideoDesc).trim(),
   );
   if (videoDesc.isEmpty) return null;
-  final prompt = decodeXmlEntities(_attributeValue(attrs, 'prompt').trim());
+  final prompt = decodeXmlEntities(_attributeValueAny(attrs, const [
+    'prompt',
+    'imagePrompt',
+    'image_prompt',
+  ]).trim());
   final track = decodeXmlEntities(_attributeValue(attrs, 'track').trim());
-  final duration = decodeXmlEntities(_attributeValue(attrs, 'duration').trim());
+  final duration = decodeXmlEntities(_attributeValueAny(attrs, const [
+    'duration',
+    'durationSec',
+    'duration_sec',
+  ]).trim());
   final shouldGenerateImage = _truthyText(
-    _attributeValue(attrs, 'shouldGenerateImage'),
+    _attributeValueAny(attrs, const [
+      'shouldGenerateImage',
+      'generateImage',
+      'should_generate_image',
+      'generate_image',
+    ]),
     defaultValue: true,
   );
   return ProductionStoryboardItem(
@@ -1796,4 +1815,12 @@ String _attributeValue(String attrs, String name) {
     caseSensitive: false,
   ).firstMatch(attrs);
   return bare?.group(1) ?? '';
+}
+
+String _attributeValueAny(String attrs, List<String> names) {
+  for (final name in names) {
+    final value = _attributeValue(attrs, name);
+    if (value.trim().isNotEmpty) return value;
+  }
+  return '';
 }

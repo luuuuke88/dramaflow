@@ -16236,6 +16236,47 @@ description: 只属于水墨视觉项目
     expect(rows.single.assetIds, [roleId]);
   });
 
+  test('ProductionAgent storyboard panel XML accepts field aliases', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, roleId]);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'prompt': '写第一集分镜面板', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text(
+        "<storyboardItem videoDescription='李澈抬头望向山门匾额' "
+        "imagePrompt='冷白山门，少年抬头，近景' track='主线' "
+        "generateImage='false' durationSec='2.5' "
+        "assetNames='[&quot;李澈&quot;]' />",
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '写别名字段分镜面板',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows, hasLength(1));
+    expect(rows.single.videoDesc, '李澈抬头望向山门匾额');
+    expect(rows.single.prompt, '冷白山门，少年抬头，近景');
+    expect(rows.single.duration, '2.5');
+    expect(rows.single.shouldGenerateImage, 0);
+    expect(rows.single.assetIds, [roleId]);
+  });
+
   test(
       'ProductionAgentOrchestrator runs asset and storyboard execution tools from subagents',
       () async {
