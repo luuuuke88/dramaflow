@@ -3790,6 +3790,56 @@ return JSON.stringify({
     expect(msg.content, '{"totalDuration":6.5,"refCount":6}');
   });
 
+  test('自定义脚本技能：支持 Number.parseFloat 和 Number.parseInt 静态解析', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_number_static_parse_runtime',
+      name: 'Number 静态解析脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Number.parseFloat/Number.parseInt 解析尺寸和时长。',
+      script: r'''
+const parts = args.size.split('x');
+const width = Number.parseInt(parts[0], 10);
+const height = Number.parseInt(parts[1], 10);
+const duration = Number.parseFloat(args.duration ?? '1');
+return JSON.stringify({
+  width,
+  height,
+  duration,
+  pixels: width * height,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'size': {'type': 'string'},
+          'duration': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_number_static_parse_runtime', const {
+        'size': '1280x720',
+        'duration': '3.5s',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Number 静态解析脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_number_static_parse_runtime');
+    expect(jsonDecode(msg.content), {
+      'width': 1280,
+      'height': 720,
+      'duration': 3.5,
+      'pixels': 921600,
+    });
+  });
+
   test('自定义脚本技能：支持字符串拆分清洗分镜表', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_string_parse_runtime',

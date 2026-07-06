@@ -176,6 +176,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Object
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Number.isFinite(...)`, `Number.isNaN(...)`, `isFinite(...)`, and `isNaN(...)`, so custom skills can validate generated durations, weights, and numeric fields before writing storyboard or asset data.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Number.parseFloat(...)` and `Number.parseInt(...)`, so custom skills can parse model-authored duration, size, and reference-count strings whether the model chooses global or `Number.` static helpers.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String.localeCompare(...)` inside `Array.sort(...)`, so custom skills can order asset and storyboard names with the model-authored comparator pattern commonly produced for production lists.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible in-place `Array.sort(...)`, so custom skills that sort an `args` array and then continue reading the same variable behave like model-authored JavaScript instead of only sorting a returned copy.

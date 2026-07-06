@@ -2851,6 +2851,17 @@ class _CustomAgentSkillRuntime {
       case 'isNaN':
         if (values.length != 1) _badMethodArgs(method);
         return _isNaNNumber(values.single, coerce: false);
+      case 'parseFloat':
+        if (values.length != 1) _badMethodArgs(method);
+        return _parseNumericPrefix(values.single, integer: false);
+      case 'parseInt':
+        if (values.isEmpty || values.length > 2) _badMethodArgs(method);
+        final radix = values.length == 1 ? 10 : _toInt(values[1]);
+        return _parseNumericPrefix(
+          values.first,
+          integer: true,
+          radix: radix,
+        );
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_builtin_method',
