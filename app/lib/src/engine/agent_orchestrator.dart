@@ -97,6 +97,54 @@ const _scriptAgentReadTools = <AgentToolDef>[
   ),
 ];
 
+const Map<String, dynamic> _assetImageIdListAliasProperties = <String, dynamic>{
+  'ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': '要生成图片的衍生资产 id 列表。',
+  },
+  'assetIds': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'ids 的资产语义别名。',
+  },
+  'assetsIds': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'assetIds 的 ToonFlow 旧字段别名。',
+  },
+  'deriveAssetIds': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'ids 的衍生资产语义别名。',
+  },
+  'deriveAssetsIds': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'deriveAssetIds 的复数字段别名。',
+  },
+  'asset_ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'assetIds 的 snake_case 别名。',
+  },
+  'assets_ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'assetsIds 的 snake_case 别名。',
+  },
+  'derive_asset_ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'deriveAssetIds 的 snake_case 别名。',
+  },
+  'derive_assets_ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'deriveAssetsIds 的 snake_case 别名。',
+  },
+};
+
 const _productionAgentReadWriteTools = <AgentToolDef>[
   AgentToolDef(
     name: 'get_flowData',
@@ -153,13 +201,7 @@ const _productionAgentReadWriteTools = <AgentToolDef>[
     description: '为衍生资产提交图片生成任务。',
     schema: {
       'type': 'object',
-      'properties': {
-        'ids': {
-          'type': 'array',
-          'items': {'type': 'integer'},
-        },
-      },
-      'required': ['ids'],
+      'properties': _assetImageIdListAliasProperties,
     },
   ),
   AgentToolDef(

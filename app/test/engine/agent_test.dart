@@ -10962,6 +10962,37 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(productionTool.schema['required'], isNull);
   });
 
+  test('制作执行工具 schema 暴露资产生图 id 字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：生成衍生资产图片',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final tool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'generate_deriveAsset',
+    );
+    final properties = tool.schema['properties'] as Map;
+    expect(
+      properties.keys,
+      containsAll([
+        'ids',
+        'assetIds',
+        'assetsIds',
+        'deriveAssetIds',
+        'deriveAssetsIds',
+        'asset_ids',
+        'assets_ids',
+        'derive_asset_ids',
+        'derive_assets_ids',
+      ]),
+    );
+    expect(tool.schema['required'], isNull);
+  });
+
   test('子 Agent 工具调用接受常见提示词别名作为执行任务', () async {
     gateway.turns = [
       AgentTurnResult.tool(
@@ -11027,6 +11058,48 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(
       _productionAgentWorkData(db, projectId, secondScriptId)['scriptPlan'],
       '第二集镜湖调度',
+    );
+  });
+
+  test('制作执行工具调用接受 assetIds 别名生成衍生资产图片', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final parentAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    final childAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈战损造型',
+      describe: '衣甲破损',
+      parentAssetsId: parentAssetId,
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, childAssetId]);
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_generate_assets',
+        {'request': '生成衍生资产图片', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool('generate_deriveAsset', {
+        'assetIds': [childAssetId],
+      }),
+      const AgentTurnResult.text('开始生成'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：生成衍生资产图片',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(
+      db.select('SELECT taskClass FROM o_tasks').map((row) => row['taskClass']),
+      contains('asset_image_generation'),
     );
   });
 

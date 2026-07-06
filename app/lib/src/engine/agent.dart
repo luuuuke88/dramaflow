@@ -8283,7 +8283,17 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final ids = _intListAny(args, const ['ids']);
+    final ids = _intListAny(args, const [
+      'ids',
+      'assetIds',
+      'assetsIds',
+      'deriveAssetIds',
+      'deriveAssetsIds',
+      'asset_ids',
+      'assets_ids',
+      'derive_asset_ids',
+      'derive_assets_ids',
+    ]);
     if (ids == null || ids.isEmpty) return '缺少 ids 参数。';
     final items = <({int assetsId, String? refImageBase64})>[
       for (final id in ids) (assetsId: id, refImageBase64: null),

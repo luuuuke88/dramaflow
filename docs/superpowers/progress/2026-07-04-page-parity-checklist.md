@@ -144,6 +144,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers script and
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers production sub Agent tools exposing and accepting common script/episode id aliases (`episodeId`, `episodesId`, snake_case forms, and list forms), so model-authored production tool calls can target the intended script instead of silently falling back to the first script.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `generate_deriveAsset` production execution tool exposing and accepting common asset-id aliases (`assetIds`, `assetsIds`, `deriveAssetIds`, and snake_case forms), so production sub Agents can submit derived-asset image generation without brittle exact `ids` arguments.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers long-term `note` memory search using the bound `agent_embedding` provider, including semantic cross-language recall and migration of stored note embeddings from legacy token JSON to gateway-vector JSON.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style memory clearing semantics: clearing `message` also removes dependent `summary` records, while clearing `summary` resets summarized messages back to `summarized=0` so they can re-enter short-term memory and future summarization.
