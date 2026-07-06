@@ -332,6 +332,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured query-plan items carrying visual/style reference switches such as `视觉参考` or `画风参考`, so ProductionAgent RAG plans can pull recent visual-reference long-term notes even when the model nests that request inside the retrieval plan.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured query-plan objects wrapping plan items under `queries`, so `memory_get` and `deepRetrieve` honor nested filters such as `memoryRoles` / `记忆角色` and per-plan `limit` / `数量` even when the model emits a higher-level RAG plan object instead of a flat array.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
