@@ -5375,6 +5375,69 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持全局 RegExp.test 推进 lastIndex', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regexp_test_global_runtime',
+      name: '全局正则 test 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 while (re.test(text)) 循环。',
+      script: r'''
+const re = /<storyboardItem\b[^>]*videoDesc="([^"]+)"/g;
+const names = [];
+while (re.test(args.workspace)) {
+  if (re.lastIndex <= 0 || names.length > 5) {
+    throw new Error('RegExp.test did not advance');
+  }
+  const desc = args.workspace
+    .slice(0, re.lastIndex)
+    .match(/videoDesc="([^"]+)"/g)
+    .at(-1)
+    .replace(/videoDesc="|"/g, '')
+    .trim();
+  names.push(desc);
+}
+const afterLoop = re.lastIndex;
+const firstAgain = re.test(args.workspace);
+return JSON.stringify({
+  names,
+  afterLoop,
+  firstAgain,
+  afterFirst: re.lastIndex,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_regexp_test_global_runtime', const {
+        'workspace': '''
+<storyboardItem videoDesc="雪夜山门"></storyboardItem>
+<storyboardItem videoDesc="李澈拔剑"></storyboardItem>
+''',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用全局正则 test 脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regexp_test_global_runtime');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['names'], ['雪夜山门', '李澈拔剑']);
+    expect(payload['afterLoop'], 0);
+    expect(payload['firstAgain'], true);
+    expect(payload['afterFirst'], greaterThan(0));
+  });
+
   test('自定义脚本技能：支持正则 replace 清洗工作区 XML', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regex_replace_runtime',

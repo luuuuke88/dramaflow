@@ -228,6 +228,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers regex-l
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers global regex `.exec(...)` loops with assignment expressions and writable `lastIndex`, so custom skills can use `while ((match = re.exec(text)) !== null)` to extract multiple storyboard tags.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers global regex `.test(...)` advancing and resetting `lastIndex`, so custom skills can safely use `while (re.test(text))` loops without stalling on the first match.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS regex match metadata (`match.index` and `match.input`) across `String.match(...)`, `String.matchAll(...)`, and `RegExp.exec(...)`, so custom skills can locate storyboard tags inside the original workspace text.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers named regex capture metadata (`match.groups.name`) plus object helpers over groups, so custom skills can parse storyboard fields with model-authored `(?<field>...)` expressions.

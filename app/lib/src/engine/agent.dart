@@ -3478,9 +3478,9 @@ class _CustomAgentSkillRuntime {
         return _customJsMatch(text, match);
       case 'test':
         if (args.length != 1) _badMethodArgs(method);
-        return value.regExp.hasMatch(_stringifyInterpolation(
-          _evaluate(args.single),
-        ));
+        final text = _stringifyInterpolation(_evaluate(args.single));
+        if (value.global) return _nextGlobalRegExpMatch(value, text) != null;
+        return value.regExp.hasMatch(text);
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_method',
