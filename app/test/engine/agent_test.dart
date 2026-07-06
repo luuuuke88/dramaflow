@@ -10181,6 +10181,119 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：deepRetrieve schema 暴露模型常见 RAG 字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '查看 deepRetrieve 参数',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = tool.schema['properties'] as Map;
+    expect(
+      properties.keys,
+      containsAll([
+        'q',
+        'max',
+        'count',
+        'min_score',
+        'minimumScore',
+        'minimum_score',
+        'threshold',
+        'memoryRoles',
+        'memory_roles',
+        'memoryScope',
+        'memory_scope',
+        'excludedRoles',
+        'excluded_roles',
+        'excludeMemoryRoles',
+        'exclude_memory_roles',
+        'excludedMemoryRoles',
+        'excluded_memory_roles',
+        'excludeId',
+        'seenIds',
+        'readIds',
+        'previousMemoryIds',
+        'previousRecords',
+      ]),
+    );
+  });
+
+  test('Agent 记忆：deepRetrieve 工具支持 q 和 memory_roles 别名', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'deep_alias_user',
+      content: '用户记录寒山伏笔：李澈先隐藏断剑。',
+      offset: 0,
+      role: agentRoleUser,
+    );
+    insertMessage(
+      id: 'deep_alias_execution',
+      content: '执行层记录寒山伏笔：第三集结尾露出断剑。',
+      offset: 1,
+      role: 'assistant:execution:script',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'q': '寒山伏笔',
+        'memory_roles': ['assistant:execution:script'],
+        'memory_scope': 'conversation',
+        'count': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '深度找执行层寒山伏笔',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    final records = payload['records'] as List;
+    expect(records, isNotEmpty);
+    expect(
+      records,
+      everyElement(
+        isA<Map>().having(
+          (record) => record['role'],
+          'role',
+          'assistant:execution:script',
+        ),
+      ),
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具支持按 role 过滤 summary 展开的原始 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
