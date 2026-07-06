@@ -597,6 +597,43 @@ class AgentMemoryService {
     return withNotes(expanded);
   }
 
+  Future<List<AgentMemoryEntry>> searchNotes({
+    required String isolationKey,
+    required String query,
+    int limit = 5,
+  }) async {
+    if (limit <= 0) return const [];
+    final normalized = normalizeMemoryText(query);
+    if (normalized.isEmpty) {
+      final rows = db.select(
+        'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
+        'FROM memories WHERE isolationKey=? AND type=? '
+        'ORDER BY createTime DESC, id DESC LIMIT ?',
+        [isolationKey, agentMemoryTypeNote, limit],
+      );
+      final entries = <AgentMemoryEntry>[];
+      for (final row in rows) {
+        final entry = await _entryWithProviderEmbedding(
+          AgentMemoryEntry.fromRow(row),
+          isolationKey: isolationKey,
+        );
+        entries.add(entry.copyWith(score: 1, matchedTokens: const []));
+      }
+      return entries;
+    }
+
+    final tokens = memorySearchTokens(normalized);
+    final queryEmbedding =
+        await embeddingProvider.embeddingFromText(normalized);
+    final ranked = await _rankNoteCandidates(
+      isolationKey: isolationKey,
+      normalized: normalized,
+      tokens: tokens,
+      queryEmbedding: queryEmbedding,
+    );
+    return [for (final item in ranked.take(limit)) item.$2];
+  }
+
   void clear({
     required String isolationKey,
     required String scope,

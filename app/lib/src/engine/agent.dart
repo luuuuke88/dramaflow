@@ -146,6 +146,18 @@ class AgentMemoryRecord {
         relatedMessageIds: _decodeAgentMemoryIdList(row['relatedMessageIds']),
       );
 
+  factory AgentMemoryRecord.fromEntry(AgentMemoryEntry entry) =>
+      AgentMemoryRecord(
+        id: entry.id,
+        name: entry.name,
+        content: entry.content,
+        createdAt: entry.createdAt,
+        embedding: entry.embedding,
+        relatedMessageIds: entry.relatedMessageIds,
+        score: entry.score,
+        matchedTokens: entry.matchedTokens,
+      );
+
   AgentMemoryRecord copyWith({
     String? embedding,
     int? score,
@@ -5794,37 +5806,17 @@ extension AgentApi on Engine {
     );
   }
 
-  List<AgentMemoryRecord> searchAgentMemories(
+  Future<List<AgentMemoryRecord>> searchAgentMemories(
     int projectId,
     String query, {
     int limit = 5,
-  }) {
-    final records = agentLongTermMemories(projectId);
-    final normalizedQuery = _normalizeMemoryText(query);
-    final tokens = _memorySearchTokens(normalizedQuery);
-    final queryEmbedding = _memoryEmbeddingFromText(normalizedQuery);
-    final scored = <(int, AgentMemoryRecord)>[];
-    for (var record in records) {
-      record = _ensureMemoryEmbedding(projectId, record);
-      final score =
-          _memoryScore(record, normalizedQuery, tokens, queryEmbedding);
-      if (score > 0) {
-        scored.add((
-          score,
-          record.copyWith(
-            score: score,
-            matchedTokens:
-                _memoryMatchedTokens(record, normalizedQuery, tokens),
-          ),
-        ));
-      }
-    }
-    scored.sort((a, b) {
-      final byScore = b.$1.compareTo(a.$1);
-      if (byScore != 0) return byScore;
-      return b.$2.createdAt.compareTo(a.$2.createdAt);
-    });
-    return [for (final item in scored.take(limit)) item.$2];
+  }) async {
+    final entries = await _agentMemoryService().searchNotes(
+      isolationKey: _agentMemoryIsolationKey(projectId),
+      query: query,
+      limit: limit,
+    );
+    return [for (final entry in entries) AgentMemoryRecord.fromEntry(entry)];
   }
 
   String _normalizeMemoryText(String text) =>
@@ -5856,83 +5848,6 @@ extension AgentApi on Engine {
     }
     return Map.fromEntries(
         embedding.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
-  }
-
-  AgentMemoryRecord _ensureMemoryEmbedding(
-    int projectId,
-    AgentMemoryRecord record,
-  ) {
-    if (record.embedding.trim().isNotEmpty) return record;
-    final embedding = _memoryEmbeddingJson(record.name, record.content);
-    db.execute(
-      'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
-      [embedding, record.id, _agentMemoryIsolationKey(projectId)],
-    );
-    return record.withEmbedding(embedding);
-  }
-
-  Map<String, int> _decodeMemoryEmbedding(String value) {
-    try {
-      final decoded = jsonDecode(value);
-      if (decoded is! Map) return const {};
-      return {
-        for (final entry in decoded.entries)
-          if (entry.key is String && entry.value is num)
-            entry.key as String: (entry.value as num).toInt(),
-      };
-    } catch (_) {
-      return const {};
-    }
-  }
-
-  int _embeddingScore(Map<String, int> query, Map<String, int> memory) {
-    var score = 0;
-    for (final entry in query.entries) {
-      final value = memory[entry.key];
-      if (value == null) continue;
-      score += entry.value < value ? entry.value : value;
-    }
-    return score;
-  }
-
-  int _memoryScore(
-    AgentMemoryRecord record,
-    String query,
-    Set<String> tokens,
-    Map<String, int> queryEmbedding,
-  ) {
-    if (query.isEmpty) return 1;
-    final haystack = _normalizeMemoryText('${record.name}\n${record.content}');
-    var score = haystack.contains(query) ? 100 : 0;
-    for (final token in tokens) {
-      if (token.length <= 1) continue;
-      if (haystack.contains(token)) score += 10;
-    }
-    score += _embeddingScore(
-      queryEmbedding,
-      _decodeMemoryEmbedding(record.embedding),
-    );
-    return score;
-  }
-
-  List<String> _memoryMatchedTokens(
-    AgentMemoryRecord record,
-    String query,
-    Set<String> tokens,
-  ) {
-    final haystack = _normalizeMemoryText('${record.name}\n${record.content}');
-    final matched = <String>[];
-    void add(String value) {
-      final token = value.trim();
-      if (token.length <= 1 || matched.contains(token)) return;
-      if (haystack.contains(token)) matched.add(token);
-    }
-
-    if (query.isNotEmpty) add(query);
-    for (final token in tokens) {
-      add(token);
-    }
-    return matched;
   }
 
   String _agentSystemPrompt(
@@ -6326,7 +6241,7 @@ extension AgentApi on Engine {
           ? productionAgentDecisionStage
           : scriptAgentDecisionStage;
       final system = _agentSystemPrompt(
-        searchAgentMemories(projectId, text, limit: _agentRagLimit()),
+        await searchAgentMemories(projectId, text, limit: _agentRagLimit()),
         context: await memoryService.get(
           isolationKey: conversationKey,
           query: text,
@@ -6550,7 +6465,8 @@ extension AgentApi on Engine {
     ].join('\n');
     final memoryService = _agentMemoryService(family: family);
     final system = _agentSystemPrompt(
-      searchAgentMemories(projectId, reviewQuery, limit: _agentRagLimit()),
+      await searchAgentMemories(projectId, reviewQuery,
+          limit: _agentRagLimit()),
       context: await memoryService.get(
         isolationKey: _agentConversationIsolationKey(
           projectId,
@@ -7450,7 +7366,7 @@ extension AgentApi on Engine {
         excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       final system = _agentSystemPrompt(
-        searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
+        await searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
         context: memoryContext,
         base: _scriptAgentSubAgentSystem(stage),
         activatedSkills: activeSkillContexts,
@@ -7937,7 +7853,7 @@ extension AgentApi on Engine {
         excludeRoleSuffixes: _agentToolAuditRoleSuffixes,
       );
       final system = _agentSystemPrompt(
-        searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
+        await searchAgentMemories(projectId, prompt, limit: _agentRagLimit()),
         context: memoryContext,
         base: _productionAgentSubAgentSystem(stage),
         activatedSkills: activeSkillContexts,

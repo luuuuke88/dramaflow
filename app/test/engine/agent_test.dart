@@ -6905,7 +6905,7 @@ description: >-
     expect(memories.single.name, '主角设定');
     expect(memories.single.content, contains('寒山少主李澈'));
 
-    final matched = engine.searchAgentMemories(projectId, '寒山');
+    final matched = await engine.searchAgentMemories(projectId, '寒山');
     expect(matched.map((item) => item.id), [id]);
     expect(matched.single.score, greaterThan(0));
     expect(matched.single.matchedTokens, contains('寒山'));
@@ -6946,7 +6946,7 @@ description: >-
     expect(injected, 2);
   });
 
-  test('长期记忆：写入本地 embedding，搜索旧记录时自动回填', () {
+  test('长期记忆：写入本地 embedding，搜索旧记录时自动回填', () async {
     final id = engine.saveAgentMemory(
       projectId,
       name: '战力设定',
@@ -6958,11 +6958,45 @@ description: >-
     expect(row['embedding'], contains('李澈'));
 
     db.execute('UPDATE memories SET embedding=? WHERE id=?', ['', id]);
-    final matched = engine.searchAgentMemories(projectId, '李澈剑修');
+    final matched = await engine.searchAgentMemories(projectId, '李澈剑修');
     expect(matched.map((item) => item.id), [id]);
 
     row = db.select('SELECT embedding FROM memories WHERE id=?', [id]).single;
     expect(row['embedding'], isNot(''), reason: '旧记忆检索时应回填本地 embedding');
+  });
+
+  test('长期记忆：搜索可通过绑定 embedding 模型召回语义相关 note', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.agent_embedding', 'fake:embed'],
+    );
+    final keepId = engine.saveAgentMemory(
+      projectId,
+      name: 'Mentor Bond',
+      content:
+          'mentor bond rule: Li Che must protect Shen Wei before entering Hanshan.',
+    );
+    engine.saveAgentMemory(
+      projectId,
+      name: 'Market Beat',
+      content: 'market comedy beat with no relationship constraint.',
+    );
+    gateway.embeddingForText = (input) {
+      final normalized = input.toLowerCase();
+      if (normalized.contains('mentor bond') || input.contains('师承羁绊')) {
+        return const [1, 0];
+      }
+      return const [0, 1];
+    };
+
+    final matched = await engine.searchAgentMemories(projectId, '师承羁绊');
+
+    expect(gateway.embeddingInputs, contains('师承羁绊'));
+    expect(matched.map((item) => item.id), [keepId]);
+    expect(matched.single.content, contains('mentor bond rule'));
+    final stored = db.select('SELECT embedding FROM memories WHERE id=?',
+        [keepId]).single['embedding'] as String;
+    expect(stored, contains('__gateway_embedding_v1'));
   });
 
   test('Agent 记忆：对话写入 memories message 并达到阈值生成 summary', () async {
