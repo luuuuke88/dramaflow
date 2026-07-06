@@ -7448,6 +7448,70 @@ description: >-
     );
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持显式排除已读 memory id', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'exclude_seen_memory',
+      '已读记忆：寒山禁忌是李澈不能滥杀。',
+      0,
+    );
+    insertMessage(
+      'exclude_keep_memory',
+      '新记忆：寒山禁忌还包括沈微不能黑化。',
+      1,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '寒山禁忌',
+        'excludeIds': ['exclude_seen_memory'],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '继续找未读过的寒山禁忌记忆',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = deepRetrieveTool.schema['properties'] as Map;
+    expect(properties, contains('excludeIds'));
+    expect(properties, contains('excludeMemoryIds'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], ['新记忆：寒山禁忌还包括沈微不能黑化。']);
+    final records = payload['records'] as List;
+    expect(records, hasLength(1));
+    expect(
+        (records.single as Map<String, dynamic>)['id'], 'exclude_keep_memory');
+  });
+
   test('Agent 记忆：deepRetrieve 工具返回可追踪 records 元数据', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

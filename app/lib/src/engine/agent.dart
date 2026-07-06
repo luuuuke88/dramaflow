@@ -239,6 +239,16 @@ final _tools = <AgentToolDef>[
           },
           'description': '可选。按多个记忆层级召回。',
         },
+        'excludeIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。排除这些已读 memory id，避免重复返回同一条记忆。',
+        },
+        'excludeMemoryIds': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。excludeIds 的语义化别名。',
+        },
       },
       'required': ['keyword'],
     },
@@ -6713,6 +6723,16 @@ extension AgentApi on Engine {
             args['roles'] ?? args['role'] ?? args['memoryRoles'],
           );
           final types = _deepRetrieveMemoryTypes(args);
+          final requestedExcludeIds = _coerceStringSet(
+            args['excludeIds'] ??
+                args['excludeMemoryIds'] ??
+                args['excludedMemoryIds'] ??
+                args['excludeId'],
+          );
+          final excludeIds = {
+            ...excludedMemoryIds,
+            if (requestedExcludeIds != null) ...requestedExcludeIds,
+          };
           final records = await _agentMemoryService(
             family: agentFamily,
           ).deepRetrieve(
@@ -6723,7 +6743,7 @@ extension AgentApi on Engine {
             keyword: keyword,
             roles: roles,
             types: types,
-            excludeIds: excludedMemoryIds,
+            excludeIds: excludeIds,
             noteIsolationKey: _agentMemoryIsolationKey(projectId),
           );
           final rawLimit = args['limit'] ?? args['max'] ?? args['count'];
