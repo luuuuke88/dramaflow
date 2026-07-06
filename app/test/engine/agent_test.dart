@@ -14096,6 +14096,18 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'asset_id',
         'derive_asset_id',
         'child_asset_id',
+        'assetName',
+        'assetNames',
+        'deriveAssetName',
+        'deriveAssetNames',
+        'childAssetName',
+        'childAssetNames',
+        'asset_name',
+        'asset_names',
+        'derive_asset_name',
+        'derive_asset_names',
+        'child_asset_name',
+        'child_asset_names',
       ]),
     );
     expect(tool.schema['required'], isNull);
@@ -14581,6 +14593,69 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       db.select(
           'SELECT assetId FROM o_scriptAssets WHERE assetId=?', [childAssetId]),
       isEmpty,
+    );
+  });
+
+  test('制作执行工具调用接受 assetName 别名删除衍生资产', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final parentAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    final otherParentId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '沈微',
+      describe: '镜湖医修',
+    );
+    final childAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈战损造型',
+      describe: '衣甲破损',
+      parentAssetsId: parentAssetId,
+    );
+    final unlinkedChildId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈战损造型',
+      describe: '另一集的同名造型',
+      parentAssetsId: otherParentId,
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, childAssetId]);
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_derive_assets',
+        {'request': '按名字删除错误衍生资产', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.tool(
+        'del_deriveAsset',
+        {'assetName': '李澈战损造型'},
+      ),
+      const AgentTurnResult.text('衍生资产已删除'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：按名字删除衍生资产',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(db.select('SELECT id FROM o_assets WHERE id=?', [childAssetId]),
+        isEmpty);
+    expect(
+      db.select(
+          'SELECT assetId FROM o_scriptAssets WHERE assetId=?', [childAssetId]),
+      isEmpty,
+    );
+    expect(
+      db.select('SELECT id FROM o_assets WHERE id=?', [unlinkedChildId]),
+      isNotEmpty,
     );
   });
 

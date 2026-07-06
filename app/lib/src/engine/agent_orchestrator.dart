@@ -1160,6 +1160,66 @@ const Map<String, dynamic> _deriveAssetDeleteIdAliasProperties =
     'type': 'integer',
     'description': 'childAssetId 的 snake_case 别名。',
   },
+  'assetName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': '按衍生资产名称精确匹配。',
+  },
+  'assetNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'assetName 的复数别名。',
+  },
+  'deriveAssetName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': '按衍生资产名称精确匹配。',
+  },
+  'deriveAssetNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'deriveAssetName 的复数别名。',
+  },
+  'childAssetName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': '按子资产名称精确匹配。',
+  },
+  'childAssetNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'childAssetName 的复数别名。',
+  },
+  'asset_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'assetName 的 snake_case 别名。',
+  },
+  'asset_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'assetNames 的 snake_case 别名。',
+  },
+  'derive_asset_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'deriveAssetName 的 snake_case 别名。',
+  },
+  'derive_asset_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'deriveAssetNames 的 snake_case 别名。',
+  },
+  'child_asset_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'childAssetName 的 snake_case 别名。',
+  },
+  'child_asset_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'childAssetNames 的 snake_case 别名。',
+  },
   'scriptId': {'type': 'integer'},
   'episodeId': {
     'type': 'integer',

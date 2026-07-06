@@ -10344,18 +10344,73 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final id = _coerceInt(_argAny(args, const [
+    final ids = _productionDeriveAssetIdsArg(
+      projectId,
+      args,
+      scriptId: _productionScriptId(projectId, args),
+    );
+    if (ids == null || ids.isEmpty) return '缺少 id 参数。';
+    deleteAssets(ids);
+    if (ids.length == 1) return '已删除衍生资产，ID: ${ids.single}。';
+    return '已删除衍生资产，ID: ${ids.join(', ')}。';
+  }
+
+  List<int>? _productionDeriveAssetIdsArg(
+    int projectId,
+    Map<String, dynamic> args, {
+    int? scriptId,
+  }) {
+    final direct = _intListAny(args, const [
       'id',
+      'ids',
       'assetId',
+      'assetIds',
       'deriveAssetId',
+      'deriveAssetIds',
       'childAssetId',
+      'childAssetIds',
       'asset_id',
+      'asset_ids',
       'derive_asset_id',
+      'derive_asset_ids',
       'child_asset_id',
-    ]));
-    if (id == null) return '缺少 id 参数。';
-    deleteAssets([id]);
-    return '已删除衍生资产，ID: $id。';
+      'child_asset_ids',
+    ]);
+    if (direct != null) return direct;
+
+    final names = _stringListAny(args, const [
+      'assetName',
+      'assetNames',
+      'deriveAssetName',
+      'deriveAssetNames',
+      'childAssetName',
+      'childAssetNames',
+      'asset_name',
+      'asset_names',
+      'derive_asset_name',
+      'derive_asset_names',
+      'child_asset_name',
+      'child_asset_names',
+    ]);
+    if (names == null) return null;
+    final wanted = names.map((name) => name.trim()).toSet();
+    final linkedIds = scriptId == null
+        ? null
+        : db
+            .select('SELECT assetId FROM o_scriptAssets WHERE scriptId=?',
+                [scriptId])
+            .map((row) => row['assetId'] as int)
+            .toSet();
+    return [
+      for (final row in db.select(
+        'SELECT id,name FROM o_assets '
+        'WHERE projectId=? AND assetsId IS NOT NULL ORDER BY id',
+        [projectId],
+      ))
+        if (wanted.contains((row['name'] as String? ?? '').trim()) &&
+            (linkedIds == null || linkedIds.contains(row['id'] as int)))
+          row['id'] as int,
+    ];
   }
 
   String _productionAgentGenerateDeriveAsset(

@@ -248,6 +248,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Production
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent write tools accepting natural asset references such as `parentAssetName` for derived-asset parent lookup and `assetName` for storyboard associated assets, so production sub Agents can write assets and panels from named story context instead of database ids.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent delete tools accepting natural derived-asset selectors such as `assetName`, `deriveAssetName`, and `childAssetName`, resolving them within the current script's linked derived assets before deletion instead of forcing sub Agents to remember raw ids.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String(...).padEnd(...)` and string-literal `.repeat(...)`, so custom skills can build fixed-width labels, dividers, and normalized helper text with ordinary model-authored JavaScript.
