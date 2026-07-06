@@ -328,8 +328,19 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': '兼容旧调用的 filePath 别名。',
         },
+        'file': {
+          'type': 'string',
+          'description': 'filePath 的自然别名，适合模型按“文件”组织参数。',
+        },
+        'filename': {
+          'type': 'string',
+          'description': 'filePath 的文件名别名。',
+        },
+        'relativePath': {
+          'type': 'string',
+          'description': 'filePath 的相对路径别名。',
+        },
       },
-      'required': ['filePath'],
     },
   ),
   const AgentToolDef(
@@ -7026,8 +7037,14 @@ extension AgentApi on Engine {
         case 'read_skill_file':
           var skillName =
               (args['name'] ?? args['skillName'] ?? '').toString().trim();
-          final filePath =
-              (args['path'] ?? args['filePath'] ?? '').toString().trim();
+          final filePath = (args['filePath'] ??
+                  args['path'] ??
+                  args['file'] ??
+                  args['filename'] ??
+                  args['relativePath'] ??
+                  '')
+              .toString()
+              .trim();
           if (skillName.isEmpty) {
             final names = _activatedAgentSkillNames(activatedSkills);
             if (names.length == 1) {

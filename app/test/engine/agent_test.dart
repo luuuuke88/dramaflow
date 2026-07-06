@@ -6599,8 +6599,9 @@ description: >-
         gateway.lastTools.singleWhere((tool) => tool.name == 'read_skill_file');
     final readSkillProperties =
         Map<String, dynamic>.from(readSkillTool.schema['properties'] as Map);
-    expect(readSkillTool.schema['required'], ['filePath']);
-    expect(readSkillProperties, contains('filePath'));
+    expect(readSkillTool.schema['required'], isNull);
+    expect(readSkillProperties.keys,
+        containsAll(['filePath', 'path', 'file', 'filename', 'relativePath']));
     var msg = engine.agentMessages(projectId).last;
     expect(msg.toolName, 'activate_skill');
     expect(msg.content, contains('技能正文：短剧台词要短'));
@@ -6836,6 +6837,39 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(read.toolName, 'read_skill_file');
     expect(read.content, contains('规则：每句台词不超过二十字。'));
     expect(read.content, startsWith('<skill_content>'));
+  });
+
+  test('SkillRuntime read_skill_file 支持模型常见文件路径别名', () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '技能正文：短剧台词要短。',
+      extraFiles: {
+        'references/rules.md': '规则：每句台词不超过二十字。',
+      },
+    );
+    engine.saveMarkdownAgentSkill(filePath: skillFile.path);
+
+    gateway.turns = [
+      AgentTurnResult.tool('activate_skill', const {'name': 'style_polisher'}),
+      AgentTurnResult.tool('read_skill_file', const {
+        'file': 'references/rules.md',
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '激活后读取技能规则', autoMode: true);
+
+    final read = engine.agentMessages(projectId).lastWhere(
+          (message) => message.toolName == 'read_skill_file',
+        );
+    expect(read.content, contains('规则：每句台词不超过二十字。'));
+
+    final readSkillFileTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'read_skill_file');
+    final properties = readSkillFileTool.schema['properties'] as Map;
+    expect(properties, contains('file'));
+    expect(properties, contains('filename'));
+    expect(properties, contains('relativePath'));
   });
 
   test('SkillRuntime 激活后会注入后续 Agent system prompt', () async {
