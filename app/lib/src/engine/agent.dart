@@ -2945,7 +2945,13 @@ class _CustomAgentSkillRuntime {
       case 'forEach':
         if (args.length != 1) _badMethodArgs(method);
         for (final entry in value.values.entries) {
-          _evaluateCallback(method, args.single, entry.value, entry.key);
+          _evaluateCallback(
+            method,
+            args.single,
+            entry.value,
+            entry.key,
+            source: value,
+          );
         }
         return null;
       default:

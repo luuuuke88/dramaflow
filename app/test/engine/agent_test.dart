@@ -2103,24 +2103,27 @@ return JSON.stringify({
     });
   });
 
-  test('自定义脚本技能：支持 Map.forEach 用 value 和 key 聚合', () async {
+  test('自定义脚本技能：支持 Map.forEach 用 value key source 聚合', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_map_foreach_runtime',
       name: 'Map forEach 脚本运行时',
-      description: '验证自定义技能兼容模型常写的 map.forEach((value, key) => ...)。',
+      description: '验证自定义技能兼容模型常写的 map.forEach((value, key, source) => ...)。',
       script: r'''
 const assetsById = new Map(Object.entries(args.assetsById));
 let labels = [];
 let totalDuration = 0;
-assetsById.forEach((asset, id) => {
+let sourceSeen = [];
+assetsById.forEach((asset, id, source) => {
   if (asset.enabled === false) {
     return;
   }
-  labels.push(`${id}:${asset.name.trim()}`);
+  labels.push(`${id}:${source.get(id).name.trim()}`);
+  sourceSeen.push(`${id}/${source.size}`);
   totalDuration += asset.duration ?? 0;
 });
 return JSON.stringify({
   labels: labels.join('、'),
+  sourceSeen: sourceSeen.join('|'),
   totalDuration,
 });
 ''',
@@ -2158,6 +2161,7 @@ return JSON.stringify({
     expect(msg.content, isNot(startsWith('执行失败')));
     expect(jsonDecode(msg.content), {
       'labels': 'A001:李澈、A003:沈微',
+      'sourceSeen': 'A001/3|A003/3',
       'totalDuration': 5,
     });
   });
