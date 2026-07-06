@@ -4429,6 +4429,35 @@ class _CustomAgentSkillRuntime {
       case 'getUTCSeconds':
         _expectNoArgs(method, args);
         return utc.second;
+      case 'setDate':
+      case 'setUTCDate':
+        if (args.length != 1) _badMethodArgs(method);
+        value.value = DateTime.utc(
+          utc.year,
+          utc.month,
+          _toInt(_evaluate(args.single)),
+          utc.hour,
+          utc.minute,
+          utc.second,
+          utc.millisecond,
+          utc.microsecond,
+        );
+        return value.value.millisecondsSinceEpoch;
+      case 'setHours':
+      case 'setUTCHours':
+        if (args.isEmpty || args.length > 4) _badMethodArgs(method);
+        final values = _evaluateCallArguments(args).map(_toInt).toList();
+        value.value = DateTime.utc(
+          utc.year,
+          utc.month,
+          utc.day,
+          values[0],
+          values.length > 1 ? values[1] : utc.minute,
+          values.length > 2 ? values[2] : utc.second,
+          values.length > 3 ? values[3] : utc.millisecond,
+          utc.microsecond,
+        );
+        return value.value.millisecondsSinceEpoch;
       case 'toISOString':
       case 'toJSON':
       case 'toString':
@@ -5509,8 +5538,8 @@ class _CustomJsBuiltin {
 }
 
 class _CustomJsDate {
-  final DateTime value;
-  const _CustomJsDate(this.value);
+  DateTime value;
+  _CustomJsDate(this.value);
 }
 
 class _CustomJsMap {

@@ -3134,6 +3134,66 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Date setter 顺延排期', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_date_setter_runtime',
+      name: 'Date setter 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Date.setDate 排期顺延。',
+      script: r'''
+const date = new Date(Date.UTC(args.year, args.month, args.day, 23, 0, 0));
+const nextTime = date.setDate(date.getDate() + args.offsetDays);
+const finalTime = date.setHours(args.hour, args.minute, args.second, args.ms);
+return JSON.stringify({
+  nextIso: new Date(nextTime).toISOString(),
+  finalIso: date.toISOString(),
+  finalTime,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'year': {'type': 'number'},
+          'month': {'type': 'number'},
+          'day': {'type': 'number'},
+          'offsetDays': {'type': 'number'},
+          'hour': {'type': 'number'},
+          'minute': {'type': 'number'},
+          'second': {'type': 'number'},
+          'ms': {'type': 'number'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_date_setter_runtime', const {
+        'year': 2026,
+        'month': 6,
+        'day': 30,
+        'offsetDays': 2,
+        'hour': 8,
+        'minute': 30,
+        'second': 15,
+        'ms': 250,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Date setter 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_date_setter_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'nextIso': '2026-08-01T23:00:00.000Z',
+      'finalIso': '2026-08-01T08:30:15.250Z',
+      'finalTime': 1785573015250,
+    });
+  });
+
   test('自定义脚本技能：支持回调数组解构处理 Object.entries', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_destructure_runtime',
