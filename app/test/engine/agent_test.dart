@@ -550,6 +550,43 @@ void main() {
     expect(assetRelated['ids'], [secondScript]);
   });
 
+  test('Agent 顶层剧本工具接受 ToonFlow 剧本名称别名', () async {
+    engine.addScript(projectId: projectId, name: '雪夜入山', content: 'A');
+    final targetScript =
+        engine.addScript(projectId: projectId, name: '灵脉试炼', content: 'B');
+    gateway.turns = [
+      AgentTurnResult.tool('extract_assets', const {
+        'scriptName': '灵脉试炼',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只提取《灵脉试炼》的资产',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final assetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'extract_assets');
+    final assetProperties = assetTool.schema['properties'] as Map;
+    expect(assetProperties, contains('scriptName'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('1 个剧本'),
+    );
+    final assetTask = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['asset_extraction'],
+    ).single;
+    final assetRelated = jsonDecode(assetTask['relatedObjects'] as String)
+        as Map<String, dynamic>;
+    expect(assetRelated['ids'], [targetScript]);
+  });
+
   test('Agent 顶层媒体工具接受 ToonFlow 剧本和分镜 id 别名', () async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');

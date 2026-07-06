@@ -888,6 +888,32 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'integer'},
           'description': 'scriptNo 的数组形式。',
         },
+        'scriptName': {
+          'type': 'string',
+          'description': '按剧本名称精确匹配。',
+        },
+        'scriptNames': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'scriptName 的数组形式，也兼容逗号分隔字符串。',
+        },
+        'episodeName': {
+          'type': 'string',
+          'description': 'scriptName 的集数语义别名。',
+        },
+        'episodeNames': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'episodeName 的数组形式。',
+        },
+        'scriptTitle': {
+          'type': 'string',
+          'description': 'scriptName 的标题语义别名。',
+        },
+        'episodeTitle': {
+          'type': 'string',
+          'description': 'episodeName 的标题语义别名。',
+        },
       },
     },
   ),
@@ -918,6 +944,22 @@ final _tools = <AgentToolDef>[
           'type': 'integer',
           'description': 'episodeNo 的剧本语义别名。',
         },
+        'scriptName': {
+          'type': 'string',
+          'description': '按剧本名称精确匹配。',
+        },
+        'episodeName': {
+          'type': 'string',
+          'description': 'scriptName 的集数语义别名。',
+        },
+        'scriptTitle': {
+          'type': 'string',
+          'description': 'scriptName 的标题语义别名。',
+        },
+        'episodeTitle': {
+          'type': 'string',
+          'description': 'episodeName 的标题语义别名。',
+        },
       },
     },
   ),
@@ -947,6 +989,22 @@ final _tools = <AgentToolDef>[
         'scriptNo': {
           'type': 'integer',
           'description': 'episodeNo 的剧本语义别名。',
+        },
+        'scriptName': {
+          'type': 'string',
+          'description': '按剧本名称精确匹配。',
+        },
+        'episodeName': {
+          'type': 'string',
+          'description': 'scriptName 的集数语义别名。',
+        },
+        'scriptTitle': {
+          'type': 'string',
+          'description': 'scriptName 的标题语义别名。',
+        },
+        'episodeTitle': {
+          'type': 'string',
+          'description': 'episodeName 的标题语义别名。',
         },
         'storyboardIds': {
           'type': 'array',
@@ -1024,6 +1082,22 @@ final _tools = <AgentToolDef>[
         'scriptNo': {
           'type': 'integer',
           'description': 'episodeNo 的剧本语义别名。',
+        },
+        'scriptName': {
+          'type': 'string',
+          'description': '按剧本名称精确匹配。',
+        },
+        'episodeName': {
+          'type': 'string',
+          'description': 'scriptName 的集数语义别名。',
+        },
+        'scriptTitle': {
+          'type': 'string',
+          'description': 'scriptName 的标题语义别名。',
+        },
+        'episodeTitle': {
+          'type': 'string',
+          'description': 'episodeName 的标题语义别名。',
         },
         'storyboardIds': {
           'type': 'array',
@@ -1173,6 +1247,22 @@ final _tools = <AgentToolDef>[
         'scriptNo': {
           'type': 'integer',
           'description': 'episodeNo 的剧本语义别名。',
+        },
+        'scriptName': {
+          'type': 'string',
+          'description': '按剧本名称精确匹配。',
+        },
+        'episodeName': {
+          'type': 'string',
+          'description': 'scriptName 的集数语义别名。',
+        },
+        'scriptTitle': {
+          'type': 'string',
+          'description': 'scriptName 的标题语义别名。',
+        },
+        'episodeTitle': {
+          'type': 'string',
+          'description': 'episodeName 的标题语义别名。',
         },
       },
     },
@@ -8961,14 +9051,40 @@ extension AgentApi on Engine {
       'script_index',
       'script_indexes',
     ]);
-    if (episodeNumbers == null) return null;
     final rows = scripts(projectId);
-    final ids = <int>[];
-    for (final number in episodeNumbers) {
-      final index = number - 1;
-      if (index >= 0 && index < rows.length) ids.add(rows[index].id);
+    if (episodeNumbers != null) {
+      final ids = <int>[];
+      for (final number in episodeNumbers) {
+        final index = number - 1;
+        if (index >= 0 && index < rows.length) ids.add(rows[index].id);
+      }
+      return ids;
     }
-    return ids.isEmpty ? null : ids;
+
+    final scriptNames = _stringListAny(args, const [
+      'scriptName',
+      'scriptNames',
+      'episodeName',
+      'episodeNames',
+      'scriptTitle',
+      'scriptTitles',
+      'episodeTitle',
+      'episodeTitles',
+      'script_name',
+      'script_names',
+      'episode_name',
+      'episode_names',
+      'script_title',
+      'script_titles',
+      'episode_title',
+      'episode_titles',
+    ]);
+    if (scriptNames == null) return null;
+    final wanted = scriptNames.map((name) => name.trim()).toSet();
+    return [
+      for (final row in rows)
+        if (wanted.contains((row.name ?? '').trim())) row.id,
+    ];
   }
 
   List<int>? _agentStoryboardIdsArg(int scriptId, Map<String, dynamic> args) {
@@ -9084,7 +9200,7 @@ extension AgentApi on Engine {
 
   int? _agentScriptIdArg(int projectId, Map<String, dynamic> args) {
     final ids = _agentScriptIdsArg(projectId, args);
-    return ids?.first;
+    return ids == null || ids.isEmpty ? null : ids.first;
   }
 
   Object? _argAny(Map<String, dynamic> args, List<String> keys) {
