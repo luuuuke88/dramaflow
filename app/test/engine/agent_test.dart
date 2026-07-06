@@ -1373,6 +1373,80 @@ return JSON.stringify(request);
     });
   });
 
+  test('自定义脚本技能：支持 Object.assign 原地合并目标对象', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_object_assign_mutation_runtime',
+      name: '对象合并脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 Object.assign(payload, ...); payload.xxx 语义。',
+      script: r'''
+const payload = {};
+const returned = Object.assign(payload, args.defaults, {
+  title: args.title.trim(),
+});
+Object.assign(payload, {
+  duration: args.shots.reduce((sum, shot) => sum + shot.duration, 0),
+});
+returned.tag = 'ready';
+return JSON.stringify({
+  sameObject: returned === payload,
+  title: payload.title,
+  style: payload.style,
+  duration: payload.duration,
+  tag: payload.tag,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'defaults': {'type': 'object'},
+          'title': {'type': 'string'},
+          'shots': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'duration': {'type': 'number'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'custom_script_object_assign_mutation_runtime',
+        const {
+          'defaults': {'style': '水墨短剧', 'duration': 0},
+          'title': '  寒山试剑  ',
+          'shots': [
+            {'duration': 2},
+            {'duration': 3},
+            {'duration': 4},
+          ],
+        },
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用对象合并脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_object_assign_mutation_runtime');
+    expect(jsonDecode(msg.content), {
+      'sameObject': true,
+      'title': '寒山试剑',
+      'style': '水墨短剧',
+      'duration': 9,
+      'tag': 'ready',
+    });
+  });
+
   test('自定义脚本技能：支持 Array.from 生成序号和映射列表', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_array_from_runtime',

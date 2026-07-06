@@ -2730,7 +2730,7 @@ class _CustomAgentSkillRuntime {
     }
   }
 
-  Map<String, Object?> _objectAssign(List<String> args) {
+  Map _objectAssign(List<String> args) {
     final values = _evaluateCallArguments(args);
     if (values.isEmpty) _badMethodArgs('assign');
     final target = values.first;
@@ -2740,9 +2740,6 @@ class _CustomAgentSkillRuntime {
         'method': 'assign',
       });
     }
-    final result = <String, Object?>{
-      for (final entry in target.entries) '${entry.key}': entry.value,
-    };
     for (final source in values.skip(1)) {
       if (source == null) continue;
       if (source is! Map) {
@@ -2752,10 +2749,10 @@ class _CustomAgentSkillRuntime {
         });
       }
       for (final entry in source.entries) {
-        result['${entry.key}'] = entry.value;
+        target['${entry.key}'] = entry.value;
       }
     }
-    return result;
+    return target;
   }
 
   Map<String, Object?> _objectFromEntries(List<String> args) {
