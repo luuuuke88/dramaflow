@@ -10671,11 +10671,14 @@ extension AgentApi on Engine {
                   ? dedupedRelatedMessages
                   : dedupedRelatedMessages.take(limit).toList())
               : const <AgentMemoryEntry>[];
+          final dedupedSummaries = _sortAgentMemoryEntries(
+            _dedupeAgentMemoryEntries(summaryRecords),
+            sortMode,
+          );
           final summaries = hasSummaryRequests
-              ? _sortAgentMemoryEntries(
-                  _dedupeAgentMemoryEntries(summaryRecords),
-                  sortMode,
-                )
+              ? (limit == null
+                  ? dedupedSummaries
+                  : dedupedSummaries.take(limit).toList())
               : const <AgentMemoryEntry>[];
           final recentMessages = hasMessageRequests
               ? _sortAgentMemoryEntries(

@@ -346,6 +346,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` summary results honoring per-item structured query-plan `limit` and `orderBy`, so summary-only RAG plans no longer return every matching Agent-stage summary across plan items.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` top-level `limit` applying to summary-only retrieval, so Agent decision/supervision prompts can cap historical summaries the same way they cap ordinary memories and notes.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.

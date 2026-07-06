@@ -10790,6 +10790,85 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_get 顶层数量限制会限制摘要结果', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '0'],
+    );
+
+    void insertSummary({
+      required String id,
+      required String content,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          0,
+          agentMemoryTypeSummary,
+        ],
+      );
+    }
+
+    insertSummary(
+      id: 'memory_get_summary_limit_old',
+      content: '旧摘要：星岚设定第一次记录，角色要隐藏身份。',
+      offset: 1,
+    );
+    insertSummary(
+      id: 'memory_get_summary_limit_new',
+      content: '新摘要：星岚设定第二次记录，角色要主动救人。',
+      offset: 2,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '星岚设定',
+        'scope': 'summary',
+        'limit': 1,
+        'orderBy': 'latest',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只取一条最新星岚摘要',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_get');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['summaries'], ['新摘要：星岚设定第二次记录，角色要主动救人。']);
+    expect(
+      (payload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['memory_get_summary_limit_new'],
+    );
+  });
+
   test('Agent 记忆：memory_get 工具支持 roles 只返回指定角色上下文', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     void insertMemory({
