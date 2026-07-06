@@ -3138,14 +3138,19 @@ class _CustomAgentSkillRuntime {
     final values = _evaluateCallArguments(args);
     if (values.length != 1) _badMethodArgs('fromEntries');
     final source = values.single;
-    if (source is! Iterable) {
+    final entries = source is _CustomJsMap
+        ? _customJsMapEntries(source)
+        : source is Iterable
+            ? source
+            : null;
+    if (entries == null) {
       throw EngineException(errLlmFormat, {
         'reason': 'custom_skill_object_builtin',
         'method': 'fromEntries',
       });
     }
     final result = <String, Object?>{};
-    for (final item in source) {
+    for (final item in entries) {
       final pair = item is Iterable ? item.toList() : null;
       if (pair == null || pair.length < 2) {
         throw EngineException(errLlmFormat, {

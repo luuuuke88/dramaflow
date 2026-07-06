@@ -1638,6 +1638,64 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Object.fromEntries 直接读取 Map', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_from_entries_map_runtime',
+      name: 'Object.fromEntries Map 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Object.fromEntries(map)。',
+      script: r'''
+const assetsById = new Map(Object.entries(args.assetsById));
+assetsById.delete('A002');
+assetsById.set('A004', {
+  type: 'tool',
+  name: args.fallbackName.trim(),
+});
+const payload = Object.fromEntries(assetsById);
+return JSON.stringify({
+  keys: Object.keys(payload).join('|'),
+  primaryName: payload.A001.name.trim(),
+  generatedName: payload.A004.name,
+  removed: Object.hasOwn(payload, 'A002'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assetsById': {'type': 'object'},
+          'fallbackName': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_from_entries_map_runtime', const {
+        'assetsById': {
+          'A001': {'type': 'role', 'name': ' 李澈 '},
+          'A002': {'type': 'scene', 'name': '废弃场景'},
+          'A003': {'type': 'scene', 'name': '寒山宗门'},
+        },
+        'fallbackName': ' 灵剑 ',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Object.fromEntries Map 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_from_entries_map_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'keys': 'A001|A003|A004',
+      'primaryName': '李澈',
+      'generatedName': '灵剑',
+      'removed': false,
+    });
+  });
+
   test('自定义脚本技能：支持 Array.from 生成序号和映射列表', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_array_from_runtime',
