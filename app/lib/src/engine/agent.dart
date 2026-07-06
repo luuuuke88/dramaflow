@@ -308,8 +308,23 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'name': {'type': 'string'},
+        'skill': {
+          'type': 'string',
+          'description': 'name 的自然别名，适合模型按“技能”组织参数。',
+        },
+        'skillName': {
+          'type': 'string',
+          'description': 'name 的驼峰别名。',
+        },
+        'skillId': {
+          'type': 'string',
+          'description': 'name 的技能 id 别名。',
+        },
+        'skill_name': {
+          'type': 'string',
+          'description': 'name 的 snake_case 别名。',
+        },
       },
-      'required': ['name'],
     },
   ),
   const AgentToolDef(
@@ -5046,10 +5061,12 @@ extension AgentApi on Engine {
     final schema = Map<String, dynamic>.from(tool.schema);
     final properties =
         Map<String, dynamic>.from(schema['properties'] as Map? ?? const {});
-    final nameSchema =
-        Map<String, dynamic>.from(properties['name'] as Map? ?? const {});
-    nameSchema['enum'] = names;
-    properties['name'] = nameSchema;
+    for (final key in ['name', 'skill', 'skillName', 'skillId', 'skill_name']) {
+      final fieldSchema =
+          Map<String, dynamic>.from(properties[key] as Map? ?? const {});
+      fieldSchema['enum'] = names;
+      properties[key] = fieldSchema;
+    }
     schema['properties'] = properties;
     return AgentToolDef(
       name: tool.name,
@@ -7020,8 +7037,14 @@ extension AgentApi on Engine {
             ],
           });
         case 'activate_skill':
-          final skillName =
-              (args['name'] ?? args['skillName'] ?? '').toString().trim();
+          final skillName = (args['name'] ??
+                  args['skill'] ??
+                  args['skillName'] ??
+                  args['skillId'] ??
+                  args['skill_name'] ??
+                  '')
+              .toString()
+              .trim();
           if (skillName.isEmpty) return '缺少 name 参数。';
           final skill = _activateAgentSkillForContext(
             skillName,

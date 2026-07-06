@@ -6839,6 +6839,34 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(read.content, startsWith('<skill_content>'));
   });
 
+  test('SkillRuntime activate_skill 支持模型常见技能名称别名', () async {
+    final skillFile = _writeSkillFixture(
+      dir,
+      id: 'style_polisher',
+      body: '技能正文：短剧台词要短。',
+    );
+    engine.saveMarkdownAgentSkill(filePath: skillFile.path);
+
+    gateway.turns = [
+      AgentTurnResult.tool('activate_skill', const {'skill': 'style_polisher'}),
+    ];
+
+    await engine.sendAgentMessage(projectId, '用技能润色剧本', autoMode: false);
+
+    final activateSkillTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'activate_skill');
+    final properties = activateSkillTool.schema['properties'] as Map;
+    expect(properties, contains('skill'));
+    expect(properties, contains('skillName'));
+    expect(properties, contains('skillId'));
+    expect(properties, contains('skill_name'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'activate_skill');
+    expect(msg.content, startsWith('<skill_content name="style_polisher">'));
+    expect(msg.content, contains('技能正文：短剧台词要短。'));
+  });
+
   test('SkillRuntime read_skill_file 支持模型常见文件路径别名', () async {
     final skillFile = _writeSkillFixture(
       dir,
