@@ -2165,11 +2165,14 @@ class _CustomAgentSkillRuntime {
           _stringifyInterpolation(_evaluate(args.first)),
         );
       case 'split':
-        if (args.length > 1) _badMethodArgs(method);
+        if (args.length > 2) _badMethodArgs(method);
         final text = '${value ?? ''}';
         if (args.isEmpty) return [text];
-        final separator = _stringifyInterpolation(_evaluate(args.single));
-        return separator.isEmpty ? text.split('') : text.split(separator);
+        final pieces = _splitString(text, _evaluate(args.first));
+        if (args.length == 1) return pieces;
+        final limit = _toInt(_evaluate(args[1]));
+        if (limit <= 0) return const <String>[];
+        return pieces.length <= limit ? pieces : pieces.sublist(0, limit);
       case 'replace':
         if (args.length != 2) _badMethodArgs(method);
         final text = '${value ?? ''}';
@@ -2589,6 +2592,12 @@ class _CustomAgentSkillRuntime {
       ];
     }
     return [for (var index = 0; index < items.length; index++) index];
+  }
+
+  List<String> _splitString(String text, Object? separator) {
+    if (separator is _CustomJsRegExp) return text.split(separator.regExp);
+    final value = _stringifyInterpolation(separator);
+    return value.isEmpty ? text.split('') : text.split(value);
   }
 
   List<Object?> _spliceList(List value, List<String> args) {

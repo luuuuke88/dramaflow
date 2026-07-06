@@ -4371,6 +4371,63 @@ return JSON.stringify(shots);
     );
   });
 
+  test('自定义脚本技能：支持正则 split 清洗文本和标签', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regex_split_runtime',
+      name: '正则拆分脚本运行时',
+      description: r'验证自定义技能兼容模型常写的 split(/\r?\n+/) 和 split(/[，,]/)。',
+      script: r'''
+const lines = args.table
+  .split(/\r?\n+/)
+  .map(line => line.trim())
+  .filter(Boolean);
+const labels = lines.map((line, index) => {
+  const [title, duration, track] = line.split(/[|｜]/).map(part => part.trim());
+  return `${index + 1}.${title}:${parseFloat(duration)}:${track}`;
+});
+const tags = args.tags
+  .split(/[，,]\s*/)
+  .map(tag => tag.trim())
+  .filter(Boolean)
+  .join('|');
+const preview = args.table
+  .split(/\r?\n+/, 2)
+  .map(line => line.trim())
+  .join('>');
+return JSON.stringify({ labels: labels.join('、'), tags, preview });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'table': {'type': 'string'},
+          'tags': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_regex_split_runtime', const {
+        'table': '雪夜山门 | 3秒 | 首帧\n\n李澈拔剑｜2.5秒｜视频参考\n沈微回眸 | 1.5秒 | 尾帧',
+        'tags': '角色，场景, 动作，',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用正则拆分脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regex_split_runtime');
+    expect(jsonDecode(msg.content), {
+      'labels': '1.雪夜山门:3:首帧、2.李澈拔剑:2.5:视频参考、3.沈微回眸:1.5:尾帧',
+      'tags': '角色|场景|动作',
+      'preview': '雪夜山门 | 3秒 | 首帧>李澈拔剑｜2.5秒｜视频参考',
+    });
+  });
+
   test('自定义脚本技能：支持字符串和数组搜索位置参数', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_search_position_runtime',

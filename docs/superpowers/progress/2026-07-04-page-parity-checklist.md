@@ -254,6 +254,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Number
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String.localeCompare(...)` inside `Array.sort(...)`, so custom skills can order asset and storyboard names with the model-authored comparator pattern commonly produced for production lists.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers regex separators and optional limits in `String.split(...)`, so custom skills can parse multiline storyboard tables and comma-separated tags with model-authored `/.../` split patterns.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible in-place `Array.sort(...)`, so custom skills that sort an `args` array and then continue reading the same variable behave like model-authored JavaScript instead of only sorting a returned copy.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible in-place `Object.assign(target, ...)`, so custom skills can build a payload object, merge defaults/overrides into it, and continue reading or mutating the same object like ordinary model-authored JavaScript.
