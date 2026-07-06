@@ -2834,12 +2834,15 @@ class _CustomAgentSkillRuntime {
     Match match,
     String replacementExpression,
   ) {
+    final namedGroups =
+        match is RegExpMatch ? _customJsMatchGroups(match) : null;
     final values = <Object?>[
       match.group(0),
       for (var index = 1; index <= match.groupCount; index++)
         match.group(index),
       match.start,
       source,
+      if (namedGroups != null) namedGroups,
     ];
     final arrow = _findTopLevelArrow(replacementExpression);
     if (arrow >= 0) {
