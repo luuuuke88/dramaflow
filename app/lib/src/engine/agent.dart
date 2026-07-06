@@ -1099,6 +1099,51 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'integer'},
           'description': 'assetIds 的 snake_case 别名。',
         },
+        'roleNo': {
+          'type': 'integer',
+          'description': '按角色列表顺序的自然角色号，例如 2 表示第二个角色。',
+        },
+        'roleNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'roleNo 的数组形式。',
+        },
+        'roleIndex': {
+          'type': 'integer',
+          'description': 'roleNo 的索引语义别名，按角色列表顺序匹配。',
+        },
+        'roleIndexes': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'roleIndex 的数组形式。',
+        },
+        'assetNo': {
+          'type': 'integer',
+          'description': 'roleNo 的资产语义别名。',
+        },
+        'assetNos': {
+          'type': 'array',
+          'items': {'type': 'integer'},
+          'description': 'assetNo 的数组形式。',
+        },
+        'roleName': {
+          'type': 'string',
+          'description': '按角色名称精确匹配。',
+        },
+        'roleNames': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'roleName 的数组形式，也兼容逗号分隔字符串。',
+        },
+        'assetName': {
+          'type': 'string',
+          'description': 'roleName 的资产语义别名。',
+        },
+        'assetNames': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'assetName 的数组形式。',
+        },
       },
     },
   ),
@@ -8814,21 +8859,15 @@ extension AgentApi on Engine {
           final taskId = batchGenerateVideos(projectId, ids);
           return '已提交视频生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
         case 'bind_audio':
-          final ids = _intListAny(args, const [
-                'roleIds',
-                'role_ids',
-                'roleId',
-                'role_id',
-                'assetIds',
-                'asset_ids',
-                'assetId',
-                'asset_id',
-              ]) ??
+          final selectedIds = _agentRoleIdsArg(projectId, args);
+          final ids = selectedIds ??
               roleAudioBindings(projectId)
                   .where((r) => r.audioAssetId == null)
                   .map((r) => r.roleId)
                   .toList();
-          if (ids.isEmpty) return '所有角色都已绑定配音，或项目内没有角色资产。';
+          if (ids.isEmpty) {
+            return selectedIds == null ? '所有角色都已绑定配音，或项目内没有角色资产。' : '未找到匹配角色。';
+          }
           final taskId = batchBindAudio(projectId, ids);
           return '已提交配音匹配任务（任务 #$taskId），涉及 ${ids.length} 个角色。';
         case 'compose_episode':
@@ -8972,9 +9011,72 @@ extension AgentApi on Engine {
     return ids;
   }
 
+  List<int>? _agentRoleIdsArg(int projectId, Map<String, dynamic> args) {
+    final direct = _intListAny(args, const [
+      'roleIds',
+      'role_ids',
+      'roleId',
+      'role_id',
+      'assetIds',
+      'asset_ids',
+      'assetId',
+      'asset_id',
+    ]);
+    if (direct != null) return direct;
+
+    final roleNumbers = _intListAny(args, const [
+      'roleNo',
+      'roleNos',
+      'roleIndex',
+      'roleIndexes',
+      'assetNo',
+      'assetNos',
+      'role_no',
+      'role_nos',
+      'role_index',
+      'role_indexes',
+      'asset_no',
+      'asset_nos',
+    ]);
+    final rows = roleAudioBindings(projectId);
+    if (roleNumbers != null) {
+      final ids = <int>[];
+      for (final number in roleNumbers) {
+        final index = number - 1;
+        if (index >= 0 && index < rows.length) ids.add(rows[index].roleId);
+      }
+      return ids;
+    }
+
+    final roleNames = _stringListAny(args, const [
+      'roleName',
+      'roleNames',
+      'assetName',
+      'assetNames',
+      'role_name',
+      'role_names',
+      'asset_name',
+      'asset_names',
+    ]);
+    if (roleNames == null) return null;
+    final wanted = roleNames.map((name) => name.trim()).toSet();
+    return [
+      for (final row in rows)
+        if (wanted.contains((row.roleName ?? '').trim())) row.roleId,
+    ];
+  }
+
   List<int>? _intListAny(Map<String, dynamic> args, List<String> keys) {
     for (final key in keys) {
       final parsed = _coerceIntList(args[key]);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  List<String>? _stringListAny(Map<String, dynamic> args, List<String> keys) {
+    for (final key in keys) {
+      final parsed = _coerceStringList(args[key]);
       if (parsed != null) return parsed;
     }
     return null;
@@ -9033,6 +9135,25 @@ extension AgentApi on Engine {
     if (raw is num) return raw.toInt();
     if (raw is String) return int.tryParse(raw.trim());
     return null;
+  }
+
+  List<String>? _coerceStringList(Object? raw) {
+    if (raw == null) return null;
+    if (raw is Iterable) {
+      final values = [
+        for (final item in raw)
+          if (item.toString().trim().isNotEmpty) item.toString().trim(),
+      ];
+      return values.isEmpty ? null : values;
+    }
+    final text = raw.toString().trim();
+    if (text.isEmpty) return null;
+    final parts = text.split(RegExp(r'[,，、;；]+'));
+    final values = [
+      for (final part in parts)
+        if (part.trim().isNotEmpty) part.trim(),
+    ];
+    return values.isEmpty ? null : values;
   }
 
   String _agentPromptArg(Map<String, dynamic> args) {

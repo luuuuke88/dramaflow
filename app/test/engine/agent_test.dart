@@ -805,6 +805,97 @@ void main() {
     expect(imageTasks, isEmpty);
   });
 
+  test('Agent 顶层配音工具接受 ToonFlow 自然角色号别名', () async {
+    engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '少年剑修',
+    );
+    final roleB = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '沈微',
+      describe: '冷静师姐',
+    );
+    engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '秦岳',
+      describe: '宗门长老',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('bind_audio', const {
+        'roleNo': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只给第二个角色匹配配音',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final audioTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'bind_audio');
+    final audioProperties = audioTool.schema['properties'] as Map;
+    expect(audioProperties, contains('roleNo'));
+    expect(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+      contains('1 个角色'),
+    );
+    final audioTask = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['audio_bind'],
+    ).single;
+    final related = jsonDecode(audioTask['relatedObjects'] as String)
+        as Map<String, dynamic>;
+    expect(related['roleIds'], [roleB]);
+  });
+
+  test('Agent 顶层配音工具按角色名精确匹配且保留名称空格', () async {
+    final roleA = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: 'Old Master Li',
+      describe: '隐世长者',
+    );
+    engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '沈微',
+      describe: '冷静师姐',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('bind_audio', const {
+        'roleName': 'Old Master Li',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只给 Old Master Li 匹配配音',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final audioTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'bind_audio');
+    final audioProperties = audioTool.schema['properties'] as Map;
+    expect(audioProperties, contains('roleName'));
+    final audioTask = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['audio_bind'],
+    ).single;
+    final related = jsonDecode(audioTask['relatedObjects'] as String)
+        as Map<String, dynamic>;
+    expect(related['roleIds'], [roleA]);
+  });
+
   test('工具执行失败时返回中文可见错误摘要而非崩溃', () async {
     gateway.turns = [
       AgentTurnResult.tool('generate_storyboards', const {}), // 缺 scriptId
