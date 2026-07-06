@@ -8016,12 +8016,14 @@ extension AgentApi on Engine {
               (args['name'] ?? args['title'] ?? args['label'] ?? '')
                   .toString()
                   .trim();
+          final defaultRole = _memoryAddDefaultRole(agentFamily, stage);
           final role = (args['role'] ??
                   args['memoryRole'] ??
                   args['authorRole'] ??
-                  agentRoleUser)
+                  defaultRole)
               .toString()
               .trim();
+          final normalizedRole = role.isEmpty ? defaultRole : role;
           final addType = _memoryAddType(args);
           if (addType == null) {
             return 'memory_add 只支持一次写入 conversation/message 或 long_term/note。';
@@ -8055,7 +8057,7 @@ extension AgentApi on Engine {
               projectId,
               family: agentFamily,
             ),
-            role: role.isEmpty ? agentRoleUser : role,
+            role: normalizedRole,
             name: memoryName,
             content: content,
             createTime: createTime,
@@ -8066,7 +8068,7 @@ extension AgentApi on Engine {
             'type': agentMemoryTypeMessage,
             'scope': 'conversation',
             'name': memoryName,
-            'role': role.isEmpty ? agentRoleUser : role,
+            'role': normalizedRole,
             'content': content,
           });
         case 'memory_get':
@@ -8844,6 +8846,26 @@ extension AgentApi on Engine {
     if (values.isEmpty) return agentMemoryTypeMessage;
     if (values.length != 1 || values.contains('__unsupported__')) return null;
     return values.single;
+  }
+
+  String _memoryAddDefaultRole(String agentFamily, String? stage) {
+    final currentStage = (stage ?? '').trim();
+    if (currentStage.isEmpty ||
+        currentStage == scriptAgentDecisionStage ||
+        currentStage == productionAgentDecisionStage ||
+        currentStage == _scriptAgentFamily ||
+        currentStage == _productionAgentFamily) {
+      return agentRoleUser;
+    }
+    if (agentFamily == _productionAgentFamily &&
+        currentStage.startsWith('productionAgent:')) {
+      return _productionAgentSubAgentMemoryRole(currentStage);
+    }
+    if (agentFamily == _scriptAgentFamily &&
+        currentStage.startsWith('scriptAgent:')) {
+      return _scriptAgentSubAgentMemoryRole(currentStage);
+    }
+    return agentRoleUser;
   }
 
   String _deepRetrieveRecordScope(AgentMemoryEntry record) {

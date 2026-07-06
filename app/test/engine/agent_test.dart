@@ -12623,6 +12623,39 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(subAgentMemory['content'], '寒山篇三集骨架');
   });
 
+  test('ScriptAgent 子 Agent memory_add 默认写入当前执行层 role', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '搭建寒山篇前三集骨架并记录关键约束'},
+      ),
+      AgentTurnResult.tool(
+        'memory_add',
+        const {'content': '执行发现：寒山篇必须保留山门钟声伏笔。'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '先做寒山故事骨架', autoMode: false);
+
+    expect(gateway.toolNamesByCall[1], contains('memory_add'));
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? AND content=?',
+      [
+        'scriptAgent:$projectId',
+        agentMemoryTypeMessage,
+        '执行发现：寒山篇必须保留山门钟声伏笔。',
+      ],
+    );
+    expect(rows, hasLength(1));
+    expect(rows.single['role'], 'assistant:execution:storySkeleton');
+  });
+
   test('ScriptAgent 子 Agent 工具调用结果写入执行层审计记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
@@ -14390,6 +14423,41 @@ description: 只属于水墨视觉项目
     );
     expect(storyboardTableMemory['name'], '执行导演');
     expect(storyboardTableMemory['content'], '山门压迫|低机位');
+  });
+
+  test('ProductionAgent 子 Agent memory_add 默认写入当前执行层 role', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '寒山开场');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做寒山导演计划并记录镜头约束', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool(
+        'memory_add',
+        const {'content': '执行发现：寒山山门镜头必须保持贴地低机位。'},
+      ),
+      const AgentTurnResult.text('<scriptPlan>低机位跟拍寒山山门</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '制作画布：做寒山导演计划', autoMode: false);
+
+    expect(gateway.toolNamesByCall[1], contains('memory_add'));
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? AND content=?',
+      [
+        'productionAgent:$projectId',
+        agentMemoryTypeMessage,
+        '执行发现：寒山山门镜头必须保持贴地低机位。',
+      ],
+    );
+    expect(rows, hasLength(1));
+    expect(rows.single['role'], 'assistant:execution:directorPlan');
   });
 
   test('ProductionAgent 子 Agent 工具调用结果写入执行层审计记忆', () async {
