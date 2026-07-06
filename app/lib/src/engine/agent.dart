@@ -7733,11 +7733,17 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final novelIds = _intListAny(args, const ['novelIds']);
+    final novelIds = _intListAny(args, const ['novelIds', 'novel_ids']);
     final chapterIndexes = _intListAny(args, const [
       'chapterIndexs',
       'chapterIndexes',
       'chapterIndex',
+      'chapterNo',
+      'chapterNos',
+      'chapter_index',
+      'chapter_indexes',
+      'chapter_no',
+      'chapter_nos',
       'ids',
     ]);
     final chapters = novels(projectId, limit: 100000).data.where((chapter) {
@@ -7783,11 +7789,17 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final novelIds = _intListAny(args, const ['novelIds']);
+    final novelIds = _intListAny(args, const ['novelIds', 'novel_ids']);
     final chapterIndexes = _intListAny(args, const [
       'chapterIndex',
       'chapterIndexs',
       'chapterIndexes',
+      'chapterNo',
+      'chapterNos',
+      'chapter_index',
+      'chapter_indexes',
+      'chapter_no',
+      'chapter_nos',
       'ids',
     ]);
     final chapters = novels(projectId, limit: 100000).data.where((chapter) {
@@ -7808,7 +7820,18 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final ids = _intListAny(args, const ['ids', 'scriptIds']);
+    final ids = _intListAny(args, const [
+      'ids',
+      'scriptIds',
+      'episodeIds',
+      'episodesIds',
+      'script_id',
+      'episode_id',
+      'episodes_id',
+      'script_ids',
+      'episode_ids',
+      'episodes_ids',
+    ]);
     final rows = scripts(projectId).where((script) {
       if (ids == null) return true;
       return ids.contains(script.id);

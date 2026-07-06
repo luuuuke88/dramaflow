@@ -44,18 +44,130 @@ const productionAgentWorkspaceDefaults = <String, dynamic>{
   'storyboard': <dynamic>[],
 };
 
+const Map<String, dynamic> _scriptChapterSelectorAliasProperties =
+    <String, dynamic>{
+  'novelIds': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': '小说章节数据库 id 列表。',
+  },
+  'novel_ids': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'novelIds 的 snake_case 别名。',
+  },
+  'chapterIndexs': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': '章节序号列表，兼容 ToonFlow 旧拼写。',
+  },
+  'chapterIndexes': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'chapterIndexs 的标准复数别名。',
+  },
+  'chapterIndex': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': '单个或多个章节序号。',
+  },
+  'chapterNo': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'chapterIndex 的自然语言别名。',
+  },
+  'chapterNos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'chapterNo 的复数别名。',
+  },
+  'chapter_index': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'chapterIndex 的 snake_case 别名。',
+  },
+  'chapter_indexes': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'chapterIndexes 的 snake_case 别名。',
+  },
+  'chapter_no': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'chapterNo 的 snake_case 别名。',
+  },
+  'chapter_nos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'chapterNos 的 snake_case 别名。',
+  },
+  'ids': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': '章节序号的通用 id 别名。',
+  },
+};
+
+const Map<String, dynamic> _scriptContentIdAliasProperties = <String, dynamic>{
+  'ids': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': '要读取的剧本 id 列表。',
+  },
+  'scriptIds': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'ids 的剧本语义别名。',
+  },
+  'episodeIds': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'scriptIds 的剧集语义别名。',
+  },
+  'episodesIds': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'episodeIds 的 ToonFlow 旧字段别名。',
+  },
+  'script_id': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'scriptIds 的 snake_case 单数别名。',
+  },
+  'episode_id': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'episodeIds 的 snake_case 单数别名。',
+  },
+  'episodes_id': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'episodesIds 的 snake_case 单数别名。',
+  },
+  'script_ids': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'scriptIds 的 snake_case 别名。',
+  },
+  'episode_ids': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'episodeIds 的 snake_case 别名。',
+  },
+  'episodes_ids': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'episodesIds 的 snake_case 别名。',
+  },
+};
+
 const _scriptAgentReadTools = <AgentToolDef>[
   AgentToolDef(
     name: 'get_novel_events',
     description: '获取指定章节编号的事件摘要，用于故事骨架、改编策略和剧本编写。',
     schema: {
       'type': 'object',
-      'properties': {
-        'chapterIndexs': {
-          'type': 'array',
-          'items': {'type': 'integer'},
-        },
-      },
+      'properties': _scriptChapterSelectorAliasProperties,
     },
   ),
   AgentToolDef(
@@ -77,9 +189,7 @@ const _scriptAgentReadTools = <AgentToolDef>[
     description: '获取小说章节原文内容。',
     schema: {
       'type': 'object',
-      'properties': {
-        'chapterIndex': {'type': 'string'},
-      },
+      'properties': _scriptChapterSelectorAliasProperties,
     },
   ),
   AgentToolDef(
@@ -87,12 +197,7 @@ const _scriptAgentReadTools = <AgentToolDef>[
     description: '获取已有剧本正文，通常用于衔接上一集。',
     schema: {
       'type': 'object',
-      'properties': {
-        'ids': {
-          'type': 'array',
-          'items': {'type': 'string'},
-        },
-      },
+      'properties': _scriptContentIdAliasProperties,
     },
   ),
 ];

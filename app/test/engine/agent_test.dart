@@ -10575,6 +10575,90 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(toolAudit['content'], contains('李澈在寒山山门救下沈微'));
   });
 
+  test('剧本执行工具调用接受 chapterNo 别名读取小说事件', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final novelIds = engine.addNovels(projectId, const [
+      ChapterItem(index: 7, reel: '正文卷', chapter: '寒山试炼', chapterData: 'x'),
+      ChapterItem(index: 8, reel: '正文卷', chapter: '镜湖初见', chapterData: 'y'),
+    ]);
+    db.execute(
+      'UPDATE o_novel SET event=?, eventState=1 WHERE id=?',
+      ['李澈在第七章寒山试炼中守住山门。', novelIds[0]],
+    );
+    db.execute(
+      'UPDATE o_novel SET event=?, eventState=1 WHERE id=?',
+      ['不应读取的第八章事件。', novelIds[1]],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'request': '读取第七章事件'},
+      ),
+      AgentTurnResult.tool(
+        'get_novel_events',
+        const {'chapterNo': 1},
+      ),
+      const AgentTurnResult.text('<storySkeleton>第七章骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '读取第七章事件后做骨架', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:storySkeleton:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_novel_events 执行结果'));
+    expect(toolAudit['content'], contains('李澈在第七章寒山试炼中守住山门'));
+    expect(toolAudit['content'], isNot(contains('不应读取的第八章事件')));
+  });
+
+  test('剧本执行工具调用接受 episodeIds 别名读取已有剧本', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    engine.addScript(projectId: projectId, name: '第一集', content: '不应读取');
+    final secondScriptId = engine.addScript(
+      projectId: projectId,
+      name: '第二集',
+      content: '沈微在镜湖现身。',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_script',
+        {'request': '续写前先读取第二集', 'episodeId': secondScriptId},
+      ),
+      AgentTurnResult.tool(
+        'get_script_content',
+        {
+          'episodeIds': [secondScriptId],
+        },
+      ),
+      const AgentTurnResult.text('<scriptItem name="第三集">镜湖之后。</scriptItem>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '读取第二集后续写第三集', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:script:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_script_content 执行结果'));
+    expect(toolAudit['content'], contains('沈微在镜湖现身'));
+    expect(toolAudit['content'], isNot(contains('不应读取')));
+  });
+
   test('Agent tool list honors custom skill attribution by decision stage',
       () async {
     engine.saveCustomAgentSkill(
@@ -10960,6 +11044,63 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       ]),
     );
     expect(productionTool.schema['required'], isNull);
+  });
+
+  test('剧本执行读取工具 schema 暴露章节和剧本 id 字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(projectId, '规划故事骨架', autoMode: false);
+
+    final eventsTool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'get_novel_events',
+    );
+    final eventsProperties = eventsTool.schema['properties'] as Map;
+    expect(
+      eventsProperties.keys,
+      containsAll([
+        'novelIds',
+        'novel_ids',
+        'chapterIndexs',
+        'chapterIndexes',
+        'chapterIndex',
+        'chapterNo',
+        'chapterNos',
+        'chapter_index',
+        'chapter_indexes',
+        'chapter_no',
+        'chapter_nos',
+        'ids',
+      ]),
+    );
+    expect(eventsTool.schema['required'], isNull);
+
+    final textTool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'get_novel_text',
+    );
+    final textProperties = textTool.schema['properties'] as Map;
+    expect(
+      textProperties.keys,
+      containsAll(['chapterNo', 'chapter_no', 'novelIds', 'novel_ids']),
+    );
+    expect(textTool.schema['required'], isNull);
+
+    final scriptTool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'get_script_content',
+    );
+    final scriptProperties = scriptTool.schema['properties'] as Map;
+    expect(
+      scriptProperties.keys,
+      containsAll([
+        'ids',
+        'scriptIds',
+        'episodeIds',
+        'script_id',
+        'episode_id',
+        'script_ids',
+        'episode_ids',
+      ]),
+    );
+    expect(scriptTool.schema['required'], isNull);
   });
 
   test('制作执行工具 schema 暴露资产生图 id 字段别名', () async {
