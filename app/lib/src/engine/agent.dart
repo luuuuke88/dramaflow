@@ -3117,6 +3117,10 @@ class _CustomAgentSkillRuntime {
   }
 
   bool _isValidCallbackParam(String param) {
+    final defaultParam = _readParamDefault(param);
+    if (defaultParam != null) {
+      return _isValidCallbackParam(defaultParam.pattern);
+    }
     final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
     if (validName.hasMatch(param)) return true;
     final arrayDestructured = _arrayDestructureBindings(param);
@@ -3147,6 +3151,16 @@ class _CustomAgentSkillRuntime {
     String method,
   ) {
     final name = param.trim();
+    final defaultParam = _readParamDefault(name);
+    if (defaultParam != null) {
+      _bindCallbackParam(
+        defaultParam.pattern,
+        value ?? _evaluate(defaultParam.defaultExpression),
+        bindings,
+        method,
+      );
+      return;
+    }
     final validName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
     if (validName.hasMatch(name)) {
       _bindUniqueCallbackName(bindings, name, value, method);
@@ -3225,6 +3239,19 @@ class _CustomAgentSkillRuntime {
         method,
       );
     }
+  }
+
+  _CustomJsParamDefault? _readParamDefault(String param) {
+    final source = param.trim();
+    final equals = _findTopLevelDefaultEquals(source);
+    if (equals < 0) return null;
+    final pattern = source.substring(0, equals).trim();
+    final defaultExpression = source.substring(equals + 1).trim();
+    if (pattern.isEmpty || defaultExpression.isEmpty) return null;
+    return _CustomJsParamDefault(
+      pattern: pattern,
+      defaultExpression: defaultExpression,
+    );
   }
 
   void _bindUniqueCallbackName(
@@ -3576,6 +3603,16 @@ class _CustomJsForInStatement {
     required this.keyPattern,
     required this.objectExpression,
     required this.body,
+  });
+}
+
+class _CustomJsParamDefault {
+  final String pattern;
+  final String defaultExpression;
+
+  const _CustomJsParamDefault({
+    required this.pattern,
+    required this.defaultExpression,
   });
 }
 

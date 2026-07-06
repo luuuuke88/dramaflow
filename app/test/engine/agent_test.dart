@@ -2985,6 +2985,66 @@ return labels.join('、');
     expect(msg.content, '1.雪夜山门:3s、3.李澈拔剑:1s');
   });
 
+  test('自定义脚本技能：支持函数和回调参数默认值', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_param_default_runtime',
+      name: '参数默认值脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 function normalize(asset = {}) 和 map((asset = {}) => ...)。',
+      script: r'''
+function normalizeAsset(asset = { name: ' 默认资产 ', type: 'unknown' }) {
+  return `${asset.type}:${asset.name.trim()}`;
+}
+
+const fallbackLabel = normalizeAsset();
+const labels = args.assets
+  .map((asset = { name: ' 未命名 ', type: 'unknown' }) => normalizeAsset(asset))
+  .join('、');
+
+return JSON.stringify({ fallbackLabel, labels });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+                'type': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_param_default_runtime', const {
+        'assets': [
+          {'name': ' 李澈 ', 'type': 'role'},
+          null,
+          {'name': ' 寒山宗门 ', 'type': 'scene'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用参数默认值脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_param_default_runtime');
+    expect(jsonDecode(msg.content), {
+      'fallbackLabel': 'unknown:默认资产',
+      'labels': 'role:李澈、unknown:未命名、scene:寒山宗门',
+    });
+  });
+
   test('自定义脚本技能：支持数组方法传入函数声明回调', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_function_callback_runtime',
