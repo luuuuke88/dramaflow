@@ -154,6 +154,8 @@ Recent Agent/RAG Update: `app/test/widgets/agent_chat_screen_test.dart` now cove
 
 Recent Agent/RAG Update: `app/test/widgets/agent_chat_screen_test.dart` now covers ToonFlow-compatible local embedding model config through `modelOnnxFile` and `modelDtype`, with the Agent memory settings UI accepting a path-like model file value while persisting ToonFlow's JSON-array setting format.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers local long-term-memory embeddings carrying a ToonFlow-style `modelOnnxFile`/`modelDtype` signature, with missing or stale local embeddings rebuilt through the configured Agent memory provider instead of staying as anonymous legacy token maps.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String.matchAll(...)` with regex capture groups and array spread, so custom skills can batch-extract storyboard fields from XML-like Agent workspace text.
@@ -204,7 +206,7 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Mobile Evidence: `app/test/widgets/production_screen_test.dart` covers 390px Agent entry from production. `app/test/widgets/agent_chat_screen_test.dart` covers 390px Agent clear-memory confirmation, built-in capability info, skill editing, custom-skill creation, and long-term memory add/edit through fullscreen mobile forms while persisting the skill and memory definitions.
 
-Known Gaps: Full ToonFlow multi-layer Agent orchestration and external model/vector RAG are not fully replicated. Custom skill execution now has a v1 `custom-js-agent` bridge for common model-authored JS-like scripts, including control-flow branches and simple loops, but it is not yet a full QuickJS/flutter_js runtime. Current long-term memory is a local, editable, token-embedding note store over the existing `memories` table; `ragLimit`, summary/deepRetrieve controls, summary-source expansion, optional model reranking, and an injectable embedding provider boundary are configurable/tested, but a production-grade embedding model/vector store remains unimplemented.
+Known Gaps: Full ToonFlow multi-layer Agent orchestration and external model/vector RAG are not fully replicated. Custom skill execution now has a v1 `custom-js-agent` bridge for common model-authored JS-like scripts, including control-flow branches and simple loops, but it is not yet a full QuickJS/flutter_js runtime. Current long-term memory is a local, editable, token-embedding note store over the existing `memories` table; `ragLimit`, summary/deepRetrieve controls, summary-source expansion, optional model reranking, ToonFlow-compatible local embedding model config/signatures, and an injectable embedding provider boundary are configurable/tested, but a production-grade ONNX/HF embedding runtime and vector store remain unimplemented.
 
 Next Verification: Treat full Agent parity as its own subsystem plan; add engine/UI coverage for any accepted RAG/custom-skill scope before claiming this page complete.
 

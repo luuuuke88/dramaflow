@@ -143,11 +143,24 @@ abstract class AgentMemoryEmbeddingProvider {
 }
 
 class TokenAgentMemoryEmbeddingProvider extends AgentMemoryEmbeddingProvider {
-  const TokenAgentMemoryEmbeddingProvider();
+  final List<String> modelOnnxFile;
+  final String modelDtype;
+
+  const TokenAgentMemoryEmbeddingProvider({
+    this.modelOnnxFile = const [
+      'all-MiniLM-L6-v2',
+      'onnx',
+      'model_fp16.onnx',
+    ],
+    this.modelDtype = 'fp16',
+  });
 
   @override
-  String embeddingJson(String text) =>
-      jsonEncode(embeddingFromText(normalizeMemoryText(text)));
+  String embeddingJson(String text) => _tokenEmbeddingJsonFromMap(
+        embeddingFromText(normalizeMemoryText(text)),
+        modelOnnxFile: modelOnnxFile,
+        modelDtype: modelDtype,
+      );
 
   @override
   Map<String, int> embeddingFromText(String text) =>
@@ -179,6 +192,14 @@ class TokenAgentMemoryEmbeddingProvider extends AgentMemoryEmbeddingProvider {
     required Set<String> tokens,
   }) =>
       memoryMatchedTokens(name, content, query, tokens);
+
+  @override
+  bool shouldRebuildStoredEmbedding(String embedding) =>
+      !_isTokenEmbeddingJsonFor(
+        embedding,
+        modelOnnxFile: modelOnnxFile,
+        modelDtype: modelDtype,
+      );
 }
 
 class GatewayAgentMemoryEmbeddingProvider extends AgentMemoryEmbeddingProvider {
@@ -1377,8 +1398,35 @@ Set<String> memorySearchTokens(String query) {
 String embeddingJson(String text) =>
     jsonEncode(memoryEmbeddingFromText(normalizeMemoryText(text)));
 
+const _tokenEmbeddingMarker = '__token_embedding_v1';
 const _gatewayEmbeddingMarker = '__gateway_embedding_v1';
 const _gatewayEmbeddingScale = 1000000;
+
+String tokenEmbeddingJson(
+  String text, {
+  required List<String> modelOnnxFile,
+  required String modelDtype,
+}) =>
+    _tokenEmbeddingJsonFromMap(
+      memoryEmbeddingFromText(normalizeMemoryText(text)),
+      modelOnnxFile: modelOnnxFile,
+      modelDtype: modelDtype,
+    );
+
+String _tokenEmbeddingJsonFromMap(
+  Map<String, int> embedding, {
+  required List<String> modelOnnxFile,
+  required String modelDtype,
+}) =>
+    jsonEncode({
+      _tokenEmbeddingMarker: 1,
+      'modelOnnxFile': [
+        for (final part in modelOnnxFile)
+          if (part.trim().isNotEmpty) part.trim(),
+      ],
+      'modelDtype': modelDtype.trim(),
+      'embedding': embedding,
+    });
 
 Map<String, int> gatewayEmbeddingFromVector(List<double> vector) {
   final embedding = <String, int>{_gatewayEmbeddingMarker: 1};
@@ -1414,6 +1462,39 @@ bool _isGatewayEmbeddingJson(String value) {
 
 bool _isGatewayEmbeddingMap(Map<String, int> value) =>
     value[_gatewayEmbeddingMarker] == 1;
+
+bool _isTokenEmbeddingJsonFor(
+  String value, {
+  required List<String> modelOnnxFile,
+  required String modelDtype,
+}) {
+  try {
+    final decoded = jsonDecode(value);
+    if (decoded is! Map || decoded[_tokenEmbeddingMarker] != 1) {
+      return false;
+    }
+    final embedded = decoded['embedding'];
+    if (embedded is! Map) return false;
+    final storedModel = decoded['modelOnnxFile'];
+    final storedModelParts = storedModel is List
+        ? [
+            for (final item in storedModel)
+              if ('$item'.trim().isNotEmpty) '$item'.trim(),
+          ]
+        : const <String>[];
+    final expectedModelParts = [
+      for (final part in modelOnnxFile)
+        if (part.trim().isNotEmpty) part.trim(),
+    ];
+    if (storedModelParts.length != expectedModelParts.length) return false;
+    for (var i = 0; i < expectedModelParts.length; i++) {
+      if (storedModelParts[i] != expectedModelParts[i]) return false;
+    }
+    return (decoded['modelDtype'] as String?)?.trim() == modelDtype.trim();
+  } catch (_) {
+    return false;
+  }
+}
 
 int _gatewayEmbeddingScore(
   Map<String, int> query,
@@ -1494,6 +1575,14 @@ Map<String, int> _decodeMemoryEmbedding(String value) {
   try {
     final decoded = jsonDecode(value);
     if (decoded is! Map) return const {};
+    if (decoded[_tokenEmbeddingMarker] == 1 && decoded['embedding'] is Map) {
+      final embedding = decoded['embedding'] as Map;
+      return {
+        for (final entry in embedding.entries)
+          if (entry.key is String && entry.value is num)
+            entry.key as String: (entry.value as num).toInt(),
+      };
+    }
     return {
       for (final entry in decoded.entries)
         if (entry.key is String && entry.value is num)

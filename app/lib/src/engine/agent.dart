@@ -4773,17 +4773,29 @@ extension AgentApi on Engine {
         embeddingProvider: _agentMemoryEmbeddingProvider(),
       );
 
+  AgentMemorySettings _readAgentMemorySettings() => AgentMemoryService(
+        db,
+        gateway,
+        summaryStage: scriptAgentDecisionStage,
+      ).readSettings();
+
   AgentMemoryEmbeddingProvider _agentMemoryEmbeddingProvider() {
+    final settings = _readAgentMemorySettings();
+    final localProvider = TokenAgentMemoryEmbeddingProvider(
+      modelOnnxFile: settings.modelOnnxFile,
+      modelDtype: settings.modelDtype,
+    );
     final row = db
         .select(
           "SELECT value FROM o_setting WHERE key='binding.agent_embedding'",
         )
         .firstOrNull;
     final binding = (row?['value'] as String? ?? '').trim();
-    if (binding.isEmpty) return const TokenAgentMemoryEmbeddingProvider();
+    if (binding.isEmpty) return localProvider;
     return GatewayAgentMemoryEmbeddingProvider(
       gateway,
       stage: 'agent_embedding',
+      fallback: localProvider,
     );
   }
 
@@ -5819,35 +5831,12 @@ extension AgentApi on Engine {
     return [for (final entry in entries) AgentMemoryRecord.fromEntry(entry)];
   }
 
-  String _normalizeMemoryText(String text) =>
-      text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
-
-  Set<String> _memorySearchTokens(String query) {
-    if (query.isEmpty) return const {};
-    final tokens = <String>{};
-    for (final part in query.split(' ')) {
-      if (part.isNotEmpty) tokens.add(part);
-    }
-    final compact = query.replaceAll(' ', '');
-    if (compact.length <= 12 && compact.isNotEmpty) tokens.add(compact);
-    for (var i = 0; i < compact.length - 1; i++) {
-      tokens.add(compact.substring(i, i + 2));
-    }
-    return tokens;
-  }
-
-  String _memoryEmbeddingJson(String name, String content) => jsonEncode(
-      _memoryEmbeddingFromText(_normalizeMemoryText('$name $content')));
-
-  Map<String, int> _memoryEmbeddingFromText(String text) {
-    final tokens = _memorySearchTokens(text);
-    final embedding = <String, int>{};
-    for (final token in tokens) {
-      if (token.length <= 1) continue;
-      embedding[token] = (embedding[token] ?? 0) + 1;
-    }
-    return Map.fromEntries(
-        embedding.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
+  String _memoryEmbeddingJson(String name, String content) {
+    final settings = _readAgentMemorySettings();
+    return TokenAgentMemoryEmbeddingProvider(
+      modelOnnxFile: settings.modelOnnxFile,
+      modelDtype: settings.modelDtype,
+    ).embeddingJson('$name $content');
   }
 
   String _agentSystemPrompt(
@@ -6161,8 +6150,7 @@ extension AgentApi on Engine {
     return (row?['value'] as String?) == 'auto';
   }
 
-  AgentMemorySettings agentMemorySettings() =>
-      _agentMemoryService().readSettings();
+  AgentMemorySettings agentMemorySettings() => _readAgentMemorySettings();
 
   int agentRagLimit() => agentMemorySettings().ragLimit;
 

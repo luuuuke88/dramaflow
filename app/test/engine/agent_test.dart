@@ -7010,6 +7010,10 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
   });
 
   test('长期记忆：写入本地 embedding，搜索旧记录时自动回填', () async {
+    engine.setAgentMemorySettings(
+      modelOnnxFile: const ['custom-embedding', 'onnx', 'model_fp32.onnx'],
+      modelDtype: 'fp32',
+    );
     final id = engine.saveAgentMemory(
       projectId,
       name: '战力设定',
@@ -7019,6 +7023,14 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         db.select('SELECT embedding FROM memories WHERE id=?', [id]).single;
     expect(row['embedding'], isNot(''));
     expect(row['embedding'], contains('李澈'));
+    var decoded = jsonDecode(row['embedding'] as String) as Map;
+    expect(decoded['__token_embedding_v1'], 1);
+    expect(
+      decoded['modelOnnxFile'],
+      ['custom-embedding', 'onnx', 'model_fp32.onnx'],
+    );
+    expect(decoded['modelDtype'], 'fp32');
+    expect(decoded['embedding'], isA<Map>());
 
     db.execute('UPDATE memories SET embedding=? WHERE id=?', ['', id]);
     final matched = await engine.searchAgentMemories(projectId, '李澈剑修');
@@ -7026,6 +7038,9 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
 
     row = db.select('SELECT embedding FROM memories WHERE id=?', [id]).single;
     expect(row['embedding'], isNot(''), reason: '旧记忆检索时应回填本地 embedding');
+    decoded = jsonDecode(row['embedding'] as String) as Map;
+    expect(decoded['__token_embedding_v1'], 1);
+    expect(decoded['modelDtype'], 'fp32');
   });
 
   test('长期记忆：搜索可通过绑定 embedding 模型召回语义相关 note', () async {
