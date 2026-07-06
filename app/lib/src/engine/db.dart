@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 7;
+const schemaVersion = 8;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
@@ -141,6 +141,17 @@ CREATE TABLE IF NOT EXISTS o_modelPrompt (
   path TEXT,
   prompt TEXT,
   vendorId TEXT
+);
+CREATE TABLE IF NOT EXISTS o_memoryVector (
+  dimension INTEGER,
+  isolationKey TEXT,
+  memoryId TEXT PRIMARY KEY,
+  model TEXT,
+  provider TEXT,
+  type TEXT,
+  updatedAt INTEGER,
+  vector TEXT,
+  FOREIGN KEY(memoryId) REFERENCES memories(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS o_novel (
   chapter TEXT,
@@ -297,6 +308,7 @@ CREATE INDEX IF NOT EXISTS idx_o_eventChapter_novel ON o_eventChapter(novelId);
 CREATE INDEX IF NOT EXISTS idx_o_scriptAssets_script ON o_scriptAssets(scriptId);
 CREATE INDEX IF NOT EXISTS idx_o_tasks_project_state ON o_tasks(projectId, state);
 CREATE INDEX IF NOT EXISTS idx_o_timelineClip_script ON o_timelineClip(scriptId, startMs, lane);
+CREATE INDEX IF NOT EXISTS idx_o_memoryVector_scope ON o_memoryVector(isolationKey, type, provider, model);
 ''');
   db.execute('PRAGMA user_version = $schemaVersion');
 }

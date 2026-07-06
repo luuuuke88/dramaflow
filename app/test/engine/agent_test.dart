@@ -7988,6 +7988,51 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect((decoded['vector'] as List).first, closeTo(0.00000039, 1e-12));
   });
 
+  test('长期记忆：外部 embedding 回填同步写入向量索引并随记忆删除', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.agent_embedding', 'fake:embed'],
+    );
+    final memoryId = engine.saveAgentMemory(
+      projectId,
+      name: 'Vector Index',
+      content: '向量索引记忆用于后续真实 RAG 检索。',
+    );
+    gateway.embeddingForText = (input) {
+      if (input.contains('向量索引')) return const [0.25, -0.5, 0.75];
+      return const [0, 0, 0];
+    };
+
+    final matched = await engine.searchAgentMemories(
+      projectId,
+      '向量索引',
+      limit: 1,
+    );
+
+    expect(matched.map((item) => item.id), [memoryId]);
+    final rows = db.select(
+      'SELECT memoryId,isolationKey,type,provider,model,dimension,vector '
+      'FROM o_memoryVector WHERE memoryId=?',
+      [memoryId],
+    );
+    expect(rows, hasLength(1));
+    final row = rows.single;
+    expect(row['isolationKey'], 'project:$projectId');
+    expect(row['type'], agentMemoryTypeNote);
+    expect(row['provider'], 'gateway');
+    expect(row['model'], 'agent_embedding');
+    expect(row['dimension'], 3);
+    expect(jsonDecode(row['vector'] as String), [0.25, -0.5, 0.75]);
+
+    engine.deleteAgentMemory(projectId, memoryId);
+
+    expect(
+      db.select(
+          'SELECT memoryId FROM o_memoryVector WHERE memoryId=?', [memoryId]),
+      isEmpty,
+    );
+  });
+
   test('Agent 记忆：对话写入 memories message 并达到阈值生成 summary', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',

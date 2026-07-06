@@ -18,6 +18,7 @@ const toonflowTables = [
   'o_image',
   'o_imageFlow',
   'o_modelPrompt',
+  'o_memoryVector',
   'o_novel',
   'o_project',
   'o_prompt',
@@ -36,7 +37,7 @@ const toonflowTables = [
 ];
 
 void main() {
-  group('schema v7', () {
+  group('schema v8', () {
     test('新库 user_version==schemaVersion 且 ToonFlow 表齐全', () {
       final db = openEngineDb(':memory:');
       addTearDown(db.close);
@@ -117,6 +118,21 @@ void main() {
             'durationMs',
             'opacity',
           ]));
+
+      final memoryVectorColumns = _columns(db, 'o_memoryVector');
+      expect(memoryVectorColumns['memoryId']!.type, 'TEXT');
+      expect(memoryVectorColumns['memoryId']!.pk, 1);
+      expect(
+          memoryVectorColumns.keys,
+          containsAll([
+            'isolationKey',
+            'type',
+            'provider',
+            'model',
+            'dimension',
+            'vector',
+            'updatedAt',
+          ]));
     });
 
     test('计划指定索引存在', () {
@@ -137,6 +153,7 @@ void main() {
             'idx_o_scriptAssets_script',
             'idx_o_tasks_project_state',
             'idx_o_timelineClip_script',
+            'idx_o_memoryVector_scope',
           ]));
     });
 

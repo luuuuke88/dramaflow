@@ -744,16 +744,64 @@ class AgentMemoryService {
   }) async {
     if (entry.embedding.trim().isNotEmpty &&
         !embeddingProvider.shouldRebuildStoredEmbedding(entry.embedding)) {
+      _syncMemoryVectorIndex(entry, isolationKey: isolationKey);
       return entry;
     }
     final embedding =
         await embeddingProvider.embeddingJson('${entry.name} ${entry.content}');
-    if (embedding == entry.embedding) return entry;
+    if (embedding == entry.embedding) {
+      _syncMemoryVectorIndex(entry, isolationKey: isolationKey);
+      return entry;
+    }
     db.execute(
       'UPDATE memories SET embedding=? WHERE id=? AND isolationKey=?',
       [embedding, entry.id, isolationKey],
     );
-    return entry.copyWith(embedding: embedding);
+    final updated = entry.copyWith(embedding: embedding);
+    _syncMemoryVectorIndex(updated, isolationKey: isolationKey);
+    return updated;
+  }
+
+  void _syncMemoryVectorIndex(
+    AgentMemoryEntry entry, {
+    required String isolationKey,
+  }) {
+    final vector = _decodeGatewayEmbeddingVector(entry.embedding);
+    if (vector.isEmpty) {
+      db.execute('DELETE FROM o_memoryVector WHERE memoryId=?', [entry.id]);
+      return;
+    }
+    final (provider, model) = _memoryVectorSignature();
+    db.execute(
+      'INSERT OR REPLACE INTO o_memoryVector '
+      '(memoryId,isolationKey,type,provider,model,dimension,vector,updatedAt) '
+      'VALUES (?,?,?,?,?,?,?,?)',
+      [
+        entry.id,
+        isolationKey,
+        entry.type,
+        provider,
+        model,
+        vector.length,
+        jsonEncode(vector),
+        DateTime.now().millisecondsSinceEpoch,
+      ],
+    );
+  }
+
+  (String, String) _memoryVectorSignature() {
+    final provider = embeddingProvider;
+    if (provider is GatewayAgentMemoryEmbeddingProvider) {
+      return ('gateway', provider.stage);
+    }
+    if (provider is TokenAgentMemoryEmbeddingProvider) {
+      final model = [
+        ...provider.modelOnnxFile,
+        provider.modelDtype,
+      ].where((item) => item.trim().isNotEmpty).join('/');
+      return ('token', model);
+    }
+    return (provider.runtimeType.toString(), '');
   }
 
   Future<List<(int, AgentMemoryEntry)>> _rankMessageCandidates({
@@ -1493,6 +1541,39 @@ bool _isGatewayEmbeddingJson(String value) {
 
 bool _isGatewayEmbeddingMap(Map<String, int> value) =>
     value[_gatewayEmbeddingMarker] == 1;
+
+List<double> _decodeGatewayEmbeddingVector(String value) {
+  try {
+    final decoded = jsonDecode(value);
+    if (decoded is! Map || decoded[_gatewayEmbeddingMarker] != 1) {
+      return const [];
+    }
+    final vector = decoded[_gatewayEmbeddingVectorKey];
+    if (vector is List) {
+      return _finiteGatewayEmbeddingVector([
+        for (final item in vector)
+          if (item is num) item.toDouble(),
+      ]);
+    }
+    var maxDimension = -1;
+    final sparse = <int, double>{};
+    for (final entry in decoded.entries) {
+      final key = entry.key;
+      final item = entry.value;
+      if (key is! String || item is! num || !key.startsWith('d')) continue;
+      final index = int.tryParse(key.substring(1));
+      if (index == null || index < 0) continue;
+      sparse[index] = item.toDouble() / _gatewayEmbeddingScale;
+      if (index > maxDimension) maxDimension = index;
+    }
+    if (maxDimension < 0) return const [];
+    return _finiteGatewayEmbeddingVector([
+      for (var i = 0; i <= maxDimension; i++) sparse[i] ?? 0,
+    ]);
+  } catch (_) {
+    return const [];
+  }
+}
 
 bool _isTokenEmbeddingJsonFor(
   String value, {
