@@ -4197,6 +4197,61 @@ return `资产顺序：${ordered}`;
     expect(msg.content, '资产顺序：1.A-李澈、2.B-沈微、3.C-寒山宗门');
   });
 
+  test('自定义脚本技能：支持 Array.sort 默认字符串排序', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_default_sort_runtime',
+      name: '默认排序脚本运行时',
+      description: '验证自定义技能兼容模型常写的 names.sort() 默认排序。',
+      script: r'''
+const names = args.assets.map(asset => asset.name.trim());
+const returned = names.sort();
+returned.push('尾声');
+return JSON.stringify({
+  sameObject: returned === names,
+  names: names.join('>'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_default_sort_runtime', const {
+        'assets': [
+          {'name': ' C-寒山宗门 '},
+          {'name': 'A-李澈'},
+          {'name': ' B-沈微 '},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用默认排序脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_default_sort_runtime');
+    expect(jsonDecode(msg.content), {
+      'sameObject': true,
+      'names': 'A-李澈>B-沈微>C-寒山宗门>尾声',
+    });
+  });
+
   test('自定义脚本技能：支持 Array.sort 原地排序语义', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_sort_mutation_runtime',

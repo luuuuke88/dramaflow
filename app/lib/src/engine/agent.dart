@@ -1887,10 +1887,12 @@ class _CustomAgentSkillRuntime {
         }
         return accumulator;
       case 'sort':
-        if (args.length != 1 || value is! Iterable) _badMethodArgs(method);
+        if (args.length > 1 || value is! Iterable) _badMethodArgs(method);
         final sorted = value is List ? value : value.toList();
         sorted.sort(
-          (a, b) => _evaluateSortComparator(method, args.single, a, b),
+          (a, b) => args.isEmpty
+              ? _stringifyInterpolation(a).compareTo(_stringifyInterpolation(b))
+              : _evaluateSortComparator(method, args.single, a, b),
         );
         return sorted;
       case 'reverse':
