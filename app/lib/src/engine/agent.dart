@@ -3,6 +3,7 @@
 // 拆到独立纯 Dart 模块。所有会生成媒体或改业务表的动作仍走现有 engine API 与 o_tasks。
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
@@ -19,6 +20,7 @@ import 'engine.dart';
 import 'errors.dart';
 import 'events.dart';
 import 'novel.dart';
+import 'providers/gateway.dart' show ImageUnderstandingGateway;
 import 'providers/openai_text.dart' show AgentToolDef, AgentTurnResult;
 import 'scripts.dart';
 import 'storyboard.dart';
@@ -1688,6 +1690,52 @@ final _tools = <AgentToolDef>[
           'type': 'array',
           'items': {'type': 'integer'},
           'description': 'storyboardIndex 的数组形式。',
+        },
+      },
+    },
+  ),
+  AgentToolDef(
+    name: 'analyze_reference_image',
+    description: '用多模态文本模型分析本地参考图，提炼画风、角色外观、场景构图或可复用生图关键词。'
+        '可传 imagePath/imageRelPath，或用 assetName/assetId/imageId/storyboardId 定位项目内图片。',
+    schema: const {
+      'type': 'object',
+      'properties': {
+        'prompt': {
+          'type': 'string',
+          'description': '希望视觉模型回答的问题，例如“提炼角色外观和画风关键词”。',
+        },
+        'question': {
+          'type': 'string',
+          'description': 'prompt 的自然别名。',
+        },
+        'imagePath': {
+          'type': 'string',
+          'description': '本地图片绝对路径。',
+        },
+        'imageRelPath': {
+          'type': 'string',
+          'description': '媒体库相对路径。',
+        },
+        'filePath': {
+          'type': 'string',
+          'description': 'imagePath/imageRelPath 的常见别名。',
+        },
+        'assetId': {
+          'type': 'integer',
+          'description': '项目资产 id，使用该资产当前选中的参考图。',
+        },
+        'assetName': {
+          'type': 'string',
+          'description': '按项目资产名称精确匹配，使用该资产当前选中的参考图。',
+        },
+        'imageId': {
+          'type': 'integer',
+          'description': 'o_image 图片 id。',
+        },
+        'storyboardId': {
+          'type': 'integer',
+          'description': '分镜 id，使用分镜首帧图。',
         },
       },
     },
@@ -9923,6 +9971,8 @@ extension AgentApi on Engine {
           final taskId =
               batchGenerateStoryboardImages(projectId, ids, compulsory: true);
           return '已提交首帧图生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
+        case 'analyze_reference_image':
+          return _agentAnalyzeReferenceImage(projectId, args);
         case 'generate_videos':
           final scriptId = _agentScriptIdArg(projectId, args);
           if (scriptId == null) return '缺少 scriptId 参数。';
@@ -10191,6 +10241,156 @@ extension AgentApi on Engine {
       for (final row in rows)
         if (wanted.contains((row.roleName ?? '').trim())) row.roleId,
     ];
+  }
+
+  Future<String> _agentAnalyzeReferenceImage(
+    int projectId,
+    Map<String, dynamic> args,
+  ) async {
+    final baseGateway = gateway;
+    if (baseGateway is! ImageUnderstandingGateway) {
+      return '当前网关不支持图片理解。';
+    }
+    final vision = baseGateway as ImageUnderstandingGateway;
+    final resolved = _agentReferenceImageArg(projectId, args);
+    if (resolved == null) {
+      return '缺少可分析的参考图。请传入 imagePath、imageRelPath、assetName、assetId、imageId 或 storyboardId。';
+    }
+    final prompt = _stringArgAny(args, const [
+      'prompt',
+      'question',
+      'query',
+      '问题',
+      '提示词',
+    ]);
+    final result = await vision.analyzeImage(
+      prompt.isEmpty ? '请提炼这张参考图的画风、主体特征、构图、色彩和可复用生图关键词。' : prompt,
+      resolved.path,
+      stage: 'agent_vision',
+    );
+    return jsonEncode({
+      'analysis': result.content,
+      'source': resolved.source,
+    });
+  }
+
+  ({String path, String source})? _agentReferenceImageArg(
+    int projectId,
+    Map<String, dynamic> args,
+  ) {
+    final direct = _stringArgAny(args, const [
+      'imagePath',
+      'filePath',
+      'path',
+      '图片路径',
+      '文件路径',
+    ]);
+    if (direct.isNotEmpty) {
+      final file = File(direct);
+      if (file.isAbsolute && file.existsSync()) {
+        return (path: file.path, source: 'path:$direct');
+      }
+      final abs = media.absPath(direct);
+      if (File(abs).existsSync()) return (path: abs, source: 'media:$direct');
+    }
+
+    final rel = _stringArgAny(args, const [
+      'imageRelPath',
+      'relPath',
+      'mediaPath',
+      '媒体路径',
+    ]);
+    if (rel.isNotEmpty) {
+      final abs = media.absPath(rel);
+      if (File(abs).existsSync()) return (path: abs, source: 'media:$rel');
+    }
+
+    final imageId = _coerceInt(
+      args['imageId'] ?? args['image_id'] ?? args['图片Id'] ?? args['图片ID'],
+    );
+    if (imageId != null) {
+      final row = db.select(
+          'SELECT filePath FROM o_image WHERE id=?', [imageId]).firstOrNull;
+      final path = _agentMediaImageAbsPath(row?['filePath']);
+      if (path != null) return (path: path, source: 'image:$imageId');
+    }
+
+    final assetId = _coerceInt(
+      args['assetId'] ?? args['asset_id'] ?? args['assetsId'] ?? args['素材Id'],
+    );
+    if (assetId != null) {
+      final resolved = _agentAssetImagePath(assetId);
+      if (resolved != null) return resolved;
+    }
+
+    final assetName = _stringArgAny(args, const [
+      'assetName',
+      'asset_name',
+      'name',
+      '素材名称',
+      '角色名',
+    ]);
+    if (assetName.isNotEmpty) {
+      final row = db.select(
+        'SELECT id FROM o_assets WHERE projectId=? AND name=? '
+        'ORDER BY id ASC LIMIT 1',
+        [projectId, assetName],
+      ).firstOrNull;
+      final id = row?['id'] as int?;
+      if (id != null) {
+        final resolved = _agentAssetImagePath(id, sourceName: assetName);
+        if (resolved != null) return resolved;
+      }
+    }
+
+    final storyboardId = _coerceInt(
+      args['storyboardId'] ??
+          args['storyboard_id'] ??
+          args['shotId'] ??
+          args['shot_id'] ??
+          args['分镜Id'],
+    );
+    if (storyboardId != null) {
+      final row = db.select('SELECT filePath FROM o_storyboard WHERE id=?',
+          [storyboardId]).firstOrNull;
+      final path = _agentMediaImageAbsPath(row?['filePath']);
+      if (path != null) {
+        return (path: path, source: 'storyboard:$storyboardId');
+      }
+    }
+    return null;
+  }
+
+  ({String path, String source})? _agentAssetImagePath(
+    int assetId, {
+    String? sourceName,
+  }) {
+    final rows = db.select(
+      'SELECT a.name, i.filePath FROM o_assets a '
+      'LEFT JOIN o_image i ON i.id=a.imageId '
+      'WHERE a.id=?',
+      [assetId],
+    );
+    if (rows.isEmpty) return null;
+    final selected = _agentMediaImageAbsPath(rows.first['filePath']);
+    final source = 'asset:${sourceName ?? rows.first['name'] ?? assetId}';
+    if (selected != null) return (path: selected, source: source);
+    final fallback = db.select(
+      'SELECT filePath FROM o_image WHERE assetsId=? AND state=? '
+      'ORDER BY id DESC LIMIT 1',
+      [assetId, stateDone],
+    ).firstOrNull;
+    final path = _agentMediaImageAbsPath(fallback?['filePath']);
+    return path == null ? null : (path: path, source: source);
+  }
+
+  String? _agentMediaImageAbsPath(Object? raw) {
+    final value = raw?.toString().trim() ?? '';
+    if (value.isEmpty) return null;
+    final direct = File(value);
+    if (direct.isAbsolute && direct.existsSync()) return direct.path;
+    final abs = media.absPath(value);
+    return File(abs).existsSync() ? abs : null;
   }
 
   List<int>? _intListAny(Map<String, dynamic> args, List<String> keys) {

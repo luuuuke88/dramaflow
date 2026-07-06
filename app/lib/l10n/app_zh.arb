@@ -800,6 +800,8 @@
   "stageStoryboardGenDescription": "按集拆解镜头与镜头提示词",
   "stageAgentEmbeddingTitle": "Agent 向量召回",
   "stageAgentEmbeddingDescription": "为 Agent 记忆生成语义向量并进行召回",
+  "stageAgentVisionTitle": "Agent 视觉理解",
+  "stageAgentVisionDescription": "分析参考图并提炼画风、角色和场景特征",
   "stageAssetImageTitle": "素材图生成",
   "stageAssetImageDescription": "生成角色、场景、道具资产图",
   "stageShotImageTitle": "镜头图生成",

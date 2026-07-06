@@ -284,7 +284,11 @@ void main() {
 
     await tester.tap(find.text('技能'));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).last, const Offset(0, -360));
+    await tester.dragUntilVisible(
+      find.text('generate_events'),
+      find.byType(ListView).last,
+      const Offset(0, -120),
+    );
     await tester.pumpAndSettle();
     expect(find.text('generate_events'), findsOneWidget);
     expect(find.textContaining('为章节生成事件摘要'), findsOneWidget);
@@ -449,7 +453,11 @@ void main() {
 
     await tester.tap(find.text('技能'));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).last, const Offset(0, -360));
+    await tester.dragUntilVisible(
+      find.byKey(const ValueKey('agent-skill-edit-generate_events')),
+      find.byType(ListView).last,
+      const Offset(0, -120),
+    );
     await tester.pumpAndSettle();
     await tester
         .tap(find.byKey(const ValueKey('agent-skill-edit-generate_events')));

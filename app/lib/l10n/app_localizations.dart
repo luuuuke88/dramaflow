@@ -3688,6 +3688,18 @@ abstract class AppLocalizations {
   /// **'为 Agent 记忆生成语义向量并进行召回'**
   String get stageAgentEmbeddingDescription;
 
+  /// No description provided for @stageAgentVisionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 视觉理解'**
+  String get stageAgentVisionTitle;
+
+  /// No description provided for @stageAgentVisionDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'分析参考图并提炼画风、角色和场景特征'**
+  String get stageAgentVisionDescription;
+
   /// No description provided for @stageAssetImageTitle.
   ///
   /// In zh, this message translates to:

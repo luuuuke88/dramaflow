@@ -1922,6 +1922,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Generates semantic vectors for Agent memory retrieval';
 
   @override
+  String get stageAgentVisionTitle => 'Agent Vision';
+
+  @override
+  String get stageAgentVisionDescription =>
+      'Analyzes reference images for style, character and scene traits';
+
+  @override
   String get stageAssetImageTitle => 'Asset Image Generation';
 
   @override

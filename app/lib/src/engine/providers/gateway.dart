@@ -6,6 +6,7 @@ import 'package:sqlite3/sqlite3.dart';
 import '../config.dart';
 import '../media.dart';
 import 'openai_text.dart';
+import 'openai_vision.dart';
 import 'openai_image.dart';
 import 'openai_tts.dart';
 import 'resolve.dart';
@@ -92,7 +93,17 @@ abstract class ProviderGateway {
   });
 }
 
-class HttpProviderGateway implements ProviderGateway {
+abstract class ImageUnderstandingGateway {
+  Future<TextResult> analyzeImage(
+    String prompt,
+    String imageAbsPath, {
+    required String stage,
+    CancelToken? cancelToken,
+  });
+}
+
+class HttpProviderGateway
+    implements ProviderGateway, ImageUnderstandingGateway {
   final Database db;
   final EngineConfig config;
   final MediaStore media;
@@ -118,6 +129,18 @@ class HttpProviderGateway implements ProviderGateway {
       {required String stage, CancelToken? cancelToken}) {
     final model = resolveStage(db, stage);
     return openaiGenerateEmbedding(dio, model, input, cancelToken: cancelToken);
+  }
+
+  @override
+  Future<TextResult> analyzeImage(
+    String prompt,
+    String imageAbsPath, {
+    required String stage,
+    CancelToken? cancelToken,
+  }) {
+    final model = resolveStage(db, stage);
+    return openaiAnalyzeImage(dio, model, prompt, imageAbsPath,
+        cancelToken: cancelToken);
   }
 
   @override

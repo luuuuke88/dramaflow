@@ -170,6 +170,47 @@ void main() {
     });
   });
 
+  group('analyzeImage', () {
+    test('OpenAI 兼容 chat completions 发送本地图像 data URL', () async {
+      final image = File('${tmp.path}/style.png')
+        ..writeAsBytesSync([137, 80, 78, 71]);
+      final adapter = FakeAdapter((o) => jsonBody({
+            'choices': [
+              {
+                'message': {'content': '冷白水墨、低饱和、角色边缘清晰'}
+              }
+            ],
+            'usage': {'prompt_tokens': 11, 'completion_tokens': 7},
+          }));
+      bindModel('agent_vision', 'text', modelId: 'gpt-vision');
+
+      final r = await (gw(adapter) as dynamic).analyzeImage(
+        '提炼这张参考图的短剧画风关键词',
+        image.path,
+        stage: 'agent_vision',
+      ) as TextResult;
+
+      expect(r.content, '冷白水墨、低饱和、角色边缘清晰');
+      expect(r.promptTokens, 11);
+      final request = adapter.requests.single;
+      expect(request.path, endsWith('/chat/completions'));
+      final body = request.data as Map;
+      expect(body['model'], 'gpt-vision');
+      final messages = body['messages'] as List;
+      final userContent = (messages[1] as Map)['content'] as List;
+      expect(userContent[0], {
+        'type': 'text',
+        'text': '提炼这张参考图的短剧画风关键词',
+      });
+      final imageUrl = userContent[1] as Map;
+      expect(imageUrl['type'], 'image_url');
+      expect(
+        ((imageUrl['image_url'] as Map)['url'] as String),
+        startsWith('data:image/png;base64,'),
+      );
+    });
+  });
+
   group('generateImage', () {
     test('b64 落盘且 prompt 注入尺寸指令', () async {
       final adapter = FakeAdapter((o) => jsonBody({

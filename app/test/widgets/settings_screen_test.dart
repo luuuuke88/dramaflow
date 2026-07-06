@@ -245,6 +245,7 @@ void main() {
     expect(models.single.kind, 'text');
 
     await _selectSection(tester, '模型绑定');
+    expect(find.text('Agent 视觉理解'), findsOneWidget);
     await _chooseFirstDropdown(tester, 'Local Gateway · 本地文本模型');
     expect(
       (await engine.getBindings())['script_gen'],

@@ -12,6 +12,7 @@ const stageKindByStage = {
   'storyboard_gen': 'text',
   'video_prompt_gen': 'text',
   'agent_embedding': 'embedding',
+  'agent_vision': 'text',
   'asset_image': 'image',
   'shot_image': 'image',
   'shot_video': 'video',

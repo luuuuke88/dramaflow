@@ -673,6 +673,8 @@
   "stageStoryboardGenDescription": "Splits episodes into shots and shot prompts",
   "stageAgentEmbeddingTitle": "Agent Embeddings",
   "stageAgentEmbeddingDescription": "Generates semantic vectors for Agent memory retrieval",
+  "stageAgentVisionTitle": "Agent Vision",
+  "stageAgentVisionDescription": "Analyzes reference images for style, character and scene traits",
   "stageAssetImageTitle": "Asset Image Generation",
   "stageAssetImageDescription": "Generates role, scene and prop asset images",
   "stageShotImageTitle": "Shot Image Generation",

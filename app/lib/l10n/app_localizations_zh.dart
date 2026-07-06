@@ -1862,6 +1862,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get stageAgentEmbeddingDescription => '为 Agent 记忆生成语义向量并进行召回';
 
   @override
+  String get stageAgentVisionTitle => 'Agent 视觉理解';
+
+  @override
+  String get stageAgentVisionDescription => '分析参考图并提炼画风、角色和场景特征';
+
+  @override
   String get stageAssetImageTitle => '素材图生成';
 
   @override

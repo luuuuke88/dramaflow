@@ -1873,6 +1873,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get stageAgentEmbeddingDescription => 'エージェント記憶検索用の意味ベクトルを生成';
 
   @override
+  String get stageAgentVisionTitle => 'エージェント画像理解';
+
+  @override
+  String get stageAgentVisionDescription => '参照画像から画風・キャラクター・シーン特徴を分析';
+
+  @override
   String get stageAssetImageTitle => '素材画像生成';
 
   @override

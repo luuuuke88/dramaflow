@@ -673,6 +673,8 @@
   "stageStoryboardGenDescription": "話数をカットとプロンプトに分解",
   "stageAgentEmbeddingTitle": "エージェント埋め込み",
   "stageAgentEmbeddingDescription": "エージェント記憶検索用の意味ベクトルを生成",
+  "stageAgentVisionTitle": "エージェント画像理解",
+  "stageAgentVisionDescription": "参照画像から画風・キャラクター・シーン特徴を分析",
   "stageAssetImageTitle": "素材画像生成",
   "stageAssetImageDescription": "キャラクター・シーン・小道具の画像を生成",
   "stageShotImageTitle": "カット画像生成",

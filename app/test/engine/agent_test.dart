@@ -892,6 +892,49 @@ void main() {
     expect(imageTasks, isEmpty);
   });
 
+  test('Agent 可按资产名分析参考图并返回视觉描述', () async {
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    engine.saveAssetImage(
+      assetsId: roleId,
+      projectId: projectId,
+      base64Image: base64Encode([137, 80, 78, 71]),
+      type: 'role',
+    );
+    gateway.imageAnalysisResult = '冷白水墨风，少年剑修，轮廓清晰，适合角色一致性参考。';
+    gateway.turns = [
+      const AgentTurnResult.tool('analyze_reference_image', {
+        'assetName': '李澈',
+        'prompt': '提炼角色外观和画风关键词',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '分析李澈这张参考图',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final visionTool = gateway.lastTools
+        .singleWhere((tool) => tool.name == 'analyze_reference_image');
+    final properties = visionTool.schema['properties'] as Map;
+    expect(properties, contains('assetName'));
+    expect(gateway.imageAnalysisPrompts.single, '提炼角色外观和画风关键词');
+    expect(gateway.imageAnalysisPaths.single, endsWith('.png'));
+    final msg =
+        engine.agentMessages(projectId, family: agentFamilyProduction).last;
+    expect(msg.toolName, 'analyze_reference_image');
+    expect(jsonDecode(msg.content), {
+      'analysis': '冷白水墨风，少年剑修，轮廓清晰，适合角色一致性参考。',
+      'source': 'asset:李澈',
+    });
+  });
+
   test('Agent 顶层配音工具接受 ToonFlow 自然角色号别名', () async {
     engine.addAsset(
       projectId: projectId,
@@ -17643,7 +17686,7 @@ class _SemanticMemoryEmbeddingProvider
   }
 }
 
-class _Gateway implements ProviderGateway {
+class _Gateway implements ProviderGateway, ImageUnderstandingGateway {
   List<AgentTurnResult> _turns = const [];
   List<TextResult> textResults = const [];
   List<AgentToolDef> lastTools = const [];
@@ -17654,6 +17697,9 @@ class _Gateway implements ProviderGateway {
   List<String> textStages = const [];
   List<List<String>> toolNamesByCall = const [];
   List<String> embeddingInputs = const [];
+  List<String> imageAnalysisPrompts = const [];
+  List<String> imageAnalysisPaths = const [];
+  String imageAnalysisResult = '';
   List<double> Function(String input)? embeddingForText;
   int callCount = 0;
   int textCallCount = 0;
@@ -17667,6 +17713,8 @@ class _Gateway implements ProviderGateway {
     textStages = [];
     toolNamesByCall = [];
     embeddingInputs = [];
+    imageAnalysisPrompts = [];
+    imageAnalysisPaths = [];
   }
 
   List<AgentTurnResult> get turns => _turns;
@@ -17711,6 +17759,18 @@ class _Gateway implements ProviderGateway {
       {required String stage, CancelToken? cancelToken}) async {
     embeddingInputs = [...embeddingInputs, input];
     return embeddingForText?.call(input) ?? const [0];
+  }
+
+  @override
+  Future<TextResult> analyzeImage(
+    String prompt,
+    String imageAbsPath, {
+    required String stage,
+    CancelToken? cancelToken,
+  }) async {
+    imageAnalysisPrompts = [...imageAnalysisPrompts, prompt];
+    imageAnalysisPaths = [...imageAnalysisPaths, imageAbsPath];
+    return TextResult(imageAnalysisResult);
   }
 
   @override
