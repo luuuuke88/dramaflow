@@ -202,6 +202,12 @@ const _agentSkillType = 'builtin-agent';
 const _customAgentSkillType = 'custom-js-agent';
 const _markdownAgentSkillType = markdownAgentSkillType;
 const _customJsConsoleMethods = {'log', 'info', 'warn', 'error', 'debug'};
+const _customJsTypeofLiteralIdentifiers = {
+  'true',
+  'false',
+  'null',
+  'undefined',
+};
 const _customJsSetMethods = {
   'has',
   'add',
@@ -3573,6 +3579,9 @@ class _CustomAgentSkillRuntime {
       );
     }
 
+    final typeofExpression = _evaluateTypeofExpression(expr);
+    if (typeofExpression != null) return typeofExpression;
+
     if (expr.startsWith('!')) {
       var count = 0;
       while (count < expr.length && expr[count] == '!') {
@@ -3631,6 +3640,35 @@ class _CustomAgentSkillRuntime {
     }
 
     return _evaluateChain(expr);
+  }
+
+  String? _evaluateTypeofExpression(String expression) {
+    if (!_startsWithWord(expression, 0, 'typeof')) return null;
+    final operand = expression.substring('typeof'.length).trim();
+    if (operand.isEmpty) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_typeof',
+      });
+    }
+    final identifier = _readIdentifier(operand, 0);
+    if (identifier != null &&
+        identifier.end == operand.length &&
+        !_customJsTypeofLiteralIdentifiers.contains(identifier.text) &&
+        !_scope.containsKey(identifier.text)) {
+      return 'undefined';
+    }
+    return _customJsTypeOf(_evaluate(operand));
+  }
+
+  String _customJsTypeOf(Object? value) {
+    if (value == null) return 'object';
+    if (value is bool) return 'boolean';
+    if (value is num) return 'number';
+    if (value is String) return 'string';
+    if (value is _CustomJsFunction || value is _CustomJsBuiltin) {
+      return 'function';
+    }
+    return 'object';
   }
 
   Object? _evaluateAssignmentExpression(String expression) {

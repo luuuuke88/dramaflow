@@ -8555,6 +8555,84 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 typeof 类型保护', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_typeof_runtime',
+      name: 'typeof 类型保护脚本运行时',
+      description: '验证自定义技能兼容模型常写的 typeof value === "string" 类型保护。',
+      script: r'''
+function normalizeName(value) {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (typeof value === 'number') {
+    return `#${value}`;
+  }
+  if (typeof value === 'boolean') {
+    return value ? '是' : '否';
+  }
+  return '对象';
+}
+const labels = args.assets
+  .map(asset => `${normalizeName(asset.name)}:${typeof asset.meta}`)
+  .join('|');
+return JSON.stringify({
+  labels,
+  missing: typeof notDeclared,
+  nil: typeof null,
+  helper: typeof normalizeName,
+  assets: typeof args.assets,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_typeof_runtime', const {
+        'assets': [
+          {
+            'name': ' 李澈 ',
+            'meta': {'role': 'hero'},
+          },
+          {
+            'name': 7,
+            'meta': ['scene'],
+          },
+          {
+            'name': true,
+            'meta': null,
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 typeof 类型保护脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_typeof_runtime');
+    expect(jsonDecode(msg.content), {
+      'labels': '李澈:object|#7:object|是:object',
+      'missing': 'undefined',
+      'nil': 'object',
+      'helper': 'function',
+      'assets': 'object',
+    });
+  });
+
   test('自定义脚本技能：支持 delete 操作符清理对象字段', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_delete_operator_runtime',
