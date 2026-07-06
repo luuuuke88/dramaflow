@@ -1680,7 +1680,18 @@ List<ProductionStoryboardItem> parseProductionStoryboardItems(String source) {
 List<ScriptAgentScriptItem> _scriptItemsFromJson(String source) {
   final decoded = _decodeStructuredJson(source);
   if (decoded == null) return const [];
-  final rows = decoded is List ? decoded : [decoded];
+  final rows = _jsonRows(decoded, const [
+    'scripts',
+    'scriptItems',
+    'script_items',
+    'episodes',
+    'episodeItems',
+    'episode_items',
+    'items',
+    'data',
+    'result',
+    'results',
+  ]);
   final items = <ScriptAgentScriptItem>[];
   for (final row in rows) {
     if (row is! Map) continue;
@@ -1715,7 +1726,18 @@ ScriptAgentScriptItem? _scriptItemFromJsonMap(Map row) {
 List<ProductionStoryboardItem> _storyboardItemsFromJson(String source) {
   final decoded = _decodeStructuredJson(source);
   if (decoded == null) return const [];
-  final rows = decoded is List ? decoded : [decoded];
+  final rows = _jsonRows(decoded, const [
+    'storyboards',
+    'storyboardItems',
+    'storyboard_items',
+    'shots',
+    'shotItems',
+    'shot_items',
+    'items',
+    'data',
+    'result',
+    'results',
+  ]);
   final items = <ProductionStoryboardItem>[];
   for (final row in rows) {
     if (row is! Map) continue;
@@ -1795,6 +1817,28 @@ Object? _decodeStructuredJson(String source) {
       return jsonDecode(candidate);
     } catch (_) {
       // Try the next shape; model outputs often wrap JSON in prose/fences.
+    }
+  }
+  return null;
+}
+
+List<Object?> _jsonRows(Object decoded, List<String> wrapperKeys) {
+  if (decoded is List) return decoded;
+  if (decoded is Map) {
+    final wrappedRows = _jsonWrappedRows(decoded, wrapperKeys);
+    if (wrappedRows != null) return wrappedRows;
+  }
+  return [decoded];
+}
+
+List<Object?>? _jsonWrappedRows(Map row, List<String> wrapperKeys) {
+  for (final key in wrapperKeys) {
+    if (!row.containsKey(key)) continue;
+    final value = row[key];
+    if (value is List) return value;
+    if (value is Map) {
+      final nested = _jsonWrappedRows(value, wrapperKeys);
+      return nested ?? [value];
     }
   }
   return null;

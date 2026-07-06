@@ -270,6 +270,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Production
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent script rows and ProductionAgent storyboard rows accepting JSON array/object outputs with the same natural field aliases used by XML (`scriptName`, `content`, `videoDescription`, `imagePrompt`, `durationSec`, `assetNames`), so sub Agents that answer in structured JSON still write into DramaFlow instead of being treated as empty output.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent and ProductionAgent JSON outputs wrapped in common model/API container keys such as `scripts` and `storyboards`, including fenced JSON blocks, so sub Agents that return `{ "scripts": [...] }` or `{ "storyboards": [...] }` are unwrapped before writing rows.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
