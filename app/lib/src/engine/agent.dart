@@ -7765,7 +7765,19 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final key = (args['key'] ?? args['name'] ?? '').toString().trim();
+    final key = _normalizeScriptAgentPlanDataKey(
+      _stringArgAny(args, const [
+        'key',
+        'name',
+        'section',
+        'dataKey',
+        'flowKey',
+        'workspaceKey',
+        'data_key',
+        'flow_key',
+        'workspace_key',
+      ]),
+    );
     final data = _scriptAgentWorkspace(projectId);
     if (key == 'script') return _scriptAgentScriptContent(projectId, args);
     if (key.isNotEmpty) {
@@ -7783,6 +7795,27 @@ extension AgentApi on Engine {
           },
       ],
     });
+  }
+
+  String _normalizeScriptAgentPlanDataKey(String key) {
+    switch (key.trim()) {
+      case 'storySkeleton':
+      case 'story_skeleton':
+      case 'story-skeleton':
+        return scriptAgentStorySkeletonKey;
+      case 'adaptationStrategy':
+      case 'adaptation_strategy':
+      case 'adaptation-strategy':
+        return scriptAgentAdaptationStrategyKey;
+      case 'script':
+      case 'scripts':
+      case 'scriptContent':
+      case 'script_content':
+      case 'script-content':
+        return 'script';
+      default:
+        return key.trim();
+    }
   }
 
   String _scriptAgentNovelText(

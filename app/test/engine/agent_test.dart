@@ -10659,6 +10659,58 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(toolAudit['content'], isNot(contains('不应读取')));
   });
 
+  test('剧本执行工具调用接受 dataKey 别名读取剧本工作区片段', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'request': '生成寒山篇故事骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+    ];
+    await engine.sendAgentMessage(projectId, '先生成故事骨架', autoMode: false);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_adaptationStrategy',
+        const {'request': '生成寒山篇改编策略'},
+      ),
+      const AgentTurnResult.text(
+        '<adaptationStrategy>前三集强化退婚冲突</adaptationStrategy>',
+      ),
+    ];
+    await engine.sendAgentMessage(projectId, '继续生成改编策略', autoMode: false);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_script',
+        const {'request': '读取故事骨架后写第一集'},
+      ),
+      AgentTurnResult.tool(
+        'get_planData',
+        const {'dataKey': 'story_skeleton'},
+      ),
+      const AgentTurnResult.text('<scriptItem name="第一集">寒山开篇。</scriptItem>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '读取骨架写剧本', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:script:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_planData 执行结果'));
+    expect(toolAudit['content'], contains('寒山篇三集骨架'));
+    expect(toolAudit['content'], isNot(contains('前三集强化退婚冲突')));
+  });
+
   test('Agent tool list honors custom skill attribution by decision stage',
       () async {
     engine.saveCustomAgentSkill(
@@ -11073,6 +11125,30 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       ]),
     );
     expect(eventsTool.schema['required'], isNull);
+
+    final planTool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'get_planData',
+    );
+    final planProperties = planTool.schema['properties'] as Map;
+    expect(
+      planProperties.keys,
+      containsAll([
+        'key',
+        'name',
+        'section',
+        'dataKey',
+        'flowKey',
+        'workspaceKey',
+        'data_key',
+        'flow_key',
+        'workspace_key',
+      ]),
+    );
+    expect(
+      ((planProperties['dataKey'] as Map)['enum'] as List),
+      containsAll(['story_skeleton', 'adaptation_strategy']),
+    );
+    expect(planTool.schema['required'], isNull);
 
     final textTool = gateway.lastTools.singleWhere(
       (tool) => tool.name == 'get_novel_text',

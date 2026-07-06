@@ -161,6 +161,63 @@ const Map<String, dynamic> _scriptContentIdAliasProperties = <String, dynamic>{
   },
 };
 
+const List<String> _scriptWorkspaceDataKeyEnum = <String>[
+  'storySkeleton',
+  'story_skeleton',
+  'adaptationStrategy',
+  'adaptation_strategy',
+  'script',
+];
+
+const Map<String, dynamic> _scriptWorkspaceDataKeyAliasProperties =
+    <String, dynamic>{
+  'key': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': '要读取的剧本 Agent 工作区字段。',
+  },
+  'name': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'key 的自然语言别名。',
+  },
+  'section': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'key 的分区语义别名。',
+  },
+  'dataKey': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'key 的 ToonFlow 常见数据键别名。',
+  },
+  'flowKey': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'key 的工作流语义别名。',
+  },
+  'workspaceKey': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'key 的工作区语义别名。',
+  },
+  'data_key': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'dataKey 的 snake_case 别名。',
+  },
+  'flow_key': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'flowKey 的 snake_case 别名。',
+  },
+  'workspace_key': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'workspaceKey 的 snake_case 别名。',
+  },
+};
+
 const _scriptAgentReadTools = <AgentToolDef>[
   AgentToolDef(
     name: 'get_novel_events',
@@ -176,12 +233,7 @@ const _scriptAgentReadTools = <AgentToolDef>[
         '获取剧本 Agent 工作区数据，可读取 storySkeleton、adaptationStrategy 或 script。',
     schema: {
       'type': 'object',
-      'properties': {
-        'key': {
-          'type': 'string',
-          'enum': ['storySkeleton', 'adaptationStrategy', 'script'],
-        },
-      },
+      'properties': _scriptWorkspaceDataKeyAliasProperties,
     },
   ),
   AgentToolDef(

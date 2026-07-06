@@ -158,6 +158,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `add_f
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent read tools exposing and accepting common chapter/script id aliases (`chapterNo`, `novel_ids`, `episodeIds`, and snake_case forms), so Script sub Agents can retrieve targeted events, novel text, and existing scripts without brittle exact ToonFlow field names.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `get_planData` ScriptAgent execution tool exposing and accepting common workspace-read aliases (`section`, `dataKey`, `flowKey`, `workspaceKey`, and snake_case forms), including `story_skeleton` / `adaptation_strategy` key values, so Script sub Agents can read a specific workspace segment without accidentally receiving the whole script-planning payload.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers long-term `note` memory search using the bound `agent_embedding` provider, including semantic cross-language recall and migration of stored note embeddings from legacy token JSON to gateway-vector JSON.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style memory clearing semantics: clearing `message` also removes dependent `summary` records, while clearing `summary` resets summarized messages back to `summarized=0` so they can re-enter short-term memory and future summarization.
