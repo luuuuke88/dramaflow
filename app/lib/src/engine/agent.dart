@@ -462,7 +462,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeRoles/排除角色/minSimilarity/createdAfter/orderBy/limit 等过滤提示。',
+        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/minSimilarity/createdAfter/orderBy/limit 等过滤提示。',
   },
   'retrievalPlan': {
     'type': 'array',
@@ -10556,6 +10556,7 @@ extension AgentApi on Engine {
           final excludeIds = {
             ...excludedMemoryIds,
             if (requestedExcludeIds != null) ...requestedExcludeIds,
+            ..._agentMemoryQueryPlanExcludeIds(args),
           };
           final minScore = _agentMemoryMinScore(args);
           final timeRange = _agentMemoryTimeRange(args);
@@ -10751,6 +10752,7 @@ extension AgentApi on Engine {
           final excludeIds = {
             ...excludedMemoryIds,
             if (requestedExcludeIds != null) ...requestedExcludeIds,
+            ..._agentMemoryQueryPlanExcludeIds(args),
           };
           final minScore = _agentMemoryMinScore(args);
           final timeRange = _agentMemoryTimeRange(args);
@@ -11887,6 +11889,45 @@ extension AgentApi on Engine {
     }
     return values.isEmpty ? null : values;
   }
+
+  Set<String> _agentMemoryQueryPlanExcludeIds(Map<String, dynamic> args) {
+    final values = <String>{};
+    for (final raw in _agentMemoryQueryPlanExcludeIdValues(args)) {
+      final parsed = _coerceMemoryIdSet(raw);
+      if (parsed != null) values.addAll(parsed);
+    }
+    return values;
+  }
+
+  List<Object?> _agentMemoryQueryPlanExcludeIdValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'excludeIds',
+        'excludeMemoryIds',
+        'excludedMemoryIds',
+        'excludeId',
+        'excludeRecords',
+        '排除记忆',
+        '排除记忆Ids',
+        'memoryIds',
+        'seenMemoryIds',
+        '已读记忆',
+        '已读记忆Ids',
+        'seenIds',
+        'seenRecords',
+        '已读记录',
+        'readMemoryIds',
+        'readIds',
+        'readRecords',
+        '排除记录',
+        'records',
+        'previousMemoryIds',
+        'previouslyReadMemoryIds',
+        'previouslyReadIds',
+        'previousRecords',
+        'previouslyReadRecords',
+      ]);
 
   Set<String>? _coerceMemoryIdSet(Object? raw) {
     final values = <String>{};

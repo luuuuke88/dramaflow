@@ -12070,6 +12070,133 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     ]);
   });
 
+  test('Agent 记忆：结构化查询计划可携带已读记忆排除', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_seen_memory_get_skip',
+      content: '已读记忆：青灯排重甲子第一次记录，保留旧镜头。',
+      offset: 1,
+      role: 'assistant:seen:get',
+    );
+    insertMessage(
+      id: 'query_plan_seen_memory_get_keep',
+      content: '未读记忆：青灯排重甲子第二次记录，采用新镜头。',
+      offset: 2,
+      role: 'assistant:seen:get',
+    );
+    insertMessage(
+      id: 'query_plan_seen_deep_skip',
+      content: '已读记忆：雪桥排重乙卯第一次记录，保留旧台词。',
+      offset: 3,
+      role: 'assistant:seen:deep',
+    );
+    insertMessage(
+      id: 'query_plan_seen_deep_keep',
+      content: '未读记忆：雪桥排重乙卯第二次记录，采用新台词。',
+      offset: 4,
+      role: 'assistant:seen:deep',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '青灯排重甲子',
+            'excludeIds': ['query_plan_seen_memory_get_skip'],
+            'memoryRoles': ['assistant:seen:get'],
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '雪桥排重乙卯',
+            '已读记忆': ['query_plan_seen_deep_skip'],
+            '记忆角色': ['assistant:seen:deep'],
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按计划项里的已读记忆排除重复召回',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_seen_memory_get_keep'],
+    );
+    expect(memoryGetPayload['memories'], [
+      '未读记忆：青灯排重甲子第二次记录，采用新镜头。',
+    ]);
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_seen_deep_keep'],
+    );
+    expect(deepRetrievePayload['memories'], [
+      '未读记忆：雪桥排重乙卯第二次记录，采用新台词。',
+    ]);
+  });
+
   test('Agent 记忆工具可显式召回视觉参考长期记忆', () async {
     final visualId = engine.saveAgentMemory(
       projectId,
