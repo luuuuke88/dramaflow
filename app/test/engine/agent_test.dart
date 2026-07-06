@@ -10049,6 +10049,48 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_get 工具支持中文查询和范围别名', () async {
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '寒山视觉',
+      content: '长期设定：寒山山门保持冷白色调。',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        '查询': '寒山山门色调',
+        '记忆范围': '长期记忆',
+        '数量': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '用中文参数查长期记忆',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties, contains('查询'));
+    expect(properties, contains('数量'));
+    expect(properties, contains('记忆范围'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_get');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['notes'], ['长期设定：寒山山门保持冷白色调。']);
+    final records = payload['records'] as List;
+    expect(
+      records.single,
+      isA<Map>()
+          .having((record) => record['id'], 'id', noteId)
+          .having((record) => record['scope'], 'scope', 'long_term'),
+    );
+  });
+
   test('Agent 记忆：memory_get 工具支持 long_term scope 返回长期 note', () async {
     final noteId = engine.saveAgentMemory(
       projectId,
@@ -10267,6 +10309,46 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(row['role'], 'assistant:execution:script');
     expect(row['type'], agentMemoryTypeMessage);
     expect(row['createTime'], 123456);
+  });
+
+  test('Agent 记忆：memory_add 工具支持中文字段写入长期记忆', () async {
+    gateway.turns = [
+      AgentTurnResult.tool('memory_add', const {
+        '内容': '长期设定：李澈不能主动滥杀。',
+        '记忆名称': '角色禁忌',
+        '记忆范围': '长期记忆',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '用中文参数写长期记忆',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_add');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties, contains('内容'));
+    expect(properties, contains('记忆名称'));
+    expect(properties, contains('记忆范围'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'memory_add');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['saved'], isTrue);
+    expect(payload['type'], agentMemoryTypeNote);
+    expect(payload['scope'], 'long_term');
+    expect(payload['name'], '角色禁忌');
+    expect(payload['content'], '长期设定：李澈不能主动滥杀。');
+
+    final longTerm = engine.agentLongTermMemories(projectId);
+    expect(
+        longTerm.singleWhere((item) => item.id == payload['id']).name, '角色禁忌');
+    expect(
+      longTerm.singleWhere((item) => item.id == payload['id']).content,
+      '长期设定：李澈不能主动滥杀。',
+    );
   });
 
   test('Agent 记忆：memory_add 工具支持 long_term scope 写入长期 note', () async {
@@ -10720,6 +10802,47 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
           'assistant:execution:script',
         ),
       ),
+    );
+  });
+
+  test('Agent 记忆：deepRetrieve 工具支持中文查询和范围别名', () async {
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '寒山分镜约束',
+      content: '长期设定：寒山飞行镜头要保持冷白雾气。',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        '查询': '寒山飞行镜头',
+        '记忆范围': '长期记忆',
+        '数量': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '用中文参数深度找寒山飞行设定',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties, contains('查询'));
+    expect(properties, contains('数量'));
+    expect(properties, contains('记忆范围'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], ['长期设定：寒山飞行镜头要保持冷白雾气。']);
+    final records = payload['records'] as List;
+    expect(
+      records.single,
+      isA<Map>()
+          .having((record) => record['id'], 'id', noteId)
+          .having((record) => record['scope'], 'scope', 'long_term'),
     );
   });
 

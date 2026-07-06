@@ -225,6 +225,18 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': '要写入记忆的正文内容。',
         },
+        '内容': {
+          'type': 'string',
+          'description': 'content 的中文别名。',
+        },
+        '记忆内容': {
+          'type': 'string',
+          'description': 'content 的中文语义别名。',
+        },
+        '正文': {
+          'type': 'string',
+          'description': 'content 的中文正文别名。',
+        },
         'text': {
           'type': 'string',
           'description': 'content 的自然语言别名。',
@@ -261,6 +273,14 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'name 的自然语言别名。',
         },
+        '标题': {
+          'type': 'string',
+          'description': 'name 的中文标题别名。',
+        },
+        '名称': {
+          'type': 'string',
+          'description': 'name 的中文名称别名。',
+        },
         'label': {
           'type': 'string',
           'description': 'name 的标签别名。',
@@ -268,6 +288,10 @@ final _tools = <AgentToolDef>[
         'memoryName': {
           'type': 'string',
           'description': 'name 的记忆名称别名。',
+        },
+        '记忆名称': {
+          'type': 'string',
+          'description': 'memoryName 的中文别名。',
         },
         'memory_name': {
           'type': 'string',
@@ -277,9 +301,17 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': '可选。普通 message 记忆的 role，默认 user。',
         },
+        '角色': {
+          'type': 'string',
+          'description': 'role 的中文别名。',
+        },
         'memoryRole': {
           'type': 'string',
           'description': 'role 的记忆角色别名。',
+        },
+        '记忆角色': {
+          'type': 'string',
+          'description': 'memoryRole 的中文别名。',
         },
         'memory_role': {
           'type': 'string',
@@ -298,20 +330,36 @@ final _tools = <AgentToolDef>[
           'enum': ['message', 'note'],
           'description': '可选。写入 message 普通记忆或 note 长期记忆。',
         },
+        '类型': {
+          'type': 'string',
+          'description': 'type 的中文别名，可用普通记忆或长期记忆。',
+        },
         'memoryType': {
           'type': 'string',
           'enum': ['message', 'conversation', 'note', 'long_term'],
           'description': '可选。type/scope 的语义化别名。',
+        },
+        '记忆类型': {
+          'type': 'string',
+          'description': 'memoryType 的中文别名，可用普通记忆或长期记忆。',
         },
         'scope': {
           'type': 'string',
           'enum': ['conversation', 'long_term'],
           'description': '可选。conversation 写普通记忆；long_term 写长期记忆。',
         },
+        '范围': {
+          'type': 'string',
+          'description': 'scope 的中文别名，可用对话记忆或长期记忆。',
+        },
         'memoryScope': {
           'type': 'string',
           'enum': ['conversation', 'long_term'],
           'description': 'scope 的记忆范围别名。',
+        },
+        '记忆范围': {
+          'type': 'string',
+          'description': 'memoryScope 的中文别名，可用对话记忆或长期记忆。',
         },
         'memory_scope': {
           'type': 'string',
@@ -321,6 +369,10 @@ final _tools = <AgentToolDef>[
         'createTime': {
           'type': 'integer',
           'description': '可选。普通 message 记忆的创建时间毫秒时间戳。',
+        },
+        '创建时间': {
+          'type': 'integer',
+          'description': 'createTime 的中文别名。',
         },
         'create_time': {
           'type': 'integer',
@@ -337,6 +389,10 @@ final _tools = <AgentToolDef>[
         'timestamp': {
           'type': 'integer',
           'description': 'createTime 的时间戳别名。',
+        },
+        '时间戳': {
+          'type': 'integer',
+          'description': 'timestamp 的中文别名。',
         },
         'time': {
           'type': 'integer',
@@ -356,21 +412,41 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': '要检索的记忆查询文本。',
         },
+        '查询': {
+          'type': 'string',
+          'description': 'query 的中文别名。',
+        },
         'question': {
           'type': 'string',
           'description': 'query 的自然语言别名。',
+        },
+        '问题': {
+          'type': 'string',
+          'description': 'question 的中文别名。',
         },
         'text': {
           'type': 'string',
           'description': 'query 的文本别名。',
         },
+        '文本': {
+          'type': 'string',
+          'description': 'text 的中文别名。',
+        },
         'prompt': {
           'type': 'string',
           'description': 'query 的提示词别名。',
         },
+        '提示词': {
+          'type': 'string',
+          'description': 'prompt 的中文别名。',
+        },
         'keyword': {
           'type': 'string',
           'description': 'query 的关键词别名。',
+        },
+        '关键词': {
+          'type': 'string',
+          'description': 'keyword 的中文别名。',
         },
         'q': {
           'type': 'string',
@@ -424,6 +500,24 @@ final _tools = <AgentToolDef>[
           'maximum': 50,
           'description': '可选。返回数量别名。',
         },
+        '数量': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': 'count 的中文别名。',
+        },
+        '条数': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': 'limit 的中文条数别名。',
+        },
+        '返回数量': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': 'maxResults 的中文别名。',
+        },
         'minScore': {
           'type': 'integer',
           'minimum': 1,
@@ -459,10 +553,24 @@ final _tools = <AgentToolDef>[
           'minimum': 1,
           'description': '可选。scoreThreshold 的简写别名。',
         },
+        '最低分': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': 'minScore 的中文别名。',
+        },
+        '分数阈值': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': 'scoreThreshold 的中文别名。',
+        },
         'role': {
           'type': 'string',
           'description':
               '可选。只返回指定 role 的记忆，例如 user 或 assistant:execution:script。',
+        },
+        '角色': {
+          'type': 'string',
+          'description': 'role 的中文别名。',
         },
         'roles': {
           'type': 'array',
@@ -474,6 +582,11 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': 'roles 的记忆角色别名。',
         },
+        '记忆角色': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'memoryRoles 的中文别名。',
+        },
         'memory_roles': {
           'type': ['array', 'string'],
           'items': {'type': 'string'},
@@ -483,6 +596,10 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'enum': ['message', 'summary', 'note'],
           'description': '可选。只返回指定类型的记忆：message 原始对话，summary 摘要，note 长期记忆。',
+        },
+        '类型': {
+          'type': 'string',
+          'description': 'type 的中文别名，可用普通记忆、摘要或长期记忆。',
         },
         'types': {
           'type': 'array',
@@ -505,6 +622,10 @@ final _tools = <AgentToolDef>[
           'description':
               '可选。type/scope 的语义化别名，可用 conversation、long_term 或 all 表示记忆层级。',
         },
+        '记忆类型': {
+          'type': 'string',
+          'description': 'memoryType 的中文别名。',
+        },
         'memoryTypes': {
           'type': 'array',
           'items': {
@@ -526,6 +647,10 @@ final _tools = <AgentToolDef>[
           'description':
               '可选。按记忆层级召回：conversation 对话记忆，summary 摘要，long_term 长期记忆，all 全部。',
         },
+        '范围': {
+          'type': 'string',
+          'description': 'scope 的中文别名，可用对话记忆、摘要、长期记忆或全部。',
+        },
         'scopes': {
           'type': 'array',
           'items': {
@@ -538,6 +663,10 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'enum': ['conversation', 'summary', 'long_term', 'all'],
           'description': 'scope 的记忆范围别名。',
+        },
+        '记忆范围': {
+          'type': 'string',
+          'description': 'memoryScope 的中文别名。',
         },
         'memory_scope': {
           'type': 'string',
@@ -690,21 +819,41 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'keyword': {'type': 'string'},
+        '关键词': {
+          'type': 'string',
+          'description': 'keyword 的中文别名。',
+        },
         'query': {
           'type': 'string',
           'description': 'keyword 的语义化别名，适合模型按“查询内容”组织参数。',
+        },
+        '查询': {
+          'type': 'string',
+          'description': 'query 的中文别名。',
         },
         'question': {
           'type': 'string',
           'description': 'keyword 的自然语言别名，适合“继续/下一步/回想”场景。',
         },
+        '问题': {
+          'type': 'string',
+          'description': 'question 的中文别名。',
+        },
         'text': {
           'type': 'string',
           'description': 'keyword 的文本别名。',
         },
+        '文本': {
+          'type': 'string',
+          'description': 'text 的中文别名。',
+        },
         'prompt': {
           'type': 'string',
           'description': 'keyword 的提示词别名。',
+        },
+        '提示词': {
+          'type': 'string',
+          'description': 'prompt 的中文别名。',
         },
         'q': {
           'type': 'string',
@@ -763,6 +912,16 @@ final _tools = <AgentToolDef>[
           'minimum': 1,
           'description': '可选。scoreThreshold 的简写别名。',
         },
+        '最低分': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': 'minScore 的中文别名。',
+        },
+        '分数阈值': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': 'scoreThreshold 的中文别名。',
+        },
         'maxResults': {
           'type': 'integer',
           'minimum': 1,
@@ -793,9 +952,31 @@ final _tools = <AgentToolDef>[
           'maximum': 50,
           'description': '可选。返回数量别名。',
         },
+        '数量': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': 'count 的中文别名。',
+        },
+        '条数': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': 'limit 的中文条数别名。',
+        },
+        '返回数量': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': 'maxResults 的中文别名。',
+        },
         'role': {
           'type': 'string',
           'description': '可选。只返回指定 role 的记忆，例如 user 或 assistant:supervision。',
+        },
+        '角色': {
+          'type': 'string',
+          'description': 'role 的中文别名。',
         },
         'roles': {
           'type': 'array',
@@ -806,6 +987,11 @@ final _tools = <AgentToolDef>[
           'type': ['array', 'string'],
           'items': {'type': 'string'},
           'description': 'roles 的记忆角色别名。',
+        },
+        '记忆角色': {
+          'type': ['array', 'string'],
+          'items': {'type': 'string'},
+          'description': 'memoryRoles 的中文别名。',
         },
         'memory_roles': {
           'type': ['array', 'string'],
@@ -865,6 +1051,10 @@ final _tools = <AgentToolDef>[
           'enum': ['message', 'summary', 'note'],
           'description': '可选。只返回指定类型的记忆：message 原始对话，summary 摘要，note 长期记忆。',
         },
+        '类型': {
+          'type': 'string',
+          'description': 'type 的中文别名，可用普通记忆、摘要或长期记忆。',
+        },
         'types': {
           'type': 'array',
           'items': {
@@ -885,6 +1075,10 @@ final _tools = <AgentToolDef>[
           ],
           'description':
               '可选。type/scope 的语义化别名，可用 conversation、long_term 或 all 表示记忆层级。',
+        },
+        '记忆类型': {
+          'type': 'string',
+          'description': 'memoryType 的中文别名。',
         },
         'memoryTypes': {
           'type': 'array',
@@ -907,6 +1101,10 @@ final _tools = <AgentToolDef>[
           'description':
               '可选。按记忆层级召回：conversation 对话记忆，summary 摘要，long_term 长期记忆，all 全部。',
         },
+        '范围': {
+          'type': 'string',
+          'description': 'scope 的中文别名，可用对话记忆、摘要、长期记忆或全部。',
+        },
         'scopes': {
           'type': 'array',
           'items': {
@@ -919,6 +1117,10 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'enum': ['conversation', 'summary', 'long_term', 'all'],
           'description': 'scope 的记忆范围别名。',
+        },
+        '记忆范围': {
+          'type': 'string',
+          'description': 'memoryScope 的中文别名。',
         },
         'memory_scope': {
           'type': 'string',
@@ -8846,6 +9048,9 @@ extension AgentApi on Engine {
       switch (name) {
         case 'memory_add':
           final content = (args['content'] ??
+                  args['内容'] ??
+                  args['记忆内容'] ??
+                  args['正文'] ??
                   args['text'] ??
                   args['memory'] ??
                   args['note'] ??
@@ -8859,15 +9064,20 @@ extension AgentApi on Engine {
           if (content.isEmpty) return '缺少 content 参数。';
           final memoryName = (args['name'] ??
                   args['title'] ??
+                  args['标题'] ??
+                  args['名称'] ??
                   args['label'] ??
                   args['memoryName'] ??
+                  args['记忆名称'] ??
                   args['memory_name'] ??
                   '')
               .toString()
               .trim();
           final defaultRole = _memoryAddDefaultRole(agentFamily, stage);
           final role = (args['role'] ??
+                  args['角色'] ??
                   args['memoryRole'] ??
+                  args['记忆角色'] ??
                   args['memory_role'] ??
                   args['authorRole'] ??
                   args['author_role'] ??
@@ -8897,10 +9107,12 @@ extension AgentApi on Engine {
           }
           final createTime = _coerceInt(
             args['createTime'] ??
+                args['创建时间'] ??
                 args['create_time'] ??
                 args['createdAt'] ??
                 args['created_at'] ??
                 args['timestamp'] ??
+                args['时间戳'] ??
                 args['time'],
           );
           final id = await _agentMemoryService(
@@ -8926,10 +9138,15 @@ extension AgentApi on Engine {
           });
         case 'memory_get':
           final query = (args['query'] ??
+                  args['查询'] ??
                   args['question'] ??
+                  args['问题'] ??
                   args['text'] ??
+                  args['文本'] ??
                   args['prompt'] ??
+                  args['提示词'] ??
                   args['keyword'] ??
+                  args['关键词'] ??
                   args['q'] ??
                   '')
               .toString()
@@ -8938,8 +9155,10 @@ extension AgentApi on Engine {
           final roles = _coerceStringSet(
             args['roles'] ??
                 args['role'] ??
+                args['角色'] ??
                 args['memoryRoles'] ??
                 args['memoryRole'] ??
+                args['记忆角色'] ??
                 args['memory_roles'] ??
                 args['memory_role'],
           );
@@ -9001,6 +9220,8 @@ extension AgentApi on Engine {
                 args['minimum_score'] ??
                 args['scoreThreshold'] ??
                 args['score_threshold'] ??
+                args['最低分'] ??
+                args['分数阈值'] ??
                 args['threshold'],
           );
           final rawLimit = args['limit'] ??
@@ -9010,6 +9231,9 @@ extension AgentApi on Engine {
               args['max_results'] ??
               args['max'] ??
               args['count'] ??
+              args['数量'] ??
+              args['条数'] ??
+              args['返回数量'] ??
               args['k'];
           final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
           final includeMessages =
@@ -9096,10 +9320,15 @@ extension AgentApi on Engine {
           });
         case 'deepRetrieve':
           final keyword = (args['keyword'] ??
+                  args['关键词'] ??
                   args['query'] ??
+                  args['查询'] ??
                   args['question'] ??
+                  args['问题'] ??
                   args['text'] ??
+                  args['文本'] ??
                   args['prompt'] ??
+                  args['提示词'] ??
                   args['q'] ??
                   '')
               .toString()
@@ -9108,8 +9337,10 @@ extension AgentApi on Engine {
           final roles = _coerceStringSet(
             args['roles'] ??
                 args['role'] ??
+                args['角色'] ??
                 args['memoryRoles'] ??
                 args['memoryRole'] ??
+                args['记忆角色'] ??
                 args['memory_roles'] ??
                 args['memory_role'],
           );
@@ -9171,6 +9402,8 @@ extension AgentApi on Engine {
                 args['minimum_score'] ??
                 args['scoreThreshold'] ??
                 args['score_threshold'] ??
+                args['最低分'] ??
+                args['分数阈值'] ??
                 args['threshold'],
           );
           final records = await _agentMemoryService(
@@ -9196,6 +9429,9 @@ extension AgentApi on Engine {
               args['max_results'] ??
               args['max'] ??
               args['count'] ??
+              args['数量'] ??
+              args['条数'] ??
+              args['返回数量'] ??
               args['k'];
           final limit = _coerceInt(rawLimit)?.clamp(1, 50).toInt();
           final limitedRecords =
@@ -9885,17 +10121,27 @@ extension AgentApi on Engine {
           case 'message':
           case 'messages':
           case 'chat':
+          case '普通记忆':
+          case '消息':
+          case '聊天':
             values.add(agentMemoryTypeMessage);
             break;
           case 'conversation':
           case 'conversations':
           case 'history':
+          case '对话':
+          case '对话记忆':
+          case '历史':
+          case '短期记忆':
             values
               ..add(agentMemoryTypeMessage)
               ..add(agentMemoryTypeSummary);
             break;
           case 'summary':
           case 'summaries':
+          case '摘要':
+          case '摘要记忆':
+          case '历史摘要':
             values.add(agentMemoryTypeSummary);
             break;
           case 'long_term':
@@ -9904,9 +10150,16 @@ extension AgentApi on Engine {
           case 'note':
           case 'notes':
           case 'project':
+          case '长期':
+          case '长期记忆':
+          case '项目记忆':
+          case '设定记忆':
             values.add(agentMemoryTypeNote);
             break;
           case 'all':
+          case '全部':
+          case '所有':
+          case '全量':
             values
               ..add(agentMemoryTypeMessage)
               ..add(agentMemoryTypeSummary)
@@ -9920,13 +10173,17 @@ extension AgentApi on Engine {
 
     addMemoryType(args['types'] ??
         args['type'] ??
+        args['类型'] ??
         args['memoryTypes'] ??
-        args['memoryType']);
+        args['memoryType'] ??
+        args['记忆类型']);
     addMemoryType(
       args['scopes'] ??
           args['scope'] ??
+          args['范围'] ??
           args['memoryScopes'] ??
           args['memoryScope'] ??
+          args['记忆范围'] ??
           args['memory_scopes'] ??
           args['memory_scope'],
     );
@@ -9947,6 +10204,13 @@ extension AgentApi on Engine {
           case 'conversations':
           case 'chat':
           case 'history':
+          case '普通记忆':
+          case '消息':
+          case '聊天':
+          case '对话':
+          case '对话记忆':
+          case '历史':
+          case '短期记忆':
             values.add(agentMemoryTypeMessage);
             break;
           case 'note':
@@ -9955,6 +10219,10 @@ extension AgentApi on Engine {
           case 'long-term':
           case 'longterm':
           case 'project':
+          case '长期':
+          case '长期记忆':
+          case '项目记忆':
+          case '设定记忆':
             values.add(agentMemoryTypeNote);
             break;
           default:
@@ -9965,13 +10233,17 @@ extension AgentApi on Engine {
 
     add(args['types'] ??
         args['type'] ??
+        args['类型'] ??
         args['memoryTypes'] ??
-        args['memoryType']);
+        args['memoryType'] ??
+        args['记忆类型']);
     add(
       args['scopes'] ??
           args['scope'] ??
+          args['范围'] ??
           args['memoryScopes'] ??
           args['memoryScope'] ??
+          args['记忆范围'] ??
           args['memory_scopes'] ??
           args['memory_scope'],
     );

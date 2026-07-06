@@ -256,6 +256,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-s
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style `deepRetrieve` exposing and accepting the same natural RAG aliases such as `q`, `count`, `memory_roles`, `memory_scope`, and previous-record exclusions, so deeper summary expansion and long-horizon recall are no longer tied to brittle exact parameter names.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get`, `memory_add`, and `deepRetrieve` exposing and accepting Chinese memory fields such as `查询`, `数量`, `内容`, `记忆名称`, and `记忆范围`, so Chinese decision/sub Agents can read and write conversation or long-term memories without mirroring English ToonFlow argument names.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent storyboard-panel XML output carrying ToonFlow-style asset refs such as `A001` and natural asset names, while the sub Agent context now includes `[A001, role, 角色名]` asset lines so storyboard XML can bind the intended script assets instead of guessing raw database ids.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent storyboard-panel sub Agents accepting self-closing `<storyboardItem ... />` XML, so model outputs that compress empty storyboard tags no longer get treated as "no storyboardItem output".
