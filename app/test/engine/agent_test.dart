@@ -5017,6 +5017,67 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持全局 RegExp.exec lastIndex 循环提取', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regex_exec_global_runtime',
+      name: '全局正则循环脚本运行时',
+      description: '验证自定义技能兼容模型常写的 while ((m = re.exec(text)) !== null)。',
+      script: r'''
+const pattern = /<storyboardItem\b[^>]*videoDesc="([^"]+)"[^>]*duration="([^"]+)"/g;
+let match = null;
+const shots = [];
+while ((match = pattern.exec(args.workspace)) !== null) {
+  shots.push(`${shots.length + 1}.${match[1].trim()}@${match[2]}`);
+}
+const afterLoop = pattern.lastIndex;
+pattern.lastIndex = 0;
+const firstAgain = pattern.exec(args.workspace);
+return JSON.stringify({
+  shots,
+  afterLoop,
+  firstAgain: firstAgain ? firstAgain[1].trim() : '',
+  afterFirstAgain: pattern.lastIndex,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+        },
+      },
+    );
+
+    const workspace = '''
+<storyboardItem videoDesc=" 雪夜山门 " duration="3秒"></storyboardItem>
+<storyboardItem videoDesc="李澈拔剑" duration="2.5s"></storyboardItem>
+''';
+    final expectedAfterFirstAgain = RegExp(
+      r'<storyboardItem\b[^>]*videoDesc="([^"]+)"[^>]*duration="([^"]+)"',
+    ).firstMatch(workspace)!.end;
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_regex_exec_global_runtime', const {
+        'workspace': workspace,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用全局正则循环脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regex_exec_global_runtime');
+    expect(jsonDecode(msg.content), {
+      'shots': ['1.雪夜山门@3秒', '2.李澈拔剑@2.5s'],
+      'afterLoop': 0,
+      'firstAgain': '雪夜山门',
+      'afterFirstAgain': expectedAfterFirstAgain,
+    });
+  });
+
   test('自定义脚本技能：支持 RegExp 构造和 test 筛选资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regexp_test_runtime',

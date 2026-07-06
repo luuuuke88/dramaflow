@@ -1579,6 +1579,9 @@ class _CustomAgentSkillRuntime {
     final container = target.container;
     final key = target.key;
     if (container is Map) return container['$key'];
+    if (container is _CustomJsRegExp && key == 'lastIndex') {
+      return container.lastIndex;
+    }
     if (container is List) {
       final index = _assignmentListIndex(key);
       if (index >= 0 && index < container.length) return container[index];
@@ -1598,6 +1601,10 @@ class _CustomAgentSkillRuntime {
     final key = target.key;
     if (container is Map) {
       container['$key'] = value;
+      return;
+    }
+    if (container is _CustomJsRegExp && key == 'lastIndex') {
+      container.lastIndex = _regExpLastIndex(value);
       return;
     }
     if (container is List) {
@@ -1678,6 +1685,10 @@ class _CustomAgentSkillRuntime {
     if (expr.isEmpty) return '';
     final grouped = _unwrapOuterParens(expr);
     if (grouped != null) return _evaluate(grouped);
+    final assignmentExpression = _evaluateAssignmentExpression(expr);
+    if (assignmentExpression is! _CustomJsNoAssignment) {
+      return assignmentExpression;
+    }
     final groupedChain = _readGroupedValueChain(expr);
     if (groupedChain != null) {
       return _evaluateValueChain(
@@ -1843,6 +1854,31 @@ class _CustomAgentSkillRuntime {
     }
 
     return _evaluateChain(expr);
+  }
+
+  Object? _evaluateAssignmentExpression(String expression) {
+    final equals = _findTopLevelDefaultEquals(expression);
+    if (equals < 0) return const _CustomJsNoAssignment();
+    final left = expression.substring(0, equals).trim();
+    final right = expression.substring(equals + 1).trim();
+    if (left.isEmpty || right.isEmpty) return const _CustomJsNoAssignment();
+    final identifier = _readIdentifier(left, 0);
+    if (identifier != null && identifier.end == left.length) {
+      if (!_scope.containsKey(identifier.text)) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_unknown_variable',
+          'expression': identifier.text,
+        });
+      }
+      final value = _evaluate(right);
+      _scope[identifier.text] = value;
+      return value;
+    }
+    final target = _readAssignmentTarget(left);
+    if (target == null) return const _CustomJsNoAssignment();
+    final value = _evaluate(right);
+    _writeAssignmentTarget(target, value);
+    return value;
   }
 
   Object? _evaluateChain(String expression) {
@@ -3375,9 +3411,10 @@ class _CustomAgentSkillRuntime {
     switch (method) {
       case 'exec':
         if (args.length != 1) _badMethodArgs(method);
-        final match = value.regExp.firstMatch(_stringifyInterpolation(
-          _evaluate(args.single),
-        ));
+        final text = _stringifyInterpolation(_evaluate(args.single));
+        final match = value.global
+            ? _nextGlobalRegExpMatch(value, text)
+            : value.regExp.firstMatch(text);
         if (match == null) return null;
         return [
           for (var index = 0; index <= match.groupCount; index++)
@@ -3394,6 +3431,21 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  RegExpMatch? _nextGlobalRegExpMatch(_CustomJsRegExp value, String text) {
+    if (value.lastIndex < 0 || value.lastIndex > text.length) {
+      value.lastIndex = 0;
+      return null;
+    }
+    final matches = value.regExp.allMatches(text, value.lastIndex).iterator;
+    if (!matches.moveNext()) {
+      value.lastIndex = 0;
+      return null;
+    }
+    final match = matches.current;
+    value.lastIndex = match.end;
+    return match;
   }
 
   Object? _callMathMethod(String method, List<String> args) {
@@ -4161,6 +4213,9 @@ class _CustomAgentSkillRuntime {
 
   Object? _readProperty(Object? value, String property) {
     if (value is Map) return value[property];
+    if (value is _CustomJsRegExp && property == 'lastIndex') {
+      return value.lastIndex;
+    }
     if (property == 'size' && value is Set) return value.length;
     if (property == 'size' && value is _CustomJsMap) return value.values.length;
     if (property == 'length') {
@@ -4229,6 +4284,16 @@ class _CustomAgentSkillRuntime {
     if (value is num || value is bool) return '$value';
     return jsonEncode(value);
   }
+
+  int _regExpLastIndex(Object? value) {
+    final numeric = _toNum(value);
+    if (!numeric.isFinite || numeric <= 0) return 0;
+    return numeric.toInt();
+  }
+}
+
+class _CustomJsNoAssignment {
+  const _CustomJsNoAssignment();
 }
 
 class _CustomJsBuiltin {
@@ -4269,8 +4334,9 @@ class _CustomJsFunction {
 class _CustomJsRegExp {
   final RegExp regExp;
   final bool global;
+  int lastIndex = 0;
 
-  const _CustomJsRegExp(this.regExp, {required this.global});
+  _CustomJsRegExp(this.regExp, {required this.global});
 }
 
 class _CustomJsAssignmentTarget {
