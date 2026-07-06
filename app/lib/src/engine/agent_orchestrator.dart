@@ -469,6 +469,130 @@ const List<String> _flowDataKeyValues = <String>[
   'storyboard',
 ];
 
+const Map<String, dynamic> _productionScriptNaturalSelectorAliasProperties =
+    <String, dynamic>{
+  'episodeNo': {
+    'type': ['integer', 'array', 'string'],
+    'items': {'type': 'integer'},
+    'description': '按当前剧本列表顺序选择集数，例如 2 表示第二集。',
+  },
+  'episodeNos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'episodeNo 的复数别名。',
+  },
+  'scriptNo': {
+    'type': ['integer', 'array', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'episodeNo 的剧本语义别名。',
+  },
+  'scriptNos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'scriptNo 的复数别名。',
+  },
+  'episode_no': {
+    'type': ['integer', 'array', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'episodeNo 的 snake_case 别名。',
+  },
+  'episode_nos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'episodeNos 的 snake_case 别名。',
+  },
+  'script_no': {
+    'type': ['integer', 'array', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'scriptNo 的 snake_case 别名。',
+  },
+  'script_nos': {
+    'type': ['array', 'integer', 'string'],
+    'items': {'type': 'integer'},
+    'description': 'scriptNos 的 snake_case 别名。',
+  },
+  'scriptName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': '按剧本名称精确匹配。',
+  },
+  'scriptNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptName 的复数别名。',
+  },
+  'episodeName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'scriptName 的集数语义别名。',
+  },
+  'episodeNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeName 的复数别名。',
+  },
+  'scriptTitle': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'scriptName 的标题语义别名。',
+  },
+  'scriptTitles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptTitle 的复数别名。',
+  },
+  'episodeTitle': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'episodeName 的标题语义别名。',
+  },
+  'episodeTitles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeTitle 的复数别名。',
+  },
+  'script_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'scriptName 的 snake_case 别名。',
+  },
+  'script_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptNames 的 snake_case 别名。',
+  },
+  'episode_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'episodeName 的 snake_case 别名。',
+  },
+  'episode_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeNames 的 snake_case 别名。',
+  },
+  'script_title': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'scriptTitle 的 snake_case 别名。',
+  },
+  'script_titles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptTitles 的 snake_case 别名。',
+  },
+  'episode_title': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'episodeTitle 的 snake_case 别名。',
+  },
+  'episode_titles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeTitles 的 snake_case 别名。',
+  },
+};
+
 const Map<String, dynamic> _flowDataReadAliasProperties = <String, dynamic>{
   'key': {
     'type': 'string',
@@ -546,6 +670,7 @@ const Map<String, dynamic> _flowDataReadAliasProperties = <String, dynamic>{
     'items': {'type': 'integer'},
     'description': 'episodeIds 的 snake_case 别名。',
   },
+  ..._productionScriptNaturalSelectorAliasProperties,
 };
 
 const Map<String, dynamic> _storyboardWriteAliasProperties = <String, dynamic>{
@@ -570,6 +695,7 @@ const Map<String, dynamic> _storyboardWriteAliasProperties = <String, dynamic>{
     'type': 'integer',
     'description': 'episodesId 的 snake_case 别名。',
   },
+  ..._productionScriptNaturalSelectorAliasProperties,
   'videoDesc': {
     'type': 'string',
     'description': '分镜视频描述。',
@@ -801,6 +927,7 @@ const Map<String, dynamic> _deriveAssetWriteAliasProperties = <String, dynamic>{
     'type': 'integer',
     'description': 'episodesId 的 snake_case 别名。',
   },
+  ..._productionScriptNaturalSelectorAliasProperties,
 };
 
 const Map<String, dynamic> _deriveAssetDeleteIdAliasProperties =
@@ -854,6 +981,7 @@ const Map<String, dynamic> _deriveAssetDeleteIdAliasProperties =
     'type': 'integer',
     'description': 'episodesId 的 snake_case 别名。',
   },
+  ..._productionScriptNaturalSelectorAliasProperties,
 };
 
 const _productionAgentReadWriteTools = <AgentToolDef>[
@@ -988,6 +1116,7 @@ const Map<String, dynamic> _productionSubAgentToolSchema = <String, dynamic>{
       'items': {'type': 'integer'},
       'description': 'episodeIds 的 snake_case 别名。',
     },
+    ..._productionScriptNaturalSelectorAliasProperties,
   },
 };
 

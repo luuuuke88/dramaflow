@@ -13844,6 +13844,30 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'episodes_id',
         'script_ids',
         'episode_ids',
+        'episodeNo',
+        'episodeNos',
+        'scriptNo',
+        'scriptNos',
+        'episode_no',
+        'episode_nos',
+        'script_no',
+        'script_nos',
+        'scriptName',
+        'scriptNames',
+        'episodeName',
+        'episodeNames',
+        'scriptTitle',
+        'scriptTitles',
+        'episodeTitle',
+        'episodeTitles',
+        'script_name',
+        'script_names',
+        'episode_name',
+        'episode_names',
+        'script_title',
+        'script_titles',
+        'episode_title',
+        'episode_titles',
       ]),
     );
     expect(productionTool.schema['required'], isNull);
@@ -14010,6 +14034,9 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'assets_id',
         'parent_asset_id',
         'parent_assets_id',
+        'episodeNo',
+        'scriptName',
+        'episodeName',
         'name',
         'assetName',
         'asset_name',
@@ -14108,6 +14135,9 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'prompt',
         'imagePrompt',
         'image_prompt',
+        'episodeNo',
+        'scriptName',
+        'episodeName',
         'associateAssetsIds',
         'assetIds',
         'asset_ids',
@@ -14153,6 +14183,30 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'script_id',
         'episode_id',
         'episodes_id',
+        'episodeNo',
+        'episodeNos',
+        'scriptNo',
+        'scriptNos',
+        'episode_no',
+        'episode_nos',
+        'script_no',
+        'script_nos',
+        'scriptName',
+        'scriptNames',
+        'episodeName',
+        'episodeNames',
+        'scriptTitle',
+        'scriptTitles',
+        'episodeTitle',
+        'episodeTitles',
+        'script_name',
+        'script_names',
+        'episode_name',
+        'episode_names',
+        'script_title',
+        'script_titles',
+        'episode_title',
+        'episode_titles',
       ]),
     );
     expect(tool.schema['required'], isNull);
@@ -14226,6 +14280,37 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('制作子 Agent 工具调用接受 episodeName 别名定位剧本', () async {
+    engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final secondScriptId =
+        engine.addScript(projectId: projectId, name: '第二集', content: '沈微入局');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        const {'request': '为第二集做导演计划', 'episodeName': '第二集'},
+      ),
+      const AgentTurnResult.text('<scriptPlan>第二集镜湖调度</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：做第二集导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final content = gateway.lastMessages
+        .map((message) => message['content'])
+        .whereType<String>()
+        .join('\n');
+    expect(content, contains('当前剧本：第二集'));
+    expect(content, contains('剧本内容：沈微入局'));
+    expect(
+      _productionAgentWorkData(db, projectId, secondScriptId)['scriptPlan'],
+      '第二集镜湖调度',
+    );
+  });
+
   test('制作执行工具调用接受 section 和 episodeId 别名读取指定工作区段', () async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
@@ -14283,6 +14368,41 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(toolAudit['content'], contains('工具 get_flowData 执行结果'));
     expect(toolAudit['content'], contains('寒山少主'));
     expect(toolAudit['content'], isNot(contains('不应出现在资产段')));
+    expect(toolAudit['content'], isNot(contains('李澈入山')));
+  });
+
+  test('制作执行工具调用接受 scriptName 别名读取指定工作区段', () async {
+    engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    engine.addScript(projectId: projectId, name: '第二集', content: '沈微入局');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        const {'request': '读取第二集剧本段'},
+      ),
+      AgentTurnResult.tool(
+        'get_flowData',
+        const {'section': 'script', 'scriptName': '第二集'},
+      ),
+      const AgentTurnResult.text('<scriptPlan>第二集读取完成</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：读取第二集剧本段',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['productionAgent:$projectId', 'message'],
+    );
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:directorPlan:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_flowData 执行结果'));
+    expect(toolAudit['content'], contains('沈微入局'));
     expect(toolAudit['content'], isNot(contains('李澈入山')));
   });
 

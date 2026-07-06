@@ -242,6 +242,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the top-le
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent execution read tools exposing and accepting natural chapter/script name selectors such as `chapterName`, `chapterTitle`, `scriptName`, and `episodeName`, so sub Agents can retrieve targeted events, source text, and prior scripts without raw database ids or accidental full-context reads.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent sub Agent tools and execution read/write tools exposing and accepting natural script selectors such as `episodeNo`, `scriptName`, and `episodeName`, including inner `get_flowData` overrides, so production sub Agents can target the intended episode without silently falling back to the first script.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String(...).padEnd(...)` and string-literal `.repeat(...)`, so custom skills can build fixed-width labels, dividers, and normalized helper text with ordinary model-authored JavaScript.
