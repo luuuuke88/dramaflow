@@ -12197,6 +12197,76 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     ]);
   });
 
+  test('Agent 记忆：结构化查询计划可携带视觉参考开关', () async {
+    final visualId = engine.saveAgentMemory(
+      projectId,
+      name: '项目视觉参考',
+      content: '视觉参考分析：冷白云雾、水墨留白，角色服饰避免高饱和霓虹。',
+    );
+    engine.saveAgentMemory(
+      projectId,
+      name: '剧情设定',
+      content: '长期设定：第三集必须保留宗门试炼。',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '下一步导演计划',
+            '视觉参考': true,
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '下一步导演计划',
+            '画风参考': true,
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按计划项里的视觉参考开关召回画风记忆',
+      autoMode: true,
+      family: agentFamilyProduction,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId, family: agentFamilyProduction)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['notes'], [
+      '视觉参考分析：冷白云雾、水墨留白，角色服饰避免高饱和霓虹。',
+    ]);
+    expect(
+      memoryGetPayload['records'],
+      contains(isA<Map>().having((record) => record['id'], 'id', visualId)),
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '视觉参考分析：冷白云雾、水墨留白，角色服饰避免高饱和霓虹。',
+    ]);
+    expect(
+      deepRetrievePayload['records'],
+      contains(isA<Map>().having((record) => record['id'], 'id', visualId)),
+    );
+  });
+
   test('Agent 记忆工具可显式召回视觉参考长期记忆', () async {
     final visualId = engine.saveAgentMemory(
       projectId,

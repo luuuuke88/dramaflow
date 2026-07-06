@@ -462,7 +462,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/minSimilarity/createdAfter/orderBy/limit 等过滤提示。',
+        '可选。结构化查询计划。每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit 等过滤提示。',
   },
   'retrievalPlan': {
     'type': 'array',
@@ -12116,6 +12116,10 @@ extension AgentApi on Engine {
 
     void addValue(Object? raw) {
       if (raw == null) return;
+      if (raw is bool) {
+        values.add(raw);
+        return;
+      }
       if (raw is num) {
         values.add(raw);
         return;
@@ -12310,20 +12314,44 @@ extension AgentApi on Engine {
         '相似度阈值',
       ]);
 
-  bool _shouldIncludeVisualReferenceMemories(Map<String, dynamic> args) =>
-      (_coerceBool(args['includeVisualReferences'] ??
-              args['visualReferences'] ??
-              args['include_visual_references'] ??
-              args['visual_references'] ??
-              args['includeStyleReferences'] ??
-              args['styleReferences'] ??
-              args['include_style_references'] ??
-              args['style_references'] ??
-              args['包含视觉参考'] ??
-              args['视觉参考'] ??
-              args['包含画风参考'] ??
-              args['画风参考']) ??
-          false);
+  bool _shouldIncludeVisualReferenceMemories(Map<String, dynamic> args) {
+    final explicit = _coerceBool(args['includeVisualReferences'] ??
+        args['visualReferences'] ??
+        args['include_visual_references'] ??
+        args['visual_references'] ??
+        args['includeStyleReferences'] ??
+        args['styleReferences'] ??
+        args['include_style_references'] ??
+        args['style_references'] ??
+        args['包含视觉参考'] ??
+        args['视觉参考'] ??
+        args['包含画风参考'] ??
+        args['画风参考']);
+    if (explicit != null) return explicit;
+    for (final value in _agentMemoryQueryPlanVisualReferenceValues(args)) {
+      final include = _coerceBool(value);
+      if (include != null) return include;
+    }
+    return false;
+  }
+
+  List<Object?> _agentMemoryQueryPlanVisualReferenceValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'includeVisualReferences',
+        'visualReferences',
+        'include_visual_references',
+        'visual_references',
+        'includeStyleReferences',
+        'styleReferences',
+        'include_style_references',
+        'style_references',
+        '包含视觉参考',
+        '视觉参考',
+        '包含画风参考',
+        '画风参考',
+      ]);
 
   AgentMemoryTimeRange? _agentMemoryTimeRange(Map<String, dynamic> args) {
     final explicitCreatedAfter = _maxNullableInt(
