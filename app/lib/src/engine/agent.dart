@@ -1575,14 +1575,12 @@ class _CustomAgentSkillRuntime {
         if (args.length != 2) _badMethodArgs(method);
         final text = '${value ?? ''}';
         final matcher = _evaluate(args.first);
-        final to = _stringifyInterpolation(_evaluate(args[1]));
-        return _replaceString(text, matcher, to);
+        return _replaceString(text, matcher, args[1]);
       case 'replaceAll':
         if (args.length != 2) _badMethodArgs(method);
         final text = '${value ?? ''}';
         final matcher = _evaluate(args.first);
-        final to = _stringifyInterpolation(_evaluate(args[1]));
-        return _replaceAllString(text, matcher, to);
+        return _replaceAllString(text, matcher, args[1]);
       case 'indexOf':
         if (args.isEmpty || args.length > 2) _badMethodArgs(method);
         final text = '${value ?? ''}';
@@ -1981,36 +1979,100 @@ class _CustomAgentSkillRuntime {
     return matches;
   }
 
-  String _replaceString(String text, Object? matcher, String replacement) {
+  String _replaceString(
+    String text,
+    Object? matcher,
+    String replacementExpression,
+  ) {
     if (matcher is _CustomJsRegExp) {
       return matcher.global
           ? text.replaceAllMapped(
               matcher.regExp,
-              (match) => _jsRegexReplacement(match, replacement),
+              (match) => _regexReplacementValue(
+                text,
+                match,
+                replacementExpression,
+              ),
             )
           : text.replaceFirstMapped(
               matcher.regExp,
-              (match) => _jsRegexReplacement(match, replacement),
+              (match) => _regexReplacementValue(
+                text,
+                match,
+                replacementExpression,
+              ),
             );
     }
+    final replacement = _stringifyInterpolation(
+      _evaluate(replacementExpression),
+    );
     final from = _stringifyInterpolation(matcher);
     return from.isEmpty
         ? '$replacement$text'
         : text.replaceFirst(from, replacement);
   }
 
-  String _replaceAllString(String text, Object? matcher, String replacement) {
+  String _replaceAllString(
+    String text,
+    Object? matcher,
+    String replacementExpression,
+  ) {
     if (matcher is _CustomJsRegExp) {
       return text.replaceAllMapped(
         matcher.regExp,
-        (match) => _jsRegexReplacement(match, replacement),
+        (match) => _regexReplacementValue(
+          text,
+          match,
+          replacementExpression,
+        ),
       );
     }
+    final replacement = _stringifyInterpolation(
+      _evaluate(replacementExpression),
+    );
     final from = _stringifyInterpolation(matcher);
     if (from.isEmpty) {
       return '$replacement${text.split('').join(replacement)}$replacement';
     }
     return text.replaceAll(from, replacement);
+  }
+
+  String _regexReplacementValue(
+    String source,
+    Match match,
+    String replacementExpression,
+  ) {
+    final values = <Object?>[
+      match.group(0),
+      for (var index = 1; index <= match.groupCount; index++)
+        match.group(index),
+      match.start,
+      source,
+    ];
+    final arrow = _findTopLevelArrow(replacementExpression);
+    if (arrow >= 0) {
+      final params = _parseCallbackParams(
+        replacementExpression.substring(0, arrow),
+        'replace',
+      );
+      final body = replacementExpression.substring(arrow + 2).trim();
+      return _stringifyInterpolation(
+        _withScopeBindings(
+          _bindCallbackParams(params, values, 'replace'),
+          () => _evaluateCallbackBody('replace', body),
+        ),
+      );
+    }
+    final replacement = _evaluate(replacementExpression);
+    if (replacement is _CustomJsFunction) {
+      return _stringifyInterpolation(
+        _callCustomFunctionWithValues(replacement, values),
+      );
+    }
+    return _jsRegexReplacement(
+      match,
+      _stringifyInterpolation(replacement),
+    );
   }
 
   String _jsRegexReplacement(Match match, String replacement) {
@@ -2868,9 +2930,7 @@ class _CustomAgentSkillRuntime {
         .map((param) => param.trim())
         .where((param) => param.isNotEmpty)
         .toList();
-    if (names.isEmpty ||
-        names.length > 2 ||
-        names.any((name) => !_isValidCallbackParam(name))) {
+    if (names.isEmpty || names.any((name) => !_isValidCallbackParam(name))) {
       _badMethodArgs(method);
     }
     return names;

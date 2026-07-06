@@ -3619,6 +3619,56 @@ return JSON.stringify({ compact, wrapped });
     });
   });
 
+  test('自定义脚本技能：支持正则 replace 回调重写工作区文本', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regex_replace_callback_runtime',
+      name: '正则回调替换脚本运行时',
+      description: '验证自定义技能兼容模型常写的 replace(/.../g, (match, p1) => ...)。',
+      script: r'''
+const compact = args.workspace
+  .replace(/<storyboardItem\b[^>]*videoDesc="([^"]+)"[^>]*duration="([^"]+)"[^>]*><\/storyboardItem>/g,
+    (match, desc, duration) => `${desc.trim()}@${parseFloat(duration)}s`)
+  .replace(/\s+/g, ' ')
+  .trim();
+const marked = args.title.replace(/^(.*)$/, (match, title) => `《${title.trim()}》`);
+return JSON.stringify({ compact, marked });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+          'title': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+          'custom_script_regex_replace_callback_runtime', const {
+        'workspace': '''
+<storyboardItem videoDesc=" 雪夜山门 " duration="3秒"></storyboardItem>
+<storyboardItem videoDesc="李澈拔剑" duration="2.5s"></storyboardItem>
+''',
+        'title': ' 寒山篇 ',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用正则回调替换脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regex_replace_callback_runtime');
+    expect(jsonDecode(msg.content), {
+      'compact': '雪夜山门@3s 李澈拔剑@2.5s',
+      'marked': '《寒山篇》',
+    });
+  });
+
   test('自定义脚本技能：支持对象解构回调参数整理分镜', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_object_destructure_runtime',
