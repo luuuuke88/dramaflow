@@ -9621,10 +9621,24 @@ extension AgentApi on Engine {
       'chapter_nos',
       'ids',
     ]);
+    final chapterNames = _stringListAny(args, const [
+      'chapterName',
+      'chapterNames',
+      'chapterTitle',
+      'chapterTitles',
+      'chapter_name',
+      'chapter_names',
+      'chapter_title',
+      'chapter_titles',
+    ]);
+    final wantedChapterNames = chapterNames?.map((name) => name.trim()).toSet();
     final chapters = novels(projectId, limit: 100000).data.where((chapter) {
       if (novelIds != null) return novelIds.contains(chapter.id);
       if (chapterIndexes != null) {
         return chapterIndexes.contains(chapter.chapterIndex);
+      }
+      if (wantedChapterNames != null) {
+        return wantedChapterNames.contains((chapter.chapter ?? '').trim());
       }
       return true;
     }).toList();
@@ -9710,10 +9724,24 @@ extension AgentApi on Engine {
       'chapter_nos',
       'ids',
     ]);
+    final chapterNames = _stringListAny(args, const [
+      'chapterName',
+      'chapterNames',
+      'chapterTitle',
+      'chapterTitles',
+      'chapter_name',
+      'chapter_names',
+      'chapter_title',
+      'chapter_titles',
+    ]);
+    final wantedChapterNames = chapterNames?.map((name) => name.trim()).toSet();
     final chapters = novels(projectId, limit: 100000).data.where((chapter) {
       if (novelIds != null) return novelIds.contains(chapter.id);
       if (chapterIndexes != null) {
         return chapterIndexes.contains(chapter.chapterIndex);
+      }
+      if (wantedChapterNames != null) {
+        return wantedChapterNames.contains((chapter.chapter ?? '').trim());
       }
       return true;
     }).toList();
@@ -9740,9 +9768,31 @@ extension AgentApi on Engine {
       'episode_ids',
       'episodes_ids',
     ]);
+    final scriptNames = _stringListAny(args, const [
+      'scriptName',
+      'scriptNames',
+      'episodeName',
+      'episodeNames',
+      'scriptTitle',
+      'scriptTitles',
+      'episodeTitle',
+      'episodeTitles',
+      'script_name',
+      'script_names',
+      'episode_name',
+      'episode_names',
+      'script_title',
+      'script_titles',
+      'episode_title',
+      'episode_titles',
+    ]);
+    final wantedScriptNames = scriptNames?.map((name) => name.trim()).toSet();
     final rows = scripts(projectId).where((script) {
-      if (ids == null) return true;
-      return ids.contains(script.id);
+      if (ids != null) return ids.contains(script.id);
+      if (wantedScriptNames != null) {
+        return wantedScriptNames.contains((script.name ?? '').trim());
+      }
+      return true;
     }).toList();
     if (rows.isEmpty) return '无数据';
     return rows

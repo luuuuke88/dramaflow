@@ -13288,6 +13288,50 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(toolAudit['content'], isNot(contains('不应读取的第八章事件')));
   });
 
+  test('剧本执行工具调用接受 chapterName 别名读取小说事件', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final novelIds = engine.addNovels(projectId, const [
+      ChapterItem(index: 7, reel: '正文卷', chapter: '寒山试炼', chapterData: 'x'),
+      ChapterItem(index: 8, reel: '正文卷', chapter: '镜湖初见', chapterData: 'y'),
+    ]);
+    db.execute(
+      'UPDATE o_novel SET event=?, eventState=1 WHERE id=?',
+      ['李澈在寒山试炼中守住山门。', novelIds[0]],
+    );
+    db.execute(
+      'UPDATE o_novel SET event=?, eventState=1 WHERE id=?',
+      ['不应读取的镜湖事件。', novelIds[1]],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'request': '读取寒山试炼事件'},
+      ),
+      AgentTurnResult.tool(
+        'get_novel_events',
+        const {'chapterName': '寒山试炼'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山试炼骨架</storySkeleton>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '读取寒山试炼事件后做骨架', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:storySkeleton:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_novel_events 执行结果'));
+    expect(toolAudit['content'], contains('李澈在寒山试炼中守住山门'));
+    expect(toolAudit['content'], isNot(contains('不应读取的镜湖事件')));
+  });
+
   test('剧本执行工具调用接受 episodeIds 别名读取已有剧本', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
@@ -13309,6 +13353,44 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         {
           'episodeIds': [secondScriptId],
         },
+      ),
+      const AgentTurnResult.text('<scriptItem name="第三集">镜湖之后。</scriptItem>'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '读取第二集后续写第三集', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:script:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_script_content 执行结果'));
+    expect(toolAudit['content'], contains('沈微在镜湖现身'));
+    expect(toolAudit['content'], isNot(contains('不应读取')));
+  });
+
+  test('剧本执行工具调用接受 scriptName 别名读取已有剧本', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    engine.addScript(projectId: projectId, name: '第一集', content: '不应读取');
+    engine.addScript(
+      projectId: projectId,
+      name: '第二集',
+      content: '沈微在镜湖现身。',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_script',
+        const {'request': '续写前先读取第二集'},
+      ),
+      AgentTurnResult.tool(
+        'get_script_content',
+        const {'scriptName': '第二集'},
       ),
       const AgentTurnResult.text('<scriptItem name="第三集">镜湖之后。</scriptItem>'),
     ];
@@ -13790,6 +13872,14 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'chapter_indexes',
         'chapter_no',
         'chapter_nos',
+        'chapterName',
+        'chapterNames',
+        'chapterTitle',
+        'chapterTitles',
+        'chapter_name',
+        'chapter_names',
+        'chapter_title',
+        'chapter_titles',
         'ids',
       ]),
     );
@@ -13843,6 +13933,22 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'episode_id',
         'script_ids',
         'episode_ids',
+        'scriptName',
+        'scriptNames',
+        'episodeName',
+        'episodeNames',
+        'scriptTitle',
+        'scriptTitles',
+        'episodeTitle',
+        'episodeTitles',
+        'script_name',
+        'script_names',
+        'episode_name',
+        'episode_names',
+        'script_title',
+        'script_titles',
+        'episode_title',
+        'episode_titles',
       ]),
     );
     expect(scriptTool.schema['required'], isNull);

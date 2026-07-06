@@ -101,6 +101,46 @@ const Map<String, dynamic> _scriptChapterSelectorAliasProperties =
     'items': {'type': 'integer'},
     'description': 'chapterNos 的 snake_case 别名。',
   },
+  'chapterName': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': '按章节名称精确匹配。',
+  },
+  'chapterNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'chapterName 的复数别名。',
+  },
+  'chapterTitle': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'chapterName 的标题语义别名。',
+  },
+  'chapterTitles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'chapterTitle 的复数别名。',
+  },
+  'chapter_name': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'chapterName 的 snake_case 别名。',
+  },
+  'chapter_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'chapterNames 的 snake_case 别名。',
+  },
+  'chapter_title': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'chapterTitle 的 snake_case 别名。',
+  },
+  'chapter_titles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'chapterTitles 的 snake_case 别名。',
+  },
   'ids': {
     'type': ['array', 'integer', 'string'],
     'items': {'type': 'integer'},
@@ -158,6 +198,86 @@ const Map<String, dynamic> _scriptContentIdAliasProperties = <String, dynamic>{
     'type': ['array', 'integer', 'string'],
     'items': {'type': 'integer'},
     'description': 'episodesIds 的 snake_case 别名。',
+  },
+  'scriptName': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': '按剧本名称精确匹配。',
+  },
+  'scriptNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptName 的复数别名。',
+  },
+  'episodeName': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptName 的集数语义别名。',
+  },
+  'episodeNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeName 的复数别名。',
+  },
+  'scriptTitle': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptName 的标题语义别名。',
+  },
+  'scriptTitles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptTitle 的复数别名。',
+  },
+  'episodeTitle': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeName 的标题语义别名。',
+  },
+  'episodeTitles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeTitle 的复数别名。',
+  },
+  'script_name': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptName 的 snake_case 别名。',
+  },
+  'script_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptNames 的 snake_case 别名。',
+  },
+  'episode_name': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeName 的 snake_case 别名。',
+  },
+  'episode_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeNames 的 snake_case 别名。',
+  },
+  'script_title': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptTitle 的 snake_case 别名。',
+  },
+  'script_titles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'scriptTitles 的 snake_case 别名。',
+  },
+  'episode_title': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeTitle 的 snake_case 别名。',
+  },
+  'episode_titles': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'episodeTitles 的 snake_case 别名。',
   },
 };
 
