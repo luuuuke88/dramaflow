@@ -6389,7 +6389,7 @@ extension AgentApi on Engine {
           projectId,
           family: agentFamily,
           role: _agentDecisionMemoryRole,
-          content: result.text ?? '',
+          content: _removeAllXmlTags(result.text ?? ''),
         );
         return;
       }
@@ -7521,6 +7521,22 @@ extension AgentApi on Engine {
       return _productionAgentDecisionProjectInfo(projectId);
     }
     return _scriptAgentProjectInfo(projectId);
+  }
+
+  String _removeAllXmlTags(String text) {
+    var cleaned = text.replaceAll(
+      RegExp(r'<([a-zA-Z][\w-]*)(\s+[^>]*)?>[\s\S]*?</\1>'),
+      '',
+    );
+    cleaned = cleaned.replaceAll(
+      RegExp(r'<([a-zA-Z][\w-]*)(\s+[^>]*)?/>'),
+      '',
+    );
+    cleaned = cleaned.replaceAll(
+      RegExp(r'</?[a-zA-Z][\w-]*(\s+[^>]*)?>'),
+      '',
+    );
+    return cleaned.trim();
   }
 
   String _scriptAgentProjectInfo(int projectId) {

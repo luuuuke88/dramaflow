@@ -148,6 +148,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-s
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style subAgent memory names: ScriptAgent execution outputs are stored as `编剧`, ScriptAgent supervision as `编辑`, ProductionAgent execution as `执行导演`, and ProductionAgent supervision as `监制`, preserving readable RAG/audit attribution.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style decision-memory cleanup: user-visible decision replies remain intact, while `assistant:decision` memory strips XML-like blocks and tags before entering RAG/summarization.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String.matchAll(...)` with regex capture groups and array spread, so custom skills can batch-extract storyboard fields from XML-like Agent workspace text.

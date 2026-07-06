@@ -80,6 +80,31 @@ void main() {
     expect(engine.agentMessages(projectId), isEmpty);
   });
 
+  test('Agent 记忆：decision Agent 写入前按 ToonFlow 去除 XML 块', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    gateway.turns = [
+      const AgentTurnResult.text(
+        '<analysis>内部推理不应进入记忆。</analysis>'
+        '我会记住寒山设定。<debug />',
+      ),
+    ];
+
+    await engine.sendAgentMessage(projectId, '记住寒山设定', autoMode: false);
+
+    expect(
+      engine.agentMessages(projectId).last.content,
+      '<analysis>内部推理不应进入记忆。</analysis>我会记住寒山设定。<debug />',
+    );
+    final decisionMemory = db.select(
+      'SELECT content FROM memories WHERE isolationKey=? AND role=? AND type=?',
+      ['scriptAgent:$projectId', 'assistant:decision', 'message'],
+    ).single;
+    expect(decisionMemory['content'], '我会记住寒山设定。');
+  });
+
   test('清空 Agent 记忆会同步删除对应 family 的 message 和 summary 上下文', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
