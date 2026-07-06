@@ -10869,6 +10869,89 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_get 顶层数量限制会限制近期对话结果', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertRecent({
+      required String id,
+      required String content,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertRecent(
+      id: 'memory_get_recent_limit_old',
+      content: '旧近期：星桥设定第一次记录，保留雾夜入场。',
+      offset: 1,
+    );
+    insertRecent(
+      id: 'memory_get_recent_limit_new',
+      content: '新近期：星桥设定第二次记录，改成雨夜救人。',
+      offset: 2,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '星桥设定',
+        'limit': 1,
+        'orderBy': 'latest',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只取一条最新星桥近期对话',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_get');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], isEmpty);
+    expect(payload['recent'], ['新近期：星桥设定第二次记录，改成雨夜救人。']);
+    expect(
+      (payload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['memory_get_recent_limit_new'],
+    );
+  });
+
   test('Agent 记忆：memory_get 工具支持 roles 只返回指定角色上下文', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     void insertMemory({
