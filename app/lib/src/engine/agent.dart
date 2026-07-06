@@ -257,6 +257,21 @@ final _tools = <AgentToolDef>[
           'maximum': 50,
           'description': '可选。topK 的 snake_case 别名。',
         },
+        'minScore': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。只返回分数不低于该值的高置信记忆。',
+        },
+        'scoreThreshold': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。minScore 的自然语言别名，用于过滤弱相关记忆。',
+        },
+        'score_threshold': {
+          'type': 'integer',
+          'minimum': 1,
+          'description': '可选。scoreThreshold 的 snake_case 别名。',
+        },
         'maxResults': {
           'type': 'integer',
           'minimum': 1,
@@ -7755,6 +7770,15 @@ extension AgentApi on Engine {
             ...excludedMemoryIds,
             if (requestedExcludeIds != null) ...requestedExcludeIds,
           };
+          final minScore = _coerceInt(
+            args['minScore'] ??
+                args['min_score'] ??
+                args['minimumScore'] ??
+                args['minimum_score'] ??
+                args['scoreThreshold'] ??
+                args['score_threshold'] ??
+                args['threshold'],
+          );
           final records = await _agentMemoryService(
             family: agentFamily,
           ).deepRetrieve(
@@ -7768,6 +7792,7 @@ extension AgentApi on Engine {
             excludeRoleSuffixes: excludeRoleSuffixes,
             types: types,
             excludeIds: excludeIds,
+            minScore: minScore,
             noteIsolationKey: _agentMemoryIsolationKey(projectId),
           );
           final rawLimit = args['limit'] ??

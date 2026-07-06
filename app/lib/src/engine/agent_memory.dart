@@ -355,6 +355,7 @@ class AgentMemoryService {
     Set<String>? excludeRelatedIds,
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
+    int? minScore,
     CancelToken? cancelToken,
   }) async {
     final settings = readSettings();
@@ -367,17 +368,21 @@ class AgentMemoryService {
     final excludedRoleSuffixFilter = _normalizeRoleFilter(
       excludeRoleSuffixes,
     );
+    final scoreThreshold = _normalizeScoreThreshold(minScore);
     final rankedMessages = settings.ragLimit <= 0
         ? const <(int, AgentMemoryEntry)>[]
-        : await _rankMessageCandidates(
-            isolationKey: isolationKey,
-            normalized: normalized,
-            tokens: tokens,
-            queryEmbedding: queryEmbedding,
-            excludeIds: excludedRelatedIdFilter,
-            excludeRoles: excludedRoleFilter,
-            excludeRoleSuffixes: excludedRoleSuffixFilter,
-          );
+        : [
+            for (final item in await _rankMessageCandidates(
+              isolationKey: isolationKey,
+              normalized: normalized,
+              tokens: tokens,
+              queryEmbedding: queryEmbedding,
+              excludeIds: excludedRelatedIdFilter,
+              excludeRoles: excludedRoleFilter,
+              excludeRoleSuffixes: excludedRoleSuffixFilter,
+            ))
+              if (_matchesRankedScoreThreshold(item, scoreThreshold)) item,
+          ];
     final relatedRaw = await _relatedMessagesForQuery(
       query: query,
       settings: settings,
@@ -439,6 +444,7 @@ class AgentMemoryService {
     Set<String>? excludeRoleSuffixes,
     Set<String>? types,
     Set<String>? excludeIds,
+    int? minScore,
     String? noteIsolationKey,
     CancelToken? cancelToken,
   }) async {
@@ -449,6 +455,7 @@ class AgentMemoryService {
     );
     final typeFilter = _normalizeTypeFilter(types);
     final excludedIdFilter = _normalizeIdFilter(excludeIds);
+    final scoreThreshold = _normalizeScoreThreshold(minScore);
     final allowMessages =
         _matchesTypeFilter(agentMemoryTypeMessage, typeFilter);
     final allowSummaries =
@@ -479,6 +486,7 @@ class AgentMemoryService {
               excludedIdFilter,
               excludedRoleFilter,
               excludedRoleSuffixFilter,
+              scoreThreshold,
             ).take(settings.ragLimit))
               item.$2,
           ]
@@ -494,9 +502,11 @@ class AgentMemoryService {
       queryEmbedding: queryEmbedding,
     );
     final localCandidates = [
-      for (final item in scored.take(settings.deepRetrieveSummaryLimit))
-        if (_matchesIdFilter(item.$2, excludedIdFilter)) item.$2,
-    ];
+      for (final item in scored)
+        if (_matchesIdFilter(item.$2, excludedIdFilter) &&
+            _matchesRankedScoreThreshold(item, scoreThreshold))
+          item.$2,
+    ].take(settings.deepRetrieveSummaryLimit).toList();
     final selectedSummaries = await _llmFilterSummaries(
       keyword: keyword,
       candidates: localCandidates,
@@ -537,6 +547,7 @@ class AgentMemoryService {
             excludedIdFilter,
             excludedRoleFilter,
             excludedRoleSuffixFilter,
+            scoreThreshold,
           ),
           if (allowMessages)
             for (final message in _filterRankedEntries(
@@ -546,6 +557,7 @@ class AgentMemoryService {
               excludedIdFilter,
               excludedRoleFilter,
               excludedRoleSuffixFilter,
+              scoreThreshold,
             ).take(settings.ragLimit))
               message.$2,
         ]);
@@ -565,6 +577,7 @@ class AgentMemoryService {
           excludedIdFilter,
           excludedRoleFilter,
           excludedRoleSuffixFilter,
+          scoreThreshold,
         ).take(settings.ragLimit))
           item.$2,
       ]);
@@ -577,6 +590,7 @@ class AgentMemoryService {
         excludedIdFilter,
         excludedRoleFilter,
         excludedRoleSuffixFilter,
+        scoreThreshold,
       ));
     }
     final directMatches = _filterRankedEntries(
@@ -592,6 +606,7 @@ class AgentMemoryService {
       excludedIdFilter,
       excludedRoleFilter,
       excludedRoleSuffixFilter,
+      scoreThreshold,
     ).take(settings.ragLimit);
     for (final message in directMatches) {
       if (!ids.contains(message.$2.id)) ids.add(message.$2.id);
@@ -623,6 +638,7 @@ class AgentMemoryService {
       excludedIdFilter,
       excludedRoleFilter,
       excludedRoleSuffixFilter,
+      scoreThreshold,
     );
     if (expanded.isEmpty && summaries.isNotEmpty) {
       return allowSummaries
@@ -634,6 +650,7 @@ class AgentMemoryService {
                 excludedIdFilter,
                 excludedRoleFilter,
                 excludedRoleSuffixFilter,
+                scoreThreshold,
               ),
             )
           : noteMatches;
@@ -647,6 +664,7 @@ class AgentMemoryService {
           excludedIdFilter,
           excludedRoleFilter,
           excludedRoleSuffixFilter,
+          scoreThreshold,
         ),
         ...expanded,
       ]);
@@ -1168,6 +1186,23 @@ class AgentMemoryService {
     return normalized.isEmpty ? null : normalized;
   }
 
+  int? _normalizeScoreThreshold(int? score) {
+    if (score == null || score <= 0) return null;
+    return score;
+  }
+
+  bool _matchesRankedScoreThreshold(
+    (int, AgentMemoryEntry) item,
+    int? minScore,
+  ) =>
+      minScore == null || item.$1 >= minScore;
+
+  bool _matchesEntryScoreThreshold(
+    AgentMemoryEntry entry,
+    int? minScore,
+  ) =>
+      minScore == null || (entry.score != null && entry.score! >= minScore);
+
   Set<String>? _normalizeTypeFilter(Set<String>? types) {
     if (types == null) return null;
     final normalized = <String>{};
@@ -1250,17 +1285,19 @@ class AgentMemoryService {
     Set<String>? excludeIds, [
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
+    int? minScore,
   ]) =>
       [
         for (final entry in entries)
           if (_matchesEntryFilter(
-            entry,
-            roles,
-            types,
-            excludeIds,
-            excludeRoles,
-            excludeRoleSuffixes,
-          ))
+                entry,
+                roles,
+                types,
+                excludeIds,
+                excludeRoles,
+                excludeRoleSuffixes,
+              ) &&
+              _matchesEntryScoreThreshold(entry, minScore))
             entry
       ];
 
@@ -1271,16 +1308,18 @@ class AgentMemoryService {
     Set<String>? excludeIds, [
     Set<String>? excludeRoles,
     Set<String>? excludeRoleSuffixes,
+    int? minScore,
   ]) sync* {
     for (final item in entries) {
-      if (_matchesEntryFilter(
-        item.$2,
-        roles,
-        types,
-        excludeIds,
-        excludeRoles,
-        excludeRoleSuffixes,
-      )) {
+      if (_matchesRankedScoreThreshold(item, minScore) &&
+          _matchesEntryFilter(
+            item.$2,
+            roles,
+            types,
+            excludeIds,
+            excludeRoles,
+            excludeRoleSuffixes,
+          )) {
         yield item;
       }
     }

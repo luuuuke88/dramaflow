@@ -8807,6 +8807,55 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect((payload['memories'] as List).single, contains('李澈'));
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持 minScore 过滤弱相关记忆', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          0,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('score_msg_high', '用户明确要求：李澈正派设定必须保留，不能反派化。', 0);
+    insertMessage('score_msg_low', '用户补充：李澈来自寒山宗门。', 1);
+
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'query': '李澈正派设定',
+        'minScore': 80,
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '找高置信的李澈设定', autoMode: false);
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = deepRetrieveTool.schema['properties'] as Map;
+    expect(properties, contains('minScore'));
+    expect(properties, contains('scoreThreshold'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], contains('用户明确要求：李澈正派设定必须保留，不能反派化。'));
+    expect(payload['memories'], isNot(contains('用户补充：李澈来自寒山宗门。')));
+  });
+
   test('Agent 记忆：deepRetrieve 工具支持 topK/maxResults 自然数量别名', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     void insertMessage(String id, String content, int offset) {
@@ -10332,6 +10381,46 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
 
     expect(records.map((item) => item.id), ['msg_direct_relevant']);
     expect(gateway.textCallCount, 0);
+  });
+
+  test('AgentMemoryService deepRetrieve 支持 minScore 过滤弱相关 message', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final service = AgentMemoryService(
+      db,
+      gateway,
+      summaryStage: 'scriptAgent:decisionAgent',
+    );
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          0,
+          'message',
+        ],
+      );
+    }
+
+    insertMessage('service_score_high', '用户明确要求：李澈正派设定必须保留，不能反派化。', 0);
+    insertMessage('service_score_low', '用户补充：李澈来自寒山宗门。', 1);
+
+    final records = await service.deepRetrieve(
+      isolationKey: 'scriptAgent:$projectId',
+      keyword: '李澈正派设定',
+      minScore: 80,
+    );
+
+    expect(records.map((item) => item.id), ['service_score_high']);
+    expect(records.single.score, greaterThanOrEqualTo(80));
   });
 
   test('AgentMemoryService deepRetrieve 支持 types=all 召回对话和长期记忆', () async {
