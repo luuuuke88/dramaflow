@@ -433,6 +433,10 @@ void main() {
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
       ['agent.supervision.enabled', '1'],
     );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
     final novelId = engine.addNovels(projectId, const [
       ChapterItem(index: 1, reel: '正文卷', chapter: '一', chapterData: 'x'),
     ]).single;
@@ -5041,6 +5045,30 @@ description: >-
     ).single;
     expect(summary['content'], '用户让助手记住寒山设定，助手确认。');
     expect(jsonDecode(summary['relatedMessageIds'] as String), hasLength(2));
+  });
+
+  test('Agent 记忆：decision Agent 工具调用结果写入审计记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('get_status', const {}),
+    ];
+
+    await engine.sendAgentMessage(projectId, '看一下项目进度', autoMode: false);
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:decision:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_status 执行结果'));
+    expect(toolAudit['content'], contains('章节 0 个'));
   });
 
   test('Agent 记忆：deepRetrieve 工具从 summary 展开原始 message', () async {

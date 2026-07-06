@@ -5529,6 +5529,13 @@ extension AgentApi on Engine {
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
       _saveAgentMessages(projectId, messages, family: agentFamily);
+      await _recordAgentToolAuditMemory(
+        projectId,
+        family: agentFamily,
+        baseRole: _agentDecisionMemoryRole,
+        toolName: toolName,
+        content: summary,
+      );
       await _recordAgentMemory(
         projectId,
         family: agentFamily,
