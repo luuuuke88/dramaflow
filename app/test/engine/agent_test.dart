@@ -11131,6 +11131,41 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(tool.schema['required'], isNull);
   });
 
+  test('制作执行工具 schema 暴露制作工作区读取字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：读取资产工作区',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final tool = gateway.lastTools.singleWhere(
+      (tool) => tool.name == 'get_flowData',
+    );
+    final properties = tool.schema['properties'] as Map;
+    expect(
+      properties.keys,
+      containsAll([
+        'key',
+        'dataKey',
+        'data_key',
+        'flowKey',
+        'flow_key',
+        'section',
+        'resource',
+        'scriptId',
+        'episodeId',
+        'episodesId',
+        'script_id',
+        'episode_id',
+        'episodes_id',
+      ]),
+    );
+    expect(tool.schema['required'], isNull);
+  });
+
   test('子 Agent 工具调用接受常见提示词别名作为执行任务', () async {
     gateway.turns = [
       AgentTurnResult.tool(
@@ -11197,6 +11232,66 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       _productionAgentWorkData(db, projectId, secondScriptId)['scriptPlan'],
       '第二集镜湖调度',
     );
+  });
+
+  test('制作执行工具调用接受 section 和 episodeId 别名读取指定工作区段', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final parentAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, parentAssetId]);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'request': '先写导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>不应出现在资产段</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：写导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'request': '只读取资产段', 'episodeId': scriptId},
+      ),
+      AgentTurnResult.tool(
+        'get_flowData',
+        {'section': 'assets', 'episodeId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>资产段读取完成</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：读取资产段',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['productionAgent:$projectId', 'message'],
+    );
+    final toolAudit = rows.singleWhere(
+      (row) => row['role'] == 'assistant:execution:directorPlan:tool',
+    );
+    expect(toolAudit['content'], contains('工具 get_flowData 执行结果'));
+    expect(toolAudit['content'], contains('寒山少主'));
+    expect(toolAudit['content'], isNot(contains('不应出现在资产段')));
+    expect(toolAudit['content'], isNot(contains('李澈入山')));
   });
 
   test('制作执行工具调用接受衍生资产写入字段别名', () async {

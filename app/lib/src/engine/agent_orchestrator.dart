@@ -184,6 +184,93 @@ const Map<String, dynamic> _storyboardImageIdListAliasProperties =
   },
 };
 
+const List<String> _flowDataKeyValues = <String>[
+  'script',
+  'scriptPlan',
+  'assets',
+  'storyboardTable',
+  'storyboard',
+];
+
+const Map<String, dynamic> _flowDataReadAliasProperties = <String, dynamic>{
+  'key': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': '要读取的制作工作区字段。',
+  },
+  'dataKey': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': 'key 的数据语义别名。',
+  },
+  'data_key': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': 'dataKey 的 snake_case 别名。',
+  },
+  'flowKey': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': 'key 的工作流语义别名。',
+  },
+  'flow_key': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': 'flowKey 的 snake_case 别名。',
+  },
+  'section': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': 'key 的工作区分段别名。',
+  },
+  'resource': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': 'key 的资源语义别名。',
+  },
+  'scriptId': {'type': 'integer'},
+  'episodeId': {
+    'type': 'integer',
+    'description': 'scriptId 的剧集语义别名。',
+  },
+  'episodesId': {
+    'type': 'integer',
+    'description': 'scriptId 的 ToonFlow 旧字段别名。',
+  },
+  'script_id': {
+    'type': 'integer',
+    'description': 'scriptId 的 snake_case 别名。',
+  },
+  'episode_id': {
+    'type': 'integer',
+    'description': 'episodeId 的 snake_case 别名。',
+  },
+  'episodes_id': {
+    'type': 'integer',
+    'description': 'episodesId 的 snake_case 别名。',
+  },
+  'scriptIds': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': '可选。多个剧本 id；读取时使用第一项。',
+  },
+  'episodeIds': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'scriptIds 的剧集语义别名。',
+  },
+  'script_ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'scriptIds 的 snake_case 别名。',
+  },
+  'episode_ids': {
+    'type': 'array',
+    'items': {'type': 'integer'},
+    'description': 'episodeIds 的 snake_case 别名。',
+  },
+};
+
 const Map<String, dynamic> _storyboardWriteAliasProperties = <String, dynamic>{
   'scriptId': {'type': 'integer'},
   'episodeId': {
@@ -499,19 +586,7 @@ const _productionAgentReadWriteTools = <AgentToolDef>[
         '获取制作工作区数据，可读取 script、scriptPlan、assets、storyboardTable、storyboard。',
     schema: {
       'type': 'object',
-      'properties': {
-        'key': {
-          'type': 'string',
-          'enum': [
-            'script',
-            'scriptPlan',
-            'assets',
-            'storyboardTable',
-            'storyboard'
-          ],
-        },
-        'scriptId': {'type': 'integer'},
-      },
+      'properties': _flowDataReadAliasProperties,
     },
   ),
   AgentToolDef(

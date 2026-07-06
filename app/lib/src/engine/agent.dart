@@ -8230,7 +8230,15 @@ extension AgentApi on Engine {
   ) {
     final scriptId = _productionScriptId(projectId, args);
     if (scriptId == null) return '缺少 scriptId 参数。';
-    final key = (args['key'] ?? '').toString().trim();
+    final key = _stringArgAny(args, const [
+      'key',
+      'dataKey',
+      'data_key',
+      'flowKey',
+      'flow_key',
+      'section',
+      'resource',
+    ]);
     final data = _productionAgentWorkspace(projectId, scriptId);
     if (key.isEmpty) return jsonEncode(data);
     final value = data[key];

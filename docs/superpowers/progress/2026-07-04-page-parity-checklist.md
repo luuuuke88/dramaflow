@@ -144,6 +144,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers script and
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers production sub Agent tools exposing and accepting common script/episode id aliases (`episodeId`, `episodesId`, snake_case forms, and list forms), so model-authored production tool calls can target the intended script instead of silently falling back to the first script.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `get_flowData` production execution tool exposing and accepting common workspace-read aliases (`section`, `dataKey`, `flowKey`, `episodeId`, and snake_case forms), so production sub Agents can read a specific workspace segment instead of accidentally receiving the whole production payload.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `generate_deriveAsset` production execution tool exposing and accepting common asset-id aliases (`assetIds`, `assetsIds`, `deriveAssetIds`, and snake_case forms), so production sub Agents can submit derived-asset image generation without brittle exact `ids` arguments.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the `add_deriveAsset` production execution tool exposing and accepting common derived-asset write aliases (`parentAssetId`, `assetName`, `description`, `episodeId`, and snake_case forms), so production sub Agents can create and update derived assets without brittle exact ToonFlow field names.
