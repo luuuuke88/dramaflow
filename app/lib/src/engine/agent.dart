@@ -2,6 +2,7 @@
 // 当前文件保留旧 UI/API 入口，并逐步把 stage registry、记忆、技能和 orchestrator
 // 拆到独立纯 Dart 模块。所有会生成媒体或改业务表的动作仍走现有 engine API 与 o_tasks。
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
@@ -2827,6 +2828,9 @@ class _CustomAgentSkillRuntime {
       case 'abs':
         if (numbers.length != 1) _badMethodArgs(method);
         return numbers.single.abs();
+      case 'sqrt':
+        if (numbers.length != 1) _badMethodArgs(method);
+        return math.sqrt(numbers.single);
       case 'max':
         if (numbers.isEmpty) _badMethodArgs(method);
         return numbers.reduce((a, b) => a > b ? a : b);

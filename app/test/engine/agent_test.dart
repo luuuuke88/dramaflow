@@ -1317,6 +1317,52 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Math.sqrt 计算画幅尺寸', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_math_sqrt_runtime',
+      name: '画幅尺寸脚本运行时',
+      description: '验证自定义技能兼容 ToonFlow 常见的 Math.sqrt 比例归一计算。',
+      script: r'''
+const base = args.base;
+const w = args.width;
+const h = args.height;
+const calcW = Math.min(2048, Math.round(base * Math.sqrt(w / h)));
+const calcH = Math.max(512, Math.round(base * Math.sqrt(h / w)));
+return JSON.stringify({ calcW, calcH });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'base': {'type': 'number'},
+          'width': {'type': 'number'},
+          'height': {'type': 'number'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_math_sqrt_runtime', const {
+        'base': 1024,
+        'width': 16,
+        'height': 9,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用画幅尺寸脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_math_sqrt_runtime');
+    expect(jsonDecode(msg.content), {
+      'calcW': 1365,
+      'calcH': 768,
+    });
+  });
+
   test('自定义脚本技能：支持 Object.hasOwn 和 hasOwnProperty 判断字段存在性', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_has_own_runtime',
