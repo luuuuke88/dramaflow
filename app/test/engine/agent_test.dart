@@ -7951,6 +7951,43 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(stored, contains('__gateway_embedding_v1'));
   });
 
+  test('长期记忆：外部 embedding 保留小数向量精度用于相似度排序', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.agent_embedding', 'fake:embed'],
+    );
+    final keepId = engine.saveAgentMemory(
+      projectId,
+      name: 'Tiny Vector Keep',
+      content: '保留微弱相似度的真实向量召回规则。',
+    );
+    engine.saveAgentMemory(
+      projectId,
+      name: 'Tiny Vector Noise',
+      content: '正交噪声向量，不应该被细粒度查询召回。',
+    );
+    gateway.embeddingForText = (input) {
+      if (input.contains('细粒度向量查询')) return const [0.0000004, 0];
+      if (input.contains('保留微弱相似度')) return const [0.00000039, 0];
+      if (input.contains('正交噪声向量')) return const [0, 0.0000004];
+      return const [0, 0];
+    };
+
+    final matched = await engine.searchAgentMemories(
+      projectId,
+      '细粒度向量查询',
+      limit: 1,
+    );
+
+    expect(matched.map((item) => item.id), [keepId]);
+    final stored = db.select('SELECT embedding FROM memories WHERE id=?',
+        [keepId]).single['embedding'] as String;
+    final decoded = jsonDecode(stored) as Map<String, dynamic>;
+    expect(decoded['__gateway_embedding_v1'], 1);
+    expect(decoded['vector'], isA<List>());
+    expect((decoded['vector'] as List).first, closeTo(0.00000039, 1e-12));
+  });
+
   test('Agent 记忆：对话写入 memories message 并达到阈值生成 summary', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',

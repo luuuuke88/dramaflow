@@ -214,8 +214,20 @@ class GatewayAgentMemoryEmbeddingProvider extends AgentMemoryEmbeddingProvider {
   });
 
   @override
-  Future<String> embeddingJson(String text) async =>
-      jsonEncode(await embeddingFromText(text));
+  Future<String> embeddingJson(String text) async {
+    try {
+      final vector = await (gateway as dynamic).generateEmbedding(
+        text,
+        stage: stage,
+      ) as List<double>;
+      if (_finiteGatewayEmbeddingVector(vector).isNotEmpty) {
+        return gatewayEmbeddingJsonFromVector(vector);
+      }
+    } catch (_) {
+      // Remote/vector embedding must never make Agent memory unusable.
+    }
+    return fallback.embeddingJson(text);
+  }
 
   @override
   Future<Map<String, int>> embeddingFromText(String text) async {
@@ -1402,7 +1414,8 @@ String embeddingJson(String text) =>
 
 const _tokenEmbeddingMarker = '__token_embedding_v1';
 const _gatewayEmbeddingMarker = '__gateway_embedding_v1';
-const _gatewayEmbeddingScale = 1000000;
+const _gatewayEmbeddingVectorKey = 'vector';
+const _gatewayEmbeddingScale = 1000000000000;
 
 String tokenEmbeddingJson(
   String text, {
@@ -1432,13 +1445,29 @@ String _tokenEmbeddingJsonFromMap(
 
 Map<String, int> gatewayEmbeddingFromVector(List<double> vector) {
   final embedding = <String, int>{_gatewayEmbeddingMarker: 1};
-  for (var i = 0; i < vector.length; i++) {
-    final value = vector[i];
-    if (!value.isFinite) continue;
+  final finite = _finiteGatewayEmbeddingVector(vector);
+  for (var i = 0; i < finite.length; i++) {
+    final value = finite[i];
     final scaled = (value * _gatewayEmbeddingScale).round();
     if (scaled != 0) embedding['d$i'] = scaled;
   }
   return embedding;
+}
+
+String gatewayEmbeddingJsonFromVector(List<double> vector) {
+  final finite = _finiteGatewayEmbeddingVector(vector);
+  return jsonEncode({
+    _gatewayEmbeddingMarker: 1,
+    _gatewayEmbeddingVectorKey: finite,
+  });
+}
+
+List<double> _finiteGatewayEmbeddingVector(List<double> vector) {
+  final finite = <double>[];
+  for (final value in vector) {
+    finite.add(value.isFinite ? value : 0);
+  }
+  return finite.any((value) => value != 0) ? finite : const [];
 }
 
 Map<String, int> memoryEmbeddingFromText(String text) {
@@ -1584,6 +1613,13 @@ Map<String, int> _decodeMemoryEmbedding(String value) {
           if (entry.key is String && entry.value is num)
             entry.key as String: (entry.value as num).toInt(),
       };
+    }
+    if (decoded[_gatewayEmbeddingMarker] == 1 &&
+        decoded[_gatewayEmbeddingVectorKey] is List) {
+      return gatewayEmbeddingFromVector([
+        for (final item in decoded[_gatewayEmbeddingVectorKey] as List)
+          if (item is num) item.toDouble(),
+      ]);
     }
     return {
       for (final entry in decoded.entries)
