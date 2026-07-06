@@ -1604,6 +1604,7 @@ class ProductionStoryboardItem {
   final String track;
   final String duration;
   final List<int> associateAssetIds;
+  final List<String> associateAssetRefs;
   final bool shouldGenerateImage;
 
   const ProductionStoryboardItem({
@@ -1612,6 +1613,7 @@ class ProductionStoryboardItem {
     required this.track,
     required this.duration,
     required this.associateAssetIds,
+    this.associateAssetRefs = const [],
     required this.shouldGenerateImage,
   });
 }
@@ -1641,19 +1643,81 @@ List<ProductionStoryboardItem> parseProductionStoryboardItems(String source) {
       _attributeValue(attrs, 'shouldGenerateImage'),
       defaultValue: true,
     );
-    final associateAssetIds =
-        parseIntListText(_attributeValue(attrs, 'associateAssetsIds'));
+    final associateAssetIds = _storyboardAssetIds(attrs);
+    final associateAssetRefs = _storyboardAssetRefs(attrs);
     items.add(ProductionStoryboardItem(
       videoDesc: videoDesc,
       prompt: prompt,
       track: track,
       duration: duration,
       associateAssetIds: associateAssetIds,
+      associateAssetRefs: associateAssetRefs,
       shouldGenerateImage: shouldGenerateImage,
     ));
   }
 
   return items;
+}
+
+List<int> _storyboardAssetIds(String attrs) => _dedupeInts([
+      for (final key in const [
+        'associateAssetsIds',
+        'assetIds',
+        'asset_ids',
+        'associate_asset_ids',
+        'associatedAssetIds',
+        'associated_asset_ids',
+      ])
+        ...parseIntListText(_attributeValue(attrs, key)),
+    ]);
+
+List<String> _storyboardAssetRefs(String attrs) => _dedupeStrings([
+      for (final key in const [
+        'associateAssetsIds',
+        'assetIds',
+        'asset_ids',
+        'associate_asset_ids',
+        'associatedAssetIds',
+        'associated_asset_ids',
+        'assetName',
+        'assetNames',
+        'roleName',
+        'roleNames',
+        'sceneName',
+        'sceneNames',
+        'toolName',
+        'toolNames',
+        'asset_name',
+        'asset_names',
+      ])
+        ...parseStringListText(_attributeValue(attrs, key)),
+    ]);
+
+List<String> parseStringListText(String source) {
+  final text = decodeXmlEntities(source).trim();
+  if (text.isEmpty) return const [];
+  try {
+    final decoded = jsonDecode(text);
+    if (decoded is List) {
+      return [
+        for (final item in decoded)
+          if (item.toString().trim().isNotEmpty) item.toString().trim(),
+      ];
+    }
+    final scalar = decoded.toString().trim();
+    return scalar.isEmpty ? const [] : [scalar];
+  } catch (_) {
+    // Fall through to loose splitting for model-produced variants.
+  }
+  final unwrapped = text
+      .replaceAll(RegExp(r'^\s*\[\s*'), '')
+      .replaceAll(RegExp(r'\s*\]\s*$'), '');
+  final values = [
+    for (final part in unwrapped.split(RegExp(r'[,，、;；\n]+')))
+      if (part.trim().isNotEmpty)
+        part.trim().replaceAll(RegExp(r'''^['"]|['"]$'''), ''),
+  ];
+  return _dedupeStrings(values);
 }
 
 List<int> parseIntListText(String source) {
@@ -1673,6 +1737,22 @@ List<int> parseIntListText(String source) {
   return [
     for (final match in RegExp(r'-?\d+').allMatches(text))
       int.parse(match.group(0)!),
+  ];
+}
+
+List<int> _dedupeInts(Iterable<int> values) {
+  final seen = <int>{};
+  return [
+    for (final value in values)
+      if (seen.add(value)) value,
+  ];
+}
+
+List<String> _dedupeStrings(Iterable<String> values) {
+  final seen = <String>{};
+  return [
+    for (final value in values)
+      if (value.trim().isNotEmpty && seen.add(value.trim())) value.trim(),
   ];
 }
 

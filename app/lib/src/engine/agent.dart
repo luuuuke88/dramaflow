@@ -10574,6 +10574,41 @@ extension AgentApi on Engine {
     ];
   }
 
+  List<Map<String, Object?>> _productionAssetRefRows(
+    int projectId,
+    int? scriptId,
+  ) {
+    final linkedIds = scriptId == null
+        ? const <int>[]
+        : db
+            .select('SELECT assetId FROM o_scriptAssets WHERE scriptId=?',
+                [scriptId])
+            .map((row) => row['assetId'] as int)
+            .toList();
+    if (linkedIds.isNotEmpty) {
+      final placeholders = List.filled(linkedIds.length, '?').join(',');
+      return [
+        for (final row in db.select(
+          'SELECT id,name,type,describe FROM o_assets '
+          'WHERE projectId=? AND id IN ($placeholders) ORDER BY id',
+          [projectId, ...linkedIds],
+        ))
+          Map<String, Object?>.from(row),
+      ];
+    }
+    return [
+      for (final row in db.select(
+        'SELECT id,name,type,describe FROM o_assets '
+        'WHERE projectId=? ORDER BY id',
+        [projectId],
+      ))
+        Map<String, Object?>.from(row),
+    ];
+  }
+
+  String _productionAssetRefCode(int index) =>
+      'A${(index + 1).toString().padLeft(3, '0')}';
+
   List<Map<String, dynamic>> _productionStoryboardData(int scriptId) => [
         for (final row in storyboards(scriptId))
           {
@@ -10974,6 +11009,25 @@ extension AgentApi on Engine {
           ]) ??
           _productionAssetIdsArg(projectId, args, scriptId: scriptId) ??
           const [],
+      associateAssetRefs: _stringListAny(args, const [
+            'associateAssetsIds',
+            'assetIds',
+            'asset_ids',
+            'associate_asset_ids',
+            'associatedAssetIds',
+            'associated_asset_ids',
+            'assetName',
+            'assetNames',
+            'roleName',
+            'roleNames',
+            'sceneName',
+            'sceneNames',
+            'toolName',
+            'toolNames',
+            'asset_name',
+            'asset_names',
+          ]) ??
+          const [],
       shouldGenerateImage: _argBool(
         shouldGenerateImage,
         defaultValue: true,
@@ -10989,19 +11043,77 @@ extension AgentApi on Engine {
     int scriptId,
     ProductionStoryboardItem item,
   ) {
+    final assetIds = _productionStoryboardAssetIds(projectId, scriptId, item);
     final id = addStoryboard(
       projectId: projectId,
       scriptId: scriptId,
       prompt: item.prompt,
       videoDesc: item.videoDesc,
       duration: item.duration,
-      assetIds: item.associateAssetIds,
+      assetIds: assetIds,
     );
     db.execute(
       'UPDATE o_storyboard SET shouldGenerateImage=?, track=? WHERE id=?',
       [item.shouldGenerateImage ? 1 : 0, item.track, id],
     );
     return id;
+  }
+
+  List<int> _productionStoryboardAssetIds(
+    int projectId,
+    int scriptId,
+    ProductionStoryboardItem item,
+  ) {
+    final resolved = _productionAssetIdsFromRefs(
+      projectId,
+      item.associateAssetRefs,
+      scriptId: scriptId,
+    );
+    if (resolved.isNotEmpty) return resolved;
+    return item.associateAssetIds;
+  }
+
+  List<int> _productionAssetIdsFromRefs(
+    int projectId,
+    List<String> refs, {
+    int? scriptId,
+  }) {
+    if (refs.isEmpty) return const [];
+    final rows = _productionAssetRefRows(projectId, scriptId);
+    final byId = {
+      for (final row in rows) row['id'] as int: row,
+    };
+    final byName = <String, Map<String, Object?>>{};
+    for (final row in rows) {
+      final name = (row['name'] as String? ?? '').trim();
+      if (name.isNotEmpty) byName.putIfAbsent(name, () => row);
+    }
+    final ids = <int>[];
+    final seen = <int>{};
+    void add(int? id) {
+      if (id == null || !byId.containsKey(id) || !seen.add(id)) return;
+      ids.add(id);
+    }
+
+    for (final ref in refs) {
+      final text = ref.trim();
+      if (text.isEmpty) continue;
+      final code = RegExp(r'^[Aa](\d+)$').firstMatch(text);
+      if (code != null) {
+        final index = int.parse(code.group(1)!) - 1;
+        if (index >= 0 && index < rows.length) {
+          add(rows[index]['id'] as int);
+        }
+        continue;
+      }
+      final directId = int.tryParse(text);
+      if (directId != null) {
+        add(directId);
+        continue;
+      }
+      add(byName[text]?['id'] as int?);
+    }
+    return ids;
   }
 
   Future<String> _runProductionAgentSubAgent(
@@ -11164,6 +11276,15 @@ extension AgentApi on Engine {
         .select('SELECT * FROM o_project WHERE id=?', [projectId]).firstOrNull;
     final script = db.select(
         'SELECT name,content FROM o_script WHERE id=?', [scriptId]).firstOrNull;
+    final assetRows = _productionAssetRefRows(projectId, scriptId);
+    final assetLines = [
+      for (var i = 0; i < assetRows.length; i++)
+        '[${_productionAssetRefCode(i)}, '
+            '${assetRows[i]['type'] ?? ''}, '
+            '${assetRows[i]['name'] ?? ''}]'
+            ' id=${assetRows[i]['id']}'
+            '${(assetRows[i]['describe'] as String? ?? '').trim().isEmpty ? '' : ' 描述：${assetRows[i]['describe']}'}',
+    ];
     return [
       '## 项目信息',
       '项目名称：${project?['name'] ?? '未知'}',
@@ -11173,6 +11294,8 @@ extension AgentApi on Engine {
       '画幅：${project?['videoRatio'] ?? '16:9'}',
       '当前剧本：${script?['name'] ?? scriptId}',
       '剧本内容：${script?['content'] ?? ''}',
+      if (assetLines.isNotEmpty) '资产信息：',
+      ...assetLines,
     ].join('\n');
   }
 

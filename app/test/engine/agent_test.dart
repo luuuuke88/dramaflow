@@ -16132,6 +16132,72 @@ description: 只属于水墨视觉项目
     expect(rows.single.assetIds, [roleId]);
   });
 
+  test('ProductionAgent storyboard panel XML resolves asset refs and names',
+      () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final decoyRoleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '误绑角色',
+      describe: '不属于本集',
+    );
+    final decoySceneId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '误绑场景',
+      describe: '不属于本集',
+    );
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    final sceneId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '寒山宗门',
+      describe: '冷白山门',
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, roleId]);
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, sceneId]);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'prompt': '写第一集分镜面板', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text(
+        "<storyboardItem videoDesc='李澈穿过寒山宗门' "
+        "prompt='冷白山门，少年入山，远景' track='主线' "
+        "shouldGenerateImage='false' duration='3.5' "
+        "associateAssetsIds='[&quot;A001&quot;,&quot;寒山宗门&quot;]'>"
+        '</storyboardItem>',
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '写分镜面板',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    expect(gateway.lastMessages.first['content'], contains('[A001, role, 李澈]'));
+    expect(
+      gateway.lastMessages.first['content'],
+      contains('[A002, scene, 寒山宗门]'),
+    );
+    final rows = engine.storyboards(scriptId);
+    expect(rows, hasLength(1));
+    expect(rows.single.assetIds, [roleId, sceneId]);
+    expect(rows.single.assetIds, isNot(contains(decoyRoleId)));
+    expect(rows.single.assetIds, isNot(contains(decoySceneId)));
+  });
+
   test(
       'ProductionAgentOrchestrator runs asset and storyboard execution tools from subagents',
       () async {
