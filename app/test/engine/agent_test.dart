@@ -550,6 +550,56 @@ void main() {
     expect(assetRelated['ids'], [secondScript]);
   });
 
+  test('Agent 顶层事件工具接受 ToonFlow 章节名称别名', () async {
+    final novelIds = engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '雪夜入山', chapterData: 'x'),
+      ChapterItem(index: 2, reel: '正文卷', chapter: '寒山初雪', chapterData: 'y'),
+    ]);
+    db.execute('DELETE FROM o_tasks');
+    gateway.turns = [
+      AgentTurnResult.tool('generate_events', const {
+        'chapterName': '寒山初雪',
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '只生成《寒山初雪》的事件', autoMode: false);
+
+    final eventTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'generate_events');
+    final eventProperties = eventTool.schema['properties'] as Map;
+    expect(eventProperties, contains('chapterName'));
+    expect(engine.agentMessages(projectId).last.content, contains('1 个章节'));
+    final eventTask = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE taskClass=?',
+      ['event_generation'],
+    ).single;
+    final eventRelated = jsonDecode(eventTask['relatedObjects'] as String)
+        as Map<String, dynamic>;
+    expect(eventRelated['ids'], [novelIds[1]]);
+  });
+
+  test('Agent 自然章节号未匹配时不会回退成全量事件任务', () async {
+    engine.addNovels(projectId, const [
+      ChapterItem(index: 1, reel: '正文卷', chapter: '第一章', chapterData: 'x'),
+      ChapterItem(index: 2, reel: '正文卷', chapter: '第二章', chapterData: 'y'),
+    ]);
+    db.execute('DELETE FROM o_tasks');
+    gateway.turns = [
+      AgentTurnResult.tool('generate_events', const {
+        'chapterNo': 99,
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '只生成第 99 章事件', autoMode: false);
+
+    expect(engine.agentMessages(projectId).last.content, contains('未找到匹配章节'));
+    final eventTasks = db.select(
+      'SELECT id FROM o_tasks WHERE taskClass=?',
+      ['event_generation'],
+    );
+    expect(eventTasks, isEmpty);
+  });
+
   test('Agent 顶层剧本工具接受 ToonFlow 剧本名称别名', () async {
     engine.addScript(projectId: projectId, name: '雪夜入山', content: 'A');
     final targetScript =

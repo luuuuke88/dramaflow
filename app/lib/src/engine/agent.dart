@@ -842,6 +842,24 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'integer'},
           'description': 'chapterNos 的 snake_case 别名。',
         },
+        'chapterName': {
+          'type': 'string',
+          'description': '按章节名称精确匹配。',
+        },
+        'chapterNames': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'chapterName 的数组形式，也兼容逗号分隔字符串。',
+        },
+        'chapterTitle': {
+          'type': 'string',
+          'description': 'chapterName 的标题语义别名。',
+        },
+        'chapterTitles': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'chapterTitle 的数组形式。',
+        },
       },
     },
   ),
@@ -8899,13 +8917,16 @@ extension AgentApi on Engine {
         case 'get_status':
           return _statusSummary(projectId);
         case 'generate_events':
-          final ids = _agentNovelIdsArg(projectId, args) ??
+          final selectedIds = _agentNovelIdsArg(projectId, args);
+          final ids = selectedIds ??
               novels(projectId, limit: 100000)
                   .data
                   .where((n) => n.eventState != 1)
                   .map((n) => n.id)
                   .toList();
-          if (ids.isEmpty) return '没有需要生成事件的章节。';
+          if (ids.isEmpty) {
+            return selectedIds == null ? '没有需要生成事件的章节。' : '未找到匹配章节。';
+          }
           final taskId = generateEvents(projectId, ids);
           return '已提交事件生成任务（任务 #$taskId），涉及 ${ids.length} 个章节。';
         case 'extract_assets':
@@ -9012,13 +9033,31 @@ extension AgentApi on Engine {
       'chapter_no',
       'chapter_nos',
     ]);
-    if (chapterNumbers == null) return null;
-    final wanted = chapterNumbers.toSet();
-    final ids = [
-      for (final chapter in novels(projectId, limit: 100000).data)
-        if (wanted.contains(chapter.chapterIndex)) chapter.id,
+    final rows = novels(projectId, limit: 100000).data;
+    if (chapterNumbers != null) {
+      final wanted = chapterNumbers.toSet();
+      return [
+        for (final chapter in rows)
+          if (wanted.contains(chapter.chapterIndex)) chapter.id,
+      ];
+    }
+
+    final chapterNames = _stringListAny(args, const [
+      'chapterName',
+      'chapterNames',
+      'chapterTitle',
+      'chapterTitles',
+      'chapter_name',
+      'chapter_names',
+      'chapter_title',
+      'chapter_titles',
+    ]);
+    if (chapterNames == null) return null;
+    final wanted = chapterNames.map((name) => name.trim()).toSet();
+    return [
+      for (final chapter in rows)
+        if (wanted.contains((chapter.chapter ?? '').trim())) chapter.id,
     ];
-    return ids.isEmpty ? null : ids;
   }
 
   List<int>? _agentScriptIdsArg(int projectId, Map<String, dynamic> args) {

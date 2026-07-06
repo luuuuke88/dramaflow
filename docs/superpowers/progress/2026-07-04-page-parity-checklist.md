@@ -232,6 +232,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers top-level 
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers top-level Agent pipeline tools accepting natural ToonFlow numbering aliases such as `chapterNo` and `episodeNo`, resolving them to the current project's actual chapter/script ids before enqueueing event, asset, and storyboard tasks.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers top-level Agent event tools accepting natural chapter-name selectors such as `chapterName` and `chapterTitle`, resolving them to novel chapter ids before enqueueing event generation and refusing unmatched natural chapter numbers instead of falling back to all chapters.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers top-level Agent script pipeline tools accepting natural script-name selectors such as `scriptName` and `episodeName`, resolving them to script ids before enqueueing asset extraction and sharing the same selector path with storyboard, media, and compose tools.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers top-level Agent media tools accepting natural shot numbering aliases such as `shotNo` and `storyboardNo`, resolving them by current storyboard order before enqueueing first-frame and video generation tasks.
