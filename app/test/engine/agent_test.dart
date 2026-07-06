@@ -5412,6 +5412,67 @@ return labels.join('、');
     expect(msg.content, '1.宗门晨练、2.灵阵亮起');
   });
 
+  test('自定义脚本技能：支持 Promise.allSettled 包裹同步批量结果', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_all_settled_runtime',
+      name: 'Promise allSettled 脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 await Promise.allSettled(list.map(async (...) => ...)) 批量整理。',
+      script: r'''
+const settled = await Promise.allSettled(
+  args.storyboards
+    .filter(shot => !!shot.videoDesc?.trim())
+    .map(async (shot, index) => {
+      const desc = await shot.videoDesc.trim();
+      return `${index + 1}.${desc}`;
+    })
+);
+
+const labels = settled
+  .filter(item => item.status === 'fulfilled')
+  .map(item => item.value)
+  .join('、');
+
+return labels;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_promise_all_settled_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪落山门 '},
+          {'videoDesc': ''},
+          {'videoDesc': '主角回眸'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise allSettled 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_all_settled_runtime');
+    expect(msg.content, '1.雪落山门、2.主角回眸');
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',

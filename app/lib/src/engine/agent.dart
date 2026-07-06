@@ -5497,11 +5497,13 @@ class _CustomAgentSkillRuntime {
     switch (method) {
       case 'all':
         if (args.length != 1) _badMethodArgs(method);
-        final value = _evaluate(args.single);
-        if (value is String) return value.split('');
-        if (value is _CustomJsMap) return _customJsMapEntries(value);
-        if (value is Iterable) return value.toList();
-        _badMethodArgs(method);
+        return _promiseIterableValues(args.single, method);
+      case 'allSettled':
+        if (args.length != 1) _badMethodArgs(method);
+        return [
+          for (final value in _promiseIterableValues(args.single, method))
+            {'status': 'fulfilled', 'value': value},
+        ];
       case 'resolve':
         if (args.length > 1) _badMethodArgs(method);
         return args.isEmpty ? null : _evaluate(args.single);
@@ -5511,6 +5513,14 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  List<Object?> _promiseIterableValues(String expression, String method) {
+    final value = _evaluate(expression);
+    if (value is String) return value.split('');
+    if (value is _CustomJsMap) return _customJsMapEntries(value);
+    if (value is Iterable) return value.toList();
+    _badMethodArgs(method);
   }
 
   List<Object?> _arrayFrom(List<String> args) {
