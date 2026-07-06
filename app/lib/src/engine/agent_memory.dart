@@ -278,6 +278,7 @@ class AgentMemoryService {
     required String keyword,
     Set<String>? roles,
     Set<String>? excludeRoles,
+    Set<String>? excludeRoleSuffixes,
     Set<String>? types,
     Set<String>? excludeIds,
     String? noteIsolationKey,
@@ -285,6 +286,9 @@ class AgentMemoryService {
   }) async {
     final roleFilter = _normalizeRoleFilter(roles);
     final excludedRoleFilter = _normalizeRoleFilter(excludeRoles);
+    final excludedRoleSuffixFilter = _normalizeRoleFilter(
+      excludeRoleSuffixes,
+    );
     final typeFilter = _normalizeTypeFilter(types);
     final excludedIdFilter = _normalizeIdFilter(excludeIds);
     final allowMessages =
@@ -312,6 +316,7 @@ class AgentMemoryService {
               typeFilter,
               excludedIdFilter,
               excludedRoleFilter,
+              excludedRoleSuffixFilter,
             ).take(settings.ragLimit))
               item.$2,
           ]
@@ -369,6 +374,7 @@ class AgentMemoryService {
             typeFilter,
             excludedIdFilter,
             excludedRoleFilter,
+            excludedRoleSuffixFilter,
           ),
           if (allowMessages)
             for (final message in _filterRankedEntries(
@@ -377,6 +383,7 @@ class AgentMemoryService {
               typeFilter,
               excludedIdFilter,
               excludedRoleFilter,
+              excludedRoleSuffixFilter,
             ).take(settings.ragLimit))
               message.$2,
         ]);
@@ -395,6 +402,7 @@ class AgentMemoryService {
           typeFilter,
           excludedIdFilter,
           excludedRoleFilter,
+          excludedRoleSuffixFilter,
         ).take(settings.ragLimit))
           item.$2,
       ]);
@@ -406,6 +414,7 @@ class AgentMemoryService {
         typeFilter,
         excludedIdFilter,
         excludedRoleFilter,
+        excludedRoleSuffixFilter,
       ));
     }
     final directMatches = _filterRankedEntries(
@@ -420,6 +429,7 @@ class AgentMemoryService {
       typeFilter,
       excludedIdFilter,
       excludedRoleFilter,
+      excludedRoleSuffixFilter,
     ).take(settings.ragLimit);
     for (final message in directMatches) {
       if (!ids.contains(message.$2.id)) ids.add(message.$2.id);
@@ -432,19 +442,26 @@ class AgentMemoryService {
       'ORDER BY createTime ASC, id ASC',
       [isolationKey, agentMemoryTypeMessage, ...ids],
     );
-    final expanded = _filterEntries([
-      for (final row in rows)
-        _withTrace(
-          AgentMemoryEntry.fromRow(row).copyWith(
-            sourceSummaryIds:
-                sourceSummaryIdsByMessageId[row['id'] as String] ?? const [],
+    final expanded = _filterEntries(
+      [
+        for (final row in rows)
+          _withTrace(
+            AgentMemoryEntry.fromRow(row).copyWith(
+              sourceSummaryIds:
+                  sourceSummaryIdsByMessageId[row['id'] as String] ?? const [],
+            ),
+            isolationKey: isolationKey,
+            normalized: normalized,
+            tokens: tokens,
+            queryEmbedding: queryEmbedding,
           ),
-          isolationKey: isolationKey,
-          normalized: normalized,
-          tokens: tokens,
-          queryEmbedding: queryEmbedding,
-        ),
-    ], roleFilter, typeFilter, excludedIdFilter, excludedRoleFilter);
+      ],
+      roleFilter,
+      typeFilter,
+      excludedIdFilter,
+      excludedRoleFilter,
+      excludedRoleSuffixFilter,
+    );
     if (expanded.isEmpty && summaries.isNotEmpty) {
       return allowSummaries
           ? withNotes(
@@ -454,6 +471,7 @@ class AgentMemoryService {
                 typeFilter,
                 excludedIdFilter,
                 excludedRoleFilter,
+                excludedRoleSuffixFilter,
               ),
             )
           : noteMatches;
@@ -466,6 +484,7 @@ class AgentMemoryService {
           typeFilter,
           excludedIdFilter,
           excludedRoleFilter,
+          excludedRoleSuffixFilter,
         ),
         ...expanded,
       ]);
@@ -789,6 +808,13 @@ class AgentMemoryService {
   ) =>
       roles == null || !roles.contains(entry.role);
 
+  bool _matchesExcludedRoleSuffixFilter(
+    AgentMemoryEntry entry,
+    Set<String>? roleSuffixes,
+  ) =>
+      roleSuffixes == null ||
+      roleSuffixes.every((suffix) => !entry.role.endsWith(suffix));
+
   bool _matchesTypeFilter(String type, Set<String>? types) =>
       types == null || types.contains(type);
 
@@ -801,9 +827,11 @@ class AgentMemoryService {
     Set<String>? types,
     Set<String>? excludeIds, [
     Set<String>? excludeRoles,
+    Set<String>? excludeRoleSuffixes,
   ]) =>
       _matchesRoleFilter(entry, roles) &&
       _matchesExcludedRoleFilter(entry, excludeRoles) &&
+      _matchesExcludedRoleSuffixFilter(entry, excludeRoleSuffixes) &&
       _matchesTypeFilter(entry.type, types) &&
       _matchesIdFilter(entry, excludeIds);
 
@@ -813,6 +841,7 @@ class AgentMemoryService {
     Set<String>? types,
     Set<String>? excludeIds, [
     Set<String>? excludeRoles,
+    Set<String>? excludeRoleSuffixes,
   ]) =>
       [
         for (final entry in entries)
@@ -822,6 +851,7 @@ class AgentMemoryService {
             types,
             excludeIds,
             excludeRoles,
+            excludeRoleSuffixes,
           ))
             entry
       ];
@@ -832,6 +862,7 @@ class AgentMemoryService {
     Set<String>? types,
     Set<String>? excludeIds, [
     Set<String>? excludeRoles,
+    Set<String>? excludeRoleSuffixes,
   ]) sync* {
     for (final item in entries) {
       if (_matchesEntryFilter(
@@ -840,6 +871,7 @@ class AgentMemoryService {
         types,
         excludeIds,
         excludeRoles,
+        excludeRoleSuffixes,
       )) {
         yield item;
       }

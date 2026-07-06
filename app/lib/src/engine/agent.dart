@@ -221,6 +221,15 @@ final _tools = <AgentToolDef>[
           'items': {'type': 'string'},
           'description': '可选。排除这些 role 的记忆，用于避开工具审计噪声。',
         },
+        'excludeRoleSuffix': {
+          'type': 'string',
+          'description': '可选。排除 role 以该后缀结尾的记忆，例如 :tool。',
+        },
+        'excludeRoleSuffixes': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': '可选。排除 role 以这些后缀结尾的记忆，用于避开多阶段工具审计噪声。',
+        },
         'type': {
           'type': 'string',
           'enum': ['message', 'summary', 'note'],
@@ -6747,6 +6756,13 @@ extension AgentApi on Engine {
                 args['excludeMemoryRoles'] ??
                 args['excludedMemoryRoles'],
           );
+          final excludeRoleSuffixes = _coerceStringSet(
+            args['excludeRoleSuffixes'] ??
+                args['excludeRoleSuffix'] ??
+                args['excludedRoleSuffixes'] ??
+                args['excludeMemoryRoleSuffixes'] ??
+                args['excludedMemoryRoleSuffixes'],
+          );
           final types = _deepRetrieveMemoryTypes(args);
           final requestedExcludeIds = _coerceStringSet(
             args['excludeIds'] ??
@@ -6768,6 +6784,7 @@ extension AgentApi on Engine {
             keyword: keyword,
             roles: roles,
             excludeRoles: excludeRoles,
+            excludeRoleSuffixes: excludeRoleSuffixes,
             types: types,
             excludeIds: excludeIds,
             noteIsolationKey: _agentMemoryIsolationKey(projectId),

@@ -7213,6 +7213,83 @@ description: >-
     expect(record['role'], agentRoleUser);
   });
 
+  test('Agent 记忆：deepRetrieve 工具支持按 role 后缀排除所有工具审计噪声', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMessage({
+      required String id,
+      required String content,
+      required String role,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          0,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'exclude_role_suffix_decision_tool_noise',
+      content: '决策工具噪声：寒山戒律 寒山戒律 寒山戒律 已写入任务日志。',
+      role: 'assistant:decision:tool',
+      offset: 0,
+    );
+    insertMessage(
+      id: 'exclude_role_suffix_story_tool_noise',
+      content: '子 Agent 工具噪声：寒山戒律 寒山戒律 寒山戒律 已写入任务日志。',
+      role: 'assistant:execution:storySkeleton:tool',
+      offset: 1,
+    );
+    insertMessage(
+      id: 'exclude_role_suffix_user_keep',
+      content: '用户设定：寒山戒律要求李澈必须先救沈微。',
+      role: agentRoleUser,
+      offset: 2,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '寒山戒律',
+        'excludeRoleSuffixes': [':tool'],
+      }),
+    ];
+
+    await engine.sendAgentMessage(projectId, '查找非工具日志里的寒山戒律', autoMode: false);
+
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    final properties = deepRetrieveTool.schema['properties'] as Map;
+    expect(properties, contains('excludeRoleSuffixes'));
+    expect(properties, contains('excludeRoleSuffix'));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], ['用户设定：寒山戒律要求李澈必须先救沈微。']);
+    final records = payload['records'] as List;
+    expect(records, hasLength(1));
+    final record = records.single as Map<String, dynamic>;
+    expect(record['id'], 'exclude_role_suffix_user_keep');
+    expect(record['role'], agentRoleUser);
+  });
+
   test('Agent 记忆：deepRetrieve 工具支持按 type 只返回 summary 记录', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
