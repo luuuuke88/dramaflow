@@ -1438,6 +1438,7 @@ class _CustomAgentSkillRuntime {
       'Set' => _newSet(args),
       'Date' => _newDate(args),
       'Map' => _newMap(args),
+      'Array' => _newArray(args),
       'Error' => _newError(args),
       _ => throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_constructor',
@@ -1632,6 +1633,12 @@ class _CustomAgentSkillRuntime {
         return '${value ?? ''}'.endsWith(
           _stringifyInterpolation(_evaluate(args.single)),
         );
+      case 'padStart':
+        return _padString(
+          '${value ?? ''}',
+          method: method,
+          args: args,
+        );
       case 'includes':
         if (args.length != 1) _badMethodArgs(method);
         final needle = _evaluate(args.single);
@@ -1677,6 +1684,11 @@ class _CustomAgentSkillRuntime {
       case 'splice':
         if (args.isEmpty || value is! List) _badMethodArgs(method);
         return _spliceList(value, args);
+      case 'fill':
+        if (args.isEmpty || args.length > 3 || value is! List) {
+          _badMethodArgs(method);
+        }
+        return _fillList(value, args);
       case 'concat':
         if (value is! Iterable || value is String) _badMethodArgs(method);
         final combined = <Object?>[...value];
@@ -1868,6 +1880,40 @@ class _CustomAgentSkillRuntime {
     return removed;
   }
 
+  List _fillList(List value, List<String> args) {
+    final fillValue = _evaluate(args.first);
+    final start = args.length >= 2
+        ? _normalizeSliceIndex(_toInt(_evaluate(args[1])), value.length)
+        : 0;
+    final end = args.length >= 3
+        ? _normalizeSliceIndex(_toInt(_evaluate(args[2])), value.length)
+        : value.length;
+    for (var index = start; index < end; index++) {
+      value[index] = fillValue;
+    }
+    return value;
+  }
+
+  String _padString(
+    String value, {
+    required String method,
+    required List<String> args,
+  }) {
+    if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+    final targetLength = _toInt(_evaluate(args.first));
+    if (targetLength <= value.length) return value;
+    final padSource =
+        args.length == 2 ? _stringifyInterpolation(_evaluate(args[1])) : ' ';
+    if (padSource.isEmpty) return value;
+    final needed = targetLength - value.length;
+    final buffer = StringBuffer();
+    while (buffer.length < needed) {
+      buffer.write(padSource);
+    }
+    final padding = buffer.toString().substring(0, needed);
+    return '$padding$value';
+  }
+
   List<String> _forInKeys(Object? value, String expression) {
     if (value is Map) {
       return [for (final key in value.keys) '$key'];
@@ -2008,6 +2054,8 @@ class _CustomAgentSkillRuntime {
         if (values.length > 1) _badMethodArgs(objectName);
         if (values.isEmpty) return '';
         return _stringifyInterpolation(values.single);
+      case 'Array':
+        return _arrayConstructor(values);
       case 'Error':
         if (values.length > 1) _badMethodArgs(objectName);
         return _CustomJsError(
@@ -2103,6 +2151,22 @@ class _CustomAgentSkillRuntime {
     throw EngineException(errLlmFormat, {
       'reason': 'custom_skill_set_constructor',
     });
+  }
+
+  List<Object?> _newArray(List<String> args) =>
+      _arrayConstructor(_evaluateCallArguments(args));
+
+  List<Object?> _arrayConstructor(List<Object?> values) {
+    if (values.length == 1 && values.single is num) {
+      final length = (values.single as num).toInt();
+      if (length < 0 || length > 10000) {
+        throw EngineException(errLlmFormat, {
+          'reason': 'custom_skill_array_constructor',
+        });
+      }
+      return List<Object?>.filled(length, null);
+    }
+    return List<Object?>.from(values);
   }
 
   _CustomJsDate _newDate(List<String> args) {

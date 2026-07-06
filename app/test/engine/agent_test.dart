@@ -1309,6 +1309,54 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Array 构造 fill 和字符串 padStart', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_fill_pad_runtime',
+      name: '数组填充编号脚本运行时',
+      description: '验证自定义技能兼容模型常写的 new Array(n).fill(...).map(...) 编号写法。',
+      script: r'''
+const labels = new Array(args.count)
+  .fill(null)
+  .map((_, index) => `镜头${String(index + 1).padStart(2, '0')}`)
+  .join('、');
+const slots = Array(args.refCount)
+  .fill('参考图')
+  .map((label, index) => `${label}${String(index + 1).padStart(2, '0')}`)
+  .join('|');
+return JSON.stringify({ labels, slots });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'count': {'type': 'number'},
+          'refCount': {'type': 'number'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_fill_pad_runtime', const {
+        'count': 3,
+        'refCount': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组填充编号脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_fill_pad_runtime');
+    expect(jsonDecode(msg.content), {
+      'labels': '镜头01、镜头02、镜头03',
+      'slots': '参考图01|参考图02',
+    });
+  });
+
   test('自定义脚本技能：支持 concat flat reverse 整理多来源参考图', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_array_compose_runtime',
