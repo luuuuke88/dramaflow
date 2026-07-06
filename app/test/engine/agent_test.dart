@@ -12454,6 +12454,117 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：结构化查询计划摘要返回数量互不串味', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '0'],
+    );
+
+    void insertSummary({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          0,
+          agentMemoryTypeSummary,
+        ],
+      );
+    }
+
+    insertSummary(
+      id: 'query_plan_summary_a_old',
+      content: 'A组旧摘要：青灯策划保留第一版门规。',
+      offset: 1,
+      role: 'assistant:item-summary:a',
+    );
+    insertSummary(
+      id: 'query_plan_summary_a_new',
+      content: 'A组新摘要：青灯策划保留第二版门规。',
+      offset: 2,
+      role: 'assistant:item-summary:a',
+    );
+    insertSummary(
+      id: 'query_plan_summary_b_old',
+      content: 'B组旧摘要：雪桥执行保留第一版低机位。',
+      offset: 3,
+      role: 'assistant:item-summary:b',
+    );
+    insertSummary(
+      id: 'query_plan_summary_b_new',
+      content: 'B组新摘要：雪桥执行保留第二版低机位。',
+      offset: 4,
+      role: 'assistant:item-summary:b',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '青灯策划',
+            'memoryRoles': ['assistant:item-summary:a'],
+            'scope': 'summary',
+            'limit': 1,
+            'orderBy': 'latest',
+          },
+          {
+            'query': '雪桥执行',
+            'memoryRoles': ['assistant:item-summary:b'],
+            'scope': 'summary',
+            'limit': 1,
+            'orderBy': 'oldest',
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按每个计划项自己的数量限制查摘要记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .single;
+    expect(msg.toolName, 'memory_get');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(
+      (payload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_summary_a_new', 'query_plan_summary_b_old'],
+    );
+    expect(payload['summaries'], [
+      'A组新摘要：青灯策划保留第二版门规。',
+      'B组旧摘要：雪桥执行保留第一版低机位。',
+    ]);
+  });
+
   test('Agent 记忆：结构化查询计划可携带已读记忆排除', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

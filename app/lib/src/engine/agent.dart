@@ -10600,7 +10600,11 @@ extension AgentApi on Engine {
               recentMessageRecords.addAll(context.recentMessages);
             }
             if (includeSummaries) {
-              summaryRecords.addAll(context.summaries);
+              summaryRecords.addAll(_limitAgentMemoryEntries(
+                context.summaries,
+                requestSortMode,
+                requestLimit,
+              ));
             }
             if (includeNotes) {
               final noteExcludeIds = {
