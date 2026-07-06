@@ -9649,6 +9649,80 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(row['summarized'], 0);
   });
 
+  test('Agent 记忆：memory_add schema 暴露模型常见字段别名', () async {
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '查看 memory_add 参数',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_add');
+    final properties = tool.schema['properties'] as Map;
+    expect(
+      properties.keys,
+      containsAll([
+        'message',
+        'prompt',
+        'input',
+        'value',
+        'label',
+        'memoryName',
+        'memory_name',
+        'memoryRole',
+        'memory_role',
+        'authorRole',
+        'author_role',
+        'memoryScope',
+        'memory_scope',
+        'createdAt',
+        'created_at',
+        'timestamp',
+        'time',
+      ]),
+    );
+  });
+
+  test('Agent 记忆：memory_add 工具支持模型常见字段别名写入普通记忆', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_add', const {
+        'message': '执行记忆：第三集结尾保留断剑伏笔。',
+        'memoryName': '执行线索',
+        'memory_role': 'assistant:execution:script',
+        'memory_scope': 'conversation',
+        'createdAt': 123456,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '把执行线索写进普通记忆',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.toolName, 'memory_add');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['saved'], isTrue);
+    expect(payload['type'], agentMemoryTypeMessage);
+    final row = db.select(
+      'SELECT name,content,role,type,createTime FROM memories '
+      'WHERE id=? AND isolationKey=?',
+      [payload['id'], 'scriptAgent:$projectId'],
+    ).single;
+    expect(row['name'], '执行线索');
+    expect(row['content'], '执行记忆：第三集结尾保留断剑伏笔。');
+    expect(row['role'], 'assistant:execution:script');
+    expect(row['type'], agentMemoryTypeMessage);
+    expect(row['createTime'], 123456);
+  });
+
   test('Agent 记忆：memory_add 工具支持 long_term scope 写入长期 note', () async {
     gateway.turns = [
       AgentTurnResult.tool('memory_add', const {

@@ -250,6 +250,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Production
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent delete tools accepting natural derived-asset selectors such as `assetName`, `deriveAssetName`, and `childAssetName`, resolving them within the current script's linked derived assets before deletion instead of forcing sub Agents to remember raw ids.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style `memory_add` exposing and accepting model-authored field aliases such as `message`, `memoryName`, `memory_role`, `memory_scope`, and `createdAt`, so decision and sub Agents can persist discoveries without brittle exact memory argument names.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String(...).padEnd(...)` and string-literal `.repeat(...)`, so custom skills can build fixed-width labels, dividers, and normalized helper text with ordinary model-authored JavaScript.

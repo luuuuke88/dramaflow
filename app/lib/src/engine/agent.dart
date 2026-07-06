@@ -237,6 +237,22 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'content 的长期记忆别名。',
         },
+        'message': {
+          'type': 'string',
+          'description': 'content 的模型常见消息别名。',
+        },
+        'prompt': {
+          'type': 'string',
+          'description': 'content 的提示词别名。',
+        },
+        'input': {
+          'type': 'string',
+          'description': 'content 的输入别名。',
+        },
+        'value': {
+          'type': 'string',
+          'description': 'content 的值别名。',
+        },
         'name': {
           'type': 'string',
           'description': '可选。记忆名称或摘要标签。',
@@ -245,9 +261,37 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'name 的自然语言别名。',
         },
+        'label': {
+          'type': 'string',
+          'description': 'name 的标签别名。',
+        },
+        'memoryName': {
+          'type': 'string',
+          'description': 'name 的记忆名称别名。',
+        },
+        'memory_name': {
+          'type': 'string',
+          'description': 'memoryName 的 snake_case 别名。',
+        },
         'role': {
           'type': 'string',
           'description': '可选。普通 message 记忆的 role，默认 user。',
+        },
+        'memoryRole': {
+          'type': 'string',
+          'description': 'role 的记忆角色别名。',
+        },
+        'memory_role': {
+          'type': 'string',
+          'description': 'memoryRole 的 snake_case 别名。',
+        },
+        'authorRole': {
+          'type': 'string',
+          'description': 'role 的作者角色别名。',
+        },
+        'author_role': {
+          'type': 'string',
+          'description': 'authorRole 的 snake_case 别名。',
         },
         'type': {
           'type': 'string',
@@ -264,6 +308,16 @@ final _tools = <AgentToolDef>[
           'enum': ['conversation', 'long_term'],
           'description': '可选。conversation 写普通记忆；long_term 写长期记忆。',
         },
+        'memoryScope': {
+          'type': 'string',
+          'enum': ['conversation', 'long_term'],
+          'description': 'scope 的记忆范围别名。',
+        },
+        'memory_scope': {
+          'type': 'string',
+          'enum': ['conversation', 'long_term'],
+          'description': 'memoryScope 的 snake_case 别名。',
+        },
         'createTime': {
           'type': 'integer',
           'description': '可选。普通 message 记忆的创建时间毫秒时间戳。',
@@ -271,6 +325,22 @@ final _tools = <AgentToolDef>[
         'create_time': {
           'type': 'integer',
           'description': 'createTime 的 snake_case 别名。',
+        },
+        'createdAt': {
+          'type': 'integer',
+          'description': 'createTime 的模型常见别名。',
+        },
+        'created_at': {
+          'type': 'integer',
+          'description': 'createdAt 的 snake_case 别名。',
+        },
+        'timestamp': {
+          'type': 'integer',
+          'description': 'createTime 的时间戳别名。',
+        },
+        'time': {
+          'type': 'integer',
+          'description': 'createTime 的简写别名。',
         },
       },
     },
@@ -8407,14 +8477,20 @@ extension AgentApi on Engine {
               .toString()
               .trim();
           if (content.isEmpty) return '缺少 content 参数。';
-          final memoryName =
-              (args['name'] ?? args['title'] ?? args['label'] ?? '')
-                  .toString()
-                  .trim();
+          final memoryName = (args['name'] ??
+                  args['title'] ??
+                  args['label'] ??
+                  args['memoryName'] ??
+                  args['memory_name'] ??
+                  '')
+              .toString()
+              .trim();
           final defaultRole = _memoryAddDefaultRole(agentFamily, stage);
           final role = (args['role'] ??
                   args['memoryRole'] ??
+                  args['memory_role'] ??
                   args['authorRole'] ??
+                  args['author_role'] ??
                   defaultRole)
               .toString()
               .trim();
@@ -8442,6 +8518,8 @@ extension AgentApi on Engine {
           final createTime = _coerceInt(
             args['createTime'] ??
                 args['create_time'] ??
+                args['createdAt'] ??
+                args['created_at'] ??
                 args['timestamp'] ??
                 args['time'],
           );
@@ -9452,7 +9530,9 @@ extension AgentApi on Engine {
       args['scopes'] ??
           args['scope'] ??
           args['memoryScopes'] ??
-          args['memoryScope'],
+          args['memoryScope'] ??
+          args['memory_scopes'] ??
+          args['memory_scope'],
     );
     return values.isEmpty ? null : values;
   }
@@ -9495,7 +9575,9 @@ extension AgentApi on Engine {
       args['scopes'] ??
           args['scope'] ??
           args['memoryScopes'] ??
-          args['memoryScope'],
+          args['memoryScope'] ??
+          args['memory_scopes'] ??
+          args['memory_scope'],
     );
     if (values.isEmpty) return agentMemoryTypeMessage;
     if (values.length != 1 || values.contains('__unsupported__')) return null;
