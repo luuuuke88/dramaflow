@@ -2067,6 +2067,67 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持数组解构默认值兜底缺失字段', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_array_default_runtime',
+      name: '数组默认值解构脚本运行时',
+      description: '验证自定义技能兼容模型常写的 [first = fallback] 和 ([type, name = x])。',
+      script: r'''
+const [coverImage = args.fallbackImage, referenceImage = { name: ' 默认参考 ' }, ...remainingImages] = args.images;
+const rows = args.rows
+  .map(([type, name = '未命名', duration = 1]) => `${type}:${name}:${duration}s`)
+  .join('|');
+return JSON.stringify({
+  cover: coverImage.name.trim(),
+  reference: referenceImage.name.trim(),
+  remainingCount: remainingImages.length,
+  rows,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'fallbackImage': {'type': 'object'},
+          'images': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+          'rows': {
+            'type': 'array',
+            'items': {'type': 'array'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_array_default_runtime', const {
+        'fallbackImage': {'name': ' 兜底首帧 '},
+        'images': [],
+        'rows': [
+          ['role', '李澈', 3],
+          ['scene'],
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组默认值解构脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_array_default_runtime');
+    expect(jsonDecode(msg.content), {
+      'cover': '兜底首帧',
+      'reference': '默认参考',
+      'remainingCount': 0,
+      'rows': 'role:李澈:3s|scene:未命名:1s',
+    });
+  });
+
   test('自定义脚本技能：支持块状箭头回调 return', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_block_callback_runtime',

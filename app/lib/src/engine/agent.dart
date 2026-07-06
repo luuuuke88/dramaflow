@@ -3209,15 +3209,19 @@ class _CustomAgentSkillRuntime {
         _bindUniqueCallbackName(
           bindings,
           binding.bindingName,
-          items.sublist(i),
+          items.sublist(i > items.length ? items.length : i),
           method,
         );
         continue;
       }
+      var boundValue = i < items.length ? items[i] : null;
+      if (boundValue == null && binding.defaultExpression != null) {
+        boundValue = _evaluate(binding.defaultExpression!);
+      }
       _bindUniqueCallbackName(
         bindings,
         binding.bindingName,
-        i < items.length ? items[i] : null,
+        boundValue,
         method,
       );
     }
@@ -3249,14 +3253,24 @@ class _CustomAgentSkillRuntime {
     for (var i = 0; i < items.length; i++) {
       final item = items[i];
       final isRest = item.startsWith('...');
-      final bindingName = isRest ? item.substring(3).trim() : item;
+      var bindingName = isRest ? item.substring(3).trim() : item;
+      String? defaultExpression;
+      if (!isRest) {
+        final equals = _findTopLevelDefaultEquals(bindingName);
+        if (equals >= 0) {
+          defaultExpression = bindingName.substring(equals + 1).trim();
+          bindingName = bindingName.substring(0, equals).trim();
+        }
+      }
       if (!validName.hasMatch(bindingName)) return null;
+      if (defaultExpression == '') return null;
       if (isRest &&
           (i != items.length - 1 || bindings.any((item) => item.isRest))) {
         return null;
       }
       bindings.add(_CustomJsArrayDestructureBinding(
         bindingName: bindingName,
+        defaultExpression: defaultExpression,
         isRest: isRest,
       ));
     }
@@ -3581,10 +3595,12 @@ class _CustomJsObjectDestructureBinding {
 
 class _CustomJsArrayDestructureBinding {
   final String bindingName;
+  final String? defaultExpression;
   final bool isRest;
 
   const _CustomJsArrayDestructureBinding({
     required this.bindingName,
+    required this.defaultExpression,
     required this.isRest,
   });
 }
