@@ -3343,6 +3343,74 @@ return labels.join('、');
     expect(msg.content, '1.雪夜山门、4.李澈拔剑');
   });
 
+  test('自定义脚本技能：支持数组方法传入匿名 function 回调', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_function_expression_callback_runtime',
+      name: '匿名函数回调脚本运行时',
+      description: '验证自定义技能兼容模型常写的 map(function (item) { ... }) 回调。',
+      script: r'''
+const usable = args.storyboards
+  .filter(function (shot) {
+    return !shot.disabled && !!shot.videoDesc?.trim();
+  })
+  .map(function (shot, index, all) {
+    return `${index + 1}/${all.length}.${shot.videoDesc.trim()}`;
+  });
+
+const total = args.storyboards.reduce(function (sum, shot) {
+  return sum + Number(shot.duration ?? 1);
+}, 0);
+
+return JSON.stringify({
+  labels: usable.join('、'),
+  total,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+                'disabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+          'custom_script_function_expression_callback_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 ', 'duration': 3},
+          {'videoDesc': '', 'duration': 4},
+          {'videoDesc': '废弃镜头', 'duration': 8, 'disabled': true},
+          {'videoDesc': '李澈拔剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用匿名函数回调脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_function_expression_callback_runtime');
+    expect(jsonDecode(msg.content), {
+      'labels': '1/2.雪夜山门、2/2.李澈拔剑',
+      'total': 16,
+    });
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',

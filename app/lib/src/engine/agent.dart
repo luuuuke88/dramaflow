@@ -844,6 +844,36 @@ class _CustomAgentSkillRuntime {
     );
   }
 
+  _CustomJsFunction? _readFunctionExpression(
+    String expression,
+    String fallbackName,
+  ) {
+    final source = _trimTrailingSemicolon(expression.trim());
+    if (!_startsWithWord(source, 0, 'function')) return null;
+    var index = _skipWhitespace(source, 'function'.length);
+    var functionName = fallbackName;
+    final name = _readIdentifier(source, index);
+    if (name != null) {
+      functionName = name.text;
+      index = _skipWhitespace(source, name.end);
+    }
+    if (index >= source.length || source[index] != '(') return null;
+    final rawParams = _readBalanced(source, index, '(', ')');
+    final params = _readFunctionParams(rawParams.text, functionName);
+    index = _skipWhitespace(source, rawParams.end);
+    if (index >= source.length || source[index] != '{') return null;
+    final body = _readBalanced(source, index, '{', '}');
+    index = _skipWhitespace(source, body.end);
+    if (_trimTrailingSemicolon(source.substring(index)).trim().isNotEmpty) {
+      return null;
+    }
+    return _CustomJsFunction(
+      name: functionName,
+      params: params,
+      body: body.text,
+    );
+  }
+
   _CustomJsWhileStatement? _readWhileStatement(String statement) {
     final source = _trimTrailingSemicolon(statement.trim());
     if (!source.startsWith('while')) return null;
@@ -1262,6 +1292,8 @@ class _CustomAgentSkillRuntime {
     if (newExpression != null) return newExpression;
     final deleteExpression = _evaluateDeleteExpression(expr);
     if (deleteExpression != null) return deleteExpression;
+    final functionExpression = _readFunctionExpression(expr, 'anonymous');
+    if (functionExpression != null) return functionExpression;
     final inOperator = _readTopLevelInOperator(expr);
     if (inOperator != null) {
       return _hasProperty(
