@@ -6713,8 +6713,7 @@ return JSON.stringify({
     engine.saveCustomAgentSkill(
       id: 'custom_script_find_last_runtime',
       name: '倒序查找脚本运行时',
-      description:
-          '验证自定义技能兼容模型常写的 findLast/findLastIndex 最后可用参考图选择。',
+      description: '验证自定义技能兼容模型常写的 findLast/findLastIndex 最后可用参考图选择。',
       script: r'''
 const refs = args.references;
 const lastImage = refs.findLast(ref => ref.type === 'image' && ref.enabled !== false);
@@ -6773,8 +6772,7 @@ return JSON.stringify({
     engine.saveCustomAgentSkill(
       id: 'custom_script_copy_sort_reverse_runtime',
       name: '非原地排序反转脚本运行时',
-      description:
-          '验证自定义技能兼容模型常写的 toSorted/toReversed，且不改变原数组。',
+      description: '验证自定义技能兼容模型常写的 toSorted/toReversed，且不改变原数组。',
       script: r'''
 const assets = args.assets;
 const sorted = assets.toSorted((a, b) => b.priority - a.priority);
@@ -6833,8 +6831,7 @@ return JSON.stringify({
     engine.saveCustomAgentSkill(
       id: 'custom_script_copy_update_runtime',
       name: '非原地数组更新脚本运行时',
-      description:
-          '验证自定义技能兼容模型常写的 toSpliced/with，便于派生分镜和参考图列表。',
+      description: '验证自定义技能兼容模型常写的 toSpliced/with，便于派生分镜和参考图列表。',
       script: r'''
 const refs = args.references;
 const inserted = refs.toSpliced(1, 1, { id: 'R2b', name: ' 修正版中景 ' });
@@ -16196,6 +16193,47 @@ description: 只属于水墨视觉项目
     expect(rows.single.assetIds, [roleId, sceneId]);
     expect(rows.single.assetIds, isNot(contains(decoyRoleId)));
     expect(rows.single.assetIds, isNot(contains(decoySceneId)));
+  });
+
+  test('ProductionAgent storyboard panel XML accepts self closing items',
+      () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'prompt': '写第一集分镜面板', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.text(
+        "<storyboardItem videoDesc='李澈立于寒山山门前' "
+        "prompt='冷白山门，少年停步，远景' track='主线' "
+        "shouldGenerateImage='true' duration='4' "
+        "associateAssetsIds='[$roleId]' />",
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '写自闭合分镜面板',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows, hasLength(1));
+    expect(rows.single.videoDesc, '李澈立于寒山山门前');
+    expect(rows.single.prompt, '冷白山门，少年停步，远景');
+    expect(rows.single.duration, '4');
+    expect(rows.single.track, '主线');
+    expect(rows.single.shouldGenerateImage, 1);
+    expect(rows.single.assetIds, [roleId]);
   });
 
   test(

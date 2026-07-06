@@ -1620,43 +1620,57 @@ class ProductionStoryboardItem {
 
 List<ProductionStoryboardItem> parseProductionStoryboardItems(String source) {
   final items = <ProductionStoryboardItem>[];
-  final matches = RegExp(
+  final pairedMatches = RegExp(
     r'<storyboardItem\b([^>]*)>([\s\S]*?)</storyboardItem>',
     caseSensitive: false,
   ).allMatches(source);
 
-  for (final match in matches) {
+  for (final match in pairedMatches) {
     final attrs = match.group(1) ?? '';
     final body = stripXmlTags(match.group(2) ?? '').trim();
-    final videoDesc = decodeXmlEntities(
-      (_attributeValue(attrs, 'videoDesc').trim().isEmpty
-              ? body
-              : _attributeValue(attrs, 'videoDesc'))
-          .trim(),
-    );
-    if (videoDesc.isEmpty) continue;
-    final prompt = decodeXmlEntities(_attributeValue(attrs, 'prompt').trim());
-    final track = decodeXmlEntities(_attributeValue(attrs, 'track').trim());
-    final duration =
-        decodeXmlEntities(_attributeValue(attrs, 'duration').trim());
-    final shouldGenerateImage = _truthyText(
-      _attributeValue(attrs, 'shouldGenerateImage'),
-      defaultValue: true,
-    );
-    final associateAssetIds = _storyboardAssetIds(attrs);
-    final associateAssetRefs = _storyboardAssetRefs(attrs);
-    items.add(ProductionStoryboardItem(
-      videoDesc: videoDesc,
-      prompt: prompt,
-      track: track,
-      duration: duration,
-      associateAssetIds: associateAssetIds,
-      associateAssetRefs: associateAssetRefs,
-      shouldGenerateImage: shouldGenerateImage,
-    ));
+    final item = _storyboardItemFromAttrs(attrs, body: body);
+    if (item != null) items.add(item);
+  }
+
+  final selfClosingMatches = RegExp(
+    r'<storyboardItem\b([^>]*)/>',
+    caseSensitive: false,
+  ).allMatches(source);
+  for (final match in selfClosingMatches) {
+    final item = _storyboardItemFromAttrs(match.group(1) ?? '');
+    if (item != null) items.add(item);
   }
 
   return items;
+}
+
+ProductionStoryboardItem? _storyboardItemFromAttrs(
+  String attrs, {
+  String body = '',
+}) {
+  final videoDesc = decodeXmlEntities(
+    (_attributeValue(attrs, 'videoDesc').trim().isEmpty
+            ? body
+            : _attributeValue(attrs, 'videoDesc'))
+        .trim(),
+  );
+  if (videoDesc.isEmpty) return null;
+  final prompt = decodeXmlEntities(_attributeValue(attrs, 'prompt').trim());
+  final track = decodeXmlEntities(_attributeValue(attrs, 'track').trim());
+  final duration = decodeXmlEntities(_attributeValue(attrs, 'duration').trim());
+  final shouldGenerateImage = _truthyText(
+    _attributeValue(attrs, 'shouldGenerateImage'),
+    defaultValue: true,
+  );
+  return ProductionStoryboardItem(
+    videoDesc: videoDesc,
+    prompt: prompt,
+    track: track,
+    duration: duration,
+    associateAssetIds: _storyboardAssetIds(attrs),
+    associateAssetRefs: _storyboardAssetRefs(attrs),
+    shouldGenerateImage: shouldGenerateImage,
+  );
 }
 
 List<int> _storyboardAssetIds(String attrs) => _dedupeInts([
