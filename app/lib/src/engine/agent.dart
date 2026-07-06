@@ -99,10 +99,12 @@ class _MarkdownSkillResources {
 class _AgentMemoryQueryRequest {
   final String query;
   final Map<String, dynamic> args;
+  final int? limit;
 
   const _AgentMemoryQueryRequest({
     required this.query,
     required this.args,
+    this.limit,
   });
 }
 
@@ -10527,7 +10529,7 @@ extension AgentApi on Engine {
           final baseExcludeIds =
               _agentMemoryExcludeIds(args, excludedMemoryIds);
           final sortMode = _agentMemorySortMode(args);
-          final limit = _agentMemoryLimit(args);
+          final limit = _agentMemoryDirectLimit(args);
           final memoryService = _agentMemoryService(family: agentFamily);
           final relatedMessageRecords = <AgentMemoryEntry>[];
           final summaryRecords = <AgentMemoryEntry>[];
@@ -10553,6 +10555,8 @@ extension AgentApi on Engine {
             final types = _deepRetrieveMemoryTypes(requestArgs);
             final minScore = _agentMemoryMinScore(requestArgs);
             final timeRange = _agentMemoryTimeRange(requestArgs);
+            final requestSortMode = _agentMemorySortMode(requestArgs);
+            final requestLimit = request.limit;
             final includeMessages =
                 types == null || types.contains(agentMemoryTypeMessage);
             final includeSummaries =
@@ -10586,7 +10590,11 @@ extension AgentApi on Engine {
                   )
                 : const AgentMemoryContext();
             if (includeMessages) {
-              relatedMessageRecords.addAll(context.relatedMessages);
+              relatedMessageRecords.addAll(_limitAgentMemoryEntries(
+                context.relatedMessages,
+                requestSortMode,
+                requestLimit,
+              ));
               recentMessageRecords.addAll(context.recentMessages);
             }
             if (includeSummaries) {
@@ -10599,7 +10607,7 @@ extension AgentApi on Engine {
                 for (final record in context.summaries) record.id,
                 for (final record in context.recentMessages) record.id,
               };
-              noteRecords.addAll(await memoryService.deepRetrieve(
+              final requestNotes = await memoryService.deepRetrieve(
                 isolationKey: _agentConversationIsolationKey(
                   projectId,
                   family: agentFamily,
@@ -10613,6 +10621,11 @@ extension AgentApi on Engine {
                 minScore: minScore,
                 timeRange: timeRange,
                 noteIsolationKey: _agentMemoryIsolationKey(projectId),
+              );
+              noteRecords.addAll(_limitAgentMemoryEntries(
+                requestNotes,
+                requestSortMode,
+                requestLimit,
               ));
             }
           }
@@ -10702,7 +10715,7 @@ extension AgentApi on Engine {
           final baseExcludeIds =
               _agentMemoryExcludeIds(args, excludedMemoryIds);
           final sortMode = _agentMemorySortMode(args);
-          final limit = _agentMemoryLimit(args);
+          final limit = _agentMemoryDirectLimit(args);
           final memoryService = _agentMemoryService(family: agentFamily);
           final records = <AgentMemoryEntry>[];
           for (final request in queryRequests) {
@@ -10723,13 +10736,15 @@ extension AgentApi on Engine {
             final types = _deepRetrieveMemoryTypes(requestArgs);
             final minScore = _agentMemoryMinScore(requestArgs);
             final timeRange = _agentMemoryTimeRange(requestArgs);
+            final requestSortMode = _agentMemorySortMode(requestArgs);
+            final requestLimit = request.limit;
             final excludeIds =
                 _agentMemoryExcludeIds(requestArgs, excludedMemoryIds);
             final queryExcludeIds = {
               ...excludeIds,
               for (final record in records) record.id,
             };
-            records.addAll(await memoryService.deepRetrieve(
+            final requestRecords = await memoryService.deepRetrieve(
               isolationKey: _agentConversationIsolationKey(
                 projectId,
                 family: agentFamily,
@@ -10743,6 +10758,11 @@ extension AgentApi on Engine {
               minScore: minScore,
               timeRange: timeRange,
               noteIsolationKey: _agentMemoryIsolationKey(projectId),
+            );
+            records.addAll(_limitAgentMemoryEntries(
+              requestRecords,
+              requestSortMode,
+              requestLimit,
             ));
           }
           if (includeVisualReferences) {
@@ -11973,7 +11993,11 @@ extension AgentApi on Engine {
     final requests = <_AgentMemoryQueryRequest>[];
     final baseArgs = _agentMemoryArgsWithoutQueryPlan(args);
 
-    void addRequest(String query, Map<String, dynamic> requestArgs) {
+    void addRequest(
+      String query,
+      Map<String, dynamic> requestArgs, {
+      int? limit,
+    }) {
       final trimmed = query.trim();
       if (trimmed.isEmpty) return;
       requests.add(
@@ -11983,19 +12007,28 @@ extension AgentApi on Engine {
             ...requestArgs,
             'query': trimmed,
           },
+          limit: limit,
         ),
       );
     }
 
-    void addTextRequests(Object? raw, Map<String, dynamic> requestArgs) {
+    void addTextRequests(
+      Object? raw,
+      Map<String, dynamic> requestArgs, {
+      int? limit,
+    }) {
       final items = _coerceStringList(raw);
       if (items == null) return;
       for (final item in items) {
-        addRequest(item, requestArgs);
+        addRequest(item, requestArgs, limit: limit);
       }
     }
 
-    void addPlanNode(Object? raw, Map<String, dynamic> inheritedArgs) {
+    void addPlanNode(
+      Object? raw,
+      Map<String, dynamic> inheritedArgs, {
+      int? inheritedLimit,
+    }) {
       if (raw == null) return;
       if (raw is Map) {
         final map = <String, dynamic>{
@@ -12006,6 +12039,7 @@ extension AgentApi on Engine {
           ...inheritedArgs,
           ..._agentMemoryPlanFilterArgs(map),
         };
+        final nodeLimit = _agentMemoryDirectLimit(map) ?? inheritedLimit;
         for (final key in const [
           'query',
           'q',
@@ -12024,7 +12058,7 @@ extension AgentApi on Engine {
           'search_text',
           'term',
         ]) {
-          addTextRequests(map[key], nodeArgs);
+          addTextRequests(map[key], nodeArgs, limit: nodeLimit);
         }
         final childArgs = {
           ...inheritedArgs,
@@ -12053,17 +12087,17 @@ extension AgentApi on Engine {
           'items',
           'steps',
         ]) {
-          addPlanNode(map[key], childArgs);
+          addPlanNode(map[key], childArgs, inheritedLimit: nodeLimit);
         }
         return;
       }
       if (raw is Iterable) {
         for (final item in raw) {
-          addPlanNode(item, inheritedArgs);
+          addPlanNode(item, inheritedArgs, inheritedLimit: inheritedLimit);
         }
         return;
       }
-      addTextRequests(raw, inheritedArgs);
+      addTextRequests(raw, inheritedArgs, limit: inheritedLimit);
     }
 
     final single = _stringArgAny(args, const [
@@ -12807,46 +12841,25 @@ extension AgentApi on Engine {
     return value.round().clamp(1, 100);
   }
 
-  int? _agentMemoryLimit(Map<String, dynamic> args) {
-    final explicitRaw = args['limit'] ??
-        args['topK'] ??
-        args['top_k'] ??
-        args['maxResults'] ??
-        args['max_results'] ??
-        args['max'] ??
-        args['count'] ??
-        args['数量'] ??
-        args['条数'] ??
-        args['返回数量'] ??
-        args['k'];
+  int? _agentMemoryDirectLimit(Map<String, dynamic> args) {
+    final explicitRaw = _agentMemoryDirectLimitRaw(args);
     final explicitLimit = _coerceInt(explicitRaw);
     if (explicitLimit != null) return explicitLimit.clamp(1, 50).toInt();
-    if (explicitRaw != null && explicitRaw.toString().trim().isNotEmpty) {
-      return null;
-    }
-    for (final value in _agentMemoryQueryPlanLimitValues(args)) {
-      final planLimit = _coerceInt(value);
-      if (planLimit != null) return planLimit.clamp(1, 50).toInt();
-    }
     return null;
   }
 
-  List<Object?> _agentMemoryQueryPlanLimitValues(
-    Map<String, dynamic> args,
-  ) =>
-      _agentMemoryQueryPlanFilterValues(args, const [
-        'limit',
-        'topK',
-        'top_k',
-        'maxResults',
-        'max_results',
-        'max',
-        'count',
-        '数量',
-        '条数',
-        '返回数量',
-        'k',
-      ]);
+  Object? _agentMemoryDirectLimitRaw(Map<String, dynamic> args) =>
+      args['limit'] ??
+      args['topK'] ??
+      args['top_k'] ??
+      args['maxResults'] ??
+      args['max_results'] ??
+      args['max'] ??
+      args['count'] ??
+      args['数量'] ??
+      args['条数'] ??
+      args['返回数量'] ??
+      args['k'];
 
   String _agentMemorySortMode(Map<String, dynamic> args) {
     final explicitRaw = args['orderBy'] ??
@@ -12942,6 +12955,15 @@ extension AgentApi on Engine {
       return a.id.compareTo(b.id);
     });
     return sorted;
+  }
+
+  List<AgentMemoryEntry> _limitAgentMemoryEntries(
+    List<AgentMemoryEntry> entries,
+    String sortMode,
+    int? limit,
+  ) {
+    final sorted = _sortAgentMemoryEntries(entries, sortMode);
+    return limit == null ? sorted : sorted.take(limit).toList();
   }
 
   Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {
