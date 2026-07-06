@@ -280,6 +280,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Chinese mo
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the supervision Agent accepting natural Chinese approval phrases such as `可以执行`, so safe reviewed tool calls are not blocked merely because the reviewing model did not output the literal English `APPROVE` token.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers the supervision Agent cleaning natural Chinese rejection prefixes such as `不允许执行` before recording the blocked tool-call reason, so UI messages and RAG audit memories keep the actionable reason instead of repeating model-output boilerplate.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent `<scriptItem>` accepting natural name aliases such as `episodeName` and `scriptName`, while XML attribute lookup now requires real attribute boundaries so unrelated fields such as `username` are not misread as `name`.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.

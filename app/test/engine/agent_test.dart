@@ -1095,6 +1095,32 @@ void main() {
     expect(memoryRoles, contains('assistant:supervision'));
   });
 
+  test('监督 Agent 清理中文自然拒绝前缀', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.supervision.enabled', '1'],
+    );
+    db.execute(
+      'INSERT INTO o_novel '
+      '(projectId,chapterIndex,reel,chapter,chapterData,createTime,eventState) '
+      'VALUES (?,?,?,?,?,?,0)',
+      [projectId, 1, '正文卷', '一', 'x', DateTime.now().millisecondsSinceEpoch],
+    );
+    gateway.turns = const [
+      AgentTurnResult.tool('generate_events', {}),
+      AgentTurnResult.text('不允许执行：没有明确授权批量生成全部章节。'),
+    ];
+
+    await engine.sendAgentMessage(projectId, '直接批量生成事件', autoMode: false);
+
+    expect(db.select('SELECT id FROM o_tasks'), isEmpty);
+    final msg = engine.agentMessages(projectId).last;
+    expect(
+      msg.content,
+      '监督 Agent 已拦截 generate_events：没有明确授权批量生成全部章节。',
+    );
+  });
+
   test('监督 Agent 复核工具调用时注入长期记忆和对话记忆上下文', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',

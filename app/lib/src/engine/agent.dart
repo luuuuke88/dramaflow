@@ -9144,9 +9144,12 @@ extension AgentApi on Engine {
       }
       return '监督 Agent 拒绝执行。';
     }
-    if (text.startsWith('拒绝') || text.startsWith('拦截')) {
-      final cleaned =
-          text.replaceFirst(RegExp(r'^(拒绝|拦截)\s*[:：]?\s*'), '').trim();
+    final zhRejection = RegExp(
+      r'^(拒绝|拦截|不允许执行|不可以执行|不能执行|不可执行|禁止执行|'
+      r'驳回|不要执行|请勿执行|不通过)\s*[:：]?\s*',
+    );
+    if (zhRejection.hasMatch(text)) {
+      final cleaned = text.replaceFirst(zhRejection, '').trim();
       return cleaned.isEmpty ? '监督 Agent 拒绝执行。' : cleaned;
     }
     return text;
