@@ -5143,6 +5143,58 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持正则命名捕获 groups 元数据', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_regex_named_groups_runtime',
+      name: '正则命名分组脚本运行时',
+      description: '验证自定义技能兼容模型常写的 match.groups.desc。',
+      script: r'''
+const first = args.workspace.match(/<storyboardItem\b[^>]*videoDesc="(?<desc>[^"]+)"[^>]*duration="(?<duration>[^"]+)"/);
+const exec = /track="(?<track>[^"]+)"/.exec(args.workspace);
+return JSON.stringify({
+  desc: first.groups.desc.trim(),
+  duration: first.groups['duration'],
+  groupKeys: Object.keys(first.groups).sort().join('|'),
+  groupValues: Object.values(first.groups).map(value => value.trim()).join('|'),
+  track: exec.groups.track,
+  missingGroups: /sound="([^"]+)"/.exec(args.workspace)?.groups ?? null,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_regex_named_groups_runtime', const {
+        'workspace':
+            '<storyboardItem videoDesc=" 雪夜山门 " duration="3秒" track="首帧"></storyboardItem>',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用正则命名分组脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_regex_named_groups_runtime');
+    expect(jsonDecode(msg.content), {
+      'desc': '雪夜山门',
+      'duration': '3秒',
+      'groupKeys': 'desc|duration',
+      'groupValues': '雪夜山门|3秒',
+      'track': '首帧',
+      'missingGroups': null,
+    });
+  });
+
   test('自定义脚本技能：支持 RegExp 构造和 test 筛选资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_regexp_test_runtime',

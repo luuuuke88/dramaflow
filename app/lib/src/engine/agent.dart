@@ -2727,7 +2727,7 @@ class _CustomAgentSkillRuntime {
     if (needle.isEmpty) return [''];
     final index = text.indexOf(needle);
     return index >= 0
-        ? _CustomJsMatch([needle], index: index, input: text)
+        ? _CustomJsMatch([needle], index: index, input: text, groups: null)
         : null;
   }
 
@@ -2745,7 +2745,9 @@ class _CustomAgentSkillRuntime {
     while (start <= text.length) {
       final index = text.indexOf(needle, start);
       if (index < 0) break;
-      matches.add(_CustomJsMatch([needle], index: index, input: text));
+      matches.add(
+        _CustomJsMatch([needle], index: index, input: text, groups: null),
+      );
       start = index + needle.length;
     }
     return matches;
@@ -2759,7 +2761,15 @@ class _CustomAgentSkillRuntime {
         ],
         index: match.start,
         input: input,
+        groups: _customJsMatchGroups(match),
       );
+
+  Map<String, Object?>? _customJsMatchGroups(RegExpMatch match) {
+    final groups = <String, Object?>{
+      for (final name in match.groupNames) name: match.namedGroup(name),
+    };
+    return groups.isEmpty ? null : groups;
+  }
 
   String _replaceString(
     String text,
@@ -4222,6 +4232,7 @@ class _CustomAgentSkillRuntime {
     if (value is _CustomJsMatch) {
       if (property == 'index') return value.index;
       if (property == 'input') return value.input;
+      if (property == 'groups') return value.groups;
     }
     if (value is _CustomJsRegExp && property == 'lastIndex') {
       return value.lastIndex;
@@ -4310,12 +4321,14 @@ class _CustomJsMatch extends ListBase<Object?> {
   final List<Object?> _groups;
   final int index;
   final String input;
+  final Map<String, Object?>? groups;
 
   _CustomJsMatch(
-    List<Object?> groups, {
+    List<Object?> items, {
     required this.index,
     required this.input,
-  }) : _groups = groups;
+    required this.groups,
+  }) : _groups = items;
 
   @override
   int get length => _groups.length;
