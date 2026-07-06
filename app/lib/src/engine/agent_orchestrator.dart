@@ -864,6 +864,56 @@ const Map<String, dynamic> _storyboardWriteAliasProperties = <String, dynamic>{
     'items': {'type': 'integer'},
     'description': 'assetIds 的 snake_case 别名。',
   },
+  'assetName': {
+    'type': ['string', 'array', 'null'],
+    'items': {'type': 'string'},
+    'description': '按关联资产名称精确匹配。',
+  },
+  'assetNames': {
+    'type': ['array', 'string', 'null'],
+    'items': {'type': 'string'},
+    'description': 'assetName 的复数别名。',
+  },
+  'roleName': {
+    'type': ['string', 'array', 'null'],
+    'items': {'type': 'string'},
+    'description': '按角色资产名称精确匹配。',
+  },
+  'roleNames': {
+    'type': ['array', 'string', 'null'],
+    'items': {'type': 'string'},
+    'description': 'roleName 的复数别名。',
+  },
+  'sceneName': {
+    'type': ['string', 'array', 'null'],
+    'items': {'type': 'string'},
+    'description': '按场景资产名称精确匹配。',
+  },
+  'sceneNames': {
+    'type': ['array', 'string', 'null'],
+    'items': {'type': 'string'},
+    'description': 'sceneName 的复数别名。',
+  },
+  'toolName': {
+    'type': ['string', 'array', 'null'],
+    'items': {'type': 'string'},
+    'description': '按道具资产名称精确匹配。',
+  },
+  'toolNames': {
+    'type': ['array', 'string', 'null'],
+    'items': {'type': 'string'},
+    'description': 'toolName 的复数别名。',
+  },
+  'asset_name': {
+    'type': ['string', 'array', 'null'],
+    'items': {'type': 'string'},
+    'description': 'assetName 的 snake_case 别名。',
+  },
+  'asset_names': {
+    'type': ['array', 'string', 'null'],
+    'items': {'type': 'string'},
+    'description': 'assetNames 的 snake_case 别名。',
+  },
   'associate_asset_ids': {
     'type': ['array', 'null'],
     'items': {'type': 'integer'},
@@ -929,6 +979,56 @@ const Map<String, dynamic> _deriveAssetWriteAliasProperties = <String, dynamic>{
   'parent_assets_id': {
     'type': 'integer',
     'description': 'parentAssetsId 的 snake_case 别名。',
+  },
+  'parentAssetName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': '按父资产名称精确匹配。',
+  },
+  'parentAssetNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'parentAssetName 的复数别名。',
+  },
+  'parentName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'parentAssetName 的简写别名。',
+  },
+  'parentNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'parentName 的复数别名。',
+  },
+  'sourceAssetName': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'parentAssetName 的来源资产语义别名。',
+  },
+  'sourceAssetNames': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'sourceAssetName 的复数别名。',
+  },
+  'parent_asset_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'parentAssetName 的 snake_case 别名。',
+  },
+  'parent_asset_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'parentAssetNames 的 snake_case 别名。',
+  },
+  'source_asset_name': {
+    'type': ['string', 'array'],
+    'items': {'type': 'string'},
+    'description': 'sourceAssetName 的 snake_case 别名。',
+  },
+  'source_asset_names': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'sourceAssetNames 的 snake_case 别名。',
   },
   'id': {
     'type': ['integer', 'null'],

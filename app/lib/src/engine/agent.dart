@@ -10225,16 +10225,12 @@ extension AgentApi on Engine {
     int projectId,
     Map<String, dynamic> args,
   ) {
-    final parentId = _coerceInt(_argAny(args, const [
-      'assetsId',
-      'assetId',
-      'parentAssetId',
-      'parentAssetsId',
-      'asset_id',
-      'assets_id',
-      'parent_asset_id',
-      'parent_assets_id',
-    ]));
+    final scriptId = _productionScriptId(projectId, args);
+    final parentId = _productionParentAssetIdArg(
+      projectId,
+      args,
+      scriptId: scriptId,
+    );
     if (parentId == null) return '缺少 assetsId 参数。';
     final name = _stringArgAny(args, const [
       'name',
@@ -10265,7 +10261,6 @@ extension AgentApi on Engine {
     final parent = db
         .select('SELECT type FROM o_assets WHERE id=?', [parentId]).firstOrNull;
     if (parent == null) return '关联的资产不存在。';
-    final scriptId = _productionScriptId(projectId, args);
     if (id == null) {
       final childId = addAsset(
         projectId: projectId,
@@ -10292,6 +10287,57 @@ extension AgentApi on Engine {
       'INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
       [scriptId, assetId],
     );
+  }
+
+  int? _productionParentAssetIdArg(
+    int projectId,
+    Map<String, dynamic> args, {
+    int? scriptId,
+  }) {
+    final direct = _coerceInt(_argAny(args, const [
+      'assetsId',
+      'assetId',
+      'parentAssetId',
+      'parentAssetsId',
+      'asset_id',
+      'assets_id',
+      'parent_asset_id',
+      'parent_assets_id',
+    ]));
+    if (direct != null) return direct;
+    final names = _stringListAny(args, const [
+      'parentAssetName',
+      'parentAssetNames',
+      'parentName',
+      'parentNames',
+      'sourceAssetName',
+      'sourceAssetNames',
+      'parent_asset_name',
+      'parent_asset_names',
+      'source_asset_name',
+      'source_asset_names',
+    ]);
+    if (names == null) return null;
+    final wanted = names.map((name) => name.trim()).toSet();
+    final linkedIds = scriptId == null
+        ? null
+        : db
+            .select('SELECT assetId FROM o_scriptAssets WHERE scriptId=?',
+                [scriptId])
+            .map((row) => row['assetId'] as int)
+            .toSet();
+    final rows = db.select(
+      'SELECT id,name FROM o_assets '
+      'WHERE projectId=? AND assetsId IS NULL ORDER BY id',
+      [projectId],
+    );
+    for (final row in rows) {
+      final id = row['id'] as int;
+      if (!wanted.contains((row['name'] as String? ?? '').trim())) continue;
+      if (linkedIds != null && !linkedIds.contains(id)) continue;
+      return id;
+    }
+    return null;
   }
 
   String _productionAgentDeleteDeriveAsset(
@@ -10379,6 +10425,12 @@ extension AgentApi on Engine {
       'deriveAssetNames',
       'childAssetName',
       'childAssetNames',
+      'roleName',
+      'roleNames',
+      'sceneName',
+      'sceneNames',
+      'toolName',
+      'toolNames',
       'asset_name',
       'asset_names',
       'derive_asset_name',
@@ -10471,6 +10523,7 @@ extension AgentApi on Engine {
             'associatedAssetIds',
             'associated_asset_ids',
           ]) ??
+          _productionAssetIdsArg(projectId, args, scriptId: scriptId) ??
           const [],
       shouldGenerateImage: _argBool(
         shouldGenerateImage,

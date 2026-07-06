@@ -246,6 +246,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Production
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent execution tools exposing and accepting natural asset and shot selectors such as `assetName` and `shotNo`, resolving them to asset/storyboard ids before enqueueing image tasks so production sub Agents do not need raw database ids for common media-generation steps.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent write tools accepting natural asset references such as `parentAssetName` for derived-asset parent lookup and `assetName` for storyboard associated assets, so production sub Agents can write assets and panels from named story context instead of database ids.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Array(n).fill(...).map(...)`, `Array(n)`, and `String(...).padStart(...)` in custom `custom-js-agent` skills, matching another common model-authored helper-script pattern used for shot/reference numbering.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `String(...).padEnd(...)` and string-literal `.repeat(...)`, so custom skills can build fixed-width labels, dividers, and normalized helper text with ordinary model-authored JavaScript.

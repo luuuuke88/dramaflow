@@ -14046,6 +14046,16 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'assets_id',
         'parent_asset_id',
         'parent_assets_id',
+        'parentAssetName',
+        'parentAssetNames',
+        'parentName',
+        'parentNames',
+        'sourceAssetName',
+        'sourceAssetNames',
+        'parent_asset_name',
+        'parent_asset_names',
+        'source_asset_name',
+        'source_asset_names',
         'episodeNo',
         'scriptName',
         'episodeName',
@@ -14161,6 +14171,16 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'associateAssetsIds',
         'assetIds',
         'asset_ids',
+        'assetName',
+        'assetNames',
+        'roleName',
+        'roleNames',
+        'sceneName',
+        'sceneNames',
+        'toolName',
+        'toolNames',
+        'asset_name',
+        'asset_names',
         'associate_asset_ids',
         'associatedAssetIds',
         'associated_asset_ids',
@@ -14472,6 +14492,52 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('制作执行工具调用接受 parentAssetName 别名写入衍生资产', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final parentAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, parentAssetId]);
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_derive_assets',
+        {'request': '按名字衍生雪夜造型', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool(
+        'add_deriveAsset',
+        const {
+          'parentAssetName': '李澈',
+          'assetName': '李澈雪夜造型',
+          'description': '白衣带雪，肩甲结霜',
+        },
+      ),
+      const AgentTurnResult.text('衍生资产完成'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：按名字写衍生资产',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final child = db.select(
+      'SELECT * FROM o_assets WHERE assetsId=? AND name=?',
+      [parentAssetId, '李澈雪夜造型'],
+    ).single;
+    expect(child['describe'], '白衣带雪，肩甲结霜');
+    expect(
+      db.select('SELECT assetId FROM o_scriptAssets WHERE scriptId=?',
+          [scriptId]).map((row) => row['assetId']),
+      contains(child['id']),
+    );
+  });
+
   test('制作执行工具调用接受 deriveAssetId 别名删除衍生资产', () async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
@@ -14718,6 +14784,43 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(rows.single.duration, '3.5');
     expect(rows.single.track, '主线');
     expect(rows.single.shouldGenerateImage, 0);
+    expect(rows.single.assetIds, [roleId]);
+  });
+
+  test('制作执行工具调用接受 assetName 别名写入分镜关联资产', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '李澈',
+      describe: '寒山少主',
+    );
+    db.execute('INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+        [scriptId, roleId]);
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'request': '写第一集分镜', 'scriptId': scriptId},
+      ),
+      AgentTurnResult.tool('add_flowData_storyboard', const {
+        'videoDescription': '李澈踏入寒山宗门',
+        'imagePrompt': '冷色调，少年入山，远景',
+        'assetName': '李澈',
+        'generateImage': false,
+      }),
+      const AgentTurnResult.text('分镜已写入'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：按资产名写分镜面板',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows, hasLength(1));
     expect(rows.single.assetIds, [roleId]);
   });
 
