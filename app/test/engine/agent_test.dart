@@ -21559,6 +21559,54 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(supervisionMemory['content'], '监督结论：节奏成立。');
   });
 
+  test('ScriptAgent 监督返回后自动模式等待用户确认再继续', () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '搭建寒山篇前三集骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+      AgentTurnResult.tool(
+        'run_supervision_agent',
+        const {'prompt': '检查前三集是否连续'},
+      ),
+      const AgentTurnResult.text('监督结论：节奏成立。'),
+      AgentTurnResult.tool(
+        'run_sub_agent_adaptationStrategy',
+        const {'prompt': '不应自动进入改编策略'},
+      ),
+      const AgentTurnResult.text(
+        '<adaptationStrategy>不应写入</adaptationStrategy>',
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '自动完成故事骨架并审核',
+      autoMode: true,
+    );
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:storySkeletonAgent',
+      'scriptAgent:decisionAgent',
+      'scriptAgent:supervisionAgent',
+    ]);
+    final data = _scriptAgentWorkData(db, projectId);
+    expect(data['storySkeleton'], '寒山篇三集骨架');
+    expect(data['supervision'], contains('节奏成立'));
+    expect(data['adaptationStrategy'], '');
+    final messages = engine.agentMessages(projectId);
+    expect(
+      messages.where(
+        (message) => message.toolName == 'run_sub_agent_adaptationStrategy',
+      ),
+      isEmpty,
+    );
+    expect(messages.last.role, agentRoleAssistant);
+    expect(messages.last.content, contains('请确认'));
+  });
+
   test('ScriptAgentOrchestrator parses script subagent XML into scripts',
       () async {
     gateway.turns = [
@@ -24293,6 +24341,60 @@ description: 只属于水墨视觉项目
     ).single;
     expect(supervisionMemory['name'], '监制');
     expect(supervisionMemory['content'], '监督结论：制作链路通过。');
+  });
+
+  test('ProductionAgent 监督返回后自动模式等待用户确认再继续', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_table',
+        {'prompt': '构建分镜表', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<storyboardTable>近景|横移</storyboardTable>'),
+      AgentTurnResult.tool(
+        'run_sub_agent_supervision',
+        {'prompt': '审核分镜表', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('监督结论：制作链路通过。'),
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_panel',
+        {'prompt': '不应自动写入面板', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text(
+        '<storyboardItem prompt="不应写入" videoDesc="不应写入" />',
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：构建分镜表并审核',
+      autoMode: true,
+      family: agentFamilyProduction,
+    );
+
+    expect(gateway.stages, [
+      'productionAgent:decisionAgent',
+      'productionAgent:storyboardTableAgent',
+      'productionAgent:decisionAgent',
+      'productionAgent:supervisionAgent',
+    ]);
+    final flowData = _productionAgentWorkData(db, projectId, scriptId);
+    expect(flowData['storyboardTable'], '近景|横移');
+    expect(flowData['supervision'], contains('制作链路通过'));
+    expect(engine.storyboards(scriptId), isEmpty);
+    final messages = engine.agentMessages(
+      projectId,
+      family: agentFamilyProduction,
+    );
+    expect(
+      messages.where(
+        (message) => message.toolName == 'run_sub_agent_storyboard_panel',
+      ),
+      isEmpty,
+    );
+    expect(messages.last.role, agentRoleAssistant);
+    expect(messages.last.content, contains('请确认'));
   });
 }
 

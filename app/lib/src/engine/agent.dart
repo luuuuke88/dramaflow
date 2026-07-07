@@ -10740,6 +10740,24 @@ extension AgentApi on Engine {
           productionSubAgentFailureCounts.remove(toolName);
         }
       }
+      if (autoMode &&
+          _isSupervisionSubAgentTool(toolName) &&
+          !_isAgentSubAgentFailureSummary(summary)) {
+        final content = '监督结果已返回，请确认审核报告后再继续下一步。';
+        messages.add(AgentMessage(
+          role: agentRoleAssistant,
+          content: content,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+        ));
+        _saveAgentMessages(projectId, messages, family: agentFamily);
+        await _recordAgentMemory(
+          projectId,
+          family: agentFamily,
+          role: _agentDecisionMemoryRole,
+          content: content,
+        );
+        return;
+      }
     }
   }
 
@@ -10769,6 +10787,10 @@ extension AgentApi on Engine {
 
   bool _isProductionAgentSubAgentTool(String toolName) =>
       toolName.startsWith('run_sub_agent_');
+
+  bool _isSupervisionSubAgentTool(String toolName) =>
+      toolName == 'run_supervision_agent' ||
+      toolName == 'run_sub_agent_supervision';
 
   bool _isAgentSubAgentFailureSummary(String summary) {
     final text = summary.trim();
