@@ -69,6 +69,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 - ES 风格 `term` / `terms` 字段过滤已映射到本地记忆元数据：`role` 进入角色过滤，`scope/type` 进入记忆范围过滤；这些元字段不会再被误当成内容关键词。
 - ES 风格 `size` 已作为 `limit` 别名接入 `memory_get` / `deepRetrieve` 和 queryPlan 计划项，模型按 Elasticsearch 习惯生成的返回条数限制不会被忽略。
 - ES 风格 `post_filter` / `postFilter` 已作为硬过滤包裹接入 queryPlan，支持内容过滤和 role/scope/type 元字段过滤。
+- ES 风格 `exists` 已作为 record 字段存在性过滤接入 queryPlan，支持 `id/name/content/role/type/scope/createTime/embedding/score` 等记忆记录字段。
 
 ## 仍不能称为“完全复刻”的部分
 

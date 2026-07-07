@@ -590,7 +590,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/size/priority/mustInclude/excludeTerms/must/must_not/match/operator 等过滤提示，也可把这些过滤提示包在 filter/post_filter/where/bool/criteria/条件 对象内。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/size/priority/mustInclude/excludeTerms/must/must_not/match/exists/operator 等过滤提示，也可把这些过滤提示包在 filter/post_filter/where/bool/criteria/条件 对象内。',
   },
   'query_plan': {
     'type': ['array', 'object'],
@@ -1081,6 +1081,10 @@ const _agentMemoryContentFilterToolSchema = {
   'postFilter': {
     'type': 'object',
     'description': 'post_filter 的 camelCase 别名。',
+  },
+  'exists': {
+    'type': ['object', 'array', 'string'],
+    'description': '可选。Elasticsearch exists 字段存在过滤；支持 {field:"role"} 或字段名字符串。',
   },
   '布尔条件': {
     'type': 'object',
@@ -16683,22 +16687,200 @@ extension AgentApi on Engine {
     final minimumShouldMatch =
         _agentMemoryMinimumShouldMatch(args, shouldTerms.length);
     final excludedTermGroups = _agentMemoryExcludedContentTermGroups(args);
+    final existingFields = _agentMemoryRequiredExistingFields(args);
     final contentFiltered = requiredTerms.isEmpty &&
             shouldTerms.isEmpty &&
-            excludedTermGroups.isEmpty
+            excludedTermGroups.isEmpty &&
+            existingFields.isEmpty
         ? entries.toList()
         : [
             for (final entry in entries)
               if (_matchesAgentMemoryContentTerms(
-                entry,
-                requiredTerms: requiredTerms,
-                shouldTerms: shouldTerms,
-                minimumShouldMatch: minimumShouldMatch,
-                excludedTermGroups: excludedTermGroups,
-              ))
+                    entry,
+                    requiredTerms: requiredTerms,
+                    shouldTerms: shouldTerms,
+                    minimumShouldMatch: minimumShouldMatch,
+                    excludedTermGroups: excludedTermGroups,
+                  ) &&
+                  _matchesAgentMemoryExistingFields(entry, existingFields))
                 entry,
           ];
     return _filterAgentMemoryEntriesByRetrievalSource(contentFiltered, args);
+  }
+
+  Set<String> _agentMemoryRequiredExistingFields(Map<String, dynamic> args) {
+    final fields = <String>{};
+
+    void addField(Object? raw) {
+      if (raw == null || raw is bool || raw is num) return;
+      if (raw is String) {
+        for (final part in raw.split(RegExp(r'[,，、;；]+'))) {
+          final normalized = _normalizeAgentMemoryFilterFieldKey(part);
+          if (normalized.isNotEmpty) fields.add(normalized);
+        }
+        return;
+      }
+      if (raw is Iterable) {
+        for (final item in raw) {
+          addField(item);
+        }
+        return;
+      }
+      if (raw is Map) {
+        var handled = false;
+        for (final key in const [
+          'field',
+          'fields',
+          'path',
+          'paths',
+          'name',
+          'names',
+          'key',
+          'keys',
+          '字段',
+          '字段名',
+          '字段列表',
+        ]) {
+          if (!raw.containsKey(key)) continue;
+          handled = true;
+          addField(raw[key]);
+        }
+        if (!handled && raw.containsKey('exists')) {
+          addField(raw['exists']);
+        }
+      }
+    }
+
+    for (final key in const [
+      'exists',
+      'fieldExists',
+      'field_exists',
+      'existsField',
+      'existsFields',
+      'exists_field',
+      'exists_fields',
+      '字段存在',
+      '存在字段',
+    ]) {
+      addField(args[key]);
+    }
+    for (final value in _agentMemoryQueryPlanFilterValues(args, const [
+      'exists',
+      'fieldExists',
+      'field_exists',
+      'existsField',
+      'existsFields',
+      'exists_field',
+      'exists_fields',
+      '字段存在',
+      '存在字段',
+    ])) {
+      addField(value);
+    }
+    return fields;
+  }
+
+  bool _matchesAgentMemoryExistingFields(
+    AgentMemoryEntry entry,
+    Set<String> fields,
+  ) {
+    if (fields.isEmpty) return true;
+    return fields.every((field) => _agentMemoryEntryHasField(entry, field));
+  }
+
+  bool _agentMemoryEntryHasField(AgentMemoryEntry entry, String field) {
+    switch (_normalizeAgentMemoryFilterFieldKey(field)) {
+      case 'id':
+      case 'ids':
+      case '_id':
+      case 'memoryid':
+      case 'memoryids':
+      case 'recordid':
+      case 'recordids':
+      case 'messageid':
+      case 'summaryid':
+      case 'noteid':
+        return entry.id.trim().isNotEmpty;
+      case 'name':
+      case 'title':
+      case 'label':
+      case 'memoryname':
+      case '标题':
+      case '名称':
+        return entry.name.trim().isNotEmpty;
+      case 'content':
+      case 'text':
+      case 'body':
+      case 'message':
+      case 'memory':
+      case '正文':
+      case '内容':
+        return entry.content.trim().isNotEmpty;
+      case 'role':
+      case 'roles':
+      case 'memoryrole':
+      case 'memoryroles':
+      case 'authorrole':
+      case 'authorroles':
+      case '角色':
+      case '记忆角色':
+        return entry.role.trim().isNotEmpty;
+      case 'type':
+      case 'types':
+      case 'memorytype':
+      case 'memorytypes':
+      case '类型':
+      case '记忆类型':
+        return entry.type.trim().isNotEmpty;
+      case 'scope':
+      case 'scopes':
+      case 'memoryscope':
+      case 'memoryscopes':
+      case '范围':
+      case '记忆范围':
+        return _deepRetrieveRecordScope(entry).trim().isNotEmpty;
+      case 'createdat':
+      case 'created':
+      case 'createtime':
+      case 'timestamp':
+      case 'time':
+      case '创建时间':
+      case '时间':
+        return entry.createdAt > 0;
+      case 'embedding':
+      case 'vector':
+        return entry.embedding.trim().isNotEmpty ||
+            entry.embeddingProvider != null ||
+            entry.embeddingModel != null ||
+            entry.embeddingDimension != null;
+      case 'relatedmessageids':
+      case 'relatedmessages':
+        return entry.relatedMessageIds.isNotEmpty;
+      case 'sourcesummaryids':
+      case 'sourcesummaries':
+        return entry.sourceSummaryIds.isNotEmpty;
+      case 'score':
+      case '_score':
+      case 'relevancescore':
+        return entry.score != null;
+      case 'matchedtokens':
+      case 'matchedterms':
+        return entry.matchedTokens.isNotEmpty;
+      case 'retrievalsource':
+      case 'retrievalsources':
+        return entry.retrievalSource?.trim().isNotEmpty == true;
+      case 'relevancereason':
+      case 'reason':
+        return entry.relevanceReason?.trim().isNotEmpty == true;
+      case 'embeddingprovider':
+        return entry.embeddingProvider?.trim().isNotEmpty == true;
+      case 'embeddingmodel':
+        return entry.embeddingModel?.trim().isNotEmpty == true;
+      case 'embeddingdimension':
+        return entry.embeddingDimension != null;
+      default:
+        return false;
+    }
   }
 
   List<AgentMemoryEntry> _filterAgentMemoryEntriesByRetrievalSource(
@@ -16949,6 +17131,7 @@ extension AgentApi on Engine {
     void add(Object? raw) {
       if (raw == null || raw is bool) return;
       if (raw is Map) {
+        if (raw.containsKey('exists')) return;
         var handled = false;
         for (final key in const [
           'term',

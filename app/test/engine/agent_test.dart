@@ -13916,6 +13916,156 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(jsonEncode(deepRetrievePayload), isNot(contains('普通对话')));
   });
 
+  test('Agent 记忆：queryPlan 支持 ES exists 字段存在过滤', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_exists_role_noise',
+      content: '存在字段甲：同一句只保留带角色字段的执行记录。',
+      offset: 0,
+      role: '',
+    );
+    insertMessage(
+      id: 'query_plan_exists_role_keep',
+      content: '存在字段甲：同一句只保留带角色字段的执行记录。',
+      offset: 1,
+      role: 'assistant:execution:script',
+    );
+    const unnamedNoteId = 'query_plan_exists_name_noise';
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        unnamedNoteId,
+        '',
+        '存在字段乙：长期设定只有带标题的记录可进入导演手册。',
+        now + 2,
+        embeddingJson('存在字段乙：长期设定只有带标题的记录可进入导演手册。'),
+        'project:$projectId',
+        '[]',
+        'agent',
+        0,
+        agentMemoryTypeNote,
+      ],
+    );
+    final namedNoteId = engine.saveAgentMemory(
+      projectId,
+      name: '存在字段乙导演手册',
+      content: '存在字段乙：长期设定只有带标题的记录可进入导演手册。',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'match': {'content': '存在字段甲'},
+            },
+            'filter': {
+              'exists': {'field': 'role'},
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'match': {'content': '存在字段乙'},
+            },
+            'post_filter': {
+              'exists': {'field': 'name'},
+            },
+            'scope': 'long_term',
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES exists 字段存在过滤召回 Agent 记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('exists'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_exists_role_keep'],
+    );
+    expect(jsonEncode(memoryGetPayload), isNot(contains('exists_role_noise')));
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      [namedNoteId],
+    );
+    expect(jsonEncode(deepRetrievePayload), isNot(contains(unnamedNoteId)));
+  });
+
   test('Agent 记忆：queryPlan filter 支持 term/match 对象项', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
