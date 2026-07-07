@@ -3722,9 +3722,16 @@ class _CustomAgentSkillRuntime {
     if (index >= source.length || source[index] != '(') return null;
     final condition = _readBalanced(source, index, '(', ')');
     index = _skipWhitespace(source, condition.end);
-    if (index >= source.length || source[index] != '{') return null;
-    final whenTrue = _readBalanced(source, index, '{', '}');
-    index = _skipWhitespace(source, whenTrue.end);
+    if (index >= source.length) return null;
+    late final String whenTrue;
+    if (source[index] == '{') {
+      final trueBlock = _readBalanced(source, index, '{', '}');
+      whenTrue = trueBlock.text;
+      index = _skipWhitespace(source, trueBlock.end);
+    } else {
+      whenTrue = source.substring(index).trim();
+      index = source.length;
+    }
     String? whenFalse;
     if (_startsWithWord(source, index, 'else')) {
       index = _skipWhitespace(source, index + 'else'.length);
@@ -3744,7 +3751,7 @@ class _CustomAgentSkillRuntime {
     }
     return _CustomJsIfStatement(
       condition: condition.text,
-      whenTrue: whenTrue.text,
+      whenTrue: whenTrue,
       whenFalse: whenFalse,
     );
   }

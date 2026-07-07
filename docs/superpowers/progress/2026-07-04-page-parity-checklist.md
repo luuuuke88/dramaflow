@@ -456,6 +456,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Array.reduceRight(...)` with callback index/source arguments and omitted initial values, so model-authored skills can fold storyboard or reference chains from tail to head without rewriting to manual reverse loops.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers brace-less guard statements such as `if (!shot.enabled) return list;` inside custom skill callbacks, so model-authored scripts can keep common early-return cleanup style without wrapping every branch in `{ ... }`.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers object-literal computed property names such as dynamic `[asset.type]` and template-literal keys, so model-authored skills can build dynamic Agent payloads without falling back to multi-step assignment.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers object destructuring rest patterns such as `const { id, ...payload } = asset` and callback parameters like `({ type, ...payload }) => ...`, so model-authored skills can strip routing fields while preserving the remaining asset/storyboard payload.

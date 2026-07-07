@@ -8994,15 +8994,16 @@ return JSON.stringify({
     });
   });
 
-  test('自定义脚本技能：支持 reduceRight 倒序整理分镜引用链', () async {
+  test('自定义脚本技能：支持 reduceRight 中无花括号 if return', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_reduce_right_runtime',
       name: '倒序归并脚本运行时',
-      description: '验证自定义技能兼容模型常写的 reduceRight 倒序汇总逻辑。',
+      description: '验证自定义技能兼容模型常写的 reduceRight 倒序汇总和 guard return。',
       script: r'''
-const labels = args.storyboards.reduceRight((list, shot, index, all) =>
-  shot.enabled ? [...list, `${index + 1}/${all.length}:${shot.name.trim()}`] : list
-, []);
+const labels = args.storyboards.reduceRight((list, shot, index, all) => {
+  if (!shot.enabled) return list;
+  return [...list, `${index + 1}/${all.length}:${shot.name.trim()}`];
+}, []);
 const total = args.storyboards.reduceRight((sum, shot) => sum + shot.duration, 0);
 const lastName = args.names.reduceRight((best, name) =>
   name.trim().length > best.trim().length ? name : best
