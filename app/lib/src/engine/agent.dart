@@ -494,7 +494,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority/mustInclude/excludeTerms 等过滤提示。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority/mustInclude/excludeTerms/match/operator 等过滤提示。',
   },
   'retrievalPlan': {
     'type': ['array', 'object'],
@@ -544,6 +544,32 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description': 'searchPlan 的中文别名。',
+  },
+};
+const _agentMemoryQueryCombinationToolSchema = {
+  'match': {
+    'type': 'string',
+    'description': '可选。queryPlan 项内多个查询的组合方式；all/and 表示必须命中同一条记忆。',
+  },
+  'matchMode': {
+    'type': 'string',
+    'description': 'match 的自然语言别名。',
+  },
+  'operator': {
+    'type': 'string',
+    'description': '可选。queryPlan 项内查询操作符；and 表示同项查询取交集。',
+  },
+  'mustMatchAll': {
+    'type': 'boolean',
+    'description': '可选。为 true 时，同一 queryPlan 项里的多个查询必须全部命中。',
+  },
+  'requireAll': {
+    'type': 'boolean',
+    'description': 'mustMatchAll 的 require 语义别名。',
+  },
+  '必须全部命中': {
+    'type': 'boolean',
+    'description': 'mustMatchAll 的中文别名。',
   },
 };
 const _agentMemoryRetrievalSourceToolSchema = {
@@ -941,6 +967,7 @@ final _tools = <AgentToolDef>[
           'description': 'keywords 的中文别名。',
         },
         ..._agentMemoryQueryPlanToolSchema,
+        ..._agentMemoryQueryCombinationToolSchema,
         ..._agentMemoryContentFilterToolSchema,
         ..._agentMemoryRetrievalSourceToolSchema,
         'limit': {
@@ -1542,6 +1569,7 @@ final _tools = <AgentToolDef>[
           'description': 'keywords 的中文别名。',
         },
         ..._agentMemoryQueryPlanToolSchema,
+        ..._agentMemoryQueryCombinationToolSchema,
         ..._agentMemoryContentFilterToolSchema,
         ..._agentMemoryRetrievalSourceToolSchema,
         'limit': {
@@ -12491,6 +12519,19 @@ extension AgentApi on Engine {
         final nodeLimit = _agentMemoryDirectLimit(map) ?? inheritedLimit;
         final nodePriority =
             _agentMemoryDirectPriority(map) ?? inheritedPriority;
+        final allMatchQueries = _agentMemoryPlanAllMatchQueries(map);
+        if (allMatchQueries.length > 1) {
+          addRequest(
+            allMatchQueries.join(' '),
+            _agentMemoryArgsWithRequiredContentTerms(
+              nodeArgs,
+              allMatchQueries,
+            ),
+            limit: nodeLimit,
+            priority: nodePriority,
+          );
+          return;
+        }
         for (final key in const [
           'query',
           'q',
@@ -12588,7 +12629,7 @@ extension AgentApi on Engine {
     if (single.isNotEmpty) {
       addRequest(single, baseArgs, priority: basePriority);
     }
-    for (final item in _stringListAny(args, const [
+    final directQueries = _stringListAny(args, const [
           'queries',
           'queryList',
           'query_list',
@@ -12600,8 +12641,17 @@ extension AgentApi on Engine {
           '问题列表',
           'prompts',
         ]) ??
-        const <String>[]) {
-      addRequest(item, baseArgs, priority: basePriority);
+        const <String>[];
+    if (directQueries.length > 1 && _agentMemoryPlanRequiresAll(args)) {
+      addRequest(
+        directQueries.join(' '),
+        _agentMemoryArgsWithRequiredContentTerms(baseArgs, directQueries),
+        priority: basePriority,
+      );
+    } else {
+      for (final item in directQueries) {
+        addRequest(item, baseArgs, priority: basePriority);
+      }
     }
     for (final key in const [
       'queryPlan',
@@ -12616,6 +12666,141 @@ extension AgentApi on Engine {
       addPlanNode(args[key], baseArgs, inheritedPriority: basePriority);
     }
     return requests;
+  }
+
+  List<String> _agentMemoryPlanAllMatchQueries(Map<String, dynamic> args) {
+    if (!_agentMemoryPlanRequiresAll(args)) return const [];
+    final values = <String>[];
+
+    void add(Object? raw) {
+      final items = _coerceStringList(raw);
+      if (items == null) return;
+      for (final item in items) {
+        final trimmed = item.trim();
+        if (trimmed.isNotEmpty && !values.contains(trimmed)) {
+          values.add(trimmed);
+        }
+      }
+    }
+
+    void collect(Object? raw) {
+      if (raw == null) return;
+      if (raw is Map) {
+        for (final key in const [
+          'query',
+          'q',
+          'keyword',
+          '关键词',
+          '查询',
+          'question',
+          '问题',
+          'text',
+          '文本',
+          'prompt',
+          '提示词',
+          'queryText',
+          'query_text',
+          'searchText',
+          'search_text',
+          'term',
+        ]) {
+          add(raw[key]);
+        }
+        for (final key in const [
+          'queries',
+          'queryList',
+          'query_list',
+          'keywords',
+          'keywordList',
+          'keyword_list',
+          'terms',
+          '查询列表',
+          '关键词列表',
+          '问题列表',
+          'prompts',
+          'items',
+          'steps',
+        ]) {
+          collect(raw[key]);
+        }
+        return;
+      }
+      if (raw is Iterable) {
+        for (final item in raw) {
+          collect(item);
+        }
+        return;
+      }
+      add(raw);
+    }
+
+    collect(args);
+    return values;
+  }
+
+  Map<String, dynamic> _agentMemoryArgsWithRequiredContentTerms(
+    Map<String, dynamic> args,
+    List<String> requiredTerms,
+  ) {
+    final terms = <String>[];
+    void add(Object? raw) {
+      final items = _coerceStringList(raw);
+      if (items == null) return;
+      for (final item in items) {
+        final trimmed = item.trim();
+        if (trimmed.isNotEmpty && !terms.contains(trimmed)) {
+          terms.add(trimmed);
+        }
+      }
+    }
+
+    add(args['mustInclude']);
+    add(args['mustIncludeTerms']);
+    add(args['includeTerms']);
+    add(args['requiredTerms']);
+    add(requiredTerms);
+    return {
+      ...args,
+      'mustInclude': terms,
+    };
+  }
+
+  bool _agentMemoryPlanRequiresAll(Map<String, dynamic> args) {
+    final explicitBool = _coerceBool(args['mustMatchAll'] ??
+        args['matchAll'] ??
+        args['requireAll'] ??
+        args['allQueriesRequired'] ??
+        args['allTermsRequired'] ??
+        args['必须全部命中'] ??
+        args['全部命中'] ??
+        args['全部匹配']);
+    if (explicitBool == true) return true;
+    final raw = args['match'] ??
+        args['matchMode'] ??
+        args['operator'] ??
+        args['mode'] ??
+        args['组合方式'] ??
+        args['匹配模式'];
+    if (raw == null) return false;
+    final value = raw.toString().trim().toLowerCase();
+    switch (value) {
+      case 'all':
+      case 'and':
+      case 'intersection':
+      case 'intersect':
+      case 'must_all':
+      case 'must-all':
+      case 'must all':
+      case '全部':
+      case '全部命中':
+      case '全部匹配':
+      case '必须全部命中':
+      case '并且':
+      case '交集':
+        return true;
+      default:
+        return false;
+    }
   }
 
   Map<String, dynamic> _agentMemoryArgsWithoutQueryPlan(

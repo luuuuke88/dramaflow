@@ -13394,6 +13394,137 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     }
   });
 
+  test('Agent 记忆：queryPlan 可要求同项查询全部命中', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_all_match_keep',
+      content: '硬性约束：李澈必须保护沈微，并且绝不能反派化。',
+      offset: 0,
+    );
+    insertMessage(
+      id: 'query_plan_all_match_only_protect',
+      content: '人物设定：李澈必须保护沈微。',
+      offset: 1,
+    );
+    insertMessage(
+      id: 'query_plan_all_match_only_role',
+      content: '人物设定：李澈绝不能反派化。',
+      offset: 2,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'queries': ['保护沈微', '不能反派化'],
+            'match': 'all',
+            'reason': '组合硬约束',
+          },
+        ],
+        'limit': 4,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            '查询列表': ['保护沈微', '不能反派化'],
+            '必须全部命中': true,
+            'reason': '组合硬约束',
+          },
+        ],
+        'limit': 4,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '只召回同时满足两个硬性约束的记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('match'));
+      expect(properties, contains('operator'));
+      expect(properties, contains('必须全部命中'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    for (final message in toolMessages) {
+      final payload = jsonDecode(message.content) as Map<String, dynamic>;
+      expect(payload['found'], isTrue,
+          reason: '${message.toolName}: ${message.content}');
+      expect(jsonEncode(payload), contains('query_plan_all_match_keep'));
+      expect(
+        jsonEncode(payload),
+        isNot(contains('query_plan_all_match_only_protect')),
+      );
+      expect(
+        jsonEncode(payload),
+        isNot(contains('query_plan_all_match_only_role')),
+      );
+      final records = payload['records'] as List;
+      expect(records, hasLength(1));
+      expect(
+        records.single,
+        isA<Map>()
+            .having((record) => record['id'], 'id', 'query_plan_all_match_keep')
+            .having((record) => record['queryReason'], 'queryReason', '组合硬约束'),
+      );
+    }
+  });
+
   test('Agent 记忆：结构化查询计划可携带时间窗口', () async {
     const baseTime = 1900000000000;
     db.execute(
