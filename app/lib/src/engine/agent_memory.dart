@@ -526,6 +526,7 @@ class AgentMemoryService {
     Set<String>? excludeIds,
     int? minScore,
     AgentMemoryTimeRange? timeRange,
+    bool? rerankEnabled,
     String? noteIsolationKey,
     CancelToken? cancelToken,
   }) async {
@@ -537,6 +538,7 @@ class AgentMemoryService {
     final typeFilter = _normalizeTypeFilter(types);
     final excludedIdFilter = _normalizeIdFilter(excludeIds);
     final settings = readSettings();
+    final useRerank = rerankEnabled ?? settings.rerankEnabled;
     final scoreThreshold =
         _normalizeScoreThreshold(minScore ?? settings.minScore);
     final timeFilter = _normalizeTimeRange(timeRange);
@@ -617,48 +619,24 @@ class AgentMemoryService {
     }
     if (ids.isEmpty) {
       if (summaries.isNotEmpty) {
-        final directMatches = await _rankMessageCandidates(
-          isolationKey: isolationKey,
-          normalized: normalized,
-          tokens: tokens,
-          queryEmbedding: queryEmbedding,
-          onlyUnsummarized: true,
-          timeRange: timeFilter,
+        final filteredSummaries = _filterEntries(
+          summaries,
+          roleFilter,
+          typeFilter,
+          excludedIdFilter,
+          excludedRoleFilter,
+          excludedRoleSuffixFilter,
+          scoreThreshold,
+          timeFilter,
         );
-        return withNotes([
-          ..._filterEntries(
-            summaries,
-            roleFilter,
-            typeFilter,
-            excludedIdFilter,
-            excludedRoleFilter,
-            excludedRoleSuffixFilter,
-            scoreThreshold,
-            timeFilter,
-          ),
-          if (allowMessages)
-            for (final message in _filterRankedEntries(
-              directMatches,
-              roleFilter,
-              typeFilter,
-              excludedIdFilter,
-              excludedRoleFilter,
-              excludedRoleSuffixFilter,
-              scoreThreshold,
-              timeFilter,
-            ).take(settings.ragLimit))
-              message.$2,
-        ]);
-      }
-      if (!allowMessages) return noteMatches;
-      return withNotes([
-        for (final item in _filterRankedEntries(
+        if (!allowMessages) return withNotes(filteredSummaries);
+        final directMatches = _filterRankedEntries(
           await _rankMessageCandidates(
             isolationKey: isolationKey,
             normalized: normalized,
             tokens: tokens,
             queryEmbedding: queryEmbedding,
-            onlyUnsummarized: scored.isNotEmpty,
+            onlyUnsummarized: true,
             timeRange: timeFilter,
           ),
           roleFilter,
@@ -668,9 +646,44 @@ class AgentMemoryService {
           excludedRoleSuffixFilter,
           scoreThreshold,
           timeFilter,
-        ).take(settings.ragLimit))
-          item.$2,
-      ]);
+        ).toList();
+        final rerankedDirectMatches = await _relatedMessagesForQuery(
+          query: keyword,
+          settings: settings,
+          rankedMessages: directMatches,
+          rerankEnabled: useRerank,
+          cancelToken: cancelToken,
+        );
+        return withNotes([
+          ...filteredSummaries,
+          ...rerankedDirectMatches,
+        ]);
+      }
+      if (!allowMessages) return noteMatches;
+      final directMatches = _filterRankedEntries(
+        await _rankMessageCandidates(
+          isolationKey: isolationKey,
+          normalized: normalized,
+          tokens: tokens,
+          queryEmbedding: queryEmbedding,
+          onlyUnsummarized: scored.isNotEmpty,
+          timeRange: timeFilter,
+        ),
+        roleFilter,
+        typeFilter,
+        excludedIdFilter,
+        excludedRoleFilter,
+        excludedRoleSuffixFilter,
+        scoreThreshold,
+        timeFilter,
+      ).toList();
+      return withNotes(await _relatedMessagesForQuery(
+        query: keyword,
+        settings: settings,
+        rankedMessages: directMatches,
+        rerankEnabled: useRerank,
+        cancelToken: cancelToken,
+      ));
     }
     if (!allowMessages) {
       return withNotes(_filterEntries(
@@ -684,7 +697,7 @@ class AgentMemoryService {
         timeFilter,
       ));
     }
-    final directMatches = _filterRankedEntries(
+    final directCandidates = _filterRankedEntries(
       await _rankMessageCandidates(
         isolationKey: isolationKey,
         normalized: normalized,
@@ -700,9 +713,16 @@ class AgentMemoryService {
       excludedRoleSuffixFilter,
       scoreThreshold,
       timeFilter,
-    ).take(settings.ragLimit);
+    ).toList();
+    final directMatches = await _relatedMessagesForQuery(
+      query: keyword,
+      settings: settings,
+      rankedMessages: directCandidates,
+      rerankEnabled: useRerank,
+      cancelToken: cancelToken,
+    );
     for (final message in directMatches) {
-      if (!ids.contains(message.$2.id)) ids.add(message.$2.id);
+      if (!ids.contains(message.id)) ids.add(message.id);
     }
 
     final placeholders = List.filled(ids.length, '?').join(',');

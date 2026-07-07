@@ -611,7 +611,7 @@ const _agentMemorySemanticQueryToolSchema = {
 const _agentMemoryRerankToolSchema = {
   'rerank': {
     'type': 'boolean',
-    'description': '可选。为 true 时，本次 memory_get 使用模型重排候选记忆。',
+    'description': '可选。为 true 时，本次记忆检索使用模型重排候选记忆。',
   },
   'rerankEnabled': {
     'type': 'boolean',
@@ -1690,6 +1690,7 @@ final _tools = <AgentToolDef>[
           'description': 'keywords 的中文别名。',
         },
         ..._agentMemorySemanticQueryToolSchema,
+        ..._agentMemoryRerankToolSchema,
         ..._agentMemoryQueryPlanToolSchema,
         ..._agentMemoryQueryCombinationToolSchema,
         ..._agentMemoryQueryFallbackToolSchema,
@@ -11314,6 +11315,7 @@ extension AgentApi on Engine {
             final types = _deepRetrieveMemoryTypes(requestArgs);
             final minScore = _agentMemoryMinScore(requestArgs);
             final timeRange = _agentMemoryTimeRange(requestArgs);
+            final rerankEnabled = _agentMemoryRerankEnabled(requestArgs);
             final requestSortMode = _agentMemorySortMode(requestArgs);
             final requestLimit = request.limit;
             final requestIncludeVisualReferences =
@@ -11344,6 +11346,7 @@ extension AgentApi on Engine {
               excludeIds: queryExcludeIds,
               minScore: minScore,
               timeRange: timeRange,
+              rerankEnabled: rerankEnabled,
               noteIsolationKey: _agentMemoryIsolationKey(projectId),
             );
             final limitedRequestRecords = _limitAgentMemoryEntries(
