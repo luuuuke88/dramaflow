@@ -12634,6 +12634,134 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan 计划项支持 filter/where 包裹过滤条件', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '寒山视觉',
+      content: '长期设定：寒山山门冷白低机位，必须保持肃杀感。',
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'query_plan_filter_wrapper_noise',
+        '',
+        '普通聊天噪声：寒山山门冷白低机位可以改成喜剧暖色。',
+        now,
+        embeddingJson('普通聊天噪声：寒山山门冷白低机位可以改成喜剧暖色。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '寒山山门冷白低机位',
+            'filter': {
+              'scope': 'long_term',
+              'mustInclude': ['冷白'],
+              'excludeTerms': ['喜剧', '暖色'],
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '寒山山门冷白低机位',
+            'where': {
+              '记忆范围': '长期记忆',
+              '包含关键词': ['冷白'],
+              '排除关键词': ['喜剧', '暖色'],
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按模型包裹的 filter/where 查询长期视觉设定',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final queryPlanProperty = (memoryGetTool.schema['properties']
+        as Map)['queryPlan'] as Map<String, dynamic>;
+    expect(queryPlanProperty['description'].toString(), contains('filter'));
+    expect(queryPlanProperty['description'].toString(), contains('where'));
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], isEmpty);
+    expect(memoryGetPayload['notes'], [
+      '长期设定：寒山山门冷白低机位，必须保持肃杀感。',
+    ]);
+    expect(
+      memoryGetPayload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', noteId)
+            .having((record) => record['scope'], 'scope', 'long_term'),
+      ),
+    );
+    expect(
+      jsonEncode(memoryGetPayload),
+      isNot(contains('query_plan_filter_wrapper_noise')),
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '长期设定：寒山山门冷白低机位，必须保持肃杀感。',
+    ]);
+    expect(
+      deepRetrievePayload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', noteId)
+            .having((record) => record['scope'], 'scope', 'long_term'),
+      ),
+    );
+    expect(
+      jsonEncode(deepRetrievePayload),
+      isNot(contains('query_plan_filter_wrapper_noise')),
+    );
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),

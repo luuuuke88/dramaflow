@@ -506,7 +506,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority/mustInclude/excludeTerms/match/operator 等过滤提示。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority/mustInclude/excludeTerms/match/operator 等过滤提示，也可把这些过滤提示包在 filter/where/criteria/条件 对象内。',
   },
   'retrievalPlan': {
     'type': ['array', 'object'],
@@ -558,6 +558,21 @@ const _agentMemoryQueryPlanToolSchema = {
     'description': 'searchPlan 的中文别名。',
   },
 };
+const _agentMemoryFilterWrapperKeys = [
+  'filter',
+  'filters',
+  'where',
+  'criteria',
+  'constraints',
+  'condition',
+  'conditions',
+  '筛选',
+  '过滤',
+  '条件',
+  '过滤条件',
+  '查询条件',
+  '检索条件',
+];
 const _agentMemorySemanticQueryToolSchema = {
   'semanticQuery': {
     'type': 'string',
@@ -13431,7 +13446,7 @@ extension AgentApi on Engine {
   Map<String, dynamic> _agentMemoryArgsWithoutQueryPlan(
     Map<String, dynamic> args,
   ) {
-    final copy = Map<String, dynamic>.of(args);
+    final copy = _agentMemoryArgsWithFilterWrappers(args);
     for (final key in const [
       'queryPlan',
       'retrievalPlan',
@@ -13450,7 +13465,7 @@ extension AgentApi on Engine {
   Map<String, dynamic> _agentMemoryPlanFilterArgs(
     Map<String, dynamic> args,
   ) {
-    final copy = Map<String, dynamic>.of(args);
+    final copy = _agentMemoryArgsWithFilterWrappers(args);
     for (final key in const [
       'queryPlan',
       'retrievalPlan',
@@ -13477,6 +13492,38 @@ extension AgentApi on Engine {
       copy.remove(key);
     }
     _removeUnsupportedAgentMemoryTypeHints(copy);
+    return copy;
+  }
+
+  Map<String, dynamic> _agentMemoryArgsWithFilterWrappers(
+    Map<String, dynamic> args,
+  ) {
+    final copy = <String, dynamic>{};
+
+    void mergeWrapper(Object? raw) {
+      if (raw == null) return;
+      if (raw is Map) {
+        final nested = <String, dynamic>{
+          for (final entry in raw.entries)
+            if (entry.key is String) (entry.key as String): entry.value,
+        };
+        copy.addAll(_agentMemoryArgsWithFilterWrappers(nested));
+        return;
+      }
+      if (raw is Iterable) {
+        for (final item in raw) {
+          mergeWrapper(item);
+        }
+      }
+    }
+
+    for (final key in _agentMemoryFilterWrapperKeys) {
+      mergeWrapper(args[key]);
+    }
+    copy.addAll(args);
+    for (final key in _agentMemoryFilterWrapperKeys) {
+      copy.remove(key);
+    }
     return copy;
   }
 

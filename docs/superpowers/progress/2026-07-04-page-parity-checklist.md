@@ -546,6 +546,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers grouped qu
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers semantic/vector queryPlan fields such as `semanticQuery`, `vectorQuery`, `语义查询`, and `向量查询`, so decision and sub Agents can separate embedding-based recall text from hard content filters like `mustInclude` while preserving vector-index trace metadata.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers queryPlan items wrapping filters under `filter` / `where` objects, so model-authored RAG plans can keep natural JSON shapes while still applying scope, include-term, and exclude-term filters to `memory_get` and `deepRetrieve`.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers per-query-plan model reranking for `memory_get` via fields such as `rerank` and `模型重排`, so an Agent can request ToonFlow-style LLM relevance filtering for one retrieval step without enabling global reranking for every lightweight memory lookup.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers per-query-plan model reranking for `deepRetrieve` via the same `rerank` / `模型重排` fields, so deep recall can filter keyword-similar but semantically noisy source messages without forcing global reranking onto every Agent memory lookup.
