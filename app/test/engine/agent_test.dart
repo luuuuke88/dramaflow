@@ -12038,6 +12038,131 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan 计划项支持内容包含与排除词过滤', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_content_keep',
+      '镜湖路线约束：第二镜必须经过冷白水面，保持贴地跟拍。',
+      0,
+    );
+    insertMessage(
+      'query_plan_content_excluded',
+      '镜湖路线旧设定：第二镜改成暖色宫廷风，镜头高机位俯拍。',
+      1,
+    );
+    insertMessage(
+      'query_plan_content_missing_required',
+      '镜湖路线备忘：第三镜只记录山门钟声，不涉及水面。',
+      2,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '镜湖路线 第二镜',
+            'mustInclude': ['冷白', '水面'],
+            'excludeTerms': ['暖色', '旧设定'],
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '镜湖路线 第二镜',
+            '包含关键词': ['冷白', '水面'],
+            '排除关键词': ['暖色', '旧设定'],
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按查询计划过滤镜湖路线记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('mustInclude'));
+      expect(properties, contains('excludeTerms'));
+      expect(properties, contains('包含关键词'));
+      expect(properties, contains('排除关键词'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '镜湖路线约束：第二镜必须经过冷白水面，保持贴地跟拍。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_content_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '镜湖路线约束：第二镜必须经过冷白水面，保持贴地跟拍。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_content_keep'],
+    );
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),

@@ -476,7 +476,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority 等过滤提示。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority/mustInclude/excludeTerms 等过滤提示。',
   },
   'retrievalPlan': {
     'type': ['array', 'object'],
@@ -526,6 +526,68 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description': 'searchPlan 的中文别名。',
+  },
+};
+const _agentMemoryContentFilterToolSchema = {
+  'mustInclude': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': '可选。返回记忆内容必须同时包含这些关键词。',
+  },
+  'mustIncludeTerms': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'mustInclude 的自然语言别名。',
+  },
+  'includeTerms': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'mustInclude 的包含词别名。',
+  },
+  'requiredTerms': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'mustInclude 的必需词别名。',
+  },
+  '包含关键词': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'mustInclude 的中文别名。',
+  },
+  '必须包含': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'requiredTerms 的中文别名。',
+  },
+  'excludeTerms': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': '可选。排除内容包含这些关键词的记忆。',
+  },
+  'excludeKeywords': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'excludeTerms 的关键词别名。',
+  },
+  'forbiddenTerms': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'excludeTerms 的禁用词别名。',
+  },
+  'mustNotInclude': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'excludeTerms 的 must-not 语义别名。',
+  },
+  '排除关键词': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'excludeTerms 的中文别名。',
+  },
+  '不能包含': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'mustNotInclude 的中文别名。',
   },
 };
 
@@ -809,6 +871,7 @@ final _tools = <AgentToolDef>[
           'description': 'keywords 的中文别名。',
         },
         ..._agentMemoryQueryPlanToolSchema,
+        ..._agentMemoryContentFilterToolSchema,
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -1408,6 +1471,7 @@ final _tools = <AgentToolDef>[
           'description': 'keywords 的中文别名。',
         },
         ..._agentMemoryQueryPlanToolSchema,
+        ..._agentMemoryContentFilterToolSchema,
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -10775,7 +10839,10 @@ extension AgentApi on Engine {
                 : const AgentMemoryContext();
             if (includeMessages) {
               final limitedRelatedMessages = _limitAgentMemoryEntries(
-                context.relatedMessages,
+                _filterAgentMemoryEntriesByContent(
+                  context.relatedMessages,
+                  requestArgs,
+                ),
                 requestSortMode,
                 requestLimit,
               );
@@ -10784,7 +10851,10 @@ extension AgentApi on Engine {
                 mergeRecordPriority(record);
               }
               final limitedRecentMessages = _limitAgentMemoryEntries(
-                context.recentMessages,
+                _filterAgentMemoryEntriesByContent(
+                  context.recentMessages,
+                  requestArgs,
+                ),
                 requestSortMode,
                 requestLimit,
               );
@@ -10795,7 +10865,10 @@ extension AgentApi on Engine {
             }
             if (includeSummaries) {
               final limitedSummaries = _limitAgentMemoryEntries(
-                context.summaries,
+                _filterAgentMemoryEntriesByContent(
+                  context.summaries,
+                  requestArgs,
+                ),
                 requestSortMode,
                 requestLimit,
               );
@@ -10827,7 +10900,10 @@ extension AgentApi on Engine {
                 noteIsolationKey: _agentMemoryIsolationKey(projectId),
               );
               final limitedNotes = _limitAgentMemoryEntries(
-                requestNotes,
+                _filterAgentMemoryEntriesByContent(
+                  requestNotes,
+                  requestArgs,
+                ),
                 requestSortMode,
                 requestLimit,
               );
@@ -10837,17 +10913,20 @@ extension AgentApi on Engine {
               }
             }
             if (requestIncludeVisualReferences) {
-              final visualRecords = _visualReferenceMemoryEntries(
-                projectId,
-                excludeIds: {
-                  ...queryExcludeIds,
-                  for (final record in context.relatedMessages) record.id,
-                  for (final record in context.summaries) record.id,
-                  for (final record in context.recentMessages) record.id,
-                  for (final record in noteRecords) record.id,
-                },
-                limit:
-                    requestLimit ?? _agentMemoryDirectLimit(requestArgs) ?? 2,
+              final visualRecords = _filterAgentMemoryEntriesByContent(
+                _visualReferenceMemoryEntries(
+                  projectId,
+                  excludeIds: {
+                    ...queryExcludeIds,
+                    for (final record in context.relatedMessages) record.id,
+                    for (final record in context.summaries) record.id,
+                    for (final record in context.recentMessages) record.id,
+                    for (final record in noteRecords) record.id,
+                  },
+                  limit:
+                      requestLimit ?? _agentMemoryDirectLimit(requestArgs) ?? 2,
+                ),
+                requestArgs,
               );
               noteRecords.addAll(visualRecords);
               for (final record in visualRecords) {
@@ -10856,17 +10935,22 @@ extension AgentApi on Engine {
             }
           }
           if (queryRequests.isEmpty && includeVisualReferences) {
-            noteRecords.addAll(_visualReferenceMemoryEntries(
-              projectId,
-              excludeIds: {
-                ...baseExcludeIds,
-                for (final record in relatedMessageRecords) record.id,
-                for (final record in summaryRecords) record.id,
-                for (final record in recentMessageRecords) record.id,
-                for (final record in noteRecords) record.id,
-              },
-              limit: limit ?? 2,
-            ));
+            noteRecords.addAll(
+              _filterAgentMemoryEntriesByContent(
+                _visualReferenceMemoryEntries(
+                  projectId,
+                  excludeIds: {
+                    ...baseExcludeIds,
+                    for (final record in relatedMessageRecords) record.id,
+                    for (final record in summaryRecords) record.id,
+                    for (final record in recentMessageRecords) record.id,
+                    for (final record in noteRecords) record.id,
+                  },
+                  limit: limit ?? 2,
+                ),
+                args,
+              ),
+            );
           }
           final dedupedRelatedMessages = _sortAgentMemoryEntriesByPriority(
             _dedupeAgentMemoryEntries(relatedMessageRecords),
@@ -11006,7 +11090,10 @@ extension AgentApi on Engine {
               noteIsolationKey: _agentMemoryIsolationKey(projectId),
             );
             final limitedRequestRecords = _limitAgentMemoryEntries(
-              requestRecords,
+              _filterAgentMemoryEntriesByContent(
+                requestRecords,
+                requestArgs,
+              ),
               requestSortMode,
               requestLimit,
             );
@@ -11015,14 +11102,17 @@ extension AgentApi on Engine {
               mergeRecordPriority(record);
             }
             if (requestIncludeVisualReferences) {
-              final visualRecords = _visualReferenceMemoryEntries(
-                projectId,
-                excludeIds: {
-                  ...queryExcludeIds,
-                  for (final record in records) record.id,
-                },
-                limit:
-                    requestLimit ?? _agentMemoryDirectLimit(requestArgs) ?? 2,
+              final visualRecords = _filterAgentMemoryEntriesByContent(
+                _visualReferenceMemoryEntries(
+                  projectId,
+                  excludeIds: {
+                    ...queryExcludeIds,
+                    for (final record in records) record.id,
+                  },
+                  limit:
+                      requestLimit ?? _agentMemoryDirectLimit(requestArgs) ?? 2,
+                ),
+                requestArgs,
               );
               records.addAll(visualRecords);
               for (final record in visualRecords) {
@@ -11031,13 +11121,16 @@ extension AgentApi on Engine {
             }
           }
           if (queryRequests.isEmpty && includeVisualReferences) {
-            final visualRecords = _visualReferenceMemoryEntries(
-              projectId,
-              excludeIds: {
-                ...baseExcludeIds,
-                for (final record in records) record.id,
-              },
-              limit: limit ?? 2,
+            final visualRecords = _filterAgentMemoryEntriesByContent(
+              _visualReferenceMemoryEntries(
+                projectId,
+                excludeIds: {
+                  ...baseExcludeIds,
+                  for (final record in records) record.id,
+                },
+                limit: limit ?? 2,
+              ),
+              args,
             );
             records.addAll(visualRecords);
           }
@@ -13315,6 +13408,104 @@ extension AgentApi on Engine {
   ) {
     final sorted = _sortAgentMemoryEntries(entries, sortMode);
     return limit == null ? sorted : sorted.take(limit).toList();
+  }
+
+  List<AgentMemoryEntry> _filterAgentMemoryEntriesByContent(
+    Iterable<AgentMemoryEntry> entries,
+    Map<String, dynamic> args,
+  ) {
+    final requiredTerms = _agentMemoryRequiredContentTerms(args);
+    final excludedTerms = _agentMemoryExcludedContentTerms(args);
+    if (requiredTerms.isEmpty && excludedTerms.isEmpty) {
+      return entries.toList();
+    }
+    return [
+      for (final entry in entries)
+        if (_matchesAgentMemoryContentTerms(
+          entry,
+          requiredTerms: requiredTerms,
+          excludedTerms: excludedTerms,
+        ))
+          entry,
+    ];
+  }
+
+  List<String> _agentMemoryRequiredContentTerms(Map<String, dynamic> args) =>
+      _agentMemoryContentTerms(args, const [
+        'mustInclude',
+        'mustIncludeTerms',
+        'includeTerms',
+        'includeTerm',
+        'requiredTerms',
+        'requiredTerm',
+        'requiredKeywords',
+        'requiredKeyword',
+        'requireTerms',
+        'requireTerm',
+        'contentIncludes',
+        'contentInclude',
+        '包含关键词',
+        '包含词',
+        '必须包含',
+        '必含词',
+      ]);
+
+  List<String> _agentMemoryExcludedContentTerms(Map<String, dynamic> args) =>
+      _agentMemoryContentTerms(args, const [
+        'excludeTerms',
+        'excludeTerm',
+        'excludeKeywords',
+        'excludeKeyword',
+        'forbiddenTerms',
+        'forbiddenTerm',
+        'negativeTerms',
+        'negativeTerm',
+        'mustNotInclude',
+        'mustNotContain',
+        'contentExcludes',
+        'contentExclude',
+        'without',
+        '排除关键词',
+        '排除词',
+        '不能包含',
+        '不要包含',
+        '禁用词',
+      ]);
+
+  List<String> _agentMemoryContentTerms(
+    Map<String, dynamic> args,
+    List<String> keys,
+  ) {
+    final terms = <String>[];
+    void add(Object? raw) {
+      final values = _coerceStringList(raw);
+      if (values == null) return;
+      for (final value in values) {
+        for (final part in value.split(RegExp(r'[,，、;；]+'))) {
+          final term = part.trim();
+          if (term.isNotEmpty && !terms.contains(term)) terms.add(term);
+        }
+      }
+    }
+
+    for (final key in keys) {
+      add(args[key]);
+    }
+    for (final value in _agentMemoryQueryPlanFilterValues(args, keys)) {
+      add(value);
+    }
+    return terms;
+  }
+
+  bool _matchesAgentMemoryContentTerms(
+    AgentMemoryEntry entry, {
+    required List<String> requiredTerms,
+    required List<String> excludedTerms,
+  }) {
+    final text = '${entry.name}\n${entry.content}'.toLowerCase();
+    bool containsTerm(String term) => text.contains(term.toLowerCase());
+    return requiredTerms.every(containsTerm) &&
+        excludedTerms.every((term) => !containsTerm(term));
   }
 
   List<AgentMemoryEntry> _sortAgentMemoryEntriesByPriority(
