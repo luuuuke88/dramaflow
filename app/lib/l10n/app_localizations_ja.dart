@@ -3165,4 +3165,26 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webPreviewEnginePending => 'Web エンジン移植待ち';
+
+  @override
+  String get policyConfirmMoneyTitle => '費用確認';
+
+  @override
+  String policyConfirmMoneyBody(String description, int units) {
+    return '$description：今回は有料生成を $units 回呼び出します。続行しますか？';
+  }
+
+  @override
+  String get policyConfirmDestructiveTitle => '危険操作の確認';
+
+  @override
+  String policyConfirmDestructiveBody(String description) {
+    return '$description：この操作は取り消せません。続行しますか？';
+  }
+
+  @override
+  String get settingsPolicyConfirmMoney => '費用が発生する操作は確認が必要';
+
+  @override
+  String get settingsPolicyConfirmDestructive => '破壊的操作は確認が必要（autoモードを含む）';
 }

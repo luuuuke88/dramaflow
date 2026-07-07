@@ -3237,4 +3237,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webPreviewEnginePending => 'Web engine pending';
+
+  @override
+  String get policyConfirmMoneyTitle => 'Confirm cost';
+
+  @override
+  String policyConfirmMoneyBody(String description, int units) {
+    return '$description: this will call paid generation $units time(s). Continue?';
+  }
+
+  @override
+  String get policyConfirmDestructiveTitle => 'Confirm destructive action';
+
+  @override
+  String policyConfirmDestructiveBody(String description) {
+    return '$description: this action cannot be undone. Continue?';
+  }
+
+  @override
+  String get settingsPolicyConfirmMoney => 'Confirm before paid actions';
+
+  @override
+  String get settingsPolicyConfirmDestructive =>
+      'Confirm before destructive actions (incl. auto mode)';
 }

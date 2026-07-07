@@ -1186,5 +1186,28 @@
   "webPreviewMacClient": "Full macOS client",
   "webPreviewIosClient": "Full iOS client",
   "webPreviewAndroidClient": "Android APK builds",
-  "webPreviewEnginePending": "Web engine pending"
+  "webPreviewEnginePending": "Web engine pending",
+  "policyConfirmMoneyTitle": "Confirm cost",
+  "policyConfirmMoneyBody": "{description}: this will call paid generation {units} time(s). Continue?",
+  "@policyConfirmMoneyBody": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      },
+      "units": {
+        "type": "int"
+      }
+    }
+  },
+  "policyConfirmDestructiveTitle": "Confirm destructive action",
+  "policyConfirmDestructiveBody": "{description}: this action cannot be undone. Continue?",
+  "@policyConfirmDestructiveBody": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsPolicyConfirmMoney": "Confirm before paid actions",
+  "settingsPolicyConfirmDestructive": "Confirm before destructive actions (incl. auto mode)"
 }
