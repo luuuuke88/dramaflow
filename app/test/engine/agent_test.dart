@@ -13718,6 +13718,13 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       expect(payload['found'], isFalse,
           reason: '${message.toolName}: ${message.content}');
       expect(payload['message'], '未找到相关记忆');
+      expect(payload['records'], isEmpty);
+      expect(payload['memories'], isEmpty);
+      if (message.toolName == 'memory_get') {
+        expect(payload['summaries'], isEmpty);
+        expect(payload['recent'], isEmpty);
+        expect(payload['notes'], isEmpty);
+      }
       expect(
           jsonEncode(payload), isNot(contains('vector_only_fallback_match')));
       expect(jsonEncode(payload), isNot(contains('未索引记忆：李澈必须保护沈微')));

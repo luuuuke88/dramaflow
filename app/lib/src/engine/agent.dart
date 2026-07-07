@@ -11254,6 +11254,11 @@ extension AgentApi on Engine {
             return jsonEncode({
               'found': false,
               'queries': queries,
+              'memories': [],
+              'summaries': [],
+              'recent': [],
+              'notes': [],
+              'records': [],
               'message': '未找到相关记忆',
             });
           }
@@ -11420,6 +11425,8 @@ extension AgentApi on Engine {
             return jsonEncode({
               'found': false,
               'queries': queries,
+              'memories': [],
+              'records': [],
               'message': '未找到相关记忆',
             });
           }
