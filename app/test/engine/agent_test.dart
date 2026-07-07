@@ -16593,6 +16593,106 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(rows.single['type'], agentMemoryTypeMessage);
   });
 
+  test('Agent 记忆：memory_update 工具可修订单条长期记忆', () async {
+    final memoryId = engine.saveAgentMemory(
+      projectId,
+      id: 'tool_update_long_term_note',
+      name: '旧角色底线',
+      content: '长期设定：李澈可以短暂黑化。',
+    );
+    final before = db.select(
+      'SELECT createTime FROM memories WHERE id=? AND isolationKey=?',
+      [memoryId, 'project:$projectId'],
+    ).single['createTime'];
+    gateway.turns = [
+      AgentTurnResult.tool('memory_update', {
+        'memoryId': memoryId,
+        'title': '角色底线修订',
+        'content': '长期设定：李澈必须保持正派，不能黑化。',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '修正刚才写错的长期记忆',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_update');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties.keys, containsAll(['memoryId', 'content', 'title']));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_update');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['updated'], isTrue);
+    expect(payload['id'], memoryId);
+    expect(payload['type'], agentMemoryTypeNote);
+    expect(payload['scope'], 'long_term');
+    expect(payload['name'], '角色底线修订');
+    expect(payload['content'], '长期设定：李澈必须保持正派，不能黑化。');
+
+    final row = db.select(
+      'SELECT id,name,content,createTime,type,role FROM memories '
+      'WHERE id=? AND isolationKey=?',
+      [memoryId, 'project:$projectId'],
+    ).single;
+    expect(row['name'], '角色底线修订');
+    expect(row['content'], '长期设定：李澈必须保持正派，不能黑化。');
+    expect(row['createTime'], before);
+    expect(row['type'], agentMemoryTypeNote);
+    expect(row['role'], 'agent');
+  });
+
+  test('Agent 记忆：memory_delete 工具可按中文 id 删除长期记忆', () async {
+    final deleteId = engine.saveAgentMemory(
+      projectId,
+      id: 'tool_delete_long_term_note',
+      name: '错误设定',
+      content: '长期设定：沈微已经背叛李澈。',
+    );
+    final keepId = engine.saveAgentMemory(
+      projectId,
+      id: 'tool_delete_keep_note',
+      name: '正确设定',
+      content: '长期设定：沈微只是被误会，不能背叛李澈。',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_delete', {
+        '记忆Id': deleteId,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '删除那条错误的长期记忆',
+      autoMode: false,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_delete');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties.keys, containsAll(['memoryId', '记忆Id']));
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_delete');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['deleted'], isTrue);
+    expect(payload['id'], deleteId);
+    expect(payload['type'], agentMemoryTypeNote);
+    expect(payload['scope'], 'long_term');
+
+    final longTermIds = engine
+        .agentLongTermMemories(projectId)
+        .map((memory) => memory.id)
+        .toList();
+    expect(longTermIds, contains(keepId));
+    expect(longTermIds, isNot(contains(deleteId)));
+  });
+
   test('Agent 记忆：memory_clear 工具按 scope 清理当前 Agent 家族', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

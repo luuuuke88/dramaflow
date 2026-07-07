@@ -1015,6 +1015,158 @@ final _tools = <AgentToolDef>[
     },
   ),
   const AgentToolDef(
+    name: 'memory_update',
+    description: '更新一条项目长期记忆。适合修正错误设定、补充角色/场景约束或重写已保存的视觉分析记忆。',
+    schema: {
+      'type': 'object',
+      'properties': {
+        'memoryId': {
+          'type': 'string',
+          'description':
+              '要更新的长期记忆 id，通常来自 memory_get/deepRetrieve records[].id。',
+        },
+        'memory_id': {
+          'type': 'string',
+          'description': 'memoryId 的 snake_case 别名。',
+        },
+        'id': {
+          'type': 'string',
+          'description': 'memoryId 的简写别名。',
+        },
+        'recordId': {
+          'type': 'string',
+          'description': 'memoryId 的记录 id 别名。',
+        },
+        'record_id': {
+          'type': 'string',
+          'description': 'recordId 的 snake_case 别名。',
+        },
+        'noteId': {
+          'type': 'string',
+          'description': 'memoryId 的长期 note id 别名。',
+        },
+        'note_id': {
+          'type': 'string',
+          'description': 'noteId 的 snake_case 别名。',
+        },
+        '记忆Id': {
+          'type': 'string',
+          'description': 'memoryId 的中文别名。',
+        },
+        '记忆ID': {
+          'type': 'string',
+          'description': 'memoryId 的中文大写别名。',
+        },
+        'name': {
+          'type': 'string',
+          'description': '可选。新的记忆名称；不传则保留原名称。',
+        },
+        'title': {
+          'type': 'string',
+          'description': 'name 的自然语言别名。',
+        },
+        'memoryName': {
+          'type': 'string',
+          'description': 'name 的记忆名称别名。',
+        },
+        'memory_name': {
+          'type': 'string',
+          'description': 'memoryName 的 snake_case 别名。',
+        },
+        '名称': {
+          'type': 'string',
+          'description': 'name 的中文别名。',
+        },
+        '记忆名称': {
+          'type': 'string',
+          'description': 'memoryName 的中文别名。',
+        },
+        'content': {
+          'type': 'string',
+          'description': '可选。新的记忆正文；不传则保留原正文。',
+        },
+        'text': {
+          'type': 'string',
+          'description': 'content 的自然语言别名。',
+        },
+        'memory': {
+          'type': 'string',
+          'description': 'content 的语义化别名。',
+        },
+        'note': {
+          'type': 'string',
+          'description': 'content 的长期记忆别名。',
+        },
+        'message': {
+          'type': 'string',
+          'description': 'content 的模型常见消息别名。',
+        },
+        'value': {
+          'type': 'string',
+          'description': 'content 的值别名。',
+        },
+        '内容': {
+          'type': 'string',
+          'description': 'content 的中文别名。',
+        },
+        '记忆内容': {
+          'type': 'string',
+          'description': 'content 的中文语义别名。',
+        },
+        '正文': {
+          'type': 'string',
+          'description': 'content 的中文正文别名。',
+        },
+      },
+    },
+  ),
+  const AgentToolDef(
+    name: 'memory_delete',
+    description: '删除一条项目长期记忆。适合移除错误、过期或重复的长期设定。',
+    schema: {
+      'type': 'object',
+      'properties': {
+        'memoryId': {
+          'type': 'string',
+          'description':
+              '要删除的长期记忆 id，通常来自 memory_get/deepRetrieve records[].id。',
+        },
+        'memory_id': {
+          'type': 'string',
+          'description': 'memoryId 的 snake_case 别名。',
+        },
+        'id': {
+          'type': 'string',
+          'description': 'memoryId 的简写别名。',
+        },
+        'recordId': {
+          'type': 'string',
+          'description': 'memoryId 的记录 id 别名。',
+        },
+        'record_id': {
+          'type': 'string',
+          'description': 'recordId 的 snake_case 别名。',
+        },
+        'noteId': {
+          'type': 'string',
+          'description': 'memoryId 的长期 note id 别名。',
+        },
+        'note_id': {
+          'type': 'string',
+          'description': 'noteId 的 snake_case 别名。',
+        },
+        '记忆Id': {
+          'type': 'string',
+          'description': 'memoryId 的中文别名。',
+        },
+        '记忆ID': {
+          'type': 'string',
+          'description': 'memoryId 的中文大写别名。',
+        },
+      },
+    },
+  ),
+  const AgentToolDef(
     name: 'memory_clear',
     description: '调用 ToonFlow Memory.clear 清理指定记忆层。'
         'message/conversation 清当前 Agent 家族的对话与摘要；summary 只清摘要并恢复源消息；'
@@ -11261,6 +11413,67 @@ extension AgentApi on Engine {
             'role': normalizedRole,
             'content': content,
           });
+        case 'memory_update':
+          final memoryId = _agentMemoryIdArg(args);
+          if (memoryId.isEmpty) return 'memory_update 需要 memoryId 参数。';
+          final existing = _agentLongTermMemoryRow(projectId, memoryId);
+          if (existing == null) {
+            return jsonEncode({
+              'updated': false,
+              'id': memoryId,
+              'type': agentMemoryTypeNote,
+              'scope': 'long_term',
+              'message': '未找到长期记忆',
+            });
+          }
+          final requestedName = _agentMemoryNameArg(args);
+          final requestedContent = _agentMemoryContentArg(args);
+          if (requestedName.isEmpty && requestedContent.isEmpty) {
+            return 'memory_update 需要 content 或 name 参数。';
+          }
+          final nextName = requestedName.isEmpty
+              ? existing['name'] as String
+              : requestedName;
+          final nextContent = requestedContent.isEmpty
+              ? existing['content'] as String
+              : requestedContent;
+          final updatedId = saveAgentMemory(
+            projectId,
+            id: memoryId,
+            name: nextName,
+            content: nextContent,
+          );
+          return jsonEncode({
+            'updated': true,
+            'id': updatedId,
+            'type': agentMemoryTypeNote,
+            'scope': 'long_term',
+            'name': nextName,
+            'role': _agentMemoryRole,
+            'content': nextContent,
+          });
+        case 'memory_delete':
+          final memoryId = _agentMemoryIdArg(args);
+          if (memoryId.isEmpty) return 'memory_delete 需要 memoryId 参数。';
+          final existing = _agentLongTermMemoryRow(projectId, memoryId);
+          if (existing == null) {
+            return jsonEncode({
+              'deleted': false,
+              'id': memoryId,
+              'type': agentMemoryTypeNote,
+              'scope': 'long_term',
+              'message': '未找到长期记忆',
+            });
+          }
+          deleteAgentMemory(projectId, memoryId);
+          return jsonEncode({
+            'deleted': true,
+            'id': memoryId,
+            'type': agentMemoryTypeNote,
+            'scope': 'long_term',
+            'name': existing['name'] as String,
+            'content': existing['content'] as String,
+          });
         case 'memory_clear':
           final scope = _memoryClearScope(args);
           if (scope == null) {
@@ -14830,6 +15043,78 @@ extension AgentApi on Engine {
     if (values.isEmpty) return null;
     if (values.length != 1 || values.contains('__unsupported__')) return null;
     return values.single;
+  }
+
+  String _agentMemoryIdArg(Map<String, dynamic> args) {
+    for (final key in const [
+      'memoryId',
+      'memory_id',
+      'id',
+      'recordId',
+      'record_id',
+      'noteId',
+      'note_id',
+      '记忆Id',
+      '记忆ID',
+      '记忆id',
+      '记忆编号',
+      '记录Id',
+      '记录ID',
+    ]) {
+      final value = (args[key] ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  String _agentMemoryNameArg(Map<String, dynamic> args) {
+    for (final key in const [
+      'name',
+      'title',
+      'label',
+      'memoryName',
+      'memory_name',
+      '名称',
+      '标题',
+      '记忆名称',
+    ]) {
+      final value = (args[key] ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  String _agentMemoryContentArg(Map<String, dynamic> args) {
+    for (final key in const [
+      'content',
+      '内容',
+      '记忆内容',
+      '正文',
+      'text',
+      'memory',
+      'note',
+      'value',
+      'message',
+      'prompt',
+      'input',
+    ]) {
+      final value = (args[key] ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  Map<String, Object?>? _agentLongTermMemoryRow(int projectId, String id) {
+    return db.select(
+      'SELECT id,name,content,createTime,role,type FROM memories '
+      'WHERE id=? AND isolationKey=? AND role=? AND type=?',
+      [
+        id,
+        _agentMemoryIsolationKey(projectId),
+        _agentMemoryRole,
+        _agentMemoryType,
+      ],
+    ).firstOrNull;
   }
 
   String _memoryAddDefaultRole(String agentFamily, String? stage) {

@@ -174,6 +174,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers RAG search
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style memory clearing semantics: clearing `message` also removes dependent `summary` records, while clearing `summary` resets summarized messages back to `summarized=0` so they can re-enter short-term memory and future summarization.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Agent-callable `memory_update` and `memory_delete` tools for project long-term notes, so multi-turn Agents can correct or remove stale saved settings without appending contradictory memories or clearing the whole long-term store.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow stage main Markdown skills being automatically injected into the Agent system prompt when files such as `script_agent_decision.md` are seeded, while ordinary stage-visible optional skills remain listed for explicit `activate_skill` calls instead of being injected by default.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-style decision-Agent project context injection: ScriptAgent decision turns receive project type, intro, visual manual, video ratio, and chapter count, while ProductionAgent decision turns receive the configured image/video model names and multi-parameter status before ordinary chat history.
