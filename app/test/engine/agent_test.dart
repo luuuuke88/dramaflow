@@ -13664,6 +13664,175 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan fallback 按检索分组独立判断', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '6'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_group_role_strict_keep',
+      content: '角色硬约束：李澈必须保护沈微，并且绝不能反派化。',
+      offset: 0,
+    );
+    insertMessage(
+      id: 'query_plan_group_role_fallback_noise',
+      content: '角色兜底设定：李澈携带寒铁剑。',
+      offset: 1,
+    );
+    insertMessage(
+      id: 'query_plan_group_scene_fallback_keep',
+      content: '场景兜底设定：镜湖夜雨必须压低曝光。',
+      offset: 2,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'queries': ['保护沈微', '不能反派化'],
+            'match': 'all',
+            'group': 'role',
+            'reason': '角色严格检索',
+          },
+          {
+            'query': '寒铁剑',
+            'fallback': true,
+            'group': 'role',
+            'reason': '角色兜底',
+          },
+          {
+            'queries': ['镜湖夜雨', '雪崩'],
+            'match': 'all',
+            'fallbackGroup': 'scene',
+            'reason': '场景严格检索',
+          },
+          {
+            'query': '镜湖夜雨压低曝光',
+            'fallback': true,
+            'fallbackGroup': 'scene',
+            'reason': '场景兜底',
+          },
+        ],
+        'limit': 6,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            '查询列表': ['保护沈微', '不能反派化'],
+            '必须全部命中': true,
+            '检索分组': 'role',
+            'reason': '角色严格检索',
+          },
+          {
+            'query': '寒铁剑',
+            '仅在无结果时使用': true,
+            '检索分组': 'role',
+            'reason': '角色兜底',
+          },
+          {
+            '查询列表': ['镜湖夜雨', '雪崩'],
+            '必须全部命中': true,
+            '检索分组': 'scene',
+            'reason': '场景严格检索',
+          },
+          {
+            'query': '镜湖夜雨压低曝光',
+            '仅在无结果时使用': true,
+            '检索分组': 'scene',
+            'reason': '场景兜底',
+          },
+        ],
+        'limit': 6,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '角色和场景两组检索各自决定是否兜底',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('group'));
+      expect(properties, contains('fallbackGroup'));
+      expect(properties, contains('检索分组'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    for (final message in toolMessages) {
+      final payload = jsonDecode(message.content) as Map<String, dynamic>;
+      final payloadText = jsonEncode(payload);
+      expect(payload['found'], isTrue,
+          reason: '${message.toolName}: ${message.content}');
+      expect(payloadText, contains('query_plan_group_role_strict_keep'));
+      expect(payloadText, contains('query_plan_group_scene_fallback_keep'));
+      expect(
+        payloadText,
+        isNot(contains('query_plan_group_role_fallback_noise')),
+      );
+      expect(
+        payload['records'],
+        contains(
+          isA<Map>()
+              .having((record) => record['id'], 'id',
+                  'query_plan_group_scene_fallback_keep')
+              .having((record) => record['queryGroup'], 'queryGroup', 'scene')
+              .having((record) => record['queryReason'], 'queryReason', '场景兜底'),
+        ),
+      );
+    }
+  });
+
   test('Agent 记忆：结构化查询计划可携带时间窗口', () async {
     const baseTime = 1900000000000;
     db.execute(

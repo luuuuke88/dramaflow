@@ -104,6 +104,7 @@ class _AgentMemoryQueryRequest {
   final int queryPlanIndex;
   final String? reason;
   final bool fallbackWhenPreviousEmpty;
+  final String? queryGroup;
 
   const _AgentMemoryQueryRequest({
     required this.query,
@@ -113,6 +114,7 @@ class _AgentMemoryQueryRequest {
     this.priority = 0,
     this.reason,
     this.fallbackWhenPreviousEmpty = false,
+    this.queryGroup,
   });
 }
 
@@ -121,12 +123,14 @@ class _AgentMemoryQueryMatch {
   final int queryPlanIndex;
   final int priority;
   final String? reason;
+  final String? group;
 
   const _AgentMemoryQueryMatch({
     required this.query,
     required this.queryPlanIndex,
     required this.priority,
     this.reason,
+    this.group,
   });
 }
 
@@ -590,6 +594,18 @@ const _agentMemoryQueryFallbackToolSchema = {
   '仅在无结果时使用': {
     'type': 'boolean',
     'description': 'fallback 的中文别名。',
+  },
+  'group': {
+    'type': 'string',
+    'description': '可选。检索计划分组；fallback 只查看同组前序结果。',
+  },
+  'fallbackGroup': {
+    'type': 'string',
+    'description': 'group 的 fallback 语义别名。',
+  },
+  '检索分组': {
+    'type': 'string',
+    'description': 'group 的中文别名。',
   },
 };
 const _agentMemoryRetrievalSourceToolSchema = {
@@ -10903,15 +10919,20 @@ extension AgentApi on Engine {
           final noteRecords = <AgentMemoryEntry>[];
           final recordPriorities = <String, int>{};
           final recordQueryMatches = <String, _AgentMemoryQueryMatch>{};
+          final hitQueryGroups = <String>{};
           var hasMessageRequests = false;
           var hasSummaryRequests = false;
           for (final request in queryRequests) {
             if (request.fallbackWhenPreviousEmpty &&
-                _hasAgentMemoryToolRecords(
-                  relatedMessageRecords,
-                  summaryRecords,
-                  recentMessageRecords,
-                  noteRecords,
+                _agentMemoryFallbackHasPriorHit(
+                  request,
+                  hitQueryGroups,
+                  hasAnyRecords: _hasAgentMemoryToolRecords(
+                    relatedMessageRecords,
+                    summaryRecords,
+                    recentMessageRecords,
+                    noteRecords,
+                  ),
                 )) {
               continue;
             }
@@ -10922,6 +10943,8 @@ extension AgentApi on Engine {
                 request.priority,
               );
               _mergeAgentMemoryQueryMatch(recordQueryMatches, record, request);
+              final group = request.queryGroup;
+              if (group != null) hitQueryGroups.add(group);
             }
 
             final roles = _agentMemoryRoles(requestArgs);
@@ -11177,8 +11200,14 @@ extension AgentApi on Engine {
           final records = <AgentMemoryEntry>[];
           final recordPriorities = <String, int>{};
           final recordQueryMatches = <String, _AgentMemoryQueryMatch>{};
+          final hitQueryGroups = <String>{};
           for (final request in queryRequests) {
-            if (request.fallbackWhenPreviousEmpty && records.isNotEmpty) {
+            if (request.fallbackWhenPreviousEmpty &&
+                _agentMemoryFallbackHasPriorHit(
+                  request,
+                  hitQueryGroups,
+                  hasAnyRecords: records.isNotEmpty,
+                )) {
               continue;
             }
             final requestArgs = request.args;
@@ -11211,6 +11240,8 @@ extension AgentApi on Engine {
                 request.priority,
               );
               _mergeAgentMemoryQueryMatch(recordQueryMatches, record, request);
+              final group = request.queryGroup;
+              if (group != null) hitQueryGroups.add(group);
             }
 
             final requestRecords = await memoryService.deepRetrieve(
@@ -12503,6 +12534,7 @@ extension AgentApi on Engine {
       int? limit,
       int priority = 0,
       bool fallbackWhenPreviousEmpty = false,
+      String? queryGroup,
     }) {
       final trimmed = query.trim();
       if (trimmed.isEmpty) return;
@@ -12519,6 +12551,7 @@ extension AgentApi on Engine {
           priority: priority,
           reason: _agentMemoryQueryReason(requestArgs),
           fallbackWhenPreviousEmpty: fallbackWhenPreviousEmpty,
+          queryGroup: queryGroup,
         ),
       );
     }
@@ -12529,6 +12562,7 @@ extension AgentApi on Engine {
       int? limit,
       int priority = 0,
       bool fallbackWhenPreviousEmpty = false,
+      String? queryGroup,
     }) {
       final items = _coerceStringList(raw);
       if (items == null) return;
@@ -12539,6 +12573,7 @@ extension AgentApi on Engine {
           limit: limit,
           priority: priority,
           fallbackWhenPreviousEmpty: fallbackWhenPreviousEmpty,
+          queryGroup: queryGroup,
         );
       }
     }
@@ -12549,6 +12584,7 @@ extension AgentApi on Engine {
       int? inheritedLimit,
       int inheritedPriority = 0,
       bool inheritedFallbackWhenPreviousEmpty = false,
+      String? inheritedQueryGroup,
     }) {
       if (raw == null) return;
       if (raw is Map) {
@@ -12566,6 +12602,8 @@ extension AgentApi on Engine {
         final nodeFallbackWhenPreviousEmpty =
             inheritedFallbackWhenPreviousEmpty ||
                 _agentMemoryPlanIsFallback(map);
+        final nodeQueryGroup =
+            _agentMemoryPlanQueryGroup(map) ?? inheritedQueryGroup;
         final allMatchQueries = _agentMemoryPlanAllMatchQueries(map);
         if (allMatchQueries.length > 1) {
           addRequest(
@@ -12577,6 +12615,7 @@ extension AgentApi on Engine {
             limit: nodeLimit,
             priority: nodePriority,
             fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+            queryGroup: nodeQueryGroup,
           );
           return;
         }
@@ -12604,6 +12643,7 @@ extension AgentApi on Engine {
             limit: nodeLimit,
             priority: nodePriority,
             fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+            queryGroup: nodeQueryGroup,
           );
         }
         final childArgs = {
@@ -12639,6 +12679,7 @@ extension AgentApi on Engine {
             inheritedLimit: nodeLimit,
             inheritedPriority: nodePriority,
             inheritedFallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+            inheritedQueryGroup: nodeQueryGroup,
           );
         }
         return;
@@ -12652,6 +12693,7 @@ extension AgentApi on Engine {
             inheritedPriority: inheritedPriority,
             inheritedFallbackWhenPreviousEmpty:
                 inheritedFallbackWhenPreviousEmpty,
+            inheritedQueryGroup: inheritedQueryGroup,
           );
         }
         return;
@@ -12662,6 +12704,7 @@ extension AgentApi on Engine {
         limit: inheritedLimit,
         priority: inheritedPriority,
         fallbackWhenPreviousEmpty: inheritedFallbackWhenPreviousEmpty,
+        queryGroup: inheritedQueryGroup,
       );
     }
 
@@ -12680,12 +12723,14 @@ extension AgentApi on Engine {
     ]);
     final basePriority = _agentMemoryDirectPriority(args) ?? 0;
     final baseFallbackWhenPreviousEmpty = _agentMemoryPlanIsFallback(args);
+    final baseQueryGroup = _agentMemoryPlanQueryGroup(args);
     if (single.isNotEmpty) {
       addRequest(
         single,
         baseArgs,
         priority: basePriority,
         fallbackWhenPreviousEmpty: baseFallbackWhenPreviousEmpty,
+        queryGroup: baseQueryGroup,
       );
     }
     final directQueries = _stringListAny(args, const [
@@ -12707,6 +12752,7 @@ extension AgentApi on Engine {
         _agentMemoryArgsWithRequiredContentTerms(baseArgs, directQueries),
         priority: basePriority,
         fallbackWhenPreviousEmpty: baseFallbackWhenPreviousEmpty,
+        queryGroup: baseQueryGroup,
       );
     } else {
       for (final item in directQueries) {
@@ -12715,6 +12761,7 @@ extension AgentApi on Engine {
           baseArgs,
           priority: basePriority,
           fallbackWhenPreviousEmpty: baseFallbackWhenPreviousEmpty,
+          queryGroup: baseQueryGroup,
         );
       }
     }
@@ -12733,6 +12780,7 @@ extension AgentApi on Engine {
         baseArgs,
         inheritedPriority: basePriority,
         inheritedFallbackWhenPreviousEmpty: baseFallbackWhenPreviousEmpty,
+        inheritedQueryGroup: baseQueryGroup,
       );
     }
     return requests;
@@ -12915,6 +12963,25 @@ extension AgentApi on Engine {
       default:
         return false;
     }
+  }
+
+  String? _agentMemoryPlanQueryGroup(Map<String, dynamic> args) {
+    final raw = args['group'] ??
+        args['groupId'] ??
+        args['group_id'] ??
+        args['queryGroup'] ??
+        args['query_group'] ??
+        args['fallbackGroup'] ??
+        args['fallback_group'] ??
+        args['retrievalGroup'] ??
+        args['retrieval_group'] ??
+        args['topic'] ??
+        args['检索分组'] ??
+        args['兜底分组'] ??
+        args['查询分组'] ??
+        args['主题'];
+    final value = raw?.toString().trim();
+    return value == null || value.isEmpty ? null : value;
   }
 
   Map<String, dynamic> _agentMemoryArgsWithoutQueryPlan(
@@ -13699,6 +13766,7 @@ extension AgentApi on Engine {
       queryPlanIndex: request.queryPlanIndex,
       priority: request.priority,
       reason: request.reason,
+      group: request.queryGroup,
     );
   }
 
@@ -14234,6 +14302,16 @@ extension AgentApi on Engine {
       recentMessages.isNotEmpty ||
       notes.isNotEmpty;
 
+  bool _agentMemoryFallbackHasPriorHit(
+    _AgentMemoryQueryRequest request,
+    Set<String> hitQueryGroups, {
+    required bool hasAnyRecords,
+  }) {
+    final group = request.queryGroup;
+    if (group == null) return hasAnyRecords;
+    return hitQueryGroups.contains(group);
+  }
+
   Map<String, dynamic> _agentMemoryRecordPayload(
     AgentMemoryEntry record, {
     int? priority,
@@ -14250,6 +14328,7 @@ extension AgentApi on Engine {
         if (queryMatch != null) 'matchedQuery': queryMatch.query,
         if (queryMatch != null) 'queryPlanIndex': queryMatch.queryPlanIndex,
         if (queryMatch?.reason != null) 'queryReason': queryMatch!.reason,
+        if (queryMatch?.group != null) 'queryGroup': queryMatch!.group,
         if (record.relatedMessageIds.isNotEmpty)
           'relatedMessageIds': record.relatedMessageIds,
         if (record.sourceSummaryIds.isNotEmpty)
