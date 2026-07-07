@@ -5473,6 +5473,76 @@ return labels;
     expect(msg.content, '1.雪落山门、2.主角回眸');
   });
 
+  test('自定义脚本技能：Promise.allSettled 保留 rejected 批量结果', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_all_settled_rejected_runtime',
+      name: 'Promise allSettled rejected 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Promise.allSettled 混合成功/失败批量整理。',
+      script: r'''
+const settled = await Promise.allSettled(
+  args.storyboards.map((shot, index) => {
+    if (!shot.videoDesc?.trim()) {
+      return Promise.reject(new Error(`第${index + 1}镜缺少画面描述`));
+    }
+    return Promise.resolve(`${index + 1}.${shot.videoDesc.trim()}`);
+  })
+);
+
+const ok = settled
+  .filter(item => item.status === 'fulfilled')
+  .map(item => item.value)
+  .join('、');
+const failed = settled
+  .filter(item => item.status === 'rejected')
+  .map(item => item.reason.message)
+  .join('、');
+
+return JSON.stringify({ ok, failed });
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'custom_script_promise_all_settled_rejected_runtime',
+        const {
+          'storyboards': [
+            {'videoDesc': ' 雪落山门 '},
+            {'videoDesc': ''},
+            {'videoDesc': '主角回眸'},
+          ],
+        },
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise allSettled rejected 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_all_settled_rejected_runtime');
+    expect(jsonDecode(msg.content), {
+      'ok': '1.雪落山门、3.主角回眸',
+      'failed': '第2镜缺少画面描述',
+    });
+  });
+
   test('自定义脚本技能：支持 Promise.resolve 后的同步 then 链', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_promise_then_runtime',

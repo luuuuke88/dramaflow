@@ -5510,7 +5510,7 @@ class _CustomAgentSkillRuntime {
         if (args.length != 1) _badMethodArgs(method);
         return [
           for (final value in _promiseIterableValues(args.single, method))
-            {'status': 'fulfilled', 'value': _unwrapPromiseValue(value)},
+            _settledPromiseRecord(value),
         ];
       case 'resolve':
         if (args.length > 1) _badMethodArgs(method);
@@ -5528,6 +5528,19 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  Map<String, Object?> _settledPromiseRecord(Object? value) {
+    if (value is _CustomJsPromiseValue && value.rejected) {
+      return {
+        'status': 'rejected',
+        'reason': _customJsCatchValue(value.reason),
+      };
+    }
+    return {
+      'status': 'fulfilled',
+      'value': _unwrapPromiseValue(value),
+    };
   }
 
   Object? _callPromiseInstanceMethod(

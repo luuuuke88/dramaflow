@@ -478,6 +478,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-co
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `Promise.allSettled(list.map(async (...) => ...))` results with JS-style fulfilled records, so model-authored batch-cleanup skills can keep common all-settled filtering patterns before returning storyboard or asset summaries.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `Promise.allSettled(...)` results with JS-style rejected records and readable `reason.message`, so model-authored batch scripts can keep successful storyboard/asset rows while reporting failed rows instead of aborting the whole custom skill.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `Promise.resolve(value).then(...).then(...)` chains, so model-authored custom skills can keep common Promise-based cleanup pipelines while the restricted runtime still unwraps values deterministically at `await`, `Promise.all`, and return boundaries.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `Promise.reject(new Error(...)).catch(...).then(...)` recovery chains, so model-authored custom skills can keep common fallback cleanup paths without turning recoverable data issues into failed tool calls.
