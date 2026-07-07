@@ -5366,6 +5366,70 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持可选函数调用 fallback', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_optional_call_runtime',
+      name: '可选函数调用脚本运行时',
+      description: '验证自定义技能兼容模型常写的 helper?.(value) ?? fallback。',
+      script: r'''
+function formatAsset(asset, index) {
+  const name = asset.name?.trim();
+  return name ? `${index + 1}.${name}` : null;
+}
+
+const maybeFormat = args.enabled ? formatAsset : null;
+
+return JSON.stringify({
+  labels: args.assets
+    .map((asset, index) => formatAsset?.(asset, index))
+    .filter(Boolean)
+    .join('、'),
+  disabled: maybeFormat?.(args.assets[0], 0) ?? '未启用',
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'enabled': {'type': 'boolean'},
+          'assets': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'name': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_optional_call_runtime', const {
+        'enabled': false,
+        'assets': [
+          {'name': ' 李澈 '},
+          {'name': ' '},
+          {'name': '沈微'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用可选函数调用脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_optional_call_runtime');
+    expect(jsonDecode(msg.content), {
+      'labels': '1.李澈、3.沈微',
+      'disabled': '未启用',
+    });
+  });
+
   test('自定义脚本技能：支持函数和回调参数默认值', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_param_default_runtime',

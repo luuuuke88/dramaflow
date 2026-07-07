@@ -4889,6 +4889,17 @@ class _CustomAgentSkillRuntime {
     var value = initialValue;
     while (index < expression.length) {
       final char = expression[index];
+      if (expression.startsWith('?.(', index)) {
+        if (value == null) return null;
+        final call = _readBalanced(expression, index + 2, '(', ')');
+        final args = _splitTopLevel(call.text, ',')
+            .where((part) => part.trim().isNotEmpty)
+            .map((part) => part.trim())
+            .toList();
+        value = _callFunction(value, 'anonymous', args);
+        index = call.end;
+        continue;
+      }
       if (char == '(') {
         final call = _readBalanced(expression, index, '(', ')');
         final args = _splitTopLevel(call.text, ',')
