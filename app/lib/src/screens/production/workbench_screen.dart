@@ -1148,7 +1148,25 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     if (timeSteps == 0 && laneSteps == 0) return;
     final engine = ref.read(engineProvider);
     final duration = clip.durationMs ?? _defaultClipDurationMs;
-    final rawStart = clip.startMs + timeSteps * _dragTimeStepMs;
+    final rawDeltaStartMs = timeSteps * _dragTimeStepMs;
+    final rawStart = clip.startMs + rawDeltaStartMs;
+    if (_selectedClipIds.length > 1 && _selectedClipIds.contains(clip.id)) {
+      final resolvedDeltaStartMs = timeSteps == 0
+          ? 0
+          : _snapTimelineClipGroupDelta(
+              engine: engine,
+              clip: clip,
+              selectedClipIds: _selectedClipIds,
+              deltaStartMs: rawDeltaStartMs,
+            );
+      engine.moveTimelineClips(
+        clipIds: _selectedClipIds.toList(),
+        deltaStartMs: resolvedDeltaStartMs,
+        deltaLane: laneSteps,
+      );
+      setState(() {});
+      return;
+    }
     final nextStart = timeSteps == 0
         ? clip.startMs
         : _snapClipStart(
@@ -1158,15 +1176,6 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
             durationMs: duration,
           );
     final nextLane = clip.lane + laneSteps;
-    if (_selectedClipIds.length > 1 && _selectedClipIds.contains(clip.id)) {
-      engine.moveTimelineClips(
-        clipIds: _selectedClipIds.toList(),
-        deltaStartMs: nextStart - clip.startMs,
-        deltaLane: laneSteps,
-      );
-      setState(() {});
-      return;
-    }
     final resolvedLane = laneSteps == 0
         ? nextLane
         : _autoTimelineClipLane(
@@ -1192,6 +1201,42 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       durationMs: clip.durationMs,
     );
     setState(() {});
+  }
+
+  int _snapTimelineClipGroupDelta({
+    required Engine engine,
+    required TimelineClipRow clip,
+    required Set<int> selectedClipIds,
+    required int deltaStartMs,
+  }) {
+    final selectedRows = engine
+        .timelineClips(clip.scriptId)
+        .where((row) => selectedClipIds.contains(row.id))
+        .toList();
+    if (selectedRows.length < 2) return deltaStartMs;
+    final groupStart = selectedRows
+        .map((row) => row.startMs)
+        .reduce((a, b) => a < b ? a : b);
+    final groupEnd = selectedRows.map((row) {
+      final duration = row.durationMs ?? _defaultClipDurationMs;
+      return row.startMs + duration;
+    }).reduce((a, b) => a > b ? a : b);
+    final anchors = _timelineSnapAnchors(
+      engine: engine,
+      clip: clip,
+      excludeClipIds: selectedClipIds,
+    );
+    final rawGroupStart = groupStart + deltaStartMs;
+    final snappedGroupStart = _snapValue(rawGroupStart, anchors);
+    if (snappedGroupStart != rawGroupStart) {
+      return snappedGroupStart - groupStart;
+    }
+    final rawGroupEnd = groupEnd + deltaStartMs;
+    final snappedGroupEnd = _snapValue(rawGroupEnd, anchors);
+    if (snappedGroupEnd != rawGroupEnd) {
+      return snappedGroupEnd - groupEnd;
+    }
+    return deltaStartMs;
   }
 
   void _resizeClipLayerEnd(TimelineClipRow clip, Offset dragDelta) {
@@ -1425,8 +1470,10 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
   List<int> _timelineSnapAnchors({
     required Engine engine,
     required TimelineClipRow clip,
+    Set<int> excludeClipIds = const <int>{},
   }) {
     final anchors = <int>{0};
+    final excludedIds = {...excludeClipIds, clip.id};
     final playheadMs = _snapPlayheadMs;
     if (playheadMs != null) anchors.add(playheadMs);
     var cursorMs = 0;
@@ -1437,7 +1484,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       anchors.add(cursorMs);
     }
     for (final other in engine.timelineClips(clip.scriptId)) {
-      if (other.id == clip.id) continue;
+      if (excludedIds.contains(other.id)) continue;
       final duration = other.durationMs ?? _defaultClipDurationMs;
       anchors
         ..add(other.startMs)

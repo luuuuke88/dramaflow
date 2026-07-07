@@ -3546,6 +3546,74 @@ void main() {
     expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 900);
   });
 
+  testWidgets('工作台多选拖拽时整组左边缘接近锚点会整体吸附', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const relA = 'p/group_snap_left_overlay_a.mp4';
+    const relB = 'p/group_snap_left_overlay_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 6, 1]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 6, 2]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '组吸附 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '组吸附 B',
+      relPath: relB,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 120,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 900,
+      durationMs: 500,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdB')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(ValueKey('workbench-timeline-clip-$clipIdB')),
+      const Offset(-12, 0),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips.singleWhere((c) => c.id == clipIdA).startMs, 0);
+    expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 780);
+    expect(find.textContaining('L1 · 0ms · 500ms'), findsOneWidget);
+    expect(find.textContaining('L2 · 780ms · 500ms'), findsOneWidget);
+  });
+
   testWidgets('工作台多选拖拽遇到同轨未选素材时整组后移避让', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
