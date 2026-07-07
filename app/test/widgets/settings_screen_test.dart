@@ -468,6 +468,31 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('移动端设置页：花钱/破坏确认开关可读写配置', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '其他设置');
+
+    expect(engine.config.str('policy.confirmMoney'), '1');
+    expect(engine.config.str('policy.confirmDestructive'), '1');
+
+    await tester.tap(find.text('花钱操作需确认'));
+    await tester.pumpAndSettle();
+    expect(engine.config.str('policy.confirmMoney'), '0');
+
+    await tester.tap(find.text('破坏性操作需确认（含 auto 模式）'));
+    await tester.pumpAndSettle();
+    expect(engine.config.str('policy.confirmDestructive'), '0');
+
+    await tester.tap(find.text('花钱操作需确认'));
+    await tester.pumpAndSettle();
+    expect(engine.config.str('policy.confirmMoney'), '1');
+  });
 }
 
 Future<void> _selectSection(WidgetTester tester, String label) async {

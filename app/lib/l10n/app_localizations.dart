@@ -6123,6 +6123,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'Web 引擎待移植'**
   String get webPreviewEnginePending;
+
+  /// No description provided for @policyConfirmMoneyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'花费确认'**
+  String get policyConfirmMoneyTitle;
+
+  /// No description provided for @policyConfirmMoneyBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'{description}：本次将调用 {units} 次付费生成，确认继续？'**
+  String policyConfirmMoneyBody(String description, int units);
+
+  /// No description provided for @policyConfirmDestructiveTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'危险操作确认'**
+  String get policyConfirmDestructiveTitle;
+
+  /// No description provided for @policyConfirmDestructiveBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'{description}：该操作不可撤销，确认继续？'**
+  String policyConfirmDestructiveBody(String description);
+
+  /// No description provided for @settingsPolicyConfirmMoney.
+  ///
+  /// In zh, this message translates to:
+  /// **'花钱操作需确认'**
+  String get settingsPolicyConfirmMoney;
+
+  /// No description provided for @settingsPolicyConfirmDestructive.
+  ///
+  /// In zh, this message translates to:
+  /// **'破坏性操作需确认（含 auto 模式）'**
+  String get settingsPolicyConfirmDestructive;
 }
 
 class _AppLocalizationsDelegate

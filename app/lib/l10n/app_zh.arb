@@ -1403,5 +1403,28 @@
   "webPreviewMacClient": "macOS 完整客户端",
   "webPreviewIosClient": "iOS 完整客户端",
   "webPreviewAndroidClient": "Android APK 可构建",
-  "webPreviewEnginePending": "Web 引擎待移植"
+  "webPreviewEnginePending": "Web 引擎待移植",
+  "policyConfirmMoneyTitle": "花费确认",
+  "policyConfirmMoneyBody": "{description}：本次将调用 {units} 次付费生成，确认继续？",
+  "@policyConfirmMoneyBody": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      },
+      "units": {
+        "type": "int"
+      }
+    }
+  },
+  "policyConfirmDestructiveTitle": "危险操作确认",
+  "policyConfirmDestructiveBody": "{description}：该操作不可撤销，确认继续？",
+  "@policyConfirmDestructiveBody": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsPolicyConfirmMoney": "花钱操作需确认",
+  "settingsPolicyConfirmDestructive": "破坏性操作需确认（含 auto 模式）"
 }

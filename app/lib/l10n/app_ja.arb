@@ -1186,5 +1186,28 @@
   "webPreviewMacClient": "macOS フルクライアント",
   "webPreviewIosClient": "iOS フルクライアント",
   "webPreviewAndroidClient": "Android APK ビルド可",
-  "webPreviewEnginePending": "Web エンジン移植待ち"
+  "webPreviewEnginePending": "Web エンジン移植待ち",
+  "policyConfirmMoneyTitle": "費用確認",
+  "policyConfirmMoneyBody": "{description}：今回は有料生成を {units} 回呼び出します。続行しますか？",
+  "@policyConfirmMoneyBody": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      },
+      "units": {
+        "type": "int"
+      }
+    }
+  },
+  "policyConfirmDestructiveTitle": "危険操作の確認",
+  "policyConfirmDestructiveBody": "{description}：この操作は取り消せません。続行しますか？",
+  "@policyConfirmDestructiveBody": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsPolicyConfirmMoney": "費用が発生する操作は確認が必要",
+  "settingsPolicyConfirmDestructive": "破壊的操作は確認が必要（autoモードを含む）"
 }

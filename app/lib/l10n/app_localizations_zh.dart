@@ -3144,4 +3144,26 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webPreviewEnginePending => 'Web 引擎待移植';
+
+  @override
+  String get policyConfirmMoneyTitle => '花费确认';
+
+  @override
+  String policyConfirmMoneyBody(String description, int units) {
+    return '$description：本次将调用 $units 次付费生成，确认继续？';
+  }
+
+  @override
+  String get policyConfirmDestructiveTitle => '危险操作确认';
+
+  @override
+  String policyConfirmDestructiveBody(String description) {
+    return '$description：该操作不可撤销，确认继续？';
+  }
+
+  @override
+  String get settingsPolicyConfirmMoney => '花钱操作需确认';
+
+  @override
+  String get settingsPolicyConfirmDestructive => '破坏性操作需确认（含 auto 模式）';
 }

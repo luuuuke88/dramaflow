@@ -874,6 +874,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: Text(l10n.commonSave),
             ),
           ),
+          const Divider(height: 28),
+          SwitchListTile(
+            key: const ValueKey('settings-policy-confirm-money-switch'),
+            contentPadding: EdgeInsets.zero,
+            value: ref.read(engineProvider).config.str('policy.confirmMoney') !=
+                '0',
+            onChanged: (v) => setState(() {
+              ref
+                  .read(engineProvider)
+                  .config
+                  .update({'policy.confirmMoney': v ? '1' : '0'});
+            }),
+            title: Text(l10n.settingsPolicyConfirmMoney),
+          ),
+          SwitchListTile(
+            key: const ValueKey('settings-policy-confirm-destructive-switch'),
+            contentPadding: EdgeInsets.zero,
+            value: ref
+                    .read(engineProvider)
+                    .config
+                    .str('policy.confirmDestructive') !=
+                '0',
+            onChanged: (v) => setState(() {
+              ref
+                  .read(engineProvider)
+                  .config
+                  .update({'policy.confirmDestructive': v ? '1' : '0'});
+            }),
+            title: Text(l10n.settingsPolicyConfirmDestructive),
+          ),
         ],
       ),
     );
