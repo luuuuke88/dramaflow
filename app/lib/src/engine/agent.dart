@@ -686,6 +686,8 @@ const _agentMemoryStructuredDslWrapperKeys = [
   'search_query',
   'constant_score',
   'constantScore',
+  'function_score',
+  'functionScore',
   'nested',
 ];
 const _agentMemoryStructuredQueryClauseKeys = [
@@ -991,6 +993,15 @@ const _agentMemoryContentFilterToolSchema = {
   'constantScore': {
     'type': 'object',
     'description': 'constant_score 的 camelCase 别名。',
+  },
+  'function_score': {
+    'type': 'object',
+    'description':
+        '可选。Elasticsearch function_score 包裹，内部 query/filter 会被展开为检索条件。',
+  },
+  'functionScore': {
+    'type': 'object',
+    'description': 'function_score 的 camelCase 别名。',
   },
   'nested': {
     'type': 'object',
