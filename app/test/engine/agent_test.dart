@@ -15265,6 +15265,157 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan 支持 fuzzy 查询和过滤子句', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_fuzzy_get_keep',
+      '玄鸦祭坛甲：镜头必须保留玄鸦祭坛、黑羽光尘和逆光剪影。',
+      0,
+    );
+    insertMessage(
+      'query_plan_fuzzy_get_noise',
+      '玄鸦祭坛甲：旧版只记录普通祭坛，没有黑羽光尘。',
+      1,
+    );
+    insertMessage(
+      'query_plan_fuzzy_filter_deep_keep',
+      '雾灯回廊乙：镜头必须保留雾灯回廊、青色灯阵和慢速横移。',
+      2,
+    );
+    insertMessage(
+      'query_plan_fuzzy_filter_deep_noise',
+      '雾灯回廊乙：旧版只记录普通长廊，没有青色灯阵。',
+      3,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'fuzzy': {
+                'content': {
+                  'value': '黑羽光尘',
+                  'fuzziness': 'AUTO',
+                },
+              },
+            },
+            'must_not': [
+              {
+                'match': {'content': '旧版'},
+              },
+            ],
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'match_all': {},
+            },
+            'filter': {
+              'bool': {
+                'filter': [
+                  {
+                    'fuzzy': {
+                      'content': {
+                        'value': '青色灯阵',
+                        'fuzziness': 'AUTO',
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+            'must_not': [
+              {
+                'match': {'content': '旧版'},
+              },
+            ],
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES fuzzy 查询和过滤结构召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('fuzzy'));
+      expect(properties, contains('fuzziness'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_fuzzy_get_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_fuzzy_filter_deep_keep'],
+    );
+  });
+
   test('Agent 记忆：queryPlan 支持 match_phrase_prefix/more_like_this 查询子句',
       () async {
     final now = DateTime.now().millisecondsSinceEpoch;

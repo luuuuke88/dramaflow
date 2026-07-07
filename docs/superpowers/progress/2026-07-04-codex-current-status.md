@@ -76,6 +76,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 - ES 风格 `match_all` 已作为无文本全量窗口查询接入 queryPlan，可配合 `role/scope/sort/size/from` 返回最近或最旧的一组记忆。
 - ES 风格 `match_none` 已作为结构化空结果查询接入 queryPlan，模型生成空召回计划时会返回 `found:false`，不会再误报缺少 `query/keyword`。
 - ES 风格 `combined_fields` / `match_phrase_prefix` / `more_like_this` 已接入 queryPlan：跨字段查询会暴露给模型，前缀短语可作为硬过滤，`more_like_this.like/unlike` 会分别映射为检索文本和排除词。
+- ES 风格 `fuzzy` 已接入 queryPlan 和 `bool.filter` 硬过滤；本地召回会提取 `value/query` 文本，忽略 `fuzziness` 权重，避免模型生成模糊查询时整条检索计划失效。
 - ES 风格 `minimum_should_match` 现在支持百分比写法，例如 `75%` 会按 should 条件数量换算最低命中数，避免模型生成百分比阈值时退回过宽召回。
 - ES 风格嵌套 `match.operator=and` 已映射为多词全部命中，`match: {content: {query:"冷月 断索", operator:"and"}}` 不会再被误当成一个带空格的完整短语。
 

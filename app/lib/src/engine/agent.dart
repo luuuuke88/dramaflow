@@ -625,7 +625,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/size/from/priority/mustInclude/excludeTerms/must/must_not/match/exists/operator 等过滤提示，也可把这些过滤提示包在 filter/post_filter/where/bool/criteria/条件 对象内。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/size/from/priority/mustInclude/excludeTerms/must/must_not/match/fuzzy/exists/operator 等过滤提示，也可把这些过滤提示包在 filter/post_filter/where/bool/criteria/条件 对象内。',
   },
   'query_plan': {
     'type': ['array', 'object'],
@@ -820,6 +820,7 @@ const _agentMemoryStructuredQueryClauseKeys = [
   'boosting',
   'dis_max',
   'disMax',
+  'fuzzy',
   'multi_match',
   'multiMatch',
   'query_string',
@@ -1206,6 +1207,15 @@ const _agentMemoryContentFilterToolSchema = {
   'combinedFields': {
     'type': 'object',
     'description': 'combined_fields 的 camelCase 别名。',
+  },
+  'fuzzy': {
+    'type': 'object',
+    'description':
+        '可选。Elasticsearch fuzzy 查询子句；本地召回会提取 value/query 作为检索文本或硬过滤词。',
+  },
+  'fuzziness': {
+    'type': ['string', 'integer'],
+    'description': '可选。fuzzy 查询的编辑距离提示；本地召回会忽略该权重，仅保留文本语义。',
   },
   'more_like_this': {
     'type': 'object',
@@ -15414,6 +15424,7 @@ extension AgentApi on Engine {
         'term',
         'terms',
         'match',
+        'fuzzy',
         'prefix',
         'wildcard',
         'regexp',
@@ -17637,6 +17648,7 @@ extension AgentApi on Engine {
           'term',
           'terms',
           'match',
+          'fuzzy',
           'prefix',
           'wildcard',
           'regexp',
