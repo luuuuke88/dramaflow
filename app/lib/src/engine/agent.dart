@@ -4753,6 +4753,34 @@ class _CustomAgentSkillRuntime {
     return 'object';
   }
 
+  String _objectPrototypeToString(Object? value) {
+    var tag = 'Object';
+    if (value == null) {
+      tag = 'Null';
+    } else if (value is bool) {
+      tag = 'Boolean';
+    } else if (value is num) {
+      tag = 'Number';
+    } else if (value is String) {
+      tag = 'String';
+    } else if (value is List) {
+      tag = 'Array';
+    } else if (value is _CustomJsDate) {
+      tag = 'Date';
+    } else if (value is _CustomJsMap) {
+      tag = 'Map';
+    } else if (value is Set) {
+      tag = 'Set';
+    } else if (value is _CustomJsRegExp) {
+      tag = 'RegExp';
+    } else if (value is _CustomJsError) {
+      tag = 'Error';
+    } else if (value is _CustomJsFunction || value is _CustomJsBuiltin) {
+      tag = 'Function';
+    }
+    return '[object $tag]';
+  }
+
   bool _customJsInstanceOf(Object? value, Object? constructor) {
     if (constructor is! _CustomJsBuiltin) {
       throw EngineException(errLlmFormat, {
@@ -6126,6 +6154,11 @@ class _CustomAgentSkillRuntime {
       final values = _evaluateCallArguments(args);
       if (values.length != 2) _badMethodArgs(method);
       return _hasOwnProperty(values.first, values[1]);
+    }
+    if (objectName == 'Object.prototype.toString' && method == 'call') {
+      final values = _evaluateCallArguments(args);
+      if (values.length != 1) _badMethodArgs(method);
+      return _objectPrototypeToString(values.single);
     }
     switch (objectName) {
       case 'Array':
@@ -7714,6 +7747,11 @@ class _CustomAgentSkillRuntime {
         value.name == 'Object.prototype' &&
         property == 'hasOwnProperty') {
       return const _CustomJsBuiltin('Object.prototype.hasOwnProperty');
+    }
+    if (value is _CustomJsBuiltin &&
+        value.name == 'Object.prototype' &&
+        property == 'toString') {
+      return const _CustomJsBuiltin('Object.prototype.toString');
     }
     if (value is Map) return value[property];
     if (value is _CustomJsMatch) {

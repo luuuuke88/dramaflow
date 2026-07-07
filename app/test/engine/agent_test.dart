@@ -9689,6 +9689,99 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Object.prototype.toString.call 类型标签', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_object_to_string_tag_runtime',
+      name: 'Object toString 类型标签脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 Object.prototype.toString.call(value) 类型标签判断。',
+      script: r'''
+function tag(value) {
+  return Object.prototype.toString.call(value);
+}
+const startedAt = new Date(args.startedAt);
+const assetMap = new Map(Object.entries(args.assetsById));
+const selected = new Set(args.selectedIds);
+function helper() {
+  return 'ok';
+}
+let caught = null;
+try {
+  throw new Error('bad storyboard payload');
+} catch (error) {
+  caught = error;
+}
+return JSON.stringify({
+  assets: tag(args.assets),
+  firstAsset: tag(args.assets[0]),
+  startedAt: tag(startedAt),
+  assetMap: tag(assetMap),
+  selected: tag(selected),
+  caught: tag(caught),
+  nil: tag(null),
+  text: tag(args.assets[0].name),
+  count: tag(args.assets.length),
+  enabled: tag(args.enabled),
+  helper: tag(helper),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'startedAt': {'type': 'integer'},
+          'selectedIds': {
+            'type': 'array',
+            'items': {'type': 'number'},
+          },
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+          'assetsById': {'type': 'object'},
+          'enabled': {'type': 'boolean'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_object_to_string_tag_runtime', const {
+        'startedAt': 1704067200000,
+        'selectedIds': [1, 2],
+        'assets': [
+          {'name': '李澈'},
+        ],
+        'assetsById': {
+          'A001': {'name': '李澈'},
+        },
+        'enabled': true,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Object toString 类型标签脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_object_to_string_tag_runtime');
+    expect(jsonDecode(msg.content), {
+      'assets': '[object Array]',
+      'firstAsset': '[object Object]',
+      'startedAt': '[object Date]',
+      'assetMap': '[object Map]',
+      'selected': '[object Set]',
+      'caught': '[object Error]',
+      'nil': '[object Null]',
+      'text': '[object String]',
+      'count': '[object Number]',
+      'enabled': '[object Boolean]',
+      'helper': '[object Function]',
+    });
+  });
+
   test('自定义脚本技能：支持 delete 操作符清理对象字段', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_delete_operator_runtime',
