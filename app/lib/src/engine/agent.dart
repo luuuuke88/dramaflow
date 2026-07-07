@@ -7110,6 +7110,15 @@ class _CustomAgentSkillRuntime {
       if (boundValue == null && binding.defaultExpression != null) {
         boundValue = _evaluate(binding.defaultExpression!);
       }
+      if (binding.nestedPattern != null) {
+        _bindCallbackParam(
+          binding.nestedPattern!,
+          boundValue,
+          bindings,
+          method,
+        );
+        continue;
+      }
       _bindUniqueCallbackName(
         bindings,
         binding.bindingName,
@@ -7167,7 +7176,20 @@ class _CustomAgentSkillRuntime {
           bindingName = bindingName.substring(0, equals).trim();
         }
       }
-      if (!validName.hasMatch(bindingName)) return null;
+      String? nestedPattern;
+      if (!isRest &&
+          (bindingName.startsWith('{') || bindingName.startsWith('['))) {
+        final hasNestedObject = bindingName.startsWith('{') &&
+            (_objectDestructureBindings(bindingName)?.isNotEmpty ?? false);
+        final hasNestedArray = bindingName.startsWith('[') &&
+            (_arrayDestructureBindings(bindingName)?.isNotEmpty ?? false);
+        if (!hasNestedObject && !hasNestedArray) return null;
+        nestedPattern = bindingName;
+        bindingName = '';
+      }
+      if (nestedPattern == null && !validName.hasMatch(bindingName)) {
+        return null;
+      }
       if (defaultExpression == '') return null;
       if (isRest &&
           (i != items.length - 1 || bindings.any((item) => item.isRest))) {
@@ -7176,6 +7198,7 @@ class _CustomAgentSkillRuntime {
       bindings.add(_CustomJsArrayDestructureBinding(
         bindingName: bindingName,
         defaultExpression: defaultExpression,
+        nestedPattern: nestedPattern,
         isRest: isRest,
       ));
     }
@@ -7665,11 +7688,13 @@ class _CustomJsObjectDestructureBinding {
 class _CustomJsArrayDestructureBinding {
   final String bindingName;
   final String? defaultExpression;
+  final String? nestedPattern;
   final bool isRest;
 
   const _CustomJsArrayDestructureBinding({
     required this.bindingName,
     required this.defaultExpression,
+    required this.nestedPattern,
     required this.isRest,
   });
 }

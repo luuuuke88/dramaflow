@@ -4063,6 +4063,81 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持数组中的嵌套解构读取参考项', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_nested_array_destructure_runtime',
+      name: '数组嵌套解构脚本运行时',
+      description: '验证自定义技能兼容模型常写的数组项嵌套对象/数组解构。',
+      script: r'''
+const [coverImage, { name: heroName = '未命名角色' }, [sceneName, sceneMood = '默认氛围']] = args.references;
+
+const labels = args.rows.map(([index, {
+  storyboard: { videoDesc, duration = 3 },
+}, [assetName = '未命名资产']], rowIndex) =>
+  `${rowIndex + 1}/${index}.${videoDesc.trim()}@${duration}s/${assetName.trim()}`);
+
+return JSON.stringify({
+  cover: coverImage.name.trim(),
+  heroName: heroName.trim(),
+  scene: `${sceneName.trim()}-${sceneMood.trim()}`,
+  labels,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'references': {'type': 'array'},
+          'rows': {'type': 'array'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'custom_script_nested_array_destructure_runtime',
+        const {
+          'references': [
+            {'name': ' 封面图 '},
+            {'name': ' 李澈 '},
+            [' 寒山宗门 ', ' 冷白云雾 '],
+          ],
+          'rows': [
+            [
+              1,
+              {
+                'storyboard': {'videoDesc': ' 雪夜拔剑 ', 'duration': 4},
+              },
+              [' 霜刃 '],
+            ],
+            [
+              2,
+              {
+                'storyboard': {'videoDesc': ' 沈微回望 '},
+              },
+              [],
+            ],
+          ],
+        },
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数组嵌套解构脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_nested_array_destructure_runtime');
+    expect(jsonDecode(msg.content), {
+      'cover': '封面图',
+      'heroName': '李澈',
+      'scene': '寒山宗门-冷白云雾',
+      'labels': ['1/1.雪夜拔剑@4s/霜刃', '2/2.沈微回望@3s/未命名资产'],
+    });
+  });
+
   test('自定义脚本技能：支持数组解构默认值兜底缺失字段', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_array_default_runtime',
