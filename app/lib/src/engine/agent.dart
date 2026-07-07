@@ -5512,6 +5512,17 @@ class _CustomAgentSkillRuntime {
           for (final value in _promiseIterableValues(args.single, method))
             _settledPromiseRecord(value),
         ];
+      case 'any':
+        if (args.length != 1) _badMethodArgs(method);
+        for (final value in _promiseIterableValues(args.single, method)) {
+          if (value is _CustomJsPromiseValue && value.rejected) continue;
+          return value is _CustomJsPromiseValue
+              ? value
+              : _CustomJsPromiseValue(value);
+        }
+        return _CustomJsPromiseValue.rejected(
+          const _CustomJsError('All promises were rejected'),
+        );
       case 'race':
         if (args.length != 1) _badMethodArgs(method);
         final values = _promiseIterableValues(args.single, method);

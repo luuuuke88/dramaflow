@@ -5592,6 +5592,51 @@ return `${firstOk}|${firstFail}`;
     expect(msg.content, '首选:雪落山门|失败:首个候选缺少参考图');
   });
 
+  test('自定义脚本技能：支持 Promise.any 跳过失败候选', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_any_runtime',
+      name: 'Promise any 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Promise.any(...) 候选兜底选择。',
+      script: r'''
+const label = await Promise.any([
+  Promise.reject(new Error(args.missingReason)),
+  Promise.resolve(args.candidates[0].trim()),
+  Promise.resolve(args.candidates[1].trim()),
+]);
+
+return `可用:${label}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'missingReason': {'type': 'string'},
+          'candidates': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_promise_any_runtime', const {
+        'missingReason': '首张参考图缺失',
+        'candidates': [' 雪落山门 ', '主角回眸'],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise any 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_any_runtime');
+    expect(msg.content, '可用:雪落山门');
+  });
+
   test('自定义脚本技能：支持 Promise.resolve 后的同步 then 链', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_promise_then_runtime',
