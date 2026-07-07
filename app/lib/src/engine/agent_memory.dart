@@ -1616,15 +1616,18 @@ class AgentMemoryService {
         stage: summaryStage,
         cancelToken: cancelToken,
       );
-      final ids = _parseSelectedMemoryIds(result.content, candidates);
-      if (ids == null) return null;
-      if (ids.isEmpty) return const [];
+      final selection = _parseSelectedMemoryIds(result.content, candidates);
+      if (selection == null) return null;
+      if (selection.ids.isEmpty) return const [];
       final byId = {
         for (final candidate in candidates) candidate.id: candidate
       };
       return [
-        for (final id in ids)
-          if (byId[id] != null) byId[id]!,
+        for (final id in selection.ids)
+          if (byId[id] != null)
+            byId[id]!.copyWith(
+              relevanceReason: selection.reasons[id],
+            ),
       ];
     } catch (_) {
       return null;
@@ -2249,22 +2252,50 @@ _SelectedSummaryIds? _parseSelectedSummaryIds(
   return selected.isEmpty ? null : _SelectedSummaryIds(selected, reasons);
 }
 
-List<String>? _parseSelectedMemoryIds(
+class _SelectedMemoryIds {
+  final List<String> ids;
+  final Map<String, String> reasons;
+
+  const _SelectedMemoryIds(this.ids, this.reasons);
+}
+
+_SelectedMemoryIds? _parseSelectedMemoryIds(
   String source,
   List<AgentMemoryEntry> candidates,
 ) {
   final allowed = {for (final candidate in candidates) candidate.id};
   final selected = <String>[];
   final seen = <String>{};
-  void addId(Object? value) {
+  final reasons = <String, String>{};
+  void addId(Object? value, [String? reason]) {
     final id = '$value'.trim();
-    if (allowed.contains(id) && seen.add(id)) selected.add(id);
+    if (!allowed.contains(id)) return;
+    if (seen.add(id)) selected.add(id);
+    final normalizedReason = reason?.trim();
+    if (normalizedReason != null && normalizedReason.isNotEmpty) {
+      reasons[id] = normalizedReason;
+    }
   }
 
-  void addOrdinal(Object? value) {
+  void addOrdinal(Object? value, [String? reason]) {
     final index = _candidateOrdinal(value);
     if (index == null || index < 1 || index > candidates.length) return;
-    addId(candidates[index - 1].id);
+    addId(candidates[index - 1].id, reason);
+  }
+
+  void addMappedReasons(Object? value) {
+    if (value is! Map) return;
+    final mapped = value['reasons'] ??
+        value['reasonById'] ??
+        value['reason_by_id'] ??
+        value['messageReasons'] ??
+        value['message_reasons'] ??
+        value['memoryReasons'] ??
+        value['memory_reasons'];
+    if (mapped is! Map) return;
+    for (final entry in mapped.entries) {
+      addId(entry.key, '${entry.value}');
+    }
   }
 
   final trimmed = source.trim();
@@ -2273,12 +2304,13 @@ List<String>? _parseSelectedMemoryIds(
     final decoded = jsonDecode(trimmed);
     if (decoded is List) {
       for (final item in decoded) {
+        final reason = _selectedReason(item);
         for (final value in _selectedValueCandidates(item)) {
-          addId(value);
-          addOrdinal(value);
+          addId(value, reason);
+          addOrdinal(value, reason);
         }
       }
-      return selected;
+      return _SelectedMemoryIds(selected, reasons);
     }
     if (decoded is Map) {
       final ids = decoded['ids'] ??
@@ -2293,12 +2325,14 @@ List<String>? _parseSelectedMemoryIds(
           decoded['selected'];
       if (ids is List) {
         for (final item in ids) {
+          final reason = _selectedReason(item);
           for (final value in _selectedValueCandidates(item)) {
-            addId(value);
-            addOrdinal(value);
+            addId(value, reason);
+            addOrdinal(value, reason);
           }
         }
-        return selected;
+        addMappedReasons(decoded);
+        return _SelectedMemoryIds(selected, reasons);
       }
       return null;
     }
@@ -2313,7 +2347,7 @@ List<String>? _parseSelectedMemoryIds(
       addOrdinal(ordinal);
     }
   }
-  return selected.isEmpty ? null : selected;
+  return selected.isEmpty ? null : _SelectedMemoryIds(selected, reasons);
 }
 
 Iterable<Object?> _selectedValueCandidates(Object? value) sync* {

@@ -124,6 +124,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetri
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` preserving LLM-provided summary relevance reasons in `sourceSummaries[].reason`, so ToonFlow-style summary judgment remains auditable after the recalled source messages are expanded.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers RAG message reranking preserving LLM-provided `reason` values as `AgentMemoryEntry.relevanceReason`, so model-filtered original dialogue recalls retain the explanation behind the selected memory.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` accepting explicit `excludeIds` / `excludeMemoryIds` tool arguments and merging them with internal current-turn exclusions, so multi-turn Agents can avoid re-reading memory ids they already consumed.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers script and production sub Agents automatically excluding memory ids already injected into their current RAG system context when they call `deepRetrieve`, so execution-layer Agents expand to unread context instead of echoing the same memory.

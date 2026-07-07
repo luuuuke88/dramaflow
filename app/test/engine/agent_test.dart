@@ -19817,6 +19817,7 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
 
     expect(context.relatedMessages.map((item) => item.id),
         ['rerank_object_relevant']);
+    expect(context.relatedMessages.single.relevanceReason, '用户明确约束');
     expect(gateway.textCallCount, 1);
   });
 
