@@ -5514,14 +5514,18 @@ class _CustomAgentSkillRuntime {
         ];
       case 'any':
         if (args.length != 1) _badMethodArgs(method);
+        final errors = <Object?>[];
         for (final value in _promiseIterableValues(args.single, method)) {
-          if (value is _CustomJsPromiseValue && value.rejected) continue;
+          if (value is _CustomJsPromiseValue && value.rejected) {
+            errors.add(_customJsCatchValue(value.reason));
+            continue;
+          }
           return value is _CustomJsPromiseValue
               ? value
               : _CustomJsPromiseValue(value);
         }
         return _CustomJsPromiseValue.rejected(
-          const _CustomJsError('All promises were rejected'),
+          _CustomJsAggregateError(errors),
         );
       case 'race':
         if (args.length != 1) _badMethodArgs(method);
@@ -6991,6 +6995,9 @@ class _CustomAgentSkillRuntime {
     if (value is _CustomJsError) {
       if (property == 'name') return value.name;
       if (property == 'message') return value.message;
+      if (value is _CustomJsAggregateError && property == 'errors') {
+        return value.errors;
+      }
     }
     if (property == 'length') {
       if (value is String) return value.length;
@@ -7137,6 +7144,16 @@ class _CustomJsError {
   const _CustomJsError(this.message);
 
   String get name => 'Error';
+}
+
+class _CustomJsAggregateError extends _CustomJsError {
+  final List<Object?> errors;
+
+  const _CustomJsAggregateError(this.errors)
+      : super('All promises were rejected');
+
+  @override
+  String get name => 'AggregateError';
 }
 
 class _CustomJsFunction {

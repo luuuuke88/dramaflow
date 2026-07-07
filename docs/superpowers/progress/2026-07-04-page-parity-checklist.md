@@ -484,6 +484,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-co
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `Promise.any(...)` candidate fallback flows, so model-authored custom skills can skip failed reference/storyboard candidates and keep the first usable fulfilled value without rewriting to manual loops.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Promise.any(...).catch(err => err.errors)` all-rejected flows with an `AggregateError`-style object, so model-authored custom skills can summarize every failed reference/storyboard candidate instead of losing the per-candidate reasons.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `Promise.resolve(value).then(...).then(...)` chains, so model-authored custom skills can keep common Promise-based cleanup pipelines while the restricted runtime still unwraps values deterministically at `await`, `Promise.all`, and return boundaries.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `Promise.reject(new Error(...)).catch(...).then(...)` recovery chains, so model-authored custom skills can keep common fallback cleanup paths without turning recoverable data issues into failed tool calls.

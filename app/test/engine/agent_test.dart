@@ -5637,6 +5637,51 @@ return `可用:${label}`;
     expect(msg.content, '可用:雪落山门');
   });
 
+  test('自定义脚本技能：Promise.any 全失败时暴露 errors', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_any_rejected_runtime',
+      name: 'Promise any rejected 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Promise.any(...).catch(err.errors) 失败汇总。',
+      script: r'''
+const fallback = await Promise.any([
+  Promise.reject(new Error(args.reasons[0])),
+  Promise.reject(new Error(args.reasons[1])),
+]).catch(err => {
+  const messages = err.errors.map(error => error.message).join('、');
+  return `${err.name}|${err instanceof Error}|${messages}`;
+});
+
+return fallback;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'reasons': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_promise_any_rejected_runtime', const {
+        'reasons': ['首图缺失', '备选图不合格'],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise any rejected 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_any_rejected_runtime');
+    expect(msg.content, 'AggregateError|true|首图缺失、备选图不合格');
+  });
+
   test('自定义脚本技能：支持 Promise.resolve 后的同步 then 链', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_promise_then_runtime',
