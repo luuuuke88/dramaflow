@@ -707,6 +707,22 @@ const _agentMemoryStructuredVectorClauseKeys = [
   'semanticVector',
   'semantic_vector',
 ];
+const _agentMemoryHybridRetrieverClauseKeys = [
+  'retriever',
+  'retrievers',
+  'rrf',
+  'rank',
+  'rankFusion',
+  'rank_fusion',
+  'hybrid',
+  'hybridRetriever',
+  'hybrid_retriever',
+  'standard',
+  'standardRetriever',
+  'standard_retriever',
+  'subRetrievers',
+  'sub_retrievers',
+];
 const _agentMemoryVectorQueryBuilderKeys = [
   'query_vector_builder',
   'queryVectorBuilder',
@@ -791,6 +807,28 @@ const _agentMemorySemanticQueryToolSchema = {
   'queryVectorBuilder': {
     'type': 'object',
     'description': 'query_vector_builder 的 camelCase 别名。',
+  },
+  'retriever': {
+    'type': 'object',
+    'description':
+        '可选。Elasticsearch retriever 包装；支持 standard / rrf / knn 等混合检索计划。',
+  },
+  'retrievers': {
+    'type': 'array',
+    'items': {'type': 'object'},
+    'description': '可选。RRF / hybrid retriever 的子检索器数组。',
+  },
+  'rrf': {
+    'type': 'object',
+    'description': '可选。RRF 混合检索包装；内部 retrievers 会被展开为多条记忆查询。',
+  },
+  'standard': {
+    'type': 'object',
+    'description': '可选。标准文本检索包装；内部 query/match 会被展开为文本查询与硬过滤词。',
+  },
+  'rank': {
+    'type': 'object',
+    'description': '可选。rank / rank fusion 包装；内部 rrf/retrievers 会被递归展开。',
   },
 };
 const _agentMemoryRerankToolSchema = {
@@ -13919,6 +13957,9 @@ extension AgentApi on Engine {
           'query_text',
           'searchText',
           'search_text',
+          'content',
+          'value',
+          'values',
           'modelText',
           'model_text',
           'modelInput',
@@ -13934,8 +13975,15 @@ extension AgentApi on Engine {
           '向量检索',
           '语义检索',
           'term',
+          'match',
+          'match_phrase',
+          'matchPhrase',
         ]) {
           final value = map[key];
+          if (key == 'match' &&
+              _agentMemoryMatchValueLooksLikeOperator(value)) {
+            continue;
+          }
           if (key != 'term' && isStructuredPlanValue(value)) {
             addPlanNode(
               value,
@@ -14017,6 +14065,16 @@ extension AgentApi on Engine {
           );
         }
         for (final key in _agentMemoryStructuredVectorClauseKeys) {
+          addPlanNode(
+            map[key],
+            childArgs,
+            inheritedLimit: nodeLimit,
+            inheritedPriority: nodePriority,
+            inheritedFallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+            inheritedQueryGroup: nodeQueryGroup,
+          );
+        }
+        for (final key in _agentMemoryHybridRetrieverClauseKeys) {
           addPlanNode(
             map[key],
             childArgs,
@@ -14210,6 +14268,9 @@ extension AgentApi on Engine {
           'query_text',
           'searchText',
           'search_text',
+          'content',
+          'value',
+          'values',
           'modelText',
           'model_text',
           'modelInput',
@@ -14225,7 +14286,14 @@ extension AgentApi on Engine {
           '向量检索',
           '语义检索',
           'term',
+          'match',
+          'match_phrase',
+          'matchPhrase',
         ]) {
+          if (key == 'match' &&
+              _agentMemoryMatchValueLooksLikeOperator(raw[key])) {
+            continue;
+          }
           add(raw[key]);
         }
         for (final key in const [
@@ -14257,6 +14325,9 @@ extension AgentApi on Engine {
           collect(raw[key]);
         }
         for (final key in _agentMemoryStructuredVectorClauseKeys) {
+          collect(raw[key]);
+        }
+        for (final key in _agentMemoryHybridRetrieverClauseKeys) {
           collect(raw[key]);
         }
         for (final key in _agentMemoryVectorQueryBuilderKeys) {
@@ -14361,6 +14432,34 @@ extension AgentApi on Engine {
       case '全部匹配':
       case '必须全部命中':
       case '并且':
+      case '交集':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool _agentMemoryMatchValueLooksLikeOperator(Object? raw) {
+    if (raw == null || raw is! String) return false;
+    switch (raw.trim().toLowerCase()) {
+      case 'all':
+      case 'and':
+      case 'intersection':
+      case 'intersect':
+      case 'must_all':
+      case 'must-all':
+      case 'must all':
+      case 'any':
+      case 'or':
+      case 'should':
+      case '全部':
+      case '全部命中':
+      case '全部匹配':
+      case '必须全部命中':
+      case '任一':
+      case '任意':
+      case '并且':
+      case '或者':
       case '交集':
         return true;
       default:
@@ -14487,6 +14586,9 @@ extension AgentApi on Engine {
       'items',
       'steps',
     ]) {
+      copy.remove(key);
+    }
+    for (final key in _agentMemoryHybridRetrieverClauseKeys) {
       copy.remove(key);
     }
     _removeUnsupportedAgentMemoryTypeHints(copy);
@@ -14669,6 +14771,9 @@ extension AgentApi on Engine {
       'query_text',
       'searchText',
       'search_text',
+      'content',
+      'value',
+      'values',
       'modelText',
       'model_text',
       'modelInput',
@@ -14684,6 +14789,9 @@ extension AgentApi on Engine {
       '向量检索',
       '语义检索',
       'term',
+      'match',
+      'match_phrase',
+      'matchPhrase',
     ]) {
       copy.remove(key);
     }
@@ -14691,6 +14799,9 @@ extension AgentApi on Engine {
       copy.remove(key);
     }
     for (final key in _agentMemoryStructuredVectorClauseKeys) {
+      copy.remove(key);
+    }
+    for (final key in _agentMemoryHybridRetrieverClauseKeys) {
       copy.remove(key);
     }
     for (final key in _agentMemoryVectorQueryBuilderKeys) {
@@ -14806,6 +14917,9 @@ extension AgentApi on Engine {
           addNode(raw[key]);
         }
         for (final key in _agentMemoryStructuredVectorClauseKeys) {
+          addNode(raw[key]);
+        }
+        for (final key in _agentMemoryHybridRetrieverClauseKeys) {
           addNode(raw[key]);
         }
         for (final key in _agentMemoryVectorQueryBuilderKeys) {

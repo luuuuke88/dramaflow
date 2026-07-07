@@ -570,6 +570,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers semantic/v
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers kNN-style vector queryPlan clauses such as `knn.query_vector_builder.text_embedding.model_text` and `nearestVector.query`, so model-authored vector search plans can expand into concrete semantic retrieval requests while requiring `o_memoryVector` index hits.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers hybrid retriever queryPlan wrappers such as `retriever.rrf.retrievers`, `standard.query.match.content`, `rank.rrf`, and nested kNN/nearestVector retrievers, so model-authored RRF-style plans can expand into concrete text and vector memory requests while preserving vector-index-only semantics for vector sub-retrievers.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers queryPlan items wrapping filters under `filter` / `where` objects, so model-authored RAG plans can keep natural JSON shapes while still applying scope, include-term, and exclude-term filters to `memory_get` and `deepRetrieve`.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers per-query-plan model reranking for `memory_get` via fields such as `rerank` and `模型重排`, so an Agent can request ToonFlow-style LLM relevance filtering for one retrieval step without enabling global reranking for every lightweight memory lookup.

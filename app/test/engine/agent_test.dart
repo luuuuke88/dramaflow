@@ -16225,6 +16225,218 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         isNot(contains('nearest_vector_plan_unindexed_noise')));
   });
 
+  test('Agent 记忆：queryPlan 支持 retriever.rrf 混合检索包装', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.agent_embedding', 'fake:embed'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required List<double>? vector,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          vector == null ? embeddingJson(content) : '',
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+      if (vector == null) return;
+      db.execute(
+        'INSERT OR REPLACE INTO o_memoryVector '
+        '(memoryId,isolationKey,type,provider,model,dimension,vector,updatedAt) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [
+          id,
+          'scriptAgent:$projectId',
+          agentMemoryTypeMessage,
+          'gateway',
+          'agent_embedding',
+          vector.length,
+          jsonEncode(vector),
+          now + offset,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'rrf_text_keep',
+      content: '混合检索文本命中：镜湖路线必须从东岸进入。',
+      vector: const [0, 1],
+      offset: 0,
+    );
+    insertMessage(
+      id: 'rrf_vector_keep',
+      content: '混合检索向量命中：首尾帧必须保留雪桥回望。',
+      vector: const [1, 0],
+      offset: 1,
+    );
+    insertMessage(
+      id: 'rrf_vector_noise',
+      content: '混合检索向量噪声：山门远景云雾压低。',
+      vector: const [1, 0],
+      offset: 2,
+    );
+    insertMessage(
+      id: 'rrf_unindexed_noise',
+      content: '未索引噪声：雪桥回望只作为旧版备选镜头。',
+      vector: null,
+      offset: 3,
+    );
+
+    gateway.embeddingForText = (input) {
+      if (input.contains('雪桥回望') || input.contains('首尾帧')) {
+        return const [1, 0];
+      }
+      return const [0, 1];
+    };
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': {
+          'retriever': {
+            'rrf': {
+              'retrievers': [
+                {
+                  'standard': {
+                    'query': {
+                      'match': {'content': '镜湖路线 东岸'},
+                    },
+                  },
+                  'mustInclude': ['东岸'],
+                  'reason': '文本路线约束',
+                },
+                {
+                  'knn': {
+                    'field': 'embedding',
+                    'query_vector_builder': {
+                      'text_embedding': {
+                        'model_text': '首尾帧 雪桥回望',
+                      },
+                    },
+                    'k': 3,
+                  },
+                  'mustInclude': ['首尾帧'],
+                  'reason': '向量镜头约束',
+                },
+              ],
+            },
+          },
+        },
+        'limit': 4,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': {
+          'rank': {
+            'rrf': {
+              'retrievers': [
+                {
+                  'standard': {
+                    'query': {
+                      'match': {'content': '镜湖路线 东岸'},
+                    },
+                  },
+                  'mustInclude': ['东岸'],
+                  'reason': '文本路线约束',
+                },
+                {
+                  'nearestVector': {
+                    'query': '首尾帧 雪桥回望',
+                    'k': 3,
+                  },
+                  'mustInclude': ['首尾帧'],
+                  'reason': '向量镜头约束',
+                },
+              ],
+            },
+          },
+        },
+        'limit': 4,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 RRF 混合检索计划召回文本和向量记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('retriever'));
+      expect(properties, contains('rrf'));
+      expect(properties, contains('retrievers'));
+      expect(properties, contains('standard'));
+    }
+    expect(gateway.embeddingInputs, contains('首尾帧 雪桥回望'));
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    for (final message in toolMessages) {
+      final payload = jsonDecode(message.content) as Map<String, dynamic>;
+      expect(payload['found'], isTrue,
+          reason: '${message.toolName}: ${message.content}');
+      expect(payload['queries'], containsAll(['镜湖路线 东岸', '首尾帧 雪桥回望']));
+      final payloadText = jsonEncode(payload);
+      expect(payloadText, contains('rrf_text_keep'));
+      expect(payloadText, contains('rrf_vector_keep'));
+      expect(payloadText, isNot(contains('rrf_vector_noise')));
+      expect(payloadText, isNot(contains('rrf_unindexed_noise')));
+      expect(
+        payload['records'],
+        contains(
+          isA<Map>()
+              .having((record) => record['id'], 'id', 'rrf_vector_keep')
+              .having((record) => record['retrievalSource'], 'retrievalSource',
+                  'vector_index')
+              .having((record) => record['matchedQuery'], 'matchedQuery',
+                  '首尾帧 雪桥回望')
+              .having(
+                  (record) => record['queryReason'], 'queryReason', '向量镜头约束'),
+        ),
+      );
+    }
+  });
+
   test('Agent 记忆：queryPlan 可要求同项查询全部命中', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
