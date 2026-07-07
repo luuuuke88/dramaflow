@@ -13447,6 +13447,140 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan filter 支持 must/must_not DSL 别名', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_dsl_filter_memory_keep',
+      '山门风格甲子：首镜必须保持冷白云雾和低机位压迫感。',
+      0,
+    );
+    insertMessage(
+      'query_plan_dsl_filter_memory_noise',
+      '山门风格甲子：旧版改成暖色喜剧和高机位俯拍。',
+      1,
+    );
+    insertMessage(
+      'query_plan_dsl_filter_deep_keep',
+      '镜湖动作乙卯：李澈进入水面后必须贴地跟拍，保持肃杀。',
+      2,
+    );
+    insertMessage(
+      'query_plan_dsl_filter_deep_noise',
+      '镜湖动作乙卯：旧版让李澈进入水面后改成俯拍和暖色。',
+      3,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '山门风格甲子',
+            'filter': {
+              'must': ['冷白', '低机位'],
+              'must_not': ['暖色', '旧版'],
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '镜湖动作乙卯',
+            'where': {
+              'require': ['贴地跟拍', '肃杀'],
+              'not': ['俯拍', '暖色'],
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 DSL 风格过滤条件召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('must'));
+      expect(properties, contains('must_not'));
+      expect(properties, contains('require'));
+      expect(properties, contains('not'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '山门风格甲子：首镜必须保持冷白云雾和低机位压迫感。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_dsl_filter_memory_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '镜湖动作乙卯：李澈进入水面后必须贴地跟拍，保持肃杀。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_dsl_filter_deep_keep'],
+    );
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),

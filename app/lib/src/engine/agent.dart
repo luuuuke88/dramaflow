@@ -569,7 +569,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority/mustInclude/excludeTerms/match/operator 等过滤提示，也可把这些过滤提示包在 filter/where/criteria/条件 对象内。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority/mustInclude/excludeTerms/must/must_not/match/operator 等过滤提示，也可把这些过滤提示包在 filter/where/criteria/条件 对象内。',
   },
   'query_plan': {
     'type': ['array', 'object'],
@@ -862,6 +862,21 @@ const _agentMemoryRetrievalSourceToolSchema = {
   },
 };
 const _agentMemoryContentFilterToolSchema = {
+  'must': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'mustInclude 的 DSL 风格别名。',
+  },
+  'require': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'mustInclude 的 require 语义别名。',
+  },
+  'requires': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'require 的复数别名。',
+  },
   'mustInclude': {
     'type': ['array', 'string'],
     'items': {'type': 'string'},
@@ -882,6 +897,21 @@ const _agentMemoryContentFilterToolSchema = {
     'items': {'type': 'string'},
     'description': 'mustInclude 的必需词别名。',
   },
+  'required': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'requiredTerms 的简写别名。',
+  },
+  'include': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'includeTerms 的 DSL 风格别名。',
+  },
+  'includes': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'include 的复数别名。',
+  },
   '包含关键词': {
     'type': ['array', 'string'],
     'items': {'type': 'string'},
@@ -892,10 +922,35 @@ const _agentMemoryContentFilterToolSchema = {
     'items': {'type': 'string'},
     'description': 'requiredTerms 的中文别名。',
   },
+  'mustNot': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'excludeTerms 的 DSL 风格别名。',
+  },
+  'must_not': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'mustNot 的 snake_case 别名。',
+  },
+  'not': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'excludeTerms 的否定过滤别名。',
+  },
   'excludeTerms': {
     'type': ['array', 'string'],
     'items': {'type': 'string'},
     'description': '可选。排除内容包含这些关键词的记忆。',
+  },
+  'exclude': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'excludeTerms 的 DSL 风格别名。',
+  },
+  'excludes': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'exclude 的复数别名。',
   },
   'excludeKeywords': {
     'type': ['array', 'string'],
@@ -15180,8 +15235,14 @@ extension AgentApi on Engine {
         'mustIncludeTerms',
         'includeTerms',
         'includeTerm',
+        'include',
+        'includes',
+        'must',
+        'require',
+        'requires',
         'requiredTerms',
         'requiredTerm',
+        'required',
         'requiredKeywords',
         'requiredKeyword',
         'requireTerms',
@@ -15198,14 +15259,21 @@ extension AgentApi on Engine {
       _agentMemoryContentTerms(args, const [
         'excludeTerms',
         'excludeTerm',
+        'exclude',
+        'excludes',
         'excludeKeywords',
         'excludeKeyword',
         'forbiddenTerms',
         'forbiddenTerm',
         'negativeTerms',
         'negativeTerm',
+        'mustNot',
+        'must_not',
         'mustNotInclude',
         'mustNotContain',
+        'not',
+        'notTerms',
+        'notTerm',
         'contentExcludes',
         'contentExclude',
         'without',
