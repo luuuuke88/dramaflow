@@ -5256,6 +5256,62 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持自定义函数 call 和 apply 调用', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_function_call_apply_runtime',
+      name: '函数 call apply 脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 helper.call(null, value) 和 helper.apply(null, args)。',
+      script: r'''
+const normalize = value => String(value ?? '').trim();
+
+function formatName(name, index) {
+  return `${index + 1}.${normalize.call(null, name)}`;
+}
+
+const labels = args.names
+  .map((name, index) => formatName.call(null, name, index))
+  .filter(label => !label.endsWith('.'));
+
+return JSON.stringify({
+  labels: labels.join('、'),
+  extra: normalize.apply(null, [args.extra]),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'names': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'extra': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_function_call_apply_runtime', const {
+        'names': [' 李澈 ', '沈微', ' '],
+        'extra': '  太岳山  ',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用函数 call apply 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_function_call_apply_runtime');
+    expect(jsonDecode(msg.content), {
+      'labels': '1.李澈、2.沈微',
+      'extra': '太岳山',
+    });
+  });
+
   test('自定义脚本技能：支持函数和回调参数默认值', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_param_default_runtime',

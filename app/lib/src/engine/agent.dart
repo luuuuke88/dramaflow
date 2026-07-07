@@ -5095,6 +5095,9 @@ class _CustomAgentSkillRuntime {
   }
 
   Object? _callMethod(Object? value, String method, List<String> args) {
+    if (value is _CustomJsFunction && (method == 'call' || method == 'apply')) {
+      return _callCustomFunctionMethod(value, method, args);
+    }
     if (value is _CustomJsBuiltin) {
       return _callBuiltinMethod(value.name, method, args);
     }
@@ -6027,6 +6030,36 @@ class _CustomAgentSkillRuntime {
   Object? _callCustomFunction(_CustomJsFunction function, List<String> args) {
     return _callCustomFunctionWithValues(
         function, _evaluateCallArguments(args));
+  }
+
+  Object? _callCustomFunctionMethod(
+    _CustomJsFunction function,
+    String method,
+    List<String> args,
+  ) {
+    final values = _evaluateCallArguments(args);
+    switch (method) {
+      case 'call':
+        return _callCustomFunctionWithValues(
+          function,
+          values.length <= 1 ? const <Object?>[] : values.sublist(1),
+        );
+      case 'apply':
+        if (values.length > 2) _badMethodArgs(method);
+        if (values.length < 2 || values[1] == null) {
+          return _callCustomFunctionWithValues(function, const <Object?>[]);
+        }
+        final argumentList = values[1];
+        if (argumentList is! Iterable || argumentList is String) {
+          _badMethodArgs(method);
+        }
+        return _callCustomFunctionWithValues(
+          function,
+          List<Object?>.from(argumentList),
+        );
+      default:
+        _badMethodArgs(method);
+    }
   }
 
   List<Object?> _evaluateCallArguments(List<String> args) {
