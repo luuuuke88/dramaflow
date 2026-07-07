@@ -5555,6 +5555,10 @@ class _CustomAgentSkillRuntime {
             ),
           ),
         );
+      case 'finally':
+        if (args.length != 1) _badMethodArgs(method);
+        _unwrapPromiseValue(_evaluateCallback(method, args.first, null, 0));
+        return promise;
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_promise_instance_method',
@@ -6617,7 +6621,7 @@ class _CustomAgentSkillRuntime {
         .map((param) => param.trim())
         .where((param) => param.isNotEmpty)
         .toList();
-    if (names.isEmpty || names.any((name) => !_isValidCallbackParam(name))) {
+    if (names.any((name) => !_isValidCallbackParam(name))) {
       _badMethodArgs(method);
     }
     return names;

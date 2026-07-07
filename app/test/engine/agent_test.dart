@@ -5568,6 +5568,53 @@ return label;
     expect(msg.content, '兜底:资产缺少参考图:2');
   });
 
+  test('自定义脚本技能：支持 Promise.finally 保留状态并执行清理', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_finally_runtime',
+      name: 'Promise finally 脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 Promise.finally(...) 清理链，同时保留 fulfilled/rejected 状态。',
+      script: r'''
+const trace = [];
+
+const ok = await Promise.resolve(args.title)
+  .finally(() => trace.push('ok-cleanup'))
+  .then(title => title.trim());
+
+const fallback = await Promise.reject(new Error(args.reason))
+  .finally(() => trace.push('fail-cleanup'))
+  .catch(err => `兜底:${err.message}`);
+
+return `${ok}|${fallback}|${trace.join(',')}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'title': {'type': 'string'},
+          'reason': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_promise_finally_runtime', const {
+        'title': '  灵脉初醒  ',
+        'reason': '资产缺少参考图',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise finally 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_finally_runtime');
+    expect(msg.content, '灵脉初醒|兜底:资产缺少参考图|ok-cleanup,fail-cleanup');
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',
