@@ -26,6 +26,10 @@ class AgentMemoryEntry {
   final List<String> sourceSummaryIds;
   final int? score;
   final List<String> matchedTokens;
+  final String? retrievalSource;
+  final String? embeddingProvider;
+  final String? embeddingModel;
+  final int? embeddingDimension;
 
   const AgentMemoryEntry({
     required this.id,
@@ -39,6 +43,10 @@ class AgentMemoryEntry {
     this.sourceSummaryIds = const [],
     this.score,
     this.matchedTokens = const [],
+    this.retrievalSource,
+    this.embeddingProvider,
+    this.embeddingModel,
+    this.embeddingDimension,
   });
 
   factory AgentMemoryEntry.fromRow(Map<String, Object?> row) =>
@@ -58,6 +66,10 @@ class AgentMemoryEntry {
     List<String>? sourceSummaryIds,
     int? score,
     List<String>? matchedTokens,
+    String? retrievalSource,
+    String? embeddingProvider,
+    String? embeddingModel,
+    int? embeddingDimension,
   }) =>
       AgentMemoryEntry(
         id: id,
@@ -71,6 +83,10 @@ class AgentMemoryEntry {
         sourceSummaryIds: sourceSummaryIds ?? this.sourceSummaryIds,
         score: score ?? this.score,
         matchedTokens: matchedTokens ?? this.matchedTokens,
+        retrievalSource: retrievalSource ?? this.retrievalSource,
+        embeddingProvider: embeddingProvider ?? this.embeddingProvider,
+        embeddingModel: embeddingModel ?? this.embeddingModel,
+        embeddingDimension: embeddingDimension ?? this.embeddingDimension,
       );
 }
 
@@ -912,7 +928,13 @@ class AgentMemoryService {
     final vector = _decodeStoredGatewayVector(row['vector']);
     final dimension = row['dimension'] as int? ?? vector.length;
     if (vector.isEmpty || dimension != vector.length) return null;
-    return entry.copyWith(embedding: gatewayEmbeddingJsonFromVector(vector));
+    return entry.copyWith(
+      embedding: gatewayEmbeddingJsonFromVector(vector),
+      retrievalSource: 'vector_index',
+      embeddingProvider: provider,
+      embeddingModel: model,
+      embeddingDimension: dimension,
+    );
   }
 
   void _syncMemoryVectorIndex(
@@ -1102,7 +1124,13 @@ class AgentMemoryService {
       final vector = _decodeStoredGatewayVector(row['vectorJson']);
       final dimension = row['vectorDimension'] as int? ?? vector.length;
       if (vector.isEmpty || dimension != vector.length) continue;
-      entry = entry.copyWith(embedding: gatewayEmbeddingJsonFromVector(vector));
+      entry = entry.copyWith(
+        embedding: gatewayEmbeddingJsonFromVector(vector),
+        retrievalSource: 'vector_index',
+        embeddingProvider: provider,
+        embeddingModel: model,
+        embeddingDimension: dimension,
+      );
       final score = await embeddingProvider.score(
         name: entry.name,
         content: entry.content,

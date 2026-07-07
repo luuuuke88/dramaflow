@@ -13798,6 +13798,14 @@ extension AgentApi on Engine {
         if (record.score != null) 'score': record.score,
         if (record.matchedTokens.isNotEmpty)
           'matchedTokens': record.matchedTokens,
+        if (record.retrievalSource != null)
+          'retrievalSource': record.retrievalSource,
+        if (record.embeddingProvider != null)
+          'embeddingProvider': record.embeddingProvider,
+        if (record.embeddingModel != null)
+          'embeddingModel': record.embeddingModel,
+        if (record.embeddingDimension != null)
+          'embeddingDimension': record.embeddingDimension,
         'content': record.content,
       };
 

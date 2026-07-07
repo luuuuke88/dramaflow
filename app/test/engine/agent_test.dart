@@ -13162,6 +13162,132 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     }
   });
 
+  test('Agent 记忆：records 标注向量索引命中来源', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.agent_embedding', 'fake:embed'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertIndexedMessage({
+      required String id,
+      required String content,
+      required List<double> vector,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          '',
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+      db.execute(
+        'INSERT OR REPLACE INTO o_memoryVector '
+        '(memoryId,isolationKey,type,provider,model,dimension,vector,updatedAt) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [
+          id,
+          'scriptAgent:$projectId',
+          agentMemoryTypeMessage,
+          'gateway',
+          'agent_embedding',
+          vector.length,
+          jsonEncode(vector),
+          now + offset,
+        ],
+      );
+    }
+
+    insertIndexedMessage(
+      id: 'vector_trace_keep',
+      content: '向量审计命中：李澈必须保护沈微。',
+      vector: const [1, 0],
+      offset: 0,
+    );
+    insertIndexedMessage(
+      id: 'vector_trace_noise',
+      content: '向量审计噪声：山门远景云雾。',
+      vector: const [0, 1],
+      offset: 1,
+    );
+    gateway.embeddingForText = (input) {
+      if (input.contains('保护沈微')) return const [1, 0];
+      return const [0, 1];
+    };
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'query': '保护沈微',
+        'limit': 1,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'keyword': '保护沈微',
+        'limit': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '追踪向量索引召回来源',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+    expect(gateway.embeddingInputs, containsAll(['保护沈微']));
+
+    for (final message in toolMessages) {
+      final payload = jsonDecode(message.content) as Map<String, dynamic>;
+      expect(payload['found'], isTrue);
+      final records = payload['records'] as List;
+      expect(records, hasLength(1));
+      expect(
+        records.single,
+        isA<Map>()
+            .having((record) => record['id'], 'id', 'vector_trace_keep')
+            .having((record) => record['retrievalSource'], 'retrievalSource',
+                'vector_index')
+            .having((record) => record['embeddingProvider'],
+                'embeddingProvider', 'gateway')
+            .having((record) => record['embeddingModel'], 'embeddingModel',
+                'agent_embedding')
+            .having((record) => record['embeddingDimension'],
+                'embeddingDimension', 2),
+      );
+    }
+  });
+
   test('Agent 记忆：结构化查询计划可携带时间窗口', () async {
     const baseTime = 1900000000000;
     db.execute(
