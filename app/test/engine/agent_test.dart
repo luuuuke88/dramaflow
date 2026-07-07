@@ -5521,6 +5521,53 @@ return label;
     expect(msg.content, '灵脉初醒:3');
   });
 
+  test('自定义脚本技能：支持 Promise.reject catch 后继续 then 链', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_catch_runtime',
+      name: 'Promise catch 脚本运行时',
+      description:
+          '验证自定义技能兼容模型常写的 Promise.reject(...).catch(...).then(...) 容错整理。',
+      script: r'''
+const label = await Promise.reject(new Error(args.reason))
+  .catch(err => `兜底:${err.message}`)
+  .then(text => `${text}:${args.storyboards.length}`);
+
+return label;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'reason': {'type': 'string'},
+          'storyboards': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_promise_catch_runtime', const {
+        'reason': '资产缺少参考图',
+        'storyboards': [
+          {'videoDesc': '山门'},
+          {'videoDesc': '拔剑'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise catch 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_catch_runtime');
+    expect(msg.content, '兜底:资产缺少参考图:2');
+  });
+
   test('自定义脚本技能：支持数组 push 裸方法调用收集结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_push_runtime',

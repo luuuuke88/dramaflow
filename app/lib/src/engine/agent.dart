@@ -5515,6 +5515,11 @@ class _CustomAgentSkillRuntime {
         return _CustomJsPromiseValue(
           args.isEmpty ? null : _unwrapPromiseValue(_evaluate(args.single)),
         );
+      case 'reject':
+        if (args.length > 1) _badMethodArgs(method);
+        return _CustomJsPromiseValue.rejected(
+          args.isEmpty ? null : _evaluate(args.single),
+        );
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_promise_method',
@@ -5531,9 +5536,23 @@ class _CustomAgentSkillRuntime {
     switch (method) {
       case 'then':
         if (args.isEmpty || args.length > 2) _badMethodArgs(method);
+        if (promise.rejected) return promise;
         return _CustomJsPromiseValue(
           _unwrapPromiseValue(
             _evaluateCallback(method, args.first, promise.value, 0),
+          ),
+        );
+      case 'catch':
+        if (args.length != 1) _badMethodArgs(method);
+        if (!promise.rejected) return promise;
+        return _CustomJsPromiseValue(
+          _unwrapPromiseValue(
+            _evaluateCallback(
+              method,
+              args.first,
+              _customJsCatchValue(promise.reason),
+              0,
+            ),
           ),
         );
       default:
@@ -6528,7 +6547,13 @@ class _CustomAgentSkillRuntime {
     return num.tryParse(text);
   }
 
-  Object? _customJsCatchValue(Object error) {
+  Object? _customJsCatchValue(Object? error) {
+    if (error == null) {
+      return {
+        'name': 'Error',
+        'message': '',
+      };
+    }
     if (error is _CustomJsError) {
       return error;
     }
@@ -6898,8 +6923,20 @@ class _CustomAgentSkillRuntime {
     }
   }
 
-  Object? _unwrapPromiseValue(Object? value) =>
-      value is _CustomJsPromiseValue ? value.value : value;
+  Object? _unwrapPromiseValue(Object? value) {
+    if (value is! _CustomJsPromiseValue) return value;
+    if (value.rejected) _throwPromiseRejection(value.reason);
+    return value.value;
+  }
+
+  Never _throwPromiseRejection(Object? reason) {
+    if (reason == null) {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_promise_rejection',
+      });
+    }
+    throw reason;
+  }
 
   Object? _readProperty(Object? value, String property) {
     if (value is Map) return value[property];
@@ -7044,7 +7081,16 @@ class _CustomJsMap {
 
 class _CustomJsPromiseValue {
   final Object? value;
-  const _CustomJsPromiseValue(this.value);
+  final Object? reason;
+  final bool rejected;
+
+  const _CustomJsPromiseValue(this.value)
+      : reason = null,
+        rejected = false;
+
+  const _CustomJsPromiseValue.rejected(this.reason)
+      : value = null,
+        rejected = true;
 }
 
 class _CustomJsError {
