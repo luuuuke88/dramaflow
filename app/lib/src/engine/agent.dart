@@ -5512,6 +5512,14 @@ class _CustomAgentSkillRuntime {
           for (final value in _promiseIterableValues(args.single, method))
             _settledPromiseRecord(value),
         ];
+      case 'race':
+        if (args.length != 1) _badMethodArgs(method);
+        final values = _promiseIterableValues(args.single, method);
+        if (values.isEmpty) return const _CustomJsPromiseValue(null);
+        final first = values.first;
+        return first is _CustomJsPromiseValue
+            ? first
+            : _CustomJsPromiseValue(first);
       case 'resolve':
         if (args.length > 1) _badMethodArgs(method);
         return _CustomJsPromiseValue(

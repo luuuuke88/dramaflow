@@ -5543,6 +5543,55 @@ return JSON.stringify({ ok, failed });
     });
   });
 
+  test('自定义脚本技能：支持 Promise.race 首个 settled 结果', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_race_runtime',
+      name: 'Promise race 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Promise.race(...).then/catch 首个结果选择。',
+      script: r'''
+const firstOk = await Promise.race([
+  Promise.resolve(args.candidates[0].trim()),
+  Promise.resolve(args.candidates[1].trim()),
+]).then(value => `首选:${value}`);
+
+const firstFail = await Promise.race([
+  Promise.reject(new Error(args.reason)),
+  Promise.resolve('不会到这里'),
+]).catch(err => `失败:${err.message}`);
+
+return `${firstOk}|${firstFail}`;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'candidates': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'reason': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_promise_race_runtime', const {
+        'candidates': [' 雪落山门 ', '主角回眸'],
+        'reason': '首个候选缺少参考图',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise race 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_race_runtime');
+    expect(msg.content, '首选:雪落山门|失败:首个候选缺少参考图');
+  });
+
   test('自定义脚本技能：支持 Promise.resolve 后的同步 then 链', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_promise_then_runtime',
