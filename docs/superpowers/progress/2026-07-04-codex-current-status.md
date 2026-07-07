@@ -66,6 +66,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 - 旧的 `memoryIds` / `records` / `seenRecords` 仍保持“已读排除”语义，避免模型二次读取时重复返回同一条记忆。
 - 已用 `app/test/engine/agent_test.dart` 覆盖：精确回查对话 message 与长期 note、queryPlan 结构化回归、records 已读排除回归。
 - `queryPlan` 内容过滤继续补齐 ES 风格 `prefix` / `wildcard` / `regexp` / `match_bool_prefix` 子句；regexp/wildcard 会拆出字面片段参与本地召回，`must_not` 的多片段模式按同组全命中才排除，避免公共词误伤正确记忆。
+- ES 风格 `term` / `terms` 字段过滤已映射到本地记忆元数据：`role` 进入角色过滤，`scope/type` 进入记忆范围过滤；这些元字段不会再被误当成内容关键词。
 
 ## 仍不能称为“完全复刻”的部分
 

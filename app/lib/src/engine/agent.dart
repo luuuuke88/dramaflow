@@ -14419,7 +14419,19 @@ extension AgentApi on Engine {
               _agentMemoryMatchValueLooksLikeOperator(value)) {
             continue;
           }
-          if (key != 'term' && isStructuredPlanValue(value)) {
+          if (key == 'term' && isStructuredPlanValue(value)) {
+            if (_agentMemoryMapHasOnlyNonContentFilterFields(value)) {
+              continue;
+            }
+            addPlanNode(
+              value,
+              nodeArgs,
+              inheritedLimit: nodeLimit,
+              inheritedPriority: nodePriority,
+              inheritedFallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+              inheritedQueryGroup: nodeQueryGroup,
+            );
+          } else if (key != 'term' && isStructuredPlanValue(value)) {
             addPlanNode(
               value,
               nodeArgs,
@@ -15211,9 +15223,347 @@ extension AgentApi on Engine {
     ]) {
       copy.remove(key);
     }
+    _mergeAgentMemoryFieldFilterArgs(copy, _agentMemoryFieldFilterArgs(args));
     appendFilterMustClauses();
     appendExcludedClauses();
     return copy;
+  }
+
+  Map<String, dynamic> _agentMemoryFieldFilterArgs(
+    Map<String, dynamic> args,
+  ) {
+    final roles = <String>{};
+    final excludeRoles = <String>{};
+    final types = <String>{};
+    final scopes = <String>{};
+
+    void addStrings(Set<String> target, Object? raw) {
+      void addCandidate(Object? candidate) {
+        final items = _coerceStringSet(candidate);
+        if (items != null) target.addAll(items);
+      }
+
+      if (raw is Map) {
+        for (final key in const [
+          'value',
+          'values',
+          'term',
+          'terms',
+          'query',
+          'q',
+          '字段值',
+          '值',
+        ]) {
+          if (raw.containsKey(key)) addCandidate(raw[key]);
+        }
+        return;
+      }
+      addCandidate(raw);
+    }
+
+    void collectTermFields(Object? raw, {required bool negative}) {
+      if (raw == null || raw is String || raw is num || raw is bool) return;
+      if (raw is Iterable) {
+        for (final item in raw) {
+          collectTermFields(item, negative: negative);
+        }
+        return;
+      }
+      if (raw is! Map) return;
+      for (final entry in raw.entries) {
+        final key = entry.key;
+        if (key is! String) continue;
+        final value = entry.value;
+        if (_agentMemoryIsRoleFilterFieldKey(key)) {
+          addStrings(negative ? excludeRoles : roles, value);
+        } else if (!negative && _agentMemoryIsTypeFilterFieldKey(key)) {
+          addStrings(types, value);
+        } else if (!negative && _agentMemoryIsScopeFilterFieldKey(key)) {
+          addStrings(scopes, value);
+        }
+      }
+    }
+
+    void collect(Object? raw, {bool negative = false}) {
+      if (raw == null || raw is String || raw is num || raw is bool) return;
+      if (raw is Iterable) {
+        for (final item in raw) {
+          collect(item, negative: negative);
+        }
+        return;
+      }
+      if (raw is! Map) return;
+      final map = <String, dynamic>{
+        for (final entry in raw.entries)
+          if (entry.key is String) (entry.key as String): entry.value,
+      };
+      collectTermFields(map['term'], negative: negative);
+      collectTermFields(map['terms'], negative: negative);
+      for (final key in const [
+        'queryPlan',
+        'query_plan',
+        'retrievalPlan',
+        'retrieval_plan',
+        'searchPlan',
+        'search_plan',
+        'searchQueries',
+        'search_queries',
+        'plannedQueries',
+        'planned_queries',
+        'queries',
+        'queryList',
+        'query_list',
+        'keywords',
+        'keywordList',
+        'keyword_list',
+        '查询计划',
+        '检索计划',
+        '搜索计划',
+        '查询列表',
+        '关键词列表',
+        '问题列表',
+        'prompts',
+        'items',
+        'steps',
+        'query',
+        '查询',
+        'dsl',
+        'esQuery',
+        'es_query',
+        'searchQuery',
+        'search_query',
+        'bool',
+        'filter',
+        'filters',
+        'where',
+        'criteria',
+        'constraints',
+        'condition',
+        'conditions',
+        'must',
+        'should',
+        'constant_score',
+        'constantScore',
+        'function_score',
+        'functionScore',
+        'nested',
+        'positive',
+        'positiveQuery',
+        'positive_query',
+        '正向查询',
+        '正向',
+      ]) {
+        collect(map[key], negative: negative);
+      }
+      for (final key in const [
+        'must_not',
+        'mustNot',
+        'negative',
+        'negativeQuery',
+        'negative_query',
+        '负向查询',
+        '负向',
+      ]) {
+        collect(map[key], negative: true);
+      }
+    }
+
+    collect(args);
+    return {
+      if (roles.isNotEmpty) 'roles': roles.toList(),
+      if (excludeRoles.isNotEmpty) 'excludeRoles': excludeRoles.toList(),
+      if (types.isNotEmpty) 'types': types.toList(),
+      if (scopes.isNotEmpty) 'scopes': scopes.toList(),
+    };
+  }
+
+  void _mergeAgentMemoryFieldFilterArgs(
+    Map<String, dynamic> target,
+    Map<String, dynamic> filters,
+  ) {
+    void merge(String key, List<String> aliases) {
+      final values = <String>{};
+      void add(Object? raw) {
+        final items = _coerceStringSet(raw);
+        if (items != null) values.addAll(items);
+      }
+
+      for (final alias in aliases) {
+        add(target[alias]);
+      }
+      add(filters[key]);
+      if (values.isNotEmpty) target[key] = values.toList();
+    }
+
+    merge('roles', const [
+      'roles',
+      'role',
+      '角色',
+      'memoryRoles',
+      'memoryRole',
+      '记忆角色',
+      'memory_roles',
+      'memory_role',
+    ]);
+    merge('excludeRoles', const [
+      'excludeRoles',
+      'excludeRole',
+      'excludedRoles',
+      'excluded_roles',
+      'excludeMemoryRoles',
+      'exclude_memory_roles',
+      'excludedMemoryRoles',
+      'excluded_memory_roles',
+      '排除角色',
+      '排除记忆角色',
+    ]);
+    merge('types', const [
+      'types',
+      'type',
+      '类型',
+      'memoryTypes',
+      'memoryType',
+      'memory_types',
+      'memory_type',
+      '记忆类型',
+    ]);
+    merge('scopes', const [
+      'scopes',
+      'scope',
+      '范围',
+      'memoryScopes',
+      'memoryScope',
+      'memory_scopes',
+      'memory_scope',
+      '记忆范围',
+    ]);
+  }
+
+  String _normalizeAgentMemoryFilterFieldKey(String key) {
+    return key.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+  }
+
+  bool _agentMemoryIsRoleFilterFieldKey(String key) {
+    switch (_normalizeAgentMemoryFilterFieldKey(key)) {
+      case 'role':
+      case 'roles':
+      case 'memoryrole':
+      case 'memoryroles':
+      case '角色':
+      case '记忆角色':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool _agentMemoryIsTypeFilterFieldKey(String key) {
+    switch (_normalizeAgentMemoryFilterFieldKey(key)) {
+      case 'type':
+      case 'types':
+      case 'memorytype':
+      case 'memorytypes':
+      case '类型':
+      case '记忆类型':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool _agentMemoryIsScopeFilterFieldKey(String key) {
+    switch (_normalizeAgentMemoryFilterFieldKey(key)) {
+      case 'scope':
+      case 'scopes':
+      case 'memoryscope':
+      case 'memoryscopes':
+      case '范围':
+      case '记忆范围':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool _agentMemoryIsNonContentFilterFieldKey(String key) {
+    if (_agentMemoryIsRoleFilterFieldKey(key) ||
+        _agentMemoryIsTypeFilterFieldKey(key) ||
+        _agentMemoryIsScopeFilterFieldKey(key)) {
+      return true;
+    }
+    switch (_normalizeAgentMemoryFilterFieldKey(key)) {
+      case 'id':
+      case 'ids':
+      case 'memoryid':
+      case 'memoryids':
+      case 'messageid':
+      case 'messageids':
+      case 'summaryid':
+      case 'summaryids':
+      case 'noteid':
+      case 'noteids':
+      case 'recordid':
+      case 'recordids':
+      case 'createdat':
+      case 'createdafter':
+      case 'createdbefore':
+      case 'createtime':
+      case 'createtimeafter':
+      case 'createtimebefore':
+      case 'timestamp':
+      case 'time':
+      case 'starttime':
+      case 'endtime':
+      case 'fromtime':
+      case 'totime':
+      case 'retrievalsource':
+      case 'retrievalsources':
+      case 'onlyvectorindex':
+      case 'vectoronly':
+      case 'requirevectorindex':
+      case 'minscore':
+      case 'minimumscore':
+      case 'scorethreshold':
+      case 'minsimilarity':
+      case 'minimumsimilarity':
+      case 'similaritythreshold':
+      case 'orderby':
+      case 'sortby':
+      case 'sortorder':
+      case 'order':
+      case '创建时间':
+      case '时间':
+      case '开始时间':
+      case '结束时间':
+      case '之后':
+      case '之前':
+      case '检索来源':
+      case '召回来源':
+      case '只用向量索引':
+      case '仅向量索引':
+      case '最低分':
+      case '分数阈值':
+      case '相似度':
+      case '最低相似度':
+      case '相似度阈值':
+      case '排序':
+      case '排序方式':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool _agentMemoryMapHasOnlyNonContentFilterFields(Object? raw) {
+    if (raw is! Map) return false;
+    var hasStringKey = false;
+    for (final entry in raw.entries) {
+      final key = entry.key;
+      if (key is! String) continue;
+      hasStringKey = true;
+      if (!_agentMemoryIsNonContentFilterFieldKey(key)) return false;
+    }
+    return hasStringKey;
   }
 
   void _removeUnsupportedAgentMemoryTypeHints(Map<String, dynamic> args) {
@@ -15439,6 +15789,7 @@ extension AgentApi on Engine {
           'keywords',
           'keywordList',
           'keyword_list',
+          'term',
           'terms',
           '查询计划',
           '检索计划',
@@ -15450,6 +15801,9 @@ extension AgentApi on Engine {
           'items',
           'steps',
         ]) {
+          addNode(raw[key]);
+        }
+        for (final key in _agentMemoryFilterWrapperKeys) {
           addNode(raw[key]);
         }
         for (final key in _agentMemoryStructuredQueryClauseKeys) {
@@ -16598,6 +16952,7 @@ extension AgentApi on Engine {
           add(raw[key]);
         }
         if (!handled) {
+          if (_agentMemoryMapHasOnlyNonContentFilterFields(raw)) return;
           for (final value in raw.values) {
             add(value);
           }

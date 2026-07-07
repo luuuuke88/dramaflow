@@ -15811,6 +15811,158 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：ES term/terms 字段过滤映射到角色和范围', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_term_role_user_noise',
+      content: '霜燃灯令甲：保持低机位压迫感。',
+      offset: 0,
+      role: agentRoleUser,
+    );
+    insertMessage(
+      id: 'query_plan_term_role_execution',
+      content: '霜燃灯令甲：保持低机位压迫感。',
+      offset: 1,
+      role: 'assistant:execution:script',
+    );
+    insertMessage(
+      id: 'query_plan_terms_scope_message_noise',
+      content: '星砂罗盘乙：普通对话里说罗盘可改成暖色。',
+      offset: 2,
+      role: agentRoleUser,
+    );
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '星砂罗盘长期设定',
+      content: '星砂罗盘乙：长期设定必须保持冷蓝反光和环形推轨。',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'bool': {
+                'filter': [
+                  {
+                    'match': {'content': '霜燃灯令甲'},
+                  },
+                  {
+                    'term': {'role': 'assistant:execution:script'},
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'bool': {
+                'filter': [
+                  {
+                    'match': {'content': '星砂罗盘乙'},
+                  },
+                  {
+                    'terms': {
+                      'scope': ['long_term'],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES term 字段过滤召回 Agent 记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_term_role_execution'],
+    );
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['role']),
+      ['assistant:execution:script'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '星砂罗盘乙：长期设定必须保持冷蓝反光和环形推轨。',
+    ]);
+    expect(
+      deepRetrievePayload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', noteId)
+            .having((record) => record['scope'], 'scope', 'long_term'),
+      ),
+    );
+    expect(jsonEncode(deepRetrievePayload), isNot(contains('普通对话')));
+  });
+
   test('Agent 记忆：结构化查询计划可携带排除角色过滤', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
