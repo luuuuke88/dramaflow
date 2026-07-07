@@ -14775,7 +14775,8 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
-  test('Agent 记忆：queryPlan 支持 multi_match/query_string 查询子句', () async {
+  test('Agent 记忆：queryPlan 支持 multi_match/query_string/combined_fields 查询子句',
+      () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
@@ -14845,6 +14846,16 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       '琉璃回廊丙：角色只是站在门口，没有低角度推进。',
       6,
     );
+    insertMessage(
+      'query_plan_combined_fields_keep',
+      '水镜殿丁：主角踏入水镜殿，俯拍回旋展示镜面裂纹。',
+      7,
+    );
+    insertMessage(
+      'query_plan_combined_fields_noise',
+      '水镜殿丁：主角只在殿外停步，没有俯拍回旋。',
+      8,
+    );
 
     gateway.turns = [
       AgentTurnResult.tool('memory_get', const {
@@ -14893,6 +14904,19 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
               },
             ],
           },
+          {
+            'query': {
+              'combined_fields': {
+                'query': '水镜殿 俯拍回旋',
+                'fields': ['name', 'content'],
+              },
+            },
+            'must_not': [
+              {
+                'match_phrase': {'content': '没有俯拍回旋'},
+              },
+            ],
+          },
         ],
         'limit': 5,
       }),
@@ -14914,6 +14938,8 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       expect(properties, contains('multi_match'));
       expect(properties, contains('query_string'));
       expect(properties, contains('simple_query_string'));
+      expect(properties, contains('combined_fields'));
+      expect(properties, contains('combinedFields'));
     }
 
     final toolMessages = engine
@@ -14943,6 +14969,7 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       unorderedEquals([
         '黑曜钟楼乙：人物进入黑曜钟楼，镜头采用横移跟拍。',
         '琉璃回廊丙：角色穿过琉璃回廊，低角度推进压迫感更强。',
+        '水镜殿丁：主角踏入水镜殿，俯拍回旋展示镜面裂纹。',
       ]),
     );
     expect(
@@ -14951,7 +14978,154 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
       unorderedEquals([
         'query_plan_query_string_keep',
         'query_plan_simple_query_string_keep',
+        'query_plan_combined_fields_keep',
       ]),
+    );
+  });
+
+  test('Agent 记忆：queryPlan 支持 match_phrase_prefix/more_like_this 查询子句',
+      () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_match_phrase_prefix_keep',
+      '青莲剑阵戊：青莲剑阵亮起，灵纹展开，角色抬手御剑。',
+      0,
+    );
+    insertMessage(
+      'query_plan_match_phrase_prefix_noise',
+      '青莲剑阵戊：青莲剑阵亮起，但只是静态远景，没有灵纹展开。',
+      1,
+    );
+    insertMessage(
+      'query_plan_more_like_this_keep',
+      '星陨祭坛己：逆光剪影压住祭坛边缘，火星向上飞。',
+      2,
+    );
+    insertMessage(
+      'query_plan_more_like_this_noise',
+      '星陨祭坛己：普通祭坛说明，没有逆光剪影。',
+      3,
+    );
+    insertMessage(
+      'query_plan_more_like_this_excluded',
+      '废弃参考：星陨祭坛己也有逆光剪影，但镜头被标记作废。',
+      4,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '青莲剑阵',
+            'filter': {
+              'match_phrase_prefix': {'content': '灵纹展'},
+            },
+            'must_not': [
+              {
+                'match_phrase': {'content': '没有灵纹展开'},
+              },
+            ],
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'more_like_this': {
+                'fields': ['content'],
+                'like': '星陨祭坛 逆光剪影',
+                'unlike': '没有逆光剪影,废弃参考',
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES 前缀短语和相似记忆查询召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('match_phrase_prefix'));
+      expect(properties, contains('matchPhrasePrefix'));
+      expect(properties, contains('more_like_this'));
+      expect(properties, contains('moreLikeThis'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '青莲剑阵戊：青莲剑阵亮起，灵纹展开，角色抬手御剑。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_match_phrase_prefix_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '星陨祭坛己：逆光剪影压住祭坛边缘，火星向上飞。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_more_like_this_keep'],
     );
   });
 

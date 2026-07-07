@@ -828,6 +828,8 @@ const _agentMemoryStructuredQueryClauseKeys = [
   'simpleQueryString',
   'combined_fields',
   'combinedFields',
+  'more_like_this',
+  'moreLikeThis',
 ];
 const _agentMemoryStructuredVectorClauseKeys = [
   'knn',
@@ -1196,6 +1198,24 @@ const _agentMemoryContentFilterToolSchema = {
     'type': 'object',
     'description': 'simple_query_string 的 camelCase 别名。',
   },
+  'combined_fields': {
+    'type': 'object',
+    'description':
+        '可选。Elasticsearch combined_fields 查询子句，内部 query 会被展开为跨字段检索文本。',
+  },
+  'combinedFields': {
+    'type': 'object',
+    'description': 'combined_fields 的 camelCase 别名。',
+  },
+  'more_like_this': {
+    'type': 'object',
+    'description':
+        '可选。Elasticsearch more_like_this 查询子句；like 会展开为检索文本，unlike 会作为排除条件。',
+  },
+  'moreLikeThis': {
+    'type': 'object',
+    'description': 'more_like_this 的 camelCase 别名。',
+  },
   'filter': {
     'type': ['object', 'array'],
     'items': {
@@ -1260,6 +1280,14 @@ const _agentMemoryContentFilterToolSchema = {
   'matchBoolPrefix': {
     'type': ['object', 'array', 'string'],
     'description': 'match_bool_prefix 的 camelCase 别名。',
+  },
+  'match_phrase_prefix': {
+    'type': ['object', 'array', 'string'],
+    'description': '可选。Elasticsearch match_phrase_prefix 子句，按前缀短语展开为内容过滤词。',
+  },
+  'matchPhrasePrefix': {
+    'type': ['object', 'array', 'string'],
+    'description': 'match_phrase_prefix 的 camelCase 别名。',
   },
   'match_phrase': {
     'type': ['object', 'array', 'string'],
@@ -14616,8 +14644,15 @@ extension AgentApi on Engine {
           'regexp',
           'match_bool_prefix',
           'matchBoolPrefix',
+          'match_phrase_prefix',
+          'matchPhrasePrefix',
           'match_phrase',
           'matchPhrase',
+          'like',
+          'likeText',
+          'like_text',
+          'likeTexts',
+          'like_texts',
         ]) {
           final value = map[key];
           if (key == 'match' &&
@@ -14968,8 +15003,15 @@ extension AgentApi on Engine {
           'regexp',
           'match_bool_prefix',
           'matchBoolPrefix',
+          'match_phrase_prefix',
+          'matchPhrasePrefix',
           'match_phrase',
           'matchPhrase',
+          'like',
+          'likeText',
+          'like_text',
+          'likeTexts',
+          'like_texts',
         ]) {
           if (key == 'match' &&
               _agentMemoryMatchValueLooksLikeOperator(raw[key])) {
@@ -15347,6 +15389,8 @@ extension AgentApi on Engine {
         'regexp',
         'match_bool_prefix',
         'matchBoolPrefix',
+        'match_phrase_prefix',
+        'matchPhrasePrefix',
         'match_phrase',
         'matchPhrase',
       ]) {
@@ -15972,8 +16016,15 @@ extension AgentApi on Engine {
       'regexp',
       'match_bool_prefix',
       'matchBoolPrefix',
+      'match_phrase_prefix',
+      'matchPhrasePrefix',
       'match_phrase',
       'matchPhrase',
+      'like',
+      'likeText',
+      'like_text',
+      'likeTexts',
+      'like_texts',
     ]) {
       copy.remove(key);
     }
@@ -17451,6 +17502,11 @@ extension AgentApi on Engine {
     'forbiddenTerm',
     'negativeTerms',
     'negativeTerm',
+    'unlike',
+    'unlikeText',
+    'unlike_text',
+    'unlikeTexts',
+    'unlike_texts',
     'mustNot',
     'must_not',
     'mustNotInclude',
@@ -17512,6 +17568,8 @@ extension AgentApi on Engine {
           'regexp',
           'match_bool_prefix',
           'matchBoolPrefix',
+          'match_phrase_prefix',
+          'matchPhrasePrefix',
           'match_phrase',
           'matchPhrase',
           'value',
