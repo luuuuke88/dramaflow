@@ -14740,6 +14740,142 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：match operator=and 会拆分查询词为全部命中', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_match_operator_get_keep',
+      '镜湖伏击丙：冷月压住水面，断索斜穿前景，角色停在桥心。',
+      0,
+    );
+    insertMessage(
+      'query_plan_match_operator_get_noise',
+      '镜湖伏击丙：冷月压住水面，但前景是完整石桥。',
+      1,
+    );
+    insertMessage(
+      'query_plan_match_operator_deep_keep',
+      '荒塔追逐丁：黑雨落在塔檐，残灯从门缝透出，人物回头。',
+      2,
+    );
+    insertMessage(
+      'query_plan_match_operator_deep_noise',
+      '荒塔追逐丁：黑雨落在塔檐，门内一片漆黑。',
+      3,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '镜湖伏击丙',
+            'filter': {
+              'bool': {
+                'must': [
+                  {
+                    'match': {
+                      'content': {
+                        'query': '冷月 断索',
+                        'operator': 'and',
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': '荒塔追逐丁',
+            'filter': {
+              'bool': {
+                'must': [
+                  {
+                    'match': {
+                      'content': {
+                        'query': '黑雨 残灯',
+                        'operator': 'and',
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES match operator and 召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_match_operator_get_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_match_operator_deep_keep'],
+    );
+  });
+
   test('Agent 记忆：queryPlan 支持 query/constant_score/nested 包裹过滤', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

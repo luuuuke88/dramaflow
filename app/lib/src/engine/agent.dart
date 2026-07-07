@@ -17578,14 +17578,17 @@ extension AgentApi on Engine {
   ) {
     final groups = <List<String>>[];
 
-    void addText(Object? raw) {
+    void addText(Object? raw, {bool splitWhitespace = false}) {
       final values = _coerceStringList(raw);
       if (values == null) return;
       for (final value in values) {
-        for (final part in value.split(RegExp(r'[,，、;；]+'))) {
-          final terms = _agentMemoryContentTermParts(part);
-          if (terms.isNotEmpty) groups.add(terms);
+        final splitPattern =
+            splitWhitespace ? RegExp(r'[\s,，、;；]+') : RegExp(r'[,，、;；]+');
+        final terms = <String>[];
+        for (final part in value.split(splitPattern)) {
+          terms.addAll(_agentMemoryContentTermParts(part));
         }
+        if (terms.isNotEmpty) groups.add(terms);
       }
     }
 
@@ -17593,6 +17596,12 @@ extension AgentApi on Engine {
       if (raw == null || raw is bool) return;
       if (raw is Map) {
         if (raw.containsKey('exists')) return;
+        final splitQueryTerms = _agentMemoryPlanRequiresAll(
+          {
+            for (final entry in raw.entries)
+              if (entry.key is String) (entry.key as String): entry.value,
+          },
+        );
         var handled = false;
         for (final key in const [
           'term',
@@ -17624,7 +17633,25 @@ extension AgentApi on Engine {
         ]) {
           if (!raw.containsKey(key)) continue;
           handled = true;
-          add(raw[key]);
+          if (splitQueryTerms &&
+              (key == 'query' ||
+                  key == 'q' ||
+                  key == 'text' ||
+                  key == 'content' ||
+                  key == 'value' ||
+                  key == 'values' ||
+                  key == 'keyword' ||
+                  key == 'keywords' ||
+                  key == 'phrase' ||
+                  key == 'phrases' ||
+                  key == '字段值' ||
+                  key == '内容' ||
+                  key == '关键词' ||
+                  key == '短语')) {
+            addText(raw[key], splitWhitespace: true);
+          } else {
+            add(raw[key]);
+          }
         }
         if (!handled) {
           if (_agentMemoryMapHasOnlyNonContentFilterFields(raw)) return;
