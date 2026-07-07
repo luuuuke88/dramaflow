@@ -22445,6 +22445,10 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'episode_titles',
       ]),
     );
+    expect(
+      ((properties['key'] as Map)['enum'] as List),
+      containsAll(['script_plan', 'storyboard_table', '导演计划', '分镜表']),
+    );
     expect(tool.schema['required'], isNull);
   });
 
@@ -22640,6 +22644,87 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(toolAudit['content'], contains('工具 get_flowData 执行结果'));
     expect(toolAudit['content'], contains('沈微入局'));
     expect(toolAudit['content'], isNot(contains('李澈入山')));
+  });
+
+  test('制作执行工具调用接受 snake_case 和中文字段名读取工作区段', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'request': '先写导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>第一集冷色调快节奏</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：写导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_table',
+        {'request': '读取 snake_case 导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.tool(
+        'get_flowData',
+        {'section': 'script_plan'},
+      ),
+      const AgentTurnResult.text('<storyboardTable>|镜头|内容|</storyboardTable>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：读取 snake_case 导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'request': '读取中文分镜表', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.tool(
+        'get_flowData',
+        {'section': '分镜表'},
+      ),
+      const AgentTurnResult.text('<scriptPlan>读取中文分镜表完成</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：读取中文分镜表',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['productionAgent:$projectId', 'message'],
+    );
+    final storyboardTableToolAudit = rows.singleWhere(
+      (row) =>
+          row['role'] == 'assistant:execution:storyboardTable:tool' &&
+          (row['content'] as String).contains('get_flowData'),
+    );
+    expect(
+      storyboardTableToolAudit['content'],
+      contains('第一集冷色调快节奏'),
+    );
+    expect(storyboardTableToolAudit['content'], isNot(contains('无数据')));
+
+    final directorPlanToolAudit = rows.singleWhere(
+      (row) =>
+          row['role'] == 'assistant:execution:directorPlan:tool' &&
+          (row['content'] as String).contains('get_flowData'),
+    );
+    expect(directorPlanToolAudit['content'], contains('|镜头|内容|'));
+    expect(directorPlanToolAudit['content'], isNot(contains('无数据')));
   });
 
   test('制作执行工具调用接受衍生资产写入字段别名', () async {

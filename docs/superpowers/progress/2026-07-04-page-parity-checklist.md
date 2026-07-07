@@ -240,6 +240,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Agent-call
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Agent-callable `memory_clear`, matching ToonFlow-style `Memory.clear` at the tool layer for `message` / `summary` / `note` / `all` scopes while keeping conversation clearing isolated to the current Agent family.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent `get_flowData` accepting ToonFlow/model-authored workspace section aliases such as `script_plan`, `storyboard_table`, `导演计划`, and `分镜表`, so execution sub Agents can read the correct production workspace segment without depending on exact camelCase keys.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent and ProductionAgent execution sub Agents calling `memory_add` directly, with omitted `role` defaulting to the current execution/supervision stage role instead of `user`, so multi-layer Agent discoveries are attributed to the correct sub Agent memory lane.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers top-level Agent pipeline tools exposing and accepting ToonFlow/model-authored id aliases such as `novel_ids`, `script_ids`, `script_id`, `episodeId`, `episode_id`, and `storyboard_ids`, so decision Agents can submit event, asset, storyboard, first-frame, and video tasks without brittle exact field names.

@@ -15612,15 +15612,17 @@ extension AgentApi on Engine {
   ) {
     final scriptId = _productionScriptId(projectId, args);
     if (scriptId == null) return '缺少 scriptId 参数。';
-    final key = _stringArgAny(args, const [
-      'key',
-      'dataKey',
-      'data_key',
-      'flowKey',
-      'flow_key',
-      'section',
-      'resource',
-    ]);
+    final key = _normalizeProductionAgentFlowDataKey(
+      _stringArgAny(args, const [
+        'key',
+        'dataKey',
+        'data_key',
+        'flowKey',
+        'flow_key',
+        'section',
+        'resource',
+      ]),
+    );
     final data = _productionAgentWorkspace(projectId, scriptId);
     if (key.isEmpty) return jsonEncode(data);
     final value = data[key];
@@ -15628,6 +15630,72 @@ extension AgentApi on Engine {
     return value is String
         ? (value.trim().isEmpty ? '无数据' : value)
         : jsonEncode(value);
+  }
+
+  String _normalizeProductionAgentFlowDataKey(String key) {
+    final raw = key.trim();
+    switch (raw) {
+      case '剧本':
+      case '剧本内容':
+      case '正文':
+        return 'script';
+      case '导演计划':
+      case '拍摄计划':
+      case '制作计划':
+        return productionScriptPlanKey;
+      case '资产':
+      case '衍生资产':
+        return 'assets';
+      case '分镜表':
+        return productionStoryboardTableKey;
+      case '分镜':
+      case '分镜面板':
+        return 'storyboard';
+    }
+    final normalized = raw
+        .replaceAllMapped(
+          RegExp(r'([a-z0-9])([A-Z])'),
+          (match) => '${match.group(1)}_${match.group(2)}',
+        )
+        .replaceAll(RegExp(r'[\s-]+'), '_')
+        .toLowerCase();
+    switch (normalized) {
+      case 'script':
+      case 'scripts':
+      case 'script_content':
+      case 'scriptcontent':
+        return 'script';
+      case 'script_plan':
+      case 'scriptplan':
+      case 'director_plan':
+      case 'directorplan':
+      case 'shooting_plan':
+      case 'production_plan':
+      case 'plan':
+        return productionScriptPlanKey;
+      case 'asset':
+      case 'assets':
+      case 'derive_asset':
+      case 'derive_assets':
+      case 'derived_asset':
+      case 'derived_assets':
+        return 'assets';
+      case 'storyboard_table':
+      case 'storyboardtable':
+      case 'shot_table':
+      case 'shots_table':
+        return productionStoryboardTableKey;
+      case 'storyboard':
+      case 'storyboards':
+      case 'storyboard_panel':
+      case 'storyboardpanel':
+      case 'shot':
+      case 'shots':
+      case 'panel':
+        return 'storyboard';
+      default:
+        return raw;
+    }
   }
 
   String _productionAgentAddDeriveAsset(
