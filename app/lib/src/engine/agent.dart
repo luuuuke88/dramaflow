@@ -5502,10 +5502,14 @@ class _CustomAgentSkillRuntime {
     switch (method) {
       case 'all':
         if (args.length != 1) _badMethodArgs(method);
-        return [
-          for (final value in _promiseIterableValues(args.single, method))
-            _unwrapPromiseValue(value),
-        ];
+        final values = <Object?>[];
+        for (final value in _promiseIterableValues(args.single, method)) {
+          if (value is _CustomJsPromiseValue && value.rejected) {
+            return _CustomJsPromiseValue.rejected(value.reason);
+          }
+          values.add(_unwrapPromiseValue(value));
+        }
+        return _CustomJsPromiseValue(values);
       case 'allSettled':
         if (args.length != 1) _badMethodArgs(method);
         return [

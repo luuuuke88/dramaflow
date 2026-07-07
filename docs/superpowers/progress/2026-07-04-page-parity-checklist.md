@@ -474,6 +474,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `await Promise.all([...])` and `Promise.resolve(...)` wrappers, so model-authored pure data-cleanup skills can keep common async-style Promise boilerplate while still running inside the restricted local Agent runtime.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Promise.all(...).catch(...)` fail-fast recovery, so model-authored batch scripts can keep common all-or-fallback Promise chains instead of turning the first rejected candidate into an uncaught `errLlmFormat`.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `async (...) => { ... }` arrow callbacks inside `Promise.all(list.map(...))`, so model-authored pure data-cleanup skills can keep common async callback boilerplate while still executing deterministically in the restricted local Agent runtime.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-compatible `Promise.allSettled(list.map(async (...) => ...))` results with JS-style fulfilled records, so model-authored batch-cleanup skills can keep common all-settled filtering patterns before returning storyboard or asset summaries.

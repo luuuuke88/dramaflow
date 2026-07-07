@@ -5412,6 +5412,61 @@ return labels.join('、');
     expect(msg.content, '1.宗门晨练、2.灵阵亮起');
   });
 
+  test('自定义脚本技能：Promise.all rejected 可被链式 catch 捕获', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_all_rejected_runtime',
+      name: 'Promise all rejected 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Promise.all(...).catch(...) 失败兜底。',
+      script: r'''
+const result = await Promise.all(
+  args.storyboards.map((shot, index) => {
+    if (!shot.videoDesc?.trim()) {
+      return Promise.reject(new Error(`第${index + 1}镜缺少画面描述`));
+    }
+    return Promise.resolve(`${index + 1}.${shot.videoDesc.trim()}`);
+  })
+).catch(err => `兜底:${err.message}`);
+
+return Array.isArray(result) ? result.join('、') : result;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_promise_all_rejected_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪落山门 '},
+          {'videoDesc': ''},
+          {'videoDesc': '主角回眸'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise all rejected 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_all_rejected_runtime');
+    expect(msg.content, '兜底:第2镜缺少画面描述');
+  });
+
   test('自定义脚本技能：支持 Promise.allSettled 包裹同步批量结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_promise_all_settled_runtime',
