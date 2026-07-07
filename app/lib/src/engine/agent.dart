@@ -684,6 +684,7 @@ const _agentMemoryStructuredDslWrapperKeys = [
   'es_query',
   'searchQuery',
   'search_query',
+  'boosting',
   'constant_score',
   'constantScore',
   'function_score',
@@ -691,6 +692,7 @@ const _agentMemoryStructuredDslWrapperKeys = [
   'nested',
 ];
 const _agentMemoryStructuredQueryClauseKeys = [
+  'boosting',
   'dis_max',
   'disMax',
   'multi_match',
@@ -985,6 +987,23 @@ const _agentMemoryContentFilterToolSchema = {
   '布尔条件': {
     'type': 'object',
     'description': 'bool 的中文别名。',
+  },
+  'boosting': {
+    'type': 'object',
+    'description':
+        '可选。Elasticsearch boosting 查询包裹；positive 会展开为检索条件，negative 会展开为排除条件。',
+  },
+  'positive': {
+    'type': 'object',
+    'description': 'boosting 的正向查询子句。',
+  },
+  'negative': {
+    'type': 'object',
+    'description': 'boosting 的负向查询子句，会作为排除条件处理。',
+  },
+  'negative_boost': {
+    'type': 'number',
+    'description': 'boosting 的负向权重参数；本地召回会忽略权重，仅使用 negative 作为排除条件。',
   },
   'constant_score': {
     'type': 'object',
@@ -14624,6 +14643,7 @@ extension AgentApi on Engine {
   ) {
     final copy = <String, dynamic>{};
     final filterMustClauses = <Object?>[];
+    final excludedClauses = <Object?>[];
 
     bool isDslContentClause(Object? raw) {
       if (raw is! Map) return false;
@@ -14665,6 +14685,37 @@ extension AgentApi on Engine {
       copy['must'] = values;
     }
 
+    void collectExcludedClauses(Object? raw) {
+      if (raw == null) return;
+      if (raw is Iterable && raw is! String) {
+        for (final item in raw) {
+          collectExcludedClauses(item);
+        }
+        return;
+      }
+      excludedClauses.add(raw);
+    }
+
+    void appendExcludedClauses() {
+      if (excludedClauses.isEmpty) return;
+      final values = <Object?>[];
+      final existing = copy['must_not'];
+      if (existing is Iterable && existing is! String) {
+        values.addAll(existing);
+      } else if (existing != null) {
+        values.add(existing);
+      }
+      values.addAll(excludedClauses);
+      copy['must_not'] = values;
+    }
+
+    Object? firstByKey(Map<String, dynamic> source, List<String> keys) {
+      for (final key in keys) {
+        if (source.containsKey(key)) return source[key];
+      }
+      return null;
+    }
+
     void mergeWrapper(Object? raw) {
       if (raw == null) return;
       if (raw is Map) {
@@ -14682,9 +14733,44 @@ extension AgentApi on Engine {
       }
     }
 
+    void mergeBoostingWrapper(Object? raw) {
+      if (raw == null) return;
+      if (raw is Map) {
+        final nested = <String, dynamic>{
+          for (final entry in raw.entries)
+            if (entry.key is String) (entry.key as String): entry.value,
+        };
+        final positive = firstByKey(nested, const [
+          'positive',
+          'positiveQuery',
+          'positive_query',
+          '正向查询',
+          '正向',
+        ]);
+        collectFilterMustClauses(positive);
+        mergeWrapper(positive);
+        collectExcludedClauses(firstByKey(nested, const [
+          'negative',
+          'negativeQuery',
+          'negative_query',
+          '负向查询',
+          '负向',
+        ]));
+        return;
+      }
+      if (raw is Iterable && raw is! String) {
+        for (final item in raw) {
+          mergeBoostingWrapper(item);
+        }
+      }
+    }
+
     bool isStructuredWrapperValue(Object? raw) =>
         raw is Map || (raw is Iterable && raw is! String);
 
+    if (args.containsKey('positive') || args.containsKey('negative')) {
+      mergeBoostingWrapper(args);
+    }
     for (final key in _agentMemoryFilterWrapperKeys) {
       if (key == 'filter' || key == 'filters') {
         collectFilterMustClauses(args[key]);
@@ -14693,7 +14779,12 @@ extension AgentApi on Engine {
     }
     for (final key in _agentMemoryStructuredDslWrapperKeys) {
       final value = args[key];
-      if (isStructuredWrapperValue(value)) mergeWrapper(value);
+      if (!isStructuredWrapperValue(value)) continue;
+      if (key == 'boosting') {
+        mergeBoostingWrapper(value);
+      } else {
+        mergeWrapper(value);
+      }
     }
     copy.addAll(args);
     for (final key in _agentMemoryFilterWrapperKeys) {
@@ -14702,7 +14793,24 @@ extension AgentApi on Engine {
     for (final key in _agentMemoryStructuredDslWrapperKeys) {
       if (isStructuredWrapperValue(args[key])) copy.remove(key);
     }
+    for (final key in const [
+      'positive',
+      'positiveQuery',
+      'positive_query',
+      '正向查询',
+      '正向',
+      'negative',
+      'negativeQuery',
+      'negative_query',
+      '负向查询',
+      '负向',
+      'negative_boost',
+      'negativeBoost',
+    ]) {
+      copy.remove(key);
+    }
     appendFilterMustClauses();
+    appendExcludedClauses();
     return copy;
   }
 

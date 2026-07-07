@@ -14971,6 +14971,274 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan 支持 boosting 正负查询语义', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_boosting_get_keep',
+      '玄门山道甲：首镜必须保留玄门山道、冷白雾线和贴地跟拍。',
+      0,
+    );
+    insertMessage(
+      'query_plan_boosting_get_negative',
+      '玄门山道甲：旧版暖色方案保留冷白雾线和贴地跟拍，但必须废弃。',
+      1,
+    );
+    insertMessage(
+      'query_plan_boosting_get_broad',
+      '玄门山道甲：只记录普通山道远景，没有贴地跟拍。',
+      2,
+    );
+    insertMessage(
+      'query_plan_boosting_deep_keep',
+      '星河渡口乙：沈微登船时必须保留星河渡口、银色水纹和侧后方跟摇。',
+      3,
+    );
+    insertMessage(
+      'query_plan_boosting_deep_negative',
+      '星河渡口乙：旧版删除银色水纹，改成暖色正面光。',
+      4,
+    );
+    insertMessage(
+      'query_plan_boosting_deep_broad',
+      '星河渡口乙：只记录普通渡口，没有侧后方跟摇。',
+      5,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'boosting': {
+                'positive': {
+                  'bool': {
+                    'must': [
+                      {
+                        'match': {'content': '冷白雾线'},
+                      },
+                      {
+                        'match_phrase': {'content': '贴地跟拍'},
+                      },
+                    ],
+                  },
+                },
+                'negative': {
+                  'match': {'content': '旧版暖色'},
+                },
+                'negative_boost': 0.2,
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'boosting': {
+                'positive': {
+                  'bool': {
+                    'must': [
+                      {
+                        'match': {'content': '银色水纹'},
+                      },
+                      {
+                        'match_phrase': {'content': '侧后方跟摇'},
+                      },
+                    ],
+                  },
+                },
+                'negative': {
+                  'match_phrase': {'content': '删除银色水纹'},
+                },
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 boosting 正负查询结构召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('boosting'));
+      expect(properties, contains('positive'));
+      expect(properties, contains('negative'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '玄门山道甲：首镜必须保留玄门山道、冷白雾线和贴地跟拍。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_boosting_get_keep'],
+    );
+    expect(jsonEncode(memoryGetPayload), isNot(contains('旧版暖色')));
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '星河渡口乙：沈微登船时必须保留星河渡口、银色水纹和侧后方跟摇。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_boosting_deep_keep'],
+    );
+    expect(jsonEncode(deepRetrievePayload), isNot(contains('删除银色水纹')));
+  });
+
+  test('Agent 记忆：boosting positive 支持直接 match 子句', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_boosting_direct_keep',
+      '青铜门丙：开门镜头必须保留青铜门裂光和手持逼近。',
+      0,
+    );
+    insertMessage(
+      'query_plan_boosting_direct_negative',
+      '青铜门丙：旧版废弃方案保留青铜门裂光，但改成暖色远景。',
+      1,
+    );
+    insertMessage(
+      'query_plan_boosting_direct_broad',
+      '青铜门丙：只记录普通门厅远景，没有裂光。',
+      2,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'boosting': {
+                'positive': {
+                  'match': {'content': '青铜门裂光'},
+                },
+                'negative': {
+                  'match_phrase': {'content': '旧版废弃'},
+                },
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 boosting direct match 召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolPayload = jsonDecode(engine
+        .agentMessages(projectId)
+        .singleWhere((message) => message.role == agentRoleTool)
+        .content) as Map<String, dynamic>;
+    expect(toolPayload['found'], isTrue);
+    expect(toolPayload['memories'], [
+      '青铜门丙：开门镜头必须保留青铜门裂光和手持逼近。',
+    ]);
+    expect(
+      (toolPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_boosting_direct_keep'],
+    );
+    expect(jsonEncode(toolPayload), isNot(contains('旧版废弃')));
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),
