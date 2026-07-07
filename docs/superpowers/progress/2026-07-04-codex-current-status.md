@@ -68,6 +68,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 - `queryPlan` 内容过滤继续补齐 ES 风格 `prefix` / `wildcard` / `regexp` / `match_bool_prefix` 子句；regexp/wildcard 会拆出字面片段参与本地召回，`must_not` 的多片段模式按同组全命中才排除，避免公共词误伤正确记忆。
 - ES 风格 `term` / `terms` 字段过滤已映射到本地记忆元数据：`role` 进入角色过滤，`scope/type` 进入记忆范围过滤；这些元字段不会再被误当成内容关键词。
 - ES 风格 `size` 已作为 `limit` 别名接入 `memory_get` / `deepRetrieve` 和 queryPlan 计划项，模型按 Elasticsearch 习惯生成的返回条数限制不会被忽略。
+- ES 风格 `post_filter` / `postFilter` 已作为硬过滤包裹接入 queryPlan，支持内容过滤和 role/scope/type 元字段过滤。
 
 ## 仍不能称为“完全复刻”的部分
 

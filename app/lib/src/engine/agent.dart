@@ -590,7 +590,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/size/priority/mustInclude/excludeTerms/must/must_not/match/operator 等过滤提示，也可把这些过滤提示包在 filter/where/bool/criteria/条件 对象内。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/size/priority/mustInclude/excludeTerms/must/must_not/match/operator 等过滤提示，也可把这些过滤提示包在 filter/post_filter/where/bool/criteria/条件 对象内。',
   },
   'query_plan': {
     'type': ['array', 'object'],
@@ -746,6 +746,8 @@ const _agentMemoryIncludeIdToolSchema = {
 const _agentMemoryFilterWrapperKeys = [
   'filter',
   'filters',
+  'post_filter',
+  'postFilter',
   'where',
   'criteria',
   'constraints',
@@ -760,6 +762,7 @@ const _agentMemoryFilterWrapperKeys = [
   '布尔条件',
   '布尔过滤',
   '过滤条件',
+  '后置过滤',
   '查询条件',
   '检索条件',
 ];
@@ -1070,6 +1073,14 @@ const _agentMemoryContentFilterToolSchema = {
   'bool_filter': {
     'type': 'object',
     'description': 'boolFilter 的 snake_case 别名。',
+  },
+  'post_filter': {
+    'type': 'object',
+    'description': '可选。Elasticsearch post_filter 后置过滤包裹；本地召回按硬过滤处理。',
+  },
+  'postFilter': {
+    'type': 'object',
+    'description': 'post_filter 的 camelCase 别名。',
   },
   '布尔条件': {
     'type': 'object',
@@ -15198,7 +15209,10 @@ extension AgentApi on Engine {
       mergeBoostingWrapper(args);
     }
     for (final key in _agentMemoryFilterWrapperKeys) {
-      if (key == 'filter' || key == 'filters') {
+      if (key == 'filter' ||
+          key == 'filters' ||
+          key == 'post_filter' ||
+          key == 'postFilter') {
         collectFilterMustClauses(args[key]);
       }
       mergeWrapper(args[key]);
@@ -15347,6 +15361,8 @@ extension AgentApi on Engine {
         'bool',
         'filter',
         'filters',
+        'post_filter',
+        'postFilter',
         'where',
         'criteria',
         'constraints',

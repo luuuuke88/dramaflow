@@ -13766,6 +13766,156 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan 支持 ES post_filter 过滤包裹', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_post_filter_user_noise',
+      content: '霜碑post甲：同一句约束需要进入执行层。',
+      offset: 0,
+      role: agentRoleUser,
+    );
+    insertMessage(
+      id: 'query_plan_post_filter_execution_keep',
+      content: '霜碑post甲：同一句约束需要进入执行层。',
+      offset: 1,
+      role: 'assistant:execution:script',
+    );
+    insertMessage(
+      id: 'query_plan_post_filter_message_noise',
+      content: '星门post乙：普通对话里说星门可以改成暖色。',
+      offset: 2,
+      role: agentRoleUser,
+    );
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '星门post长期设定',
+      content: '星门post乙：长期设定必须保持冷蓝反光。',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'match': {'content': '霜碑post甲'},
+            },
+            'post_filter': {
+              'term': {'role': 'assistant:execution:script'},
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'match': {'content': '星门post乙'},
+            },
+            'postFilter': {
+              'terms': {
+                'scope': ['long_term'],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES post_filter 过滤召回 Agent 记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('post_filter'));
+      expect(properties, contains('postFilter'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_post_filter_execution_keep'],
+    );
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['role']),
+      ['assistant:execution:script'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '星门post乙：长期设定必须保持冷蓝反光。',
+    ]);
+    expect(
+      deepRetrievePayload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', noteId)
+            .having((record) => record['scope'], 'scope', 'long_term'),
+      ),
+    );
+    expect(jsonEncode(deepRetrievePayload), isNot(contains('普通对话')));
+  });
+
   test('Agent 记忆：queryPlan filter 支持 term/match 对象项', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
