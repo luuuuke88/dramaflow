@@ -1191,6 +1191,26 @@ const _agentMemoryContentFilterToolSchema = {
     'type': ['object', 'array', 'string'],
     'description': 'term 的复数别名，可携带多个字段值或关键词。',
   },
+  'prefix': {
+    'type': ['object', 'array', 'string'],
+    'description': '可选。Elasticsearch prefix 前缀过滤；本地按内容字面片段硬过滤。',
+  },
+  'wildcard': {
+    'type': ['object', 'array', 'string'],
+    'description': '可选。Elasticsearch wildcard 通配过滤；* 和 ? 会展开为字面片段检索。',
+  },
+  'regexp': {
+    'type': ['object', 'array', 'string'],
+    'description': '可选。Elasticsearch regexp 正则过滤；本地按正则中的字面片段硬过滤。',
+  },
+  'match_bool_prefix': {
+    'type': ['object', 'array', 'string'],
+    'description': '可选。Elasticsearch match_bool_prefix 子句，按内容前缀查询语义召回。',
+  },
+  'matchBoolPrefix': {
+    'type': ['object', 'array', 'string'],
+    'description': 'match_bool_prefix 的 camelCase 别名。',
+  },
   'match_phrase': {
     'type': ['object', 'array', 'string'],
     'description':
@@ -14386,6 +14406,11 @@ extension AgentApi on Engine {
           '语义检索',
           'term',
           'match',
+          'prefix',
+          'wildcard',
+          'regexp',
+          'match_bool_prefix',
+          'matchBoolPrefix',
           'match_phrase',
           'matchPhrase',
         ]) {
@@ -14697,6 +14722,11 @@ extension AgentApi on Engine {
           '语义检索',
           'term',
           'match',
+          'prefix',
+          'wildcard',
+          'regexp',
+          'match_bool_prefix',
+          'matchBoolPrefix',
           'match_phrase',
           'matchPhrase',
         ]) {
@@ -15018,6 +15048,11 @@ extension AgentApi on Engine {
         'term',
         'terms',
         'match',
+        'prefix',
+        'wildcard',
+        'regexp',
+        'match_bool_prefix',
+        'matchBoolPrefix',
         'match_phrase',
         'matchPhrase',
       ]) {
@@ -15289,6 +15324,11 @@ extension AgentApi on Engine {
       '语义检索',
       'term',
       'match',
+      'prefix',
+      'wildcard',
+      'regexp',
+      'match_bool_prefix',
+      'matchBoolPrefix',
       'match_phrase',
       'matchPhrase',
     ]) {
@@ -16259,21 +16299,22 @@ extension AgentApi on Engine {
     final shouldTerms = _agentMemoryShouldContentTerms(args);
     final minimumShouldMatch =
         _agentMemoryMinimumShouldMatch(args, shouldTerms.length);
-    final excludedTerms = _agentMemoryExcludedContentTerms(args);
-    final contentFiltered =
-        requiredTerms.isEmpty && shouldTerms.isEmpty && excludedTerms.isEmpty
-            ? entries.toList()
-            : [
-                for (final entry in entries)
-                  if (_matchesAgentMemoryContentTerms(
-                    entry,
-                    requiredTerms: requiredTerms,
-                    shouldTerms: shouldTerms,
-                    minimumShouldMatch: minimumShouldMatch,
-                    excludedTerms: excludedTerms,
-                  ))
-                    entry,
-              ];
+    final excludedTermGroups = _agentMemoryExcludedContentTermGroups(args);
+    final contentFiltered = requiredTerms.isEmpty &&
+            shouldTerms.isEmpty &&
+            excludedTermGroups.isEmpty
+        ? entries.toList()
+        : [
+            for (final entry in entries)
+              if (_matchesAgentMemoryContentTerms(
+                entry,
+                requiredTerms: requiredTerms,
+                shouldTerms: shouldTerms,
+                minimumShouldMatch: minimumShouldMatch,
+                excludedTermGroups: excludedTermGroups,
+              ))
+                entry,
+          ];
     return _filterAgentMemoryEntriesByRetrievalSource(contentFiltered, args);
   }
 
@@ -16381,6 +16422,11 @@ extension AgentApi on Engine {
         'include',
         'includes',
         'must',
+        'prefix',
+        'wildcard',
+        'regexp',
+        'match_bool_prefix',
+        'matchBoolPrefix',
         'require',
         'requires',
         'requiredTerms',
@@ -16454,48 +16500,65 @@ extension AgentApi on Engine {
         '至少命中',
       ]);
 
-  List<String> _agentMemoryExcludedContentTerms(Map<String, dynamic> args) =>
-      _agentMemoryContentTerms(args, const [
-        'excludeTerms',
-        'excludeTerm',
-        'exclude',
-        'excludes',
-        'excludeKeywords',
-        'excludeKeyword',
-        'forbiddenTerms',
-        'forbiddenTerm',
-        'negativeTerms',
-        'negativeTerm',
-        'mustNot',
-        'must_not',
-        'mustNotInclude',
-        'mustNotContain',
-        'not',
-        'notTerms',
-        'notTerm',
-        'contentExcludes',
-        'contentExclude',
-        'without',
-        '排除关键词',
-        '排除词',
-        '不能包含',
-        '不要包含',
-        '禁用词',
-      ]);
+  List<List<String>> _agentMemoryExcludedContentTermGroups(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryContentTermGroups(args, _agentMemoryExcludedContentKeys);
+
+  static const _agentMemoryExcludedContentKeys = [
+    'excludeTerms',
+    'excludeTerm',
+    'exclude',
+    'excludes',
+    'excludeKeywords',
+    'excludeKeyword',
+    'forbiddenTerms',
+    'forbiddenTerm',
+    'negativeTerms',
+    'negativeTerm',
+    'mustNot',
+    'must_not',
+    'mustNotInclude',
+    'mustNotContain',
+    'not',
+    'notTerms',
+    'notTerm',
+    'contentExcludes',
+    'contentExclude',
+    'without',
+    '排除关键词',
+    '排除词',
+    '不能包含',
+    '不要包含',
+    '禁用词',
+  ];
 
   List<String> _agentMemoryContentTerms(
     Map<String, dynamic> args,
     List<String> keys,
   ) {
     final terms = <String>[];
+    for (final group in _agentMemoryContentTermGroups(args, keys)) {
+      for (final term in group) {
+        if (term.isNotEmpty && !terms.contains(term)) terms.add(term);
+      }
+    }
+    return terms;
+  }
+
+  List<List<String>> _agentMemoryContentTermGroups(
+    Map<String, dynamic> args,
+    List<String> keys,
+  ) {
+    final groups = <List<String>>[];
 
     void addText(Object? raw) {
       final values = _coerceStringList(raw);
       if (values == null) return;
       for (final value in values) {
         for (final part in value.split(RegExp(r'[,，、;；]+'))) {
-          final term = part.trim();
-          if (term.isNotEmpty && !terms.contains(term)) terms.add(term);
+          final terms = _agentMemoryContentTermParts(part);
+          if (terms.isNotEmpty) groups.add(terms);
         }
       }
     }
@@ -16508,6 +16571,11 @@ extension AgentApi on Engine {
           'term',
           'terms',
           'match',
+          'prefix',
+          'wildcard',
+          'regexp',
+          'match_bool_prefix',
+          'matchBoolPrefix',
           'match_phrase',
           'matchPhrase',
           'value',
@@ -16551,7 +16619,23 @@ extension AgentApi on Engine {
     for (final value in _agentMemoryQueryPlanFilterValues(args, keys)) {
       add(value);
     }
-    return terms;
+    return groups;
+  }
+
+  List<String> _agentMemoryContentTermParts(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return const [];
+    if (!RegExp(r'[*?^$\\.\[\]{}()|+]').hasMatch(trimmed)) {
+      return [trimmed];
+    }
+    final normalized = trimmed
+        .replaceAllMapped(RegExp(r'\\([^\s])'), (match) => match.group(1)!)
+        .replaceAll(RegExp(r'[*?^$\\.\[\]{}()|+]+'), ' ');
+    final parts = [
+      for (final part in normalized.split(RegExp(r'\s+')))
+        if (part.trim().isNotEmpty) part.trim(),
+    ];
+    return parts.isEmpty ? [trimmed] : parts;
   }
 
   bool _matchesAgentMemoryContentTerms(
@@ -16559,7 +16643,7 @@ extension AgentApi on Engine {
     required List<String> requiredTerms,
     required List<String> shouldTerms,
     required int minimumShouldMatch,
-    required List<String> excludedTerms,
+    required List<List<String>> excludedTermGroups,
   }) {
     final text = '${entry.name}\n${entry.content}'.toLowerCase();
     bool containsTerm(String term) => text.contains(term.toLowerCase());
@@ -16567,7 +16651,8 @@ extension AgentApi on Engine {
         shouldTerms.where((term) => containsTerm(term)).length;
     return requiredTerms.every(containsTerm) &&
         (shouldTerms.isEmpty || shouldMatchCount >= minimumShouldMatch) &&
-        excludedTerms.every((term) => !containsTerm(term));
+        !excludedTermGroups
+            .any((group) => group.every((term) => containsTerm(term)));
   }
 
   List<AgentMemoryEntry> _sortAgentMemoryEntriesByPriority(

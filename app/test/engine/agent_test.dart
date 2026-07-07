@@ -15239,6 +15239,178 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(jsonEncode(toolPayload), isNot(contains('旧版废弃')));
   });
 
+  test('Agent 记忆：queryPlan 支持 prefix/wildcard/regexp 内容过滤', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_pattern_get_keep',
+      '灵泉密室甲：镜头必须保留灵泉密室、玄霜剑诀和东侧石廊。',
+      0,
+    );
+    insertMessage(
+      'query_plan_pattern_get_negative',
+      '灵泉密室甲：旧案记录玄霜剑匣和东侧石廊，废弃。',
+      1,
+    );
+    insertMessage(
+      'query_plan_pattern_get_broad',
+      '灵泉密室甲：只有普通石廊和远景走位，没有核心剑诀约束。',
+      2,
+    );
+    insertMessage(
+      'query_plan_pattern_deep_keep',
+      '镜湖台乙：冷白月纹贯穿镜湖，侧后推近沈微。',
+      3,
+    );
+    insertMessage(
+      'query_plan_pattern_deep_negative',
+      '镜湖台乙：暖色月纹贯穿镜湖，侧后推近沈微，旧版废弃。',
+      4,
+    );
+    insertMessage(
+      'query_plan_pattern_deep_broad',
+      '镜湖台乙：只记录普通湖面远景，没有侧后推近。',
+      5,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'bool': {
+                'filter': [
+                  {
+                    'prefix': {'content': '玄霜剑'},
+                  },
+                  {
+                    'wildcard': {'content': '*东侧石廊*'},
+                  },
+                ],
+                'must_not': [
+                  {
+                    'wildcard': {'content': '*剑匣*'},
+                  },
+                ],
+              },
+            },
+            'type': 'message',
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'bool': {
+                'filter': [
+                  {
+                    'regexp': {'content': '冷白.*镜湖'},
+                  },
+                  {
+                    'match_bool_prefix': {'content': '侧后推'},
+                  },
+                ],
+                'must_not': [
+                  {
+                    'regexp': {'content': '暖色.*镜湖'},
+                  },
+                ],
+              },
+            },
+            'type': 'message',
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 prefix wildcard regexp 过滤召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('prefix'));
+      expect(properties, contains('wildcard'));
+      expect(properties, contains('regexp'));
+      expect(properties, contains('match_bool_prefix'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '灵泉密室甲：镜头必须保留灵泉密室、玄霜剑诀和东侧石廊。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_pattern_get_keep'],
+    );
+    expect(jsonEncode(memoryGetPayload), isNot(contains('玄霜剑匣')));
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '镜湖台乙：冷白月纹贯穿镜湖，侧后推近沈微。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_pattern_deep_keep'],
+    );
+    expect(jsonEncode(deepRetrievePayload), isNot(contains('暖色月纹')));
+  });
+
   test('Agent 记忆：queryPlan 支持 ES ids/terms 精确回查 records', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
