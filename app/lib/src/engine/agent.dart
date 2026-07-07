@@ -508,12 +508,26 @@ const _agentMemoryQueryPlanToolSchema = {
     'description':
         '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority/mustInclude/excludeTerms/match/operator 等过滤提示，也可把这些过滤提示包在 filter/where/criteria/条件 对象内。',
   },
+  'query_plan': {
+    'type': ['array', 'object'],
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'queryPlan 的 snake_case 别名。',
+  },
   'retrievalPlan': {
     'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
     'description': 'queryPlan 的 RAG 检索计划别名。',
+  },
+  'retrieval_plan': {
+    'type': ['array', 'object'],
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'retrievalPlan 的 snake_case 别名。',
   },
   'searchPlan': {
     'type': ['array', 'object'],
@@ -522,6 +536,13 @@ const _agentMemoryQueryPlanToolSchema = {
     },
     'description': 'queryPlan 的搜索计划别名。',
   },
+  'search_plan': {
+    'type': ['array', 'object'],
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'searchPlan 的 snake_case 别名。',
+  },
   'searchQueries': {
     'type': ['array', 'object'],
     'items': {
@@ -529,12 +550,26 @@ const _agentMemoryQueryPlanToolSchema = {
     },
     'description': 'queryPlan 的查询数组别名。',
   },
+  'search_queries': {
+    'type': ['array', 'object'],
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'searchQueries 的 snake_case 别名。',
+  },
   'plannedQueries': {
     'type': ['array', 'object'],
     'items': {
       'type': ['string', 'object'],
     },
     'description': 'queryPlan 的计划查询别名。',
+  },
+  'planned_queries': {
+    'type': ['array', 'object'],
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'plannedQueries 的 snake_case 别名。',
   },
   '查询计划': {
     'type': ['array', 'object'],
@@ -13280,10 +13315,15 @@ extension AgentApi on Engine {
         };
         for (final key in const [
           'queryPlan',
+          'query_plan',
           'retrievalPlan',
+          'retrieval_plan',
           'searchPlan',
+          'search_plan',
           'searchQueries',
+          'search_queries',
           'plannedQueries',
+          'planned_queries',
           '查询计划',
           '检索计划',
           '搜索计划',
@@ -13421,10 +13461,15 @@ extension AgentApi on Engine {
     }
     for (final key in const [
       'queryPlan',
+      'query_plan',
       'retrievalPlan',
+      'retrieval_plan',
       'searchPlan',
+      'search_plan',
       'searchQueries',
+      'search_queries',
       'plannedQueries',
+      'planned_queries',
       '查询计划',
       '检索计划',
       '搜索计划',
@@ -13662,10 +13707,15 @@ extension AgentApi on Engine {
     final copy = _agentMemoryArgsWithFilterWrappers(args);
     for (final key in const [
       'queryPlan',
+      'query_plan',
       'retrievalPlan',
+      'retrieval_plan',
       'searchPlan',
+      'search_plan',
       'searchQueries',
+      'search_queries',
       'plannedQueries',
+      'planned_queries',
       '查询计划',
       '检索计划',
       '搜索计划',
@@ -13681,10 +13731,15 @@ extension AgentApi on Engine {
     final copy = _agentMemoryArgsWithFilterWrappers(args);
     for (final key in const [
       'queryPlan',
+      'query_plan',
       'retrievalPlan',
+      'retrieval_plan',
       'searchPlan',
+      'search_plan',
       'searchQueries',
+      'search_queries',
       'plannedQueries',
+      'planned_queries',
       '查询计划',
       '检索计划',
       '搜索计划',
@@ -13921,10 +13976,15 @@ extension AgentApi on Engine {
         }
         for (final key in const [
           'queryPlan',
+          'query_plan',
           'retrievalPlan',
+          'retrieval_plan',
           'searchPlan',
+          'search_plan',
           'searchQueries',
+          'search_queries',
           'plannedQueries',
+          'planned_queries',
           'queries',
           'queryList',
           'query_list',
@@ -13955,10 +14015,15 @@ extension AgentApi on Engine {
 
     for (final key in const [
       'queryPlan',
+      'query_plan',
       'retrievalPlan',
+      'retrieval_plan',
       'searchPlan',
+      'search_plan',
       'searchQueries',
+      'search_queries',
       'plannedQueries',
+      'planned_queries',
       '查询计划',
       '检索计划',
       '搜索计划',
