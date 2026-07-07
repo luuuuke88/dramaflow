@@ -608,6 +608,32 @@ const _agentMemorySemanticQueryToolSchema = {
     'description': 'semanticQueries 的中文别名。',
   },
 };
+const _agentMemoryRerankToolSchema = {
+  'rerank': {
+    'type': 'boolean',
+    'description': '可选。为 true 时，本次 memory_get 使用模型重排候选记忆。',
+  },
+  'rerankEnabled': {
+    'type': 'boolean',
+    'description': 'rerank 的配置语义别名。',
+  },
+  'useRerank': {
+    'type': 'boolean',
+    'description': 'rerank 的自然语言别名。',
+  },
+  'modelRerank': {
+    'type': 'boolean',
+    'description': 'rerank 的模型重排语义别名。',
+  },
+  '模型重排': {
+    'type': 'boolean',
+    'description': 'rerank 的中文别名。',
+  },
+  '重排': {
+    'type': 'boolean',
+    'description': 'rerank 的中文简写别名。',
+  },
+};
 const _agentMemoryQueryCombinationToolSchema = {
   'match': {
     'type': 'string',
@@ -1059,6 +1085,7 @@ final _tools = <AgentToolDef>[
           'description': 'keywords 的中文别名。',
         },
         ..._agentMemorySemanticQueryToolSchema,
+        ..._agentMemoryRerankToolSchema,
         ..._agentMemoryQueryPlanToolSchema,
         ..._agentMemoryQueryCombinationToolSchema,
         ..._agentMemoryQueryFallbackToolSchema,
@@ -11021,6 +11048,7 @@ extension AgentApi on Engine {
             final types = _deepRetrieveMemoryTypes(requestArgs);
             final minScore = _agentMemoryMinScore(requestArgs);
             final timeRange = _agentMemoryTimeRange(requestArgs);
+            final rerankEnabled = _agentMemoryRerankEnabled(requestArgs);
             final requestSortMode = _agentMemorySortMode(requestArgs);
             final requestLimit = request.limit;
             final requestIncludeVisualReferences =
@@ -11049,6 +11077,7 @@ extension AgentApi on Engine {
                     minScore: minScore,
                     timeRange: timeRange,
                     excludeIdsFromContext: true,
+                    rerankEnabled: rerankEnabled,
                   )
                 : const AgentMemoryContext();
             if (includeMessages) {
@@ -13781,6 +13810,21 @@ extension AgentApi on Engine {
       if (threshold != null) return threshold;
     }
     return null;
+  }
+
+  bool? _agentMemoryRerankEnabled(Map<String, dynamic> args) {
+    return _coerceBool(args['rerank'] ??
+        args['rerankEnabled'] ??
+        args['rerank_enabled'] ??
+        args['useRerank'] ??
+        args['use_rerank'] ??
+        args['modelRerank'] ??
+        args['model_rerank'] ??
+        args['llmRerank'] ??
+        args['llm_rerank'] ??
+        args['模型重排'] ??
+        args['重排'] ??
+        args['启用重排']);
   }
 
   int? _coerceAgentMemoryScoreThreshold(Object? raw) {

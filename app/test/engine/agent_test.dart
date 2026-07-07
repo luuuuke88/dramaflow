@@ -12038,6 +12038,109 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_get queryPlan 可按计划项开启模型重排', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.rerankEnabled', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_rerank_keep',
+      '用户明确约束：李澈必须保持正派，不能被写成反派。',
+      0,
+    );
+    insertMessage(
+      'query_plan_rerank_noise',
+      '道具噪声：李澈正派 李澈正派 匾额用于山门背景，和角色立场无关。',
+      1,
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '李澈正派',
+            '模型重排': true,
+            'reason': '角色立场判别',
+          },
+        ],
+        'limit': 1,
+      }),
+    ];
+    gateway.textResults = const [
+      TextResult('["query_plan_rerank_keep"]'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按模型重排找李澈角色立场',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final properties = memoryGetTool.schema['properties'] as Map;
+    expect(properties, contains('rerank'));
+    expect(properties, contains('模型重排'));
+    expect(gateway.textCallCount, 1);
+    expect(gateway.textStages, ['scriptAgent:decisionAgent']);
+
+    final toolMessage = engine
+        .agentMessages(projectId)
+        .singleWhere((message) => message.role == agentRoleTool);
+    final payload = jsonDecode(toolMessage.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['memories'], [
+      '用户明确约束：李澈必须保持正派，不能被写成反派。',
+    ]);
+    expect(
+      payload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', 'query_plan_rerank_keep')
+            .having((record) => record['queryReason'], 'queryReason', '角色立场判别'),
+      ),
+    );
+    expect(jsonEncode(payload), isNot(contains('query_plan_rerank_noise')));
+  });
+
   test('Agent 记忆：queryPlan 计划项支持内容包含与排除词过滤', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

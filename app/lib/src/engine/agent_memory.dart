@@ -394,6 +394,7 @@ class AgentMemoryService {
     int? minScore,
     AgentMemoryTimeRange? timeRange,
     bool excludeIdsFromContext = false,
+    bool? rerankEnabled,
     CancelToken? cancelToken,
   }) async {
     final settings = readSettings();
@@ -441,6 +442,7 @@ class AgentMemoryService {
       query: query,
       settings: settings,
       rankedMessages: rankedMessages,
+      rerankEnabled: rerankEnabled ?? settings.rerankEnabled,
       cancelToken: cancelToken,
     );
     final summariesDesc = settings.summaryLimit <= 0
@@ -859,11 +861,12 @@ class AgentMemoryService {
     required String query,
     required AgentMemorySettings settings,
     required List<(int, AgentMemoryEntry)> rankedMessages,
+    required bool rerankEnabled,
     CancelToken? cancelToken,
   }) async {
     if (settings.ragLimit <= 0 || rankedMessages.isEmpty) return const [];
     final localRelated = [for (final item in rankedMessages) item.$2];
-    if (!settings.rerankEnabled) {
+    if (!rerankEnabled) {
       return localRelated.take(settings.ragLimit).toList();
     }
     final candidateLimit = _rerankCandidateLimit(settings);
