@@ -100,11 +100,13 @@ class _AgentMemoryQueryRequest {
   final String query;
   final Map<String, dynamic> args;
   final int? limit;
+  final int priority;
 
   const _AgentMemoryQueryRequest({
     required this.query,
     required this.args,
     this.limit,
+    this.priority = 0,
   });
 }
 
@@ -474,7 +476,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit 等过滤提示。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/查询/关键词 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority 等过滤提示。',
   },
   'retrievalPlan': {
     'type': ['array', 'object'],
@@ -10873,6 +10875,7 @@ extension AgentApi on Engine {
           final limit = _agentMemoryDirectLimit(args);
           final memoryService = _agentMemoryService(family: agentFamily);
           final records = <AgentMemoryEntry>[];
+          final recordPriorities = <String, int>{};
           for (final request in queryRequests) {
             final requestArgs = request.args;
             final roles = _agentMemoryRoles(requestArgs);
@@ -10916,13 +10919,17 @@ extension AgentApi on Engine {
               timeRange: timeRange,
               noteIsolationKey: _agentMemoryIsolationKey(projectId),
             );
-            records.addAll(_limitAgentMemoryEntries(
+            final limitedRequestRecords = _limitAgentMemoryEntries(
               requestRecords,
               requestSortMode,
               requestLimit,
-            ));
+            );
+            records.addAll(limitedRequestRecords);
+            for (final record in limitedRequestRecords) {
+              recordPriorities[record.id] = request.priority;
+            }
             if (requestIncludeVisualReferences) {
-              records.addAll(_visualReferenceMemoryEntries(
+              final visualRecords = _visualReferenceMemoryEntries(
                 projectId,
                 excludeIds: {
                   ...queryExcludeIds,
@@ -10930,22 +10937,28 @@ extension AgentApi on Engine {
                 },
                 limit:
                     requestLimit ?? _agentMemoryDirectLimit(requestArgs) ?? 2,
-              ));
+              );
+              records.addAll(visualRecords);
+              for (final record in visualRecords) {
+                recordPriorities[record.id] = request.priority;
+              }
             }
           }
           if (queryRequests.isEmpty && includeVisualReferences) {
-            records.addAll(_visualReferenceMemoryEntries(
+            final visualRecords = _visualReferenceMemoryEntries(
               projectId,
               excludeIds: {
                 ...baseExcludeIds,
                 for (final record in records) record.id,
               },
               limit: limit ?? 2,
-            ));
+            );
+            records.addAll(visualRecords);
           }
-          final mergedRecords = _sortAgentMemoryEntries(
+          final mergedRecords = _sortAgentMemoryEntriesByPriority(
             _dedupeAgentMemoryEntries(records),
             sortMode,
+            recordPriorities,
           );
           final limitedRecords = limit == null
               ? mergedRecords
@@ -10964,7 +10977,10 @@ extension AgentApi on Engine {
             ],
             'records': [
               for (final record in limitedRecords)
-                _agentMemoryRecordPayload(record),
+                _agentMemoryRecordPayload(
+                  record,
+                  priority: recordPriorities[record.id],
+                ),
             ],
           });
         case 'activate_skill':
@@ -12165,6 +12181,7 @@ extension AgentApi on Engine {
       String query,
       Map<String, dynamic> requestArgs, {
       int? limit,
+      int priority = 0,
     }) {
       final trimmed = query.trim();
       if (trimmed.isEmpty) return;
@@ -12176,6 +12193,7 @@ extension AgentApi on Engine {
             'query': trimmed,
           },
           limit: limit,
+          priority: priority,
         ),
       );
     }
@@ -12184,11 +12202,12 @@ extension AgentApi on Engine {
       Object? raw,
       Map<String, dynamic> requestArgs, {
       int? limit,
+      int priority = 0,
     }) {
       final items = _coerceStringList(raw);
       if (items == null) return;
       for (final item in items) {
-        addRequest(item, requestArgs, limit: limit);
+        addRequest(item, requestArgs, limit: limit, priority: priority);
       }
     }
 
@@ -12196,6 +12215,7 @@ extension AgentApi on Engine {
       Object? raw,
       Map<String, dynamic> inheritedArgs, {
       int? inheritedLimit,
+      int inheritedPriority = 0,
     }) {
       if (raw == null) return;
       if (raw is Map) {
@@ -12208,6 +12228,8 @@ extension AgentApi on Engine {
           ..._agentMemoryPlanFilterArgs(map),
         };
         final nodeLimit = _agentMemoryDirectLimit(map) ?? inheritedLimit;
+        final nodePriority =
+            _agentMemoryDirectPriority(map) ?? inheritedPriority;
         for (final key in const [
           'query',
           'q',
@@ -12226,7 +12248,12 @@ extension AgentApi on Engine {
           'search_text',
           'term',
         ]) {
-          addTextRequests(map[key], nodeArgs, limit: nodeLimit);
+          addTextRequests(
+            map[key],
+            nodeArgs,
+            limit: nodeLimit,
+            priority: nodePriority,
+          );
         }
         final childArgs = {
           ...inheritedArgs,
@@ -12255,17 +12282,32 @@ extension AgentApi on Engine {
           'items',
           'steps',
         ]) {
-          addPlanNode(map[key], childArgs, inheritedLimit: nodeLimit);
+          addPlanNode(
+            map[key],
+            childArgs,
+            inheritedLimit: nodeLimit,
+            inheritedPriority: nodePriority,
+          );
         }
         return;
       }
       if (raw is Iterable) {
         for (final item in raw) {
-          addPlanNode(item, inheritedArgs, inheritedLimit: inheritedLimit);
+          addPlanNode(
+            item,
+            inheritedArgs,
+            inheritedLimit: inheritedLimit,
+            inheritedPriority: inheritedPriority,
+          );
         }
         return;
       }
-      addTextRequests(raw, inheritedArgs, limit: inheritedLimit);
+      addTextRequests(
+        raw,
+        inheritedArgs,
+        limit: inheritedLimit,
+        priority: inheritedPriority,
+      );
     }
 
     final single = _stringArgAny(args, const [
@@ -12281,7 +12323,10 @@ extension AgentApi on Engine {
       '提示词',
       'q',
     ]);
-    if (single.isNotEmpty) addRequest(single, baseArgs);
+    final basePriority = _agentMemoryDirectPriority(args) ?? 0;
+    if (single.isNotEmpty) {
+      addRequest(single, baseArgs, priority: basePriority);
+    }
     for (final item in _stringListAny(args, const [
           'queries',
           'queryList',
@@ -12295,7 +12340,7 @@ extension AgentApi on Engine {
           'prompts',
         ]) ??
         const <String>[]) {
-      addRequest(item, baseArgs);
+      addRequest(item, baseArgs, priority: basePriority);
     }
     for (final key in const [
       'queryPlan',
@@ -12307,7 +12352,7 @@ extension AgentApi on Engine {
       '检索计划',
       '搜索计划',
     ]) {
-      addPlanNode(args[key], baseArgs);
+      addPlanNode(args[key], baseArgs, inheritedPriority: basePriority);
     }
     return requests;
   }
@@ -13029,6 +13074,43 @@ extension AgentApi on Engine {
       args['返回数量'] ??
       args['k'];
 
+  int? _agentMemoryDirectPriority(Map<String, dynamic> args) {
+    final raw = args['priority'] ??
+        args['priorities'] ??
+        args['weight'] ??
+        args['importance'] ??
+        args['rankPriority'] ??
+        args['优先级'] ??
+        args['权重'] ??
+        args['重要性'];
+    final value = _coerceInt(raw);
+    if (value != null) return value.clamp(-100, 100).toInt();
+    final text = (raw ?? '').toString().trim().toLowerCase();
+    switch (text) {
+      case 'critical':
+      case 'highest':
+      case 'high':
+      case 'must':
+      case '硬性':
+      case '最高':
+      case '高':
+      case '重要':
+        return 10;
+      case 'medium':
+      case 'normal':
+      case '中':
+      case '普通':
+        return 5;
+      case 'low':
+      case 'optional':
+      case '低':
+      case '可选':
+        return 1;
+      default:
+        return null;
+    }
+  }
+
   String _agentMemorySortMode(Map<String, dynamic> args) {
     final explicitRaw = args['orderBy'] ??
         args['sortBy'] ??
@@ -13147,6 +13229,25 @@ extension AgentApi on Engine {
   ) {
     final sorted = _sortAgentMemoryEntries(entries, sortMode);
     return limit == null ? sorted : sorted.take(limit).toList();
+  }
+
+  List<AgentMemoryEntry> _sortAgentMemoryEntriesByPriority(
+    List<AgentMemoryEntry> entries,
+    String sortMode,
+    Map<String, int> priorities,
+  ) {
+    final sorted = _sortAgentMemoryEntries(entries, sortMode);
+    final indexed = [
+      for (var index = 0; index < sorted.length; index++) (index, sorted[index])
+    ];
+    indexed.sort((a, b) {
+      final priorityA = priorities[a.$2.id] ?? 0;
+      final priorityB = priorities[b.$2.id] ?? 0;
+      final byPriority = priorityB.compareTo(priorityA);
+      if (byPriority != 0) return byPriority;
+      return a.$1.compareTo(b.$1);
+    });
+    return [for (final item in indexed) item.$2];
   }
 
   Set<String>? _deepRetrieveMemoryTypes(Map<String, dynamic> args) {
@@ -13338,13 +13439,18 @@ extension AgentApi on Engine {
     return result;
   }
 
-  Map<String, dynamic> _agentMemoryRecordPayload(AgentMemoryEntry record) => {
+  Map<String, dynamic> _agentMemoryRecordPayload(
+    AgentMemoryEntry record, {
+    int? priority,
+  }) =>
+      {
         'id': record.id,
         'type': record.type,
         'scope': _deepRetrieveRecordScope(record),
         'name': record.name,
         'createTime': record.createdAt,
         'role': record.role,
+        if (priority != null && priority != 0) 'priority': priority,
         if (record.relatedMessageIds.isNotEmpty)
           'relatedMessageIds': record.relatedMessageIds,
         if (record.sourceSummaryIds.isNotEmpty)
