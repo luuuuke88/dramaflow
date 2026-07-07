@@ -5312,6 +5312,60 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持自定义函数 bind 后调用和作为回调', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_function_bind_runtime',
+      name: '函数 bind 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 helper.bind(null, prefix) 回调复用。',
+      script: r'''
+function decorate(prefix, name, index) {
+  const clean = String(name ?? '').trim();
+  if (!clean) return null;
+  return `${prefix}${index + 1}.${clean}`;
+}
+
+const roleLabel = decorate.bind(null, '角色');
+const sceneLabel = decorate.bind(null, '场景');
+
+return JSON.stringify({
+  roles: args.roles.map(roleLabel).filter(Boolean).join('、'),
+  scene: sceneLabel(args.scene, 0),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'roles': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'scene': {'type': 'string'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_function_bind_runtime', const {
+        'roles': [' 李澈 ', '沈微', ' '],
+        'scene': ' 太岳山门 ',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用函数 bind 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_function_bind_runtime');
+    expect(jsonDecode(msg.content), {
+      'roles': '角色1.李澈、角色2.沈微',
+      'scene': '场景1.太岳山门',
+    });
+  });
+
   test('自定义脚本技能：支持函数和回调参数默认值', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_param_default_runtime',

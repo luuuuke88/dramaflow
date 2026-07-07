@@ -5095,7 +5095,8 @@ class _CustomAgentSkillRuntime {
   }
 
   Object? _callMethod(Object? value, String method, List<String> args) {
-    if (value is _CustomJsFunction && (method == 'call' || method == 'apply')) {
+    if (value is _CustomJsFunction &&
+        (method == 'call' || method == 'apply' || method == 'bind')) {
       return _callCustomFunctionMethod(value, method, args);
     }
     if (value is _CustomJsBuiltin) {
@@ -6057,6 +6058,18 @@ class _CustomAgentSkillRuntime {
           function,
           List<Object?>.from(argumentList),
         );
+      case 'bind':
+        return _CustomJsFunction(
+          name: function.name,
+          params: function.params,
+          body: function.body,
+          boundValues: values.length <= 1
+              ? function.boundValues
+              : List<Object?>.unmodifiable([
+                  ...function.boundValues,
+                  ...values.skip(1),
+                ]),
+        );
       default:
         _badMethodArgs(method);
     }
@@ -6088,11 +6101,14 @@ class _CustomAgentSkillRuntime {
     _CustomJsFunction function,
     List<Object?> values,
   ) {
+    final callValues = function.boundValues.isEmpty
+        ? values
+        : <Object?>[...function.boundValues, ...values];
     final bindings = <String, Object?>{};
     for (var i = 0; i < function.params.length; i++) {
       _bindCallbackParam(
         function.params[i],
-        i < values.length ? values[i] : null,
+        i < callValues.length ? callValues[i] : null,
         bindings,
         function.name,
       );
@@ -7987,11 +8003,13 @@ class _CustomJsFunction {
   final String name;
   final List<String> params;
   final String body;
+  final List<Object?> boundValues;
 
   const _CustomJsFunction({
     required this.name,
     required this.params,
     required this.body,
+    this.boundValues = const <Object?>[],
   });
 }
 
