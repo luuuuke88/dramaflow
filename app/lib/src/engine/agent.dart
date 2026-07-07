@@ -883,10 +883,29 @@ const _agentMemoryContentFilterToolSchema = {
     'type': 'object',
     'description': 'bool 的中文别名。',
   },
+  'term': {
+    'type': ['object', 'array', 'string'],
+    'description': '可选。Elasticsearch 风格单词过滤，如 {"term":{"content":"冷白石桥"}}。',
+  },
+  'terms': {
+    'type': ['object', 'array', 'string'],
+    'description': 'term 的复数别名，可携带多个字段值或关键词。',
+  },
+  'match_phrase': {
+    'type': ['object', 'array', 'string'],
+    'description':
+        '可选。Elasticsearch 风格短语匹配过滤，如 {"match_phrase":{"content":"蓝火背光"}}。',
+  },
+  'matchPhrase': {
+    'type': ['object', 'array', 'string'],
+    'description': 'match_phrase 的 camelCase 别名。',
+  },
   'must': {
     'type': ['array', 'string'],
-    'items': {'type': 'string'},
-    'description': 'mustInclude 的 DSL 风格别名。',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'mustInclude 的 DSL 风格别名，也可携带 term/match/match_phrase 对象项。',
   },
   'require': {
     'type': ['array', 'string'],
@@ -940,18 +959,24 @@ const _agentMemoryContentFilterToolSchema = {
   },
   '必须包含': {
     'type': ['array', 'string'],
-    'items': {'type': 'string'},
-    'description': 'requiredTerms 的中文别名。',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'requiredTerms 的中文别名，也可携带 term/match/match_phrase 对象项。',
   },
   'mustNot': {
     'type': ['array', 'string'],
-    'items': {'type': 'string'},
-    'description': 'excludeTerms 的 DSL 风格别名。',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'excludeTerms 的 DSL 风格别名，也可携带 term/match/match_phrase 对象项。',
   },
   'must_not': {
     'type': ['array', 'string'],
-    'items': {'type': 'string'},
-    'description': 'mustNot 的 snake_case 别名。',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'mustNot 的 snake_case 别名，也可携带对象项。',
   },
   'not': {
     'type': ['array', 'string'],
@@ -995,8 +1020,10 @@ const _agentMemoryContentFilterToolSchema = {
   },
   '不能包含': {
     'type': ['array', 'string'],
-    'items': {'type': 'string'},
-    'description': 'mustNotInclude 的中文别名。',
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'mustNotInclude 的中文别名，也可携带 term/match/match_phrase 对象项。',
   },
 };
 
@@ -15310,7 +15337,8 @@ extension AgentApi on Engine {
     List<String> keys,
   ) {
     final terms = <String>[];
-    void add(Object? raw) {
+
+    void addText(Object? raw) {
       final values = _coerceStringList(raw);
       if (values == null) return;
       for (final value in values) {
@@ -15319,6 +15347,51 @@ extension AgentApi on Engine {
           if (term.isNotEmpty && !terms.contains(term)) terms.add(term);
         }
       }
+    }
+
+    void add(Object? raw) {
+      if (raw == null || raw is bool) return;
+      if (raw is Map) {
+        var handled = false;
+        for (final key in const [
+          'term',
+          'terms',
+          'match',
+          'match_phrase',
+          'matchPhrase',
+          'value',
+          'values',
+          'text',
+          'content',
+          'keyword',
+          'keywords',
+          'query',
+          'q',
+          'phrase',
+          'phrases',
+          '字段值',
+          '内容',
+          '关键词',
+          '短语',
+        ]) {
+          if (!raw.containsKey(key)) continue;
+          handled = true;
+          add(raw[key]);
+        }
+        if (!handled) {
+          for (final value in raw.values) {
+            add(value);
+          }
+        }
+        return;
+      }
+      if (raw is Iterable && raw is! String) {
+        for (final item in raw) {
+          add(item);
+        }
+        return;
+      }
+      addText(raw);
     }
 
     for (final key in keys) {
