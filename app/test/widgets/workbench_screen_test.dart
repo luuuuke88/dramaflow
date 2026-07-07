@@ -3614,6 +3614,77 @@ void main() {
     expect(find.textContaining('L2 · 780ms · 500ms'), findsOneWidget);
   });
 
+  testWidgets('工作台多选拖拽时整组边界接近锚点会显示参考线', (tester) async {
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '5',
+    );
+    const relA = 'p/group_snap_guide_left_overlay_a.mp4';
+    const relB = 'p/group_snap_guide_left_overlay_b.mp4';
+    File(engine.mediaAbsPath(relA))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 6, 3]);
+    File(engine.mediaAbsPath(relB))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([2, 6, 4]);
+    final clipAssetA = engine.registerClipAsset(
+      projectId: projectId,
+      name: '组参考线 A',
+      relPath: relA,
+    );
+    final clipAssetB = engine.registerClipAsset(
+      projectId: projectId,
+      name: '组参考线 B',
+      relPath: relB,
+    );
+    final clipIdA = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetA,
+      lane: 1,
+      startMs: 120,
+      durationMs: 500,
+    );
+    final clipIdB = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: clipAssetB,
+      lane: 2,
+      startMs: 900,
+      durationMs: 500,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipIdB')),
+    );
+    await tester.pumpAndSettle();
+
+    final clipFinder = find.byKey(ValueKey('workbench-timeline-clip-$clipIdB'));
+    final guideFinder =
+        find.byKey(ValueKey('workbench-timeline-snap-guide-$clipIdB'));
+    expect(clipFinder, findsOneWidget);
+    expect(guideFinder, findsNothing);
+
+    final gesture = await tester.startGesture(tester.getCenter(clipFinder));
+    await gesture.moveBy(const Offset(-12, 0));
+    await tester.pump();
+
+    expect(guideFinder, findsOneWidget);
+
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('工作台多选拖拽遇到同轨未选素材时整组后移避让', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

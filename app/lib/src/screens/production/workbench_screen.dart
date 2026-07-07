@@ -1644,11 +1644,23 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       if (gap > 0) {
         widgets.add(SizedBox(width: gap));
       }
+      final groupSelected =
+          _selectedClipIds.length > 1 && _selectedClipIds.contains(clip.id);
       widgets.add(
         _TimelineAssetClip(
           clip: clip,
           selected: _selectedClipIds.contains(clip.id),
-          snapAnchors: _timelineSnapAnchors(engine: engine, clip: clip),
+          snapAnchors: _timelineSnapAnchors(
+            engine: engine,
+            clip: clip,
+            excludeClipIds:
+                groupSelected ? _selectedClipIds : const <int>{},
+          ),
+          snapPreviewOffsetsMs: _timelineClipSnapPreviewOffsets(
+            engine: engine,
+            clip: clip,
+            selectedClipIds: _selectedClipIds,
+          ),
           dragPixelsPerTimeStep: _dragPixelsPerTimeStep,
           dragTimeStepMs: _dragTimeStepMs,
           snapThresholdMs: _snapThresholdMs,
@@ -1672,6 +1684,34 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       if (clipRight > cursorPx) cursorPx = clipRight;
     }
     return widgets;
+  }
+
+  List<int> _timelineClipSnapPreviewOffsets({
+    required Engine engine,
+    required TimelineClipRow clip,
+    required Set<int> selectedClipIds,
+  }) {
+    final duration = clip.durationMs ?? _defaultClipDurationMs;
+    final offsets = <int>[0, duration];
+    if (selectedClipIds.length < 2 || !selectedClipIds.contains(clip.id)) {
+      return offsets;
+    }
+    final selectedRows = engine
+        .timelineClips(clip.scriptId)
+        .where((row) => selectedClipIds.contains(row.id))
+        .toList();
+    if (selectedRows.length < 2) return offsets;
+    final groupStart = selectedRows
+        .map((row) => row.startMs)
+        .reduce((a, b) => a < b ? a : b);
+    final groupEnd = selectedRows.map((row) {
+      final rowDuration = row.durationMs ?? _defaultClipDurationMs;
+      return row.startMs + rowDuration;
+    }).reduce((a, b) => a > b ? a : b);
+    for (final offset in [groupStart - clip.startMs, groupEnd - clip.startMs]) {
+      if (!offsets.contains(offset)) offsets.add(offset);
+    }
+    return offsets;
   }
 
   List<Widget> _timelineOverlayLaneWidgets({
@@ -3039,6 +3079,7 @@ class _TimelineAssetClip extends StatefulWidget {
   final TimelineClipRow clip;
   final bool selected;
   final List<int> snapAnchors;
+  final List<int> snapPreviewOffsetsMs;
   final double dragPixelsPerTimeStep;
   final int dragTimeStepMs;
   final int snapThresholdMs;
@@ -3060,6 +3101,7 @@ class _TimelineAssetClip extends StatefulWidget {
     required this.clip,
     required this.selected,
     required this.snapAnchors,
+    required this.snapPreviewOffsetsMs,
     required this.dragPixelsPerTimeStep,
     required this.dragTimeStepMs,
     required this.snapThresholdMs,
@@ -3147,10 +3189,20 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
     final duration = widget.clip.durationMs ?? 1000;
     final candidateStart =
         widget.clip.startMs + timeSteps * widget.dragTimeStepMs;
-    final candidateEnd = candidateStart + duration;
-    if (_hasNearbySnapAnchor(candidateStart)) return Alignment.centerLeft;
-    if (_hasNearbySnapAnchor(candidateEnd)) return Alignment.centerRight;
+    for (final offset in widget.snapPreviewOffsetsMs) {
+      if (_hasNearbySnapAnchor(candidateStart + offset)) {
+        return _snapGuideAlignmentForOffset(offset, duration);
+      }
+    }
     return null;
+  }
+
+  Alignment _snapGuideAlignmentForOffset(int offsetMs, int durationMs) {
+    if (offsetMs <= 0) return Alignment.centerLeft;
+    if (offsetMs >= durationMs) return Alignment.centerRight;
+    return offsetMs <= durationMs / 2
+        ? Alignment.centerLeft
+        : Alignment.centerRight;
   }
 
   bool _hasNearbySnapAnchor(int value) {
