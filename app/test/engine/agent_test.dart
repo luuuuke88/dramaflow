@@ -15239,6 +15239,138 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(jsonEncode(toolPayload), isNot(contains('旧版废弃')));
   });
 
+  test('Agent 记忆：queryPlan 支持 ES ids/terms 精确回查 records', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_ids_memory_keep',
+      '精确回查记忆：九幽钥匙只允许沈微保管。',
+      0,
+    );
+    insertMessage(
+      'query_plan_ids_memory_noise',
+      '干扰记忆：九幽钥匙可以交给李澈暂存。',
+      1,
+    );
+    final keepNoteId = engine.saveAgentMemory(
+      projectId,
+      name: '九幽钥匙正设',
+      content: '精确回查长期记忆：九幽钥匙开门时必须出现冷白反光。',
+    );
+    final noiseNoteId = engine.saveAgentMemory(
+      projectId,
+      name: '九幽钥匙旧设',
+      content: '干扰长期记忆：九幽钥匙旧版设定是暖色铜光。',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'ids': {
+              'values': ['query_plan_ids_memory_keep'],
+            },
+            'type': 'message',
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', {
+        'queryPlan': [
+          {
+            'terms': {
+              '_id': [keepNoteId],
+            },
+            'scope': 'long_term',
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 records id 精确回查九幽钥匙记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('ids'));
+      expect(properties, contains('includeIds'));
+      expect(properties, contains('targetRecords'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '精确回查记忆：九幽钥匙只允许沈微保管。',
+    ]);
+    expect(memoryGetPayload['summaries'], isEmpty);
+    expect(memoryGetPayload['recent'], isEmpty);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_ids_memory_keep'],
+    );
+    expect(jsonEncode(memoryGetPayload), isNot(contains('李澈暂存')));
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '精确回查长期记忆：九幽钥匙开门时必须出现冷白反光。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      [keepNoteId],
+    );
+    expect(jsonEncode(deepRetrievePayload), isNot(contains(noiseNoteId)));
+    expect(jsonEncode(deepRetrievePayload), isNot(contains('暖色铜光')));
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),

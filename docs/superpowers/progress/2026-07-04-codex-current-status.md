@@ -60,6 +60,12 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 - `Verified`：项目列表 + 新建向导、章节管理 + 事件、剧本、素材库、制作画布、节点式图片编辑器、配音、任务中心、全套设置。
 - `Partial`：多轨工作台、Agent 体系页。制作画布已进入 `Verified`：有 source-anchored visual evidence、桌面/移动截图、生产页 widget 覆盖；如严格要求 live ToonFlow 浏览器并排截图，仍可作为加强证据补充。
 
+## 2026-07-07 Agent/RAG 增量
+
+- `memory_get` / `deepRetrieve` 现在支持 ES 风格 `ids.values` 与 `terms._id/id/memoryId` 精确回查 memory records，同时新增 `includeIds` / `targetRecords` 等显式 include 参数。
+- 旧的 `memoryIds` / `records` / `seenRecords` 仍保持“已读排除”语义，避免模型二次读取时重复返回同一条记忆。
+- 已用 `app/test/engine/agent_test.dart` 覆盖：精确回查对话 message 与长期 note、queryPlan 结构化回归、records 已读排除回归。
+
 ## 仍不能称为“完全复刻”的部分
 
 1. Web/H5 仍是预览入口。

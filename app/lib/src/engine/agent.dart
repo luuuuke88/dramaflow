@@ -677,6 +677,72 @@ const _agentMemoryQueryPlanToolSchema = {
     'description': 'searchPlan 的中文别名。',
   },
 };
+const _agentMemoryIncludeIdToolSchema = {
+  'ids': {
+    'type': ['object', 'array', 'string'],
+    'description': '可选。按 memory record id 精确召回；支持 Elasticsearch ids.values 结构。',
+  },
+  'includeIds': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': '可选。精确召回这些 memory id，不会把它们当作已读排除。',
+  },
+  'includeMemoryIds': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'includeIds 的记忆 id 语义别名。',
+  },
+  'includedMemoryIds': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'includeMemoryIds 的过去式别名。',
+  },
+  'targetIds': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'includeIds 的目标 id 别名。',
+  },
+  'targetMemoryIds': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'targetIds 的记忆 id 语义别名。',
+  },
+  'onlyIds': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'includeIds 的 only/精确回查别名。',
+  },
+  'onlyMemoryIds': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'onlyIds 的记忆 id 语义别名。',
+  },
+  'targetRecords': {
+    'type': 'array',
+    'items': {
+      'type': 'object',
+      'properties': {
+        'id': {'type': 'string'},
+      },
+    },
+    'description': '可选。精确召回这些 records；与 records/seenRecords 的“排除已读”语义分开。',
+  },
+  '指定记忆': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'includeIds 的中文别名。',
+  },
+  '目标记忆': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'targetIds 的中文别名。',
+  },
+  '只看记忆': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'onlyIds 的中文别名。',
+  },
+};
 const _agentMemoryFilterWrapperKeys = [
   'filter',
   'filters',
@@ -1829,6 +1895,7 @@ final _tools = <AgentToolDef>[
         ..._agentMemorySemanticQueryToolSchema,
         ..._agentMemoryRerankToolSchema,
         ..._agentMemoryQueryPlanToolSchema,
+        ..._agentMemoryIncludeIdToolSchema,
         ..._agentMemoryQueryCombinationToolSchema,
         ..._agentMemoryQueryFallbackToolSchema,
         ..._agentMemoryContentFilterToolSchema,
@@ -2435,6 +2502,7 @@ final _tools = <AgentToolDef>[
         ..._agentMemorySemanticQueryToolSchema,
         ..._agentMemoryRerankToolSchema,
         ..._agentMemoryQueryPlanToolSchema,
+        ..._agentMemoryIncludeIdToolSchema,
         ..._agentMemoryQueryCombinationToolSchema,
         ..._agentMemoryQueryFallbackToolSchema,
         ..._agentMemoryContentFilterToolSchema,
@@ -12261,7 +12329,10 @@ extension AgentApi on Engine {
           final queries = _agentMemoryRequestQueries(queryRequests);
           final includeVisualReferences =
               _shouldIncludeVisualReferenceMemories(args);
-          if (queryRequests.isEmpty && !includeVisualReferences) {
+          final baseIncludeIds = _agentMemoryIncludeIds(args);
+          if (queryRequests.isEmpty &&
+              !includeVisualReferences &&
+              baseIncludeIds.isEmpty) {
             return '缺少 query 参数。';
           }
           final baseExcludeIds =
@@ -12278,6 +12349,50 @@ extension AgentApi on Engine {
           final hitQueryGroups = <String>{};
           var hasMessageRequests = false;
           var hasSummaryRequests = false;
+          if (baseIncludeIds.isNotEmpty) {
+            final roles = _agentMemoryRoles(args);
+            final requestedExcludeRoles = _agentMemoryExcludeRoles(args);
+            final excludeRoles = {
+              ...excludedRoles,
+              if (requestedExcludeRoles != null) ...requestedExcludeRoles,
+            };
+            final requestedExcludeRoleSuffixes =
+                _agentMemoryExcludeRoleSuffixes(args);
+            final excludeRoleSuffixes = {
+              ...excludedRoleSuffixes,
+              if (requestedExcludeRoleSuffixes != null)
+                ...requestedExcludeRoleSuffixes,
+            };
+            final exactRecords = _filterAgentMemoryEntriesByContent(
+              _agentMemoryRecordsByIds(
+                projectId,
+                baseIncludeIds,
+                family: agentFamily,
+                roles: roles,
+                types: _deepRetrieveMemoryTypes(args),
+                excludeIds: baseExcludeIds,
+                excludeRoles: excludeRoles,
+                excludeRoleSuffixes: excludeRoleSuffixes,
+                timeRange: _agentMemoryTimeRange(args),
+              ),
+              args,
+            );
+            for (final record in exactRecords) {
+              switch (record.type) {
+                case agentMemoryTypeSummary:
+                  summaryRecords.add(record);
+                  hasSummaryRequests = true;
+                  break;
+                case agentMemoryTypeNote:
+                  noteRecords.add(record);
+                  break;
+                default:
+                  relatedMessageRecords.add(record);
+                  hasMessageRequests = true;
+                  break;
+              }
+            }
+          }
           for (final request in queryRequests) {
             if (request.fallbackWhenPreviousEmpty &&
                 _agentMemoryFallbackHasPriorHit(
@@ -12553,7 +12668,10 @@ extension AgentApi on Engine {
           final queries = _agentMemoryRequestQueries(queryRequests);
           final includeVisualReferences =
               _shouldIncludeVisualReferenceMemories(args);
-          if (queryRequests.isEmpty && !includeVisualReferences) {
+          final baseIncludeIds = _agentMemoryIncludeIds(args);
+          if (queryRequests.isEmpty &&
+              !includeVisualReferences &&
+              baseIncludeIds.isEmpty) {
             return '缺少 keyword 参数。';
           }
           final baseExcludeIds =
@@ -12565,6 +12683,37 @@ extension AgentApi on Engine {
           final recordPriorities = <String, int>{};
           final recordQueryMatches = <String, _AgentMemoryQueryMatch>{};
           final hitQueryGroups = <String>{};
+          if (baseIncludeIds.isNotEmpty) {
+            final roles = _agentMemoryRoles(args);
+            final requestedExcludeRoles = _agentMemoryExcludeRoles(args);
+            final excludeRoles = {
+              ...excludedRoles,
+              if (requestedExcludeRoles != null) ...requestedExcludeRoles,
+            };
+            final requestedExcludeRoleSuffixes =
+                _agentMemoryExcludeRoleSuffixes(args);
+            final excludeRoleSuffixes = {
+              ...excludedRoleSuffixes,
+              if (requestedExcludeRoleSuffixes != null)
+                ...requestedExcludeRoleSuffixes,
+            };
+            records.addAll(
+              _filterAgentMemoryEntriesByContent(
+                _agentMemoryRecordsByIds(
+                  projectId,
+                  baseIncludeIds,
+                  family: agentFamily,
+                  roles: roles,
+                  types: _deepRetrieveMemoryTypes(args),
+                  excludeIds: baseExcludeIds,
+                  excludeRoles: excludeRoles,
+                  excludeRoleSuffixes: excludeRoleSuffixes,
+                  timeRange: _agentMemoryTimeRange(args),
+                ),
+                args,
+              ),
+            );
+          }
           for (final request in queryRequests) {
             if (request.fallbackWhenPreviousEmpty &&
                 _agentMemoryFallbackHasPriorHit(
@@ -13852,6 +14001,203 @@ extension AgentApi on Engine {
         'previousRecords',
         'previouslyReadRecords',
       ]);
+
+  Set<String> _agentMemoryIncludeIds(Map<String, dynamic> args) {
+    final values = <String>{};
+
+    void add(Object? raw) {
+      final parsed = _coerceAgentMemoryIncludeIdSet(raw);
+      if (parsed != null) values.addAll(parsed);
+    }
+
+    for (final key in const [
+      'includeIds',
+      'includeMemoryIds',
+      'includedMemoryIds',
+      'targetIds',
+      'targetMemoryIds',
+      'onlyIds',
+      'onlyMemoryIds',
+      'targetRecords',
+      '指定记忆',
+      '目标记忆',
+      '只看记忆',
+    ]) {
+      add(args[key]);
+    }
+    add(_agentMemoryIdsClauseValues(args['ids']));
+    add(_agentMemoryTermsIdClauseValues(args['terms']));
+    add(_agentMemoryTermsIdClauseValues(args['term']));
+    for (final raw in _agentMemoryQueryPlanIncludeIdValues(args)) {
+      add(raw);
+    }
+    return values;
+  }
+
+  Set<String>? _coerceAgentMemoryIncludeIdSet(Object? raw) {
+    final values = <String>{};
+
+    void add(Object? value) {
+      final parsed = _coerceMemoryIdSet(value);
+      if (parsed != null) values.addAll(parsed);
+    }
+
+    if (raw is Iterable && raw is! String) {
+      for (final item in raw) {
+        add(item);
+      }
+    } else {
+      add(raw);
+    }
+    return values.isEmpty ? null : values;
+  }
+
+  List<Object?> _agentMemoryQueryPlanIncludeIdValues(
+    Map<String, dynamic> args,
+  ) {
+    final values = <Object?>[];
+
+    void addValue(Object? raw) {
+      if (raw != null) values.add(raw);
+    }
+
+    void addNode(Object? raw) {
+      if (raw == null) return;
+      if (raw is Map) {
+        final map = <String, dynamic>{
+          for (final entry in raw.entries)
+            if (entry.key is String) (entry.key as String): entry.value,
+        };
+        for (final key in const [
+          'includeIds',
+          'includeMemoryIds',
+          'includedMemoryIds',
+          'targetIds',
+          'targetMemoryIds',
+          'onlyIds',
+          'onlyMemoryIds',
+          'targetRecords',
+          '指定记忆',
+          '目标记忆',
+          '只看记忆',
+        ]) {
+          addValue(map[key]);
+        }
+        addValue(_agentMemoryIdsClauseValues(map['ids']));
+        addValue(_agentMemoryTermsIdClauseValues(map['terms']));
+        addValue(_agentMemoryTermsIdClauseValues(map['term']));
+        for (final key in const [
+          'queryPlan',
+          'query_plan',
+          'retrievalPlan',
+          'retrieval_plan',
+          'searchPlan',
+          'search_plan',
+          'searchQueries',
+          'search_queries',
+          'plannedQueries',
+          'planned_queries',
+          'queries',
+          'queryList',
+          'query_list',
+          'keywords',
+          'keywordList',
+          'keyword_list',
+          'items',
+          'steps',
+          '查询计划',
+          '检索计划',
+          '搜索计划',
+          '查询列表',
+          '关键词列表',
+        ]) {
+          addNode(map[key]);
+        }
+        for (final key in _agentMemoryStructuredQueryClauseKeys) {
+          addNode(map[key]);
+        }
+        for (final key in _agentMemoryStructuredVectorClauseKeys) {
+          addNode(map[key]);
+        }
+        for (final key in _agentMemoryHybridRetrieverClauseKeys) {
+          addNode(map[key]);
+        }
+        for (final key in _agentMemoryVectorQueryBuilderKeys) {
+          addNode(map[key]);
+        }
+        return;
+      }
+      if (raw is Iterable && raw is! String) {
+        for (final item in raw) {
+          addNode(item);
+        }
+      }
+    }
+
+    for (final key in const [
+      'queryPlan',
+      'query_plan',
+      'retrievalPlan',
+      'retrieval_plan',
+      'searchPlan',
+      'search_plan',
+      'searchQueries',
+      'search_queries',
+      'plannedQueries',
+      'planned_queries',
+      '查询计划',
+      '检索计划',
+      '搜索计划',
+    ]) {
+      addNode(args[key]);
+    }
+    return values;
+  }
+
+  Object? _agentMemoryIdsClauseValues(Object? raw) {
+    if (raw == null) return null;
+    if (raw is Map) {
+      for (final key in const ['values', 'ids', '_id', 'id']) {
+        if (raw.containsKey(key)) return raw[key];
+      }
+      return null;
+    }
+    return raw;
+  }
+
+  Object? _agentMemoryTermsIdClauseValues(Object? raw) {
+    final values = <Object?>[];
+
+    void addTerms(Object? value) {
+      if (value == null) return;
+      if (value is Map) {
+        for (final key in const [
+          '_id',
+          'id',
+          'ids',
+          'memoryId',
+          'memory_id',
+          'messageId',
+          'message_id',
+          'summaryId',
+          'summary_id',
+          'noteId',
+          'note_id',
+        ]) {
+          if (value.containsKey(key)) values.add(value[key]);
+        }
+        return;
+      }
+      if (value is Iterable && value is! String) {
+        for (final item in value) {
+          addTerms(item);
+        }
+      }
+    }
+
+    addTerms(raw);
+    return values.isEmpty ? null : values;
+  }
 
   Set<String>? _coerceMemoryIdSet(Object? raw) {
     final values = <String>{};
@@ -16544,6 +16890,85 @@ extension AgentApi on Engine {
         _agentMemoryType,
       ],
     ).firstOrNull;
+  }
+
+  List<AgentMemoryEntry> _agentMemoryRecordsByIds(
+    int projectId,
+    Iterable<String> ids, {
+    required String family,
+    Set<String>? roles,
+    Set<String>? types,
+    Set<String> excludeIds = const {},
+    Set<String>? excludeRoles,
+    Set<String>? excludeRoleSuffixes,
+    AgentMemoryTimeRange? timeRange,
+  }) {
+    final orderedIds = <String>[];
+    for (final id in ids) {
+      final trimmed = id.trim();
+      if (trimmed.isEmpty ||
+          excludeIds.contains(trimmed) ||
+          orderedIds.contains(trimmed)) {
+        continue;
+      }
+      orderedIds.add(trimmed);
+    }
+    if (orderedIds.isEmpty) return const [];
+    final placeholders = List.filled(orderedIds.length, '?').join(',');
+    final rows = db.select(
+      'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
+      'FROM memories '
+      'WHERE id IN ($placeholders) AND isolationKey IN (?,?)',
+      [
+        ...orderedIds,
+        _agentConversationIsolationKey(projectId, family: family),
+        _agentMemoryIsolationKey(projectId),
+      ],
+    );
+    final rowsById = <String, Map<String, Object?>>{
+      for (final row in rows) row['id'] as String: row,
+    };
+    final records = <AgentMemoryEntry>[];
+    for (final id in orderedIds) {
+      final row = rowsById[id];
+      if (row == null) continue;
+      final record = AgentMemoryEntry.fromRow(row);
+      if (!_matchesAgentMemoryExactRecordFilter(
+        record,
+        roles: roles,
+        types: types,
+        excludeRoles: excludeRoles,
+        excludeRoleSuffixes: excludeRoleSuffixes,
+        timeRange: timeRange,
+      )) {
+        continue;
+      }
+      records.add(record);
+    }
+    return records;
+  }
+
+  bool _matchesAgentMemoryExactRecordFilter(
+    AgentMemoryEntry record, {
+    Set<String>? roles,
+    Set<String>? types,
+    Set<String>? excludeRoles,
+    Set<String>? excludeRoleSuffixes,
+    AgentMemoryTimeRange? timeRange,
+  }) {
+    if (roles != null && !roles.contains(record.role)) return false;
+    if (types != null && !types.contains(record.type)) return false;
+    if (excludeRoles != null && excludeRoles.contains(record.role)) {
+      return false;
+    }
+    if (excludeRoleSuffixes != null) {
+      for (final suffix in excludeRoleSuffixes) {
+        if (suffix.trim().isNotEmpty && record.role.endsWith(suffix.trim())) {
+          return false;
+        }
+      }
+    }
+    return timeRange == null || timeRange.contains(record.createdAt);
   }
 
   String _memoryAddDefaultRole(String agentFamily, String? stage) {
