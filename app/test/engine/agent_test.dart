@@ -19232,6 +19232,160 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan 支持 ES match_all 全量窗口查询', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMemory({
+      required String id,
+      required String content,
+      required int offset,
+      required String isolationKey,
+      required String role,
+      required String type,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          isolationKey,
+          '[]',
+          role,
+          1,
+          type,
+        ],
+      );
+    }
+
+    insertMemory(
+      id: 'query_plan_match_all_get_old',
+      content: 'match_all_get：旧对话记忆，保留山门。',
+      offset: 1,
+      isolationKey: 'scriptAgent:$projectId',
+      role: 'assistant:match-all:get',
+      type: agentMemoryTypeMessage,
+    );
+    insertMemory(
+      id: 'query_plan_match_all_get_new',
+      content: 'match_all_get：新对话记忆，改到雪桥。',
+      offset: 2,
+      isolationKey: 'scriptAgent:$projectId',
+      role: 'assistant:match-all:get',
+      type: agentMemoryTypeMessage,
+    );
+    insertMemory(
+      id: 'query_plan_match_all_get_noise',
+      content: 'match_all_get：干扰对话记忆，其他角色。',
+      offset: 3,
+      isolationKey: 'scriptAgent:$projectId',
+      role: 'assistant:match-all:noise',
+      type: agentMemoryTypeMessage,
+    );
+    insertMemory(
+      id: 'query_plan_match_all_note_old',
+      content: 'match_all_note：旧长期记忆，角色仍用竹剑。',
+      offset: 4,
+      isolationKey: 'project:$projectId',
+      role: 'agent',
+      type: agentMemoryTypeNote,
+    );
+    insertMemory(
+      id: 'query_plan_match_all_note_new',
+      content: 'match_all_note：新长期记忆，角色改用霜剑。',
+      offset: 5,
+      isolationKey: 'project:$projectId',
+      role: 'agent',
+      type: agentMemoryTypeNote,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {'match_all': {}},
+            'term': {'role': 'assistant:match-all:get'},
+            'sort': [
+              {'createTime': 'desc'},
+            ],
+            'size': 1,
+          },
+        ],
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {'match_all': {}},
+            'scope': 'long_term',
+            'sort': [
+              {'createTime': 'desc'},
+            ],
+            'size': 2,
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES match_all 查最近记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('match_all'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_match_all_get_new'],
+    );
+    expect(
+        jsonEncode(memoryGetPayload), isNot(contains('match_all_get_noise')));
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_match_all_note_new', 'query_plan_match_all_note_old'],
+    );
+  });
+
   test('Agent 记忆：结构化查询计划多项返回数量互不串味', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

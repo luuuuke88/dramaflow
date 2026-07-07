@@ -106,6 +106,7 @@ class _AgentMemoryQueryRequest {
   final String? reason;
   final bool fallbackWhenPreviousEmpty;
   final String? queryGroup;
+  final bool matchAll;
 
   const _AgentMemoryQueryRequest({
     required this.query,
@@ -116,6 +117,7 @@ class _AgentMemoryQueryRequest {
     this.reason,
     this.fallbackWhenPreviousEmpty = false,
     this.queryGroup,
+    this.matchAll = false,
   });
 }
 
@@ -1265,6 +1267,22 @@ const _agentMemoryContentFilterToolSchema = {
   'matchPhrase': {
     'type': ['object', 'array', 'string'],
     'description': 'match_phrase 的 camelCase 别名。',
+  },
+  'match_all': {
+    'type': ['object', 'boolean', 'string'],
+    'description': '可选。Elasticsearch match_all 子句；用于按过滤条件、排序和数量返回记忆窗口。',
+  },
+  'matchAll': {
+    'type': ['object', 'boolean', 'string'],
+    'description': 'match_all 的 camelCase 别名。',
+  },
+  'match_none': {
+    'type': ['object', 'boolean', 'string'],
+    'description': '可选。Elasticsearch match_none 子句；本地召回会视为无结果。',
+  },
+  'matchNone': {
+    'type': ['object', 'boolean', 'string'],
+    'description': 'match_none 的 camelCase 别名。',
   },
   'must': {
     'type': ['array', 'string'],
@@ -12531,6 +12549,69 @@ extension AgentApi on Engine {
             final excludeIds =
                 _agentMemoryExcludeIds(requestArgs, excludedMemoryIds);
             final queryExcludeIds = {...excludeIds};
+            if (request.matchAll) {
+              final matchTypes = <String>{
+                if (includeMessages) agentMemoryTypeMessage,
+                if (includeSummaries) agentMemoryTypeSummary,
+                if (includeNotes) agentMemoryTypeNote,
+              };
+              final limitedRecords = _limitAgentMemoryEntries(
+                _filterAgentMemoryEntriesByContent(
+                  _agentMemoryMatchAllRecords(
+                    projectId,
+                    family: agentFamily,
+                    types: matchTypes,
+                    roles: roles,
+                    excludeIds: queryExcludeIds,
+                    excludeRoles: excludeRoles,
+                    excludeRoleSuffixes: excludeRoleSuffixes,
+                    timeRange: timeRange,
+                  ),
+                  requestArgs,
+                ),
+                requestSortMode,
+                requestLimit,
+                offset: requestOffset,
+              );
+              for (final record in limitedRecords) {
+                switch (record.type) {
+                  case agentMemoryTypeSummary:
+                    summaryRecords.add(record);
+                    break;
+                  case agentMemoryTypeNote:
+                    noteRecords.add(record);
+                    break;
+                  default:
+                    relatedMessageRecords.add(record);
+                    break;
+                }
+                mergeRecordQueryMatch(record);
+              }
+              if (requestIncludeVisualReferences) {
+                final visualRecords = _filterAgentMemoryEntriesByContent(
+                  _visualReferenceMemoryEntries(
+                    projectId,
+                    excludeIds: {
+                      ...queryExcludeIds,
+                      for (final record in limitedRecords) record.id,
+                      for (final record in relatedMessageRecords) record.id,
+                      for (final record in summaryRecords) record.id,
+                      for (final record in recentMessageRecords) record.id,
+                      for (final record in noteRecords) record.id,
+                    },
+                    limit: requestLimit ??
+                        _agentMemoryDirectLimit(requestArgs) ??
+                        2,
+                  ),
+                  requestArgs,
+                );
+                noteRecords.addAll(visualRecords);
+                for (final record in visualRecords) {
+                  mergeRecordQueryMatch(record);
+                }
+              }
+              continue;
+            }
             final context = includeMessages || includeSummaries
                 ? await memoryService.get(
                     isolationKey: _agentConversationIsolationKey(
@@ -12837,6 +12918,57 @@ extension AgentApi on Engine {
               _mergeAgentMemoryQueryMatch(recordQueryMatches, record, request);
               final group = request.queryGroup;
               if (group != null) hitQueryGroups.add(group);
+            }
+
+            if (request.matchAll) {
+              final matchTypes = types ??
+                  const {
+                    agentMemoryTypeMessage,
+                    agentMemoryTypeSummary,
+                    agentMemoryTypeNote,
+                  };
+              final limitedRequestRecords = _limitAgentMemoryEntries(
+                _filterAgentMemoryEntriesByContent(
+                  _agentMemoryMatchAllRecords(
+                    projectId,
+                    family: agentFamily,
+                    types: matchTypes,
+                    roles: roles,
+                    excludeIds: queryExcludeIds,
+                    excludeRoles: excludeRoles,
+                    excludeRoleSuffixes: excludeRoleSuffixes,
+                    timeRange: timeRange,
+                  ),
+                  requestArgs,
+                ),
+                requestSortMode,
+                requestLimit,
+                offset: requestOffset,
+              );
+              records.addAll(limitedRequestRecords);
+              for (final record in limitedRequestRecords) {
+                mergeRecordQueryMatch(record);
+              }
+              if (requestIncludeVisualReferences) {
+                final visualRecords = _filterAgentMemoryEntriesByContent(
+                  _visualReferenceMemoryEntries(
+                    projectId,
+                    excludeIds: {
+                      ...queryExcludeIds,
+                      for (final record in records) record.id,
+                    },
+                    limit: requestLimit ??
+                        _agentMemoryDirectLimit(requestArgs) ??
+                        2,
+                  ),
+                  requestArgs,
+                );
+                records.addAll(visualRecords);
+                for (final record in visualRecords) {
+                  mergeRecordQueryMatch(record);
+                }
+              }
+              continue;
             }
 
             final requestRecords = await memoryService.deepRetrieve(
@@ -14331,6 +14463,7 @@ extension AgentApi on Engine {
       int priority = 0,
       bool fallbackWhenPreviousEmpty = false,
       String? queryGroup,
+      bool matchAll = false,
     }) {
       final trimmed = query.trim();
       if (trimmed.isEmpty) return;
@@ -14348,6 +14481,7 @@ extension AgentApi on Engine {
           reason: _agentMemoryQueryReason(requestArgs),
           fallbackWhenPreviousEmpty: fallbackWhenPreviousEmpty,
           queryGroup: queryGroup,
+          matchAll: matchAll,
         ),
       );
     }
@@ -14603,16 +14737,31 @@ extension AgentApi on Engine {
           );
         }
         if (requests.length == requestCountBeforeNode) {
-          final derivedQuery = _agentMemoryDerivedFilterQuery(nodeArgs);
-          if (derivedQuery.isNotEmpty) {
+          if (_agentMemoryPlanContainsMatchNone(map)) {
+            return;
+          }
+          if (_agentMemoryPlanContainsMatchAll(map)) {
             addRequest(
-              derivedQuery,
+              'match_all',
               nodeArgs,
               limit: nodeLimit,
               priority: nodePriority,
               fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
               queryGroup: nodeQueryGroup,
+              matchAll: true,
             );
+          } else {
+            final derivedQuery = _agentMemoryDerivedFilterQuery(nodeArgs);
+            if (derivedQuery.isNotEmpty) {
+              addRequest(
+                derivedQuery,
+                nodeArgs,
+                limit: nodeLimit,
+                priority: nodePriority,
+                fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+                queryGroup: nodeQueryGroup,
+              );
+            }
           }
         }
         return;
@@ -14902,6 +15051,59 @@ extension AgentApi on Engine {
     addAll(_agentMemoryRequiredContentTerms(args));
     addAll(_agentMemoryShouldContentTerms(args));
     return terms.join(' ');
+  }
+
+  bool _agentMemoryPlanContainsMatchAll(Object? raw) =>
+      _agentMemoryPlanContainsDslMarker(raw, const {
+        'match_all',
+        'matchAll',
+      });
+
+  bool _agentMemoryPlanContainsMatchNone(Object? raw) =>
+      _agentMemoryPlanContainsDslMarker(raw, const {
+        'match_none',
+        'matchNone',
+      });
+
+  bool _agentMemoryPlanContainsDslMarker(
+    Object? raw,
+    Set<String> markerKeys,
+  ) {
+    final normalizedKeys = {
+      for (final key in markerKeys) _normalizeAgentMemoryFilterFieldKey(key),
+    };
+
+    bool markerValueIsActive(Object? value) {
+      if (value is bool) return value;
+      return true;
+    }
+
+    bool collect(Object? value) {
+      if (value is Map) {
+        for (final entry in value.entries) {
+          final key = entry.key;
+          if (key is! String) {
+            if (collect(entry.value)) return true;
+            continue;
+          }
+          final normalizedKey = _normalizeAgentMemoryFilterFieldKey(key);
+          if (normalizedKeys.contains(normalizedKey) &&
+              markerValueIsActive(entry.value)) {
+            return true;
+          }
+          if (collect(entry.value)) return true;
+        }
+        return false;
+      }
+      if (value is Iterable && value is! String) {
+        for (final item in value) {
+          if (collect(item)) return true;
+        }
+      }
+      return false;
+    }
+
+    return collect(raw);
   }
 
   bool _agentMemoryPlanRequiresVectorIndex(Map<String, dynamic> args) {
@@ -17745,6 +17947,61 @@ extension AgentApi on Engine {
         continue;
       }
       records.add(record);
+    }
+    return records;
+  }
+
+  List<AgentMemoryEntry> _agentMemoryMatchAllRecords(
+    int projectId, {
+    required String family,
+    required Set<String> types,
+    Set<String>? roles,
+    Set<String> excludeIds = const {},
+    Set<String>? excludeRoles,
+    Set<String>? excludeRoleSuffixes,
+    AgentMemoryTimeRange? timeRange,
+  }) {
+    if (types.isEmpty) return const [];
+    final records = <AgentMemoryEntry>[];
+
+    void addRows(String isolationKey, Set<String> queryTypes) {
+      if (queryTypes.isEmpty) return;
+      final placeholders = List.filled(queryTypes.length, '?').join(',');
+      final rows = db.select(
+        'SELECT id,name,content,createTime,embedding,relatedMessageIds,role,type '
+        'FROM memories '
+        'WHERE isolationKey=? AND type IN ($placeholders) '
+        'ORDER BY createTime DESC, id DESC',
+        [isolationKey, ...queryTypes],
+      );
+      for (final row in rows) {
+        final record = AgentMemoryEntry.fromRow(row);
+        if (excludeIds.contains(record.id)) continue;
+        if (!_matchesAgentMemoryExactRecordFilter(
+          record,
+          roles: roles,
+          types: types,
+          excludeRoles: excludeRoles,
+          excludeRoleSuffixes: excludeRoleSuffixes,
+          timeRange: timeRange,
+        )) {
+          continue;
+        }
+        records.add(record);
+      }
+    }
+
+    addRows(
+      _agentConversationIsolationKey(projectId, family: family),
+      {
+        for (final type in types)
+          if (type != agentMemoryTypeNote) type,
+      },
+    );
+    if (types.contains(agentMemoryTypeNote)) {
+      addRows(_agentMemoryIsolationKey(projectId), const {
+        agentMemoryTypeNote,
+      });
     }
     return records;
   }
