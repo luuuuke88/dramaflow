@@ -10900,10 +10900,14 @@ extension AgentApi on Engine {
                 _shouldIncludeVisualReferenceMemories(requestArgs);
             final excludeIds =
                 _agentMemoryExcludeIds(requestArgs, excludedMemoryIds);
-            final queryExcludeIds = {
-              ...excludeIds,
-              for (final record in records) record.id,
-            };
+            final queryExcludeIds = {...excludeIds};
+            void mergeRecordPriority(AgentMemoryEntry record) {
+              recordPriorities[record.id] = math.max(
+                recordPriorities[record.id] ?? request.priority,
+                request.priority,
+              );
+            }
+
             final requestRecords = await memoryService.deepRetrieve(
               isolationKey: _agentConversationIsolationKey(
                 projectId,
@@ -10926,7 +10930,7 @@ extension AgentApi on Engine {
             );
             records.addAll(limitedRequestRecords);
             for (final record in limitedRequestRecords) {
-              recordPriorities[record.id] = request.priority;
+              mergeRecordPriority(record);
             }
             if (requestIncludeVisualReferences) {
               final visualRecords = _visualReferenceMemoryEntries(
@@ -10940,7 +10944,7 @@ extension AgentApi on Engine {
               );
               records.addAll(visualRecords);
               for (final record in visualRecords) {
-                recordPriorities[record.id] = request.priority;
+                mergeRecordPriority(record);
               }
             }
           }
