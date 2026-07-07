@@ -486,6 +486,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-co
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `queryPlan` item priorities such as `priority`/`weight`/`重要性`, so `deepRetrieve` can preserve high-priority constraints under a global result limit and return the priority in structured records for downstream sub-agents.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` honoring the same `queryPlan` item priorities before applying per-section global limits, so quick context retrieval and `deepRetrieve` rank hard constraints consistently and expose priority metadata in structured records.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` query plans where the same memory is first found by a low-priority broad query and later by a high-priority exact query, so duplicate hits merge to the highest priority before the global result limit is applied.
 
 Mobile Evidence: `app/test/widgets/production_screen_test.dart` covers 390px Agent entry from production. `app/test/widgets/agent_chat_screen_test.dart` covers 390px Agent clear-memory confirmation, built-in capability info, skill editing, custom-skill creation, and long-term memory add/edit through fullscreen mobile forms while persisting the skill and memory definitions.

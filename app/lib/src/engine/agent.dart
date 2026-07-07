@@ -10662,10 +10662,18 @@ extension AgentApi on Engine {
           final summaryRecords = <AgentMemoryEntry>[];
           final recentMessageRecords = <AgentMemoryEntry>[];
           final noteRecords = <AgentMemoryEntry>[];
+          final recordPriorities = <String, int>{};
           var hasMessageRequests = false;
           var hasSummaryRequests = false;
           for (final request in queryRequests) {
             final requestArgs = request.args;
+            void mergeRecordPriority(AgentMemoryEntry record) {
+              recordPriorities[record.id] = math.max(
+                recordPriorities[record.id] ?? request.priority,
+                request.priority,
+              );
+            }
+
             final roles = _agentMemoryRoles(requestArgs);
             final requestedExcludeRoles = _agentMemoryExcludeRoles(requestArgs);
             final excludeRoles = {
@@ -10719,23 +10727,35 @@ extension AgentApi on Engine {
                   )
                 : const AgentMemoryContext();
             if (includeMessages) {
-              relatedMessageRecords.addAll(_limitAgentMemoryEntries(
+              final limitedRelatedMessages = _limitAgentMemoryEntries(
                 context.relatedMessages,
                 requestSortMode,
                 requestLimit,
-              ));
-              recentMessageRecords.addAll(_limitAgentMemoryEntries(
+              );
+              relatedMessageRecords.addAll(limitedRelatedMessages);
+              for (final record in limitedRelatedMessages) {
+                mergeRecordPriority(record);
+              }
+              final limitedRecentMessages = _limitAgentMemoryEntries(
                 context.recentMessages,
                 requestSortMode,
                 requestLimit,
-              ));
+              );
+              recentMessageRecords.addAll(limitedRecentMessages);
+              for (final record in limitedRecentMessages) {
+                mergeRecordPriority(record);
+              }
             }
             if (includeSummaries) {
-              summaryRecords.addAll(_limitAgentMemoryEntries(
+              final limitedSummaries = _limitAgentMemoryEntries(
                 context.summaries,
                 requestSortMode,
                 requestLimit,
-              ));
+              );
+              summaryRecords.addAll(limitedSummaries);
+              for (final record in limitedSummaries) {
+                mergeRecordPriority(record);
+              }
             }
             if (includeNotes) {
               final noteExcludeIds = {
@@ -10759,14 +10779,18 @@ extension AgentApi on Engine {
                 timeRange: timeRange,
                 noteIsolationKey: _agentMemoryIsolationKey(projectId),
               );
-              noteRecords.addAll(_limitAgentMemoryEntries(
+              final limitedNotes = _limitAgentMemoryEntries(
                 requestNotes,
                 requestSortMode,
                 requestLimit,
-              ));
+              );
+              noteRecords.addAll(limitedNotes);
+              for (final record in limitedNotes) {
+                mergeRecordPriority(record);
+              }
             }
             if (requestIncludeVisualReferences) {
-              noteRecords.addAll(_visualReferenceMemoryEntries(
+              final visualRecords = _visualReferenceMemoryEntries(
                 projectId,
                 excludeIds: {
                   ...queryExcludeIds,
@@ -10777,7 +10801,11 @@ extension AgentApi on Engine {
                 },
                 limit:
                     requestLimit ?? _agentMemoryDirectLimit(requestArgs) ?? 2,
-              ));
+              );
+              noteRecords.addAll(visualRecords);
+              for (final record in visualRecords) {
+                mergeRecordPriority(record);
+              }
             }
           }
           if (queryRequests.isEmpty && includeVisualReferences) {
@@ -10793,36 +10821,40 @@ extension AgentApi on Engine {
               limit: limit ?? 2,
             ));
           }
-          final dedupedRelatedMessages = _sortAgentMemoryEntries(
+          final dedupedRelatedMessages = _sortAgentMemoryEntriesByPriority(
             _dedupeAgentMemoryEntries(relatedMessageRecords),
             sortMode,
+            recordPriorities,
           );
           final relatedMessages = hasMessageRequests
               ? (limit == null
                   ? dedupedRelatedMessages
                   : dedupedRelatedMessages.take(limit).toList())
               : const <AgentMemoryEntry>[];
-          final dedupedSummaries = _sortAgentMemoryEntries(
+          final dedupedSummaries = _sortAgentMemoryEntriesByPriority(
             _dedupeAgentMemoryEntries(summaryRecords),
             sortMode,
+            recordPriorities,
           );
           final summaries = hasSummaryRequests
               ? (limit == null
                   ? dedupedSummaries
                   : dedupedSummaries.take(limit).toList())
               : const <AgentMemoryEntry>[];
-          final dedupedRecentMessages = _sortAgentMemoryEntries(
+          final dedupedRecentMessages = _sortAgentMemoryEntriesByPriority(
             _dedupeAgentMemoryEntries(recentMessageRecords),
             sortMode,
+            recordPriorities,
           );
           final recentMessages = hasMessageRequests
               ? (limit == null
                   ? dedupedRecentMessages
                   : dedupedRecentMessages.take(limit).toList())
               : const <AgentMemoryEntry>[];
-          final dedupedNotes = _sortAgentMemoryEntries(
+          final dedupedNotes = _sortAgentMemoryEntriesByPriority(
             _dedupeAgentMemoryEntries(noteRecords),
             sortMode,
+            recordPriorities,
           );
           final notes =
               limit == null ? dedupedNotes : dedupedNotes.take(limit).toList();
@@ -10858,7 +10890,10 @@ extension AgentApi on Engine {
                 ...recentMessages,
                 ...notes,
               ]))
-                _agentMemoryRecordPayload(record),
+                _agentMemoryRecordPayload(
+                  record,
+                  priority: recordPriorities[record.id],
+                ),
             ],
           });
         case 'deepRetrieve':

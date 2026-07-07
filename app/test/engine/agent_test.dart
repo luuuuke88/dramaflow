@@ -12316,6 +12316,102 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：memory_get 结构化查询计划按 priority 保留高优先级结果', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'memory_get_priority_low',
+      '背景参考：青云市集可以有热闹烟火气。',
+      0,
+    );
+    insertMessage(
+      'memory_get_priority_medium',
+      '制作提示：沈微入场时可以保留月光轮廓。',
+      1,
+    );
+    insertMessage(
+      'memory_get_priority_high',
+      '硬性约束：李澈绝不能反派化，所有分镜必须保持正派克制。',
+      2,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '青云市集烟火气',
+            'priority': 1,
+          },
+          {
+            'query': '沈微月光轮廓',
+            'weight': 5,
+          },
+          {
+            'query': '李澈不能反派化',
+            '重要性': 10,
+          },
+        ],
+        'limit': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '快速上下文也按查询计划优先级找最重要约束',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'memory_get');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['queries'], ['青云市集烟火气', '沈微月光轮廓', '李澈不能反派化']);
+    expect(payload['memories'], [
+      '硬性约束：李澈绝不能反派化，所有分镜必须保持正派克制。',
+    ]);
+    expect(
+      payload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', 'memory_get_priority_high')
+            .having((record) => record['priority'], 'priority', 10),
+      ),
+    );
+  });
+
   test('Agent 记忆：结构化查询计划重复命中取最高 priority', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
