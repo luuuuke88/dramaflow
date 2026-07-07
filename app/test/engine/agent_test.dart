@@ -14052,6 +14052,199 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan bool.should 支持最低命中数', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_bool_should_get_keep_a',
+      '断桥调度庚申：首镜可以采用冷雾断桥，角色从左入画。',
+      0,
+    );
+    insertMessage(
+      'query_plan_bool_should_get_keep_b',
+      '断桥调度庚申：备选方案是蓝色逆光，角色背影压低。',
+      1,
+    );
+    insertMessage(
+      'query_plan_bool_should_get_broad_noise',
+      '断桥调度庚申：普通说明只记录角色从桥边经过，没有候选视觉条件。',
+      2,
+    );
+    insertMessage(
+      'query_plan_bool_should_get_excluded_noise',
+      '断桥调度庚申：旧版噪声采用暖色喜剧。',
+      3,
+    );
+    insertMessage(
+      'query_plan_bool_should_deep_keep_a',
+      '钟楼调度辛酉：可使用银白钟面，低频钟声压场。',
+      4,
+    );
+    insertMessage(
+      'query_plan_bool_should_deep_keep_b',
+      '钟楼调度辛酉：也可使用黑雨剪影，人物停在门洞。',
+      5,
+    );
+    insertMessage(
+      'query_plan_bool_should_deep_broad_noise',
+      '钟楼调度辛酉：只记录人物走过，没有候选视觉条件。',
+      6,
+    );
+    insertMessage(
+      'query_plan_bool_should_deep_excluded_noise',
+      '钟楼调度辛酉：废弃方案是暖色正面光。',
+      7,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '断桥调度庚申 角色',
+            'filter': {
+              'bool': {
+                'should': [
+                  {
+                    'match': {'content': '冷雾断桥'},
+                  },
+                  {
+                    'match_phrase': {'content': '蓝色逆光'},
+                  },
+                ],
+                'minimum_should_match': 1,
+                'must_not': [
+                  {
+                    'match': {'content': '旧版噪声'},
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '钟楼调度辛酉 人物',
+            'where': {
+              '布尔条件': {
+                'should': [
+                  {
+                    'term': {'content': '银白钟面'},
+                  },
+                  {
+                    'match': {'content': '黑雨剪影'},
+                  },
+                ],
+                'minimumShouldMatch': 1,
+                'must_not': [
+                  {
+                    'match_phrase': {'content': '废弃方案'},
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 bool.should 风格过滤条件召回候选制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('should'));
+      expect(properties, contains('minimum_should_match'));
+      expect(properties, contains('minimumShouldMatch'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+        memoryGetPayload['memories'],
+        unorderedEquals([
+          '断桥调度庚申：首镜可以采用冷雾断桥，角色从左入画。',
+          '断桥调度庚申：备选方案是蓝色逆光，角色背影压低。',
+        ]));
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      unorderedEquals([
+        'query_plan_bool_should_get_keep_a',
+        'query_plan_bool_should_get_keep_b',
+      ]),
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+        deepRetrievePayload['memories'],
+        unorderedEquals([
+          '钟楼调度辛酉：可使用银白钟面，低频钟声压场。',
+          '钟楼调度辛酉：也可使用黑雨剪影，人物停在门洞。',
+        ]));
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      unorderedEquals([
+        'query_plan_bool_should_deep_keep_a',
+        'query_plan_bool_should_deep_keep_b',
+      ]),
+    );
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),

@@ -898,6 +898,28 @@ const _agentMemoryContentFilterToolSchema = {
     },
     'description': 'filter 的复数别名。',
   },
+  'should': {
+    'type': ['array', 'string'],
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': '可选。Elasticsearch bool.should 风格候选包含词，默认至少命中 1 个。',
+  },
+  'shouldInclude': {
+    'type': ['array', 'string'],
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'should 的自然语言别名。',
+  },
+  'minimum_should_match': {
+    'type': ['integer', 'string'],
+    'description': '可选。should 候选词的最低命中数量。',
+  },
+  'minimumShouldMatch': {
+    'type': ['integer', 'string'],
+    'description': 'minimum_should_match 的 camelCase 别名。',
+  },
   'term': {
     'type': ['object', 'array', 'string'],
     'description': '可选。Elasticsearch 风格单词过滤，如 {"term":{"content":"冷白石桥"}}。',
@@ -15227,18 +15249,24 @@ extension AgentApi on Engine {
     Map<String, dynamic> args,
   ) {
     final requiredTerms = _agentMemoryRequiredContentTerms(args);
+    final shouldTerms = _agentMemoryShouldContentTerms(args);
+    final minimumShouldMatch =
+        _agentMemoryMinimumShouldMatch(args, shouldTerms.length);
     final excludedTerms = _agentMemoryExcludedContentTerms(args);
-    final contentFiltered = requiredTerms.isEmpty && excludedTerms.isEmpty
-        ? entries.toList()
-        : [
-            for (final entry in entries)
-              if (_matchesAgentMemoryContentTerms(
-                entry,
-                requiredTerms: requiredTerms,
-                excludedTerms: excludedTerms,
-              ))
-                entry,
-          ];
+    final contentFiltered =
+        requiredTerms.isEmpty && shouldTerms.isEmpty && excludedTerms.isEmpty
+            ? entries.toList()
+            : [
+                for (final entry in entries)
+                  if (_matchesAgentMemoryContentTerms(
+                    entry,
+                    requiredTerms: requiredTerms,
+                    shouldTerms: shouldTerms,
+                    minimumShouldMatch: minimumShouldMatch,
+                    excludedTerms: excludedTerms,
+                  ))
+                    entry,
+              ];
     return _filterAgentMemoryEntriesByRetrievalSource(contentFiltered, args);
   }
 
@@ -15363,6 +15391,62 @@ extension AgentApi on Engine {
         '必含词',
       ]);
 
+  List<String> _agentMemoryShouldContentTerms(Map<String, dynamic> args) =>
+      _agentMemoryContentTerms(args, const [
+        'should',
+        'shouldInclude',
+        'shouldIncludes',
+        'shouldTerms',
+        'shouldTerm',
+        'shouldKeywords',
+        'shouldKeyword',
+        'optionalTerms',
+        'optionalTerm',
+        'candidateTerms',
+        'candidateTerm',
+        'any',
+        'anyOf',
+        'anyTerms',
+        '任一包含',
+        '至少包含',
+        '候选词',
+        '可选包含',
+        '应该包含',
+      ]);
+
+  int _agentMemoryMinimumShouldMatch(
+    Map<String, dynamic> args,
+    int shouldTermCount,
+  ) {
+    if (shouldTermCount <= 0) return 0;
+    final direct = _coerceInt(args['minimumShouldMatch'] ??
+        args['minimum_should_match'] ??
+        args['minShouldMatch'] ??
+        args['min_should_match'] ??
+        args['shouldMatchCount'] ??
+        args['should_match_count'] ??
+        args['最低命中数'] ??
+        args['至少命中']);
+    final fromPlan = direct ??
+        _firstCoercedInt(_agentMemoryQueryPlanMinimumShouldMatchValues(args));
+    final value = fromPlan ?? 1;
+    return value.clamp(1, shouldTermCount).toInt();
+  }
+
+  List<Object?> _agentMemoryQueryPlanMinimumShouldMatchValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'minimumShouldMatch',
+        'minimum_should_match',
+        'minShouldMatch',
+        'min_should_match',
+        'shouldMatchCount',
+        'should_match_count',
+        '最低命中数',
+        '至少命中',
+      ]);
+
   List<String> _agentMemoryExcludedContentTerms(Map<String, dynamic> args) =>
       _agentMemoryContentTerms(args, const [
         'excludeTerms',
@@ -15466,11 +15550,16 @@ extension AgentApi on Engine {
   bool _matchesAgentMemoryContentTerms(
     AgentMemoryEntry entry, {
     required List<String> requiredTerms,
+    required List<String> shouldTerms,
+    required int minimumShouldMatch,
     required List<String> excludedTerms,
   }) {
     final text = '${entry.name}\n${entry.content}'.toLowerCase();
     bool containsTerm(String term) => text.contains(term.toLowerCase());
+    final shouldMatchCount =
+        shouldTerms.where((term) => containsTerm(term)).length;
     return requiredTerms.every(containsTerm) &&
+        (shouldTerms.isEmpty || shouldMatchCount >= minimumShouldMatch) &&
         excludedTerms.every((term) => !containsTerm(term));
   }
 
