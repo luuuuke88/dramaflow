@@ -6122,6 +6122,11 @@ class _CustomAgentSkillRuntime {
     String method,
     List<String> args,
   ) {
+    if (objectName == 'Object.prototype.hasOwnProperty' && method == 'call') {
+      final values = _evaluateCallArguments(args);
+      if (values.length != 2) _badMethodArgs(method);
+      return _hasOwnProperty(values.first, values[1]);
+    }
     switch (objectName) {
       case 'Array':
         if (method == 'isArray') {
@@ -7700,6 +7705,16 @@ class _CustomAgentSkillRuntime {
   }
 
   Object? _readProperty(Object? value, String property) {
+    if (value is _CustomJsBuiltin &&
+        value.name == 'Object' &&
+        property == 'prototype') {
+      return const _CustomJsBuiltin('Object.prototype');
+    }
+    if (value is _CustomJsBuiltin &&
+        value.name == 'Object.prototype' &&
+        property == 'hasOwnProperty') {
+      return const _CustomJsBuiltin('Object.prototype.hasOwnProperty');
+    }
     if (value is Map) return value[property];
     if (value is _CustomJsMatch) {
       if (property == 'index') return value.index;

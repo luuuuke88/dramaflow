@@ -2559,11 +2559,12 @@ return JSON.stringify({
       id: 'custom_script_has_own_runtime',
       name: '字段存在性脚本运行时',
       description:
-          '验证自定义技能兼容模型常写的 Object.hasOwn(...) 和 obj.hasOwnProperty(...)。',
+          '验证自定义技能兼容模型常写的 Object.hasOwn(...)、obj.hasOwnProperty(...) 和 Object.prototype.hasOwnProperty.call(...)。',
       script: r'''
 const rows = args.assets.map((asset, index) => ({
   index: index + 1,
   hasPrompt: Object.hasOwn(asset, 'prompt'),
+  hasPromptViaPrototype: Object.prototype.hasOwnProperty.call(asset, 'prompt'),
   hasName: asset.hasOwnProperty('name'),
   missingOptional: !asset.hasOwnProperty('optional'),
 }));
@@ -2574,6 +2575,7 @@ return JSON.stringify({
     .join('|'),
   namedCount: rows.filter(row => row.hasName).length,
   secondPromptExists: rows[1].hasPrompt,
+  secondPromptExistsViaPrototype: rows[1].hasPromptViaPrototype,
   thirdPromptExists: rows[2].hasPrompt,
   allMissingOptional: rows.every(row => row.missingOptional),
 });
@@ -2613,6 +2615,7 @@ return JSON.stringify({
       'prompted': '1:true|2:true',
       'namedCount': 3,
       'secondPromptExists': true,
+      'secondPromptExistsViaPrototype': true,
       'thirdPromptExists': false,
       'allMissingOptional': true,
     });
