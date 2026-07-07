@@ -14655,6 +14655,152 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan 支持 dis_max 多查询择优子句', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_dis_max_get_keep',
+      '赤鸢祭台甲：首镜必须保留赤鸢祭台、红色法阵和俯冲转场。',
+      0,
+    );
+    insertMessage(
+      'query_plan_dis_max_get_noise',
+      '赤鸢祭台甲：只记录普通远景，没有关键视觉动作。',
+      1,
+    );
+    insertMessage(
+      'query_plan_dis_max_deep_keep',
+      '霜河断桥乙：沈微过桥时必须保留霜河断桥和侧逆光剪影。',
+      2,
+    );
+    insertMessage(
+      'query_plan_dis_max_deep_noise',
+      '霜河断桥乙：只记录普通远景，没有角色过桥动作。',
+      3,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'dis_max': {
+                'queries': [
+                  {
+                    'match_phrase': {'content': '赤鸢祭台 红色法阵'},
+                  },
+                  {
+                    'match': {'content': '俯冲转场'},
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 1,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'dis_max': {
+                'queries': [
+                  {
+                    'match_phrase': {'content': '霜河断桥 侧逆光剪影'},
+                  },
+                  {
+                    'query_string': {'query': '沈微 过桥'},
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 dis_max 多查询结构召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('dis_max'));
+      expect(properties, contains('disMax'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '赤鸢祭台甲：首镜必须保留赤鸢祭台、红色法阵和俯冲转场。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_dis_max_get_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '霜河断桥乙：沈微过桥时必须保留霜河断桥和侧逆光剪影。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_dis_max_deep_keep'],
+    );
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),

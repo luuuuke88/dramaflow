@@ -689,6 +689,8 @@ const _agentMemoryStructuredDslWrapperKeys = [
   'nested',
 ];
 const _agentMemoryStructuredQueryClauseKeys = [
+  'dis_max',
+  'disMax',
   'multi_match',
   'multiMatch',
   'query_string',
@@ -993,6 +995,14 @@ const _agentMemoryContentFilterToolSchema = {
   'nested': {
     'type': 'object',
     'description': '可选。Elasticsearch nested 包裹，内部 query/filter 会被展开为内容过滤。',
+  },
+  'dis_max': {
+    'type': 'object',
+    'description': '可选。Elasticsearch dis_max 查询子句，内部 queries 会被展开为多条检索文本。',
+  },
+  'disMax': {
+    'type': 'object',
+    'description': 'dis_max 的 camelCase 别名。',
   },
   'multi_match': {
     'type': 'object',
