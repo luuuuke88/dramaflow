@@ -19082,6 +19082,156 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：ES from/offset 可作为 queryPlan 分页偏移', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_from_get_first',
+      content: 'es_from_get：第一页第一条青灯记录。',
+      offset: 1,
+      role: 'assistant:from:get',
+    );
+    insertMessage(
+      id: 'query_plan_from_get_second',
+      content: 'es_from_get：第二页第一条青灯记录。',
+      offset: 2,
+      role: 'assistant:from:get',
+    );
+    insertMessage(
+      id: 'query_plan_from_get_third',
+      content: 'es_from_get：第三页第一条青灯记录。',
+      offset: 3,
+      role: 'assistant:from:get',
+    );
+    insertMessage(
+      id: 'query_plan_offset_deep_first',
+      content: 'es_offset_deep：第一页第一条雪桥记录。',
+      offset: 4,
+      role: 'assistant:offset:deep',
+    );
+    insertMessage(
+      id: 'query_plan_offset_deep_second',
+      content: 'es_offset_deep：第二页第一条雪桥记录。',
+      offset: 5,
+      role: 'assistant:offset:deep',
+    );
+    insertMessage(
+      id: 'query_plan_offset_deep_third',
+      content: 'es_offset_deep：第三页第一条雪桥记录。',
+      offset: 6,
+      role: 'assistant:offset:deep',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': 'es_from_get',
+            'term': {'role': 'assistant:from:get'},
+            'sort': {
+              'createTime': {'order': 'asc'},
+            },
+            'from': 1,
+            'size': 1,
+          },
+        ],
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': 'es_offset_deep',
+            'term': {'role': 'assistant:offset:deep'},
+            'sort': {
+              'createTime': {'order': 'asc'},
+            },
+            'offset': 2,
+            'size': 1,
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES from/offset 分页查记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('from'));
+      expect(properties, contains('offset'));
+      expect(properties, contains('skip'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_from_get_second'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_offset_deep_third'],
+    );
+  });
+
   test('Agent 记忆：结构化查询计划多项返回数量互不串味', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

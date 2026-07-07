@@ -588,6 +588,32 @@ const _agentMemorySortToolSchema = {
     'description': 'sortBy 的中文别名。',
   },
 };
+const _agentMemoryOffsetToolSchema = {
+  'from': {
+    'type': 'integer',
+    'minimum': 0,
+    'maximum': 200,
+    'description': '可选。Elasticsearch 分页偏移；排序和过滤后跳过前 N 条。',
+  },
+  'offset': {
+    'type': 'integer',
+    'minimum': 0,
+    'maximum': 200,
+    'description': 'from 的自然语言别名。',
+  },
+  'skip': {
+    'type': 'integer',
+    'minimum': 0,
+    'maximum': 200,
+    'description': 'from 的跳过数量别名。',
+  },
+  '跳过数量': {
+    'type': 'integer',
+    'minimum': 0,
+    'maximum': 200,
+    'description': 'skip 的中文别名。',
+  },
+};
 const _agentMemoryQueryPlanToolSchema = {
   'queryPlan': {
     'type': ['array', 'object'],
@@ -595,7 +621,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/size/priority/mustInclude/excludeTerms/must/must_not/match/exists/operator 等过滤提示，也可把这些过滤提示包在 filter/post_filter/where/bool/criteria/条件 对象内。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/size/from/priority/mustInclude/excludeTerms/must/must_not/match/exists/operator 等过滤提示，也可把这些过滤提示包在 filter/post_filter/where/bool/criteria/条件 对象内。',
   },
   'query_plan': {
     'type': ['array', 'object'],
@@ -1964,6 +1990,7 @@ final _tools = <AgentToolDef>[
           'maximum': 50,
           'description': '可选。limit 的 Elasticsearch 风格别名。',
         },
+        ..._agentMemoryOffsetToolSchema,
         'maxResults': {
           'type': 'integer',
           'minimum': 1,
@@ -2577,6 +2604,7 @@ final _tools = <AgentToolDef>[
           'maximum': 50,
           'description': '可选。limit 的 Elasticsearch 风格别名，限制返回结果数。',
         },
+        ..._agentMemoryOffsetToolSchema,
         'minScore': {
           'type': 'integer',
           'minimum': 1,
@@ -12391,6 +12419,7 @@ extension AgentApi on Engine {
               _agentMemoryExcludeIds(args, excludedMemoryIds);
           final sortMode = _agentMemoryDirectSortMode(args) ?? 'relevance';
           final limit = _agentMemoryDirectLimit(args);
+          final offset = _agentMemoryDirectOffset(args);
           final memoryService = _agentMemoryService(family: agentFamily);
           final relatedMessageRecords = <AgentMemoryEntry>[];
           final summaryRecords = <AgentMemoryEntry>[];
@@ -12489,6 +12518,7 @@ extension AgentApi on Engine {
             final rerankEnabled = _agentMemoryRerankEnabled(requestArgs);
             final requestSortMode = _agentMemorySortMode(requestArgs);
             final requestLimit = request.limit;
+            final requestOffset = _agentMemoryDirectOffset(requestArgs);
             final requestIncludeVisualReferences =
                 _shouldIncludeVisualReferenceMemories(requestArgs);
             final includeMessages =
@@ -12526,6 +12556,7 @@ extension AgentApi on Engine {
                 ),
                 requestSortMode,
                 requestLimit,
+                offset: requestOffset,
               );
               relatedMessageRecords.addAll(limitedRelatedMessages);
               for (final record in limitedRelatedMessages) {
@@ -12538,6 +12569,7 @@ extension AgentApi on Engine {
                 ),
                 requestSortMode,
                 requestLimit,
+                offset: requestOffset,
               );
               recentMessageRecords.addAll(limitedRecentMessages);
               for (final record in limitedRecentMessages) {
@@ -12552,6 +12584,7 @@ extension AgentApi on Engine {
                 ),
                 requestSortMode,
                 requestLimit,
+                offset: requestOffset,
               );
               summaryRecords.addAll(limitedSummaries);
               for (final record in limitedSummaries) {
@@ -12588,6 +12621,7 @@ extension AgentApi on Engine {
                 ),
                 requestSortMode,
                 requestLimit,
+                offset: requestOffset,
               );
               noteRecords.addAll(limitedNotes);
               for (final record in limitedNotes) {
@@ -12640,9 +12674,7 @@ extension AgentApi on Engine {
             recordPriorities,
           );
           final relatedMessages = hasMessageRequests
-              ? (limit == null
-                  ? dedupedRelatedMessages
-                  : dedupedRelatedMessages.take(limit).toList())
+              ? _sliceAgentMemoryEntries(dedupedRelatedMessages, limit, offset)
               : const <AgentMemoryEntry>[];
           final dedupedSummaries = _sortAgentMemoryEntriesByPriority(
             _dedupeAgentMemoryEntries(summaryRecords),
@@ -12650,9 +12682,7 @@ extension AgentApi on Engine {
             recordPriorities,
           );
           final summaries = hasSummaryRequests
-              ? (limit == null
-                  ? dedupedSummaries
-                  : dedupedSummaries.take(limit).toList())
+              ? _sliceAgentMemoryEntries(dedupedSummaries, limit, offset)
               : const <AgentMemoryEntry>[];
           final dedupedRecentMessages = _sortAgentMemoryEntriesByPriority(
             _dedupeAgentMemoryEntries(recentMessageRecords),
@@ -12660,17 +12690,14 @@ extension AgentApi on Engine {
             recordPriorities,
           );
           final recentMessages = hasMessageRequests
-              ? (limit == null
-                  ? dedupedRecentMessages
-                  : dedupedRecentMessages.take(limit).toList())
+              ? _sliceAgentMemoryEntries(dedupedRecentMessages, limit, offset)
               : const <AgentMemoryEntry>[];
           final dedupedNotes = _sortAgentMemoryEntriesByPriority(
             _dedupeAgentMemoryEntries(noteRecords),
             sortMode,
             recordPriorities,
           );
-          final notes =
-              limit == null ? dedupedNotes : dedupedNotes.take(limit).toList();
+          final notes = _sliceAgentMemoryEntries(dedupedNotes, limit, offset);
           if (relatedMessages.isEmpty &&
               summaries.isEmpty &&
               recentMessages.isEmpty &&
@@ -12730,6 +12757,7 @@ extension AgentApi on Engine {
               _agentMemoryExcludeIds(args, excludedMemoryIds);
           final sortMode = _agentMemoryDirectSortMode(args) ?? 'relevance';
           final limit = _agentMemoryDirectLimit(args);
+          final offset = _agentMemoryDirectOffset(args);
           final memoryService = _agentMemoryService(family: agentFamily);
           final records = <AgentMemoryEntry>[];
           final recordPriorities = <String, int>{};
@@ -12795,6 +12823,7 @@ extension AgentApi on Engine {
             final rerankEnabled = _agentMemoryRerankEnabled(requestArgs);
             final requestSortMode = _agentMemorySortMode(requestArgs);
             final requestLimit = request.limit;
+            final requestOffset = _agentMemoryDirectOffset(requestArgs);
             final requestIncludeVisualReferences =
                 _shouldIncludeVisualReferenceMemories(requestArgs);
             final excludeIds =
@@ -12833,6 +12862,7 @@ extension AgentApi on Engine {
               ),
               requestSortMode,
               requestLimit,
+              offset: requestOffset,
             );
             records.addAll(limitedRequestRecords);
             for (final record in limitedRequestRecords) {
@@ -12876,9 +12906,8 @@ extension AgentApi on Engine {
             sortMode,
             recordPriorities,
           );
-          final limitedRecords = limit == null
-              ? mergedRecords
-              : mergedRecords.take(limit).toList();
+          final limitedRecords =
+              _sliceAgentMemoryEntries(mergedRecords, limit, offset);
           if (limitedRecords.isEmpty) {
             return jsonEncode({
               'found': false,
@@ -15553,6 +15582,11 @@ extension AgentApi on Engine {
       case 'endtime':
       case 'fromtime':
       case 'totime':
+      case 'from':
+      case 'offset':
+      case 'skip':
+      case 'startindex':
+      case 'startfrom':
       case 'retrievalsource':
       case 'retrievalsources':
       case 'onlyvectorindex':
@@ -15574,6 +15608,7 @@ extension AgentApi on Engine {
       case '结束时间':
       case '之后':
       case '之前':
+      case '跳过数量':
       case '检索来源':
       case '召回来源':
       case '只用向量索引':
@@ -16494,6 +16529,19 @@ extension AgentApi on Engine {
       args['返回数量'] ??
       args['k'];
 
+  int _agentMemoryDirectOffset(Map<String, dynamic> args) {
+    final value = _coerceInt(args['from'] ??
+        args['offset'] ??
+        args['skip'] ??
+        args['startIndex'] ??
+        args['start_index'] ??
+        args['startFrom'] ??
+        args['start_from'] ??
+        args['跳过数量']);
+    if (value == null) return 0;
+    return value.clamp(0, 200).toInt();
+  }
+
   int? _agentMemoryDirectPriority(Map<String, dynamic> args) {
     final raw = args['priority'] ??
         args['priorities'] ??
@@ -16764,12 +16812,19 @@ extension AgentApi on Engine {
   }
 
   List<AgentMemoryEntry> _limitAgentMemoryEntries(
-    List<AgentMemoryEntry> entries,
-    String sortMode,
-    int? limit,
-  ) {
+      List<AgentMemoryEntry> entries, String sortMode, int? limit,
+      {int offset = 0}) {
     final sorted = _sortAgentMemoryEntries(entries, sortMode);
-    return limit == null ? sorted : sorted.take(limit).toList();
+    return _sliceAgentMemoryEntries(sorted, limit, offset);
+  }
+
+  List<AgentMemoryEntry> _sliceAgentMemoryEntries(
+    List<AgentMemoryEntry> entries,
+    int? limit,
+    int offset,
+  ) {
+    final skipped = offset <= 0 ? entries : entries.skip(offset);
+    return limit == null ? skipped.toList() : skipped.take(limit).toList();
   }
 
   List<AgentMemoryEntry> _filterAgentMemoryEntriesByContent(
