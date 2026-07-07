@@ -883,6 +883,21 @@ const _agentMemoryContentFilterToolSchema = {
     'type': 'object',
     'description': 'bool 的中文别名。',
   },
+  'filter': {
+    'type': ['object', 'array'],
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description':
+        '可选。Elasticsearch bool.filter 风格硬过滤，直接的 term/match/match_phrase 子句会作为 mustInclude 条件。',
+  },
+  'filters': {
+    'type': ['object', 'array'],
+    'items': {
+      'type': ['string', 'object'],
+    },
+    'description': 'filter 的复数别名。',
+  },
   'term': {
     'type': ['object', 'array', 'string'],
     'description': '可选。Elasticsearch 风格单词过滤，如 {"term":{"content":"冷白石桥"}}。',
@@ -14245,6 +14260,47 @@ extension AgentApi on Engine {
     Map<String, dynamic> args,
   ) {
     final copy = <String, dynamic>{};
+    final filterMustClauses = <Object?>[];
+
+    bool isDslContentClause(Object? raw) {
+      if (raw is! Map) return false;
+      for (final key in const [
+        'term',
+        'terms',
+        'match',
+        'match_phrase',
+        'matchPhrase',
+      ]) {
+        if (raw.containsKey(key)) return true;
+      }
+      return false;
+    }
+
+    void collectFilterMustClauses(Object? raw) {
+      if (raw == null || raw is String) return;
+      if (isDslContentClause(raw)) {
+        filterMustClauses.add(raw);
+        return;
+      }
+      if (raw is Iterable) {
+        for (final item in raw) {
+          collectFilterMustClauses(item);
+        }
+      }
+    }
+
+    void appendFilterMustClauses() {
+      if (filterMustClauses.isEmpty) return;
+      final values = <Object?>[];
+      final existing = copy['must'];
+      if (existing is Iterable && existing is! String) {
+        values.addAll(existing);
+      } else if (existing != null) {
+        values.add(existing);
+      }
+      values.addAll(filterMustClauses);
+      copy['must'] = values;
+    }
 
     void mergeWrapper(Object? raw) {
       if (raw == null) return;
@@ -14264,12 +14320,16 @@ extension AgentApi on Engine {
     }
 
     for (final key in _agentMemoryFilterWrapperKeys) {
+      if (key == 'filter' || key == 'filters') {
+        collectFilterMustClauses(args[key]);
+      }
       mergeWrapper(args[key]);
     }
     copy.addAll(args);
     for (final key in _agentMemoryFilterWrapperKeys) {
       copy.remove(key);
     }
+    appendFilterMustClauses();
     return copy;
   }
 

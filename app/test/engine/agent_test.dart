@@ -13884,6 +13884,174 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan bool.filter 作为硬性包含条件', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_bool_filter_clause_get_keep',
+      '雨巷调度戊午：镜头必须保留冷色雨巷与低角度推轨。',
+      0,
+    );
+    insertMessage(
+      'query_plan_bool_filter_clause_get_broad_noise',
+      '雨巷调度戊午：镜头保留街灯和人物背影，但没有低角度推轨。',
+      1,
+    );
+    insertMessage(
+      'query_plan_bool_filter_clause_get_excluded_noise',
+      '雨巷调度戊午：旧版使用暖色喜剧和高角度。',
+      2,
+    );
+    insertMessage(
+      'query_plan_bool_filter_clause_deep_keep',
+      '镜湖调度己未：沈微入画时必须保留蓝色雾面和横移跟拍。',
+      3,
+    );
+    insertMessage(
+      'query_plan_bool_filter_clause_deep_broad_noise',
+      '镜湖调度己未：沈微入画时只保留水面倒影，没有横移跟拍。',
+      4,
+    );
+    insertMessage(
+      'query_plan_bool_filter_clause_deep_excluded_noise',
+      '镜湖调度己未：旧版使用暖色正面光。',
+      5,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '雨巷调度戊午 镜头',
+            'filter': {
+              'bool': {
+                'filter': [
+                  {
+                    'match': {'content': '冷色雨巷'},
+                  },
+                  {
+                    'term': {'content': '低角度推轨'},
+                  },
+                ],
+                'must_not': [
+                  {
+                    'match_phrase': {'content': '暖色喜剧'},
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '查询': '镜湖调度己未 沈微',
+            'where': {
+              '布尔条件': {
+                'filter': [
+                  {
+                    'match_phrase': {'content': '蓝色雾面'},
+                  },
+                  {
+                    'match': {'content': '横移跟拍'},
+                  },
+                ],
+                'must_not': [
+                  {
+                    'match_phrase': {'content': '暖色正面光'},
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 bool.filter 风格过滤条件召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('filter'));
+      expect(properties, contains('filters'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '雨巷调度戊午：镜头必须保留冷色雨巷与低角度推轨。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_bool_filter_clause_get_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '镜湖调度己未：沈微入画时必须保留蓝色雾面和横移跟拍。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_bool_filter_clause_deep_keep'],
+    );
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),
