@@ -72,6 +72,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 - ES 风格 `exists` 已作为 record 字段存在性过滤接入 queryPlan，支持 `id/name/content/role/type/scope/createTime/embedding/score` 等记忆记录字段。
 - ES 风格 `sort` 已接入 queryPlan 时间排序，支持 `[{createTime:"desc"}]`、`{created_at:{order:"asc"}}` 等原生写法映射到 latest/oldest。
 - ES 风格 `from` / `offset` / `skip` 已作为 queryPlan 分页偏移接入，在排序、过滤后跳过指定条数，再配合 `size` / `limit` 返回窗口结果。
+- ES 风格 `range.createTime.gte/lte` 除毫秒时间戳外，已支持 ISO 时间字符串和 `now-2m` / `now+2m` 这类 Elasticsearch date-math 简写，避免模型按时间窗口召回时退化成全量结果。
 - ES 风格 `match_all` 已作为无文本全量窗口查询接入 queryPlan，可配合 `role/scope/sort/size/from` 返回最近或最旧的一组记忆。
 - ES 风格 `match_none` 已作为结构化空结果查询接入 queryPlan，模型生成空召回计划时会返回 `found:false`，不会再误报缺少 `query/keyword`。
 - ES 风格 `combined_fields` / `match_phrase_prefix` / `more_like_this` 已接入 queryPlan：跨字段查询会暴露给模型，前缀短语可作为硬过滤，`more_like_this.like/unlike` 会分别映射为检索文本和排除词。

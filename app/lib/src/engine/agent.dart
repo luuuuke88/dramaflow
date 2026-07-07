@@ -14077,7 +14077,37 @@ extension AgentApi on Engine {
 
   int? _coerceInt(Object? raw) {
     if (raw is num) return raw.toInt();
-    if (raw is String) return int.tryParse(raw.trim());
+    if (raw is String) {
+      final text = raw.trim();
+      final parsed = int.tryParse(text);
+      if (parsed != null) return parsed;
+      final nowMatch =
+          RegExp(r'^now(?:([+-])(\d+)(ms|s|m|h|d|w))?$', caseSensitive: false)
+              .firstMatch(text);
+      if (nowMatch != null) {
+        var value = DateTime.now().millisecondsSinceEpoch;
+        final sign = nowMatch.group(1);
+        final amount = int.tryParse(nowMatch.group(2) ?? '');
+        final unit = nowMatch.group(3)?.toLowerCase();
+        if (sign != null && amount != null && unit != null) {
+          final multiplier = switch (unit) {
+            'ms' => 1,
+            's' => const Duration(seconds: 1).inMilliseconds,
+            'm' => const Duration(minutes: 1).inMilliseconds,
+            'h' => const Duration(hours: 1).inMilliseconds,
+            'd' => const Duration(days: 1).inMilliseconds,
+            'w' => const Duration(days: 7).inMilliseconds,
+            _ => 0,
+          };
+          final delta = amount * multiplier;
+          value = sign == '-' ? value - delta : value + delta;
+        }
+        return value;
+      }
+      if (RegExp(r'^\d{4}-\d{2}-\d{2}(?:[T\s].*)?$').hasMatch(text)) {
+        return DateTime.tryParse(text)?.millisecondsSinceEpoch;
+      }
+    }
     return null;
   }
 

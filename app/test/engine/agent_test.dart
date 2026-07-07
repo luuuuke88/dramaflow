@@ -23548,6 +23548,340 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     }
   });
 
+  test('Agent 记忆：queryPlan range 支持 ISO 时间字符串', () async {
+    final baseTime = DateTime.utc(2026, 1, 1, 12).millisecondsSinceEpoch;
+    void insertMemory({
+      required String id,
+      required String isolationKey,
+      required String content,
+      required int createTime,
+      required String type,
+      String name = '',
+      int summarized = 0,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          name,
+          content,
+          createTime,
+          embeddingJson(content),
+          isolationKey,
+          '[]',
+          agentRoleUser,
+          summarized,
+          type,
+        ],
+      );
+    }
+
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '5'],
+    );
+
+    insertMemory(
+      id: 'range_iso_old_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: 'ISO窗口记忆：星桥校准在旧阶段记录旧路线。',
+      createTime: baseTime,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'range_iso_keep_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: 'ISO窗口记忆：星桥校准在窗口内记录冷光符路线。',
+      createTime: baseTime + 1000,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'range_iso_new_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: 'ISO窗口记忆：星桥校准在新阶段记录南门路线。',
+      createTime: baseTime + 2000,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'range_iso_old_note',
+      isolationKey: 'project:$projectId',
+      content: 'ISO窗口长期记忆：镜湖航线旧版本经过旧渡口。',
+      createTime: baseTime,
+      type: agentMemoryTypeNote,
+      name: '旧镜湖航线',
+    );
+    insertMemory(
+      id: 'range_iso_keep_note',
+      isolationKey: 'project:$projectId',
+      content: 'ISO窗口长期记忆：镜湖航线窗口内经过灯塔。',
+      createTime: baseTime + 1000,
+      type: agentMemoryTypeNote,
+      name: '灯塔镜湖航线',
+    );
+    insertMemory(
+      id: 'range_iso_new_note',
+      isolationKey: 'project:$projectId',
+      content: 'ISO窗口长期记忆：镜湖航线新版本经过北桥。',
+      createTime: baseTime + 2000,
+      type: agentMemoryTypeNote,
+      name: '北桥镜湖航线',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', {
+        'queryPlan': [
+          {
+            'query': {
+              'match_all': {},
+            },
+            'range': {
+              'createTime': {
+                'gte': DateTime.fromMillisecondsSinceEpoch(
+                  baseTime + 500,
+                  isUtc: true,
+                ).toIso8601String(),
+                'lte': DateTime.fromMillisecondsSinceEpoch(
+                  baseTime + 1500,
+                  isUtc: true,
+                ).toIso8601String(),
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', {
+        'queryPlan': [
+          {
+            'query': {
+              'match_all': {},
+            },
+            'range': {
+              'createTime': {
+                'gte': DateTime.fromMillisecondsSinceEpoch(
+                  baseTime + 500,
+                  isUtc: true,
+                ).toIso8601String(),
+                'lte': DateTime.fromMillisecondsSinceEpoch(
+                  baseTime + 1500,
+                  isUtc: true,
+                ).toIso8601String(),
+              },
+            },
+            'scope': 'long_term',
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES range ISO 时间窗口召回星桥设定',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['range_iso_keep_msg'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['range_iso_keep_note'],
+    );
+  });
+
+  test('Agent 记忆：queryPlan range 支持 Elasticsearch now 时间表达式', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    void insertMemory({
+      required String id,
+      required String isolationKey,
+      required String content,
+      required int createTime,
+      required String type,
+      String name = '',
+      int summarized = 0,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          name,
+          content,
+          createTime,
+          embeddingJson(content),
+          isolationKey,
+          '[]',
+          agentRoleUser,
+          summarized,
+          type,
+        ],
+      );
+    }
+
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '5'],
+    );
+
+    insertMemory(
+      id: 'range_now_old_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: 'now窗口记忆：云舟校验旧阶段保留旧口令。',
+      createTime: now - const Duration(minutes: 10).inMilliseconds,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'range_now_keep_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: 'now窗口记忆：云舟校验当前阶段保留新口令。',
+      createTime: now,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'range_now_future_msg',
+      isolationKey: 'scriptAgent:$projectId',
+      content: 'now窗口记忆：云舟校验未来阶段保留预案口令。',
+      createTime: now + const Duration(minutes: 10).inMilliseconds,
+      type: agentMemoryTypeMessage,
+      summarized: 1,
+    );
+    insertMemory(
+      id: 'range_now_old_note',
+      isolationKey: 'project:$projectId',
+      content: 'now窗口长期记忆：云舟航线旧阶段走西门。',
+      createTime: now - const Duration(minutes: 10).inMilliseconds,
+      type: agentMemoryTypeNote,
+      name: '旧云舟航线',
+    );
+    insertMemory(
+      id: 'range_now_keep_note',
+      isolationKey: 'project:$projectId',
+      content: 'now窗口长期记忆：云舟航线当前阶段走东门。',
+      createTime: now,
+      type: agentMemoryTypeNote,
+      name: '当前云舟航线',
+    );
+    insertMemory(
+      id: 'range_now_future_note',
+      isolationKey: 'project:$projectId',
+      content: 'now窗口长期记忆：云舟航线未来阶段走北门。',
+      createTime: now + const Duration(minutes: 10).inMilliseconds,
+      type: agentMemoryTypeNote,
+      name: '未来云舟航线',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'match_all': {},
+            },
+            'range': {
+              'createTime': {
+                'gte': 'now-2m',
+                'lte': 'now+2m',
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'match_all': {},
+            },
+            'range': {
+              'createTime': {
+                'gte': 'now-2m',
+                'lte': 'now+2m',
+              },
+            },
+            'scope': 'long_term',
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES range now 时间窗口召回云舟设定',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['range_now_keep_msg'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['range_now_keep_note'],
+    );
+  });
+
   test('Agent 记忆：memory_get 和 deepRetrieve 工具支持相对最近时间别名', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     void insertMemory({
