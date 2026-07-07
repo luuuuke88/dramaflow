@@ -5190,6 +5190,72 @@ return labels.join('、');
     expect(msg.content, '1.雪夜山门:3s、3.李澈拔剑:1s');
   });
 
+  test('自定义脚本技能：支持箭头函数赋值后调用', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_arrow_function_runtime',
+      name: '箭头函数赋值脚本运行时',
+      description: '验证自定义技能兼容模型常写的 const helper = value => ... 辅助函数。',
+      script: r'''
+const tag = value => Object.prototype.toString.call(value);
+const formatShot = (shot, index) => {
+  if (!shot.enabled || !shot.videoDesc?.trim()) return null;
+  return `${index + 1}.${shot.videoDesc.trim()}:${tag(shot.duration)}`;
+};
+
+const labels = args.storyboards
+  .map(formatShot)
+  .filter(Boolean);
+
+return JSON.stringify({
+  root: tag(args.storyboards),
+  first: tag(args.storyboards[0]),
+  labels: labels.join('、'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+                'duration': {'type': 'number'},
+                'enabled': {'type': 'boolean'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_arrow_function_runtime', const {
+        'storyboards': [
+          {'videoDesc': ' 雪夜山门 ', 'duration': 3, 'enabled': true},
+          {'videoDesc': '废弃镜头', 'duration': 4, 'enabled': false},
+          {'videoDesc': '李澈拔剑', 'duration': 1, 'enabled': true},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用箭头函数赋值脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_arrow_function_runtime');
+    expect(jsonDecode(msg.content), {
+      'root': '[object Array]',
+      'first': '[object Object]',
+      'labels': '1.雪夜山门:[object Number]、3.李澈拔剑:[object Number]',
+    });
+  });
+
   test('自定义脚本技能：支持函数和回调参数默认值', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_param_default_runtime',

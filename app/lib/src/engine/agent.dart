@@ -4079,6 +4079,25 @@ class _CustomAgentSkillRuntime {
     );
   }
 
+  _CustomJsFunction? _readArrowFunctionExpression(
+    String expression,
+    String fallbackName,
+  ) {
+    final source = _trimTrailingSemicolon(expression.trim());
+    final arrow = _findTopLevelArrow(source);
+    if (arrow < 0) return null;
+    final paramsSource = source.substring(0, arrow).trim();
+    final bodySource = source.substring(arrow + 2).trim();
+    if (paramsSource.isEmpty || bodySource.isEmpty) return null;
+    final params = _parseCallbackParams(paramsSource, fallbackName);
+    final blockBody = _literalInner(bodySource, '{', '}');
+    return _CustomJsFunction(
+      name: fallbackName,
+      params: params,
+      body: blockBody ?? 'return $bodySource',
+    );
+  }
+
   int? _readFunctionKeywordStart(String source) {
     if (_startsWithWord(source, 0, 'function')) return 0;
     if (!_startsWithWord(source, 0, 'async')) return null;
@@ -4560,6 +4579,9 @@ class _CustomAgentSkillRuntime {
     if (deleteExpression != null) return deleteExpression;
     final functionExpression = _readFunctionExpression(expr, 'anonymous');
     if (functionExpression != null) return functionExpression;
+    final arrowFunctionExpression =
+        _readArrowFunctionExpression(expr, 'anonymous');
+    if (arrowFunctionExpression != null) return arrowFunctionExpression;
     final inOperator = _readTopLevelInOperator(expr);
     if (inOperator != null) {
       return _hasProperty(

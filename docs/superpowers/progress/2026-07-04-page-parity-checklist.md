@@ -500,6 +500,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Object.prototype.toString.call(...)` type tags for Array/Object/Date/Map/Set/Error/null/primitives/functions, so model-authored custom skills can keep conservative cross-runtime guards when normalizing storyboard and asset payloads.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers assigning arrow functions to variables (`const tag = value => ...`, `const format = (shot, index) => { ... }`) and calling them directly or as callbacks, so model-authored custom skills can reuse helper lambdas without rewriting them as `function` declarations.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible variable logical assignment (`name ||= fallback`, `value ??= fallback`, and `enabled &&= gate`), so model-authored cleanup scripts can use the same short-circuit assignment style already supported for object members.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `switch` / `case` / `default` control flow with fall-through and `break`, so model-authored ToonFlow-style helper scripts can classify roles, scenes, tools, and fallback asset types without rewriting category logic into long `if/else` chains.
