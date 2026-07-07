@@ -75,6 +75,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 - ES 风格 `match_all` 已作为无文本全量窗口查询接入 queryPlan，可配合 `role/scope/sort/size/from` 返回最近或最旧的一组记忆。
 - ES 风格 `match_none` 已作为结构化空结果查询接入 queryPlan，模型生成空召回计划时会返回 `found:false`，不会再误报缺少 `query/keyword`。
 - ES 风格 `combined_fields` / `match_phrase_prefix` / `more_like_this` 已接入 queryPlan：跨字段查询会暴露给模型，前缀短语可作为硬过滤，`more_like_this.like/unlike` 会分别映射为检索文本和排除词。
+- ES 风格 `minimum_should_match` 现在支持百分比写法，例如 `75%` 会按 should 条件数量换算最低命中数，避免模型生成百分比阈值时退回过宽召回。
 
 ## 仍不能称为“完全复刻”的部分
 

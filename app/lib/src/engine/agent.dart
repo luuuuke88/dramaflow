@@ -17458,18 +17458,53 @@ extension AgentApi on Engine {
     int shouldTermCount,
   ) {
     if (shouldTermCount <= 0) return 0;
-    final direct = _coerceInt(args['minimumShouldMatch'] ??
-        args['minimum_should_match'] ??
-        args['minShouldMatch'] ??
-        args['min_should_match'] ??
-        args['shouldMatchCount'] ??
-        args['should_match_count'] ??
-        args['最低命中数'] ??
-        args['至少命中']);
+    final direct = _coerceAgentMemoryMinimumShouldMatch(
+      args['minimumShouldMatch'] ??
+          args['minimum_should_match'] ??
+          args['minShouldMatch'] ??
+          args['min_should_match'] ??
+          args['shouldMatchCount'] ??
+          args['should_match_count'] ??
+          args['最低命中数'] ??
+          args['至少命中'],
+      shouldTermCount,
+    );
     final fromPlan = direct ??
-        _firstCoercedInt(_agentMemoryQueryPlanMinimumShouldMatchValues(args));
+        _firstCoercedMinimumShouldMatch(
+          _agentMemoryQueryPlanMinimumShouldMatchValues(args),
+          shouldTermCount,
+        );
     final value = fromPlan ?? 1;
     return value.clamp(1, shouldTermCount).toInt();
+  }
+
+  int? _coerceAgentMemoryMinimumShouldMatch(
+    Object? raw,
+    int shouldTermCount,
+  ) {
+    if (raw == null) return null;
+    if (raw is num) return raw.toInt();
+    if (raw is! String) return null;
+    final text = raw.trim();
+    if (text.isEmpty) return null;
+    if (text.endsWith('%')) {
+      final percent = num.tryParse(text.substring(0, text.length - 1).trim());
+      if (percent == null || !percent.isFinite || percent <= 0) return null;
+      return (shouldTermCount * percent / 100).floor();
+    }
+    return int.tryParse(text);
+  }
+
+  int? _firstCoercedMinimumShouldMatch(
+    Iterable<Object?> values,
+    int shouldTermCount,
+  ) {
+    for (final value in values) {
+      final coerced =
+          _coerceAgentMemoryMinimumShouldMatch(value, shouldTermCount);
+      if (coerced != null) return coerced;
+    }
+    return null;
   }
 
   List<Object?> _agentMemoryQueryPlanMinimumShouldMatchValues(

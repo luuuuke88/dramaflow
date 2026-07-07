@@ -14594,6 +14594,152 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：minimum_should_match 支持百分比阈值', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_should_percent_get_keep',
+      '赤渊峡谷甲：冷月压顶，青雾贴地，断索横在画面前景。',
+      0,
+    );
+    insertMessage(
+      'query_plan_should_percent_get_noise',
+      '赤渊峡谷甲：冷月压顶，青雾贴地，旧桥保持完整。',
+      1,
+    );
+    insertMessage(
+      'query_plan_should_percent_deep_keep',
+      '白塔密室乙：烛影摇晃，暗纹浮现，锁链从门缝垂下。',
+      2,
+    );
+    insertMessage(
+      'query_plan_should_percent_deep_noise',
+      '白塔密室乙：烛影摇晃，暗纹浮现，门扇缓慢打开。',
+      3,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '赤渊峡谷甲',
+            'filter': {
+              'bool': {
+                'should': [
+                  {
+                    'match': {'content': '冷月'},
+                  },
+                  {
+                    'match': {'content': '青雾'},
+                  },
+                  {
+                    'match': {'content': '断索'},
+                  },
+                  {
+                    'match': {'content': '前景'},
+                  },
+                ],
+                'minimum_should_match': '75%',
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': '白塔密室乙',
+            'where': {
+              'bool': {
+                'should': [
+                  {
+                    'match': {'content': '烛影'},
+                  },
+                  {
+                    'match': {'content': '暗纹'},
+                  },
+                  {
+                    'match': {'content': '锁链'},
+                  },
+                  {
+                    'match': {'content': '门缝'},
+                  },
+                ],
+                'minimumShouldMatch': '75%',
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按百分比 should 阈值召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_should_percent_get_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_should_percent_deep_keep'],
+    );
+  });
+
   test('Agent 记忆：queryPlan 支持 query/constant_score/nested 包裹过滤', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
