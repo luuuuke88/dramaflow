@@ -18194,6 +18194,16 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(record['createTime'], now);
     expect(record['role'], agentRoleUser);
     expect(record['sourceSummaryIds'], ['trace_summary_lizhe']);
+    expect(record['sourceSummaries'], [
+      {
+        'id': 'trace_summary_lizhe',
+        'type': agentMemoryTypeSummary,
+        'name': '李澈角色设定',
+        'createTime': now + 1,
+        'role': agentRoleAssistant,
+        'content': '寒山少主李澈必须保持正派。',
+      },
+    ]);
     expect(record['content'], '用户强调寒山少主李澈必须保持正派。');
     expect(record['score'], isA<int>());
     expect(record['score'], greaterThan(0));

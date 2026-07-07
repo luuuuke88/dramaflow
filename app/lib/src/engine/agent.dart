@@ -14502,6 +14502,8 @@ extension AgentApi on Engine {
           'relatedMessageIds': record.relatedMessageIds,
         if (record.sourceSummaryIds.isNotEmpty)
           'sourceSummaryIds': record.sourceSummaryIds,
+        if (record.sourceSummaryIds.isNotEmpty)
+          'sourceSummaries': _agentMemorySourceSummaryPayloads(record),
         if (record.score != null) 'score': record.score,
         if (record.matchedTokens.isNotEmpty)
           'matchedTokens': record.matchedTokens,
@@ -14515,6 +14517,34 @@ extension AgentApi on Engine {
           'embeddingDimension': record.embeddingDimension,
         'content': record.content,
       };
+
+  List<Map<String, dynamic>> _agentMemorySourceSummaryPayloads(
+    AgentMemoryEntry record,
+  ) {
+    final ids = record.sourceSummaryIds;
+    if (ids.isEmpty) return const [];
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final rows = db.select(
+      'SELECT id,name,content,createTime,role,type '
+      'FROM memories WHERE id IN ($placeholders) AND type=?',
+      [...ids, agentMemoryTypeSummary],
+    );
+    final rowsById = <String, Map<String, Object?>>{
+      for (final row in rows) row['id'] as String: row,
+    };
+    return [
+      for (final id in ids)
+        if (rowsById[id] case final row?)
+          {
+            'id': id,
+            'type': row['type'] as String? ?? agentMemoryTypeSummary,
+            'name': row['name'] as String? ?? '',
+            'createTime': row['createTime'] as int? ?? 0,
+            'role': row['role'] as String? ?? '',
+            'content': row['content'] as String? ?? '',
+          },
+    ];
+  }
 
   Map<String, dynamic> _scriptAgentWorkspace(int projectId) {
     final row = db.select(
