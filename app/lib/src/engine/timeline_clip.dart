@@ -114,35 +114,19 @@ extension TimelineClipApi on Engine {
     final normalizedDuration =
         durationMs != null && durationMs > 0 ? durationMs : null;
     final shiftMs = normalizedDuration ?? _defaultTimelineClipDurationMs;
-    final splitRow = db.select(
-      'SELECT * FROM o_timelineClip '
-      'WHERE scriptId=? AND lane=? AND startMs<? '
-      'AND startMs + COALESCE(durationMs, ?) > ? '
-      'ORDER BY startMs DESC, id DESC LIMIT 1',
-      [
-        scriptId,
-        normalizedLane,
-        normalizedStart,
-        _defaultTimelineClipDurationMs,
-        normalizedStart
-      ],
-    ).firstOrNull;
-    int? splitTailDuration;
-    if (splitRow != null) {
-      final splitStart = (splitRow['startMs'] as int?) ?? 0;
-      final splitDuration =
-          (splitRow['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-      final splitEnd = splitStart + splitDuration;
-      final splitHeadDuration = normalizedStart - splitStart;
-      splitTailDuration = splitEnd - normalizedStart;
-      if (splitHeadDuration > 0 && splitTailDuration > 0) {
-        db.execute(
-          'UPDATE o_timelineClip SET durationMs=? WHERE id=?',
-          [splitHeadDuration, splitRow['id'] as int],
-        );
-      } else {
-        splitTailDuration = null;
-      }
+    // 共用分割器（与批量移动同一实现，语义单一来源）
+    final split = _computeSplitAt(
+      snapshot: _snapshotClips(db, scriptId),
+      lane: normalizedLane,
+      atMs: normalizedStart,
+      tailStartMs: normalizedStart + shiftMs,
+      excludeIds: const {},
+    );
+    if (split != null) {
+      db.execute(
+        'UPDATE o_timelineClip SET durationMs=? WHERE id=?',
+        [split.headDuration, split.spanningId],
+      );
     }
     db.execute(
       'UPDATE o_timelineClip '
@@ -166,23 +150,8 @@ extension TimelineClipApi on Engine {
       ],
     );
     final insertedId = db.lastInsertRowId;
-    if (splitRow != null && splitTailDuration != null) {
-      db.execute(
-        'INSERT INTO o_timelineClip '
-        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
-        'VALUES (?,?,?,?,?,?,?,?,?)',
-        [
-          splitRow['projectId'],
-          splitRow['scriptId'],
-          splitRow['assetId'],
-          splitRow['name'],
-          splitRow['filePath'],
-          splitRow['lane'],
-          normalizedStart + shiftMs,
-          splitTailDuration,
-          _normalizeTimelineClipOpacity(splitRow['opacity'] as num?),
-        ],
-      );
+    if (split != null) {
+      db.execute(_timelineClipInsertSql, split.tailInsert);
     }
     return insertedId;
   }
@@ -325,88 +294,13 @@ extension TimelineClipApi on Engine {
     required int clipId,
     required int startMs,
   }) {
-    final row = db.select(
-        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
-    if (row == null) {
+    final exists = db
+        .select('SELECT id FROM o_timelineClip WHERE id=?', [clipId])
+        .firstOrNull;
+    if (exists == null) {
       throw const EngineException(errManualInvalid);
     }
-    final scriptId = (row['scriptId'] as int?) ?? 0;
-    final lane = (row['lane'] as int?) ?? 1;
-    final oldStartMs = (row['startMs'] as int?) ?? 0;
-    final durationMs =
-        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-    final oldEndMs = oldStartMs + durationMs;
-    final nextStartMs = startMs < 0 ? 0 : startMs;
-    final deltaMs = nextStartMs - oldStartMs;
-    final splitRow = nextStartMs < oldStartMs
-        ? db.select(
-            'SELECT * FROM o_timelineClip '
-            'WHERE scriptId=? AND lane=? AND id<>? AND startMs<? '
-            'AND startMs + COALESCE(durationMs, ?) > ? '
-            'ORDER BY startMs DESC, id DESC LIMIT 1',
-            [
-              scriptId,
-              lane,
-              clipId,
-              nextStartMs,
-              _defaultTimelineClipDurationMs,
-              nextStartMs
-            ],
-          ).firstOrNull
-        : null;
-    int? splitTailDuration;
-    if (splitRow != null) {
-      final splitStart = (splitRow['startMs'] as int?) ?? 0;
-      final splitDuration =
-          (splitRow['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-      final splitEnd = splitStart + splitDuration;
-      final splitHeadDuration = nextStartMs - splitStart;
-      splitTailDuration = splitEnd - nextStartMs;
-      if (splitHeadDuration > 0 && splitTailDuration > 0) {
-        db.execute(
-          'UPDATE o_timelineClip SET durationMs=? WHERE id=?',
-          [splitHeadDuration, splitRow['id'] as int],
-        );
-      } else {
-        splitTailDuration = null;
-      }
-    }
-    db.execute('UPDATE o_timelineClip SET startMs=? WHERE id=?', [
-      nextStartMs,
-      clipId,
-    ]);
-    if (deltaMs == 0) return;
-    db.execute(
-      'UPDATE o_timelineClip '
-      'SET startMs=CASE WHEN startMs + ? < 0 THEN 0 ELSE startMs + ? END '
-      'WHERE scriptId=? AND lane=? AND id<>? AND startMs>=?',
-      [deltaMs, deltaMs, scriptId, lane, clipId, oldEndMs],
-    );
-    if (splitRow != null && splitTailDuration != null) {
-      db.execute(
-        'INSERT INTO o_timelineClip '
-        '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
-        'VALUES (?,?,?,?,?,?,?,?,?)',
-        [
-          splitRow['projectId'],
-          splitRow['scriptId'],
-          splitRow['assetId'],
-          splitRow['name'],
-          splitRow['filePath'],
-          splitRow['lane'],
-          nextStartMs + durationMs,
-          splitTailDuration,
-          _normalizeTimelineClipOpacity(splitRow['opacity'] as num?),
-        ],
-      );
-      final splitTailId = db.lastInsertRowId;
-      _normalizeTimelineLaneForward(
-        db: db,
-        scriptId: scriptId,
-        lane: lane,
-        priorityIds: [clipId, splitTailId],
-      );
-    }
+    moveTimelineClipsRipple(clipIds: [clipId], startMs: startMs);
   }
 
   void moveTimelineClipsRipple({
@@ -414,46 +308,80 @@ extension TimelineClipApi on Engine {
     required int startMs,
   }) {
     if (clipIds.isEmpty) return;
+    final idSet = clipIds.toSet();
     final placeholders = List.filled(clipIds.length, '?').join(',');
-    final rows = db
+    final anyRow = db
         .select(
-          'SELECT * FROM o_timelineClip WHERE id IN ($placeholders) '
-          'ORDER BY startMs ASC, lane ASC, id ASC',
+          'SELECT scriptId FROM o_timelineClip '
+          'WHERE id IN ($placeholders) LIMIT 1',
           clipIds,
         )
-        .toList();
-    if (rows.isEmpty) return;
-    final selectedIds = rows.map((row) => row['id'] as int).toList();
-    final scriptId = (rows.first['scriptId'] as int?) ?? 0;
-    final groupStart = rows
-        .map((row) => (row['startMs'] as int?) ?? 0)
-        .reduce((a, b) => a < b ? a : b);
-    final groupEnd = rows.map((row) {
-      final rowStart = (row['startMs'] as int?) ?? 0;
-      final duration =
-          (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-      return rowStart + duration;
-    }).reduce((a, b) => a > b ? a : b);
+        .firstOrNull;
+    if (anyRow == null) return;
+    final scriptId = (anyRow['scriptId'] as int?) ?? 0;
+    final snapshot = _snapshotClips(db, scriptId);
+    final selected = snapshot.where((c) => idSet.contains(c.id)).toList();
+    if (selected.isEmpty) return;
+    final groupStart =
+        selected.map((c) => c.startMs).reduce((a, b) => a < b ? a : b);
+    final groupEnd = selected.map((c) => c.endMs).reduce((a, b) => a > b ? a : b);
     final nextGroupStart = startMs < 0 ? 0 : startMs;
     final deltaMs = nextGroupStart - groupStart;
     if (deltaMs == 0) return;
-    final lanes = rows.map((row) => (row['lane'] as int?) ?? 1).toSet().toList()
-      ..sort();
-    final lanePlaceholders = List.filled(lanes.length, '?').join(',');
-    final idPlaceholders = List.filled(selectedIds.length, '?').join(',');
-    db.execute(
-      'UPDATE o_timelineClip '
-      'SET startMs=CASE WHEN startMs + ? < 0 THEN 0 ELSE startMs + ? END '
-      'WHERE scriptId=? AND lane IN ($lanePlaceholders) AND startMs>=? '
-      'AND id NOT IN ($idPlaceholders)',
-      [deltaMs, deltaMs, scriptId, ...lanes, groupEnd, ...selectedIds],
-    );
-    for (final row in rows) {
-      final rowStart = (row['startMs'] as int?) ?? 0;
-      final nextStart = rowStart + deltaMs < 0 ? 0 : rowStart + deltaMs;
-      db.execute(
-        'UPDATE o_timelineClip SET startMs=? WHERE id=?',
-        [nextStart, row['id'] as int],
+    final lanes = selected.map((c) => c.lane).toSet();
+
+    final startWrites = <int, int>{};
+    final durationWrites = <int, int>{};
+    final tailInserts = <({int lane, List<Object?> params})>[];
+
+    // ① 选中成员刚体位移
+    for (final c in selected) {
+      final ns = c.startMs + deltaMs;
+      startWrites[c.id] = ns < 0 ? 0 : ns;
+    }
+    // ② 向后移动时分割让位：每个选中 clip 落点严格在非选中 clip 内部则缩头+出尾
+    //    （单个版既有语义推广到批量，修复"批量移动产生真实重叠"）
+    if (deltaMs < 0) {
+      for (final c in selected) {
+        final ns = startWrites[c.id]!;
+        final split = _computeSplitAt(
+          snapshot: snapshot,
+          lane: c.lane,
+          atMs: ns,
+          tailStartMs: ns + c.durationMs,
+          excludeIds: idSet,
+        );
+        if (split != null && !durationWrites.containsKey(split.spanningId)) {
+          durationWrites[split.spanningId] = split.headDuration;
+          tailInserts.add((lane: c.lane, params: split.tailInsert));
+        }
+      }
+    }
+    // ③ 非选中下游刚体让位（原语义：选中车道 startMs>=groupEnd 平移 delta）
+    for (final c in snapshot) {
+      if (idSet.contains(c.id) || !lanes.contains(c.lane)) continue;
+      if (c.startMs < groupEnd) continue;
+      final ns = c.startMs + deltaMs;
+      startWrites[c.id] = ns < 0 ? 0 : ns;
+    }
+    _batchWriteColumn(db, 'durationMs', durationWrites);
+    _batchWriteColumn(db, 'startMs', startWrites);
+    final normalizeByLane = <int, List<int>>{};
+    for (final ins in tailInserts) {
+      db.execute(_timelineClipInsertSql, ins.params);
+      final tailId = db.lastInsertRowId;
+      final priority = normalizeByLane.putIfAbsent(ins.lane, () => [
+            for (final c in selected)
+              if (c.lane == ins.lane) c.id,
+          ]);
+      priority.add(tailId);
+    }
+    for (final entry in normalizeByLane.entries) {
+      _normalizeTimelineLaneForward(
+        db: db,
+        scriptId: scriptId,
+        lane: entry.key,
+        priorityIds: entry.value,
       );
     }
   }
@@ -527,77 +455,23 @@ extension TimelineClipApi on Engine {
   }
 
   int duplicateTimelineClip(int clipId) {
-    final row = db.select(
-        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
-    if (row == null) {
+    final exists = db
+        .select('SELECT id FROM o_timelineClip WHERE id=?', [clipId])
+        .firstOrNull;
+    if (exists == null) {
       throw const EngineException(errManualInvalid);
     }
-    final scriptId = (row['scriptId'] as int?) ?? 0;
-    final lane = (row['lane'] as int?) ?? 1;
-    final startMs = (row['startMs'] as int?) ?? 0;
-    final durationMs =
-        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-    final resolvedStart = _avoidTimelineOverlapForward(
-      db: db,
-      scriptId: scriptId,
-      lane: lane,
-      startMs: startMs + durationMs,
-      durationMs: durationMs,
-    );
-    db.execute(
-      'INSERT INTO o_timelineClip '
-      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
-      'VALUES (?,?,?,?,?,?,?,?,?)',
-      [
-        row['projectId'],
-        scriptId,
-        row['assetId'],
-        row['name'],
-        row['filePath'],
-        lane,
-        resolvedStart,
-        row['durationMs'],
-        _normalizeTimelineClipOpacity(row['opacity'] as num?),
-      ],
-    );
-    return db.lastInsertRowId;
+    return duplicateTimelineClips([clipId]).single;
   }
 
   int duplicateTimelineClipRipple(int clipId) {
-    final row = db.select(
-        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
-    if (row == null) {
+    final exists = db
+        .select('SELECT id FROM o_timelineClip WHERE id=?', [clipId])
+        .firstOrNull;
+    if (exists == null) {
       throw const EngineException(errManualInvalid);
     }
-    final scriptId = (row['scriptId'] as int?) ?? 0;
-    final lane = (row['lane'] as int?) ?? 1;
-    final startMs = (row['startMs'] as int?) ?? 0;
-    final durationMs =
-        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-    final insertStartMs = startMs + durationMs;
-    db.execute(
-      'UPDATE o_timelineClip '
-      'SET startMs=startMs + ? '
-      'WHERE scriptId=? AND lane=? AND startMs>=?',
-      [durationMs, scriptId, lane, insertStartMs],
-    );
-    db.execute(
-      'INSERT INTO o_timelineClip '
-      '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
-      'VALUES (?,?,?,?,?,?,?,?,?)',
-      [
-        row['projectId'],
-        scriptId,
-        row['assetId'],
-        row['name'],
-        row['filePath'],
-        lane,
-        insertStartMs,
-        row['durationMs'],
-        _normalizeTimelineClipOpacity(row['opacity'] as num?),
-      ],
-    );
-    return db.lastInsertRowId;
+    return duplicateTimelineClipsRipple([clipId]).single;
   }
 
   List<int> duplicateTimelineClips(List<int> clipIds) {
@@ -726,105 +600,49 @@ extension TimelineClipApi on Engine {
 
   void deleteTimelineClipsRipple(List<int> clipIds) {
     if (clipIds.isEmpty) return;
+    final idSet = clipIds.toSet();
     final placeholders = List.filled(clipIds.length, '?').join(',');
-    final selectedRows = db
+    final scriptIds = db
         .select(
-          'SELECT id,scriptId,lane,startMs,durationMs FROM o_timelineClip '
+          'SELECT DISTINCT scriptId FROM o_timelineClip '
           'WHERE id IN ($placeholders)',
           clipIds,
         )
+        .map((r) => (r['scriptId'] as int?) ?? 0)
         .toList();
-    if (selectedRows.isEmpty) return;
-    final selectedIdList = selectedRows.map((row) => row['id'] as int).toList();
-    final scriptIds = selectedRows
-        .map((row) => (row['scriptId'] as int?) ?? 0)
-        .toSet()
-        .toList();
-    final scriptPlaceholders = List.filled(scriptIds.length, '?').join(',');
-    final selectedPlaceholders =
-        List.filled(selectedIdList.length, '?').join(',');
-    final otherRows = db.select(
-      'SELECT id,scriptId,lane,startMs FROM o_timelineClip '
-      'WHERE scriptId IN ($scriptPlaceholders) '
-      'AND id NOT IN ($selectedPlaceholders)',
-      [...scriptIds, ...selectedIdList],
-    ).toList();
-    final updates = <List<Object?>>[];
-    for (final other in otherRows) {
-      final scriptId = (other['scriptId'] as int?) ?? 0;
-      final lane = (other['lane'] as int?) ?? 1;
-      final startMs = (other['startMs'] as int?) ?? 0;
-      var shiftMs = 0;
-      for (final selected in selectedRows) {
-        final selectedScriptId = (selected['scriptId'] as int?) ?? 0;
-        final selectedLane = (selected['lane'] as int?) ?? 1;
-        if (selectedScriptId != scriptId || selectedLane != lane) continue;
-        final selectedStart = (selected['startMs'] as int?) ?? 0;
-        final selectedDuration =
-            (selected['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-        final selectedEnd = selectedStart + selectedDuration;
-        if (startMs >= selectedEnd) shiftMs += selectedDuration;
+    if (scriptIds.isEmpty) return;
+    for (final scriptId in scriptIds) {
+      final snapshot = _snapshotClips(db, scriptId);
+      final selected = snapshot.where((c) => idSet.contains(c.id)).toList();
+      if (selected.isEmpty) continue;
+      final startWrites = <int, int>{};
+      for (final c in snapshot) {
+        if (idSet.contains(c.id)) continue;
+        var shiftMs = 0;
+        for (final s in selected) {
+          if (s.lane != c.lane) continue;
+          if (c.startMs >= s.endMs) shiftMs += s.durationMs;
+        }
+        if (shiftMs <= 0) continue;
+        final ns = c.startMs - shiftMs;
+        startWrites[c.id] = ns < 0 ? 0 : ns;
       }
-      if (shiftMs <= 0) continue;
-      final nextStart = startMs - shiftMs < 0 ? 0 : startMs - shiftMs;
-      updates.add([nextStart, other['id'] as int]);
-    }
-    db.execute(
-      'DELETE FROM o_timelineClip WHERE id IN ($selectedPlaceholders)',
-      selectedIdList,
-    );
-    for (final update in updates) {
-      db.execute('UPDATE o_timelineClip SET startMs=? WHERE id=?', update);
+      final delIds = selected.map((c) => c.id).toList();
+      final delPh = List.filled(delIds.length, '?').join(',');
+      db.execute('DELETE FROM o_timelineClip WHERE id IN ($delPh)', delIds);
+      _batchWriteColumn(db, 'startMs', startWrites);
     }
   }
 
   void deleteTimelineClipRipple(int clipId) {
-    final row = db.select(
-        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
-    if (row == null) return;
-    final scriptId = (row['scriptId'] as int?) ?? 0;
-    final lane = (row['lane'] as int?) ?? 1;
-    final startMs = (row['startMs'] as int?) ?? 0;
-    final durationMs =
-        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-    final endMs = startMs + durationMs;
-    db.execute('DELETE FROM o_timelineClip WHERE id=?', [clipId]);
-    db.execute(
-      'UPDATE o_timelineClip '
-      'SET startMs=CASE WHEN startMs - ? < 0 THEN 0 ELSE startMs - ? END '
-      'WHERE scriptId=? AND lane=? AND startMs>=?',
-      [durationMs, durationMs, scriptId, lane, endMs],
-    );
+    deleteTimelineClipsRipple([clipId]);
   }
 
   void resizeTimelineClipEndRipple({
     required int clipId,
     required int durationMs,
   }) {
-    final row = db.select(
-        'SELECT * FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
-    if (row == null) return;
-    final scriptId = (row['scriptId'] as int?) ?? 0;
-    final lane = (row['lane'] as int?) ?? 1;
-    final startMs = (row['startMs'] as int?) ?? 0;
-    final oldDurationMs =
-        (row['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-    final nextDurationMs = durationMs < _minTimelineClipDurationMs
-        ? _minTimelineClipDurationMs
-        : durationMs;
-    final deltaMs = nextDurationMs - oldDurationMs;
-    final oldEndMs = startMs + oldDurationMs;
-    db.execute('UPDATE o_timelineClip SET durationMs=? WHERE id=?', [
-      nextDurationMs,
-      clipId,
-    ]);
-    if (deltaMs == 0) return;
-    db.execute(
-      'UPDATE o_timelineClip '
-      'SET startMs=CASE WHEN startMs + ? < 0 THEN 0 ELSE startMs + ? END '
-      'WHERE scriptId=? AND lane=? AND startMs>=?',
-      [deltaMs, deltaMs, scriptId, lane, oldEndMs],
-    );
+    resizeTimelineClipsEndRipple(clipIds: [clipId], durationMs: durationMs);
   }
 
   void resizeTimelineClipsEnd({
@@ -832,44 +650,43 @@ extension TimelineClipApi on Engine {
     required int durationMs,
   }) {
     if (clipIds.isEmpty) return;
+    final idSet = clipIds.toSet();
     final nextDurationMs = durationMs < _minTimelineClipDurationMs
         ? _minTimelineClipDurationMs
         : durationMs;
     final placeholders = List.filled(clipIds.length, '?').join(',');
-    final selectedRows = db
+    final scriptIds = db
         .select(
-          'SELECT id,scriptId,lane,startMs FROM o_timelineClip '
+          'SELECT DISTINCT scriptId FROM o_timelineClip '
           'WHERE id IN ($placeholders)',
           clipIds,
         )
+        .map((r) => (r['scriptId'] as int?) ?? 0)
         .toList();
-    if (selectedRows.isEmpty) return;
-    for (final row in selectedRows) {
-      final id = row['id'] as int;
-      final scriptId = (row['scriptId'] as int?) ?? 0;
-      final lane = (row['lane'] as int?) ?? 1;
-      final startMs = (row['startMs'] as int?) ?? 0;
-      var resolvedDurationMs = nextDurationMs;
-      final blockers = db.select(
-        'SELECT startMs FROM o_timelineClip '
-        'WHERE scriptId=? AND lane=? AND id<>? '
-        'AND startMs>? ORDER BY startMs ASC LIMIT 1',
-        [scriptId, lane, id, startMs],
-      );
-      if (blockers.isNotEmpty) {
-        final blockerStart = (blockers.first['startMs'] as int?) ?? startMs;
-        final maxDurationMs = blockerStart - startMs;
-        if (maxDurationMs < resolvedDurationMs) {
-          resolvedDurationMs = maxDurationMs;
+    // 一次快照+内存钳制+一条 CASE 批量写（还原 82a2839 之前的批量语义，消灭 N+1）
+    for (final scriptId in scriptIds) {
+      final snapshot = _snapshotClips(db, scriptId);
+      final durationWrites = <int, int>{};
+      for (final c in snapshot) {
+        if (!idSet.contains(c.id)) continue;
+        var resolved = nextDurationMs;
+        int? blockerStart;
+        for (final other in snapshot) {
+          if (other.id == c.id || other.lane != c.lane) continue;
+          if (other.startMs > c.startMs &&
+              (blockerStart == null || other.startMs < blockerStart)) {
+            blockerStart = other.startMs;
+          }
         }
+        if (blockerStart != null && blockerStart - c.startMs < resolved) {
+          resolved = blockerStart - c.startMs;
+        }
+        if (resolved < _minTimelineClipDurationMs) {
+          resolved = _minTimelineClipDurationMs;
+        }
+        durationWrites[c.id] = resolved;
       }
-      if (resolvedDurationMs < _minTimelineClipDurationMs) {
-        resolvedDurationMs = _minTimelineClipDurationMs;
-      }
-      db.execute(
-        'UPDATE o_timelineClip SET durationMs=? WHERE id=?',
-        [resolvedDurationMs, id],
-      );
+      _batchWriteColumn(db, 'durationMs', durationWrites);
     }
   }
 
@@ -878,65 +695,174 @@ extension TimelineClipApi on Engine {
     required int durationMs,
   }) {
     if (clipIds.isEmpty) return;
+    final idSet = clipIds.toSet();
     final nextDurationMs = durationMs < _minTimelineClipDurationMs
         ? _minTimelineClipDurationMs
         : durationMs;
     final placeholders = List.filled(clipIds.length, '?').join(',');
-    final selectedRows = db
+    final scriptIds = db
         .select(
-          'SELECT id,scriptId,lane,startMs,durationMs FROM o_timelineClip '
+          'SELECT DISTINCT scriptId FROM o_timelineClip '
           'WHERE id IN ($placeholders)',
           clipIds,
         )
+        .map((r) => (r['scriptId'] as int?) ?? 0)
         .toList();
-    if (selectedRows.isEmpty) return;
-    final selectedIdList = selectedRows.map((row) => row['id'] as int).toList();
-    final selectedIds = selectedIdList.toSet();
-    final scriptIds = selectedRows
-        .map((row) => (row['scriptId'] as int?) ?? 0)
-        .toSet()
-        .toList();
-    final scriptPlaceholders = List.filled(scriptIds.length, '?').join(',');
-    final idPlaceholders = List.filled(selectedIds.length, '?').join(',');
-    final otherRows = db.select(
-      'SELECT id,scriptId,lane,startMs FROM o_timelineClip '
-      'WHERE scriptId IN ($scriptPlaceholders) '
-      'AND id NOT IN ($idPlaceholders)',
-      [...scriptIds, ...selectedIds],
-    ).toList();
-    for (final other in otherRows) {
-      final scriptId = (other['scriptId'] as int?) ?? 0;
-      final lane = (other['lane'] as int?) ?? 1;
-      final startMs = (other['startMs'] as int?) ?? 0;
-      var shiftMs = 0;
-      for (final selected in selectedRows) {
-        final selectedScriptId = (selected['scriptId'] as int?) ?? 0;
-        final selectedLane = (selected['lane'] as int?) ?? 1;
-        if (selectedScriptId != scriptId || selectedLane != lane) continue;
-        final selectedStart = (selected['startMs'] as int?) ?? 0;
-        final oldDuration =
-            (selected['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-        final oldEndMs = selectedStart + oldDuration;
-        if (startMs >= oldEndMs) {
-          shiftMs += nextDurationMs - oldDuration;
+    for (final scriptId in scriptIds) {
+      final snapshot = _snapshotClips(db, scriptId);
+      final selected = snapshot.where((c) => idSet.contains(c.id)).toList();
+      if (selected.isEmpty) continue;
+      // 统一位移规则：任何行（含选中成员自身）的位移 =
+      // Σ 同车道其他选中 clip 的 (新时长-旧时长)，其中该 clip 的旧尾 <= 本行起点。
+      // 修复：旧实现只移非选中行，导致选中相邻成员互相重叠。
+      final startWrites = <int, int>{};
+      final durationWrites = <int, int>{};
+      for (final c in snapshot) {
+        var shiftMs = 0;
+        for (final s in selected) {
+          if (s.id == c.id || s.lane != c.lane) continue;
+          if (c.startMs >= s.endMs) {
+            shiftMs += nextDurationMs - s.durationMs;
+          }
+        }
+        if (shiftMs != 0) {
+          final ns = c.startMs + shiftMs;
+          startWrites[c.id] = ns < 0 ? 0 : ns;
         }
       }
-      if (shiftMs == 0) continue;
-      final nextStart = startMs + shiftMs < 0 ? 0 : startMs + shiftMs;
-      db.execute(
-        'UPDATE o_timelineClip SET startMs=? WHERE id=?',
-        [nextStart, other['id'] as int],
-      );
+      for (final s in selected) {
+        durationWrites[s.id] = nextDurationMs;
+      }
+      // 组内终态防重叠（plan §5-4）：按新起点排序顺次后推，只动选中成员。
+      final byLane = <int, List<_ClipSnap>>{};
+      for (final s in selected) {
+        byLane.putIfAbsent(s.lane, () => []).add(s);
+      }
+      for (final laneClips in byLane.values) {
+        laneClips.sort((a, b) {
+          final sa = startWrites[a.id] ?? a.startMs;
+          final sb = startWrites[b.id] ?? b.startMs;
+          return sa != sb ? sa.compareTo(sb) : a.id.compareTo(b.id);
+        });
+        var cursor = -1 << 30;
+        for (final s in laneClips) {
+          var ns = startWrites[s.id] ?? s.startMs;
+          if (ns < cursor) {
+            ns = cursor;
+            startWrites[s.id] = ns;
+          }
+          cursor = ns + nextDurationMs;
+        }
+      }
+      _batchWriteColumn(db, 'startMs', startWrites);
+      _batchWriteColumn(db, 'durationMs', durationWrites);
     }
-    final selectedPlaceholders =
-        List.filled(selectedIdList.length, '?').join(',');
+  }
+}
+
+// ───────────────── 排布引擎共享核心（v0.4 spec §5）─────────────────
+// 设计约束：每个波纹操作①只取一次全量快照②计算全在内存③写库用 CASE 批量语句。
+// 单个操作一律委托批量版（batch-of-1 ≡ singular 由构造保证，等价性测试锁死）。
+
+class _ClipSnap {
+  final int id;
+  final Object? projectId;
+  final int scriptId;
+  final Object? assetId;
+  final Object? name;
+  final Object? filePath;
+  final int lane;
+  int startMs;
+  int durationMs;
+  final Object? opacity;
+  _ClipSnap(Row r)
+      : id = r['id'] as int,
+        projectId = r['projectId'],
+        scriptId = (r['scriptId'] as int?) ?? 0,
+        assetId = r['assetId'],
+        name = r['name'],
+        filePath = r['filePath'],
+        lane = (r['lane'] as int?) ?? 1,
+        startMs = (r['startMs'] as int?) ?? 0,
+        durationMs = (r['durationMs'] as int?) ?? _defaultTimelineClipDurationMs,
+        opacity = r['opacity'];
+  int get endMs => startMs + durationMs;
+}
+
+List<_ClipSnap> _snapshotClips(Database db, int scriptId) => db
+    .select(
+      'SELECT * FROM o_timelineClip WHERE scriptId=? '
+      'ORDER BY lane ASC, startMs ASC, id ASC',
+      [scriptId],
+    )
+    .map(_ClipSnap.new)
+    .toList();
+
+/// 批量绝对值写回：一条 CASE 语句搞定 N 行（分块防超长 SQL）。
+void _batchWriteColumn(
+    Database db, String column, Map<int, int> valueById) {
+  if (valueById.isEmpty) return;
+  final entries = valueById.entries.toList();
+  const chunk = 200;
+  for (var i = 0; i < entries.length; i += chunk) {
+    final part = entries.sublist(
+        i, i + chunk > entries.length ? entries.length : i + chunk);
+    final cases = part.map((_) => 'WHEN ? THEN ?').join(' ');
+    final ids = part.map((e) => e.key).toList();
+    final idPh = List.filled(ids.length, '?').join(',');
     db.execute(
-      'UPDATE o_timelineClip '
-      'SET durationMs=? WHERE id IN ($selectedPlaceholders)',
-      [nextDurationMs, ...selectedIdList],
+      'UPDATE o_timelineClip SET $column=CASE id $cases END '
+      'WHERE id IN ($idPh)',
+      [for (final e in part) ...[e.key, e.value], ...ids],
     );
   }
 }
+
+/// 分割器：目标位置 atMs 严格落在某个非排除 clip 内部时，缩头 + 产出尾段模板。
+/// 返回 (缩头写入的 durationMs 更新, 尾段 INSERT 参数)；不命中返回 null。
+({int spanningId, int headDuration, List<Object?> tailInsert})?
+    _computeSplitAt({
+  required List<_ClipSnap> snapshot,
+  required int lane,
+  required int atMs,
+  required int tailStartMs,
+  required Set<int> excludeIds,
+}) {
+  _ClipSnap? spanning;
+  for (final c in snapshot) {
+    if (c.lane != lane || excludeIds.contains(c.id)) continue;
+    if (c.startMs < atMs && c.endMs > atMs) {
+      if (spanning == null ||
+          c.startMs > spanning.startMs ||
+          (c.startMs == spanning.startMs && c.id > spanning.id)) {
+        spanning = c;
+      }
+    }
+  }
+  if (spanning == null) return null;
+  final headDuration = atMs - spanning.startMs;
+  final tailDuration = spanning.endMs - atMs;
+  if (headDuration <= 0 || tailDuration <= 0) return null;
+  return (
+    spanningId: spanning.id,
+    headDuration: headDuration,
+    tailInsert: [
+      spanning.projectId,
+      spanning.scriptId,
+      spanning.assetId,
+      spanning.name,
+      spanning.filePath,
+      spanning.lane,
+      tailStartMs,
+      tailDuration,
+      _normalizeTimelineClipOpacity(spanning.opacity as num?),
+    ],
+  );
+}
+
+const _timelineClipInsertSql = 'INSERT INTO o_timelineClip '
+    '(projectId,scriptId,assetId,name,filePath,lane,startMs,durationMs,opacity) '
+    'VALUES (?,?,?,?,?,?,?,?,?)';
 
 TimelineClipRow _timelineClipFromRow(Row row) => TimelineClipRow(
       id: row['id'] as int,
@@ -986,40 +912,6 @@ int _avoidTimelineOverlapOnAdd({
       if (!overlaps) continue;
       candidate = candidate < otherStart ? otherStart - durationMs : otherEnd;
       if (candidate < 0) candidate = 0;
-      changed = true;
-      break;
-    }
-  }
-  return candidate;
-}
-
-int _avoidTimelineOverlapForward({
-  required Database db,
-  required int scriptId,
-  required int lane,
-  required int startMs,
-  required int durationMs,
-}) {
-  var candidate = startMs < 0 ? 0 : startMs;
-  final others = db.select(
-    'SELECT startMs,durationMs FROM o_timelineClip '
-    'WHERE scriptId=? AND lane=? ORDER BY startMs ASC, id ASC',
-    [scriptId, lane < 1 ? 1 : lane],
-  ).toList();
-  var changed = true;
-  var guard = 0;
-  while (changed && guard < others.length + 1) {
-    changed = false;
-    guard += 1;
-    for (final other in others) {
-      final otherStart = (other['startMs'] as int?) ?? 0;
-      final otherDuration =
-          (other['durationMs'] as int?) ?? _defaultTimelineClipDurationMs;
-      final otherEnd = otherStart + otherDuration;
-      final candidateEnd = candidate + durationMs;
-      final overlaps = candidate < otherEnd && candidateEnd > otherStart;
-      if (!overlaps) continue;
-      candidate = otherEnd;
       changed = true;
       break;
     }
