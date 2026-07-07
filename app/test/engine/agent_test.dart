@@ -13394,6 +13394,170 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     }
   });
 
+  test('Agent 记忆：queryPlan 支持语义向量查询字段并保留硬过滤词', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.agent_embedding', 'fake:embed'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertIndexedMessage({
+      required String id,
+      required String content,
+      required List<double> vector,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          '',
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+      db.execute(
+        'INSERT OR REPLACE INTO o_memoryVector '
+        '(memoryId,isolationKey,type,provider,model,dimension,vector,updatedAt) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [
+          id,
+          'scriptAgent:$projectId',
+          agentMemoryTypeMessage,
+          'gateway',
+          'agent_embedding',
+          vector.length,
+          jsonEncode(vector),
+          now + offset,
+        ],
+      );
+    }
+
+    insertIndexedMessage(
+      id: 'semantic_vector_plan_filtered',
+      content: '角色设定：陆衡和顾眠之间有不可背弃的师徒契约。',
+      vector: const [1, 0],
+      offset: 1,
+    );
+    insertIndexedMessage(
+      id: 'semantic_vector_plan_keep',
+      content: '角色设定：李澈和沈微之间有不可背弃的师徒契约。',
+      vector: const [1, 0],
+      offset: 0,
+    );
+    insertIndexedMessage(
+      id: 'semantic_vector_plan_noise',
+      content: '场景设定：山门远景云雾遮住日光。',
+      vector: const [0, 1],
+      offset: 2,
+    );
+    gateway.embeddingForText = (input) {
+      if (input.contains('不可背弃') || input.contains('师徒契约')) {
+        return const [1, 0];
+      }
+      return const [0, 1];
+    };
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'semanticQuery': '不可背弃的师徒契约',
+            'mustInclude': ['李澈', '沈微'],
+            'retrievalSource': 'vector_index',
+            'reason': '语义角色约束',
+          },
+        ],
+        'limit': 2,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        '检索计划': [
+          {
+            '向量查询': '不可背弃的师徒契约',
+            '必须包含': ['李澈', '沈微'],
+            '只用向量索引': true,
+            'reason': '语义角色约束',
+          },
+        ],
+        'limit': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '用语义向量查询召回角色契约硬约束',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('semanticQuery'));
+      expect(properties, contains('vectorQuery'));
+      expect(properties, contains('向量查询'));
+      expect(properties, contains('语义查询'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+    expect(gateway.embeddingInputs, contains('不可背弃的师徒契约'));
+
+    for (final message in toolMessages) {
+      final payload = jsonDecode(message.content) as Map<String, dynamic>;
+      expect(payload['found'], isTrue,
+          reason: '${message.toolName}: ${message.content}');
+      final payloadText = jsonEncode(payload);
+      expect(payloadText, contains('semantic_vector_plan_keep'));
+      expect(payloadText, isNot(contains('semantic_vector_plan_filtered')));
+      expect(payloadText, isNot(contains('semantic_vector_plan_noise')));
+      expect(
+        payload['records'],
+        contains(
+          isA<Map>()
+              .having(
+                  (record) => record['id'], 'id', 'semantic_vector_plan_keep')
+              .having((record) => record['retrievalSource'], 'retrievalSource',
+                  'vector_index')
+              .having((record) => record['matchedQuery'], 'matchedQuery',
+                  '不可背弃的师徒契约')
+              .having(
+                  (record) => record['queryReason'], 'queryReason', '语义角色约束'),
+        ),
+      );
+    }
+  });
+
   test('Agent 记忆：queryPlan 可要求同项查询全部命中', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
