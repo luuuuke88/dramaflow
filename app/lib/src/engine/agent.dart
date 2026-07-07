@@ -10703,13 +10703,7 @@ extension AgentApi on Engine {
             hasSummaryRequests = hasSummaryRequests || includeSummaries;
             final excludeIds =
                 _agentMemoryExcludeIds(requestArgs, excludedMemoryIds);
-            final queryExcludeIds = {
-              ...excludeIds,
-              for (final record in relatedMessageRecords) record.id,
-              for (final record in summaryRecords) record.id,
-              for (final record in recentMessageRecords) record.id,
-              for (final record in noteRecords) record.id,
-            };
+            final queryExcludeIds = {...excludeIds};
             final context = includeMessages || includeSummaries
                 ? await memoryService.get(
                     isolationKey: _agentConversationIsolationKey(
