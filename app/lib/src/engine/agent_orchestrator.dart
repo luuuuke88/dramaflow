@@ -282,6 +282,15 @@ const Map<String, dynamic> _scriptContentIdAliasProperties = <String, dynamic>{
 };
 
 const List<String> _scriptWorkspaceDataKeyEnum = <String>[
+  'all',
+  'workspace',
+  'workspaceData',
+  'workspace_data',
+  'full',
+  'everything',
+  '全部',
+  '工作区',
+  '完整工作区',
   'storySkeleton',
   'story_skeleton',
   'story-skeleton',
@@ -333,6 +342,26 @@ const Map<String, dynamic> _scriptWorkspaceDataKeyAliasProperties =
     'type': 'string',
     'enum': _scriptWorkspaceDataKeyEnum,
     'description': 'key 的工作区语义别名。',
+  },
+  'resource': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'key 的资源语义别名。',
+  },
+  'workspace': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'key 的完整工作区语义别名。',
+  },
+  '资源': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'key 的中文资源语义别名。',
+  },
+  '工作区': {
+    'type': 'string',
+    'enum': _scriptWorkspaceDataKeyEnum,
+    'description': 'key 的中文完整工作区语义别名。',
   },
   'data_key': {
     'type': 'string',
@@ -575,6 +604,15 @@ const Map<String, dynamic> _storyboardImageIdListAliasProperties =
 };
 
 const List<String> _flowDataKeyValues = <String>[
+  'all',
+  'workspace',
+  'workspaceData',
+  'workspace_data',
+  'full',
+  'everything',
+  '全部',
+  '工作区',
+  '完整工作区',
   'script',
   'script_content',
   '剧本',
@@ -766,6 +804,21 @@ const Map<String, dynamic> _flowDataReadAliasProperties = <String, dynamic>{
     'type': 'string',
     'enum': _flowDataKeyValues,
     'description': 'key 的资源语义别名。',
+  },
+  'workspace': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': 'key 的完整工作区语义别名。',
+  },
+  '资源': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': 'key 的中文资源语义别名。',
+  },
+  '工作区': {
+    'type': 'string',
+    'enum': _flowDataKeyValues,
+    'description': 'key 的中文完整工作区语义别名。',
   },
   'scriptId': {'type': 'integer'},
   'episodeId': {

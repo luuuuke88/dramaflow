@@ -15035,6 +15035,10 @@ extension AgentApi on Engine {
         'dataKey',
         'flowKey',
         'workspaceKey',
+        'resource',
+        'workspace',
+        '资源',
+        '工作区',
         'data_key',
         'flow_key',
         'workspace_key',
@@ -15062,6 +15066,13 @@ extension AgentApi on Engine {
   String _normalizeScriptAgentPlanDataKey(String key) {
     final raw = key.trim();
     switch (raw) {
+      case '全部':
+      case '所有':
+      case '全量':
+      case '工作区':
+      case '完整工作区':
+      case '全部工作区':
+        return '';
       case '故事骨架':
       case '故事大纲':
         return scriptAgentStorySkeletonKey;
@@ -15080,6 +15091,16 @@ extension AgentApi on Engine {
         .replaceAll(RegExp(r'[\s-]+'), '_')
         .toLowerCase();
     switch (normalized) {
+      case 'all':
+      case 'workspace':
+      case 'workspace_data':
+      case 'workspacedata':
+      case 'all_workspace':
+      case 'full':
+      case 'full_workspace':
+      case 'entire_workspace':
+      case 'everything':
+        return '';
       case 'story_skeleton':
       case 'storyskeleton':
       case 'story_outline':
@@ -15642,6 +15663,9 @@ extension AgentApi on Engine {
         'flow_key',
         'section',
         'resource',
+        'workspace',
+        '资源',
+        '工作区',
       ]),
     );
     final data = _productionAgentWorkspace(projectId, scriptId);
@@ -15656,6 +15680,13 @@ extension AgentApi on Engine {
   String _normalizeProductionAgentFlowDataKey(String key) {
     final raw = key.trim();
     switch (raw) {
+      case '全部':
+      case '所有':
+      case '全量':
+      case '工作区':
+      case '完整工作区':
+      case '全部工作区':
+        return '';
       case '剧本':
       case '剧本内容':
       case '正文':
@@ -15681,6 +15712,16 @@ extension AgentApi on Engine {
         .replaceAll(RegExp(r'[\s-]+'), '_')
         .toLowerCase();
     switch (normalized) {
+      case 'all':
+      case 'workspace':
+      case 'workspace_data':
+      case 'workspacedata':
+      case 'all_workspace':
+      case 'full':
+      case 'full_workspace':
+      case 'entire_workspace':
+      case 'everything':
+        return '';
       case 'script':
       case 'scripts':
       case 'script_content':

@@ -21490,6 +21490,50 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('剧本执行工具调用接受完整工作区别名读取全部上下文', () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'request': '生成寒山篇故事骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+    ];
+    await engine.sendAgentMessage(projectId, '先生成故事骨架', autoMode: false);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_adaptationStrategy',
+        const {'request': '读取完整工作区'},
+      ),
+      AgentTurnResult.tool(
+        'get_planData',
+        const {'key': 'workspace'},
+      ),
+      const AgentTurnResult.text(
+        '<adaptationStrategy>完整工作区读取完成</adaptationStrategy>',
+      ),
+    ];
+    await engine.sendAgentMessage(
+      projectId,
+      '读取完整工作区写改编策略',
+      autoMode: false,
+    );
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    final toolAudit = rows.singleWhere(
+      (row) =>
+          row['role'] == 'assistant:execution:adaptationStrategy:tool' &&
+          (row['content'] as String).contains('get_planData'),
+    );
+    expect(toolAudit['content'], contains('storySkeleton'));
+    expect(toolAudit['content'], contains('寒山篇三集骨架'));
+    expect(toolAudit['content'], isNot(contains('无数据')));
+  });
+
   test('Agent tool list honors custom skill attribution by decision stage',
       () async {
     engine.saveCustomAgentSkill(
@@ -22180,6 +22224,10 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'dataKey',
         'flowKey',
         'workspaceKey',
+        'resource',
+        'workspace',
+        '资源',
+        '工作区',
         'data_key',
         'flow_key',
         'workspace_key',
@@ -22191,7 +22239,15 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
     expect(
       ((planProperties['key'] as Map)['enum'] as List),
-      containsAll(['故事骨架', '改编策略', '剧本内容']),
+      containsAll([
+        '故事骨架',
+        '改编策略',
+        '剧本内容',
+        'all',
+        'workspace',
+        '全部',
+        '工作区',
+      ]),
     );
     expect(planTool.schema['required'], isNull);
 
@@ -22491,6 +22547,9 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'flow_key',
         'section',
         'resource',
+        'workspace',
+        '资源',
+        '工作区',
         'scriptId',
         'episodeId',
         'episodesId',
@@ -22525,7 +22584,16 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
     expect(
       ((properties['key'] as Map)['enum'] as List),
-      containsAll(['script_plan', 'storyboard_table', '导演计划', '分镜表']),
+      containsAll([
+        'script_plan',
+        'storyboard_table',
+        '导演计划',
+        '分镜表',
+        'all',
+        'workspace',
+        '全部',
+        '工作区',
+      ]),
     );
     expect(tool.schema['required'], isNull);
   });
@@ -22803,6 +22871,59 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
     expect(directorPlanToolAudit['content'], contains('|镜头|内容|'));
     expect(directorPlanToolAudit['content'], isNot(contains('无数据')));
+  });
+
+  test('制作执行工具调用接受完整工作区别名读取全部上下文', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'request': '先写导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<scriptPlan>第一集冷色调快节奏</scriptPlan>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：写导演计划',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_table',
+        {'request': '读取完整制作工作区', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.tool(
+        'get_flowData',
+        {'resource': '全部'},
+      ),
+      const AgentTurnResult.text('<storyboardTable>|镜头|内容|</storyboardTable>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：读取完整工作区',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['productionAgent:$projectId', 'message'],
+    );
+    final toolAudit = rows.singleWhere(
+      (row) =>
+          row['role'] == 'assistant:execution:storyboardTable:tool' &&
+          (row['content'] as String).contains('get_flowData'),
+    );
+    expect(toolAudit['content'], contains('scriptPlan'));
+    expect(toolAudit['content'], contains('第一集冷色调快节奏'));
+    expect(toolAudit['content'], contains('李澈入山'));
+    expect(toolAudit['content'], isNot(contains('无数据')));
   });
 
   test('制作执行工具调用接受衍生资产写入字段别名', () async {
