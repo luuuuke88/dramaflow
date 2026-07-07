@@ -572,8 +572,10 @@ class AgentMemoryService {
           )
         : const <(int, AgentMemoryEntry)>[];
     final noteMatches = allowNotes && noteIsolationKey != null
-        ? [
-            for (final item in _filterRankedEntries(
+        ? await _relatedNotesForQuery(
+            query: keyword,
+            settings: settings,
+            rankedNotes: _filterRankedEntries(
               rankedNotes,
               roleFilter,
               typeFilter,
@@ -581,9 +583,10 @@ class AgentMemoryService {
               excludedRoleFilter,
               excludedRoleSuffixFilter,
               scoreThreshold,
-            ).take(settings.ragLimit))
-              item.$2,
-          ]
+            ).toList(),
+            rerankEnabled: useRerank,
+            cancelToken: cancelToken,
+          )
         : const <AgentMemoryEntry>[];
     List<AgentMemoryEntry> withNotes(List<AgentMemoryEntry> entries) =>
         noteMatches.isEmpty ? entries : [...noteMatches, ...entries];
@@ -917,6 +920,27 @@ class AgentMemoryService {
 
   int _rerankCandidateLimit(AgentMemorySettings settings) =>
       (settings.ragLimit * 3).clamp(settings.ragLimit, 20).toInt();
+
+  Future<List<AgentMemoryEntry>> _relatedNotesForQuery({
+    required String query,
+    required AgentMemorySettings settings,
+    required List<(int, AgentMemoryEntry)> rankedNotes,
+    required bool rerankEnabled,
+    CancelToken? cancelToken,
+  }) async {
+    if (settings.ragLimit <= 0 || rankedNotes.isEmpty) return const [];
+    final localRelated = [for (final item in rankedNotes) item.$2];
+    if (!rerankEnabled) {
+      return localRelated.take(settings.ragLimit).toList();
+    }
+    final candidateLimit = _rerankCandidateLimit(settings);
+    final reranked = await _llmRerankNotes(
+      query: query,
+      candidates: localRelated.take(candidateLimit).toList(),
+      cancelToken: cancelToken,
+    );
+    return (reranked ?? localRelated).take(settings.ragLimit).toList();
+  }
 
   Future<AgentMemoryEntry> _entryWithProviderEmbedding(
     AgentMemoryEntry entry, {
@@ -1610,6 +1634,49 @@ class AgentMemoryService {
             jsonEncode({
               'id': candidate.id,
               'role': candidate.role,
+              'content': candidate.content,
+            }),
+        ].join('\n'),
+        stage: summaryStage,
+        cancelToken: cancelToken,
+      );
+      final selection = _parseSelectedMemoryIds(result.content, candidates);
+      if (selection == null) return null;
+      if (selection.ids.isEmpty) return const [];
+      final byId = {
+        for (final candidate in candidates) candidate.id: candidate
+      };
+      return [
+        for (final id in selection.ids)
+          if (byId[id] != null)
+            byId[id]!.copyWith(
+              relevanceReason: selection.reasons[id],
+            ),
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<AgentMemoryEntry>?> _llmRerankNotes({
+    required String query,
+    required List<AgentMemoryEntry> candidates,
+    CancelToken? cancelToken,
+  }) async {
+    if (candidates.isEmpty) return const [];
+    try {
+      final result = await gateway.generateText(
+        '你是短剧 Agent 的长期记忆 RAG 重排器。'
+        '请从候选长期 note 记忆中选择与当前问题真正相关的 memory id，按相关性从高到低排序。'
+        '只返回 JSON 字符串数组，例如 ["mem_1"]；不相关则返回 []。',
+        [
+          '当前问题：$query',
+          '',
+          '候选长期记忆：',
+          for (final candidate in candidates)
+            jsonEncode({
+              'id': candidate.id,
+              'name': candidate.name,
               'content': candidate.content,
             }),
         ].join('\n'),

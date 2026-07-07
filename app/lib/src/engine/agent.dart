@@ -11146,6 +11146,7 @@ extension AgentApi on Engine {
                 excludeIds: noteExcludeIds,
                 minScore: minScore,
                 timeRange: timeRange,
+                rerankEnabled: rerankEnabled,
                 noteIsolationKey: _agentMemoryIsolationKey(projectId),
               );
               final limitedNotes = _limitAgentMemoryEntries(

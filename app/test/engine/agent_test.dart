@@ -12141,6 +12141,86 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(jsonEncode(payload), isNot(contains('query_plan_rerank_noise')));
   });
 
+  test('Agent 记忆：memory_get queryPlan 可对长期 note 开启模型重排', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.rerankEnabled', '0'],
+    );
+    final keepId = engine.saveAgentMemory(
+      projectId,
+      id: 'note_query_plan_rerank_keep',
+      name: '角色底线',
+      content: '长期设定：用户明确要求李澈保持正派，不能被写成反派。',
+    );
+    engine.saveAgentMemory(
+      projectId,
+      id: 'note_query_plan_rerank_noise',
+      name: '山门匾额',
+      content: '长期噪声：李澈正派约束 李澈正派约束 李澈正派约束 是匾额临时文案，不是角色底线。',
+    );
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '李澈正派约束',
+            'scope': 'long_term',
+            'rerank': true,
+            'reason': '长期设定判别',
+          },
+        ],
+        'limit': 1,
+      }),
+    ];
+    gateway.textResults = const [
+      TextResult(
+        '[{"memory_id":"note_query_plan_rerank_keep","reason":"长期记忆明确记录角色立场"}]',
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按模型重排找李澈长期设定',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    expect(gateway.textCallCount, 1);
+    expect(gateway.textStages, ['scriptAgent:decisionAgent']);
+
+    final toolMessage = engine
+        .agentMessages(projectId)
+        .singleWhere((message) => message.role == agentRoleTool);
+    final payload = jsonDecode(toolMessage.content) as Map<String, dynamic>;
+    expect(payload['found'], isTrue);
+    expect(payload['notes'], [
+      '长期设定：用户明确要求李澈保持正派，不能被写成反派。',
+    ]);
+    expect(
+      payload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id', keepId)
+            .having((record) => record['scope'], 'scope', 'long_term')
+            .having(
+              (record) => record['queryReason'],
+              'queryReason',
+              '长期设定判别',
+            )
+            .having(
+              (record) => record['relevanceReason'],
+              'relevanceReason',
+              '长期记忆明确记录角色立场',
+            ),
+      ),
+    );
+    expect(
+        jsonEncode(payload), isNot(contains('note_query_plan_rerank_noise')));
+  });
+
   test('Agent 记忆：deepRetrieve queryPlan 可按计划项开启模型重排', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
