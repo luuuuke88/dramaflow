@@ -184,6 +184,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ToonFlow-s
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ScriptAgent sub Agent failure stops in auto mode, so an execution/supervision sub Agent that returns no writable output is surfaced to the user and cannot be followed by an automatic supervision call or decision-layer takeover.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers ProductionAgent sub Agent failures using ToonFlow's bounded retry semantics: an execution sub Agent may be retried twice, but the third failed attempt stops auto scheduling before the decision layer can advance to a later production stage.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` exposing and accepting natural query aliases (`query`, `question`, `text`, `prompt`) in addition to `keyword`, so decision Agents handling vague "continue / next step / recall" prompts can call RAG tools with the parameter names models commonly emit.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` exposing and accepting common RAG count aliases such as `topK`, `top_k`, and `maxResults` in addition to `limit`, so decision/sub Agents can cap recalled memory with the parameter names models commonly emit.

@@ -23581,6 +23581,59 @@ description: 只属于水墨视觉项目
     expect(toolAudit['content'], contains('李澈入山'));
   });
 
+  test('ProductionAgent 子 Agent 失败最多重试两次后停止自动调度', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '李澈入山');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '做第一集导演计划', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('   '),
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '修正后重试导演计划，补足镜头调度', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('   '),
+      AgentTurnResult.tool(
+        'run_sub_agent_director_plan',
+        {'prompt': '第二次重试导演计划，只输出 scriptPlan', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('   '),
+      AgentTurnResult.tool(
+        'run_sub_agent_storyboard_table',
+        {'prompt': '不应在导演计划失败后继续分镜表', 'scriptId': scriptId},
+      ),
+      const AgentTurnResult.text('<storyboardTable>不应写入</storyboardTable>'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '制作画布：自动重试导演计划',
+      autoMode: true,
+      family: agentFamilyProduction,
+    );
+
+    expect(gateway.stages, [
+      'productionAgent:decisionAgent',
+      'productionAgent:directorPlanAgent',
+      'productionAgent:decisionAgent',
+      'productionAgent:directorPlanAgent',
+      'productionAgent:decisionAgent',
+      'productionAgent:directorPlanAgent',
+    ]);
+    final messages =
+        engine.agentMessages(projectId, family: agentFamilyProduction);
+    expect(
+      messages.where(
+          (message) => message.toolName == 'run_sub_agent_storyboard_table'),
+      isEmpty,
+    );
+    expect(messages.last.role, agentRoleAssistant);
+    expect(messages.last.content, contains('最多重试 2 次'));
+    expect(messages.last.content, contains('导演计划 Agent 未返回可写入内容'));
+  });
+
   test(
       'ProductionAgentOrchestrator writes director plan storyboard table and storyboard panel',
       () async {

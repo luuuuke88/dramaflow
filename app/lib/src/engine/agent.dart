@@ -36,6 +36,7 @@ const agentRoleTool = 'tool';
 
 const _maxAutoTurns = 5;
 const _maxConsecutiveAutoToolCalls = 3;
+const _maxProductionSubAgentRetries = 2;
 const _agentMemoryRole = 'agent';
 const _agentMemoryType = 'note';
 const _agentDecisionMemoryRole = 'assistant:decision';
@@ -10494,6 +10495,7 @@ extension AgentApi on Engine {
       family: agentFamily,
     );
     final executedToolSignatures = <String>{};
+    final productionSubAgentFailureCounts = <String, int>{};
     String? lastAutoToolName;
     var consecutiveAutoToolCalls = 0;
 
@@ -10708,6 +10710,36 @@ extension AgentApi on Engine {
         );
         return;
       }
+      if (_isProductionAgentSubAgentTool(toolName)) {
+        if (_isProductionAgentSubAgentFailure(
+          agentFamily: agentFamily,
+          toolName: toolName,
+          summary: summary,
+        )) {
+          final failureCount =
+              (productionSubAgentFailureCounts[toolName] ?? 0) + 1;
+          productionSubAgentFailureCounts[toolName] = failureCount;
+          if (failureCount > _maxProductionSubAgentRetries) {
+            final content = '生产子 Agent 执行失败：$summary '
+                '已达到最多重试 $_maxProductionSubAgentRetries 次，当前阶段已停止，请调整后重试。';
+            messages.add(AgentMessage(
+              role: agentRoleAssistant,
+              content: content,
+              createdAt: DateTime.now().millisecondsSinceEpoch,
+            ));
+            _saveAgentMessages(projectId, messages, family: agentFamily);
+            await _recordAgentMemory(
+              projectId,
+              family: agentFamily,
+              role: _agentDecisionMemoryRole,
+              content: content,
+            );
+            return;
+          }
+        } else {
+          productionSubAgentFailureCounts.remove(toolName);
+        }
+      }
     }
   }
 
@@ -10718,18 +10750,33 @@ extension AgentApi on Engine {
   }) {
     if (agentFamily != _scriptAgentFamily) return false;
     if (!_isScriptAgentSubAgentTool(toolName)) return false;
-    return _isScriptAgentSubAgentFailureSummary(summary);
+    return _isAgentSubAgentFailureSummary(summary);
+  }
+
+  bool _isProductionAgentSubAgentFailure({
+    required String agentFamily,
+    required String toolName,
+    required String summary,
+  }) {
+    if (agentFamily != _productionAgentFamily) return false;
+    if (!_isProductionAgentSubAgentTool(toolName)) return false;
+    return _isAgentSubAgentFailureSummary(summary);
   }
 
   bool _isScriptAgentSubAgentTool(String toolName) =>
       toolName.startsWith('run_sub_agent_') ||
       toolName == 'run_supervision_agent';
 
-  bool _isScriptAgentSubAgentFailureSummary(String summary) {
+  bool _isProductionAgentSubAgentTool(String toolName) =>
+      toolName.startsWith('run_sub_agent_');
+
+  bool _isAgentSubAgentFailureSummary(String summary) {
     final text = summary.trim();
     if (text.isEmpty) return true;
     return text.contains('未返回可写入内容') ||
         text.contains('未输出 scriptItem') ||
+        text.contains('未输出 storyboardItem') ||
+        text.contains('缺少 scriptId 参数') ||
         text.contains('不支持嵌套调用') ||
         text.startsWith('执行失败') ||
         text.contains('执行失败：') ||
