@@ -107,6 +107,7 @@ class _AgentMemoryQueryRequest {
   final bool fallbackWhenPreviousEmpty;
   final String? queryGroup;
   final bool matchAll;
+  final bool matchNone;
 
   const _AgentMemoryQueryRequest({
     required this.query,
@@ -118,6 +119,7 @@ class _AgentMemoryQueryRequest {
     this.fallbackWhenPreviousEmpty = false,
     this.queryGroup,
     this.matchAll = false,
+    this.matchNone = false,
   });
 }
 
@@ -12507,6 +12509,9 @@ extension AgentApi on Engine {
               continue;
             }
             final requestArgs = request.args;
+            if (request.matchNone) {
+              continue;
+            }
             void mergeRecordQueryMatch(AgentMemoryEntry record) {
               recordPriorities[record.id] = math.max(
                 recordPriorities[record.id] ?? request.priority,
@@ -12885,6 +12890,9 @@ extension AgentApi on Engine {
               continue;
             }
             final requestArgs = request.args;
+            if (request.matchNone) {
+              continue;
+            }
             final roles = _agentMemoryRoles(requestArgs);
             final requestedExcludeRoles = _agentMemoryExcludeRoles(requestArgs);
             final excludeRoles = {
@@ -14464,6 +14472,7 @@ extension AgentApi on Engine {
       bool fallbackWhenPreviousEmpty = false,
       String? queryGroup,
       bool matchAll = false,
+      bool matchNone = false,
     }) {
       final trimmed = query.trim();
       if (trimmed.isEmpty) return;
@@ -14482,6 +14491,7 @@ extension AgentApi on Engine {
           fallbackWhenPreviousEmpty: fallbackWhenPreviousEmpty,
           queryGroup: queryGroup,
           matchAll: matchAll,
+          matchNone: matchNone,
         ),
       );
     }
@@ -14738,6 +14748,15 @@ extension AgentApi on Engine {
         }
         if (requests.length == requestCountBeforeNode) {
           if (_agentMemoryPlanContainsMatchNone(map)) {
+            addRequest(
+              'match_none',
+              nodeArgs,
+              limit: nodeLimit,
+              priority: nodePriority,
+              fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+              queryGroup: nodeQueryGroup,
+              matchNone: true,
+            );
             return;
           }
           if (_agentMemoryPlanContainsMatchAll(map)) {
