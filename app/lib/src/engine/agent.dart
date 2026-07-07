@@ -574,6 +574,11 @@ const _agentMemorySortToolSchema = {
     'type': 'string',
     'description': 'orderBy 的简写别名。',
   },
+  'sort': {
+    'type': ['array', 'object', 'string'],
+    'description':
+        '可选。Elasticsearch sort 排序；支持 [{createTime:"desc"}] 或 {created_at:{order:"asc"}}。',
+  },
   '排序': {
     'type': 'string',
     'description': 'orderBy 的中文别名，可用相关性、最新、最旧、时间顺序。',
@@ -16570,6 +16575,8 @@ extension AgentApi on Engine {
     if (explicitRaw != null && explicitRaw.toString().trim().isNotEmpty) {
       return 'relevance';
     }
+    final esSortMode = _coerceAgentMemoryEsSortMode(args['sort']);
+    if (esSortMode != null) return esSortMode;
     for (final value in _agentMemoryQueryPlanSortModeValues(args)) {
       final planMode = _coerceAgentMemorySortMode(value);
       if (planMode != null) return planMode;
@@ -16589,7 +16596,94 @@ extension AgentApi on Engine {
     if (explicitRaw != null && explicitRaw.toString().trim().isNotEmpty) {
       return 'relevance';
     }
+    return _coerceAgentMemoryEsSortMode(args['sort']);
+  }
+
+  String? _coerceAgentMemoryEsSortMode(Object? raw) {
+    if (raw == null) return null;
+    if (raw is String) return _coerceAgentMemorySortMode(raw);
+    if (raw is Iterable && raw is! String) {
+      for (final item in raw) {
+        final mode = _coerceAgentMemoryEsSortMode(item);
+        if (mode != null) return mode;
+      }
+      return null;
+    }
+    if (raw is! Map) return null;
+    final map = <String, dynamic>{
+      for (final entry in raw.entries)
+        if (entry.key is String) (entry.key as String): entry.value,
+    };
+    final explicitField =
+        (map['field'] ?? map['path'] ?? map['key'] ?? map['字段'] ?? map['字段名'])
+            ?.toString()
+            .trim();
+    if (explicitField != null && explicitField.isNotEmpty) {
+      return _coerceAgentMemoryEsSortFieldMode(
+        explicitField,
+        map['order'] ??
+            map['sortOrder'] ??
+            map['direction'] ??
+            map['dir'] ??
+            map['排序方向'],
+      );
+    }
+    for (final entry in map.entries) {
+      final mode = _coerceAgentMemoryEsSortFieldMode(
+        entry.key,
+        entry.value,
+      );
+      if (mode != null) return mode;
+    }
     return null;
+  }
+
+  String? _coerceAgentMemoryEsSortFieldMode(String field, Object? rawOrder) {
+    final normalizedField = _normalizeAgentMemoryFilterFieldKey(field);
+    if (!_agentMemoryIsTimeSortField(normalizedField)) {
+      if (_agentMemoryIsRelevanceSortField(normalizedField)) {
+        return 'relevance';
+      }
+      return null;
+    }
+    final raw = rawOrder is Map
+        ? rawOrder['order'] ??
+            rawOrder['sortOrder'] ??
+            rawOrder['direction'] ??
+            rawOrder['dir'] ??
+            rawOrder['排序方向']
+        : rawOrder;
+    return _coerceAgentMemorySortMode(raw);
+  }
+
+  bool _agentMemoryIsTimeSortField(String normalizedField) {
+    switch (normalizedField) {
+      case 'createtime':
+      case 'createdat':
+      case 'created':
+      case 'timestamp':
+      case 'time':
+      case '时间':
+      case '创建时间':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool _agentMemoryIsRelevanceSortField(String normalizedField) {
+    switch (normalizedField) {
+      case 'score':
+      case '_score':
+      case 'relevance':
+      case 'rank':
+      case 'ranking':
+      case '相关性':
+      case '分数':
+        return true;
+      default:
+        return false;
+    }
   }
 
   List<Object?> _agentMemoryQueryPlanSortModeValues(

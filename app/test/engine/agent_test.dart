@@ -18520,6 +18520,144 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     ]);
   });
 
+  test('Agent 记忆：queryPlan 支持 ES sort 时间排序', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_es_sort_get_old',
+      content: 'es_sort_get：第一版冷月门记录。',
+      offset: 1,
+      role: 'assistant:es-sort:get',
+    );
+    insertMessage(
+      id: 'query_plan_es_sort_get_new',
+      content: 'es_sort_get：第二版冷月门记录。',
+      offset: 2,
+      role: 'assistant:es-sort:get',
+    );
+    insertMessage(
+      id: 'query_plan_es_sort_deep_old',
+      content: 'es_sort_deep：第一版蓝焰桥记录。',
+      offset: 3,
+      role: 'assistant:es-sort:deep',
+    );
+    insertMessage(
+      id: 'query_plan_es_sort_deep_new',
+      content: 'es_sort_deep：第二版蓝焰桥记录。',
+      offset: 4,
+      role: 'assistant:es-sort:deep',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'match': {'content': 'es_sort_get'}
+            },
+            'term': {'role': 'assistant:es-sort:get'},
+            'sort': [
+              {'createTime': 'desc'},
+            ],
+          },
+        ],
+        'limit': 2,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'match': {'content': 'es_sort_deep'}
+            },
+            'term': {'role': 'assistant:es-sort:deep'},
+            'sort': {
+              'created_at': {'order': 'asc'},
+            },
+          },
+        ],
+        'limit': 2,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES sort 时间排序查记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('sort'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_es_sort_get_new', 'query_plan_es_sort_get_old'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_es_sort_deep_old', 'query_plan_es_sort_deep_new'],
+    );
+  });
+
   test('Agent 记忆：结构化查询计划多项排序互不串味', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
