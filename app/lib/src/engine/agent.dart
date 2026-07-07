@@ -1076,6 +1076,35 @@ final _tools = <AgentToolDef>[
           'type': 'string',
           'description': 'recordId 的 snake_case 别名。',
         },
+        'record': {
+          'type': 'object',
+          'description':
+              '可选。memory_get/deepRetrieve 返回的 records 单项；会从 id/memoryId/noteId 中抽取记忆 id。',
+        },
+        'records': {
+          'type': 'array',
+          'items': {'type': 'object'},
+          'description':
+              '可选。memory_get/deepRetrieve 返回的 records 数组；会使用第一条可识别的记忆 id。',
+        },
+        'memoryRecord': {
+          'type': 'object',
+          'description': 'record 的语义化别名。',
+        },
+        'memoryRecords': {
+          'type': 'array',
+          'items': {'type': 'object'},
+          'description': 'records 的语义化别名。',
+        },
+        'memory_record': {
+          'type': 'object',
+          'description': 'memoryRecord 的 snake_case 别名。',
+        },
+        'memory_records': {
+          'type': 'array',
+          'items': {'type': 'object'},
+          'description': 'memoryRecords 的 snake_case 别名。',
+        },
         'noteId': {
           'type': 'string',
           'description': 'memoryId 的长期 note id 别名。',
@@ -1181,6 +1210,35 @@ final _tools = <AgentToolDef>[
         'record_id': {
           'type': 'string',
           'description': 'recordId 的 snake_case 别名。',
+        },
+        'record': {
+          'type': 'object',
+          'description':
+              '可选。memory_get/deepRetrieve 返回的 records 单项；会从 id/memoryId/noteId 中抽取记忆 id。',
+        },
+        'records': {
+          'type': 'array',
+          'items': {'type': 'object'},
+          'description':
+              '可选。memory_get/deepRetrieve 返回的 records 数组；会使用第一条可识别的记忆 id。',
+        },
+        'memoryRecord': {
+          'type': 'object',
+          'description': 'record 的语义化别名。',
+        },
+        'memoryRecords': {
+          'type': 'array',
+          'items': {'type': 'object'},
+          'description': 'records 的语义化别名。',
+        },
+        'memory_record': {
+          'type': 'object',
+          'description': 'memoryRecord 的 snake_case 别名。',
+        },
+        'memory_records': {
+          'type': 'array',
+          'items': {'type': 'object'},
+          'description': 'memoryRecords 的 snake_case 别名。',
         },
         'noteId': {
           'type': 'string',
@@ -15129,6 +15187,23 @@ extension AgentApi on Engine {
       final value = (args[key] ?? '').toString().trim();
       if (value.isNotEmpty) return value;
     }
+    final recordIds = _coerceMemoryIdSetAny(args, const [
+      'record',
+      'records',
+      'memoryRecord',
+      'memoryRecords',
+      'memory_record',
+      'memory_records',
+      'noteRecord',
+      'noteRecords',
+      'note_record',
+      'note_records',
+      '记忆记录',
+      '记忆记录列表',
+      '记录',
+      '记录列表',
+    ]);
+    if (recordIds != null && recordIds.isNotEmpty) return recordIds.first;
     return '';
   }
 
