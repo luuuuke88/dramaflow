@@ -546,6 +546,58 @@ const _agentMemoryQueryPlanToolSchema = {
     'description': 'searchPlan 的中文别名。',
   },
 };
+const _agentMemoryRetrievalSourceToolSchema = {
+  'retrievalSource': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': '可选。只接受指定召回来源的记录；vector_index 表示必须来自 o_memoryVector 向量索引。',
+  },
+  'retrievalSources': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'retrievalSource 的数组别名。',
+  },
+  'retrieval_source': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'retrievalSource 的 snake_case 别名。',
+  },
+  'retrieval_sources': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'retrievalSources 的 snake_case 别名。',
+  },
+  '检索来源': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'retrievalSource 的中文别名，可用 向量索引。',
+  },
+  '召回来源': {
+    'type': ['array', 'string'],
+    'items': {'type': 'string'},
+    'description': 'retrievalSource 的中文语义别名。',
+  },
+  'onlyVectorIndex': {
+    'type': 'boolean',
+    'description': '可选。为 true 时只接受 o_memoryVector 向量索引命中的记录。',
+  },
+  'vectorOnly': {
+    'type': 'boolean',
+    'description': 'onlyVectorIndex 的简写别名。',
+  },
+  'requireVectorIndex': {
+    'type': 'boolean',
+    'description': 'onlyVectorIndex 的 require 语义别名。',
+  },
+  '只用向量索引': {
+    'type': 'boolean',
+    'description': 'onlyVectorIndex 的中文别名。',
+  },
+  '仅向量索引': {
+    'type': 'boolean',
+    'description': 'onlyVectorIndex 的中文简写别名。',
+  },
+};
 const _agentMemoryContentFilterToolSchema = {
   'mustInclude': {
     'type': ['array', 'string'],
@@ -890,6 +942,7 @@ final _tools = <AgentToolDef>[
         },
         ..._agentMemoryQueryPlanToolSchema,
         ..._agentMemoryContentFilterToolSchema,
+        ..._agentMemoryRetrievalSourceToolSchema,
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -1490,6 +1543,7 @@ final _tools = <AgentToolDef>[
         },
         ..._agentMemoryQueryPlanToolSchema,
         ..._agentMemoryContentFilterToolSchema,
+        ..._agentMemoryRetrievalSourceToolSchema,
         'limit': {
           'type': 'integer',
           'minimum': 1,
@@ -13475,19 +13529,114 @@ extension AgentApi on Engine {
   ) {
     final requiredTerms = _agentMemoryRequiredContentTerms(args);
     final excludedTerms = _agentMemoryExcludedContentTerms(args);
-    if (requiredTerms.isEmpty && excludedTerms.isEmpty) {
-      return entries.toList();
-    }
+    final contentFiltered = requiredTerms.isEmpty && excludedTerms.isEmpty
+        ? entries.toList()
+        : [
+            for (final entry in entries)
+              if (_matchesAgentMemoryContentTerms(
+                entry,
+                requiredTerms: requiredTerms,
+                excludedTerms: excludedTerms,
+              ))
+                entry,
+          ];
+    return _filterAgentMemoryEntriesByRetrievalSource(contentFiltered, args);
+  }
+
+  List<AgentMemoryEntry> _filterAgentMemoryEntriesByRetrievalSource(
+    Iterable<AgentMemoryEntry> entries,
+    Map<String, dynamic> args,
+  ) {
+    final requiredSources = _agentMemoryRequiredRetrievalSources(args);
+    if (requiredSources.isEmpty) return entries.toList();
     return [
       for (final entry in entries)
-        if (_matchesAgentMemoryContentTerms(
-          entry,
-          requiredTerms: requiredTerms,
-          excludedTerms: excludedTerms,
-        ))
+        if (entry.retrievalSource != null &&
+            requiredSources.contains(entry.retrievalSource))
           entry,
     ];
   }
+
+  Set<String> _agentMemoryRequiredRetrievalSources(
+    Map<String, dynamic> args,
+  ) {
+    final values = <String>{};
+
+    void add(Object? raw) {
+      final items = _coerceStringSet(raw);
+      if (items == null) return;
+      for (final item in items) {
+        final normalized = _normalizeAgentMemoryRetrievalSource(item);
+        if (normalized != null) values.add(normalized);
+      }
+    }
+
+    final onlyVectorIndex = _coerceBool(args['onlyVectorIndex'] ??
+        args['vectorOnly'] ??
+        args['requireVectorIndex'] ??
+        args['only_vector_index'] ??
+        args['vector_only'] ??
+        args['require_vector_index'] ??
+        args['只用向量索引'] ??
+        args['仅向量索引']);
+    if (onlyVectorIndex == true) values.add('vector_index');
+    add(args['retrievalSource'] ??
+        args['retrievalSources'] ??
+        args['retrieval_source'] ??
+        args['retrieval_sources'] ??
+        args['检索来源'] ??
+        args['召回来源']);
+    for (final value in _agentMemoryQueryPlanRetrievalSourceValues(args)) {
+      add(value);
+    }
+    return values;
+  }
+
+  String? _normalizeAgentMemoryRetrievalSource(String raw) {
+    final value = raw.trim().toLowerCase();
+    switch (value) {
+      case 'vector_index':
+      case 'vector-index':
+      case 'vector index':
+      case 'indexed_vector':
+      case 'indexed-vector':
+      case 'indexed vector':
+      case 'memory_vector':
+      case 'memory-vector':
+      case 'memory vector':
+      case 'omemoryvector':
+      case 'o_memoryvector':
+      case 'o_memory_vector':
+      case 'indexed':
+      case 'vector':
+      case '向量索引':
+      case '索引':
+      case '向量':
+        return 'vector_index';
+      default:
+        return value.isEmpty ? null : value;
+    }
+  }
+
+  List<Object?> _agentMemoryQueryPlanRetrievalSourceValues(
+    Map<String, dynamic> args,
+  ) =>
+      _agentMemoryQueryPlanFilterValues(args, const [
+        'retrievalSource',
+        'retrievalSources',
+        'retrieval_source',
+        'retrieval_sources',
+        '检索来源',
+        '召回来源',
+        'onlyVectorIndex',
+        'vectorOnly',
+        'requireVectorIndex',
+        'only_vector_index',
+        'vector_only',
+        'require_vector_index',
+        '只用向量索引',
+        '仅向量索引',
+      ]);
 
   List<String> _agentMemoryRequiredContentTerms(Map<String, dynamic> args) =>
       _agentMemoryContentTerms(args, const [
