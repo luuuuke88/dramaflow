@@ -3422,6 +3422,55 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 new Set(Map) 按 JS 语义迭代 entries', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_set_from_map_runtime',
+      name: 'Set from Map 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 new Set(map) entry 去重模式。',
+      script: r'''
+const assetMap = new Map(Object.entries(args.assetsById));
+const entrySet = new Set(assetMap);
+const normalized = Array.from(entrySet)
+  .map(([id, asset]) => `${id}:${asset.type}:${asset.name.trim()}`)
+  .join('|');
+return JSON.stringify({
+  size: entrySet.size,
+  normalized,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'assetsById': {'type': 'object'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_set_from_map_runtime', const {
+        'assetsById': {
+          'A001': {'type': 'role', 'name': ' 李澈 '},
+          'A002': {'type': 'scene', 'name': '寒山山门'},
+        },
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Set from Map 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_set_from_map_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'size': 2,
+      'normalized': 'A001:role:李澈|A002:scene:寒山山门',
+    });
+  });
+
   test('自定义脚本技能：支持 Set 集合运算检查资产覆盖', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_set_operations_runtime',

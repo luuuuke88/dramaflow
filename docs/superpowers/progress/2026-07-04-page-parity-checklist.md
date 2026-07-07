@@ -492,6 +492,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers sync-co
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible Set iteration through `set.forEach(...)`, `set.keys()`, `set.values()`, and `set.entries()`, including the native Set callback argument pattern `(value, value, set)`, so model-authored asset de-duplication helpers can iterate Sets the same way they would in ordinary JavaScript.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Set(map)` over custom `Map` values, so model-authored skills can treat Maps as entry iterables when deduplicating or reformatting asset indexes.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Map.forEach((value, key, map) => ...)` callback source arguments, so model-authored asset indexes can inspect map size or re-read sibling entries while iterating ToonFlow-style helper data.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `for (const [key, value] of map) { ... }` traversal over `Map` entries, so model-authored asset indexes can use direct `for...of` loops without forcing `map.entries()` first.

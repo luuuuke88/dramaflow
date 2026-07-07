@@ -6845,6 +6845,9 @@ class _CustomAgentSkillRuntime {
     final source = _evaluate(args.single);
     if (source == null) return <Object?>{};
     if (source is String) return <Object?>{...source.split('')};
+    if (source is _CustomJsMap) {
+      return <Object?>{..._customJsMapEntries(source)};
+    }
     if (source is Iterable) return <Object?>{...source};
     throw EngineException(errLlmFormat, {
       'reason': 'custom_skill_set_constructor',
