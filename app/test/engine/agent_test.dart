@@ -20063,6 +20063,73 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(gateway.lastSystem, contains('继续写寒山李澈入山'));
   });
 
+  test('Agent turn system prompt 注入 RAG 重排理由和匹配词', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '99'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.rerankEnabled', '1'],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'prompt_rerank_noise',
+        '',
+        '道具说明：山门匾额写着李澈正派四个字，但这不是角色设定。',
+        now,
+        embeddingJson('道具说明：山门匾额写着李澈正派四个字，但这不是角色设定。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'prompt_rerank_keep',
+        '',
+        '用户明确要求李澈保持正派，不能被写成反派。',
+        now + 1,
+        embeddingJson('用户明确要求李澈保持正派，不能被写成反派。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    gateway.textResults = const [
+      TextResult(
+        '[{"message_id":"prompt_rerank_keep","reason":"用户明确给出角色立场约束"}]',
+      ),
+    ];
+    gateway.turns = [const AgentTurnResult.text('收到，我会保持李澈正派。')];
+
+    await engine.sendAgentMessage(projectId, '继续写李澈正派线', autoMode: false);
+
+    expect(gateway.lastSystem, contains('<memory id="prompt_rerank_keep"'));
+    expect(gateway.lastSystem, contains('matchedTokens="李澈,正派"'));
+    expect(gateway.lastSystem, contains('relevanceReason="用户明确给出角色立场约束"'));
+    expect(gateway.lastSystem, isNot(contains('prompt_rerank_noise')));
+  });
+
   test('Agent turn system prompt 默认排除工具审计记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',

@@ -10054,6 +10054,7 @@ extension AgentApi on Engine {
     String tag,
     AgentMemoryEntry memory,
   ) {
+    final relevanceReason = memory.relevanceReason?.trim();
     final attrs = <String>[
       'id="${_escapeXmlAttr(memory.id)}"',
       'type="${_escapeXmlAttr(memory.type)}"',
@@ -10065,6 +10066,10 @@ extension AgentApi on Engine {
       if (memory.relatedMessageIds.isNotEmpty)
         'relatedMessageIds="${_escapeXmlAttr(memory.relatedMessageIds.join(','))}"',
       if (memory.score != null) 'score="${memory.score}"',
+      if (memory.matchedTokens.isNotEmpty)
+        'matchedTokens="${_escapeXmlAttr(memory.matchedTokens.join(','))}"',
+      if (relevanceReason != null && relevanceReason.isNotEmpty)
+        'relevanceReason="${_escapeXmlAttr(relevanceReason)}"',
     ];
     return '<$tag ${attrs.join(' ')}>${_escapeXmlText(memory.content)}</$tag>';
   }

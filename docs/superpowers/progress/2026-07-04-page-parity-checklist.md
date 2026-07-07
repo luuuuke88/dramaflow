@@ -126,6 +126,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetri
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers RAG message reranking preserving LLM-provided `reason` values as `AgentMemoryEntry.relevanceReason`, so model-filtered original dialogue recalls retain the explanation behind the selected memory.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers Agent system prompts including RAG `matchedTokens` and `relevanceReason` metadata on injected `<memory>` blocks, so decision/supervision Agents can see why a recalled memory was selected instead of receiving only opaque text.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` accepting explicit `excludeIds` / `excludeMemoryIds` tool arguments and merging them with internal current-turn exclusions, so multi-turn Agents can avoid re-reading memory ids they already consumed.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers script and production sub Agents automatically excluding memory ids already injected into their current RAG system context when they call `deepRetrieve`, so execution-layer Agents expand to unread context instead of echoing the same memory.
