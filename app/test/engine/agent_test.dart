@@ -20765,6 +20765,40 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(gateway.lastSystem, contains('李澈是正派角色'));
   });
 
+  test('ScriptAgent 子 Agent 失败后停止自动调度且不触发监督层', () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'prompt': '搭建寒山篇前三集骨架'},
+      ),
+      const AgentTurnResult.text('   '),
+      AgentTurnResult.tool(
+        'run_supervision_agent',
+        const {'prompt': '不应审核失败的故事骨架'},
+      ),
+      const AgentTurnResult.text('监督结论：不应出现。'),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '自动完成故事骨架并审核',
+      autoMode: true,
+    );
+
+    expect(gateway.stages, [
+      'scriptAgent:decisionAgent',
+      'scriptAgent:storySkeletonAgent',
+    ]);
+    final messages = engine.agentMessages(projectId);
+    expect(
+      messages.where((message) => message.toolName == 'run_supervision_agent'),
+      isEmpty,
+    );
+    expect(messages.last.role, agentRoleAssistant);
+    expect(messages.last.content, contains('故事骨架 Agent 未返回可写入内容'));
+    expect(messages.last.content, contains('当前阶段已停止'));
+  });
+
   test('ScriptAgent 子 Agent 系统上下文默认排除工具审计记忆', () async {
     db.execute(
       'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',

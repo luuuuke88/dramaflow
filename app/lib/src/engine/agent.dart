@@ -10688,7 +10688,52 @@ extension AgentApi on Engine {
         role: agentRoleTool,
         content: summary,
       );
+      if (_shouldStopAfterScriptSubAgentFailure(
+        agentFamily: agentFamily,
+        toolName: toolName,
+        summary: summary,
+      )) {
+        final content = '子 Agent 执行失败：$summary 当前阶段已停止，请调整后重试。';
+        messages.add(AgentMessage(
+          role: agentRoleAssistant,
+          content: content,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+        ));
+        _saveAgentMessages(projectId, messages, family: agentFamily);
+        await _recordAgentMemory(
+          projectId,
+          family: agentFamily,
+          role: _agentDecisionMemoryRole,
+          content: content,
+        );
+        return;
+      }
     }
+  }
+
+  bool _shouldStopAfterScriptSubAgentFailure({
+    required String agentFamily,
+    required String toolName,
+    required String summary,
+  }) {
+    if (agentFamily != _scriptAgentFamily) return false;
+    if (!_isScriptAgentSubAgentTool(toolName)) return false;
+    return _isScriptAgentSubAgentFailureSummary(summary);
+  }
+
+  bool _isScriptAgentSubAgentTool(String toolName) =>
+      toolName.startsWith('run_sub_agent_') ||
+      toolName == 'run_supervision_agent';
+
+  bool _isScriptAgentSubAgentFailureSummary(String summary) {
+    final text = summary.trim();
+    if (text.isEmpty) return true;
+    return text.contains('未返回可写入内容') ||
+        text.contains('未输出 scriptItem') ||
+        text.contains('不支持嵌套调用') ||
+        text.startsWith('执行失败') ||
+        text.contains('执行失败：') ||
+        text.contains('异常中断');
   }
 
   String _agentSupervisionStage(String family) =>
