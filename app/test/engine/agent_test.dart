@@ -16008,6 +16008,223 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     }
   });
 
+  test('Agent 记忆：queryPlan 支持 knn/nearestVector 向量查询子句', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.agent_embedding', 'fake:embed'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertIndexedMessage({
+      required String id,
+      required String content,
+      required List<double> vector,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          '',
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+      db.execute(
+        'INSERT OR REPLACE INTO o_memoryVector '
+        '(memoryId,isolationKey,type,provider,model,dimension,vector,updatedAt) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [
+          id,
+          'scriptAgent:$projectId',
+          agentMemoryTypeMessage,
+          'gateway',
+          'agent_embedding',
+          vector.length,
+          jsonEncode(vector),
+          now + offset,
+        ],
+      );
+    }
+
+    void insertUnindexedMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertIndexedMessage(
+      id: 'knn_vector_plan_keep',
+      content: '向量规划：紫金长桥上必须保留主角的霜刃契约。',
+      vector: const [1, 0],
+      offset: 0,
+    );
+    insertIndexedMessage(
+      id: 'knn_vector_plan_noise',
+      content: '向量规划：远山云雾遮住月光。',
+      vector: const [0, 1],
+      offset: 1,
+    );
+    insertUnindexedMessage(
+      'knn_vector_plan_unindexed_noise',
+      '未索引文本：紫金长桥上只记录远景石栏。',
+      2,
+    );
+    insertIndexedMessage(
+      id: 'nearest_vector_plan_keep',
+      content: '向量规划：苍火地牢内必须保留破阵钥匙。',
+      vector: const [0, 1],
+      offset: 3,
+    );
+    insertUnindexedMessage(
+      'nearest_vector_plan_unindexed_noise',
+      '未索引文本：苍火地牢只记录空镜。',
+      4,
+    );
+
+    gateway.embeddingForText = (input) {
+      if (input.contains('紫金长桥') || input.contains('霜刃契约')) {
+        return const [1, 0];
+      }
+      if (input.contains('苍火地牢') || input.contains('破阵钥匙')) {
+        return const [0, 1];
+      }
+      return const [0, 0];
+    };
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'knn': {
+              'field': 'embedding',
+              'query_vector_builder': {
+                'text_embedding': {
+                  'model_text': '紫金长桥 霜刃契约',
+                },
+              },
+              'k': 3,
+            },
+            'mustInclude': ['主角'],
+          },
+        ],
+        'limit': 3,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'nearestVector': {
+              'query': '苍火地牢 破阵钥匙',
+              'k': 3,
+            },
+            'mustInclude': ['破阵钥匙'],
+          },
+        ],
+        'limit': 3,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 knn 向量查询计划召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('knn'));
+      expect(properties, contains('nearestVector'));
+      expect(properties, contains('query_vector_builder'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+    expect(gateway.embeddingInputs, contains('紫金长桥 霜刃契约'));
+    expect(gateway.embeddingInputs, contains('苍火地牢 破阵钥匙'));
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '向量规划：紫金长桥上必须保留主角的霜刃契约。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List).single,
+      isA<Map>()
+          .having((record) => record['id'], 'id', 'knn_vector_plan_keep')
+          .having((record) => record['retrievalSource'], 'retrievalSource',
+              'vector_index')
+          .having(
+              (record) => record['matchedQuery'], 'matchedQuery', '紫金长桥 霜刃契约'),
+    );
+    expect(jsonEncode(memoryGetPayload),
+        isNot(contains('knn_vector_plan_unindexed_noise')));
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '向量规划：苍火地牢内必须保留破阵钥匙。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List).single,
+      isA<Map>()
+          .having((record) => record['id'], 'id', 'nearest_vector_plan_keep')
+          .having((record) => record['retrievalSource'], 'retrievalSource',
+              'vector_index')
+          .having(
+              (record) => record['matchedQuery'], 'matchedQuery', '苍火地牢 破阵钥匙'),
+    );
+    expect(jsonEncode(deepRetrievePayload),
+        isNot(contains('nearest_vector_plan_unindexed_noise')));
+  });
+
   test('Agent 记忆：queryPlan 可要求同项查询全部命中', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

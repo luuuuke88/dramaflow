@@ -698,6 +698,24 @@ const _agentMemoryStructuredQueryClauseKeys = [
   'combined_fields',
   'combinedFields',
 ];
+const _agentMemoryStructuredVectorClauseKeys = [
+  'knn',
+  'nearestVector',
+  'nearest_vector',
+  'vectorSearch',
+  'vector_search',
+  'semanticVector',
+  'semantic_vector',
+];
+const _agentMemoryVectorQueryBuilderKeys = [
+  'query_vector_builder',
+  'queryVectorBuilder',
+  'text_embedding',
+  'textEmbedding',
+  'embedding',
+  'embeddingQueryBuilder',
+  'embedding_query_builder',
+];
 const _agentMemorySemanticQueryToolSchema = {
   'semanticQuery': {
     'type': 'string',
@@ -752,6 +770,27 @@ const _agentMemorySemanticQueryToolSchema = {
     'type': 'array',
     'items': {'type': 'string'},
     'description': 'semanticQueries 的中文别名。',
+  },
+  'knn': {
+    'type': 'object',
+    'description':
+        '可选。Elasticsearch kNN 向量检索子句；会从 query/query_vector_builder 文本派生语义检索，并只接受向量索引命中。',
+  },
+  'nearestVector': {
+    'type': 'object',
+    'description': 'knn 的自然语言别名。',
+  },
+  'nearest_vector': {
+    'type': 'object',
+    'description': 'nearestVector 的 snake_case 别名。',
+  },
+  'query_vector_builder': {
+    'type': 'object',
+    'description': '可选。kNN query_vector_builder 包裹，内部 model_text 会被展开为向量查询文本。',
+  },
+  'queryVectorBuilder': {
+    'type': 'object',
+    'description': 'query_vector_builder 的 camelCase 别名。',
   },
 };
 const _agentMemoryRerankToolSchema = {
@@ -13831,10 +13870,16 @@ extension AgentApi on Engine {
           for (final entry in raw.entries)
             if (entry.key is String) (entry.key as String): entry.value,
         };
-        final nodeArgs = {
+        var nodeArgs = {
           ...inheritedArgs,
           ..._agentMemoryPlanFilterArgs(map),
         };
+        if (_agentMemoryPlanRequiresVectorIndex(map)) {
+          nodeArgs = {
+            ...nodeArgs,
+            'onlyVectorIndex': true,
+          };
+        }
         final nodeLimit = _agentMemoryDirectLimit(map) ?? inheritedLimit;
         final nodePriority =
             _agentMemoryDirectPriority(map) ?? inheritedPriority;
@@ -13874,6 +13919,10 @@ extension AgentApi on Engine {
           'query_text',
           'searchText',
           'search_text',
+          'modelText',
+          'model_text',
+          'modelInput',
+          'model_input',
           'semanticQuery',
           'semantic_query',
           'vectorQuery',
@@ -13910,6 +13959,7 @@ extension AgentApi on Engine {
         final childArgs = {
           ...inheritedArgs,
           ..._agentMemoryPlanInheritedFilterArgs(map),
+          if (_agentMemoryPlanRequiresVectorIndex(map)) 'onlyVectorIndex': true,
         };
         for (final key in const [
           'queryPlan',
@@ -13957,6 +14007,26 @@ extension AgentApi on Engine {
           );
         }
         for (final key in _agentMemoryStructuredQueryClauseKeys) {
+          addPlanNode(
+            map[key],
+            childArgs,
+            inheritedLimit: nodeLimit,
+            inheritedPriority: nodePriority,
+            inheritedFallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+            inheritedQueryGroup: nodeQueryGroup,
+          );
+        }
+        for (final key in _agentMemoryStructuredVectorClauseKeys) {
+          addPlanNode(
+            map[key],
+            childArgs,
+            inheritedLimit: nodeLimit,
+            inheritedPriority: nodePriority,
+            inheritedFallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+            inheritedQueryGroup: nodeQueryGroup,
+          );
+        }
+        for (final key in _agentMemoryVectorQueryBuilderKeys) {
           addPlanNode(
             map[key],
             childArgs,
@@ -14140,6 +14210,10 @@ extension AgentApi on Engine {
           'query_text',
           'searchText',
           'search_text',
+          'modelText',
+          'model_text',
+          'modelInput',
+          'model_input',
           'semanticQuery',
           'semantic_query',
           'vectorQuery',
@@ -14180,6 +14254,12 @@ extension AgentApi on Engine {
           collect(raw[key]);
         }
         for (final key in _agentMemoryStructuredQueryClauseKeys) {
+          collect(raw[key]);
+        }
+        for (final key in _agentMemoryStructuredVectorClauseKeys) {
+          collect(raw[key]);
+        }
+        for (final key in _agentMemoryVectorQueryBuilderKeys) {
           collect(raw[key]);
         }
         return;
@@ -14238,6 +14318,16 @@ extension AgentApi on Engine {
     addAll(_agentMemoryRequiredContentTerms(args));
     addAll(_agentMemoryShouldContentTerms(args));
     return terms.join(' ');
+  }
+
+  bool _agentMemoryPlanRequiresVectorIndex(Map<String, dynamic> args) {
+    for (final key in _agentMemoryStructuredVectorClauseKeys) {
+      if (args.containsKey(key) && args[key] != null) return true;
+    }
+    for (final key in _agentMemoryVectorQueryBuilderKeys) {
+      if (args.containsKey(key) && args[key] != null) return true;
+    }
+    return false;
   }
 
   bool _agentMemoryPlanRequiresAll(Map<String, dynamic> args) {
@@ -14579,6 +14669,10 @@ extension AgentApi on Engine {
       'query_text',
       'searchText',
       'search_text',
+      'modelText',
+      'model_text',
+      'modelInput',
+      'model_input',
       'semanticQuery',
       'semantic_query',
       'vectorQuery',
@@ -14591,6 +14685,15 @@ extension AgentApi on Engine {
       '语义检索',
       'term',
     ]) {
+      copy.remove(key);
+    }
+    for (final key in _agentMemoryStructuredQueryClauseKeys) {
+      copy.remove(key);
+    }
+    for (final key in _agentMemoryStructuredVectorClauseKeys) {
+      copy.remove(key);
+    }
+    for (final key in _agentMemoryVectorQueryBuilderKeys) {
       copy.remove(key);
     }
     return copy;
@@ -14700,6 +14803,12 @@ extension AgentApi on Engine {
           addNode(raw[key]);
         }
         for (final key in _agentMemoryStructuredQueryClauseKeys) {
+          addNode(raw[key]);
+        }
+        for (final key in _agentMemoryStructuredVectorClauseKeys) {
+          addNode(raw[key]);
+        }
+        for (final key in _agentMemoryVectorQueryBuilderKeys) {
           addNode(raw[key]);
         }
         return;
