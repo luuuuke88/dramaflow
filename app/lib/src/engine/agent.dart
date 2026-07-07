@@ -7137,22 +7137,7 @@ class _CustomAgentSkillRuntime {
       case 'entries':
         final values = _evaluateCallArguments(args);
         if (values.length != 1) _badMethodArgs(method);
-        final value = values.single;
-        if (value is! Map) {
-          throw EngineException(errLlmFormat, {
-            'reason': 'custom_skill_object_builtin',
-            'method': method,
-          });
-        }
-        if (method == 'values') {
-          return [for (final entry in value.entries) entry.value];
-        }
-        if (method == 'entries') {
-          return [
-            for (final entry in value.entries) ['${entry.key}', entry.value],
-          ];
-        }
-        return [for (final key in value.keys) '$key'];
+        return _objectEnumerable(values.single, method);
       default:
         throw EngineException(errLlmFormat, {
           'reason': 'custom_skill_builtin_method',
@@ -7160,6 +7145,38 @@ class _CustomAgentSkillRuntime {
           'method': method,
         });
     }
+  }
+
+  List<Object?> _objectEnumerable(Object? value, String method) {
+    final entries = <(String, Object?)>[];
+    if (value is Map) {
+      entries.addAll([
+        for (final entry in value.entries) ('${entry.key}', entry.value),
+      ]);
+    } else if (value is List) {
+      entries.addAll([
+        for (var index = 0; index < value.length; index++)
+          ('$index', value[index]),
+      ]);
+    } else if (value is String) {
+      final chars = value.split('');
+      entries.addAll([
+        for (var index = 0; index < chars.length; index++)
+          ('$index', chars[index]),
+      ]);
+    } else {
+      throw EngineException(errLlmFormat, {
+        'reason': 'custom_skill_object_builtin',
+        'method': method,
+      });
+    }
+    if (method == 'values') return [for (final entry in entries) entry.$2];
+    if (method == 'entries') {
+      return [
+        for (final entry in entries) [entry.$1, entry.$2],
+      ];
+    }
+    return [for (final entry in entries) entry.$1];
   }
 
   Map _objectAssign(List<String> args) {

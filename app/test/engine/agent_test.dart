@@ -2398,6 +2398,65 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 Object 静态枚举数组和字符串', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_object_enum_array_runtime',
+      name: 'Object 枚举数组脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Object.entries(list) 编号资产列表。',
+      script: r'''
+const assetRows = Object.entries(args.assets)
+  .map(([index, asset]) => `${Number(index) + 1}.${asset.name.trim()}`)
+  .join('、');
+return JSON.stringify({
+  assetRows,
+  assetKeys: Object.keys(args.assets).join('|'),
+  assetTypes: Object.values(args.assets).map(asset => asset.type).join('|'),
+  titleChars: Object.values(args.title).join('-'),
+  titleEntries: Object.entries(args.title)
+    .map(([index, char]) => `${index}:${char}`)
+    .join('|'),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'title': {'type': 'string'},
+          'assets': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_object_enum_array_runtime', const {
+        'title': '仙侠',
+        'assets': [
+          {'name': ' 李澈 ', 'type': 'role'},
+          {'name': ' 寒山宗门 ', 'type': 'scene'},
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Object 枚举数组脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_object_enum_array_runtime');
+    expect(jsonDecode(msg.content), {
+      'assetRows': '1.李澈、2.寒山宗门',
+      'assetKeys': '0|1',
+      'assetTypes': 'role|scene',
+      'titleChars': '仙-侠',
+      'titleEntries': '0:仙|1:侠',
+    });
+  });
+
   test('自定义脚本技能：支持 Object.groupBy 和 Map.groupBy 分组资产', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_group_by_runtime',

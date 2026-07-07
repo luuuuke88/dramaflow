@@ -430,6 +430,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS arra
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Boolean(...)` and `filter(Boolean)`, so custom skills can compact mapped storyboard/asset lists with model-authored truthiness filters.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Object.keys(...)`, `Object.values(...)`, and `Object.entries(...)` over arrays and strings, so model-authored skills can number asset/storyboard lists with `Object.entries(args.assets)` and inspect short text labels without rewriting to array-native helpers.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Object.hasOwn(...)`, `obj.hasOwnProperty(...)`, and `Object.prototype.hasOwnProperty.call(...)`, so custom skills can distinguish missing storyboard/asset fields from fields that are present but empty even when model-authored scripts use the conservative prototype-call guard.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `Number.isFinite(...)`, `Number.isNaN(...)`, `isFinite(...)`, and `isNaN(...)`, so custom skills can validate generated durations, weights, and numeric fields before writing storyboard or asset data.
