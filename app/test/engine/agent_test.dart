@@ -13051,6 +13051,117 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan records 标注最高优先级命中来源', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_trace_reused',
+      '硬性约束：李澈绝不能反派化，所有分镜必须保持正派克制。',
+      0,
+    );
+    insertMessage(
+      'query_plan_trace_competing',
+      '制作提示：沈微入场时可以保留月光轮廓。',
+      1,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '李澈',
+            'priority': 1,
+            'reason': '宽泛角色检索',
+          },
+          {
+            'query': '李澈不能反派化',
+            'priority': 10,
+            'reason': '硬性角色约束',
+          },
+        ],
+        'limit': 1,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': '李澈',
+            'priority': 1,
+            'reason': '宽泛角色检索',
+          },
+          {
+            'query': '李澈不能反派化',
+            'priority': 10,
+            'reason': '硬性角色约束',
+          },
+        ],
+        'limit': 1,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '追踪 RAG 结果来自哪条查询计划',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    for (final message in toolMessages) {
+      final payload = jsonDecode(message.content) as Map<String, dynamic>;
+      expect(payload['found'], isTrue);
+      final records = payload['records'] as List;
+      expect(records, hasLength(1));
+      expect(
+        records.single,
+        isA<Map>()
+            .having((record) => record['id'], 'id', 'query_plan_trace_reused')
+            .having((record) => record['priority'], 'priority', 10)
+            .having(
+                (record) => record['matchedQuery'], 'matchedQuery', '李澈不能反派化')
+            .having((record) => record['queryPlanIndex'], 'queryPlanIndex', 2)
+            .having((record) => record['queryReason'], 'queryReason', '硬性角色约束'),
+      );
+    }
+  });
+
   test('Agent 记忆：结构化查询计划可携带时间窗口', () async {
     const baseTime = 1900000000000;
     db.execute(

@@ -101,12 +101,30 @@ class _AgentMemoryQueryRequest {
   final Map<String, dynamic> args;
   final int? limit;
   final int priority;
+  final int queryPlanIndex;
+  final String? reason;
 
   const _AgentMemoryQueryRequest({
     required this.query,
     required this.args,
+    required this.queryPlanIndex,
     this.limit,
     this.priority = 0,
+    this.reason,
+  });
+}
+
+class _AgentMemoryQueryMatch {
+  final String query;
+  final int queryPlanIndex;
+  final int priority;
+  final String? reason;
+
+  const _AgentMemoryQueryMatch({
+    required this.query,
+    required this.queryPlanIndex,
+    required this.priority,
+    this.reason,
   });
 }
 
@@ -10780,15 +10798,17 @@ extension AgentApi on Engine {
           final recentMessageRecords = <AgentMemoryEntry>[];
           final noteRecords = <AgentMemoryEntry>[];
           final recordPriorities = <String, int>{};
+          final recordQueryMatches = <String, _AgentMemoryQueryMatch>{};
           var hasMessageRequests = false;
           var hasSummaryRequests = false;
           for (final request in queryRequests) {
             final requestArgs = request.args;
-            void mergeRecordPriority(AgentMemoryEntry record) {
+            void mergeRecordQueryMatch(AgentMemoryEntry record) {
               recordPriorities[record.id] = math.max(
                 recordPriorities[record.id] ?? request.priority,
                 request.priority,
               );
+              _mergeAgentMemoryQueryMatch(recordQueryMatches, record, request);
             }
 
             final roles = _agentMemoryRoles(requestArgs);
@@ -10848,7 +10868,7 @@ extension AgentApi on Engine {
               );
               relatedMessageRecords.addAll(limitedRelatedMessages);
               for (final record in limitedRelatedMessages) {
-                mergeRecordPriority(record);
+                mergeRecordQueryMatch(record);
               }
               final limitedRecentMessages = _limitAgentMemoryEntries(
                 _filterAgentMemoryEntriesByContent(
@@ -10860,7 +10880,7 @@ extension AgentApi on Engine {
               );
               recentMessageRecords.addAll(limitedRecentMessages);
               for (final record in limitedRecentMessages) {
-                mergeRecordPriority(record);
+                mergeRecordQueryMatch(record);
               }
             }
             if (includeSummaries) {
@@ -10874,7 +10894,7 @@ extension AgentApi on Engine {
               );
               summaryRecords.addAll(limitedSummaries);
               for (final record in limitedSummaries) {
-                mergeRecordPriority(record);
+                mergeRecordQueryMatch(record);
               }
             }
             if (includeNotes) {
@@ -10909,7 +10929,7 @@ extension AgentApi on Engine {
               );
               noteRecords.addAll(limitedNotes);
               for (final record in limitedNotes) {
-                mergeRecordPriority(record);
+                mergeRecordQueryMatch(record);
               }
             }
             if (requestIncludeVisualReferences) {
@@ -10930,7 +10950,7 @@ extension AgentApi on Engine {
               );
               noteRecords.addAll(visualRecords);
               for (final record in visualRecords) {
-                mergeRecordPriority(record);
+                mergeRecordQueryMatch(record);
               }
             }
           }
@@ -11024,6 +11044,7 @@ extension AgentApi on Engine {
                 _agentMemoryRecordPayload(
                   record,
                   priority: recordPriorities[record.id],
+                  queryMatch: recordQueryMatches[record.id],
                 ),
             ],
           });
@@ -11042,6 +11063,7 @@ extension AgentApi on Engine {
           final memoryService = _agentMemoryService(family: agentFamily);
           final records = <AgentMemoryEntry>[];
           final recordPriorities = <String, int>{};
+          final recordQueryMatches = <String, _AgentMemoryQueryMatch>{};
           for (final request in queryRequests) {
             final requestArgs = request.args;
             final roles = _agentMemoryRoles(requestArgs);
@@ -11067,11 +11089,12 @@ extension AgentApi on Engine {
             final excludeIds =
                 _agentMemoryExcludeIds(requestArgs, excludedMemoryIds);
             final queryExcludeIds = {...excludeIds};
-            void mergeRecordPriority(AgentMemoryEntry record) {
+            void mergeRecordQueryMatch(AgentMemoryEntry record) {
               recordPriorities[record.id] = math.max(
                 recordPriorities[record.id] ?? request.priority,
                 request.priority,
               );
+              _mergeAgentMemoryQueryMatch(recordQueryMatches, record, request);
             }
 
             final requestRecords = await memoryService.deepRetrieve(
@@ -11099,7 +11122,7 @@ extension AgentApi on Engine {
             );
             records.addAll(limitedRequestRecords);
             for (final record in limitedRequestRecords) {
-              mergeRecordPriority(record);
+              mergeRecordQueryMatch(record);
             }
             if (requestIncludeVisualReferences) {
               final visualRecords = _filterAgentMemoryEntriesByContent(
@@ -11116,7 +11139,7 @@ extension AgentApi on Engine {
               );
               records.addAll(visualRecords);
               for (final record in visualRecords) {
-                mergeRecordPriority(record);
+                mergeRecordQueryMatch(record);
               }
             }
           }
@@ -11159,6 +11182,7 @@ extension AgentApi on Engine {
                 _agentMemoryRecordPayload(
                   record,
                   priority: recordPriorities[record.id],
+                  queryMatch: recordQueryMatches[record.id],
                 ),
             ],
           });
@@ -12355,6 +12379,7 @@ extension AgentApi on Engine {
   ) {
     final requests = <_AgentMemoryQueryRequest>[];
     final baseArgs = _agentMemoryArgsWithoutQueryPlan(args);
+    var queryPlanIndex = 0;
 
     void addRequest(
       String query,
@@ -12364,6 +12389,7 @@ extension AgentApi on Engine {
     }) {
       final trimmed = query.trim();
       if (trimmed.isEmpty) return;
+      queryPlanIndex += 1;
       requests.add(
         _AgentMemoryQueryRequest(
           query: trimmed,
@@ -12371,8 +12397,10 @@ extension AgentApi on Engine {
             ...requestArgs,
             'query': trimmed,
           },
+          queryPlanIndex: queryPlanIndex,
           limit: limit,
           priority: priority,
+          reason: _agentMemoryQueryReason(requestArgs),
         ),
       );
     }
@@ -13290,6 +13318,37 @@ extension AgentApi on Engine {
     }
   }
 
+  String? _agentMemoryQueryReason(Map<String, dynamic> args) {
+    final text = (args['reason'] ??
+            args['理由'] ??
+            args['原因'] ??
+            args['rationale'] ??
+            args['purpose'] ??
+            args['目标'] ??
+            args['intent'] ??
+            args['说明'] ??
+            args['description'] ??
+            '')
+        .toString()
+        .trim();
+    return text.isEmpty ? null : text;
+  }
+
+  void _mergeAgentMemoryQueryMatch(
+    Map<String, _AgentMemoryQueryMatch> matches,
+    AgentMemoryEntry record,
+    _AgentMemoryQueryRequest request,
+  ) {
+    final current = matches[record.id];
+    if (current != null && current.priority >= request.priority) return;
+    matches[record.id] = _AgentMemoryQueryMatch(
+      query: request.query,
+      queryPlanIndex: request.queryPlanIndex,
+      priority: request.priority,
+      reason: request.reason,
+    );
+  }
+
   String _agentMemorySortMode(Map<String, dynamic> args) {
     final explicitRaw = args['orderBy'] ??
         args['sortBy'] ??
@@ -13719,6 +13778,7 @@ extension AgentApi on Engine {
   Map<String, dynamic> _agentMemoryRecordPayload(
     AgentMemoryEntry record, {
     int? priority,
+    _AgentMemoryQueryMatch? queryMatch,
   }) =>
       {
         'id': record.id,
@@ -13728,6 +13788,9 @@ extension AgentApi on Engine {
         'createTime': record.createdAt,
         'role': record.role,
         if (priority != null && priority != 0) 'priority': priority,
+        if (queryMatch != null) 'matchedQuery': queryMatch.query,
+        if (queryMatch != null) 'queryPlanIndex': queryMatch.queryPlanIndex,
+        if (queryMatch?.reason != null) 'queryReason': queryMatch!.reason,
         if (record.relatedMessageIds.isNotEmpty)
           'relatedMessageIds': record.relatedMessageIds,
         if (record.sourceSummaryIds.isNotEmpty)
