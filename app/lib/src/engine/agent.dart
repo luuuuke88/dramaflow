@@ -252,6 +252,69 @@ const _customJsTypeofLiteralIdentifiers = {
   'null',
   'undefined',
 };
+const _customJsStringInstanceMethods = {
+  'trim',
+  'trimStart',
+  'trimLeft',
+  'trimEnd',
+  'trimRight',
+  'toUpperCase',
+  'toLowerCase',
+  'toString',
+  'localeCompare',
+  'split',
+  'replace',
+  'replaceAll',
+  'indexOf',
+  'lastIndexOf',
+  'substring',
+  'charAt',
+  'startsWith',
+  'endsWith',
+  'padStart',
+  'padEnd',
+  'repeat',
+  'includes',
+  'match',
+  'matchAll',
+  'slice',
+  'at',
+};
+const _customJsIterableInstanceMethods = {
+  'indexOf',
+  'lastIndexOf',
+  'includes',
+  'concat',
+  'at',
+  'map',
+  'flatMap',
+  'flat',
+  'filter',
+  'forEach',
+  'find',
+  'findIndex',
+  'findLast',
+  'findLastIndex',
+  'some',
+  'every',
+  'reduce',
+  'reduceRight',
+  'sort',
+  'toSorted',
+  'reverse',
+  'toReversed',
+  'toSpliced',
+  'with',
+  'keys',
+  'values',
+  'entries',
+  'slice',
+  'join',
+};
+const _customJsNumberInstanceMethods = {
+  'toString',
+  'toFixed',
+};
 const _customJsSetMethods = {
   'has',
   'add',
@@ -4928,6 +4991,16 @@ class _CustomAgentSkillRuntime {
           });
         }
         index = prop.end;
+        if (expression.startsWith('?.(', index)) {
+          final call = _readBalanced(expression, index + 2, '(', ')');
+          final args = _splitTopLevel(call.text, ',')
+              .where((part) => part.trim().isNotEmpty)
+              .map((part) => part.trim())
+              .toList();
+          value = _callOptionalMethodOrProperty(value, prop.text, args);
+          index = call.end;
+          continue;
+        }
         if (index < expression.length && expression[index] == '(') {
           final call = _readBalanced(expression, index, '(', ')');
           final args = _splitTopLevel(call.text, ',')
@@ -4950,6 +5023,16 @@ class _CustomAgentSkillRuntime {
           });
         }
         index = prop.end;
+        if (expression.startsWith('?.(', index)) {
+          final call = _readBalanced(expression, index + 2, '(', ')');
+          final args = _splitTopLevel(call.text, ',')
+              .where((part) => part.trim().isNotEmpty)
+              .map((part) => part.trim())
+              .toList();
+          value = _callOptionalMethodOrProperty(value, prop.text, args);
+          index = call.end;
+          continue;
+        }
         if (index < expression.length && expression[index] == '(') {
           final call = _readBalanced(expression, index, '(', ')');
           final args = _splitTopLevel(call.text, ',')
@@ -5666,6 +5749,44 @@ class _CustomAgentSkillRuntime {
           'reason': 'custom_skill_method',
           'method': method,
         });
+    }
+  }
+
+  Object? _callOptionalMethodOrProperty(
+    Object? value,
+    String method,
+    List<String> args,
+  ) {
+    if (_hasCustomJsInstanceMethod(value, method)) {
+      return _callMethod(value, method, args);
+    }
+    final propertyValue = _readOptionalProperty(value, method);
+    if (propertyValue == null) return null;
+    return _callFunction(propertyValue, method, args);
+  }
+
+  bool _hasCustomJsInstanceMethod(Object? value, String method) {
+    if (value is String) return _customJsStringInstanceMethods.contains(method);
+    if (value is num) return _customJsNumberInstanceMethods.contains(method);
+    if (value is Set) {
+      return _customJsSetMethods.contains(method) ||
+          _customJsIterableInstanceMethods.contains(method);
+    }
+    if (value is Iterable) {
+      return _customJsIterableInstanceMethods.contains(method);
+    }
+    return false;
+  }
+
+  Object? _readOptionalProperty(Object? value, String property) {
+    try {
+      return _readProperty(value, property);
+    } on EngineException catch (error) {
+      if (error.errKey == errLlmFormat &&
+          error.errParams['reason'] == 'custom_skill_property') {
+        return null;
+      }
+      rethrow;
     }
   }
 

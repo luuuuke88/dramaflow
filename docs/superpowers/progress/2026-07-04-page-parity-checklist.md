@@ -508,6 +508,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers custom 
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible optional function calls such as `helper?.(value) ?? fallback`, so model-authored skills can conditionally call local formatters while preserving null-safe fallback behavior.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible optional method calls such as `value?.trim?.() ?? fallback`, so model-authored cleanup scripts can use conservative method-existence guards when normalizing optional text fields.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible variable logical assignment (`name ||= fallback`, `value ??= fallback`, and `enabled &&= gate`), so model-authored cleanup scripts can use the same short-circuit assignment style already supported for object members.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `switch` / `case` / `default` control flow with fall-through and `break`, so model-authored ToonFlow-style helper scripts can classify roles, scenes, tools, and fallback asset types without rewriting category logic into long `if/else` chains.
