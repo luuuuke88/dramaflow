@@ -676,6 +676,18 @@ const _agentMemoryFilterWrapperKeys = [
   '查询条件',
   '检索条件',
 ];
+const _agentMemoryStructuredDslWrapperKeys = [
+  'query',
+  '查询',
+  'dsl',
+  'esQuery',
+  'es_query',
+  'searchQuery',
+  'search_query',
+  'constant_score',
+  'constantScore',
+  'nested',
+];
 const _agentMemorySemanticQueryToolSchema = {
   'semanticQuery': {
     'type': 'string',
@@ -882,6 +894,18 @@ const _agentMemoryContentFilterToolSchema = {
   '布尔条件': {
     'type': 'object',
     'description': 'bool 的中文别名。',
+  },
+  'constant_score': {
+    'type': 'object',
+    'description': '可选。Elasticsearch constant_score 包裹，内部 filter 会被展开为内容过滤。',
+  },
+  'constantScore': {
+    'type': 'object',
+    'description': 'constant_score 的 camelCase 别名。',
+  },
+  'nested': {
+    'type': 'object',
+    'description': '可选。Elasticsearch nested 包裹，内部 query/filter 会被展开为内容过滤。',
   },
   'filter': {
     'type': ['object', 'array'],
@@ -1546,8 +1570,8 @@ final _tools = <AgentToolDef>[
       'type': 'object',
       'properties': {
         'query': {
-          'type': 'string',
-          'description': '要检索的记忆查询文本。',
+          'type': ['string', 'object'],
+          'description': '要检索的记忆查询文本；也可传 Elasticsearch 风格 query 对象。',
         },
         '查询': {
           'type': 'string',
@@ -2159,8 +2183,9 @@ final _tools = <AgentToolDef>[
           'description': 'keyword 的中文别名。',
         },
         'query': {
-          'type': 'string',
-          'description': 'keyword 的语义化别名，适合模型按“查询内容”组织参数。',
+          'type': ['string', 'object'],
+          'description':
+              'keyword 的语义化别名，适合模型按“查询内容”组织参数；也可传 Elasticsearch 风格 query 对象。',
         },
         '查询': {
           'type': 'string',
@@ -13746,6 +13771,16 @@ extension AgentApi on Engine {
       }
     }
 
+    bool isStructuredPlanValue(Object? raw) {
+      if (raw is Map) return true;
+      if (raw is Iterable && raw is! String) {
+        for (final item in raw) {
+          if (isStructuredPlanValue(item)) return true;
+        }
+      }
+      return false;
+    }
+
     void addPlanNode(
       Object? raw,
       Map<String, dynamic> inheritedArgs, {
@@ -13756,6 +13791,7 @@ extension AgentApi on Engine {
     }) {
       if (raw == null) return;
       if (raw is Map) {
+        final requestCountBeforeNode = requests.length;
         final map = <String, dynamic>{
           for (final entry in raw.entries)
             if (entry.key is String) (entry.key as String): entry.value,
@@ -13815,14 +13851,26 @@ extension AgentApi on Engine {
           '语义检索',
           'term',
         ]) {
-          addTextRequests(
-            map[key],
-            nodeArgs,
-            limit: nodeLimit,
-            priority: nodePriority,
-            fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
-            queryGroup: nodeQueryGroup,
-          );
+          final value = map[key];
+          if (key != 'term' && isStructuredPlanValue(value)) {
+            addPlanNode(
+              value,
+              nodeArgs,
+              inheritedLimit: nodeLimit,
+              inheritedPriority: nodePriority,
+              inheritedFallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+              inheritedQueryGroup: nodeQueryGroup,
+            );
+          } else {
+            addTextRequests(
+              value,
+              nodeArgs,
+              limit: nodeLimit,
+              priority: nodePriority,
+              fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+              queryGroup: nodeQueryGroup,
+            );
+          }
         }
         final childArgs = {
           ...inheritedArgs,
@@ -13872,6 +13920,19 @@ extension AgentApi on Engine {
             inheritedFallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
             inheritedQueryGroup: nodeQueryGroup,
           );
+        }
+        if (requests.length == requestCountBeforeNode) {
+          final derivedQuery = _agentMemoryDerivedFilterQuery(nodeArgs);
+          if (derivedQuery.isNotEmpty) {
+            addRequest(
+              derivedQuery,
+              nodeArgs,
+              limit: nodeLimit,
+              priority: nodePriority,
+              fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+              queryGroup: nodeQueryGroup,
+            );
+          }
         }
         return;
       }
@@ -14115,6 +14176,22 @@ extension AgentApi on Engine {
     };
   }
 
+  String _agentMemoryDerivedFilterQuery(Map<String, dynamic> args) {
+    final terms = <String>[];
+    void addAll(Iterable<String> values) {
+      for (final value in values) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty && !terms.contains(trimmed)) {
+          terms.add(trimmed);
+        }
+      }
+    }
+
+    addAll(_agentMemoryRequiredContentTerms(args));
+    addAll(_agentMemoryShouldContentTerms(args));
+    return terms.join(' ');
+  }
+
   bool _agentMemoryPlanRequiresAll(Map<String, dynamic> args) {
     final explicitBool = _coerceBool(args['mustMatchAll'] ??
         args['matchAll'] ??
@@ -14341,15 +14418,25 @@ extension AgentApi on Engine {
       }
     }
 
+    bool isStructuredWrapperValue(Object? raw) =>
+        raw is Map || (raw is Iterable && raw is! String);
+
     for (final key in _agentMemoryFilterWrapperKeys) {
       if (key == 'filter' || key == 'filters') {
         collectFilterMustClauses(args[key]);
       }
       mergeWrapper(args[key]);
     }
+    for (final key in _agentMemoryStructuredDslWrapperKeys) {
+      final value = args[key];
+      if (isStructuredWrapperValue(value)) mergeWrapper(value);
+    }
     copy.addAll(args);
     for (final key in _agentMemoryFilterWrapperKeys) {
       copy.remove(key);
+    }
+    for (final key in _agentMemoryStructuredDslWrapperKeys) {
+      if (isStructuredWrapperValue(args[key])) copy.remove(key);
     }
     appendFilterMustClauses();
     return copy;

@@ -14245,6 +14245,187 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan 支持 query/constant_score/nested 包裹过滤', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_wrapped_query_get_keep',
+      '灯塔调度壬戌：必须保留赤色灯塔和斜向雨线，人物从暗处入画。',
+      0,
+    );
+    insertMessage(
+      'query_plan_wrapped_query_get_broad_noise',
+      '灯塔调度壬戌：只记录赤色灯塔，没有候选雨线或浪花视觉。',
+      1,
+    );
+    insertMessage(
+      'query_plan_wrapped_query_get_excluded_noise',
+      '灯塔调度壬戌：废稿保留赤色灯塔和斜向雨线，但人物动作相反。',
+      2,
+    );
+    insertMessage(
+      'query_plan_wrapped_query_deep_keep',
+      '古井调度癸亥：角色进入古井石阶，顶光尘雾落在肩头。',
+      3,
+    );
+    insertMessage(
+      'query_plan_wrapped_query_deep_broad_noise',
+      '古井调度癸亥：角色靠近古井石阶，但只有侧面冷光。',
+      4,
+    );
+    insertMessage(
+      'query_plan_wrapped_query_deep_excluded_noise',
+      '古井调度癸亥：废弃方案保留古井石阶和顶光尘雾。',
+      5,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'bool': {
+                'must': [
+                  {
+                    'match': {'content': '赤色灯塔'},
+                  },
+                ],
+                'should': [
+                  {
+                    'match_phrase': {'content': '斜向雨线'},
+                  },
+                  {
+                    'match': {'content': '银色浪花'},
+                  },
+                ],
+                'minimum_should_match': 1,
+                'must_not': [
+                  {
+                    'match': {'content': '废稿'},
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'constant_score': {
+              'filter': {
+                'nested': {
+                  'path': 'content',
+                  'query': {
+                    'bool': {
+                      'must': [
+                        {
+                          'match_phrase': {'content': '古井石阶'},
+                        },
+                        {
+                          'match': {'content': '顶光尘雾'},
+                        },
+                      ],
+                      'must_not': [
+                        {
+                          'match': {'content': '废弃方案'},
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按完整 Elasticsearch 查询包裹结构召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      final queryType = (properties['query'] as Map)['type'];
+      expect(queryType, contains('object'));
+      expect(properties, contains('constant_score'));
+      expect(properties, contains('nested'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '灯塔调度壬戌：必须保留赤色灯塔和斜向雨线，人物从暗处入画。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_wrapped_query_get_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(deepRetrievePayload['memories'], [
+      '古井调度癸亥：角色进入古井石阶，顶光尘雾落在肩头。',
+    ]);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_wrapped_query_deep_keep'],
+    );
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),
