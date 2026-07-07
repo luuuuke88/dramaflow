@@ -334,6 +334,27 @@ const _agentDeploymentType = 'agent-stage';
 const _agentToolAuditRoles = {agentRoleTool};
 const _agentToolAuditRoleSuffixes = {':tool'};
 const _agentMemoryTimeRangeToolSchema = {
+  'range': {
+    'type': 'object',
+    'description':
+        '可选。Elasticsearch range 时间过滤；支持 range.createTime.gte/lte/gt/lt。',
+  },
+  'gte': {
+    'type': 'integer',
+    'description': 'range.createTime 的大于等于下界别名，会映射为 createdAfter。',
+  },
+  'gt': {
+    'type': 'integer',
+    'description': 'range.createTime 的大于下界别名，会映射为 createdAfter。',
+  },
+  'lte': {
+    'type': 'integer',
+    'description': 'range.createTime 的小于等于上界别名，会映射为 createdBefore。',
+  },
+  'lt': {
+    'type': 'integer',
+    'description': 'range.createTime 的小于上界别名，会映射为 createdBefore。',
+  },
   'createdAfter': {
     'type': 'integer',
     'description': '可选。只返回 createTime 大于等于该毫秒时间戳的记忆。',
@@ -15254,19 +15275,25 @@ extension AgentApi on Engine {
       ]);
 
   AgentMemoryTimeRange? _agentMemoryTimeRange(Map<String, dynamic> args) {
+    final rangeCreatedAfter = _maxCoercedInt(
+      _agentMemoryRangeTimeBoundValues(args, lower: true),
+    );
     final explicitCreatedAfter = _maxNullableInt(
-      _coerceInt(
-        args['createdAfter'] ??
-            args['createTimeAfter'] ??
-            args['created_at_after'] ??
-            args['since'] ??
-            args['after'] ??
-            args['startTime'] ??
-            args['start_time'] ??
-            args['fromTime'] ??
-            args['from_time'] ??
-            args['开始时间'] ??
-            args['之后'],
+      _maxNullableInt(
+        _coerceInt(
+          args['createdAfter'] ??
+              args['createTimeAfter'] ??
+              args['created_at_after'] ??
+              args['since'] ??
+              args['after'] ??
+              args['startTime'] ??
+              args['start_time'] ??
+              args['fromTime'] ??
+              args['from_time'] ??
+              args['开始时间'] ??
+              args['之后'],
+        ),
+        rangeCreatedAfter,
       ),
       _agentMemoryRelativeCreatedAfter(args),
     );
@@ -15277,21 +15304,29 @@ extension AgentApi on Engine {
           )
         : null;
     final createdAfter = explicitCreatedAfter ?? planCreatedAfter;
-    final explicitCreatedBefore = _coerceInt(
-      args['createdBefore'] ??
-          args['createTimeBefore'] ??
-          args['created_at_before'] ??
-          args['until'] ??
-          args['before'] ??
-          args['endTime'] ??
-          args['end_time'] ??
-          args['toTime'] ??
-          args['to_time'] ??
-          args['结束时间'] ??
-          args['之前'],
+    final rangeCreatedBefore = _minCoercedInt(
+      _agentMemoryRangeTimeBoundValues(args, lower: false),
     );
-    final createdBefore = explicitCreatedBefore ??
+    final explicitCreatedBefore = _minNullableInt(
+      _coerceInt(
+        args['createdBefore'] ??
+            args['createTimeBefore'] ??
+            args['created_at_before'] ??
+            args['until'] ??
+            args['before'] ??
+            args['endTime'] ??
+            args['end_time'] ??
+            args['toTime'] ??
+            args['to_time'] ??
+            args['结束时间'] ??
+            args['之前'],
+      ),
+      rangeCreatedBefore,
+    );
+    final planCreatedBefore =
         _firstCoercedInt(_agentMemoryQueryPlanCreatedBeforeValues(args));
+    final createdBefore =
+        _minNullableInt(explicitCreatedBefore, planCreatedBefore);
     if (createdAfter == null && createdBefore == null) return null;
     return AgentMemoryTimeRange(
       createdAfter: createdAfter,
@@ -15333,12 +15368,139 @@ extension AgentApi on Engine {
         '之前',
       ]);
 
+  List<Object?> _agentMemoryRangeTimeBoundValues(
+    Map<String, dynamic> args, {
+    required bool lower,
+  }) {
+    final values = <Object?>[];
+
+    Object? firstByKey(Map<String, dynamic> source, Iterable<String> keys) {
+      for (final key in keys) {
+        if (source.containsKey(key)) return source[key];
+      }
+      return null;
+    }
+
+    void addBoundMap(Map<String, dynamic> source) {
+      final inclusive = firstByKey(
+        source,
+        lower
+            ? const [
+                'gte',
+                'from',
+                'min',
+                'start',
+                'createdAfter',
+                'createTimeAfter',
+                'created_at_after',
+                'since',
+                'after',
+                '开始时间',
+                '之后',
+              ]
+            : const [
+                'lte',
+                'to',
+                'max',
+                'end',
+                'createdBefore',
+                'createTimeBefore',
+                'created_at_before',
+                'until',
+                'before',
+                '结束时间',
+                '之前',
+              ],
+      );
+      if (inclusive != null) {
+        values.add(inclusive);
+        return;
+      }
+      final exclusive = firstByKey(
+        source,
+        lower ? const ['gt'] : const ['lt'],
+      );
+      final value = _coerceInt(exclusive);
+      if (value != null) values.add(lower ? value + 1 : value - 1);
+    }
+
+    void collect(Object? raw) {
+      if (raw == null || raw is String || raw is num || raw is bool) return;
+      if (raw is Iterable) {
+        for (final item in raw) {
+          collect(item);
+        }
+        return;
+      }
+      if (raw is! Map) return;
+      final map = <String, dynamic>{
+        for (final entry in raw.entries)
+          if (entry.key is String) (entry.key as String): entry.value,
+      };
+      addBoundMap(map);
+      for (final key in const [
+        'range',
+        '范围',
+        'timeRange',
+        'time_range',
+        '时间范围',
+      ]) {
+        collect(map[key]);
+      }
+      for (final key in const [
+        'createTime',
+        'create_time',
+        'createdAt',
+        'created_at',
+        'timestamp',
+        'time',
+        '时间',
+        '创建时间',
+      ]) {
+        final value = map[key];
+        if (value is Map) {
+          addBoundMap({
+            for (final entry in value.entries)
+              if (entry.key is String) (entry.key as String): entry.value,
+          });
+        }
+      }
+    }
+
+    for (final key in const [
+      'range',
+      '范围',
+      'timeRange',
+      'time_range',
+      '时间范围',
+    ]) {
+      collect(args[key]);
+    }
+    return values;
+  }
+
   int? _firstCoercedInt(Iterable<Object?> rawValues) {
     for (final raw in rawValues) {
       final value = _coerceInt(raw);
       if (value != null) return value;
     }
     return null;
+  }
+
+  int? _maxCoercedInt(Iterable<Object?> rawValues) {
+    int? result;
+    for (final raw in rawValues) {
+      result = _maxNullableInt(result, _coerceInt(raw));
+    }
+    return result;
+  }
+
+  int? _minCoercedInt(Iterable<Object?> rawValues) {
+    int? result;
+    for (final raw in rawValues) {
+      result = _minNullableInt(result, _coerceInt(raw));
+    }
+    return result;
   }
 
   int? _agentMemoryRelativeCreatedAfter(Map<String, dynamic> args) {
@@ -15459,6 +15621,12 @@ extension AgentApi on Engine {
     if (a == null) return b;
     if (b == null) return a;
     return math.max(a, b);
+  }
+
+  int? _minNullableInt(int? a, int? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return math.min(a, b);
   }
 
   int? _agentMemoryMinScore(Map<String, dynamic> args) {
