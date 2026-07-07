@@ -18177,6 +18177,11 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'limit': 1,
       }),
     ];
+    gateway.textResults = const [
+      TextResult(
+        '[{"summary_id":"trace_summary_lizhe","reason":"角色正派约束命中"}]',
+      ),
+    ];
 
     await engine.sendAgentMessage(projectId, '追踪角色设定来源', autoMode: false);
 
@@ -18202,6 +18207,7 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
         'createTime': now + 1,
         'role': agentRoleAssistant,
         'content': '寒山少主李澈必须保持正派。',
+        'reason': '角色正派约束命中',
       },
     ]);
     expect(record['content'], '用户强调寒山少主李澈必须保持正派。');

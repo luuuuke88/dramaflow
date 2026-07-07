@@ -14509,6 +14509,8 @@ extension AgentApi on Engine {
           'matchedTokens': record.matchedTokens,
         if (record.retrievalSource != null)
           'retrievalSource': record.retrievalSource,
+        if (record.relevanceReason != null)
+          'relevanceReason': record.relevanceReason,
         if (record.embeddingProvider != null)
           'embeddingProvider': record.embeddingProvider,
         if (record.embeddingModel != null)
@@ -14535,15 +14537,30 @@ extension AgentApi on Engine {
     return [
       for (final id in ids)
         if (rowsById[id] case final row?)
-          {
-            'id': id,
-            'type': row['type'] as String? ?? agentMemoryTypeSummary,
-            'name': row['name'] as String? ?? '',
-            'createTime': row['createTime'] as int? ?? 0,
-            'role': row['role'] as String? ?? '',
-            'content': row['content'] as String? ?? '',
-          },
+          _agentMemorySourceSummaryPayload(
+            id,
+            row,
+            record.sourceSummaryReasons[id],
+          ),
     ];
+  }
+
+  Map<String, dynamic> _agentMemorySourceSummaryPayload(
+    String id,
+    Map<String, Object?> row,
+    String? reason,
+  ) {
+    final normalizedReason = reason?.trim();
+    return {
+      'id': id,
+      'type': row['type'] as String? ?? agentMemoryTypeSummary,
+      'name': row['name'] as String? ?? '',
+      'createTime': row['createTime'] as int? ?? 0,
+      'role': row['role'] as String? ?? '',
+      'content': row['content'] as String? ?? '',
+      if (normalizedReason != null && normalizedReason.isNotEmpty)
+        'reason': normalizedReason,
+    };
   }
 
   Map<String, dynamic> _scriptAgentWorkspace(int projectId) {

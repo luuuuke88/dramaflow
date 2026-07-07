@@ -24,6 +24,8 @@ class AgentMemoryEntry {
   final String type;
   final List<String> relatedMessageIds;
   final List<String> sourceSummaryIds;
+  final Map<String, String> sourceSummaryReasons;
+  final String? relevanceReason;
   final int? score;
   final List<String> matchedTokens;
   final String? retrievalSource;
@@ -41,6 +43,8 @@ class AgentMemoryEntry {
     required this.type,
     this.relatedMessageIds = const [],
     this.sourceSummaryIds = const [],
+    this.sourceSummaryReasons = const {},
+    this.relevanceReason,
     this.score,
     this.matchedTokens = const [],
     this.retrievalSource,
@@ -64,6 +68,8 @@ class AgentMemoryEntry {
   AgentMemoryEntry copyWith({
     String? embedding,
     List<String>? sourceSummaryIds,
+    Map<String, String>? sourceSummaryReasons,
+    String? relevanceReason,
     int? score,
     List<String>? matchedTokens,
     String? retrievalSource,
@@ -81,6 +87,8 @@ class AgentMemoryEntry {
         type: type,
         relatedMessageIds: relatedMessageIds,
         sourceSummaryIds: sourceSummaryIds ?? this.sourceSummaryIds,
+        sourceSummaryReasons: sourceSummaryReasons ?? this.sourceSummaryReasons,
+        relevanceReason: relevanceReason ?? this.relevanceReason,
         score: score ?? this.score,
         matchedTokens: matchedTokens ?? this.matchedTokens,
         retrievalSource: retrievalSource ?? this.retrievalSource,
@@ -608,6 +616,7 @@ class AgentMemoryService {
 
     final ids = <String>[];
     final sourceSummaryIdsByMessageId = <String, List<String>>{};
+    final sourceSummaryReasonsByMessageId = <String, Map<String, String>>{};
     for (final summary in summaries) {
       for (final id in summary.relatedMessageIds) {
         if (excludedIdFilter != null && excludedIdFilter.contains(id)) {
@@ -615,6 +624,11 @@ class AgentMemoryService {
         }
         if (!ids.contains(id)) ids.add(id);
         (sourceSummaryIdsByMessageId[id] ??= <String>[]).add(summary.id);
+        final reason = summary.relevanceReason?.trim();
+        if (reason != null && reason.isNotEmpty) {
+          (sourceSummaryReasonsByMessageId[id] ??=
+              <String, String>{})[summary.id] = reason;
+        }
       }
     }
     if (ids.isEmpty) {
@@ -741,6 +755,9 @@ class AgentMemoryService {
             AgentMemoryEntry.fromRow(row).copyWith(
               sourceSummaryIds:
                   sourceSummaryIdsByMessageId[row['id'] as String] ?? const [],
+              sourceSummaryReasons:
+                  sourceSummaryReasonsByMessageId[row['id'] as String] ??
+                      const {},
             ),
             isolationKey: isolationKey,
             normalized: normalized,
@@ -1088,15 +1105,23 @@ class AgentMemoryService {
   ) {
     if (messages.isEmpty || summaries.isEmpty) return messages;
     final summaryIdsByMessageId = <String, List<String>>{};
+    final summaryReasonsByMessageId = <String, Map<String, String>>{};
     for (final summary in summaries) {
       for (final messageId in summary.relatedMessageIds) {
         (summaryIdsByMessageId[messageId] ??= <String>[]).add(summary.id);
+        final reason = summary.relevanceReason?.trim();
+        if (reason != null && reason.isNotEmpty) {
+          (summaryReasonsByMessageId[messageId] ??=
+              <String, String>{})[summary.id] = reason;
+        }
       }
     }
     return [
       for (final message in messages)
         message.copyWith(
           sourceSummaryIds: summaryIdsByMessageId[message.id] ?? const [],
+          sourceSummaryReasons:
+              summaryReasonsByMessageId[message.id] ?? const {},
         ),
     ];
   }
@@ -1547,16 +1572,19 @@ class AgentMemoryService {
         stage: summaryStage,
         cancelToken: cancelToken,
       );
-      final ids = _parseSelectedSummaryIds(result.content, candidates);
-      if (ids == null) return null;
-      if (ids.isEmpty) return const [];
+      final selection = _parseSelectedSummaryIds(result.content, candidates);
+      if (selection == null) return null;
+      if (selection.ids.isEmpty) return const [];
       final byId = {
         for (final candidate in candidates) candidate.id: candidate
       };
       return [
         for (final candidate in candidates)
-          if (ids.contains(candidate.id) && byId.containsKey(candidate.id))
-            candidate,
+          if (selection.ids.contains(candidate.id) &&
+              byId.containsKey(candidate.id))
+            candidate.copyWith(
+              relevanceReason: selection.reasons[candidate.id],
+            ),
       ];
     } catch (_) {
       return null;
@@ -2130,21 +2158,47 @@ Map<String, int> _decodeMemoryEmbedding(String value) {
   }
 }
 
-Set<String>? _parseSelectedSummaryIds(
+class _SelectedSummaryIds {
+  final Set<String> ids;
+  final Map<String, String> reasons;
+
+  const _SelectedSummaryIds(this.ids, this.reasons);
+}
+
+_SelectedSummaryIds? _parseSelectedSummaryIds(
   String source,
   List<AgentMemoryEntry> candidates,
 ) {
   final allowed = {for (final candidate in candidates) candidate.id};
   final selected = <String>{};
-  void addId(Object? value) {
+  final reasons = <String, String>{};
+  void addId(Object? value, [String? reason]) {
     final id = '$value'.trim();
-    if (allowed.contains(id)) selected.add(id);
+    if (!allowed.contains(id)) return;
+    selected.add(id);
+    final normalizedReason = reason?.trim();
+    if (normalizedReason != null && normalizedReason.isNotEmpty) {
+      reasons[id] = normalizedReason;
+    }
   }
 
-  void addOrdinal(Object? value) {
+  void addOrdinal(Object? value, [String? reason]) {
     final index = _candidateOrdinal(value);
     if (index == null || index < 1 || index > candidates.length) return;
-    addId(candidates[index - 1].id);
+    addId(candidates[index - 1].id, reason);
+  }
+
+  void addMappedReasons(Object? value) {
+    if (value is! Map) return;
+    final mapped = value['reasons'] ??
+        value['reasonById'] ??
+        value['reason_by_id'] ??
+        value['summaryReasons'] ??
+        value['summary_reasons'];
+    if (mapped is! Map) return;
+    for (final entry in mapped.entries) {
+      addId(entry.key, '${entry.value}');
+    }
   }
 
   final trimmed = source.trim();
@@ -2153,12 +2207,13 @@ Set<String>? _parseSelectedSummaryIds(
     final decoded = jsonDecode(trimmed);
     if (decoded is List) {
       for (final item in decoded) {
+        final reason = _selectedReason(item);
         for (final value in _selectedValueCandidates(item)) {
-          addId(value);
-          addOrdinal(value);
+          addId(value, reason);
+          addOrdinal(value, reason);
         }
       }
-      return selected;
+      return _SelectedSummaryIds(selected, reasons);
     }
     if (decoded is Map) {
       final ids = decoded['ids'] ??
@@ -2169,12 +2224,14 @@ Set<String>? _parseSelectedSummaryIds(
           decoded['selected'];
       if (ids is List) {
         for (final item in ids) {
+          final reason = _selectedReason(item);
           for (final value in _selectedValueCandidates(item)) {
-            addId(value);
-            addOrdinal(value);
+            addId(value, reason);
+            addOrdinal(value, reason);
           }
         }
-        return selected;
+        addMappedReasons(decoded);
+        return _SelectedSummaryIds(selected, reasons);
       }
       return null;
     }
@@ -2182,14 +2239,14 @@ Set<String>? _parseSelectedSummaryIds(
     // Fall through to tolerant id matching for model responses with prose.
   }
   for (final id in allowed) {
-    if (trimmed.contains(id)) selected.add(id);
+    if (trimmed.contains(id)) addId(id);
   }
   if (selected.isEmpty) {
     for (final ordinal in _candidateOrdinalsFromText(trimmed)) {
       addOrdinal(ordinal);
     }
   }
-  return selected.isEmpty ? null : selected;
+  return selected.isEmpty ? null : _SelectedSummaryIds(selected, reasons);
 }
 
 List<String>? _parseSelectedMemoryIds(
@@ -2282,6 +2339,24 @@ Iterable<Object?> _selectedValueCandidates(Object? value) sync* {
   for (final key in keys) {
     if (value.containsKey(key)) yield value[key];
   }
+}
+
+String? _selectedReason(Object? value) {
+  if (value is! Map) return null;
+  const keys = [
+    'reason',
+    'rationale',
+    'why',
+    'explanation',
+    '理由',
+    '原因',
+  ];
+  for (final key in keys) {
+    if (!value.containsKey(key)) continue;
+    final reason = '${value[key]}'.trim();
+    if (reason.isNotEmpty && reason != 'null') return reason;
+  }
+  return null;
 }
 
 int? _candidateOrdinal(Object? value) {
