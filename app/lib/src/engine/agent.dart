@@ -5512,10 +5512,10 @@ class _CustomAgentSkillRuntime {
         return _CustomJsPromiseValue(values);
       case 'allSettled':
         if (args.length != 1) _badMethodArgs(method);
-        return [
+        return _CustomJsPromiseValue([
           for (final value in _promiseIterableValues(args.single, method))
             _settledPromiseRecord(value),
-        ];
+        ]);
       case 'any':
         if (args.length != 1) _badMethodArgs(method);
         final errors = <Object?>[];

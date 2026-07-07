@@ -5598,6 +5598,74 @@ return JSON.stringify({ ok, failed });
     });
   });
 
+  test('自定义脚本技能：Promise.allSettled 支持链式 then', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_promise_all_settled_then_runtime',
+      name: 'Promise allSettled then 脚本运行时',
+      description: '验证自定义技能兼容模型常写的 Promise.allSettled(...).then(...) 批量整理。',
+      script: r'''
+const label = await Promise.allSettled(
+  args.storyboards.map((shot, index) => {
+    if (!shot.videoDesc?.trim()) {
+      return Promise.reject(new Error(`第${index + 1}镜缺少画面描述`));
+    }
+    return Promise.resolve(`${index + 1}.${shot.videoDesc.trim()}`);
+  })
+).then(results => {
+  const ok = results
+    .filter(item => item.status === 'fulfilled')
+    .map(item => item.value)
+    .join('、');
+  const failed = results
+    .filter(item => item.status === 'rejected')
+    .map(item => item.reason.message)
+    .join('、');
+  return `${ok}|${failed}`;
+});
+
+return label;
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'videoDesc': {'type': 'string'},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'custom_script_promise_all_settled_then_runtime',
+        const {
+          'storyboards': [
+            {'videoDesc': ' 雪落山门 '},
+            {'videoDesc': ''},
+            {'videoDesc': '主角回眸'},
+          ],
+        },
+      ),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用 Promise allSettled then 脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_promise_all_settled_then_runtime');
+    expect(msg.content, '1.雪落山门、3.主角回眸|第2镜缺少画面描述');
+  });
+
   test('自定义脚本技能：支持 Promise.race 首个 settled 结果', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_promise_race_runtime',
