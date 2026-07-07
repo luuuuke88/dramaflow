@@ -13525,6 +13525,145 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     }
   });
 
+  test('Agent 记忆：queryPlan fallback 仅在前序无结果时执行', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.summaryLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleAssistant,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_fallback_strict_keep',
+      content: '硬性约束：李澈必须保护沈微，并且绝不能反派化。',
+      offset: 0,
+    );
+    insertMessage(
+      id: 'query_plan_fallback_broad_noise',
+      content: '宽泛设定：李澈使用寒铁剑，但没有沈微保护规则。',
+      offset: 1,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'queries': ['保护沈微', '不能反派化'],
+            'match': 'all',
+            'reason': '严格硬约束',
+          },
+          {
+            'query': '寒铁剑',
+            'fallback': true,
+            'reason': '兜底宽召回',
+          },
+        ],
+        'limit': 4,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            '查询列表': ['保护沈微', '必须进入魔道'],
+            '必须全部命中': true,
+            'reason': '严格硬约束',
+          },
+          {
+            'query': '寒铁剑',
+            '仅在无结果时使用': true,
+            'reason': '兜底宽召回',
+          },
+        ],
+        'limit': 4,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '先严格召回，没结果再兜底',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('fallback'));
+      expect(properties, contains('whenEmpty'));
+      expect(properties, contains('仅在无结果时使用'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages[0].content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(jsonEncode(memoryGetPayload),
+        contains('query_plan_fallback_strict_keep'));
+    expect(jsonEncode(memoryGetPayload),
+        isNot(contains('query_plan_fallback_broad_noise')));
+    expect(jsonEncode(memoryGetPayload), isNot(contains('兜底宽召回')));
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages[1].content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(jsonEncode(deepRetrievePayload),
+        contains('query_plan_fallback_broad_noise'));
+    expect(jsonEncode(deepRetrievePayload),
+        isNot(contains('query_plan_fallback_strict_keep')));
+    expect(
+      deepRetrievePayload['records'],
+      contains(
+        isA<Map>()
+            .having((record) => record['id'], 'id',
+                'query_plan_fallback_broad_noise')
+            .having((record) => record['queryReason'], 'queryReason', '兜底宽召回'),
+      ),
+    );
+  });
+
   test('Agent 记忆：结构化查询计划可携带时间窗口', () async {
     const baseTime = 1900000000000;
     db.execute(

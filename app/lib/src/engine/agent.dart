@@ -103,6 +103,7 @@ class _AgentMemoryQueryRequest {
   final int priority;
   final int queryPlanIndex;
   final String? reason;
+  final bool fallbackWhenPreviousEmpty;
 
   const _AgentMemoryQueryRequest({
     required this.query,
@@ -111,6 +112,7 @@ class _AgentMemoryQueryRequest {
     this.limit,
     this.priority = 0,
     this.reason,
+    this.fallbackWhenPreviousEmpty = false,
   });
 }
 
@@ -572,6 +574,24 @@ const _agentMemoryQueryCombinationToolSchema = {
     'description': 'mustMatchAll 的中文别名。',
   },
 };
+const _agentMemoryQueryFallbackToolSchema = {
+  'fallback': {
+    'type': 'boolean',
+    'description': '可选。为 true 时，该 queryPlan 项只在前序检索没有结果时作为兜底执行。',
+  },
+  'fallbackOnly': {
+    'type': 'boolean',
+    'description': 'fallback 的自然语言别名。',
+  },
+  'whenEmpty': {
+    'type': ['boolean', 'string'],
+    'description': '可选。为 true 或 empty/no_results 时，该计划项仅在前序无结果时执行。',
+  },
+  '仅在无结果时使用': {
+    'type': 'boolean',
+    'description': 'fallback 的中文别名。',
+  },
+};
 const _agentMemoryRetrievalSourceToolSchema = {
   'retrievalSource': {
     'type': ['array', 'string'],
@@ -968,6 +988,7 @@ final _tools = <AgentToolDef>[
         },
         ..._agentMemoryQueryPlanToolSchema,
         ..._agentMemoryQueryCombinationToolSchema,
+        ..._agentMemoryQueryFallbackToolSchema,
         ..._agentMemoryContentFilterToolSchema,
         ..._agentMemoryRetrievalSourceToolSchema,
         'limit': {
@@ -1570,6 +1591,7 @@ final _tools = <AgentToolDef>[
         },
         ..._agentMemoryQueryPlanToolSchema,
         ..._agentMemoryQueryCombinationToolSchema,
+        ..._agentMemoryQueryFallbackToolSchema,
         ..._agentMemoryContentFilterToolSchema,
         ..._agentMemoryRetrievalSourceToolSchema,
         'limit': {
@@ -10884,6 +10906,15 @@ extension AgentApi on Engine {
           var hasMessageRequests = false;
           var hasSummaryRequests = false;
           for (final request in queryRequests) {
+            if (request.fallbackWhenPreviousEmpty &&
+                _hasAgentMemoryToolRecords(
+                  relatedMessageRecords,
+                  summaryRecords,
+                  recentMessageRecords,
+                  noteRecords,
+                )) {
+              continue;
+            }
             final requestArgs = request.args;
             void mergeRecordQueryMatch(AgentMemoryEntry record) {
               recordPriorities[record.id] = math.max(
@@ -11147,6 +11178,9 @@ extension AgentApi on Engine {
           final recordPriorities = <String, int>{};
           final recordQueryMatches = <String, _AgentMemoryQueryMatch>{};
           for (final request in queryRequests) {
+            if (request.fallbackWhenPreviousEmpty && records.isNotEmpty) {
+              continue;
+            }
             final requestArgs = request.args;
             final roles = _agentMemoryRoles(requestArgs);
             final requestedExcludeRoles = _agentMemoryExcludeRoles(requestArgs);
@@ -12468,6 +12502,7 @@ extension AgentApi on Engine {
       Map<String, dynamic> requestArgs, {
       int? limit,
       int priority = 0,
+      bool fallbackWhenPreviousEmpty = false,
     }) {
       final trimmed = query.trim();
       if (trimmed.isEmpty) return;
@@ -12483,6 +12518,7 @@ extension AgentApi on Engine {
           limit: limit,
           priority: priority,
           reason: _agentMemoryQueryReason(requestArgs),
+          fallbackWhenPreviousEmpty: fallbackWhenPreviousEmpty,
         ),
       );
     }
@@ -12492,11 +12528,18 @@ extension AgentApi on Engine {
       Map<String, dynamic> requestArgs, {
       int? limit,
       int priority = 0,
+      bool fallbackWhenPreviousEmpty = false,
     }) {
       final items = _coerceStringList(raw);
       if (items == null) return;
       for (final item in items) {
-        addRequest(item, requestArgs, limit: limit, priority: priority);
+        addRequest(
+          item,
+          requestArgs,
+          limit: limit,
+          priority: priority,
+          fallbackWhenPreviousEmpty: fallbackWhenPreviousEmpty,
+        );
       }
     }
 
@@ -12505,6 +12548,7 @@ extension AgentApi on Engine {
       Map<String, dynamic> inheritedArgs, {
       int? inheritedLimit,
       int inheritedPriority = 0,
+      bool inheritedFallbackWhenPreviousEmpty = false,
     }) {
       if (raw == null) return;
       if (raw is Map) {
@@ -12519,6 +12563,9 @@ extension AgentApi on Engine {
         final nodeLimit = _agentMemoryDirectLimit(map) ?? inheritedLimit;
         final nodePriority =
             _agentMemoryDirectPriority(map) ?? inheritedPriority;
+        final nodeFallbackWhenPreviousEmpty =
+            inheritedFallbackWhenPreviousEmpty ||
+                _agentMemoryPlanIsFallback(map);
         final allMatchQueries = _agentMemoryPlanAllMatchQueries(map);
         if (allMatchQueries.length > 1) {
           addRequest(
@@ -12529,6 +12576,7 @@ extension AgentApi on Engine {
             ),
             limit: nodeLimit,
             priority: nodePriority,
+            fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
           );
           return;
         }
@@ -12555,6 +12603,7 @@ extension AgentApi on Engine {
             nodeArgs,
             limit: nodeLimit,
             priority: nodePriority,
+            fallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
           );
         }
         final childArgs = {
@@ -12589,6 +12638,7 @@ extension AgentApi on Engine {
             childArgs,
             inheritedLimit: nodeLimit,
             inheritedPriority: nodePriority,
+            inheritedFallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
           );
         }
         return;
@@ -12600,6 +12650,8 @@ extension AgentApi on Engine {
             inheritedArgs,
             inheritedLimit: inheritedLimit,
             inheritedPriority: inheritedPriority,
+            inheritedFallbackWhenPreviousEmpty:
+                inheritedFallbackWhenPreviousEmpty,
           );
         }
         return;
@@ -12609,6 +12661,7 @@ extension AgentApi on Engine {
         inheritedArgs,
         limit: inheritedLimit,
         priority: inheritedPriority,
+        fallbackWhenPreviousEmpty: inheritedFallbackWhenPreviousEmpty,
       );
     }
 
@@ -12626,8 +12679,14 @@ extension AgentApi on Engine {
       'q',
     ]);
     final basePriority = _agentMemoryDirectPriority(args) ?? 0;
+    final baseFallbackWhenPreviousEmpty = _agentMemoryPlanIsFallback(args);
     if (single.isNotEmpty) {
-      addRequest(single, baseArgs, priority: basePriority);
+      addRequest(
+        single,
+        baseArgs,
+        priority: basePriority,
+        fallbackWhenPreviousEmpty: baseFallbackWhenPreviousEmpty,
+      );
     }
     final directQueries = _stringListAny(args, const [
           'queries',
@@ -12647,10 +12706,16 @@ extension AgentApi on Engine {
         directQueries.join(' '),
         _agentMemoryArgsWithRequiredContentTerms(baseArgs, directQueries),
         priority: basePriority,
+        fallbackWhenPreviousEmpty: baseFallbackWhenPreviousEmpty,
       );
     } else {
       for (final item in directQueries) {
-        addRequest(item, baseArgs, priority: basePriority);
+        addRequest(
+          item,
+          baseArgs,
+          priority: basePriority,
+          fallbackWhenPreviousEmpty: baseFallbackWhenPreviousEmpty,
+        );
       }
     }
     for (final key in const [
@@ -12663,7 +12728,12 @@ extension AgentApi on Engine {
       '检索计划',
       '搜索计划',
     ]) {
-      addPlanNode(args[key], baseArgs, inheritedPriority: basePriority);
+      addPlanNode(
+        args[key],
+        baseArgs,
+        inheritedPriority: basePriority,
+        inheritedFallbackWhenPreviousEmpty: baseFallbackWhenPreviousEmpty,
+      );
     }
     return requests;
   }
@@ -12797,6 +12867,50 @@ extension AgentApi on Engine {
       case '必须全部命中':
       case '并且':
       case '交集':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool _agentMemoryPlanIsFallback(Map<String, dynamic> args) {
+    final explicitRaw = args['fallback'] ??
+        args['fallbackOnly'] ??
+        args['fallback_only'] ??
+        args['useAsFallback'] ??
+        args['use_as_fallback'] ??
+        args['whenEmpty'] ??
+        args['when_empty'] ??
+        args['onlyWhenEmpty'] ??
+        args['only_when_empty'] ??
+        args['ifEmpty'] ??
+        args['if_empty'] ??
+        args['仅在无结果时使用'] ??
+        args['无结果时使用'] ??
+        args['兜底'];
+    final explicitBool = _coerceBool(explicitRaw);
+    if (explicitBool == true) return true;
+    if (_isAgentMemoryFallbackCondition(explicitRaw)) return true;
+    final raw = args['when'] ?? args['condition'] ?? args['条件'];
+    return _isAgentMemoryFallbackCondition(raw);
+  }
+
+  bool _isAgentMemoryFallbackCondition(Object? raw) {
+    if (raw == null) return false;
+    final value = raw.toString().trim().toLowerCase();
+    switch (value) {
+      case 'empty':
+      case 'no_results':
+      case 'no-results':
+      case 'no results':
+      case 'if_empty':
+      case 'if-empty':
+      case 'if empty':
+      case 'fallback':
+      case '无结果':
+      case '没有结果':
+      case '前序无结果':
+      case '兜底':
         return true;
       default:
         return false;
@@ -14108,6 +14222,17 @@ extension AgentApi on Engine {
     }
     return result;
   }
+
+  bool _hasAgentMemoryToolRecords(
+    Iterable<AgentMemoryEntry> relatedMessages,
+    Iterable<AgentMemoryEntry> summaries,
+    Iterable<AgentMemoryEntry> recentMessages,
+    Iterable<AgentMemoryEntry> notes,
+  ) =>
+      relatedMessages.isNotEmpty ||
+      summaries.isNotEmpty ||
+      recentMessages.isNotEmpty ||
+      notes.isNotEmpty;
 
   Map<String, dynamic> _agentMemoryRecordPayload(
     AgentMemoryEntry record, {
