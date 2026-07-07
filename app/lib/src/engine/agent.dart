@@ -688,6 +688,16 @@ const _agentMemoryStructuredDslWrapperKeys = [
   'constantScore',
   'nested',
 ];
+const _agentMemoryStructuredQueryClauseKeys = [
+  'multi_match',
+  'multiMatch',
+  'query_string',
+  'queryString',
+  'simple_query_string',
+  'simpleQueryString',
+  'combined_fields',
+  'combinedFields',
+];
 const _agentMemorySemanticQueryToolSchema = {
   'semanticQuery': {
     'type': 'string',
@@ -906,6 +916,31 @@ const _agentMemoryContentFilterToolSchema = {
   'nested': {
     'type': 'object',
     'description': '可选。Elasticsearch nested 包裹，内部 query/filter 会被展开为内容过滤。',
+  },
+  'multi_match': {
+    'type': 'object',
+    'description': '可选。Elasticsearch multi_match 查询子句，内部 query 会被展开为检索文本。',
+  },
+  'multiMatch': {
+    'type': 'object',
+    'description': 'multi_match 的 camelCase 别名。',
+  },
+  'query_string': {
+    'type': 'object',
+    'description': '可选。Elasticsearch query_string 查询子句，内部 query 会被展开为检索文本。',
+  },
+  'queryString': {
+    'type': 'object',
+    'description': 'query_string 的 camelCase 别名。',
+  },
+  'simple_query_string': {
+    'type': 'object',
+    'description':
+        '可选。Elasticsearch simple_query_string 查询子句，内部 query 会被展开为检索文本。',
+  },
+  'simpleQueryString': {
+    'type': 'object',
+    'description': 'simple_query_string 的 camelCase 别名。',
   },
   'filter': {
     'type': ['object', 'array'],
@@ -13921,6 +13956,16 @@ extension AgentApi on Engine {
             inheritedQueryGroup: nodeQueryGroup,
           );
         }
+        for (final key in _agentMemoryStructuredQueryClauseKeys) {
+          addPlanNode(
+            map[key],
+            childArgs,
+            inheritedLimit: nodeLimit,
+            inheritedPriority: nodePriority,
+            inheritedFallbackWhenPreviousEmpty: nodeFallbackWhenPreviousEmpty,
+            inheritedQueryGroup: nodeQueryGroup,
+          );
+        }
         if (requests.length == requestCountBeforeNode) {
           final derivedQuery = _agentMemoryDerivedFilterQuery(nodeArgs);
           if (derivedQuery.isNotEmpty) {
@@ -14132,6 +14177,9 @@ extension AgentApi on Engine {
           'items',
           'steps',
         ]) {
+          collect(raw[key]);
+        }
+        for (final key in _agentMemoryStructuredQueryClauseKeys) {
           collect(raw[key]);
         }
         return;
@@ -14649,6 +14697,9 @@ extension AgentApi on Engine {
           'items',
           'steps',
         ]) {
+          addNode(raw[key]);
+        }
+        for (final key in _agentMemoryStructuredQueryClauseKeys) {
           addNode(raw[key]);
         }
         return;

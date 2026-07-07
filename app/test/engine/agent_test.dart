@@ -14426,6 +14426,186 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     );
   });
 
+  test('Agent 记忆：queryPlan 支持 multi_match/query_string 查询子句', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '5'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage(String id, String content, int offset) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          agentRoleUser,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      'query_plan_multi_match_keep',
+      '霜月城门甲：镜头保留霜月城门、蓝旗翻卷和背身拔剑。',
+      0,
+    );
+    insertMessage(
+      'query_plan_multi_match_noise',
+      '霜月城门甲：只记录普通城门调度，没有旗帜动作。',
+      1,
+    );
+    insertMessage(
+      'query_plan_multi_match_excluded',
+      '废弃版本：霜月城门甲保留蓝旗翻卷，但动作节奏错误。',
+      2,
+    );
+    insertMessage(
+      'query_plan_query_string_keep',
+      '黑曜钟楼乙：人物进入黑曜钟楼，镜头采用横移跟拍。',
+      3,
+    );
+    insertMessage(
+      'query_plan_query_string_noise',
+      '黑曜钟楼乙：只记录远景钟楼，没有横移跟拍。',
+      4,
+    );
+    insertMessage(
+      'query_plan_simple_query_string_keep',
+      '琉璃回廊丙：角色穿过琉璃回廊，低角度推进压迫感更强。',
+      5,
+    );
+    insertMessage(
+      'query_plan_simple_query_string_noise',
+      '琉璃回廊丙：角色只是站在门口，没有低角度推进。',
+      6,
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': {
+              'multi_match': {
+                'query': '霜月城门 蓝旗翻卷',
+                'fields': ['name', 'content'],
+              },
+            },
+            'must_not': [
+              {
+                'match': {'content': '废弃版本'},
+              },
+            ],
+          },
+        ],
+        'limit': 1,
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': {
+              'query_string': {
+                'query': '黑曜钟楼 横移跟拍',
+                'fields': ['content'],
+              },
+            },
+            'must_not': [
+              {
+                'match_phrase': {'content': '没有横移跟拍'},
+              },
+            ],
+          },
+          {
+            'query': {
+              'simple_query_string': {
+                'query': '琉璃回廊 低角度推进',
+                'fields': ['content'],
+              },
+            },
+            'must_not': [
+              {
+                'match_phrase': {'content': '没有低角度推进'},
+              },
+            ],
+          },
+        ],
+        'limit': 5,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES 多字段查询和 query_string 结构召回制作记忆',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('multi_match'));
+      expect(properties, contains('query_string'));
+      expect(properties, contains('simple_query_string'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(memoryGetPayload['memories'], [
+      '霜月城门甲：镜头保留霜月城门、蓝旗翻卷和背身拔剑。',
+    ]);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_multi_match_keep'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      deepRetrievePayload['memories'],
+      unorderedEquals([
+        '黑曜钟楼乙：人物进入黑曜钟楼，镜头采用横移跟拍。',
+        '琉璃回廊丙：角色穿过琉璃回廊，低角度推进压迫感更强。',
+      ]),
+    );
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      unorderedEquals([
+        'query_plan_query_string_keep',
+        'query_plan_simple_query_string_keep',
+      ]),
+    );
+  });
+
   test('Agent 记忆：queryPlan schema 暴露对象包裹计划', () async {
     gateway.turns = [
       const AgentTurnResult.text('查看结构化查询计划 schema'),
