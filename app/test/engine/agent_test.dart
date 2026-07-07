@@ -16465,6 +16465,143 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(rows.single['type'], agentMemoryTypeMessage);
   });
 
+  test('Agent 记忆：memory_clear 工具按 scope 清理当前 Agent 家族', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'clear_tool_script_msg',
+        '',
+        '剧本侧待恢复消息。',
+        now,
+        embeddingJson('剧本侧待恢复消息。'),
+        'scriptAgent:$projectId',
+        '[]',
+        agentRoleUser,
+        1,
+        agentMemoryTypeMessage,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'clear_tool_script_summary',
+        '剧本摘要',
+        '剧本侧摘要。',
+        now + 1,
+        embeddingJson('剧本侧摘要。'),
+        'scriptAgent:$projectId',
+        jsonEncode(['clear_tool_script_msg']),
+        agentRoleAssistant,
+        0,
+        agentMemoryTypeSummary,
+      ],
+    );
+    db.execute(
+      'INSERT INTO memories '
+      '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+      'VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [
+        'clear_tool_production_summary',
+        '制作摘要',
+        '制作侧摘要。',
+        now + 2,
+        embeddingJson('制作侧摘要。'),
+        'productionAgent:$projectId',
+        '[]',
+        agentRoleAssistant,
+        0,
+        agentMemoryTypeSummary,
+      ],
+    );
+    final noteId = engine.saveAgentMemory(
+      projectId,
+      name: '长期设定',
+      content: '长期设定：李澈不能黑化。',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_clear', const {
+        'scope': 'summary',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '清理剧本摘要记忆',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final tool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_clear');
+    final properties = tool.schema['properties'] as Map;
+    expect(properties, contains('scope'));
+    expect(properties, contains('memoryScope'));
+    expect(properties, contains('记忆范围'));
+
+    final summaryPayload =
+        jsonDecode(engine.agentMessages(projectId).last.content)
+            as Map<String, dynamic>;
+    expect(summaryPayload['cleared'], isTrue);
+    expect(summaryPayload['scope'], agentMemoryTypeSummary);
+    expect(summaryPayload['family'], agentFamilyScript);
+    expect(summaryPayload['target'], 'conversation');
+
+    expect(
+      db.select(
+          'SELECT id FROM memories WHERE id=?', ['clear_tool_script_summary']),
+      isEmpty,
+    );
+    expect(
+      db.select(
+        'SELECT summarized FROM memories WHERE id=?',
+        ['clear_tool_script_msg'],
+      ).single['summarized'],
+      0,
+    );
+    expect(
+      db.select('SELECT id FROM memories WHERE id=?',
+          ['clear_tool_production_summary']),
+      hasLength(1),
+    );
+    expect(engine.agentLongTermMemories(projectId).map((item) => item.id),
+        contains(noteId));
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_clear', const {
+        '记忆范围': '长期记忆',
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '清理长期记忆',
+      autoMode: false,
+      family: agentFamilyProduction,
+    );
+
+    final notePayload = jsonDecode(
+      engine
+          .agentMessages(projectId, family: agentFamilyProduction)
+          .last
+          .content,
+    ) as Map<String, dynamic>;
+    expect(notePayload['cleared'], isTrue);
+    expect(notePayload['scope'], agentMemoryTypeNote);
+    expect(notePayload['target'], 'long_term');
+    expect(engine.agentLongTermMemories(projectId), isEmpty);
+    expect(
+      db.select('SELECT id FROM memories WHERE id=?',
+          ['clear_tool_production_summary']),
+      hasLength(1),
+    );
+  });
+
   test('Agent 记忆：deepRetrieve 工具从 summary 展开原始 message', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(

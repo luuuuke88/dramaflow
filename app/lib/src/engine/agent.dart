@@ -1000,6 +1000,82 @@ final _tools = <AgentToolDef>[
     },
   ),
   const AgentToolDef(
+    name: 'memory_clear',
+    description: '调用 ToonFlow Memory.clear 清理指定记忆层。'
+        'message/conversation 清当前 Agent 家族的对话与摘要；summary 只清摘要并恢复源消息；'
+        'note/long_term 清项目长期记忆；all 清当前 Agent 家族全部对话层记忆。',
+    schema: {
+      'type': 'object',
+      'properties': {
+        'scope': {
+          'type': 'string',
+          'enum': [
+            'message',
+            'conversation',
+            'summary',
+            'note',
+            'long_term',
+            'all',
+          ],
+          'description': '要清理的记忆范围。',
+        },
+        '范围': {
+          'type': 'string',
+          'description': 'scope 的中文别名，可用对话记忆、摘要、长期记忆或全部。',
+        },
+        'memoryScope': {
+          'type': 'string',
+          'enum': [
+            'message',
+            'conversation',
+            'summary',
+            'note',
+            'long_term',
+            'all',
+          ],
+          'description': 'scope 的记忆范围别名。',
+        },
+        '记忆范围': {
+          'type': 'string',
+          'description': 'memoryScope 的中文别名。',
+        },
+        'memory_scope': {
+          'type': 'string',
+          'enum': [
+            'message',
+            'conversation',
+            'summary',
+            'note',
+            'long_term',
+            'all',
+          ],
+          'description': 'memoryScope 的 snake_case 别名。',
+        },
+        'type': {
+          'type': 'string',
+          'enum': ['message', 'summary', 'note', 'all'],
+          'description': 'scope 的类型别名。',
+        },
+        'memoryType': {
+          'type': 'string',
+          'enum': [
+            'message',
+            'conversation',
+            'summary',
+            'note',
+            'long_term',
+            'all',
+          ],
+          'description': 'scope 的记忆类型别名。',
+        },
+        '记忆类型': {
+          'type': 'string',
+          'description': 'memoryType 的中文别名。',
+        },
+      },
+    },
+  ),
+  const AgentToolDef(
     name: 'memory_get',
     description: '调用 ToonFlow Memory.get 普通记忆检索，按查询返回相关原始对话、历史摘要和近期未摘要对话。'
         '适合先快速找当前上下文，不做 deepRetrieve 的 summary 判别展开。',
@@ -11170,6 +11246,37 @@ extension AgentApi on Engine {
             'role': normalizedRole,
             'content': content,
           });
+        case 'memory_clear':
+          final scope = _memoryClearScope(args);
+          if (scope == null) {
+            return 'memory_clear 需要 scope，且只支持 message/conversation、summary、note/long_term 或 all。';
+          }
+          final service = _agentMemoryService(family: agentFamily);
+          if (scope == agentMemoryTypeNote) {
+            service.clear(
+              isolationKey: _agentMemoryIsolationKey(projectId),
+              scope: agentMemoryTypeNote,
+            );
+            return jsonEncode({
+              'cleared': true,
+              'scope': agentMemoryTypeNote,
+              'target': 'long_term',
+              'family': agentFamily,
+            });
+          }
+          service.clear(
+            isolationKey: _agentConversationIsolationKey(
+              projectId,
+              family: agentFamily,
+            ),
+            scope: scope,
+          );
+          return jsonEncode({
+            'cleared': true,
+            'scope': scope,
+            'target': 'conversation',
+            'family': agentFamily,
+          });
         case 'memory_get':
           final queryRequests = _deepRetrieveQueryRequests(args);
           final queries = _agentMemoryRequestQueries(queryRequests);
@@ -14605,6 +14712,75 @@ extension AgentApi on Engine {
           args['memory_scope'],
     );
     if (values.isEmpty) return agentMemoryTypeMessage;
+    if (values.length != 1 || values.contains('__unsupported__')) return null;
+    return values.single;
+  }
+
+  String? _memoryClearScope(Map<String, dynamic> args) {
+    final values = <String>{};
+
+    void add(Object? raw) {
+      final items = _coerceStringSet(raw);
+      if (items == null) return;
+      for (final item in items) {
+        switch (item.trim().toLowerCase()) {
+          case 'message':
+          case 'messages':
+          case 'conversation':
+          case 'conversations':
+          case 'chat':
+          case 'history':
+          case '普通记忆':
+          case '消息':
+          case '聊天':
+          case '对话':
+          case '对话记忆':
+          case '历史':
+          case '短期记忆':
+            values.add(agentMemoryTypeMessage);
+            break;
+          case 'summary':
+          case 'summaries':
+          case '摘要':
+          case '摘要记忆':
+          case '历史摘要':
+            values.add(agentMemoryTypeSummary);
+            break;
+          case 'note':
+          case 'notes':
+          case 'long_term':
+          case 'long-term':
+          case 'longterm':
+          case 'project':
+          case '长期':
+          case '长期记忆':
+          case '项目记忆':
+          case '设定记忆':
+            values.add(agentMemoryTypeNote);
+            break;
+          case 'all':
+          case '全部':
+          case '所有':
+          case '全量':
+            values.add(agentMemoryScopeAll);
+            break;
+          default:
+            values.add('__unsupported__');
+        }
+      }
+    }
+
+    add(args['scope'] ??
+        args['范围'] ??
+        args['memoryScope'] ??
+        args['记忆范围'] ??
+        args['memory_scope']);
+    add(args['type'] ??
+        args['类型'] ??
+        args['memoryType'] ??
+        args['记忆类型'] ??
+        args['memory_type']);
+    if (values.isEmpty) return null;
     if (values.length != 1 || values.contains('__unsupported__')) return null;
     return values.single;
   }
