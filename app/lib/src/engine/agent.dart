@@ -15060,23 +15060,44 @@ extension AgentApi on Engine {
   }
 
   String _normalizeScriptAgentPlanDataKey(String key) {
-    switch (key.trim()) {
-      case 'storySkeleton':
-      case 'story_skeleton':
-      case 'story-skeleton':
+    final raw = key.trim();
+    switch (raw) {
+      case '故事骨架':
+      case '故事大纲':
         return scriptAgentStorySkeletonKey;
-      case 'adaptationStrategy':
+      case '改编策略':
+        return scriptAgentAdaptationStrategyKey;
+      case '剧本':
+      case '剧本内容':
+      case '正文':
+        return 'script';
+    }
+    final normalized = raw
+        .replaceAllMapped(
+          RegExp(r'([a-z0-9])([A-Z])'),
+          (match) => '${match.group(1)}_${match.group(2)}',
+        )
+        .replaceAll(RegExp(r'[\s-]+'), '_')
+        .toLowerCase();
+    switch (normalized) {
+      case 'story_skeleton':
+      case 'storyskeleton':
+      case 'story_outline':
+      case 'storyoutline':
+      case 'outline':
+      case 'skeleton':
+        return scriptAgentStorySkeletonKey;
       case 'adaptation_strategy':
-      case 'adaptation-strategy':
+      case 'adaptationstrategy':
+      case 'strategy':
         return scriptAgentAdaptationStrategyKey;
       case 'script':
       case 'scripts':
-      case 'scriptContent':
       case 'script_content':
-      case 'script-content':
+      case 'scriptcontent':
         return 'script';
       default:
-        return key.trim();
+        return raw;
     }
   }
 

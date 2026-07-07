@@ -21416,6 +21416,80 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(toolAudit['content'], isNot(contains('前三集强化退婚冲突')));
   });
 
+  test('剧本执行工具调用接受中文字段名读取工作区段', () async {
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_storySkeleton',
+        const {'request': '生成寒山篇故事骨架'},
+      ),
+      const AgentTurnResult.text('<storySkeleton>寒山篇三集骨架</storySkeleton>'),
+    ];
+    await engine.sendAgentMessage(projectId, '先生成故事骨架', autoMode: false);
+
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_adaptationStrategy',
+        const {'request': '读取中文故事骨架'},
+      ),
+      AgentTurnResult.tool(
+        'get_planData',
+        const {'section': '故事骨架'},
+      ),
+      const AgentTurnResult.text(
+        '<adaptationStrategy>前三集强化退婚冲突</adaptationStrategy>',
+      ),
+    ];
+    await engine.sendAgentMessage(
+      projectId,
+      '读取中文骨架写改编策略',
+      autoMode: false,
+    );
+
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '寒山开篇。');
+    gateway.turns = [
+      AgentTurnResult.tool(
+        'run_sub_agent_script',
+        const {'request': '读取中文改编策略'},
+      ),
+      AgentTurnResult.tool(
+        'get_planData',
+        const {'section': '改编策略'},
+      ),
+      const AgentTurnResult.text('<scriptItem name="第一集">寒山开篇升级。</scriptItem>'),
+    ];
+    await engine.sendAgentMessage(
+      projectId,
+      '读取中文改编策略写剧本',
+      autoMode: false,
+    );
+
+    final rows = db.select(
+      'SELECT role,content FROM memories '
+      'WHERE isolationKey=? AND type=? ORDER BY createTime ASC, id ASC',
+      ['scriptAgent:$projectId', 'message'],
+    );
+    final adaptationToolAudit = rows.singleWhere(
+      (row) =>
+          row['role'] == 'assistant:execution:adaptationStrategy:tool' &&
+          (row['content'] as String).contains('get_planData'),
+    );
+    expect(adaptationToolAudit['content'], contains('寒山篇三集骨架'));
+    expect(adaptationToolAudit['content'], isNot(contains('无数据')));
+
+    final scriptToolAudit = rows.singleWhere(
+      (row) =>
+          row['role'] == 'assistant:execution:script:tool' &&
+          (row['content'] as String).contains('get_planData'),
+    );
+    expect(scriptToolAudit['content'], contains('前三集强化退婚冲突'));
+    expect(scriptToolAudit['content'], isNot(contains('无数据')));
+    expect(
+      engine.scripts(projectId).singleWhere((s) => s.id == scriptId).content,
+      '寒山开篇升级。',
+    );
+  });
+
   test('Agent tool list honors custom skill attribution by decision stage',
       () async {
     engine.saveCustomAgentSkill(
@@ -22114,6 +22188,10 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(
       ((planProperties['dataKey'] as Map)['enum'] as List),
       containsAll(['story_skeleton', 'adaptation_strategy']),
+    );
+    expect(
+      ((planProperties['key'] as Map)['enum'] as List),
+      containsAll(['故事骨架', '改编策略', '剧本内容']),
     );
     expect(planTool.schema['required'], isNull);
 

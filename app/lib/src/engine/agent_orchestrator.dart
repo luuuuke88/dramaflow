@@ -284,9 +284,22 @@ const Map<String, dynamic> _scriptContentIdAliasProperties = <String, dynamic>{
 const List<String> _scriptWorkspaceDataKeyEnum = <String>[
   'storySkeleton',
   'story_skeleton',
+  'story-skeleton',
+  'storyOutline',
+  'story_outline',
+  '故事骨架',
+  '故事大纲',
   'adaptationStrategy',
   'adaptation_strategy',
+  'adaptation-strategy',
+  '改编策略',
   'script',
+  'scripts',
+  'scriptContent',
+  'script_content',
+  '剧本',
+  '剧本内容',
+  '正文',
 ];
 
 const Map<String, dynamic> _scriptWorkspaceDataKeyAliasProperties =
