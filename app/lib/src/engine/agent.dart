@@ -4687,6 +4687,9 @@ class _CustomAgentSkillRuntime {
     if (expr == 'true') return true;
     if (expr == 'false') return false;
     if (expr == 'null' || expr == 'undefined') return null;
+    if (expr == 'NaN') return double.nan;
+    if (expr == 'Infinity' || expr == '+Infinity') return double.infinity;
+    if (expr == '-Infinity') return double.negativeInfinity;
     final intValue = int.tryParse(expr);
     if (intValue != null) return intValue;
     final doubleValue = double.tryParse(expr);
@@ -5477,7 +5480,7 @@ class _CustomAgentSkillRuntime {
         if (args.length > 1 || value is! Iterable || value is String) {
           _badMethodArgs(method);
         }
-        final depth = args.isEmpty ? 1 : _toInt(_evaluate(args.single));
+        final depth = args.isEmpty ? 1 : _flatDepth(_evaluate(args.single));
         final flattened = <Object?>[];
         _flattenInto(flattened, value, depth < 0 ? 0 : depth);
         return flattened;
@@ -5943,6 +5946,13 @@ class _CustomAgentSkillRuntime {
         target.add(item);
       }
     }
+  }
+
+  int _flatDepth(Object? value) {
+    final depth = value is num ? value : _toNum(value);
+    if (depth.isNaN || depth <= 0) return 0;
+    if (depth.isInfinite) return 10000;
+    return depth.toInt();
   }
 
   Object? _matchString(String text, Object? matcher) {

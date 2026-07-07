@@ -480,6 +480,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers numeric `toFixed(...)` formatting on mapped durations, reduced totals, and grouped arithmetic expressions such as `(Number(ratio) * 100).toFixed()`, so model-authored skills can emit stable duration/percentage strings without falling back to manual rounding.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS numeric constants `NaN`, `Infinity`, and `-Infinity`, including `flat(Infinity)` for deeply nested reference lists and `Number.isNaN/Number.isFinite` guards, so model-authored asset cleanup scripts can keep standard JavaScript constant usage.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `JSON.stringify(value, null, space)` pretty output with numeric and string indentation, so model-authored skills can return readable workspace/storyboard JSON without failing on the common three-argument stringify form.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers anonymous function-expression callbacks such as `map(function (item) { ... })`, `filter(function (...) { ... })`, and `reduce(function (...) { ... })`, so model-authored ToonFlow-style helper scripts no longer need to rewrite ordinary JavaScript callbacks into arrow functions or predeclared function names.

@@ -6737,6 +6737,63 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 NaN 和 Infinity 数值常量', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_numeric_constants_runtime',
+      name: '数值常量脚本运行时',
+      description: '验证自定义技能兼容模型常写的 flat(Infinity) 和 Number.isNaN(NaN)。',
+      script: r'''
+const refs = args.referenceGroups.flat(Infinity).filter(Boolean);
+return JSON.stringify({
+  refs: refs.join('、'),
+  hasNaN: Number.isNaN(NaN),
+  finite: Number.isFinite(Infinity),
+  negativeFinite: Number.isFinite(-Infinity),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'referenceGroups': {
+            'type': 'array',
+            'items': {'type': 'array'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_numeric_constants_runtime', const {
+        'referenceGroups': [
+          [
+            '角色正面',
+            ['角色侧面', null],
+          ],
+          [
+            ['场景远景'],
+          ],
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用数值常量脚本运行时技能',
+      autoMode: false,
+      family: agentFamilyScript,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_numeric_constants_runtime');
+    expect(jsonDecode(msg.content), {
+      'refs': '角色正面、角色侧面、场景远景',
+      'hasNaN': true,
+      'finite': false,
+      'negativeFinite': false,
+    });
+  });
+
   test('自定义脚本技能：支持 Boolean 全局转换和 filter(Boolean)', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_boolean_filter_runtime',
