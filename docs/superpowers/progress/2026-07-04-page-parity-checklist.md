@@ -322,6 +322,8 @@ Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_ge
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `memory_get` and `deepRetrieve` exposing and accepting structured query-plan aliases such as `queryPlan`, `retrievalPlan`, `searchQueries`, and `查询计划`, extracting query text from model-authored plan objects with `query`, `q`, `keywords`, or `查询` fields so decision/sub Agents can hand over a RAG plan without flattening it into brittle string arrays.
 
+Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers `deepRetrieve` returning the normalized `queries` list even when no memories are found, so decision/sub Agents and audit UIs can see which ToonFlow-style query plan was attempted before a miss.
+
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured query-plan items carrying memory scope/type hints such as `scope=long_term` or `记忆范围=长期记忆`, so `memory_get` and `deepRetrieve` can route model-authored RAG plans directly to long-term notes without requiring a separate top-level memory filter.
 
 Recent Agent/RAG Update: `app/test/engine/agent_test.dart` now covers structured query-plan items carrying memory role filters such as `memoryRoles` or `记忆角色`, so `memory_get` and `deepRetrieve` can retrieve execution-layer, user, assistant, or other stage-specific memories from model-authored RAG plans without mixing unrelated role noise.

@@ -16785,6 +16785,32 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(recordIds.toSet(), hasLength(recordIds.length));
   });
 
+  test('Agent 记忆：deepRetrieve 未命中时返回查询列表便于多 Agent 审计', () async {
+    gateway.turns = [
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {'query': '李澈正派约束'},
+          {'query': '寒山山门冷白低机位'},
+        ],
+        'limit': 3,
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '查一下还没写入的角色和场景记忆',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'deepRetrieve');
+    final payload = jsonDecode(msg.content) as Map<String, dynamic>;
+    expect(payload['found'], isFalse);
+    expect(payload['message'], '未找到相关记忆');
+    expect(payload['queries'], ['李澈正派约束', '寒山山门冷白低机位']);
+  });
+
   test('Agent 记忆：deepRetrieve schema 暴露模型常见 RAG 字段别名', () async {
     gateway.turns = [const AgentTurnResult.text('收到')];
 

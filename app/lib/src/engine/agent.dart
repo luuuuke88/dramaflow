@@ -11419,6 +11419,7 @@ extension AgentApi on Engine {
           if (limitedRecords.isEmpty) {
             return jsonEncode({
               'found': false,
+              'queries': queries,
               'message': '未找到相关记忆',
             });
           }
