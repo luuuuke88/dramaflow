@@ -5475,6 +5475,31 @@ class _CustomAgentSkillRuntime {
           index++;
         }
         return accumulator;
+      case 'reduceRight':
+        if (args.isEmpty || args.length > 2 || value is! Iterable) {
+          _badMethodArgs(method);
+        }
+        final items = value.toList();
+        if (args.length == 1 && items.isEmpty) {
+          throw EngineException(errLlmFormat, {
+            'reason': 'custom_skill_reduce_right_empty',
+          });
+        }
+        Object? accumulator =
+            args.length == 2 ? _evaluate(args[1]) : items.last;
+        final startIndex =
+            args.length == 2 ? items.length - 1 : items.length - 2;
+        for (var index = startIndex; index >= 0; index--) {
+          accumulator = _evaluateReduceCallback(
+            method,
+            args.first,
+            accumulator,
+            items[index],
+            index,
+            items,
+          );
+        }
+        return accumulator;
       case 'sort':
         if (args.length > 1 || value is! Iterable) _badMethodArgs(method);
         final sorted = value is List ? value : value.toList();

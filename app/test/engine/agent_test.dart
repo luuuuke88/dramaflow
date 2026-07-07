@@ -8994,6 +8994,68 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持 reduceRight 倒序整理分镜引用链', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_reduce_right_runtime',
+      name: '倒序归并脚本运行时',
+      description: '验证自定义技能兼容模型常写的 reduceRight 倒序汇总逻辑。',
+      script: r'''
+const labels = args.storyboards.reduceRight((list, shot, index, all) =>
+  shot.enabled ? [...list, `${index + 1}/${all.length}:${shot.name.trim()}`] : list
+, []);
+const total = args.storyboards.reduceRight((sum, shot) => sum + shot.duration, 0);
+const lastName = args.names.reduceRight((best, name) =>
+  name.trim().length > best.trim().length ? name : best
+);
+return JSON.stringify({
+  labels: labels.join('>'),
+  total: total,
+  lastName: lastName.trim(),
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'storyboards': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+          'names': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_reduce_right_runtime', const {
+        'storyboards': [
+          {'name': ' 开场 ', 'duration': 1, 'enabled': true},
+          {'name': '过场', 'duration': 2, 'enabled': false},
+          {'name': ' 决战 ', 'duration': 3, 'enabled': true},
+        ],
+        'names': ['李澈', ' 沈微 ', '寒山宗门'],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用倒序归并脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_reduce_right_runtime');
+    expect(msg.content, isNot(startsWith('执行失败')));
+    expect(jsonDecode(msg.content), {
+      'labels': '3/3:决战>1/3:开场',
+      'total': 6,
+      'lastName': '寒山宗门',
+    });
+  });
+
   test('自定义脚本技能：支持 flatMap 展开嵌套分镜参考图', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_flat_map_runtime',
