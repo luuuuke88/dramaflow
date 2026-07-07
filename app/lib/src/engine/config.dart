@@ -37,6 +37,8 @@ class EngineConfig {
     'assetsBatchGenereateSize': '5',
     'themeMode': 'light',
     'app.locale': '',
+    'policy.confirmMoney': '1',
+    'policy.confirmDestructive': '1',
   };
 
   EngineConfig(this._db, {required this.isMobile});
