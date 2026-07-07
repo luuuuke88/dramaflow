@@ -376,6 +376,8 @@ Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-comp
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers JS-compatible `Array.of(...)` plus spread arguments, so model-authored skills can quickly compose reference/image/asset lists before filtering and mapping them.
 
+Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers nested object destructuring in custom `custom-js-agent` skills, so model-authored helpers can read ToonFlow-style workspace payloads such as `project.name`, storyboard fields, and asset names with ordinary JavaScript patterns.
+
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers Date instance getters such as `getFullYear()`, `getMonth()`, `getDate()`, `getHours()`, and their UTC variants, so model-authored skills can create deterministic batch names and media export keys from ordinary JavaScript date code.
 
 Recent Custom Skill Update: `app/test/engine/agent_test.dart` now covers `new Date(year, month, day, ...)` and `Date.UTC(...)` with JavaScript-style zero-based months, so model-authored skills can build scheduled shot times and month-level export keys without falling back to hand-written ISO strings.

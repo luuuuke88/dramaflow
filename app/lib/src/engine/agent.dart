@@ -7068,6 +7068,15 @@ class _CustomAgentSkillRuntime {
         if (boundValue == null && binding.defaultExpression != null) {
           boundValue = _evaluate(binding.defaultExpression!);
         }
+        if (binding.nestedPattern != null) {
+          _bindCallbackParam(
+            binding.nestedPattern!,
+            boundValue,
+            bindings,
+            method,
+          );
+          continue;
+        }
         _bindUniqueCallbackName(
           bindings,
           binding.bindingName,
@@ -7210,6 +7219,7 @@ class _CustomAgentSkillRuntime {
         fieldName: '',
         bindingName: bindingName,
         defaultExpression: null,
+        nestedPattern: null,
         isRest: true,
       );
     }
@@ -7224,6 +7234,25 @@ class _CustomAgentSkillRuntime {
       bindingSource = bindingSource.substring(0, equals).trim();
     }
     final fieldName = rawFieldName ?? bindingSource;
+    if (colon >= 0 &&
+        (bindingSource.startsWith('{') || bindingSource.startsWith('['))) {
+      final hasNestedObject = bindingSource.startsWith('{') &&
+          (_objectDestructureBindings(bindingSource)?.isNotEmpty ?? false);
+      final hasNestedArray = bindingSource.startsWith('[') &&
+          (_arrayDestructureBindings(bindingSource)?.isNotEmpty ?? false);
+      if (!validName.hasMatch(fieldName) ||
+          (!hasNestedObject && !hasNestedArray) ||
+          defaultExpression == '') {
+        return null;
+      }
+      return _CustomJsObjectDestructureBinding(
+        fieldName: fieldName,
+        bindingName: '',
+        defaultExpression: defaultExpression,
+        nestedPattern: bindingSource,
+        isRest: false,
+      );
+    }
     final bindingName = colon < 0 ? fieldName : bindingSource;
     if (!validName.hasMatch(fieldName) ||
         !validName.hasMatch(bindingName) ||
@@ -7234,6 +7263,7 @@ class _CustomAgentSkillRuntime {
       fieldName: fieldName,
       bindingName: bindingName,
       defaultExpression: defaultExpression,
+      nestedPattern: null,
       isRest: false,
     );
   }
@@ -7620,12 +7650,14 @@ class _CustomJsObjectDestructureBinding {
   final String fieldName;
   final String bindingName;
   final String? defaultExpression;
+  final String? nestedPattern;
   final bool isRest;
 
   const _CustomJsObjectDestructureBinding({
     required this.fieldName,
     required this.bindingName,
     required this.defaultExpression,
+    required this.nestedPattern,
     required this.isRest,
   });
 }

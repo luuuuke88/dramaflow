@@ -3918,6 +3918,72 @@ return JSON.stringify({
     });
   });
 
+  test('自定义脚本技能：支持嵌套对象解构读取工作区字段', () async {
+    engine.saveCustomAgentSkill(
+      id: 'custom_script_nested_destructure_runtime',
+      name: '嵌套解构脚本运行时',
+      description: '验证自定义技能兼容模型常写的嵌套对象解构整理工作区数据。',
+      script: r'''
+const {
+  project: { name: projectName },
+  meta: { style = '默认画风' },
+} = args.workspace;
+
+const labels = args.shots.map(({
+  storyboard: { videoDesc, duration = 3 },
+  asset: { name: assetName = '未命名资产' },
+}, index) => `${index + 1}.${videoDesc.trim()}@${duration}s/${assetName.trim()}`);
+
+return JSON.stringify({
+  projectName: projectName.trim(),
+  style,
+  labels,
+});
+''',
+      schema: const {
+        'type': 'object',
+        'properties': {
+          'workspace': {'type': 'object'},
+          'shots': {'type': 'array'},
+        },
+      },
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('custom_script_nested_destructure_runtime', const {
+        'workspace': {
+          'project': {'name': ' 寒山短剧 '},
+          'meta': {},
+        },
+        'shots': [
+          {
+            'storyboard': {'videoDesc': ' 雪夜山门 ', 'duration': 4},
+            'asset': {'name': ' 李澈 '},
+          },
+          {
+            'storyboard': {'videoDesc': ' 沈微回头 '},
+            'asset': {},
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '调用嵌套解构脚本运行时技能',
+      autoMode: false,
+    );
+
+    final msg = engine.agentMessages(projectId).last;
+    expect(msg.role, agentRoleTool);
+    expect(msg.toolName, 'custom_script_nested_destructure_runtime');
+    expect(jsonDecode(msg.content), {
+      'projectName': '寒山短剧',
+      'style': '默认画风',
+      'labels': ['1.雪夜山门@4s/李澈', '2.沈微回头@3s/未命名资产'],
+    });
+  });
+
   test('自定义脚本技能：支持数组解构 rest 保留剩余参考项', () async {
     engine.saveCustomAgentSkill(
       id: 'custom_script_array_rest_runtime',
