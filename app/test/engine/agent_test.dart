@@ -10983,6 +10983,47 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     expect(gateway.lastSystem, contains('寒山少主李澈'));
   });
 
+  test('长期记忆：system prompt 注入模型重排理由', () async {
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '1'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.rerankEnabled', '1'],
+    );
+    final keepId = engine.saveAgentMemory(
+      projectId,
+      id: 'prompt_note_rerank_keep',
+      name: '角色底线',
+      content: '长期设定：用户明确要求李澈保持正派，不能写成反派。',
+    );
+    engine.saveAgentMemory(
+      projectId,
+      id: 'prompt_note_rerank_noise',
+      name: '山门匾额',
+      content: '长期噪声：李澈正派 李澈正派 李澈正派 是山门匾额文案，不是角色底线。',
+    );
+    gateway.textResults = const [
+      TextResult(
+        '[{"memory_id":"prompt_note_rerank_keep","reason":"长期设定直接约束角色立场"}]',
+      ),
+    ];
+    gateway.turns = [const AgentTurnResult.text('收到')];
+
+    await engine.sendAgentMessage(projectId, '继续写李澈正派线', autoMode: false);
+
+    expect(gateway.textCallCount, 1);
+    expect(gateway.textStages, ['scriptAgent:decisionAgent']);
+    expect(gateway.lastSystem, contains('<note id="$keepId"'));
+    expect(gateway.lastSystem, contains('matchedTokens="李澈,正派"'));
+    expect(
+      gateway.lastSystem,
+      contains('relevanceReason="长期设定直接约束角色立场"'),
+    );
+    expect(gateway.lastSystem, isNot(contains('prompt_note_rerank_noise')));
+  });
+
   test('长期记忆：ragLimit 设置会限制注入 Agent system prompt 的条数', () async {
     for (var i = 1; i <= 4; i++) {
       engine.saveAgentMemory(

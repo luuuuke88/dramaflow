@@ -166,6 +166,7 @@ class AgentMemoryRecord {
   final int createdAt;
   final String embedding;
   final List<String> relatedMessageIds;
+  final String? relevanceReason;
   final int? score;
   final List<String> matchedTokens;
   const AgentMemoryRecord({
@@ -175,6 +176,7 @@ class AgentMemoryRecord {
     required this.createdAt,
     required this.embedding,
     this.relatedMessageIds = const [],
+    this.relevanceReason,
     this.score,
     this.matchedTokens = const [],
   });
@@ -197,12 +199,14 @@ class AgentMemoryRecord {
         createdAt: entry.createdAt,
         embedding: entry.embedding,
         relatedMessageIds: entry.relatedMessageIds,
+        relevanceReason: entry.relevanceReason,
         score: entry.score,
         matchedTokens: entry.matchedTokens,
       );
 
   AgentMemoryRecord copyWith({
     String? embedding,
+    String? relevanceReason,
     int? score,
     List<String>? matchedTokens,
   }) =>
@@ -213,6 +217,7 @@ class AgentMemoryRecord {
         createdAt: createdAt,
         embedding: embedding ?? this.embedding,
         relatedMessageIds: relatedMessageIds,
+        relevanceReason: relevanceReason ?? this.relevanceReason,
         score: score ?? this.score,
         matchedTokens: matchedTokens ?? this.matchedTokens,
       );
@@ -10036,6 +10041,7 @@ extension AgentApi on Engine {
   }
 
   String _formatLongTermMemoryNote(AgentMemoryRecord memory) {
+    final relevanceReason = memory.relevanceReason?.trim();
     final attrs = <String>[
       'id="${_escapeXmlAttr(memory.id)}"',
       'type="$agentMemoryTypeNote"',
@@ -10046,6 +10052,8 @@ extension AgentApi on Engine {
       if (memory.score != null) 'score="${memory.score}"',
       if (memory.matchedTokens.isNotEmpty)
         'matchedTokens="${_escapeXmlAttr(memory.matchedTokens.join(','))}"',
+      if (relevanceReason != null && relevanceReason.isNotEmpty)
+        'relevanceReason="${_escapeXmlAttr(relevanceReason)}"',
     ];
     return '<note ${attrs.join(' ')}>${_escapeXmlText(memory.content)}</note>';
   }

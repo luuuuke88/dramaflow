@@ -851,10 +851,19 @@ class AgentMemoryService {
       tokens: tokens,
       queryEmbedding: queryEmbedding,
     );
-    return [
+    final filtered = [
       for (final item in ranked)
         if (_matchesRankedScoreThreshold(item, scoreThreshold)) item.$2,
-    ].take(limit).toList();
+    ];
+    return _relatedNotesForQuery(
+      query: query,
+      settings: settings,
+      rankedNotes: [
+        for (final entry in filtered) (entry.score ?? 0, entry),
+      ],
+      rerankEnabled: settings.rerankEnabled,
+      limit: limit,
+    );
   }
 
   void clear({
@@ -919,27 +928,32 @@ class AgentMemoryService {
   }
 
   int _rerankCandidateLimit(AgentMemorySettings settings) =>
-      (settings.ragLimit * 3).clamp(settings.ragLimit, 20).toInt();
+      _rerankCandidateLimitFor(settings.ragLimit);
+
+  int _rerankCandidateLimitFor(int limit) =>
+      (limit * 3).clamp(limit, 20).toInt();
 
   Future<List<AgentMemoryEntry>> _relatedNotesForQuery({
     required String query,
     required AgentMemorySettings settings,
     required List<(int, AgentMemoryEntry)> rankedNotes,
     required bool rerankEnabled,
+    int? limit,
     CancelToken? cancelToken,
   }) async {
-    if (settings.ragLimit <= 0 || rankedNotes.isEmpty) return const [];
+    final resultLimit = limit ?? settings.ragLimit;
+    if (resultLimit <= 0 || rankedNotes.isEmpty) return const [];
     final localRelated = [for (final item in rankedNotes) item.$2];
     if (!rerankEnabled) {
-      return localRelated.take(settings.ragLimit).toList();
+      return localRelated.take(resultLimit).toList();
     }
-    final candidateLimit = _rerankCandidateLimit(settings);
+    final candidateLimit = _rerankCandidateLimitFor(resultLimit);
     final reranked = await _llmRerankNotes(
       query: query,
       candidates: localRelated.take(candidateLimit).toList(),
       cancelToken: cancelToken,
     );
-    return (reranked ?? localRelated).take(settings.ragLimit).toList();
+    return (reranked ?? localRelated).take(resultLimit).toList();
   }
 
   Future<AgentMemoryEntry> _entryWithProviderEmbedding(
