@@ -590,7 +590,7 @@ const _agentMemoryQueryPlanToolSchema = {
       'type': ['string', 'object'],
     },
     'description':
-        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/priority/mustInclude/excludeTerms/must/must_not/match/operator 等过滤提示，也可把这些过滤提示包在 filter/where/bool/criteria/条件 对象内。',
+        '可选。结构化查询计划。可以是数组，也可以是包含 queries/queryList/items/steps 的对象；每项可以是字符串，或包含 query/q/keyword/text/prompt/semanticQuery/vectorQuery/查询/关键词/语义查询/向量查询 的对象；对象可携带 scope/memoryType/记忆范围/role/memoryRoles/记忆角色/excludeIds/excludeRoles/排除角色/视觉参考/minSimilarity/createdAfter/orderBy/limit/size/priority/mustInclude/excludeTerms/must/must_not/match/operator 等过滤提示，也可把这些过滤提示包在 filter/where/bool/criteria/条件 对象内。',
   },
   'query_plan': {
     'type': ['array', 'object'],
@@ -1938,6 +1938,12 @@ final _tools = <AgentToolDef>[
           'maximum': 50,
           'description': '可选。topK 的 snake_case 别名。',
         },
+        'size': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。limit 的 Elasticsearch 风格别名。',
+        },
         'maxResults': {
           'type': 'integer',
           'minimum': 1,
@@ -2544,6 +2550,12 @@ final _tools = <AgentToolDef>[
           'minimum': 1,
           'maximum': 50,
           'description': '可选。topK 的 snake_case 别名。',
+        },
+        'size': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 50,
+          'description': '可选。limit 的 Elasticsearch 风格别名，限制返回结果数。',
         },
         'minScore': {
           'type': 'integer',
@@ -16447,6 +16459,7 @@ extension AgentApi on Engine {
       args['limit'] ??
       args['topK'] ??
       args['top_k'] ??
+      args['size'] ??
       args['maxResults'] ??
       args['max_results'] ??
       args['max'] ??

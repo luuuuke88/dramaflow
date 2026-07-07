@@ -18514,6 +18514,136 @@ ToonFlow 主技能正文：先判断用户意图，再选择是否调用子 Agen
     ]);
   });
 
+  test('Agent 记忆：ES size 可作为 queryPlan 返回数量限制', () async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.ragLimit', '4'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.shortTermLimit', '0'],
+    );
+    db.execute(
+      'INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)',
+      ['agent.memory.messagesPerSummary', '20'],
+    );
+
+    void insertMessage({
+      required String id,
+      required String content,
+      required int offset,
+      required String role,
+    }) {
+      db.execute(
+        'INSERT INTO memories '
+        '(id,name,content,createTime,embedding,isolationKey,relatedMessageIds,role,summarized,type) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          '',
+          content,
+          now + offset,
+          embeddingJson(content),
+          'scriptAgent:$projectId',
+          '[]',
+          role,
+          1,
+          agentMemoryTypeMessage,
+        ],
+      );
+    }
+
+    insertMessage(
+      id: 'query_plan_size_memory_get_old',
+      content: '旧记忆：银台 size 甲第一次记录，保留低机位。',
+      offset: 1,
+      role: 'assistant:size:get',
+    );
+    insertMessage(
+      id: 'query_plan_size_memory_get_new',
+      content: '新记忆：银台 size 甲第二次记录，补充广角。',
+      offset: 2,
+      role: 'assistant:size:get',
+    );
+    insertMessage(
+      id: 'query_plan_size_deep_old',
+      content: '旧记忆：铜桥 size 乙第一次记录，保留蓝火。',
+      offset: 3,
+      role: 'assistant:size:deep',
+    );
+    insertMessage(
+      id: 'query_plan_size_deep_new',
+      content: '新记忆：铜桥 size 乙第二次记录，补充背光。',
+      offset: 4,
+      role: 'assistant:size:deep',
+    );
+
+    gateway.turns = [
+      AgentTurnResult.tool('memory_get', const {
+        'queryPlan': [
+          {
+            'query': '银台 size 甲',
+            'size': 1,
+            'orderBy': 'oldest',
+            'memoryRoles': ['assistant:size:get'],
+          },
+        ],
+      }),
+      AgentTurnResult.tool('deepRetrieve', const {
+        'queryPlan': [
+          {
+            'query': '铜桥 size 乙',
+            'size': 1,
+            'orderBy': 'oldest',
+            'memoryRoles': ['assistant:size:deep'],
+          },
+        ],
+      }),
+    ];
+
+    await engine.sendAgentMessage(
+      projectId,
+      '按 ES size 限制 queryPlan 召回数量',
+      autoMode: true,
+      family: agentFamilyScript,
+    );
+
+    final memoryGetTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'memory_get');
+    final deepRetrieveTool =
+        gateway.lastTools.singleWhere((tool) => tool.name == 'deepRetrieve');
+    for (final tool in [memoryGetTool, deepRetrieveTool]) {
+      final properties = tool.schema['properties'] as Map;
+      expect(properties, contains('size'));
+    }
+
+    final toolMessages = engine
+        .agentMessages(projectId)
+        .where((message) => message.role == agentRoleTool)
+        .toList();
+    expect(toolMessages.map((message) => message.toolName),
+        ['memory_get', 'deepRetrieve']);
+
+    final memoryGetPayload =
+        jsonDecode(toolMessages.first.content) as Map<String, dynamic>;
+    expect(memoryGetPayload['found'], isTrue);
+    expect(
+      (memoryGetPayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_size_memory_get_old'],
+    );
+
+    final deepRetrievePayload =
+        jsonDecode(toolMessages.last.content) as Map<String, dynamic>;
+    expect(deepRetrievePayload['found'], isTrue);
+    expect(
+      (deepRetrievePayload['records'] as List)
+          .map((record) => (record as Map<String, dynamic>)['id']),
+      ['query_plan_size_deep_old'],
+    );
+  });
+
   test('Agent 记忆：结构化查询计划多项返回数量互不串味', () async {
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
