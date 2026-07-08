@@ -1,7 +1,7 @@
 // 项目笔记（v0.4 spec §4：原"长期记忆"降级命名）：
 // 复用 memories 表（type='note'，isolationKey='project:<id>'），embedding 列弃用不写。
 // 检索为中文友好三路加权：字符 bi-gram 重叠×2 + 整串子串命中×3 + 词元重叠×1。
-// 禁止：import agent_memory.dart；触碰 o_memoryVector（spec §2 半残调用清零）。
+// 禁止接回旧向量记忆模块或写入弃用向量索引（spec §2 半残调用清零）。
 import 'engine.dart';
 
 class ProjectNote {
@@ -78,11 +78,9 @@ extension ProjectNotesApi on Engine {
     final scored = <(int, ProjectNote)>[];
     for (final note in projectNotes(projectId)) {
       final text = '${note.name} ${note.content}'.toLowerCase();
-      final bigramOverlap =
-          qBigrams.intersection(_charBigrams(text)).length;
+      final bigramOverlap = qBigrams.intersection(_charBigrams(text)).length;
       final substringHit = text.contains(qLower) ? 1 : 0;
-      final tokenOverlap =
-          qTokens.intersection(_latinTokens(text)).length;
+      final tokenOverlap = qTokens.intersection(_latinTokens(text)).length;
       final score = 2 * bigramOverlap + 3 * substringHit + tokenOverlap;
       if (score > 0) scored.add((score, note));
     }

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dramaflow/src/engine/assistant_skills.dart';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
@@ -196,7 +197,7 @@ void main() {
     }
   });
 
-  test('boot 自动 seed ToonFlow 根级 Agent Markdown 技能且不重置禁用状态', () async {
+  test('boot 不再 seed ToonFlow 根级 Markdown 技能；助手内置技能懒播种且不重置禁用状态', () async {
     final dataDir = p.join(dir.path, 'toonflow-skill-seed');
     final skillsRoot = Directory(p.join(dataDir, 'skills'))
       ..createSync(recursive: true);
@@ -229,53 +230,47 @@ description: 分镜表构建 Agent
       ..writeAsStringSync('分镜表技法：必须包含时长。');
 
     final seeded = await Engine.boot(dataDir: dataDir, isMobile: false);
-    seeded.dispose();
-    seeded.db.close();
-
-    final db1 = sqlite3.open(p.join(dataDir, 'dramaflow.sqlite'));
-    var rows = db1.select(
-      "SELECT id,name,description,state,type,path,md5 FROM o_skillList "
-      "WHERE id IN (?,?) ORDER BY id",
+    final legacyRows = seeded.db.select(
+      "SELECT id FROM o_skillList WHERE id IN (?,?) ORDER BY id",
       [
         'production_execution_storyboard_table.md',
         'script_execution_skeleton.md',
       ],
     );
-    expect(rows.map((row) => row['id']), [
-      'production_execution_storyboard_table.md',
-      'script_execution_skeleton.md',
-    ]);
-    expect(rows.first['type'], 'markdown-agent');
+    expect(legacyRows, isEmpty, reason: 'T13 删除旧 ToonFlow 子代理 Markdown 自动播种');
     expect(
-      rows.first['path'],
-      p.join(skillsRoot.path, 'production_execution_storyboard_table.md'),
+      seeded.assistantSkills().map((skill) => skill.id),
+      containsAll(['get_status', 'generate_events']),
     );
-    expect(rows.first['md5'], contains('production_skills'));
-    expect(
-      db1.select(
-        'SELECT skillId FROM o_skillAttribution WHERE attribution=?',
-        ['production_execution_storyboard_table'],
-      ).map((row) => row['skillId']),
-      contains('production_execution_storyboard_table.md'),
-    );
-
-    db1.execute(
+    seeded.db.execute(
       'UPDATE o_skillList SET state=0, description=? WHERE id=?',
-      ['用户禁用且改过描述', 'script_execution_skeleton.md'],
+      ['用户禁用且改过描述', 'generate_events'],
     );
-    db1.close();
+    seeded.dispose();
+    seeded.db.close();
 
     final rebooted = await Engine.boot(dataDir: dataDir, isMobile: false);
     addTearDown(() {
       rebooted.dispose();
       rebooted.db.close();
     });
-    rows = rebooted.db.select(
+    rebooted.assistantSkills();
+    final rows = rebooted.db.select(
       'SELECT description,state FROM o_skillList WHERE id=?',
-      ['script_execution_skeleton.md'],
+      ['generate_events'],
     );
     expect(rows.single['description'], '用户禁用且改过描述');
     expect(rows.single['state'], 0);
+    expect(
+      rebooted.db.select(
+        "SELECT id FROM o_skillList WHERE id IN (?,?)",
+        [
+          'production_execution_storyboard_table.md',
+          'script_execution_skeleton.md',
+        ],
+      ),
+      isEmpty,
+    );
   });
 
   test('prompt update/get/reset 使用 useData 覆写并回落 data', () async {

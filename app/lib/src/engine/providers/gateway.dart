@@ -165,7 +165,7 @@ class HttpProviderGateway
     required String stage,
     CancelToken? cancelToken,
   }) {
-    final model = resolveAgentStage(db, stage);
+    final model = resolveAssistantStage(db, stage);
     return openaiGenerateAgentTurn(dio, model, system, messages, tools,
         cancelToken: cancelToken);
   }

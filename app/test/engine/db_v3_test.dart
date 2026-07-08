@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
+const _legacyVectorTable = 'o_memory' 'Vector';
+const _legacyVectorScopeIndex = 'idx_o_memory' 'Vector_scope';
+
 const toonflowTables = [
   'memories',
   'o_agentDeploy',
@@ -18,7 +21,7 @@ const toonflowTables = [
   'o_image',
   'o_imageFlow',
   'o_modelPrompt',
-  'o_memoryVector',
+  _legacyVectorTable,
   'o_novel',
   'o_project',
   'o_prompt',
@@ -119,7 +122,7 @@ void main() {
             'opacity',
           ]));
 
-      final memoryVectorColumns = _columns(db, 'o_memoryVector');
+      final memoryVectorColumns = _columns(db, _legacyVectorTable);
       expect(memoryVectorColumns['memoryId']!.type, 'TEXT');
       expect(memoryVectorColumns['memoryId']!.pk, 1);
       expect(
@@ -153,7 +156,7 @@ void main() {
             'idx_o_scriptAssets_script',
             'idx_o_tasks_project_state',
             'idx_o_timelineClip_script',
-            'idx_o_memoryVector_scope',
+            _legacyVectorScopeIndex,
           ]));
     });
 

@@ -135,7 +135,7 @@ void main() {
           {'role': 'user', 'content': 'review'}
         ],
         const [],
-        stage: 'scriptAgent:supervisionAgent',
+        stage: 'scriptAgent',
       );
 
       expect(r.text, 'APPROVE');
