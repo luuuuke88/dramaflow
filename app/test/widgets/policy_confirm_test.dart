@@ -131,6 +131,27 @@ void main() {
       expect(find.text('花费确认'), findsNothing);
       expect(result, true);
     });
+
+    testWidgets('autoMode=true：花钱动作不弹窗直接返回 true', (tester) async {
+      engine.config.update({'policy.confirmMoney': '1'});
+      bool? result;
+      await tester.pumpWidget(app((context) async {
+        result = await confirmPolicyAction(
+          context,
+          engine.config,
+          taskClass: 'video_generation',
+          autoMode: true,
+          description: '自动生成视频',
+          units: 1,
+        );
+      }));
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('花费确认'), findsNothing);
+      expect(result, true);
+    });
   });
 
   group('confirmPolicyAction 破坏维度', () {
@@ -200,6 +221,30 @@ void main() {
 
       expect(find.text('危险操作确认'), findsNothing);
       expect(result, true);
+    });
+
+    testWidgets('autoMode=true：破坏动作仍弹窗确认', (tester) async {
+      engine.config.update({'policy.confirmDestructive': '1'});
+      bool? result;
+      await tester.pumpWidget(app((context) async {
+        result = await confirmPolicyAction(
+          context,
+          engine.config,
+          destructiveKey: 'clear_all_data',
+          autoMode: true,
+          description: '清空所有数据',
+        );
+      }));
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('危险操作确认'), findsOneWidget);
+
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+
+      expect(result, false);
     });
   });
 

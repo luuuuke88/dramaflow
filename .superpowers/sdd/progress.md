@@ -14,3 +14,4 @@ Task 12: complete (UI切到 assistant_*; 去除 custom-JS/监督/RAG 入口; 项
 Task 13: complete (删除旧 agent/agent_memory/agent_orchestrator/agent_skills/agent_stage_registry + 旧 agent_test; 旧符号扫描仅剩 db.dart schema 定义 o_memoryVector; assistant_* + project_notes 共 1395 行; analyze绿; 全量479测绿)
 Task 5: complete (workbench 切分新尾段保留选中; 批量裁剪忽略选中自撞; 拖拽 helper 单手势复用时间线快照; workbench 80测绿; analyze绿; 全量480测绿)
 Task 6: complete (新增时间线单/批量等价性矩阵; 发现并修复 resizeTimelineClipsEndRipple 相邻选中裁尾时下游按单片段缩短量重复叠加的净位移 bug; timeline定向31测绿; analyze绿; 全量490测绿)
+Task 7: complete (补 policy_confirm UI 层 autoMode 矩阵: 花钱自动放行、破坏自动仍确认; project_notes 中文检索用例已覆盖计划项并随本卡验收; 定向15测绿; analyze绿; 全量492测绿)
