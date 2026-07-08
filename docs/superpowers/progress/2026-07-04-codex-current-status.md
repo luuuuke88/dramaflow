@@ -53,14 +53,26 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 - 本地 sqlite3 schema、任务队列、供应商配置、提示词模板、模型绑定、媒体存储、错误码/i18n 基建都在 Flutter 工程内。
 - 项目、章节/事件、剧本、素材/画风、制作画布、节点式图片编辑器、工作台、配音、任务中心、Agent 页、设置页都有 engine/widget/platform 测试证据。
 - 离线 smoke 已证明第一版客户端本地链路能从章节走到成片导出。
-- 移动端不是空壳：390px widget tests 已覆盖项目、章节、剧本、素材、制作、工作台入口/重排/素材层添加/素材层属性编辑/媒体库按播放头添加/本镜候选选择/本镜候选视频全屏预览/本镜候选删除确认/本镜时长编辑/清空已选轨道确认/合成成功结果/批量移动起点/批量改轨/批量裁剪尾部/按播放头切分、配音、任务、Agent 入口/清空记忆确认/内置能力说明/技能编辑/自定义技能新增/长期记忆新增编辑和设置路径。
+- 移动端不是空壳：390px widget tests 已覆盖项目、章节、剧本、素材、制作、工作台入口/重排/素材层添加/素材层属性编辑/媒体库按播放头添加/本镜候选选择/本镜候选视频全屏预览/本镜候选删除确认/本镜时长编辑/清空已选轨道确认/合成成功结果/批量移动起点/批量改轨/批量裁剪尾部/按播放头切分、配音、任务、Agent 入口、assistant 对话、确认卡片、Markdown 技能和项目笔记路径。
 
 页面 parity 当前状态：
 
 - `Verified`：项目列表 + 新建向导、章节管理 + 事件、剧本、素材库、制作画布、节点式图片编辑器、配音、任务中心、全套设置。
 - `Partial`：多轨工作台、Agent 体系页。制作画布已进入 `Verified`：有 source-anchored visual evidence、桌面/移动截图、生产页 widget 覆盖；如严格要求 live ToonFlow 浏览器并排截图，仍可作为加强证据补充。
 
-## 2026-07-07 Agent/RAG 增量
+## 2026-07-08 v0.4 收敛修正
+
+Agent 运行时已在 v0.4 收敛期重建为 `assistant_*` 降级版。当前事实以 `docs/superpowers/specs/2026-07-08-v0.4-convergence-design.md` 和计划 `docs/superpowers/plans/2026-07-08-v0.4-convergence.md` 为准：
+
+- ES-DSL / queryPlan 解释层已于 v0.4 移除；旧 ES 风格查询兼容记录只保留为历史背景。
+- 自定义 JS 技能执行 / QuickJS 类解释器已于 v0.4 移除；Markdown 技能 CRUD、开关和提示词注入仍保留。
+- 多层 decision/execution/supervision 子 Agent 编排已于 v0.4 移除；当前只有 script / production 两个入口家族和单层 auto/manual 对话循环。
+- 向量 RAG 与 `o_memoryVector` 读写路径已于 v0.4 移除；表 schema 保留用于迁移安全，当前项目笔记使用中文 bi-gram / tri-gram / 子串检索。
+- 当前证据转为 `app/test/engine/assistant_*_test.dart`、`app/test/engine/project_notes_test.dart`、`app/test/widgets/agent_chat_screen_test.dart`、`app/test/widgets/canvas_chat_panel_test.dart`，而不是旧 `app/test/engine/agent_test.dart`。
+
+## 2026-07-07 Agent/RAG 增量（历史记录，已被 v0.4 收敛修正覆盖）
+
+以下记录描述的是 v0.4 删除前的扩张实验，不再代表当前运行时能力。后续接力不要按这些条目恢复 ES-DSL、自定义 JS、监督 Agent 或向量 RAG。
 
 - `memory_get` / `deepRetrieve` 现在支持 ES 风格 `ids.values` 与 `terms._id/id/memoryId` 精确回查 memory records，同时新增 `includeIds` / `targetRecords` 等显式 include 参数。
 - 旧的 `memoryIds` / `records` / `seenRecords` 仍保持“已读排除”语义，避免模型二次读取时重复返回同一条记忆。
@@ -92,8 +104,8 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
    - 仍缺完整 WebAV clip editor 级别能力：复杂 snapping、复杂叠放冲突、更多 ripple、多素材自由编排细节、Web 端转场/滤镜真实渲染。
 
 3. Agent 体系仍是瘦身版。
-   - 已有模型部署、技能开关、消息持久化、本地记忆、RAG 检索条数配置、工具调用、简单 custom-js-agent return 模板。
-   - 未完整复刻 ToonFlow/Claude 风格的多层 Agent 编排、向量 RAG 召回/重排、完整 QuickJS/flutter_js 自定义技能运行时。
+   - 当前已有 assistant 模型部署、Markdown 技能开关/注入、消息持久化、项目笔记中文 n-gram 检索、工具调用、manual/auto 模式和花钱/破坏确认卡片。
+   - ES-DSL、自定义 JS 技能执行、多层监督 Agent、向量 RAG 已于 v0.4 移除；不要把旧 2026-07-07 Agent/RAG 增量当成当前能力。
 
 4. 制作画布 live 浏览器并排截图只是加强证据。
    - 当前 `page-parity-checklist.md` 已用 source-anchored visual evidence 和 committed PNG 截图把制作画布页收为 `Verified`；若后续验收坚持 live ToonFlow 运行截图，再补该环境证据。
@@ -106,7 +118,7 @@ Codex 接上 Claude/Codex 交替开发后的最新实测基线：
 
 1. 继续推进工作台 NLE：补复杂重叠策略、更多 ripple 规则或更完整的属性面板能力，每次一小片并锁测试。
 2. 单独写 M6 Web 架构设计后再动 Web engine。不要在现有 `dart:io + sqlite3 FFI` engine 上直接硬塞 H5。
-3. 如果 luke 坚持“完全复刻 Agent”，先写 Agent/RAG 子系统设计，再实现多层编排和向量检索；不要把当前瘦身版误判为完整。
+3. 如果 luke 后续重新要求“完全复刻 Agent”，先另开新 spec 评估多层编排、向量检索或脚本运行时是否真的值得恢复；不要在 v0.4 收敛主线上把已砍功能加回来。
 
 ## 不要误踩的边界
 
