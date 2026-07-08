@@ -15,3 +15,4 @@ Task 13: complete (删除旧 agent/agent_memory/agent_orchestrator/agent_skills/
 Task 5: complete (workbench 切分新尾段保留选中; 批量裁剪忽略选中自撞; 拖拽 helper 单手势复用时间线快照; workbench 80测绿; analyze绿; 全量480测绿)
 Task 6: complete (新增时间线单/批量等价性矩阵; 发现并修复 resizeTimelineClipsEndRipple 相邻选中裁尾时下游按单片段缩短量重复叠加的净位移 bug; timeline定向31测绿; analyze绿; 全量490测绿)
 Task 7: complete (补 policy_confirm UI 层 autoMode 矩阵: 花钱自动放行、破坏自动仍确认; project_notes 中文检索用例已覆盖计划项并随本卡验收; 定向15测绿; analyze绿; 全量492测绿)
+Task 14: complete (workbench 两处 _toast 收敛为共享 SnackBar helper; 候选生成中/失败状态改用 StatusChip; grep _toast=0; workbench 80测绿; analyze绿; 全量492测绿)

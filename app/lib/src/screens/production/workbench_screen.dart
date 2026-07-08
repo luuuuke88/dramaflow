@@ -25,6 +25,7 @@ import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/policy_confirm.dart';
+import '../../widgets/common.dart';
 
 /// media_kit 一次性初始化。放懒调用（工作台/配音页首次进入时），避免侵入未持有的
 /// main.dart；MediaKit.ensureInitialized 幂等，可多次调用。
@@ -33,6 +34,10 @@ void ensureMediaKit() {
   if (_mediaKitReady) return;
   MediaKit.ensureInitialized();
   _mediaKitReady = true;
+}
+
+void _showWorkbenchSnackBar(BuildContext context, String msg) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 }
 
 /// 播放候选视频（tap-to-play 弹窗，media_kit）。相对路径经 engine.mediaAbsPath 解析。
@@ -185,10 +190,6 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   final Set<int> _checkedShotIds = {};
   final Set<int> _knownShotIds = {};
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
   Future<void> _compose() async {
     final l10n = context.l10n;
     setState(() => _composing = true);
@@ -204,7 +205,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
         builder: (c) => _ComposeResultBody(result: result),
       );
     } catch (e) {
-      if (mounted) _toast(localizeError(context, e));
+      if (mounted) _showWorkbenchSnackBar(context, localizeError(context, e));
     } finally {
       if (mounted) setState(() => _composing = false);
     }
@@ -250,7 +251,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     if (!mounted) return;
     engine.batchGenerateVideos(
         widget.projectId, selected.map((s) => s.id).toList());
-    _toast(context.l10n.workbenchGenerateVideo);
+    _showWorkbenchSnackBar(context, context.l10n.workbenchGenerateVideo);
   }
 
   Future<void> _generateCheckedPrompts(List<StoryboardRow> shots) async {
@@ -267,10 +268,10 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       }
       if (mounted) {
         setState(() {});
-        _toast(context.l10n.workbenchGeneratePrompt);
+        _showWorkbenchSnackBar(context, context.l10n.workbenchGeneratePrompt);
       }
     } catch (e) {
-      if (mounted) _toast(localizeError(context, e));
+      if (mounted) _showWorkbenchSnackBar(context, localizeError(context, e));
     } finally {
       if (mounted) setState(() => _batchPrompting = false);
     }
@@ -301,7 +302,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       if (trackId != null) engine.deleteVideoTrack(trackId);
     }
     setState(() {});
-    _toast(l10n.workbenchClearSelectedTracksDone);
+    _showWorkbenchSnackBar(context, l10n.workbenchClearSelectedTracksDone);
   }
 
   void _reorderShots(List<StoryboardRow> shots, int oldIndex, int newIndex) {
@@ -1040,13 +1041,10 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         );
       }
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.workbenchTimelineClipAdded)),
-      );
+      _showWorkbenchSnackBar(context, l10n.workbenchTimelineClipAdded);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(localizeError(context, e))));
+      _showWorkbenchSnackBar(context, localizeError(context, e));
     }
   }
 
@@ -1065,8 +1063,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       _addTimelineClipAsset(asset, startMs: _snapPlayheadMs ?? 0);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(localizeError(context, e))));
+      _showWorkbenchSnackBar(context, localizeError(context, e));
     }
   }
 
@@ -1149,13 +1146,10 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
             startMs: startMs,
           );
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.workbenchTimelineClipAdded)),
-      );
+      _showWorkbenchSnackBar(context, l10n.workbenchTimelineClipAdded);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(localizeError(context, e))));
+      _showWorkbenchSnackBar(context, localizeError(context, e));
     }
   }
 
@@ -3596,10 +3590,6 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
   int? get _effectiveAudioAssetId =>
       _localAudioAssetId ?? widget.shot.audioAssetId;
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
   Future<void> _generatePrompt() async {
     setState(() => _generatingPrompt = true);
     try {
@@ -3607,7 +3597,7 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
       await engine.generateVideoPrompt(widget.shot.id);
       _localTrackId = engine.ensureTrackForStoryboard(widget.shot.id);
     } catch (e) {
-      if (mounted) _toast(localizeError(context, e));
+      if (mounted) _showWorkbenchSnackBar(context, localizeError(context, e));
     } finally {
       if (mounted) setState(() => _generatingPrompt = false);
     }
@@ -3625,7 +3615,7 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
     }
     if (!mounted) return;
     engine.batchGenerateVideos(widget.projectId, [widget.shot.id]);
-    _toast(context.l10n.workbenchGenerateVideo);
+    _showWorkbenchSnackBar(context, context.l10n.workbenchGenerateVideo);
   }
 
   Future<void> _pickClip() async {
@@ -3645,7 +3635,7 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
       engine.attachClipToTrack(trackId, clip.id);
       setState(() => _localTrackId = trackId);
     } catch (e) {
-      if (mounted) _toast(localizeError(context, e));
+      if (mounted) _showWorkbenchSnackBar(context, localizeError(context, e));
     }
   }
 
@@ -4189,13 +4179,9 @@ class _VideoCandidateChip extends ConsumerWidget {
             video.id,
             name: l10n.workbenchCandidateClipName(video.id),
           );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.workbenchSavedToAssets(clipAssetId))),
-      );
+      _showWorkbenchSnackBar(context, l10n.workbenchSavedToAssets(clipAssetId));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(localizeError(context, e))),
-      );
+      _showWorkbenchSnackBar(context, localizeError(context, e));
     }
   }
 
@@ -4207,20 +4193,13 @@ class _VideoCandidateChip extends ConsumerWidget {
     Widget label;
     switch (video.state) {
       case vtGenerating:
-        label = Row(mainAxisSize: MainAxisSize.min, children: [
-          const SizedBox(
-              width: 10,
-              height: 10,
-              child: CircularProgressIndicator(strokeWidth: 1.5)),
-          const SizedBox(width: 6),
-          Text(l10n.assetsGenerating, style: const TextStyle(fontSize: 11)),
-        ]);
+        label = const StatusChip('running', dense: true);
         break;
       case vtFailed:
-        label = Tooltip(
-          message: localizeReason(l10n, video.errorReason) ?? '',
-          child: Text(l10n.scriptStateFailed,
-              style: TextStyle(fontSize: 11, color: df.danger)),
+        label = StatusChip(
+          'failed',
+          dense: true,
+          errorTooltip: localizeReason(l10n, video.errorReason),
         );
         break;
       default:
