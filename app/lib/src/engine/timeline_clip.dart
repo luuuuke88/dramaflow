@@ -294,9 +294,8 @@ extension TimelineClipApi on Engine {
     required int clipId,
     required int startMs,
   }) {
-    final exists = db
-        .select('SELECT id FROM o_timelineClip WHERE id=?', [clipId])
-        .firstOrNull;
+    final exists = db.select(
+        'SELECT id FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
     if (exists == null) {
       throw const EngineException(errManualInvalid);
     }
@@ -324,7 +323,8 @@ extension TimelineClipApi on Engine {
     if (selected.isEmpty) return;
     final groupStart =
         selected.map((c) => c.startMs).reduce((a, b) => a < b ? a : b);
-    final groupEnd = selected.map((c) => c.endMs).reduce((a, b) => a > b ? a : b);
+    final groupEnd =
+        selected.map((c) => c.endMs).reduce((a, b) => a > b ? a : b);
     final nextGroupStart = startMs < 0 ? 0 : startMs;
     final deltaMs = nextGroupStart - groupStart;
     if (deltaMs == 0) return;
@@ -370,10 +370,12 @@ extension TimelineClipApi on Engine {
     for (final ins in tailInserts) {
       db.execute(_timelineClipInsertSql, ins.params);
       final tailId = db.lastInsertRowId;
-      final priority = normalizeByLane.putIfAbsent(ins.lane, () => [
-            for (final c in selected)
-              if (c.lane == ins.lane) c.id,
-          ]);
+      final priority = normalizeByLane.putIfAbsent(
+          ins.lane,
+          () => [
+                for (final c in selected)
+                  if (c.lane == ins.lane) c.id,
+              ]);
       priority.add(tailId);
     }
     for (final entry in normalizeByLane.entries) {
@@ -455,9 +457,8 @@ extension TimelineClipApi on Engine {
   }
 
   int duplicateTimelineClip(int clipId) {
-    final exists = db
-        .select('SELECT id FROM o_timelineClip WHERE id=?', [clipId])
-        .firstOrNull;
+    final exists = db.select(
+        'SELECT id FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
     if (exists == null) {
       throw const EngineException(errManualInvalid);
     }
@@ -465,9 +466,8 @@ extension TimelineClipApi on Engine {
   }
 
   int duplicateTimelineClipRipple(int clipId) {
-    final exists = db
-        .select('SELECT id FROM o_timelineClip WHERE id=?', [clipId])
-        .firstOrNull;
+    final exists = db.select(
+        'SELECT id FROM o_timelineClip WHERE id=?', [clipId]).firstOrNull;
     if (exists == null) {
       throw const EngineException(errManualInvalid);
     }
@@ -712,46 +712,45 @@ extension TimelineClipApi on Engine {
       final snapshot = _snapshotClips(db, scriptId);
       final selected = snapshot.where((c) => idSet.contains(c.id)).toList();
       if (selected.isEmpty) continue;
-      // 统一位移规则：任何行（含选中成员自身）的位移 =
-      // Σ 同车道其他选中 clip 的 (新时长-旧时长)，其中该 clip 的旧尾 <= 本行起点。
-      // 修复：旧实现只移非选中行，导致选中相邻成员互相重叠。
       final startWrites = <int, int>{};
       final durationWrites = <int, int>{};
-      for (final c in snapshot) {
-        var shiftMs = 0;
-        for (final s in selected) {
-          if (s.id == c.id || s.lane != c.lane) continue;
-          if (c.startMs >= s.endMs) {
-            shiftMs += nextDurationMs - s.durationMs;
-          }
-        }
-        if (shiftMs != 0) {
-          final ns = c.startMs + shiftMs;
-          startWrites[c.id] = ns < 0 ? 0 : ns;
-        }
-      }
       for (final s in selected) {
         durationWrites[s.id] = nextDurationMs;
       }
-      // 组内终态防重叠（plan §5-4）：按新起点排序顺次后推，只动选中成员。
       final byLane = <int, List<_ClipSnap>>{};
       for (final s in selected) {
         byLane.putIfAbsent(s.lane, () => []).add(s);
       }
-      for (final laneClips in byLane.values) {
+      for (final entry in byLane.entries) {
+        final lane = entry.key;
+        final laneClips = entry.value;
+        final oldGroupEnd =
+            laneClips.map((c) => c.endMs).reduce((a, b) => a > b ? a : b);
         laneClips.sort((a, b) {
-          final sa = startWrites[a.id] ?? a.startMs;
-          final sb = startWrites[b.id] ?? b.startMs;
-          return sa != sb ? sa.compareTo(sb) : a.id.compareTo(b.id);
+          final byStart = a.startMs.compareTo(b.startMs);
+          return byStart != 0 ? byStart : a.id.compareTo(b.id);
         });
+        final selectedStarts = <int, int>{};
         var cursor = -1 << 30;
         for (final s in laneClips) {
-          var ns = startWrites[s.id] ?? s.startMs;
+          var ns = s.startMs;
           if (ns < cursor) {
             ns = cursor;
             startWrites[s.id] = ns;
           }
+          selectedStarts[s.id] = ns;
           cursor = ns + nextDurationMs;
+        }
+        final newGroupEnd = laneClips
+            .map((c) => (selectedStarts[c.id] ?? c.startMs) + nextDurationMs)
+            .reduce((a, b) => a > b ? a : b);
+        final netShiftMs = newGroupEnd - oldGroupEnd;
+        if (netShiftMs == 0) continue;
+        for (final c in snapshot) {
+          if (idSet.contains(c.id) || c.lane != lane) continue;
+          if (c.startMs < oldGroupEnd) continue;
+          final ns = c.startMs + netShiftMs;
+          startWrites[c.id] = ns < 0 ? 0 : ns;
         }
       }
       _batchWriteColumn(db, 'startMs', startWrites);
@@ -784,7 +783,8 @@ class _ClipSnap {
         filePath = r['filePath'],
         lane = (r['lane'] as int?) ?? 1,
         startMs = (r['startMs'] as int?) ?? 0,
-        durationMs = (r['durationMs'] as int?) ?? _defaultTimelineClipDurationMs,
+        durationMs =
+            (r['durationMs'] as int?) ?? _defaultTimelineClipDurationMs,
         opacity = r['opacity'];
   int get endMs => startMs + durationMs;
 }
@@ -799,8 +799,7 @@ List<_ClipSnap> _snapshotClips(Database db, int scriptId) => db
     .toList();
 
 /// 批量绝对值写回：一条 CASE 语句搞定 N 行（分块防超长 SQL）。
-void _batchWriteColumn(
-    Database db, String column, Map<int, int> valueById) {
+void _batchWriteColumn(Database db, String column, Map<int, int> valueById) {
   if (valueById.isEmpty) return;
   final entries = valueById.entries.toList();
   const chunk = 200;
@@ -813,7 +812,10 @@ void _batchWriteColumn(
     db.execute(
       'UPDATE o_timelineClip SET $column=CASE id $cases END '
       'WHERE id IN ($idPh)',
-      [for (final e in part) ...[e.key, e.value], ...ids],
+      [
+        for (final e in part) ...[e.key, e.value],
+        ...ids
+      ],
     );
   }
 }
