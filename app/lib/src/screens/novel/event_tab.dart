@@ -12,6 +12,7 @@ import '../../util/l10n_ext.dart';
 import '../../widgets/df_data_table.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/df_search_field.dart';
+import '../../widgets/policy_confirm.dart';
 
 class EventTab extends ConsumerStatefulWidget {
   final int projectId;
@@ -31,7 +32,7 @@ class _EventTabState extends ConsumerState<EventTab> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  void _regenerate() {
+  Future<void> _regenerate() async {
     final engine = ref.read(engineProvider);
     final novelIds =
         engine.novelIndex(widget.projectId).map((e) => e.id).toList();
@@ -39,6 +40,16 @@ class _EventTabState extends ConsumerState<EventTab> {
       _toast(context.l10n.novelImportMsgSelectChapters);
       return;
     }
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'event_generation',
+      description: context.l10n.novelEventRegenerate,
+      units: novelIds.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     engine.generateEvents(widget.projectId, novelIds);
     _toast(context.l10n.novelEventGeneratingHint);
   }
@@ -49,24 +60,20 @@ class _EventTabState extends ConsumerState<EventTab> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text(l10n.novelEventMsgBatchDeleteHeader),
-        content:
-            Text(l10n.novelEventMsgBatchDeleteBody('${_selected.length}')),
+        content: Text(l10n.novelEventMsgBatchDeleteBody('${_selected.length}')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
               child: Text(l10n.commonCancel)),
           FilledButton(
-              style:
-                  FilledButton.styleFrom(backgroundColor: context.df.danger),
+              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
               onPressed: () => Navigator.pop(c, true),
               child: Text(l10n.commonDelete)),
         ],
       ),
     );
     if (confirmed != true) return;
-    ref
-        .read(engineProvider)
-        .deleteEvents(_selected.map(int.parse).toList());
+    ref.read(engineProvider).deleteEvents(_selected.map(int.parse).toList());
     setState(() => _selected.clear());
     _toast(l10n.novelEventMsgBatchDeleteSuccess);
   }
@@ -167,38 +174,34 @@ class _EventTabState extends ConsumerState<EventTab> {
                                 context: context,
                                 builder: (c) => AlertDialog(
                                   title: Text(l10n.novelEventMsgDeleteHeader),
-                                  content:
-                                      Text(l10n.novelEventMsgDeleteBody),
+                                  content: Text(l10n.novelEventMsgDeleteBody),
                                   actions: [
                                     TextButton(
                                         onPressed: () =>
                                             Navigator.pop(c, false),
                                         child: Text(l10n.commonCancel)),
                                     FilledButton(
-                                        onPressed: () =>
-                                            Navigator.pop(c, true),
+                                        onPressed: () => Navigator.pop(c, true),
                                         child: Text(l10n.commonDelete)),
                                   ],
                                 ),
                               );
                               if (confirmed == true) {
-                                ref
-                                    .read(engineProvider)
-                                    .deleteEvents([e.id]);
+                                ref.read(engineProvider).deleteEvents([e.id]);
                                 setState(() {});
                                 _toast(l10n.novelEventMsgDeleteSuccess);
                               }
                             },
                             child: Text(l10n.novelEventDelete,
-                                style: TextStyle(
-                                    fontSize: 13, color: df.danger)),
+                                style:
+                                    TextStyle(fontSize: 13, color: df.danger)),
                           ),
                         ],
                       ),
                   ],
                   mobileCardBuilder: (c, dfRow) {
-                    final e = result.list
-                        .firstWhere((x) => '${x.id}' == dfRow.id);
+                    final e =
+                        result.list.firstWhere((x) => '${x.id}' == dfRow.id);
                     return ListTile(
                       title: Text(e.name ?? '',
                           maxLines: 1, overflow: TextOverflow.ellipsis),

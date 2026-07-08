@@ -24,6 +24,7 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_empty.dart';
+import '../../widgets/policy_confirm.dart';
 
 /// media_kit 一次性初始化。放懒调用（工作台/配音页首次进入时），避免侵入未持有的
 /// main.dart；MediaKit.ensureInitialized 幂等，可多次调用。
@@ -230,13 +231,23 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     });
   }
 
-  void _generateChecked(List<StoryboardRow> shots) {
+  Future<void> _generateChecked(List<StoryboardRow> shots) async {
     final selected = [
       for (final shot in shots)
         if (_checkedShotIds.contains(shot.id)) shot,
     ];
     if (selected.isEmpty) return;
     final engine = ref.read(engineProvider);
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'video_generation',
+      description: context.l10n.workbenchGenerateAll,
+      units: selected.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     engine.batchGenerateVideos(
         widget.projectId, selected.map((s) => s.id).toList());
     _toast(context.l10n.workbenchGenerateVideo);
@@ -1214,9 +1225,8 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         .where((row) => selectedClipIds.contains(row.id))
         .toList();
     if (selectedRows.length < 2) return deltaStartMs;
-    final groupStart = selectedRows
-        .map((row) => row.startMs)
-        .reduce((a, b) => a < b ? a : b);
+    final groupStart =
+        selectedRows.map((row) => row.startMs).reduce((a, b) => a < b ? a : b);
     final groupEnd = selectedRows.map((row) {
       final duration = row.durationMs ?? _defaultClipDurationMs;
       return row.startMs + duration;
@@ -1653,8 +1663,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
           snapAnchors: _timelineSnapAnchors(
             engine: engine,
             clip: clip,
-            excludeClipIds:
-                groupSelected ? _selectedClipIds : const <int>{},
+            excludeClipIds: groupSelected ? _selectedClipIds : const <int>{},
           ),
           snapPreviewOffsetsMs: _timelineClipSnapPreviewOffsets(
             engine: engine,
@@ -1701,9 +1710,8 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         .where((row) => selectedClipIds.contains(row.id))
         .toList();
     if (selectedRows.length < 2) return offsets;
-    final groupStart = selectedRows
-        .map((row) => row.startMs)
-        .reduce((a, b) => a < b ? a : b);
+    final groupStart =
+        selectedRows.map((row) => row.startMs).reduce((a, b) => a < b ? a : b);
     final groupEnd = selectedRows.map((row) {
       final rowDuration = row.durationMs ?? _defaultClipDurationMs;
       return row.startMs + rowDuration;
@@ -3558,10 +3566,18 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
     }
   }
 
-  void _generateOne() {
-    ref
-        .read(engineProvider)
-        .batchGenerateVideos(widget.projectId, [widget.shot.id]);
+  Future<void> _generateOne() async {
+    final engine = ref.read(engineProvider);
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'video_generation',
+      description: context.l10n.workbenchGenerateVideo,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    engine.batchGenerateVideos(widget.projectId, [widget.shot.id]);
     _toast(context.l10n.workbenchGenerateVideo);
   }
 

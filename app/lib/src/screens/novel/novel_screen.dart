@@ -15,6 +15,7 @@ import '../../widgets/df_data_table.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/df_search_field.dart';
 import '../../widgets/df_status_tag.dart';
+import '../../widgets/policy_confirm.dart';
 import 'edit_novel_dialog.dart';
 import 'event_analysis_view.dart';
 import 'event_tab.dart';
@@ -90,12 +91,23 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
     _toast(l10n.novelMsgDeleteSuccess);
   }
 
-  void _generateSelectedEvents() {
+  Future<void> _generateSelectedEvents() async {
     final l10n = context.l10n;
     if (_selected.isEmpty) {
       _toast(l10n.novelImportMsgSelectChapters);
       return;
     }
+    final config = ref.read(engineProvider).config;
+    if (!await confirmPolicyAction(
+      context,
+      config,
+      taskClass: 'event_generation',
+      description: l10n.novelGenerateSelectedEvents,
+      units: _selected.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     ref.read(engineProvider).generateEvents(widget.projectId, _selectedIds);
     _toast(l10n.novelEventGeneratingHint);
   }

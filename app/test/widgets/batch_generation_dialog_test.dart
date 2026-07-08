@@ -55,6 +55,9 @@ void main() {
       gateway: _Gateway(),
       config: EngineConfig(db, isMobile: false),
     );
+    // 本文件断言的是批量生成任务落库时携带的参数，不是确认闸弹窗本身
+    // （闸本身已由 policy_confirm_test.dart 覆盖）；关闸避免每个用例都要多点一次确认。
+    engine.config.update({'policy.confirmMoney': '0'});
     projectId =
         engine.addProject(projectType: 'novel', name: '批量测试', artStyle: '国风');
     // 两个带提示词的角色资产（生图要求 prompt 非空）

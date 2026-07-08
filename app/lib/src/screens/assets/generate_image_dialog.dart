@@ -15,6 +15,7 @@ import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/policy_confirm.dart';
 import '../project/model_select.dart';
 
 Future<bool?> showGenerateImageDialog(BuildContext context, WidgetRef ref,
@@ -36,8 +37,7 @@ class _GenerateImageBody extends ConsumerStatefulWidget {
       {required this.projectId, required this.asset, required this.ref});
 
   @override
-  ConsumerState<_GenerateImageBody> createState() =>
-      _GenerateImageBodyState();
+  ConsumerState<_GenerateImageBody> createState() => _GenerateImageBodyState();
 }
 
 class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
@@ -68,7 +68,8 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
 
   Future<void> _pickRef() async {
     final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
+      const XTypeGroup(
+          label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
     ]);
     if (file == null) return;
     final bytes = await file.readAsBytes();
@@ -89,13 +90,22 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
     }
   }
 
-  void _generate() {
+  Future<void> _generate() async {
     final l10n = context.l10n;
     if (_prompt.text.trim().isEmpty) {
       _toast(l10n.assetsGenFillPrompt);
       return;
     }
     final engine = ref.read(engineProvider);
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'asset_image_generation',
+      description: l10n.assetsGenGenerateBtn,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     // 先保存提示词，再入队生图
     engine.updateAsset(widget.asset.id, prompt: _prompt.text);
     engine.generateAssetImages(
@@ -109,7 +119,8 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
 
   Future<void> _uploadCustom() async {
     final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
+      const XTypeGroup(
+          label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
     ]);
     if (file == null) return;
     final bytes = await file.readAsBytes();
@@ -168,8 +179,7 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
             color: df.surfaceMuted,
           ),
           child: _refBase64 == null
-              ? Icon(Icons.add_photo_alternate_outlined,
-                  color: df.textTertiary)
+              ? Icon(Icons.add_photo_alternate_outlined, color: df.textTertiary)
               : Image.memory(base64Decode(_refBase64!), fit: BoxFit.cover),
         ),
       ),
@@ -190,8 +200,7 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
               : const Icon(Icons.auto_awesome, size: 14),
           label: Text(l10n.assetsGenSmartGenerate,
               style: const TextStyle(fontSize: 12)),
-          style:
-              OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+          style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
         ),
       ]),
       const SizedBox(height: 6),
@@ -246,7 +255,9 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
     if (img.state == stateGenerating) {
       inner = Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         const SizedBox(
-            width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2)),
         const SizedBox(height: 6),
         Text(l10n.assetsGenGeneratingLabel,
             style: TextStyle(fontSize: 11, color: df.textTertiary)),
@@ -262,7 +273,8 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
       );
     } else if (img.filePath != null) {
       final abs = ref.read(engineProvider).mediaAbsPath(img.filePath!);
-      inner = Image.file(File(abs), fit: BoxFit.cover,
+      inner = Image.file(File(abs),
+          fit: BoxFit.cover,
           errorBuilder: (c, e, s) =>
               Icon(Icons.broken_image_outlined, color: df.textTertiary));
     } else {
@@ -317,8 +329,8 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
                   color: Colors.black.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child:
-                    const Icon(Icons.delete_outline, size: 14, color: Colors.white),
+                child: const Icon(Icons.delete_outline,
+                    size: 14, color: Colors.white),
               ),
             ),
           ),
@@ -399,7 +411,8 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
             final right = SizedBox(height: 420, child: _rightPanel());
             if (!twoCol) {
               return SingleChildScrollView(
-                child: Column(children: [left, const SizedBox(height: 16), right]),
+                child:
+                    Column(children: [left, const SizedBox(height: 16), right]),
               );
             }
             return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

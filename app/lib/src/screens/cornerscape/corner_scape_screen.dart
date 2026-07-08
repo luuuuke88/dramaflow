@@ -24,6 +24,7 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/df_search_field.dart';
+import '../../widgets/policy_confirm.dart';
 
 /// media_kit 一次性初始化（幂等；见 workbench_screen 同名说明）。配音页只用音频，
 /// 不引入视频纹理，直接用 Player 播放本地音频文件。
@@ -72,7 +73,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
   List<RoleAudioBinding> _visible(List<RoleAudioBinding> roles) =>
       roles.where((r) => _matchesFilter(r) && _matchesQuery(r)).toList();
 
-  void _autoMatch(List<({int id, String name})> pool) {
+  Future<void> _autoMatch(List<({int id, String name})> pool) async {
     final l10n = context.l10n;
     if (pool.isEmpty) {
       _toast(l10n.cornerScapeNoAudioPool);
@@ -82,6 +83,17 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       _toast(l10n.cornerScapeSelectAtLeastOne);
       return;
     }
+    final config = ref.read(engineProvider).config;
+    if (!await confirmPolicyAction(
+      context,
+      config,
+      taskClass: 'audio_bind',
+      description: l10n.cornerScapeAutoMatch,
+      units: _selected.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     ref
         .read(engineProvider)
         .batchBindAudio(widget.projectId, _selected.toList());
@@ -132,8 +144,8 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
           );
           final heading = Row(mainAxisSize: MainAxisSize.min, children: [
             Text(l10n.cornerScapeTitle,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700)),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(width: 10),
             Text(
               l10n.cornerScapeBoundSummary(boundCount, roles.length),
@@ -347,7 +359,8 @@ class _AuditionButtonState extends ConsumerState<_AuditionButton> {
     final enabled = widget.audioAssetId != null;
     return IconButton(
       visualDensity: VisualDensity.compact,
-      tooltip: _playing ? l10n.cornerScapeStopAudition : l10n.cornerScapeAudition,
+      tooltip:
+          _playing ? l10n.cornerScapeStopAudition : l10n.cornerScapeAudition,
       icon: Icon(
         _playing ? Icons.stop_circle_outlined : Icons.play_circle_outline,
         size: 20,

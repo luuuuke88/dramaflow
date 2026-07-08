@@ -17,6 +17,7 @@ import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/policy_confirm.dart';
 import 'image_flow_editor.dart';
 import 'storyboard_gallery.dart';
 
@@ -50,8 +51,20 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  void _generateStoryboard() {
-    ref.read(engineProvider).generateStoryboards(widget.projectId, widget.scriptId);
+  Future<void> _generateStoryboard() async {
+    final config = ref.read(engineProvider).config;
+    if (!await confirmPolicyAction(
+      context,
+      config,
+      taskClass: 'storyboard_generate',
+      description: context.l10n.productionStoryboardGenerate,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    ref
+        .read(engineProvider)
+        .generateStoryboards(widget.projectId, widget.scriptId);
     _toast(context.l10n.productionStoryboardGenerating);
   }
 
@@ -62,8 +75,8 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text(l10n.commonDelete),
-        content: Text(
-            l10n.productionStoryboardConfirmBatchDeleteBody('${_selected.length}')),
+        content: Text(l10n
+            .productionStoryboardConfirmBatchDeleteBody('${_selected.length}')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
@@ -80,8 +93,19 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
     setState(() => _selected.clear());
   }
 
-  void _batchGenerateImages() {
+  Future<void> _batchGenerateImages() async {
     if (_selected.isEmpty) return;
+    final config = ref.read(engineProvider).config;
+    if (!await confirmPolicyAction(
+      context,
+      config,
+      taskClass: 'storyboard_image_generation',
+      description: context.l10n.productionStoryboardBatchGenerateImage,
+      units: _selected.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     ref.read(engineProvider).batchGenerateStoryboardImages(
         widget.projectId, _selected.toList(),
         compulsory: true);
@@ -244,7 +268,8 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
     );
     setState(() {});
     if (refs.isNotEmpty) {
-      final row = engine.storyboards(widget.scriptId).firstWhere((r) => r.id == newId);
+      final row =
+          engine.storyboards(widget.scriptId).firstWhere((r) => r.id == newId);
       _openEditor(row, seedRefs: refs);
     }
   }
@@ -285,7 +310,9 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
             color: Colors.black45,
             alignment: Alignment.center,
             child: const SizedBox(
-                width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2)),
           );
         case sbFailed:
           return Container(
@@ -307,7 +334,8 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-        border: Border.all(color: selected ? df.primary : df.stroke, width: selected ? 2 : 1),
+        border: Border.all(
+            color: selected ? df.primary : df.stroke, width: selected ? 2 : 1),
         color: df.surfaceMuted,
       ),
       child: Stack(fit: StackFit.expand, children: [
@@ -341,8 +369,7 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                   color: tagColor, borderRadius: BorderRadius.circular(4)),
-              child: Text(
-                  'S${(displayIndex + 1).toString().padLeft(2, '0')}',
+              child: Text('S${(displayIndex + 1).toString().padLeft(2, '0')}',
                   style: const TextStyle(fontSize: 10, color: Colors.white)),
             ),
           ]),
@@ -353,22 +380,35 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
           right: 0,
           child: Container(
             color: Colors.black.withValues(alpha: 0.5),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              _miniIcon(Icons.bolt_outlined, () {
-                ref.read(engineProvider).batchGenerateStoryboardImages(
-                    widget.projectId, [row.id],
-                    compulsory: true);
-                setState(() {});
-              }),
-              _miniIcon(Icons.edit_outlined, () => _editRow(row)),
-              _miniIcon(
-                  Icons.auto_fix_high_outlined,
-                  () => _openEditor(row,
-                      flowId: row.flowId,
-                      seedRefs:
-                          row.filePath != null ? [row.filePath!] : const [])),
-              _miniIcon(Icons.delete_outline, () => _deleteOne(row)),
-            ]),
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _miniIcon(Icons.bolt_outlined, () async {
+                    final config = ref.read(engineProvider).config;
+                    if (!await confirmPolicyAction(
+                      context,
+                      config,
+                      taskClass: 'storyboard_image_generation',
+                      description: l10n.productionStoryboardBatchGenerateImage,
+                    )) {
+                      return;
+                    }
+                    if (!mounted) return;
+                    ref.read(engineProvider).batchGenerateStoryboardImages(
+                        widget.projectId, [row.id],
+                        compulsory: true);
+                    setState(() {});
+                  }),
+                  _miniIcon(Icons.edit_outlined, () => _editRow(row)),
+                  _miniIcon(
+                      Icons.auto_fix_high_outlined,
+                      () => _openEditor(row,
+                          flowId: row.flowId,
+                          seedRefs: row.filePath != null
+                              ? [row.filePath!]
+                              : const [])),
+                  _miniIcon(Icons.delete_outline, () => _deleteOne(row)),
+                ]),
           ),
         ),
       ]),
@@ -395,17 +435,20 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
         child: Row(children: [
           Text(l10n.productionNodeStoryboardTitle,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              style:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
           const Spacer(),
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.zoom_out, size: 16),
-            onPressed: () => setState(() => _cellSize = (_cellSize - 20).clamp(90, 260)),
+            onPressed: () =>
+                setState(() => _cellSize = (_cellSize - 20).clamp(90, 260)),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.zoom_in, size: 16),
-            onPressed: () => setState(() => _cellSize = (_cellSize + 20).clamp(90, 260)),
+            onPressed: () =>
+                setState(() => _cellSize = (_cellSize + 20).clamp(90, 260)),
           ),
         ]),
       ),
@@ -442,7 +485,8 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
             OutlinedButton(
               onPressed: _selected.isEmpty ? null : _batchDelete,
               style: OutlinedButton.styleFrom(foregroundColor: df.danger),
-              child: Text(l10n.assetsBatchDelete, style: const TextStyle(fontSize: 12)),
+              child: Text(l10n.assetsBatchDelete,
+                  style: const TextStyle(fontSize: 12)),
             ),
             OutlinedButton.icon(
               onPressed: () => _previewAll(rows),

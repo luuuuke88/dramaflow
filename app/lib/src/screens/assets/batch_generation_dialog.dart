@@ -13,6 +13,7 @@ import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_data_table.dart';
 import '../../widgets/df_search_field.dart';
 import '../../widgets/df_status_tag.dart';
+import '../../widgets/policy_confirm.dart';
 import '../project/model_select.dart';
 
 Future<bool?> showBatchGenerationDialog(BuildContext context, WidgetRef ref,
@@ -85,12 +86,23 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
     }
   }
 
-  void _batchPrompt() {
+  Future<void> _batchPrompt() async {
     final l10n = context.l10n;
     if (_selected.isEmpty) {
       _toast(l10n.assetsSelectAtLeastOne);
       return;
     }
+    final config = ref.read(engineProvider).config;
+    if (!await confirmPolicyAction(
+      context,
+      config,
+      taskClass: 'asset_prompt_polish',
+      description: l10n.assetsGeneratePrompt,
+      units: _selected.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     _savePromptEdits();
     final other = _otherPrompt.text.trim();
     ref.read(engineProvider).batchPolishAssetPrompts(
@@ -102,7 +114,7 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
     _toast(l10n.assetsBatchPromptDone);
   }
 
-  void _batchImage() {
+  Future<void> _batchImage() async {
     final l10n = context.l10n;
     if (_selected.isEmpty) {
       _toast(l10n.assetsSelectAtLeastOne);
@@ -123,6 +135,16 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
       _toast(l10n.assetsBatchMissingPrompts);
       return;
     }
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'asset_image_generation',
+      description: l10n.assetsGenerateImage,
+      units: targets.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     engine.generateAssetImages(
       widget.projectId,
       [for (final id in targets) (assetsId: id, refImageBase64: null)],

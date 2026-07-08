@@ -19,6 +19,7 @@ import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_search_field.dart';
 import '../../widgets/df_status_tag.dart';
 import '../../widgets/df_tag_chip.dart';
+import '../../widgets/policy_confirm.dart';
 import 'add_script_dialog.dart';
 import 'batch_add_dialog.dart';
 import 'edit_script_dialog.dart';
@@ -91,12 +92,23 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
     }
   }
 
-  void _extract() {
+  Future<void> _extract() async {
     final l10n = context.l10n;
     if (_selected.isEmpty) {
       _toast(l10n.scriptMsgSelectDelScript);
       return;
     }
+    final config = ref.read(engineProvider).config;
+    if (!await confirmPolicyAction(
+      context,
+      config,
+      taskClass: 'asset_extraction',
+      description: l10n.scriptExtractAssets,
+      units: _selected.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     ref
         .read(engineProvider)
         .extractAssets(_selected.toList(), widget.projectId);
@@ -116,6 +128,17 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
       _toast(l10n.scriptGenerateFromEventsSelectHint);
       return;
     }
+    final config = ref.read(engineProvider).config;
+    if (!await confirmPolicyAction(
+      context,
+      config,
+      taskClass: 'script_generation',
+      description: l10n.scriptGenerateFromEvents,
+      units: picked.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     ref
         .read(engineProvider)
         .generateScriptsFromEvents(widget.projectId, picked);

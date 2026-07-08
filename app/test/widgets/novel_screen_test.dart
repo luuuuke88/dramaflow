@@ -50,6 +50,9 @@ void main() {
       gateway: gateway,
       config: EngineConfig(db, isMobile: false),
     );
+    // 本文件断言的是按钮入队任务的业务逻辑，不是确认闸弹窗本身
+    // （闸本身已由 policy_confirm_test.dart 覆盖）；关闸避免每个用例都要多点一次确认。
+    engine.config.update({'policy.confirmMoney': '0'});
     // 注册事件任务执行器但不设置 onNovelsAdded，避免 addNovels 自动触发事件生成，
     // 从而可以精确断言「生成选中章节事件」按钮入队的任务。
     projectId = engine.addProject(projectType: 'novel', name: '章节测试');

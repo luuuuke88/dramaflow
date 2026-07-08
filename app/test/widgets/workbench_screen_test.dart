@@ -101,6 +101,11 @@ void main() {
       config: EngineConfig(db, isMobile: false),
       composer: _FakeComposer(),
     );
+    // 本文件断言的是工作台批量/单条生成视频等业务逻辑，不是确认闸弹窗本身
+    // （闸本身已由 policy_confirm_test.dart 覆盖）；关闸避免每个用例都要多点一次确认。
+    // 设置写入共享 db（o_setting 表），文件内部分用例会用同一个 db 重建 Engine
+    // （见「移动端…」系列用例），该设置随 db 一并继承，无需重复关闸。
+    engine.config.update({'policy.confirmMoney': '0'});
     engine.installVideoTrackPipeline();
     projectId = engine.addProject(projectType: 'novel', name: '工作台测试');
     scriptId = engine.addScript(projectId: projectId, name: '一', content: 'x');

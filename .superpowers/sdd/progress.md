@@ -1,0 +1,11 @@
+# v0.4 收敛期执行台账（plan: docs/superpowers/plans/2026-07-08-v0.4-convergence.md）
+起点 BASE: e5169fe
+排期修正: T5 严格在 T3 合入后（同文件 workbench_screen.dart）
+Task 1: complete (commit 03823a4, review clean; Minor×3: 测试setUp重复/未close db/未知taskClass+destructiveKey组合分支未测)
+Task 4: complete (commit HEAD, 21 基线+全量904绿; 待 T6 等价性矩阵二次验证)
+T9先于T8执行（T8分发引用笔记API），接口不变
+Task 9: complete (T8 前置，6 测绿)
+Task 2: complete (commit f1304f3, review clean; Minor×3: autoMode路径无helper级测试/遮罩关闭路径未测/开关即时生效与同区保存钮不一致)
+Task 3: complete (8个花钱UI入口接闸; analyze绿; 全量938测绿; 从Claude失败worktree恢复并合入)
+Task 8: complete (12测绿; AssistantAction 增 taskClass 字段供 T10 查闸; T11 先于 T10 执行——T10 系统提示词依赖 assistantSkillContexts)
+Task 11: complete (先于T10, 8测新增938全绿; 旧文件未动)

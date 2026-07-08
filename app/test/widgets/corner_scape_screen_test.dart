@@ -35,6 +35,9 @@ void main() {
       gateway: _NoopGateway(),
       config: EngineConfig(db, isMobile: false),
     );
+    // 本文件断言的是「触发批量任务」这一业务逻辑，不是确认闸弹窗本身
+    // （闸本身已由 policy_confirm_test.dart 覆盖）；关闸避免每个用例都要多点一次确认。
+    engine.config.update({'policy.confirmMoney': '0'});
     engine.installAudioBindPipeline();
     projectId = engine.addProject(projectType: 'novel', name: '配音测试');
   });

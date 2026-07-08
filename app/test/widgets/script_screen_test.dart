@@ -54,6 +54,9 @@ void main() {
       config: EngineConfig(db, isMobile: false),
       queueTick: const Duration(milliseconds: 10),
     );
+    // 本文件断言的是「事件生成剧本」入队/落库的业务逻辑，不是确认闸弹窗本身
+    // （闸本身已由 policy_confirm_test.dart 覆盖）；关闸避免每个用例都要多点一次确认。
+    engine.config.update({'policy.confirmMoney': '0'});
     db.execute(
       "INSERT INTO o_prompt (name,type,data,useData) VALUES "
       "('scriptGen','script_gen_system','剧本生成系统词',NULL)",
