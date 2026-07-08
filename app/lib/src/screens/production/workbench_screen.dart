@@ -633,11 +633,13 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final playheadMs = _snapPlayheadMs;
     if (_selectedClipIds.isEmpty || playheadMs == null) return;
     final engine = ref.read(engineProvider);
-    engine.splitTimelineClipsAt(
+    final newIds = engine.splitTimelineClipsAt(
       clipIds: _selectedClipIds.toList(),
       playheadMs: playheadMs,
     );
-    setState(() {});
+    setState(() {
+      _selectedClipIds.addAll(newIds);
+    });
   }
 
   void _duplicateSelectedClipLayers() {
@@ -891,6 +893,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         .where((clip) => _selectedClipIds.contains(clip.id))
         .toList();
     if (selectedRows.isEmpty) return;
+    final selectedIds = selectedRows.map((clip) => clip.id).toSet();
     for (final clip in selectedRows) {
       final rawDuration = playheadMs - clip.startMs;
       final targetDuration =
@@ -899,6 +902,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         engine: engine,
         clip: clip,
         durationMs: targetDuration,
+        ignoredClipIds: selectedIds,
       );
       engine.updateTimelineClip(
         clipId: clip.id,
@@ -923,6 +927,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         .where((clip) => _selectedClipIds.contains(clip.id))
         .toList();
     if (selectedRows.isEmpty) return;
+    final selectedIds = selectedRows.map((clip) => clip.id).toSet();
     for (final clip in selectedRows) {
       final duration = clip.durationMs ?? _defaultClipDurationMs;
       final clipEnd = clip.startMs + duration;
@@ -935,6 +940,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
         clip: clip,
         startMs: targetStart,
         endMs: clipEnd,
+        ignoredClipIds: selectedIds,
       );
       final nextDuration = clipEnd - targetStart;
       engine.updateTimelineClip(
@@ -1158,6 +1164,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final laneSteps = (dragDelta.dy / _dragPixelsPerLaneStep).round();
     if (timeSteps == 0 && laneSteps == 0) return;
     final engine = ref.read(engineProvider);
+    final timelineSnapshot = engine.timelineClips(clip.scriptId);
     final duration = clip.durationMs ?? _defaultClipDurationMs;
     final rawDeltaStartMs = timeSteps * _dragTimeStepMs;
     final rawStart = clip.startMs + rawDeltaStartMs;
@@ -1169,6 +1176,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
               clip: clip,
               selectedClipIds: _selectedClipIds,
               deltaStartMs: rawDeltaStartMs,
+              timelineClips: timelineSnapshot,
             );
       engine.moveTimelineClips(
         clipIds: _selectedClipIds.toList(),
@@ -1185,6 +1193,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
             clip: clip,
             startMs: rawStart,
             durationMs: duration,
+            timelineClips: timelineSnapshot,
           );
     final nextLane = clip.lane + laneSteps;
     final resolvedLane = laneSteps == 0
@@ -1195,6 +1204,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
             preferredLane: nextLane,
             startMs: nextStart,
             durationMs: duration,
+            timelineClips: timelineSnapshot,
           );
     final resolvedStart = laneSteps == 0
         ? _avoidTimelineClipOverlap(
@@ -1203,6 +1213,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
             lane: resolvedLane,
             startMs: nextStart,
             durationMs: duration,
+            timelineClips: timelineSnapshot,
           )
         : nextStart;
     engine.updateTimelineClip(
@@ -1219,11 +1230,11 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     required TimelineClipRow clip,
     required Set<int> selectedClipIds,
     required int deltaStartMs,
+    List<TimelineClipRow>? timelineClips,
   }) {
-    final selectedRows = engine
-        .timelineClips(clip.scriptId)
-        .where((row) => selectedClipIds.contains(row.id))
-        .toList();
+    final clips = timelineClips ?? engine.timelineClips(clip.scriptId);
+    final selectedRows =
+        clips.where((row) => selectedClipIds.contains(row.id)).toList();
     if (selectedRows.length < 2) return deltaStartMs;
     final groupStart =
         selectedRows.map((row) => row.startMs).reduce((a, b) => a < b ? a : b);
@@ -1235,6 +1246,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       engine: engine,
       clip: clip,
       excludeClipIds: selectedClipIds,
+      timelineClips: clips,
     );
     final rawGroupStart = groupStart + deltaStartMs;
     final snappedGroupStart = _snapValue(rawGroupStart, anchors);
@@ -1255,11 +1267,16 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     final duration = clip.durationMs ?? _defaultClipDurationMs;
     final rawDuration = duration + timeSteps * _dragTimeStepMs;
     final engine = ref.read(engineProvider);
+    final timelineSnapshot = engine.timelineClips(clip.scriptId);
     final rawEnd = clip.startMs +
         (rawDuration < _minClipDurationMs ? _minClipDurationMs : rawDuration);
     final snappedEnd = _snapValue(
       rawEnd,
-      _timelineSnapAnchors(engine: engine, clip: clip),
+      _timelineSnapAnchors(
+        engine: engine,
+        clip: clip,
+        timelineClips: timelineSnapshot,
+      ),
     );
     final snappedDuration = snappedEnd - clip.startMs;
     final nextDuration = snappedDuration < _minClipDurationMs
@@ -1269,6 +1286,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       engine: engine,
       clip: clip,
       durationMs: nextDuration,
+      timelineClips: timelineSnapshot,
     );
     engine.updateTimelineClip(
       clipId: clip.id,
@@ -1289,10 +1307,15 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     }
     final nextStart = clip.startMs + deltaMs;
     final engine = ref.read(engineProvider);
+    final timelineSnapshot = engine.timelineClips(clip.scriptId);
     var normalizedStart = nextStart < 0 ? 0 : nextStart;
     normalizedStart = _snapValue(
       normalizedStart,
-      _timelineSnapAnchors(engine: engine, clip: clip),
+      _timelineSnapAnchors(
+        engine: engine,
+        clip: clip,
+        timelineClips: timelineSnapshot,
+      ),
     );
     final maxStart = clip.startMs + duration - _minClipDurationMs;
     if (normalizedStart > maxStart) normalizedStart = maxStart;
@@ -1302,6 +1325,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       clip: clip,
       startMs: normalizedStart,
       endMs: clip.startMs + duration,
+      timelineClips: timelineSnapshot,
     );
     final appliedDelta = normalizedStart - clip.startMs;
     final nextDuration = duration - appliedDelta;
@@ -1320,8 +1344,13 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     required TimelineClipRow clip,
     required int startMs,
     required int durationMs,
+    List<TimelineClipRow>? timelineClips,
   }) {
-    final anchors = _timelineSnapAnchors(engine: engine, clip: clip);
+    final anchors = _timelineSnapAnchors(
+      engine: engine,
+      clip: clip,
+      timelineClips: timelineClips,
+    );
     final snappedStart = _snapValue(startMs, anchors);
     if (snappedStart != startMs) return snappedStart < 0 ? 0 : snappedStart;
     final snappedEnd = _snapValue(startMs + durationMs, anchors);
@@ -1336,11 +1365,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     required int lane,
     required int startMs,
     required int durationMs,
+    List<TimelineClipRow>? timelineClips,
   }) {
     final targetLane = lane < 1 ? 1 : lane;
     var candidate = startMs < 0 ? 0 : startMs;
-    final others = engine
-        .timelineClips(clip.scriptId)
+    final clips = timelineClips ?? engine.timelineClips(clip.scriptId);
+    final others = clips
         .where((other) => other.id != clip.id && other.lane == targetLane)
         .toList()
       ..sort((a, b) => a.startMs.compareTo(b.startMs));
@@ -1417,11 +1447,12 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     required int preferredLane,
     required int startMs,
     required int durationMs,
+    List<TimelineClipRow>? timelineClips,
   }) {
     final targetStart = startMs < 0 ? 0 : startMs;
     final targetEnd = targetStart + durationMs;
     var lane = preferredLane < 1 ? 1 : preferredLane;
-    final clips = engine.timelineClips(clip.scriptId);
+    final clips = timelineClips ?? engine.timelineClips(clip.scriptId);
     final maxLane = clips.fold<int>(lane, (max, row) {
       return row.lane > max ? row.lane : max;
     });
@@ -1442,11 +1473,18 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     required Engine engine,
     required TimelineClipRow clip,
     required int durationMs,
+    Set<int> ignoredClipIds = const {},
+    List<TimelineClipRow>? timelineClips,
   }) {
     var resolvedDuration = durationMs;
     final clipStart = clip.startMs;
-    for (final other in engine.timelineClips(clip.scriptId)) {
-      if (other.id == clip.id || other.lane != clip.lane) continue;
+    final clips = timelineClips ?? engine.timelineClips(clip.scriptId);
+    for (final other in clips) {
+      if (other.id == clip.id ||
+          ignoredClipIds.contains(other.id) ||
+          other.lane != clip.lane) {
+        continue;
+      }
       if (other.startMs <= clipStart) continue;
       final clipEnd = clipStart + resolvedDuration;
       if (clipEnd > other.startMs) {
@@ -1463,10 +1501,17 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     required TimelineClipRow clip,
     required int startMs,
     required int endMs,
+    Set<int> ignoredClipIds = const {},
+    List<TimelineClipRow>? timelineClips,
   }) {
     var resolvedStart = startMs;
-    for (final other in engine.timelineClips(clip.scriptId)) {
-      if (other.id == clip.id || other.lane != clip.lane) continue;
+    final clips = timelineClips ?? engine.timelineClips(clip.scriptId);
+    for (final other in clips) {
+      if (other.id == clip.id ||
+          ignoredClipIds.contains(other.id) ||
+          other.lane != clip.lane) {
+        continue;
+      }
       final otherDuration = other.durationMs ?? _defaultClipDurationMs;
       final otherEnd = other.startMs + otherDuration;
       if (otherEnd <= resolvedStart || other.startMs >= endMs) continue;
@@ -1481,6 +1526,7 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     required Engine engine,
     required TimelineClipRow clip,
     Set<int> excludeClipIds = const <int>{},
+    List<TimelineClipRow>? timelineClips,
   }) {
     final anchors = <int>{0};
     final excludedIds = {...excludeClipIds, clip.id};
@@ -1493,7 +1539,8 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       cursorMs += _timelineSeconds(shot, track) * 1000;
       anchors.add(cursorMs);
     }
-    for (final other in engine.timelineClips(clip.scriptId)) {
+    final clips = timelineClips ?? engine.timelineClips(clip.scriptId);
+    for (final other in clips) {
       if (excludedIds.contains(other.id)) continue;
       final duration = other.durationMs ?? _defaultClipDurationMs;
       anchors
