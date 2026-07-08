@@ -3799,13 +3799,13 @@ abstract class AppLocalizations {
   /// No description provided for @agentChatClearMemory.
   ///
   /// In zh, this message translates to:
-  /// **'清空记忆'**
+  /// **'清空对话'**
   String get agentChatClearMemory;
 
   /// No description provided for @agentChatConfirmClearTitle.
   ///
   /// In zh, this message translates to:
-  /// **'清空记忆'**
+  /// **'清空对话'**
   String get agentChatConfirmClearTitle;
 
   /// No description provided for @agentChatConfirmClearBody.
@@ -3817,7 +3817,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentChatMemoryCleared.
   ///
   /// In zh, this message translates to:
-  /// **'记忆已清空'**
+  /// **'对话已清空'**
   String get agentChatMemoryCleared;
 
   /// No description provided for @agentChatWelcome.
@@ -3831,6 +3831,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已执行：{tool}'**
   String agentChatToolExecuted(String tool);
+
+  /// No description provided for @agentChatConfirmNeeded.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要确认：{tool}'**
+  String agentChatConfirmNeeded(String tool);
+
+  /// No description provided for @agentChatConfirmActionBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'该动作会花钱或改动已有内容，请确认是否继续。'**
+  String get agentChatConfirmActionBody;
+
+  /// No description provided for @agentChatConfirmApproved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已批准'**
+  String get agentChatConfirmApproved;
+
+  /// No description provided for @agentChatConfirmRejected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已拒绝'**
+  String get agentChatConfirmRejected;
+
+  /// No description provided for @agentChatMoneyAutoNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动模式已放行付费动作：{tool}'**
+  String agentChatMoneyAutoNotice(String tool);
 
   /// No description provided for @agentChatModeHint.
   ///
@@ -3847,7 +3877,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentChatSkillsBody.
   ///
   /// In zh, this message translates to:
-  /// **'我可以调用的能力包括已有流水线真实动作，也可以调用本地自定义技能。流水线动作会在「任务中心」留下可查看、可重试的任务记录；自定义技能目前支持 v1 JS return 模板。'**
+  /// **'我可以调用已有流水线真实动作，也可以读取启用的 Markdown 技能作为提示词上下文。流水线动作会在「任务中心」留下可查看、可重试的任务记录。'**
   String get agentChatSkillsBody;
 
   /// No description provided for @agentTabChat.
@@ -3871,7 +3901,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentTabMemory.
   ///
   /// In zh, this message translates to:
-  /// **'记忆'**
+  /// **'项目笔记'**
   String get agentTabMemory;
 
   /// No description provided for @agentDeployExecutionMode.
@@ -4099,13 +4129,13 @@ abstract class AppLocalizations {
   /// No description provided for @agentMemoryCount.
   ///
   /// In zh, this message translates to:
-  /// **'记忆条目 {count}'**
+  /// **'项目笔记 {count}'**
   String agentMemoryCount(int count);
 
   /// No description provided for @agentMemoryEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'暂无记忆。发送消息后会在这里显示可检查的上下文记录。'**
+  /// **'暂无项目笔记。可以把角色设定、场景规则、模型配置等长期信息写在这里。'**
   String get agentMemoryEmpty;
 
   /// No description provided for @agentLongTermMemoryCount.
@@ -4141,49 +4171,49 @@ abstract class AppLocalizations {
   /// No description provided for @agentMemoryAdd.
   ///
   /// In zh, this message translates to:
-  /// **'新增记忆'**
+  /// **'新增笔记'**
   String get agentMemoryAdd;
 
   /// No description provided for @agentMemoryCreateTitle.
   ///
   /// In zh, this message translates to:
-  /// **'新增长期记忆'**
+  /// **'新增项目笔记'**
   String get agentMemoryCreateTitle;
 
   /// No description provided for @agentMemoryEditTitle.
   ///
   /// In zh, this message translates to:
-  /// **'编辑长期记忆'**
+  /// **'编辑项目笔记'**
   String get agentMemoryEditTitle;
 
   /// No description provided for @agentMemoryName.
   ///
   /// In zh, this message translates to:
-  /// **'记忆名称'**
+  /// **'笔记名称'**
   String get agentMemoryName;
 
   /// No description provided for @agentMemoryContent.
   ///
   /// In zh, this message translates to:
-  /// **'记忆内容'**
+  /// **'笔记内容'**
   String get agentMemoryContent;
 
   /// No description provided for @agentMemorySaved.
   ///
   /// In zh, this message translates to:
-  /// **'长期记忆已保存'**
+  /// **'项目笔记已保存'**
   String get agentMemorySaved;
 
   /// No description provided for @agentMemoryUpdated.
   ///
   /// In zh, this message translates to:
-  /// **'长期记忆已更新'**
+  /// **'项目笔记已更新'**
   String get agentMemoryUpdated;
 
   /// No description provided for @agentMemoryDeleted.
   ///
   /// In zh, this message translates to:
-  /// **'长期记忆已删除'**
+  /// **'项目笔记已删除'**
   String get agentMemoryDeleted;
 
   /// No description provided for @agentMemorySettingsTitle.

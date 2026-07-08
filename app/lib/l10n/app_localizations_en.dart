@@ -1983,17 +1983,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentChatManualMode => 'Manual confirm';
 
   @override
-  String get agentChatClearMemory => 'Clear memory';
+  String get agentChatClearMemory => 'Clear chat';
 
   @override
-  String get agentChatConfirmClearTitle => 'Clear memory';
+  String get agentChatConfirmClearTitle => 'Clear chat';
 
   @override
   String get agentChatConfirmClearBody =>
       'Clear the entire conversation history? This cannot be undone.';
 
   @override
-  String get agentChatMemoryCleared => 'Memory cleared';
+  String get agentChatMemoryCleared => 'Chat cleared';
 
   @override
   String get agentChatWelcome =>
@@ -2005,6 +2005,26 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String agentChatConfirmNeeded(String tool) {
+    return 'Confirmation needed: $tool';
+  }
+
+  @override
+  String get agentChatConfirmActionBody =>
+      'This action may spend credits or change existing content. Confirm to continue.';
+
+  @override
+  String get agentChatConfirmApproved => 'Approved';
+
+  @override
+  String get agentChatConfirmRejected => 'Rejected';
+
+  @override
+  String agentChatMoneyAutoNotice(String tool) {
+    return 'Auto mode allowed paid action: $tool';
+  }
+
+  @override
   String get agentChatModeHint =>
       'Manual mode runs one step and waits for you; auto mode chains steps automatically (within a safety cap).';
 
@@ -2013,7 +2033,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentChatSkillsBody =>
-      'I can call real pipeline actions and local custom skills. Pipeline actions leave reviewable, retryable records in Task Center; custom skills currently support the v1 JS return-template bridge.';
+      'I can call real pipeline actions and read enabled Markdown skills as prompt context. Pipeline actions leave reviewable, retryable records in Task Center.';
 
   @override
   String get agentTabChat => 'Chat';
@@ -2025,7 +2045,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentTabSkills => 'Skills';
 
   @override
-  String get agentTabMemory => 'Memory';
+  String get agentTabMemory => 'Project notes';
 
   @override
   String get agentDeployExecutionMode => 'Execution mode';
@@ -2145,12 +2165,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String agentMemoryCount(int count) {
-    return '$count memory items';
+    return '$count project notes';
   }
 
   @override
   String get agentMemoryEmpty =>
-      'No memory yet. Sent messages will appear here as inspectable context records.';
+      'No project notes yet. Save character rules, scene constraints, model choices, and other long-lived context here.';
 
   @override
   String agentLongTermMemoryCount(int count) {
@@ -2176,28 +2196,28 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get agentMemoryAdd => 'Add memory';
+  String get agentMemoryAdd => 'Add note';
 
   @override
-  String get agentMemoryCreateTitle => 'Add long-term memory';
+  String get agentMemoryCreateTitle => 'Add project note';
 
   @override
-  String get agentMemoryEditTitle => 'Edit long-term memory';
+  String get agentMemoryEditTitle => 'Edit project note';
 
   @override
-  String get agentMemoryName => 'Memory name';
+  String get agentMemoryName => 'Note name';
 
   @override
-  String get agentMemoryContent => 'Memory content';
+  String get agentMemoryContent => 'Note content';
 
   @override
-  String get agentMemorySaved => 'Long-term memory saved';
+  String get agentMemorySaved => 'Project note saved';
 
   @override
-  String get agentMemoryUpdated => 'Long-term memory updated';
+  String get agentMemoryUpdated => 'Project note updated';
 
   @override
-  String get agentMemoryDeleted => 'Long-term memory deleted';
+  String get agentMemoryDeleted => 'Project note deleted';
 
   @override
   String get agentMemorySettingsTitle => 'Agent memory settings';

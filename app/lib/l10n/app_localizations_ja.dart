@@ -1929,16 +1929,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentChatManualMode => '手動確認';
 
   @override
-  String get agentChatClearMemory => '記憶を消去';
+  String get agentChatClearMemory => '対話を消去';
 
   @override
-  String get agentChatConfirmClearTitle => '記憶を消去';
+  String get agentChatConfirmClearTitle => '対話を消去';
 
   @override
   String get agentChatConfirmClearBody => '会話履歴をすべて消去しますか？元に戻せません。';
 
   @override
-  String get agentChatMemoryCleared => '記憶を消去しました';
+  String get agentChatMemoryCleared => '対話を消去しました';
 
   @override
   String get agentChatWelcome =>
@@ -1950,6 +1950,26 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String agentChatConfirmNeeded(String tool) {
+    return '確認が必要：$tool';
+  }
+
+  @override
+  String get agentChatConfirmActionBody =>
+      'この操作はクレジットを消費するか、既存内容を変更する可能性があります。続行するには確認してください。';
+
+  @override
+  String get agentChatConfirmApproved => '承認済み';
+
+  @override
+  String get agentChatConfirmRejected => '拒否済み';
+
+  @override
+  String agentChatMoneyAutoNotice(String tool) {
+    return '自動モードで有料アクションを許可しました：$tool';
+  }
+
+  @override
   String get agentChatModeHint => '手動モードは1ステップ実行して確認を待ちます。自動モードは安全上限内で連続実行します。';
 
   @override
@@ -1957,7 +1977,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agentChatSkillsBody =>
-      '既存パイプラインの実アクションに加えて、ローカルのカスタム技能も呼び出せます。パイプラインアクションはタスクセンターに確認・再試行可能な記録を残し、カスタム技能は現在 v1 の JS return テンプレートブリッジに対応しています。';
+      '既存パイプラインの実アクションを呼び出し、有効な Markdown 技能をプロンプト文脈として読み込めます。パイプラインアクションはタスクセンターに確認・再試行可能な記録を残します。';
 
   @override
   String get agentTabChat => '対話';
@@ -1969,7 +1989,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentTabSkills => '技能';
 
   @override
-  String get agentTabMemory => '記憶';
+  String get agentTabMemory => 'プロジェクトノート';
 
   @override
   String get agentDeployExecutionMode => '実行モード';
@@ -2087,12 +2107,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String agentMemoryCount(int count) {
-    return '記憶項目 $count';
+    return 'プロジェクトノート $count';
   }
 
   @override
   String get agentMemoryEmpty =>
-      '記憶はまだありません。送信したメッセージは確認可能なコンテキストとしてここに表示されます。';
+      'プロジェクトノートはまだありません。キャラクター設定、シーンルール、モデル設定などの長期情報を保存できます。';
 
   @override
   String agentLongTermMemoryCount(int count) {
@@ -2117,28 +2137,28 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get agentMemoryAdd => '記憶を追加';
+  String get agentMemoryAdd => 'ノートを追加';
 
   @override
-  String get agentMemoryCreateTitle => '長期記憶を追加';
+  String get agentMemoryCreateTitle => 'プロジェクトノートを追加';
 
   @override
-  String get agentMemoryEditTitle => '長期記憶を編集';
+  String get agentMemoryEditTitle => 'プロジェクトノートを編集';
 
   @override
-  String get agentMemoryName => '記憶名';
+  String get agentMemoryName => 'ノート名';
 
   @override
-  String get agentMemoryContent => '記憶内容';
+  String get agentMemoryContent => 'ノート内容';
 
   @override
-  String get agentMemorySaved => '長期記憶を保存しました';
+  String get agentMemorySaved => 'プロジェクトノートを保存しました';
 
   @override
-  String get agentMemoryUpdated => '長期記憶を更新しました';
+  String get agentMemoryUpdated => 'プロジェクトノートを更新しました';
 
   @override
-  String get agentMemoryDeleted => '長期記憶を削除しました';
+  String get agentMemoryDeleted => 'プロジェクトノートを削除しました';
 
   @override
   String get agentMemorySettingsTitle => 'Agent 記憶設定';

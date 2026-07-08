@@ -1918,16 +1918,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentChatManualMode => '手动确认';
 
   @override
-  String get agentChatClearMemory => '清空记忆';
+  String get agentChatClearMemory => '清空对话';
 
   @override
-  String get agentChatConfirmClearTitle => '清空记忆';
+  String get agentChatConfirmClearTitle => '清空对话';
 
   @override
   String get agentChatConfirmClearBody => '确定清空全部对话记录吗？此操作无法撤销。';
 
   @override
-  String get agentChatMemoryCleared => '记忆已清空';
+  String get agentChatMemoryCleared => '对话已清空';
 
   @override
   String get agentChatWelcome =>
@@ -1939,6 +1939,25 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String agentChatConfirmNeeded(String tool) {
+    return '需要确认：$tool';
+  }
+
+  @override
+  String get agentChatConfirmActionBody => '该动作会花钱或改动已有内容，请确认是否继续。';
+
+  @override
+  String get agentChatConfirmApproved => '已批准';
+
+  @override
+  String get agentChatConfirmRejected => '已拒绝';
+
+  @override
+  String agentChatMoneyAutoNotice(String tool) {
+    return '自动模式已放行付费动作：$tool';
+  }
+
+  @override
   String get agentChatModeHint => '手动模式每次只执行一步并等待你确认；自动模式会连续执行工具链（安全上限内）。';
 
   @override
@@ -1946,7 +1965,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentChatSkillsBody =>
-      '我可以调用的能力包括已有流水线真实动作，也可以调用本地自定义技能。流水线动作会在「任务中心」留下可查看、可重试的任务记录；自定义技能目前支持 v1 JS return 模板。';
+      '我可以调用已有流水线真实动作，也可以读取启用的 Markdown 技能作为提示词上下文。流水线动作会在「任务中心」留下可查看、可重试的任务记录。';
 
   @override
   String get agentTabChat => '对话';
@@ -1958,7 +1977,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentTabSkills => '技能';
 
   @override
-  String get agentTabMemory => '记忆';
+  String get agentTabMemory => '项目笔记';
 
   @override
   String get agentDeployExecutionMode => '执行模式';
@@ -2075,11 +2094,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String agentMemoryCount(int count) {
-    return '记忆条目 $count';
+    return '项目笔记 $count';
   }
 
   @override
-  String get agentMemoryEmpty => '暂无记忆。发送消息后会在这里显示可检查的上下文记录。';
+  String get agentMemoryEmpty => '暂无项目笔记。可以把角色设定、场景规则、模型配置等长期信息写在这里。';
 
   @override
   String agentLongTermMemoryCount(int count) {
@@ -2103,28 +2122,28 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get agentMemoryAdd => '新增记忆';
+  String get agentMemoryAdd => '新增笔记';
 
   @override
-  String get agentMemoryCreateTitle => '新增长期记忆';
+  String get agentMemoryCreateTitle => '新增项目笔记';
 
   @override
-  String get agentMemoryEditTitle => '编辑长期记忆';
+  String get agentMemoryEditTitle => '编辑项目笔记';
 
   @override
-  String get agentMemoryName => '记忆名称';
+  String get agentMemoryName => '笔记名称';
 
   @override
-  String get agentMemoryContent => '记忆内容';
+  String get agentMemoryContent => '笔记内容';
 
   @override
-  String get agentMemorySaved => '长期记忆已保存';
+  String get agentMemorySaved => '项目笔记已保存';
 
   @override
-  String get agentMemoryUpdated => '长期记忆已更新';
+  String get agentMemoryUpdated => '项目笔记已更新';
 
   @override
-  String get agentMemoryDeleted => '长期记忆已删除';
+  String get agentMemoryDeleted => '项目笔记已删除';
 
   @override
   String get agentMemorySettingsTitle => 'Agent 记忆设置';

@@ -10,3 +10,4 @@ Task 3: complete (8个花钱UI入口接闸; analyze绿; 全量938测绿; 从Clau
 Task 8: complete (12测绿; AssistantAction 增 taskClass 字段供 T10 查闸; T11 先于 T10 执行——T10 系统提示词依赖 assistantSkillContexts)
 Task 11: complete (先于T10, 8测新增938全绿; 旧文件未动)
 Task 10: complete (assistant_chat 对话循环+确认挂起; 7测新增945全绿; 旧文件未动)
+Task 12: complete (UI切到 assistant_*; 去除 custom-JS/监督/RAG 入口; 项目笔记走 project_notes; analyze绿; 全量931测绿; 旧 agent.dart 未动)

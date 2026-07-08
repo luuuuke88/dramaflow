@@ -1,20 +1,22 @@
-// Agent 对话页：承载 ToonFlow 风格 scriptAgent / productionAgent 分层配置，
-// 对话、部署、技能、记忆逐步接到 engine 内的 Agent/RAG parity 实现。
+// 精简助手页：只承载 v0.4 收敛后的对话、部署、技能开关、项目笔记。
+// 被砍功能（custom JS 执行、监督 Agent、RAG 设置）不再从 UI 暴露。
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:dramaflow/l10n/app_localizations.dart';
-import '../../api/models.dart';
-import '../../engine/agent.dart';
-import '../../engine/agent_memory.dart';
+import '../../engine/assistant_chat.dart';
+import '../../engine/assistant_deploy.dart';
+import '../../engine/assistant_skills.dart';
+import '../../engine/errors.dart';
+import '../../engine/project_notes.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
+import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
-import '../../widgets/common.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/policy_confirm.dart';
 
 class AgentChatScreen extends ConsumerStatefulWidget {
   final int projectId;
@@ -29,13 +31,12 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   final ScrollController _scroll = ScrollController();
   bool _autoMode = false;
   bool _sending = false;
-  String _agentFamily = agentFamilyScript;
+  String _family = assistantFamilyScript;
 
   @override
   void initState() {
     super.initState();
-    // auto/manual 模式持久化：从引擎载入上次选择（默认 manual）。
-    _autoMode = ref.read(engineProvider).agentUseMode();
+    _autoMode = ref.read(engineProvider).assistantAutoMode();
   }
 
   @override
@@ -47,20 +48,23 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
 
   void _setAutoMode(bool value) {
     setState(() => _autoMode = value);
-    ref.read(engineProvider).setAgentUseMode(value);
+    ref.read(engineProvider).setAssistantAutoMode(value);
   }
 
-  void _setAgentFamily(String family) {
-    if (_agentFamily == family) return;
-    setState(() => _agentFamily = family);
+  void _setFamily(String family) {
+    if (_family == family) return;
+    setState(() => _family = family);
     _scrollToBottom();
   }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
-      _scroll.animateTo(_scroll.position.maxScrollExtent,
-          duration: DFTokens.standard200, curve: Curves.easeOut);
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: DFTokens.standard200,
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -70,33 +74,47 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     _input.clear();
     setState(() => _sending = true);
     _scrollToBottom();
-    final family = _agentFamily;
+    final family = _family;
     try {
-      await ref.read(engineProvider).sendAgentMessage(widget.projectId, text,
-          autoMode: _autoMode, family: family);
+      await ref.read(engineProvider).sendAssistantMessage(
+            widget.projectId,
+            text,
+            family: family,
+            autoMode: _autoMode,
+          );
     } finally {
       if (mounted) setState(() => _sending = false);
       _scrollToBottom();
     }
   }
 
-  Future<void> _clearMemory() async {
+  Future<void> _clearChat() async {
     final l10n = context.l10n;
     final confirmed = await showDFAdaptiveDialog<bool>(
       context,
       title: l10n.agentChatConfirmClearTitle,
       desktopWidthFactor: .36,
-      builder: (c) => const _AgentClearMemoryConfirmBody(),
+      builder: (_) => const _ClearChatConfirmBody(),
     );
     if (confirmed != true) return;
     ref
         .read(engineProvider)
-        .clearAgentMemory(widget.projectId, family: _agentFamily);
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.agentChatMemoryCleared)));
-      setState(() {});
-    }
+        .clearAssistantChat(widget.projectId, family: _family);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.agentChatMemoryCleared)),
+    );
+    setState(() {});
+  }
+
+  Future<void> _confirmPending(bool approve) async {
+    await ref.read(engineProvider).confirmPendingAssistantAction(
+          widget.projectId,
+          family: _family,
+          approve: approve,
+        );
+    if (mounted) setState(() {});
+    _scrollToBottom();
   }
 
   void _showSkillsInfo() {
@@ -113,20 +131,16 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
-    final messages = ref
-        .watch(engineProvider)
-        .agentMessages(widget.projectId, family: _agentFamily);
-    final summaries = ref
-        .watch(engineProvider)
-        .agentMemorySummaries(widget.projectId, family: _agentFamily);
-    final memories =
-        ref.watch(engineProvider).agentLongTermMemories(widget.projectId);
+    final messages = ref.watch(engineProvider).assistantMessages(
+          widget.projectId,
+          family: _family,
+        );
 
     return DefaultTabController(
       length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_agentFamily == agentFamilyScript
+          title: Text(_family == assistantFamilyScript
               ? l10n.agentDeployGroupScriptAgent
               : l10n.agentDeployGroupProductionAgent),
           bottom: TabBar(
@@ -151,21 +165,19 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(children: [
                   Text(
-                      _autoMode
-                          ? l10n.agentChatAutoMode
-                          : l10n.agentChatManualMode,
-                      style: const TextStyle(fontSize: 12)),
-                  Switch(
-                    value: _autoMode,
-                    onChanged: _setAutoMode,
+                    _autoMode
+                        ? l10n.agentChatAutoMode
+                        : l10n.agentChatManualMode,
+                    style: const TextStyle(fontSize: 12),
                   ),
+                  Switch(value: _autoMode, onChanged: _setAutoMode),
                 ]),
               ),
             ),
             IconButton(
               tooltip: l10n.agentChatClearMemory,
               icon: const Icon(Icons.delete_sweep_outlined),
-              onPressed: _clearMemory,
+              onPressed: _clearChat,
             ),
             const SizedBox(width: 8),
           ],
@@ -178,29 +190,29 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: SegmentedButton<String>(
-                    key: const ValueKey('agent-family-switch'),
+                    key: const ValueKey('assistant-family-switch'),
                     showSelectedIcon: false,
                     segments: [
                       ButtonSegment(
-                        value: agentFamilyScript,
+                        value: assistantFamilyScript,
                         icon: const Icon(Icons.edit_note_outlined),
                         label: Text(
                           l10n.agentDeployGroupScriptAgent,
-                          key: const ValueKey('agent-family-script'),
+                          key: const ValueKey('assistant-family-script'),
                         ),
                       ),
                       ButtonSegment(
-                        value: agentFamilyProduction,
+                        value: assistantFamilyProduction,
                         icon: const Icon(Icons.movie_creation_outlined),
                         label: Text(
                           l10n.agentDeployGroupProductionAgent,
-                          key: const ValueKey('agent-family-production'),
+                          key: const ValueKey('assistant-family-production'),
                         ),
                       ),
                     ],
-                    selected: {_agentFamily},
+                    selected: {_family},
                     onSelectionChanged: (selection) {
-                      _setAgentFamily(selection.single);
+                      _setFamily(selection.single);
                     },
                   ),
                 ),
@@ -212,23 +224,33 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                   children: [
                     if (messages.isEmpty)
                       _WelcomeBubble(
-                        text: _agentFamily == agentFamilyScript
+                        text: _family == assistantFamilyScript
                             ? l10n.agentChatWelcome
                             : l10n.canvasChatWelcome,
                       ),
-                    for (final m in messages) _MessageBubble(message: m),
+                    for (final message in messages)
+                      _AssistantMessageBubble(
+                        message: message,
+                        onApprove: () => _confirmPending(true),
+                        onReject: () => _confirmPending(false),
+                      ),
                     if (_sending)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Row(children: [
                           const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2)),
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                           const SizedBox(width: 8),
-                          Text(l10n.agentChatThinking,
-                              style: TextStyle(
-                                  fontSize: 12, color: df.textTertiary)),
+                          Text(
+                            l10n.agentChatThinking,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: df.textTertiary,
+                            ),
+                          ),
                         ]),
                       ),
                   ],
@@ -264,19 +286,9 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                 ),
               ),
             ]),
-            _AgentDeployPane(autoMode: _autoMode, onChanged: _setAutoMode),
-            _AgentSkillsPane(
-              onUpdated: () => setState(() {}),
-            ),
-            _AgentMemoryPane(
-              projectId: widget.projectId,
-              family: _agentFamily,
-              messages: messages,
-              summaries: summaries,
-              memories: memories,
-              onClear: _clearMemory,
-              onChanged: () => setState(() {}),
-            ),
+            const _AssistantDeployPane(),
+            const _AssistantSkillsPane(),
+            _ProjectNotesPane(projectId: widget.projectId),
           ],
         ),
       ),
@@ -284,1664 +296,195 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   }
 }
 
-class _AgentDeployPane extends ConsumerStatefulWidget {
-  final bool autoMode;
-  final ValueChanged<bool> onChanged;
-  const _AgentDeployPane({required this.autoMode, required this.onChanged});
+class _WelcomeBubble extends StatelessWidget {
+  final String text;
+  const _WelcomeBubble({required this.text});
 
   @override
-  ConsumerState<_AgentDeployPane> createState() => _AgentDeployPaneState();
+  Widget build(BuildContext context) {
+    final df = context.df;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(maxWidth: 560),
+        decoration: BoxDecoration(
+          color: df.surfaceMuted,
+          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        ),
+        child: Text(text, style: const TextStyle(fontSize: 13)),
+      ),
+    );
+  }
 }
 
-class _AgentDeployPaneState extends ConsumerState<_AgentDeployPane> {
-  int _revision = 0;
+class _AssistantMessageBubble extends StatelessWidget {
+  final AssistantMessage message;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
 
-  Future<List<_AgentModelOption>> _loadModelOptions() async {
-    final engine = ref.read(engineProvider);
-    final providers = await engine.listProviders();
-    final options = <_AgentModelOption>[];
-    for (final provider in providers.where((item) => item.enabled)) {
-      final models = await engine.listProviderModels(provider.id);
-      for (final model
-          in models.where((item) => item.enabled && item.kind == 'text')) {
-        options.add(_AgentModelOption(provider: provider, model: model));
-      }
-    }
-    options.sort((a, b) => a.label.compareTo(b.label));
-    return options;
-  }
+  const _AssistantMessageBubble({
+    required this.message,
+    required this.onApprove,
+    required this.onReject,
+  });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
-    final deployments = ref.watch(engineProvider).agentDeployments();
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(l10n.agentDeployExecutionMode,
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: df.textPrimary)),
-        const SizedBox(height: 8),
-        Text(l10n.agentChatModeHint,
-            style: TextStyle(fontSize: 12, color: df.textSecondary)),
-        const SizedBox(height: 12),
-        SwitchListTile(
-          key: const ValueKey('agent-deploy-mode-switch'),
-          value: widget.autoMode,
-          onChanged: widget.onChanged,
-          title: Text(widget.autoMode
-              ? l10n.agentChatAutoMode
-              : l10n.agentChatManualMode),
-          subtitle: Text(l10n.agentDeployModeSaved,
-              style: TextStyle(fontSize: 12, color: df.textTertiary)),
-          secondary: const Icon(Icons.account_tree_outlined),
-        ),
-        const SizedBox(height: 18),
-        Text(l10n.agentDeployStagesTitle,
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: df.textPrimary)),
-        const SizedBox(height: 8),
-        Text(l10n.agentDeployStagesHint,
-            style: TextStyle(fontSize: 12, color: df.textSecondary)),
-        const SizedBox(height: 12),
-        FutureBuilder<List<_AgentModelOption>>(
-          key: ValueKey(_revision),
-          future: _loadModelOptions(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            final options = snapshot.data ?? const <_AgentModelOption>[];
-            final scriptDeployments = deployments
-                .where((deployment) => deployment.family == 'scriptAgent')
-                .toList();
-            final productionDeployments = deployments
-                .where((deployment) => deployment.family == 'productionAgent')
-                .toList();
-            final pipelineDeployments = deployments
-                .where((deployment) => deployment.family == 'pipeline')
-                .toList();
-            return Column(
-              children: [
-                _AgentDeployGroup(
-                  key: const ValueKey('agent-deploy-group-scriptAgent'),
-                  title: l10n.agentDeployGroupScriptAgent,
-                  deployments: scriptDeployments,
-                  options: options,
-                  onSaved: () => setState(() => _revision++),
-                ),
-                _AgentDeployGroup(
-                  key: const ValueKey('agent-deploy-group-productionAgent'),
-                  title: l10n.agentDeployGroupProductionAgent,
-                  deployments: productionDeployments,
-                  options: options,
-                  onSaved: () => setState(() => _revision++),
-                ),
-                _AgentDeployGroup(
-                  key: const ValueKey('agent-deploy-group-pipeline'),
-                  title: l10n.agentDeployGroupPipeline,
-                  deployments: pipelineDeployments,
-                  options: options,
-                  onSaved: () => setState(() => _revision++),
-                ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
+    final isUser = message.role == assistantRoleUser;
+    final isTool = message.role == assistantRoleTool;
+    final isConfirm = message.role == assistantRoleConfirm;
 
-class _AgentDeployGroup extends StatelessWidget {
-  final String title;
-  final List<AgentDeployment> deployments;
-  final List<_AgentModelOption> options;
-  final VoidCallback onSaved;
-
-  const _AgentDeployGroup({
-    super.key,
-    required this.title,
-    required this.deployments,
-    required this.options,
-    required this.onSaved,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final df = context.df;
-    if (deployments.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: df.textPrimary,
-              ),
-            ),
+    if (isConfirm) {
+      final pending = message.confirmStatus == 'pending';
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          constraints: const BoxConstraints(maxWidth: 560),
+          decoration: BoxDecoration(
+            color: df.warning.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+            border: Border.all(color: df.warning.withValues(alpha: 0.5)),
           ),
-          for (final deployment in deployments)
-            _AgentDeployRow(
-              key: ValueKey('agent-deploy-row-${deployment.key}'),
-              deployment: deployment,
-              options: options,
-              onSaved: onSaved,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AgentModelOption {
-  final ProviderInfo provider;
-  final ProviderModelInfo model;
-  const _AgentModelOption({required this.provider, required this.model});
-
-  String get value => '${provider.id}:${model.modelId}';
-  String get label =>
-      '${provider.name} · ${model.label.isEmpty ? model.modelId : model.label}';
-}
-
-class _AgentDeployRow extends ConsumerStatefulWidget {
-  final AgentDeployment deployment;
-  final List<_AgentModelOption> options;
-  final VoidCallback onSaved;
-  const _AgentDeployRow({
-    super.key,
-    required this.deployment,
-    required this.options,
-    required this.onSaved,
-  });
-
-  @override
-  ConsumerState<_AgentDeployRow> createState() => _AgentDeployRowState();
-}
-
-class _AgentDeployRowState extends ConsumerState<_AgentDeployRow> {
-  late bool _enabled;
-  late String? _modelValue;
-  late final TextEditingController _maxTokens;
-  late final TextEditingController _temperature;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncFromDeployment();
-    _maxTokens = TextEditingController(
-        text: widget.deployment.maxOutputTokens.toString());
-    _temperature =
-        TextEditingController(text: widget.deployment.temperature.toString());
-  }
-
-  @override
-  void didUpdateWidget(covariant _AgentDeployRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.deployment.key != widget.deployment.key ||
-        oldWidget.deployment.modelName != widget.deployment.modelName ||
-        oldWidget.deployment.vendorId != widget.deployment.vendorId ||
-        oldWidget.deployment.disabled != widget.deployment.disabled) {
-      _syncFromDeployment();
-      _maxTokens.text = widget.deployment.maxOutputTokens.toString();
-      _temperature.text = widget.deployment.temperature.toString();
-    }
-  }
-
-  @override
-  void dispose() {
-    _maxTokens.dispose();
-    _temperature.dispose();
-    super.dispose();
-  }
-
-  void _syncFromDeployment() {
-    _enabled = !widget.deployment.disabled;
-    final value = widget.deployment.vendorId.isEmpty ||
-            widget.deployment.modelName.isEmpty
-        ? null
-        : '${widget.deployment.vendorId}:${widget.deployment.modelName}';
-    final optionValues = widget.options.map((option) => option.value).toSet();
-    _modelValue = value != null && optionValues.contains(value) ? value : null;
-  }
-
-  String _stageTitle(AppLocalizations l10n, AgentDeployment deployment) =>
-      switch (deployment.key) {
-        'script_gen' => l10n.stageScriptGenTitle,
-        'event_extract' => l10n.stageEventExtractTitle,
-        'asset_extract' => l10n.stageAssetExtractTitle,
-        'storyboard_gen' => l10n.stageStoryboardGenTitle,
-        'video_prompt_gen' => l10n.stageVideoPromptGenTitle,
-        _ => deployment.name,
-      };
-
-  Future<void> _save() async {
-    final selected = _modelValue;
-    if (selected == null) return;
-    final sep = selected.indexOf(':');
-    if (sep <= 0 || sep == selected.length - 1) return;
-    ref.read(engineProvider).updateAgentDeployment(
-          widget.deployment.key,
-          vendorId: selected.substring(0, sep),
-          modelName: selected.substring(sep + 1),
-          maxOutputTokens: int.tryParse(_maxTokens.text.trim()),
-          temperature: int.tryParse(_temperature.text.trim()),
-          disabled: !_enabled,
-        );
-    widget.onSaved();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.agentDeploySaved)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final df = context.df;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: df.surface,
-        border: Border.all(color: df.stroke),
-        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 680;
-          final title = Row(children: [
-            Expanded(
-              child: Text(
-                _stageTitle(l10n, widget.deployment),
-                style:
-                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-            ),
-            Switch(
-              value: _enabled,
-              onChanged: (value) => setState(() => _enabled = value),
-            ),
-          ]);
-          final model = DropdownButtonFormField<String>(
-            key: ValueKey('agent-deploy-model-${widget.deployment.key}'),
-            initialValue: _modelValue,
-            isExpanded: true,
-            decoration: InputDecoration(labelText: l10n.agentDeployModel),
-            items: [
-              for (final option in widget.options)
-                DropdownMenuItem(
-                    value: option.value, child: Text(option.label)),
-            ],
-            onChanged: (value) => setState(() => _modelValue = value),
-          );
-          final maxTokens = TextField(
-            key: ValueKey('agent-deploy-max-tokens-${widget.deployment.key}'),
-            controller: _maxTokens,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: l10n.agentDeployMaxTokens),
-          );
-          final temperature = TextField(
-            key: ValueKey('agent-deploy-temperature-${widget.deployment.key}'),
-            controller: _temperature,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: l10n.agentDeployTemperature),
-          );
-          final save = FilledButton.icon(
-            key: ValueKey('agent-deploy-save-${widget.deployment.key}'),
-            onPressed: _modelValue == null ? null : _save,
-            icon: const Icon(Icons.save_outlined, size: 18),
-            label: Text(l10n.commonSave),
-          );
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                title,
-                const SizedBox(height: 8),
-                model,
-                const SizedBox(height: 8),
-                maxTokens,
-                const SizedBox(height: 8),
-                temperature,
-                const SizedBox(height: 10),
-                Align(alignment: Alignment.centerRight, child: save),
-              ],
-            );
-          }
-          return Column(
-            children: [
-              title,
-              const SizedBox(height: 8),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(flex: 4, child: model),
-                const SizedBox(width: 10),
-                Expanded(child: maxTokens),
-                const SizedBox(width: 10),
-                Expanded(child: temperature),
-                const SizedBox(width: 10),
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: save,
-                ),
-              ]),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SkillAttributionOption {
-  final String? value;
-  final String label;
-  const _SkillAttributionOption(this.value, this.label);
-}
-
-class _AgentSkillsPane extends ConsumerStatefulWidget {
-  final VoidCallback onUpdated;
-  const _AgentSkillsPane({required this.onUpdated});
-
-  @override
-  ConsumerState<_AgentSkillsPane> createState() => _AgentSkillsPaneState();
-}
-
-class _AgentSkillsPaneState extends ConsumerState<_AgentSkillsPane> {
-  String? _attribution;
-
-  List<_SkillAttributionOption> _options(AppLocalizations l10n) => [
-        _SkillAttributionOption(null, l10n.agentSkillAttributionAll),
-        _SkillAttributionOption(
-            'script_agent_decision', l10n.agentSkillAttributionScriptDecision),
-        _SkillAttributionOption('script_agent_execution',
-            l10n.agentSkillAttributionScriptExecution),
-        _SkillAttributionOption('script_agent_supervision',
-            l10n.agentSkillAttributionScriptSupervision),
-        _SkillAttributionOption('production_agent_decision',
-            l10n.agentSkillAttributionProductionDecision),
-        _SkillAttributionOption('production_agent_execution',
-            l10n.agentSkillAttributionProductionExecution),
-        _SkillAttributionOption('production_agent_supervision',
-            l10n.agentSkillAttributionProductionSupervision),
-      ];
-
-  Future<void> _editSkill(
-      BuildContext context, WidgetRef ref, AgentSkill skill) {
-    if (skill.type == 'custom-js-agent') {
-      return _openCustomSkillDialog(context, ref, skill: skill);
-    }
-    return showDFAdaptiveDialog<void>(
-      context,
-      title: context.l10n.agentSkillEditTitle,
-      desktopWidthFactor: .42,
-      builder: (_) => _AgentSkillDialog(
-        skill: skill,
-        onSave: (description, enabled) {
-          ref.read(engineProvider).updateAgentSkill(
-                skill.id,
-                description: description,
-                enabled: enabled,
-              );
-          widget.onUpdated();
-          setState(() {});
-        },
-      ),
-    );
-  }
-
-  Future<void> _openCustomSkillDialog(
-    BuildContext context,
-    WidgetRef ref, {
-    AgentSkill? skill,
-  }) async {
-    final l10n = context.l10n;
-    final draft = await showDFAdaptiveDialog<_CustomSkillDraft>(
-      context,
-      title: skill == null
-          ? l10n.agentCustomSkillCreateTitle
-          : l10n.agentCustomSkillEditTitle,
-      desktopWidthFactor: .5,
-      builder: (_) => _AgentCustomSkillDialog(skill: skill),
-    );
-    if (draft == null || !context.mounted) return;
-    await runAction(
-      context,
-      ref,
-      () async {
-        ref.read(engineProvider).saveCustomAgentSkill(
-              id: draft.id,
-              name: draft.name,
-              description: draft.description,
-              script: draft.script,
-              schema: draft.schema,
-              enabled: draft.enabled,
-              attribution: _attribution,
-            );
-        widget.onUpdated();
-        setState(() {});
-      },
-      successMessage: l10n.agentCustomSkillSaved,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final df = context.df;
-    final options = _options(l10n);
-    final skills = _attribution == null
-        ? ref.watch(engineProvider).agentSkills()
-        : ref.watch(engineProvider).agentSkills(attribution: _attribution);
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: skills.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(children: [
+                Icon(Icons.privacy_tip_outlined, size: 16, color: df.warning),
+                const SizedBox(width: 6),
                 Expanded(
-                  child: Text(l10n.agentSkillsBuiltinTitle,
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: df.textPrimary)),
-                ),
-                FilledButton.icon(
-                  key: const ValueKey('agent-custom-skill-add'),
-                  onPressed: () => _openCustomSkillDialog(context, ref),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(l10n.agentCustomSkillAdd),
+                  child: Text(
+                    l10n.agentChatConfirmNeeded(message.toolName ?? ''),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: df.textPrimary,
+                    ),
+                  ),
                 ),
               ]),
               const SizedBox(height: 6),
-              Text(l10n.agentSkillsEditableHint,
-                  style: TextStyle(fontSize: 12, color: df.textSecondary)),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                key: const ValueKey('agent-skill-attribution-filter'),
-                initialValue: _attribution,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: l10n.agentSkillAttributionFilter,
-                  isDense: true,
-                ),
-                items: [
-                  for (final option in options)
-                    DropdownMenuItem<String?>(
-                      value: option.value,
-                      child: Text(option.label),
-                    ),
-                ],
-                onChanged: (value) => setState(() => _attribution = value),
+              Text(
+                pending
+                    ? l10n.agentChatConfirmActionBody
+                    : message.confirmStatus == 'approved'
+                        ? l10n.agentChatConfirmApproved
+                        : l10n.agentChatConfirmRejected,
+                style: TextStyle(fontSize: 12, color: df.textSecondary),
               ),
-            ],
-          );
-        }
-        final skill = skills[index - 1];
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: skill.enabled ? df.surface : df.surfaceMuted,
-            border: Border.all(color: df.stroke),
-            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-          ),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Icon(
-                skill.enabled
-                    ? Icons.bolt_outlined
-                    : Icons.power_settings_new_outlined,
-                size: 16,
-                color: skill.enabled ? df.primary : df.textTertiary,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Row(children: [
-                  Flexible(
-                    child: Text(skill.name,
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w700)),
+              if (pending) ...[
+                const SizedBox(height: 10),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  TextButton(
+                    key: const ValueKey('assistant-confirm-reject'),
+                    onPressed: onReject,
+                    child: Text(l10n.commonCancel),
                   ),
-                  if (skill.type == 'custom-js-agent') ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      l10n.agentCustomSkillTag,
-                      style: TextStyle(fontSize: 11, color: df.primary),
-                    ),
-                  ],
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const ValueKey('assistant-confirm-approve'),
+                    onPressed: onApprove,
+                    child: Text(l10n.commonConfirm),
+                  ),
                 ]),
-              ),
-              Text(
-                skill.enabled
-                    ? l10n.agentSkillEnabledTag
-                    : l10n.agentSkillDisabledTag,
-                style: TextStyle(fontSize: 11, color: df.textTertiary),
-              ),
-              IconButton(
-                key: ValueKey('agent-skill-edit-${skill.id}'),
-                tooltip: l10n.commonEdit,
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                onPressed: () => _editSkill(context, ref, skill),
-              ),
-            ]),
-            const SizedBox(height: 6),
-            Text(skill.description,
-                style: TextStyle(fontSize: 12, color: df.textSecondary)),
-          ]),
-        );
-      },
-    );
-  }
-}
-
-class _CustomSkillDraft {
-  final String id;
-  final String name;
-  final String description;
-  final Map<String, dynamic> schema;
-  final String script;
-  final bool enabled;
-
-  const _CustomSkillDraft({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.schema,
-    required this.script,
-    required this.enabled,
-  });
-}
-
-class _AgentCustomSkillDialog extends StatefulWidget {
-  final AgentSkill? skill;
-  const _AgentCustomSkillDialog({this.skill});
-
-  @override
-  State<_AgentCustomSkillDialog> createState() =>
-      _AgentCustomSkillDialogState();
-}
-
-class _AgentCustomSkillDialogState extends State<_AgentCustomSkillDialog> {
-  final TextEditingController _id = TextEditingController();
-  final TextEditingController _name = TextEditingController();
-  final TextEditingController _description = TextEditingController();
-  final TextEditingController _schema = TextEditingController();
-  final TextEditingController _script = TextEditingController();
-  bool _enabled = true;
-  String? _schemaError;
-
-  @override
-  void initState() {
-    super.initState();
-    final skill = widget.skill;
-    if (skill != null) {
-      _id.text = skill.id;
-      _name.text = skill.name;
-      _description.text = skill.description;
-      _schema.text = skill.schema.isEmpty ? '{}' : jsonEncode(skill.schema);
-      _script.text = skill.script;
-      _enabled = skill.enabled;
-    } else {
-      _schema.text = '{"type":"object","properties":{}}';
-      _script.text = r'return JSON.stringify(args);';
-    }
-  }
-
-  @override
-  void dispose() {
-    _id.dispose();
-    _name.dispose();
-    _description.dispose();
-    _schema.dispose();
-    _script.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final id = _id.text.trim();
-    final script = _script.text.trim();
-    if (id.isEmpty || script.isEmpty) return;
-    final decoded = _decodeSchema();
-    if (decoded == null) return;
-    Navigator.pop(
-      context,
-      _CustomSkillDraft(
-        id: id,
-        name: _name.text.trim(),
-        description: _description.text.trim(),
-        schema: decoded,
-        script: script,
-        enabled: _enabled,
-      ),
-    );
-  }
-
-  Map<String, dynamic>? _decodeSchema() {
-    try {
-      final decoded =
-          jsonDecode(_schema.text.trim().isEmpty ? '{}' : _schema.text.trim());
-      if (decoded is Map) {
-        setState(() => _schemaError = null);
-        return Map<String, dynamic>.from(decoded);
-      }
-    } catch (_) {}
-    setState(() => _schemaError = context.l10n.agentCustomSkillInvalidSchema);
-    return null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final editing = widget.skill != null;
-    return Padding(
-      padding: const EdgeInsets.all(DFTokens.s16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  TextField(
-                    key: const ValueKey('agent-custom-skill-id-field'),
-                    controller: _id,
-                    readOnly: editing,
-                    decoration: InputDecoration(
-                      labelText: l10n.agentCustomSkillId,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const ValueKey('agent-custom-skill-name-field'),
-                    controller: _name,
-                    decoration: InputDecoration(
-                      labelText: l10n.agentCustomSkillName,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const ValueKey('agent-custom-skill-description-field'),
-                    controller: _description,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      labelText: l10n.agentSkillDescription,
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const ValueKey('agent-custom-skill-schema-field'),
-                    controller: _schema,
-                    minLines: 3,
-                    maxLines: 6,
-                    style: const TextStyle(fontFamily: 'monospace'),
-                    decoration: InputDecoration(
-                      labelText: l10n.agentCustomSkillSchema,
-                      alignLabelWithHint: true,
-                      errorText: _schemaError,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const ValueKey('agent-custom-skill-script-field'),
-                    controller: _script,
-                    minLines: 4,
-                    maxLines: 8,
-                    style: const TextStyle(fontFamily: 'monospace'),
-                    decoration: InputDecoration(
-                      labelText: l10n.agentCustomSkillScript,
-                      helperText: l10n.agentCustomSkillScriptHint,
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _enabled,
-                    onChanged: (value) => setState(() => _enabled = value),
-                    title: Text(l10n.agentSkillEnabled),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.commonCancel),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _save,
-                child: Text(l10n.commonSave),
-              ),
+              ],
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AgentSkillDialog extends StatefulWidget {
-  final AgentSkill skill;
-  final void Function(String description, bool enabled) onSave;
-  const _AgentSkillDialog({required this.skill, required this.onSave});
-
-  @override
-  State<_AgentSkillDialog> createState() => _AgentSkillDialogState();
-}
-
-class _AgentSkillDialogState extends State<_AgentSkillDialog> {
-  late final TextEditingController _description;
-  late bool _enabled;
-
-  @override
-  void initState() {
-    super.initState();
-    _description = TextEditingController(text: widget.skill.description);
-    _enabled = widget.skill.enabled;
-  }
-
-  @override
-  void dispose() {
-    _description.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Padding(
-      padding: const EdgeInsets.all(DFTokens.s16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(widget.skill.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const ValueKey('agent-skill-description-field'),
-                    controller: _description,
-                    minLines: 4,
-                    maxLines: 8,
-                    decoration: InputDecoration(
-                      labelText: l10n.agentSkillDescription,
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    key: const ValueKey('agent-skill-enabled-switch'),
-                    contentPadding: EdgeInsets.zero,
-                    value: _enabled,
-                    onChanged: (value) => setState(() => _enabled = value),
-                    title: Text(l10n.agentSkillEnabled),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.commonCancel),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: () {
-                  widget.onSave(_description.text.trim(), _enabled);
-                  Navigator.pop(context);
-                },
-                child: Text(l10n.commonSave),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AgentMemoryPane extends ConsumerWidget {
-  final int projectId;
-  final String family;
-  final List<AgentMessage> messages;
-  final List<AgentMemoryRecord> summaries;
-  final List<AgentMemoryRecord> memories;
-  final VoidCallback onClear;
-  final VoidCallback onChanged;
-  const _AgentMemoryPane({
-    required this.projectId,
-    required this.family,
-    required this.messages,
-    required this.summaries,
-    required this.memories,
-    required this.onClear,
-    required this.onChanged,
-  });
-
-  Future<void> _addMemory(BuildContext context, WidgetRef ref) async {
-    final l10n = context.l10n;
-    final draft = await showDFAdaptiveDialog<_MemoryDraft>(
-      context,
-      title: l10n.agentMemoryCreateTitle,
-      desktopWidthFactor: .42,
-      builder: (_) => const _AgentMemoryDialog(),
-    );
-    if (draft == null || !context.mounted) return;
-    await runAction(
-      context,
-      ref,
-      () async {
-        ref.read(engineProvider).saveAgentMemory(
-              projectId,
-              name: draft.name,
-              content: draft.content,
-            );
-        onChanged();
-      },
-      successMessage: l10n.agentMemorySaved,
-    );
-  }
-
-  Future<void> _editMemory(
-    BuildContext context,
-    WidgetRef ref,
-    AgentMemoryRecord memory,
-  ) async {
-    final l10n = context.l10n;
-    final draft = await showDFAdaptiveDialog<_MemoryDraft>(
-      context,
-      title: l10n.agentMemoryEditTitle,
-      desktopWidthFactor: .42,
-      builder: (_) => _AgentMemoryDialog(memory: memory),
-    );
-    if (draft == null || !context.mounted) return;
-    await runAction(
-      context,
-      ref,
-      () async {
-        ref.read(engineProvider).saveAgentMemory(
-              projectId,
-              id: memory.id,
-              name: draft.name,
-              content: draft.content,
-            );
-        onChanged();
-      },
-      successMessage: l10n.agentMemoryUpdated,
-    );
-  }
-
-  Future<void> _deleteMemory(
-    BuildContext context,
-    WidgetRef ref,
-    AgentMemoryRecord memory,
-  ) async {
-    final l10n = context.l10n;
-    await runAction(
-      context,
-      ref,
-      () async {
-        ref.read(engineProvider).deleteAgentMemory(projectId, memory.id);
-        onChanged();
-      },
-      successMessage: l10n.agentMemoryDeleted,
-    );
-  }
-
-  Future<void> _clearScopedMemory(
-    BuildContext context,
-    WidgetRef ref,
-    String scope,
-  ) async {
-    final l10n = context.l10n;
-    await runAction(
-      context,
-      ref,
-      () async {
-        ref.read(engineProvider).clearAgentMemoryScope(
-              projectId,
-              family: family,
-              scope: scope,
-            );
-        onChanged();
-      },
-      successMessage: l10n.agentChatMemoryCleared,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    final df = context.df;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _AgentSupervisionCard(onChanged: onChanged),
-        const SizedBox(height: 18),
-        Row(children: [
-          Expanded(
-            child: Text(l10n.agentLongTermMemoryCount(memories.length),
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: df.textPrimary)),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: () => _addMemory(context, ref),
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(l10n.agentMemoryAdd),
-            ),
-            OutlinedButton.icon(
-              key: const ValueKey('agent-memory-clear-note'),
-              onPressed: memories.isEmpty
-                  ? null
-                  : () => _clearScopedMemory(
-                        context,
-                        ref,
-                        agentMemoryTypeNote,
-                      ),
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: Text(l10n.agentMemoryClearNote),
-            ),
-          ],
         ),
-        const SizedBox(height: 10),
-        if (memories.isEmpty)
-          Text(l10n.agentLongTermMemoryEmpty,
-              style: TextStyle(fontSize: 12, color: df.textTertiary))
-        else
-          for (final memory in memories)
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: df.surface,
-                border: Border.all(color: df.stroke),
-                borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(memory.name,
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: df.textPrimary)),
-                        const SizedBox(height: 4),
-                        Text(memory.content,
-                            style: const TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    key: ValueKey('agent-memory-edit-${memory.id}'),
-                    tooltip: l10n.commonEdit,
-                    onPressed: () => _editMemory(context, ref, memory),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                  ),
-                  IconButton(
-                    key: ValueKey('agent-memory-delete-${memory.id}'),
-                    tooltip: l10n.commonDelete,
-                    onPressed: () => _deleteMemory(context, ref, memory),
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                  ),
-                ],
-              ),
-            ),
-        const SizedBox(height: 20),
-        Divider(color: df.stroke),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(
-            child: Text(l10n.agentMemorySummaryCount(summaries.length),
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: df.textPrimary)),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          key: const ValueKey('agent-memory-clear-summary'),
-          onPressed: summaries.isEmpty
-              ? null
-              : () => _clearScopedMemory(
-                    context,
-                    ref,
-                    agentMemoryTypeSummary,
-                  ),
-          icon: const Icon(Icons.summarize_outlined, size: 18),
-          label: Text(l10n.agentMemoryClearSummary),
-        ),
-        const SizedBox(height: 10),
-        if (summaries.isEmpty)
-          Text(l10n.agentMemorySummaryEmpty,
-              style: TextStyle(fontSize: 12, color: df.textTertiary))
-        else
-          for (final summary in summaries)
-            _AgentSummaryCard(
-              projectId: projectId,
-              family: family,
-              summary: summary,
-            ),
-        const SizedBox(height: 20),
-        Divider(color: df.stroke),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(
-            child: Text(l10n.agentMemoryCount(messages.length),
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: df.textPrimary)),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.tonalIcon(
-              key: const ValueKey('agent-memory-clear-messages'),
-              onPressed: messages.isEmpty ? null : onClear,
-              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-              label: Text(l10n.agentChatClearMemory),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        if (messages.isEmpty)
-          Text(l10n.agentMemoryEmpty,
-              style: TextStyle(fontSize: 12, color: df.textTertiary))
-        else
-          for (final message in messages)
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: df.surface,
-                border: Border.all(color: df.stroke),
-                borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(message.role,
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: df.textTertiary)),
-                  const SizedBox(height: 4),
-                  Text(message.content, style: const TextStyle(fontSize: 12)),
-                ],
-              ),
-            ),
-        const SizedBox(height: 12),
-        _AgentRagLimitCard(onChanged: onChanged),
-      ],
-    );
-  }
-}
-
-class _AgentSummaryCard extends ConsumerStatefulWidget {
-  final int projectId;
-  final String family;
-  final AgentMemoryRecord summary;
-
-  const _AgentSummaryCard({
-    required this.projectId,
-    required this.family,
-    required this.summary,
-  });
-
-  @override
-  ConsumerState<_AgentSummaryCard> createState() => _AgentSummaryCardState();
-}
-
-class _AgentSummaryCardState extends ConsumerState<_AgentSummaryCard> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final df = context.df;
-    final summary = widget.summary;
-    final relatedMessages = summary.relatedMessageIds.isEmpty
-        ? const <AgentMemoryRecord>[]
-        : ref.watch(engineProvider).agentMemorySummaryMessages(
-              widget.projectId,
-              summary.id,
-              family: widget.family,
-            );
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: df.surface,
-        border: Border.all(color: df.stroke),
-        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(summary.name.isEmpty ? 'summary' : summary.name,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: df.textTertiary)),
-          const SizedBox(height: 4),
-          Text(summary.content, style: const TextStyle(fontSize: 12)),
-          if (summary.relatedMessageIds.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            TextButton.icon(
-              key: ValueKey('agent-memory-summary-related-${summary.id}'),
-              style: TextButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                minimumSize: const Size(0, 32),
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () => setState(() => _expanded = !_expanded),
-              icon: Icon(
-                _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                size: 18,
-              ),
-              label: Text(
-                l10n.agentMemoryRelatedMessagesCount(
-                  summary.relatedMessageIds.length,
-                ),
-              ),
-            ),
-            if (_expanded) ...[
-              const SizedBox(height: 4),
-              for (final message in relatedMessages)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    message.content,
-                    style: TextStyle(fontSize: 12, color: df.textSecondary),
-                  ),
-                ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _AgentSupervisionCard extends ConsumerWidget {
-  final VoidCallback onChanged;
-  const _AgentSupervisionCard({required this.onChanged});
-
-  Future<void> _setEnabled(
-    BuildContext context,
-    WidgetRef ref,
-    bool enabled,
-  ) async {
-    final l10n = context.l10n;
-    await runAction(
-      context,
-      ref,
-      () async {
-        ref.read(engineProvider).setAgentSupervisionEnabled(enabled);
-        onChanged();
-      },
-      successMessage: l10n.agentSupervisionSaved,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    final df = context.df;
-    final enabled = ref.watch(engineProvider).agentSupervisionEnabled();
-    return Material(
-      color: df.surface,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: df.stroke),
-        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: SwitchListTile(
-          key: const ValueKey('agent-supervision-switch'),
-          contentPadding: EdgeInsets.zero,
-          value: enabled,
-          onChanged: (value) => _setEnabled(context, ref, value),
-          title: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.agentSupervisionTitle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: df.textPrimary,
-                  ),
-                ),
-              ),
-              Text(
-                enabled ? l10n.agentSupervisionOn : l10n.agentSupervisionOff,
-                style: TextStyle(fontSize: 12, color: df.textTertiary),
-              ),
-            ],
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              l10n.agentSupervisionHelp,
-              style: TextStyle(fontSize: 12, color: df.textTertiary),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AgentRagLimitCard extends ConsumerStatefulWidget {
-  final VoidCallback onChanged;
-  const _AgentRagLimitCard({required this.onChanged});
-
-  @override
-  ConsumerState<_AgentRagLimitCard> createState() => _AgentRagLimitCardState();
-}
-
-class _AgentRagLimitCardState extends ConsumerState<_AgentRagLimitCard> {
-  late final TextEditingController _messagesPerSummaryCtrl;
-  late final TextEditingController _summaryMaxLengthCtrl;
-  late final TextEditingController _shortTermLimitCtrl;
-  late final TextEditingController _summaryLimitCtrl;
-  late final TextEditingController _limitCtrl;
-  late final TextEditingController _deepRetrieveSummaryLimitCtrl;
-  late final TextEditingController _minScoreCtrl;
-  late final TextEditingController _modelOnnxFileCtrl;
-  late final TextEditingController _modelDtypeCtrl;
-  late bool _rerankEnabled;
-
-  @override
-  void initState() {
-    super.initState();
-    final settings = ref.read(engineProvider).agentMemorySettings();
-    _messagesPerSummaryCtrl =
-        TextEditingController(text: settings.messagesPerSummary.toString());
-    _summaryMaxLengthCtrl =
-        TextEditingController(text: settings.summaryMaxLength.toString());
-    _shortTermLimitCtrl =
-        TextEditingController(text: settings.shortTermLimit.toString());
-    _summaryLimitCtrl =
-        TextEditingController(text: settings.summaryLimit.toString());
-    _limitCtrl = TextEditingController(text: settings.ragLimit.toString());
-    _deepRetrieveSummaryLimitCtrl = TextEditingController(
-      text: settings.deepRetrieveSummaryLimit.toString(),
-    );
-    _minScoreCtrl = TextEditingController(text: settings.minScore.toString());
-    _modelOnnxFileCtrl =
-        TextEditingController(text: settings.modelOnnxFile.join('/'));
-    _modelDtypeCtrl = TextEditingController(text: settings.modelDtype);
-    _rerankEnabled = settings.rerankEnabled;
-  }
-
-  @override
-  void dispose() {
-    _messagesPerSummaryCtrl.dispose();
-    _summaryMaxLengthCtrl.dispose();
-    _shortTermLimitCtrl.dispose();
-    _summaryLimitCtrl.dispose();
-    _limitCtrl.dispose();
-    _deepRetrieveSummaryLimitCtrl.dispose();
-    _minScoreCtrl.dispose();
-    _modelOnnxFileCtrl.dispose();
-    _modelDtypeCtrl.dispose();
-    super.dispose();
-  }
-
-  int? _parse(TextEditingController controller, {required int min}) {
-    final value = int.tryParse(controller.text.trim());
-    if (value == null || value < min) return null;
-    return value;
-  }
-
-  void _reloadFields() {
-    final settings = ref.read(engineProvider).agentMemorySettings();
-    _messagesPerSummaryCtrl.text = settings.messagesPerSummary.toString();
-    _summaryMaxLengthCtrl.text = settings.summaryMaxLength.toString();
-    _shortTermLimitCtrl.text = settings.shortTermLimit.toString();
-    _summaryLimitCtrl.text = settings.summaryLimit.toString();
-    _limitCtrl.text = settings.ragLimit.toString();
-    _deepRetrieveSummaryLimitCtrl.text =
-        settings.deepRetrieveSummaryLimit.toString();
-    _minScoreCtrl.text = settings.minScore.toString();
-    _modelOnnxFileCtrl.text = settings.modelOnnxFile.join('/');
-    _modelDtypeCtrl.text = settings.modelDtype;
-    _rerankEnabled = settings.rerankEnabled;
-  }
-
-  List<String> _parseModelOnnxFile() => _modelOnnxFileCtrl.text
-      .split(RegExp(r'[\\/,\n]+'))
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toList();
-
-  Future<void> _save() async {
-    final l10n = context.l10n;
-    final messagesPerSummary = _parse(_messagesPerSummaryCtrl, min: 1);
-    final summaryMaxLength = _parse(_summaryMaxLengthCtrl, min: 80);
-    final shortTermLimit = _parse(_shortTermLimitCtrl, min: 0);
-    final summaryLimit = _parse(_summaryLimitCtrl, min: 0);
-    final ragLimit = _parse(_limitCtrl, min: 0);
-    final deepRetrieveSummaryLimit =
-        _parse(_deepRetrieveSummaryLimitCtrl, min: 0);
-    final minScore = _parse(_minScoreCtrl, min: 0);
-    final modelOnnxFile = _parseModelOnnxFile();
-    final modelDtype = _modelDtypeCtrl.text.trim();
-    if (messagesPerSummary == null ||
-        summaryMaxLength == null ||
-        shortTermLimit == null ||
-        summaryLimit == null ||
-        ragLimit == null ||
-        deepRetrieveSummaryLimit == null ||
-        minScore == null ||
-        modelOnnxFile.isEmpty ||
-        modelDtype.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.agentMemorySettingsInvalid)),
       );
-      return;
     }
-    await runAction(
-      context,
-      ref,
-      () async {
-        ref.read(engineProvider).setAgentMemorySettings(
-              messagesPerSummary: messagesPerSummary,
-              summaryMaxLength: summaryMaxLength,
-              shortTermLimit: shortTermLimit,
-              summaryLimit: summaryLimit,
-              ragLimit: ragLimit,
-              deepRetrieveSummaryLimit: deepRetrieveSummaryLimit,
-              minScore: minScore,
-              rerankEnabled: _rerankEnabled,
-              modelOnnxFile: modelOnnxFile,
-              modelDtype: modelDtype,
-            );
-        _reloadFields();
-        widget.onChanged();
-      },
-      successMessage: l10n.agentMemorySettingsSaved,
-    );
-  }
 
-  Widget _numberField({
-    required String label,
-    required TextEditingController controller,
-    required Key key,
-    required String hintText,
-  }) {
-    return SizedBox(
-      width: 146,
-      child: TextField(
-        key: key,
-        controller: controller,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hintText,
-          isDense: true,
-        ),
-      ),
-    );
-  }
-
-  Widget _textField({
-    required String label,
-    required TextEditingController controller,
-    required Key key,
-    required String hintText,
-    double width = 146,
-  }) {
-    return SizedBox(
-      width: width,
-      child: TextField(
-        key: key,
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hintText,
-          isDense: true,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final df = context.df;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: df.surface,
-        border: Border.all(color: df.stroke),
-        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.agentMemorySettingsTitle,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: df.textPrimary,
-            ),
+    if (isTool) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          constraints: const BoxConstraints(maxWidth: 560),
+          decoration: BoxDecoration(
+            color: df.primarySubtle,
+            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+            border: Border.all(color: df.primary.withValues(alpha: 0.3)),
           ),
-          const SizedBox(height: 4),
-          Text(
-            l10n.agentMemorySettingsHelp,
-            style: TextStyle(fontSize: 12, color: df.textTertiary),
-          ),
-          const SizedBox(height: 10),
-          FilledButton(
-            key: const ValueKey('agent-rag-limit-save'),
-            onPressed: _save,
-            child: Text(l10n.commonSave),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _numberField(
-                label: l10n.agentMemoryMessagesPerSummary,
-                controller: _messagesPerSummaryCtrl,
-                key: const ValueKey(
-                  'agent-memory-messages-per-summary-field',
+              Row(children: [
+                Icon(Icons.bolt, size: 14, color: df.primary),
+                const SizedBox(width: 4),
+                Text(
+                  l10n.agentChatToolExecuted(message.toolName ?? ''),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: df.primary,
+                  ),
                 ),
-                hintText: '1-50',
-              ),
-              _numberField(
-                label: l10n.agentMemorySummaryMaxLength,
-                controller: _summaryMaxLengthCtrl,
-                key: const ValueKey('agent-memory-summary-max-length-field'),
-                hintText: '80-4000',
-              ),
-              _numberField(
-                label: l10n.agentMemoryShortTermLimit,
-                controller: _shortTermLimitCtrl,
-                key: const ValueKey('agent-memory-short-term-limit-field'),
-                hintText: '0-100',
-              ),
-              _numberField(
-                label: l10n.agentMemorySummaryLimit,
-                controller: _summaryLimitCtrl,
-                key: const ValueKey('agent-memory-summary-limit-field'),
-                hintText: '0-100',
-              ),
-              _numberField(
-                label: l10n.agentRagLimitTitle,
-                controller: _limitCtrl,
-                key: const ValueKey('agent-rag-limit-field'),
-                hintText: '0-50',
-              ),
-              _numberField(
-                label: l10n.agentMemoryDeepRetrieveSummaryLimit,
-                controller: _deepRetrieveSummaryLimitCtrl,
-                key: const ValueKey(
-                  'agent-memory-deep-retrieve-summary-limit-field',
-                ),
-                hintText: '0-50',
-              ),
-              _numberField(
-                label: l10n.agentMemoryMinScore,
-                controller: _minScoreCtrl,
-                key: const ValueKey('agent-memory-min-score-field'),
-                hintText: '0-$agentMemoryMaxScoreThreshold',
-              ),
-              _textField(
-                label: l10n.agentMemoryModelOnnxFile,
-                controller: _modelOnnxFileCtrl,
-                key: const ValueKey('agent-memory-model-onnx-file-field'),
-                hintText: 'all-MiniLM-L6-v2/onnx/model_fp16.onnx',
-                width: 292,
-              ),
-              _textField(
-                label: l10n.agentMemoryModelDtype,
-                controller: _modelDtypeCtrl,
-                key: const ValueKey('agent-memory-model-dtype-field'),
-                hintText: 'fp16',
-              ),
-              SizedBox(
-                width: 292,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.agentMemoryRerankEnabled,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: df.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            l10n.agentMemoryRerankHelp,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: df.textTertiary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      key: const ValueKey('agent-memory-rerank-switch'),
-                      value: _rerankEnabled,
-                      onChanged: (value) =>
-                          setState(() => _rerankEnabled = value),
-                    ),
-                  ],
-                ),
-              ),
+              ]),
+              const SizedBox(height: 4),
+              Text(message.content, style: const TextStyle(fontSize: 12)),
             ],
           ),
-        ],
+        ),
+      );
+    }
+
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(maxWidth: 560),
+        decoration: BoxDecoration(
+          color: isUser ? df.primary : df.surfaceMuted,
+          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        ),
+        child: Text(
+          _assistantDisplayText(context, message.content),
+          style: TextStyle(
+            fontSize: 13,
+            color: isUser ? Colors.white : df.textPrimary,
+          ),
+        ),
       ),
     );
   }
 }
 
-class _MemoryDraft {
-  final String name;
-  final String content;
-  const _MemoryDraft({required this.name, required this.content});
+String _assistantDisplayText(BuildContext context, String content) {
+  try {
+    final decoded = jsonDecode(content);
+    if (decoded is Map) {
+      final errKey = decoded['errKey'];
+      if (errKey is String && errKey.isNotEmpty) {
+        final params = decoded['params'];
+        return localizeErrKey(
+          context.l10n,
+          EngineException(
+            errKey,
+            params is Map ? Map<String, Object?>.from(params) : const {},
+          ),
+        );
+      }
+      if (decoded['infoKey'] == 'assistantMoneyNotice') {
+        return context.l10n
+            .agentChatMoneyAutoNotice('${decoded['tool'] ?? ''}');
+      }
+    }
+  } catch (_) {
+    // 普通文本直接展示。
+  }
+  return content;
 }
 
-class _AgentMemoryDialog extends StatefulWidget {
-  final AgentMemoryRecord? memory;
-  const _AgentMemoryDialog({this.memory});
-
-  @override
-  State<_AgentMemoryDialog> createState() => _AgentMemoryDialogState();
-}
-
-class _AgentMemoryDialogState extends State<_AgentMemoryDialog> {
-  final TextEditingController _name = TextEditingController();
-  final TextEditingController _content = TextEditingController();
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _content.dispose();
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _name.text = widget.memory?.name ?? '';
-    _content.text = widget.memory?.content ?? '';
-  }
-
-  void _save() {
-    final content = _content.text.trim();
-    if (content.isEmpty) return;
-    Navigator.pop(
-      context,
-      _MemoryDraft(name: _name.text.trim(), content: content),
-    );
-  }
+class _ClearChatConfirmBody extends StatelessWidget {
+  const _ClearChatConfirmBody();
 
   @override
   Widget build(BuildContext context) {
@@ -1952,46 +495,20 @@ class _AgentMemoryDialogState extends State<_AgentMemoryDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  TextField(
-                    key: const ValueKey('agent-memory-name-field'),
-                    controller: _name,
-                    decoration:
-                        InputDecoration(labelText: l10n.agentMemoryName),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const ValueKey('agent-memory-content-field'),
-                    controller: _content,
-                    minLines: 4,
-                    maxLines: 8,
-                    decoration: InputDecoration(
-                      labelText: l10n.agentMemoryContent,
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          Text(l10n.agentChatConfirmClearBody),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.commonCancel),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _save,
-                child: Text(l10n.commonSave),
-              ),
-            ],
-          ),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.commonCancel),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(l10n.commonDelete),
+            ),
+          ]),
         ],
       ),
     );
@@ -2014,7 +531,7 @@ class _AgentSkillsInfoBody extends StatelessWidget {
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(
+            child: FilledButton(
               onPressed: () => Navigator.pop(context),
               child: Text(l10n.commonConfirm),
             ),
@@ -2025,8 +542,96 @@ class _AgentSkillsInfoBody extends StatelessWidget {
   }
 }
 
-class _AgentClearMemoryConfirmBody extends StatelessWidget {
-  const _AgentClearMemoryConfirmBody();
+class _AssistantDeployPane extends ConsumerWidget {
+  const _AssistantDeployPane();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final engine = ref.watch(engineProvider);
+    final deployments = engine.assistantDeployments();
+    final l10n = context.l10n;
+    final df = context.df;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(l10n.agentDeployStagesTitle,
+            style: DFTokens.section16w600.copyWith(color: df.textPrimary)),
+        const SizedBox(height: 6),
+        Text(l10n.agentDeployStagesHint,
+            style: TextStyle(fontSize: 12, color: df.textSecondary)),
+        const SizedBox(height: 12),
+        for (final deployment in deployments)
+          Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              title: Text(deployment.name),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(deployment.key),
+                  Text(
+                    deployment.vendorId.isEmpty || deployment.modelName.isEmpty
+                        ? l10n.errModelMissing
+                        : '${deployment.vendorId}:${deployment.modelName}',
+                  ),
+                ],
+              ),
+              trailing: IconButton(
+                key: ValueKey('assistant-deploy-edit-${deployment.key}'),
+                tooltip: l10n.commonEdit,
+                icon: const Icon(Icons.tune_rounded),
+                onPressed: () => _editDeployment(context, ref, deployment),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _editDeployment(
+    BuildContext context,
+    WidgetRef ref,
+    AssistantDeployment deployment,
+  ) async {
+    final changed = await showDFAdaptiveDialog<bool>(
+      context,
+      title: '${context.l10n.agentDeployModel} - ${deployment.key}',
+      desktopWidthFactor: .42,
+      builder: (_) => _DeployEditBody(deployment: deployment),
+    );
+    if (changed == true) {
+      ref.invalidate(engineProvider);
+    }
+  }
+}
+
+class _DeployEditBody extends ConsumerStatefulWidget {
+  final AssistantDeployment deployment;
+  const _DeployEditBody({required this.deployment});
+
+  @override
+  ConsumerState<_DeployEditBody> createState() => _DeployEditBodyState();
+}
+
+class _DeployEditBodyState extends ConsumerState<_DeployEditBody> {
+  late final TextEditingController _vendor =
+      TextEditingController(text: widget.deployment.vendorId);
+  late final TextEditingController _model =
+      TextEditingController(text: widget.deployment.modelName);
+  late final TextEditingController _maxTokens =
+      TextEditingController(text: '${widget.deployment.maxOutputTokens}');
+  late final TextEditingController _temperature =
+      TextEditingController(text: '${widget.deployment.temperature}');
+  late bool _disabled = widget.deployment.disabled;
+
+  @override
+  void dispose() {
+    _vendor.dispose();
+    _model.dispose();
+    _maxTokens.dispose();
+    _temperature.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2035,111 +640,329 @@ class _AgentClearMemoryConfirmBody extends StatelessWidget {
       padding: const EdgeInsets.all(DFTokens.s16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(l10n.agentChatConfirmClearBody),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(l10n.commonCancel),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                style:
-                    FilledButton.styleFrom(backgroundColor: context.df.danger),
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(l10n.commonDelete),
-              ),
-            ],
+          TextField(
+            key: const ValueKey('assistant-deploy-vendor'),
+            controller: _vendor,
+            decoration: const InputDecoration(labelText: 'Vendor ID'),
           ),
+          const SizedBox(height: 10),
+          TextField(
+            key: const ValueKey('assistant-deploy-model'),
+            controller: _model,
+            decoration: InputDecoration(labelText: l10n.agentDeployModel),
+          ),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _maxTokens,
+                keyboardType: TextInputType.number,
+                decoration:
+                    InputDecoration(labelText: l10n.agentDeployMaxTokens),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _temperature,
+                keyboardType: TextInputType.number,
+                decoration:
+                    InputDecoration(labelText: l10n.agentDeployTemperature),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Disabled'),
+            value: _disabled,
+            onChanged: (value) => setState(() => _disabled = value),
+          ),
+          const SizedBox(height: 16),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.commonCancel),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: () async {
+                try {
+                  ref.read(engineProvider).updateAssistantDeployment(
+                        widget.deployment.key,
+                        vendorId: _vendor.text.trim(),
+                        modelName: _model.text.trim(),
+                        maxOutputTokens:
+                            int.tryParse(_maxTokens.text.trim()) ?? 8000,
+                        temperature:
+                            int.tryParse(_temperature.text.trim()) ?? 70,
+                        disabled: _disabled,
+                      );
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.agentDeploySaved)),
+                  );
+                  Navigator.pop(context, true);
+                } on EngineException catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(localizeError(context, e)),
+                      backgroundColor: context.df.danger,
+                    ),
+                  );
+                }
+              },
+              child: Text(l10n.commonSave),
+            ),
+          ]),
         ],
       ),
     );
   }
 }
 
-class _WelcomeBubble extends StatelessWidget {
-  final String text;
-  const _WelcomeBubble({required this.text});
+class _AssistantSkillsPane extends ConsumerWidget {
+  const _AssistantSkillsPane();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final engine = ref.watch(engineProvider);
+    final skills = [...engine.assistantSkills()]..sort((a, b) {
+        final aMarkdown = a.type == markdownAssistantSkillType;
+        final bMarkdown = b.type == markdownAssistantSkillType;
+        if (aMarkdown != bMarkdown) return aMarkdown ? -1 : 1;
+        return a.id.compareTo(b.id);
+      });
+    final l10n = context.l10n;
     final df = context.df;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        constraints: const BoxConstraints(maxWidth: 520),
-        decoration: BoxDecoration(
-          color: df.surfaceMuted,
-          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-        ),
-        child: Text(text, style: const TextStyle(fontSize: 13)),
-      ),
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(l10n.agentSkillsBuiltinTitle,
+            style: DFTokens.section16w600.copyWith(color: df.textPrimary)),
+        const SizedBox(height: 6),
+        Text(l10n.agentSkillsEditableHint,
+            style: TextStyle(fontSize: 12, color: df.textSecondary)),
+        const SizedBox(height: 12),
+        for (final skill in skills)
+          Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              title: Text(skill.name),
+              subtitle: Text(
+                skill.description.isEmpty ? skill.id : skill.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              leading: Icon(
+                skill.type == markdownAssistantSkillType
+                    ? Icons.article_outlined
+                    : Icons.build_circle_outlined,
+              ),
+              trailing: Switch(
+                key: ValueKey('assistant-skill-toggle-${skill.id}'),
+                value: skill.enabled,
+                onChanged: (value) {
+                  engine.updateAssistantSkill(skill.id, enabled: value);
+                  ref.invalidate(engineProvider);
+                },
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _MessageBubble extends StatelessWidget {
-  final AgentMessage message;
-  const _MessageBubble({required this.message});
+class _ProjectNotesPane extends ConsumerStatefulWidget {
+  final int projectId;
+  const _ProjectNotesPane({required this.projectId});
+
+  @override
+  ConsumerState<_ProjectNotesPane> createState() => _ProjectNotesPaneState();
+}
+
+class _ProjectNotesPaneState extends ConsumerState<_ProjectNotesPane> {
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _editNote([ProjectNote? note]) async {
+    final saved = await showDFAdaptiveDialog<bool>(
+      context,
+      title: note == null
+          ? context.l10n.agentMemoryCreateTitle
+          : context.l10n.agentMemoryEditTitle,
+      desktopWidthFactor: .42,
+      builder: (_) => _ProjectNoteEditBody(
+        projectId: widget.projectId,
+        note: note,
+      ),
+    );
+    if (saved == true && mounted) setState(() {});
+  }
+
+  Future<void> _deleteNote(ProjectNote note) async {
+    final engine = ref.read(engineProvider);
+    final ok = await confirmPolicyAction(
+      context,
+      engine.config,
+      destructiveKey: 'note_delete',
+      description: context.l10n.agentMemoryDeleted,
+    );
+    if (!ok) return;
+    engine.deleteProjectNote(widget.projectId, note.id);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.agentMemoryDeleted)),
+      );
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final engine = ref.watch(engineProvider);
+    final l10n = context.l10n;
+    final df = context.df;
+    final notes = _query.trim().isEmpty
+        ? engine.projectNotes(widget.projectId)
+        : engine.searchProjectNotes(widget.projectId, _query);
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(children: [
+          Expanded(
+            child: Text(
+              l10n.agentMemoryCount(notes.length),
+              style: DFTokens.section16w600.copyWith(color: df.textPrimary),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: () => _editNote(),
+            icon: const Icon(Icons.add_rounded),
+            label: Text(l10n.agentMemoryAdd),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(
+            child: TextField(
+              key: const ValueKey('project-note-search'),
+              controller: _search,
+              decoration: InputDecoration(
+                hintText: l10n.commonSearch,
+                isDense: true,
+              ),
+              onSubmitted: (value) => setState(() => _query = value),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            key: const ValueKey('project-note-search-button'),
+            tooltip: l10n.commonSearch,
+            onPressed: () => setState(() => _query = _search.text),
+            icon: const Icon(Icons.search_rounded),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        if (notes.isEmpty)
+          Text(l10n.agentMemoryEmpty, style: TextStyle(color: df.textSecondary))
+        else
+          for (final note in notes)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                title:
+                    Text(note.name.isEmpty ? l10n.agentMemoryName : note.name),
+                subtitle: Text(note.content),
+                onTap: () => _editNote(note),
+                trailing: IconButton(
+                  key: const ValueKey('project-note-delete'),
+                  tooltip: l10n.commonDelete,
+                  icon: Icon(Icons.delete_outline_rounded, color: df.danger),
+                  onPressed: () => _deleteNote(note),
+                ),
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+class _ProjectNoteEditBody extends ConsumerStatefulWidget {
+  final int projectId;
+  final ProjectNote? note;
+  const _ProjectNoteEditBody({required this.projectId, this.note});
+
+  @override
+  ConsumerState<_ProjectNoteEditBody> createState() =>
+      _ProjectNoteEditBodyState();
+}
+
+class _ProjectNoteEditBodyState extends ConsumerState<_ProjectNoteEditBody> {
+  late final TextEditingController _name =
+      TextEditingController(text: widget.note?.name ?? '');
+  late final TextEditingController _content =
+      TextEditingController(text: widget.note?.content ?? '');
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _content.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final df = context.df;
-    final isUser = message.role == agentRoleUser;
-    final isTool = message.role == agentRoleTool;
-
-    if (isTool) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          constraints: const BoxConstraints(maxWidth: 520),
-          decoration: BoxDecoration(
-            color: df.primarySubtle,
-            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-            border: Border.all(color: df.primary.withValues(alpha: 0.3)),
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            key: const ValueKey('project-note-name'),
+            controller: _name,
+            decoration: InputDecoration(labelText: l10n.agentMemoryName),
           ),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Icon(Icons.bolt, size: 14, color: df.primary),
-              const SizedBox(width: 4),
-              Text(l10n.agentChatToolExecuted(message.toolName ?? ''),
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: df.primary)),
-            ]),
-            const SizedBox(height: 4),
-            Text(message.content, style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 10),
+          TextField(
+            key: const ValueKey('project-note-content'),
+            controller: _content,
+            minLines: 4,
+            maxLines: 8,
+            decoration: InputDecoration(labelText: l10n.agentMemoryContent),
+          ),
+          const SizedBox(height: 16),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.commonCancel),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: () {
+                ref.read(engineProvider).saveProjectNote(
+                      widget.projectId,
+                      id: widget.note?.id,
+                      name: _name.text.trim(),
+                      content: _content.text.trim(),
+                    );
+                Navigator.pop(context, true);
+              },
+              child: Text(l10n.commonSave),
+            ),
           ]),
-        ),
-      );
-    }
-
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        constraints: const BoxConstraints(maxWidth: 520),
-        decoration: BoxDecoration(
-          color: isUser ? df.primary : df.surfaceMuted,
-          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-        ),
-        child: Text(
-          message.content,
-          style: TextStyle(
-              fontSize: 13, color: isUser ? Colors.white : df.textPrimary),
-        ),
+        ],
       ),
     );
   }
