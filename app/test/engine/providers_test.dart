@@ -12,6 +12,7 @@ import 'package:dramaflow/src/engine/credentials.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/util.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/video_request.dart';
 
 class FakeAdapter implements HttpClientAdapter {
   final ResponseBody Function(RequestOptions) handler;
@@ -91,6 +92,41 @@ void main() {
     final dio = Dio()..httpClientAdapter = adapter;
     return HttpProviderGateway(db, config, media,
         credentials: credentials, dio: dio, pollInterval: Duration.zero);
+  }
+
+  String writeMedia(String rel, List<int> bytes) {
+    File(media.absPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync(bytes);
+    return rel;
+  }
+
+  VideoGenerationRequest videoRequest({
+    required VideoMode mode,
+    required List<VideoReference> references,
+    String modelBinding = 'volc:seedance',
+  }) =>
+      VideoGenerationRequest(
+        modelBinding: modelBinding,
+        mode: mode,
+        prompt: 'PROMPT',
+        references: references,
+        duration: 5,
+        resolution: '720p',
+        ratio: '9:16',
+        generateAudio: false,
+        projectId: 7,
+        storyboardId: 8,
+        videoTrackId: 9,
+      );
+
+  void expectVideoParameters(Map body) {
+    expect(body['model'], 'seedance');
+    expect(body['ratio'], '9:16');
+    expect(body['duration'], 5);
+    expect(body['resolution'], '720p');
+    expect(body['watermark'], isFalse);
+    expect(body['generate_audio'], isFalse);
   }
 
   group('generateText', () {
@@ -299,7 +335,246 @@ void main() {
     });
   });
 
-  group('generateVideo', () {
+  group('typed video gateway', () {
+    setUp(() {
+      bindModel('shot_video', 'video',
+          providerId: 'volc',
+          modelId: 'seedance',
+          protocol: 'volcengine',
+          apiKey: 'vk-test');
+    });
+
+    test('submitVideo serializes text mode with only the text item', () async {
+      final adapter = FakeAdapter((_) => jsonBody({'id': 'task-text'}));
+      final result = await gw(adapter).submitVideo(
+        videoRequest(mode: VideoMode.text, references: const []),
+        stage: 'shot_video',
+      );
+
+      expect(result.upstreamTaskId, 'task-text');
+      final body = adapter.requests.single.data as Map;
+      expectVideoParameters(body);
+      expect(body['content'], [
+        {'type': 'text', 'text': 'PROMPT'},
+      ]);
+    });
+
+    test('submitVideo strips an optional Bearer prefix from the stored key',
+        () async {
+      bindModel('shot_video', 'video',
+          providerId: 'volc',
+          modelId: 'seedance',
+          protocol: 'volcengine',
+          apiKey: 'Bearer vk-test');
+      final adapter = FakeAdapter((_) => jsonBody({'id': 'task-auth'}));
+
+      await gw(adapter).submitVideo(
+        videoRequest(mode: VideoMode.text, references: const []),
+        stage: 'shot_video',
+      );
+
+      expect(
+          adapter.requests.single.headers['Authorization'], 'Bearer vk-test');
+    });
+
+    test('submitVideo serializes first-frame role and concrete image MIME',
+        () async {
+      final adapter = FakeAdapter((_) => jsonBody({'id': 'task-first'}));
+      final first = writeMedia('7/first.png', [1, 2, 3]);
+
+      await gw(adapter).submitVideo(
+        videoRequest(
+          mode: VideoMode.firstFrame,
+          references: [
+            VideoReference(
+              mediaType: 'image',
+              role: 'first_frame',
+              localPath: first,
+            ),
+          ],
+        ),
+        stage: 'shot_video',
+      );
+
+      final body = adapter.requests.single.data as Map;
+      expectVideoParameters(body);
+      expect(body['content'], [
+        {'type': 'text', 'text': 'PROMPT'},
+        {'type': 'image_url', 'image_url': isA<Map>(), 'role': 'first_frame'},
+      ]);
+      final imageUrl = (body['content'] as List)[1]['image_url'] as Map;
+      expect(imageUrl['url'], startsWith('data:image/png;base64,'));
+    });
+
+    test('submitVideo serializes first-last frames in role order', () async {
+      final adapter = FakeAdapter((_) => jsonBody({'id': 'task-first-last'}));
+      final first = writeMedia('7/first.png', [1]);
+      final last = writeMedia('7/last.jpg', [2]);
+
+      await gw(adapter).submitVideo(
+        videoRequest(
+          mode: VideoMode.firstLastFrame,
+          references: [
+            VideoReference(
+              mediaType: 'image',
+              role: 'first_frame',
+              localPath: first,
+            ),
+            VideoReference(
+              mediaType: 'image',
+              role: 'last_frame',
+              localPath: last,
+            ),
+          ],
+        ),
+        stage: 'shot_video',
+      );
+
+      final body = adapter.requests.single.data as Map;
+      expectVideoParameters(body);
+      expect((body['content'] as List).skip(1).map((item) => item['role']),
+          ['first_frame', 'last_frame']);
+    });
+
+    test('submitVideo serializes multi-reference media roles', () async {
+      final adapter = FakeAdapter((_) => jsonBody({'id': 'task-multi'}));
+      final image = writeMedia('7/reference.webp', [1]);
+      final video = writeMedia('7/reference.mp4', [2]);
+      final audio = writeMedia('7/reference.mp3', [3]);
+
+      await gw(adapter).submitVideo(
+        videoRequest(
+          mode: VideoMode.multiReference,
+          references: [
+            VideoReference(
+              mediaType: 'image',
+              role: 'reference_image',
+              localPath: image,
+            ),
+            VideoReference(
+              mediaType: 'video',
+              role: 'reference_video',
+              localPath: video,
+            ),
+            VideoReference(
+              mediaType: 'audio',
+              role: 'reference_audio',
+              localPath: audio,
+            ),
+          ],
+        ),
+        stage: 'shot_video',
+      );
+
+      final body = adapter.requests.single.data as Map;
+      expectVideoParameters(body);
+      final references = (body['content'] as List).skip(1).toList();
+      expect(references.map((item) => item['role']),
+          ['reference_image', 'reference_video', 'reference_audio']);
+      expect(references[0]['type'], 'image_url');
+      expect((references[0]['image_url'] as Map)['url'],
+          startsWith('data:image/webp;base64,'));
+      expect(references[1]['type'], 'video_url');
+      expect((references[1]['video_url'] as Map)['url'],
+          startsWith('data:video/mp4;base64,'));
+      expect(references[2]['type'], 'audio_url');
+      expect((references[2]['audio_url'] as Map)['url'],
+          startsWith('data:audio/mpeg;base64,'));
+    });
+
+    test('submitVideo resolves request binding as an enabled video model',
+        () async {
+      bindModel('shot_video', 'text',
+          providerId: 'wrong', modelId: 'not-video', apiKey: 'sk-wrong');
+      final adapter = FakeAdapter((_) => jsonBody({'id': 'never'}));
+
+      expect(
+        () => gw(adapter).submitVideo(
+          videoRequest(
+            modelBinding: 'wrong:not-video',
+            mode: VideoMode.text,
+            references: const [],
+          ),
+          stage: 'shot_video',
+        ),
+        throwsA(isA<EngineException>()
+            .having((e) => e.errKey, 'errKey', errModelMissing)),
+      );
+      expect(adapter.requests, isEmpty);
+    });
+
+    test('pollVideo makes one GET for queued and running states', () async {
+      for (final state in const ['queued', 'running']) {
+        final adapter = FakeAdapter((_) => jsonBody({'status': state}));
+        final result = await gw(adapter).pollVideo('task-$state', '7',
+            stage: 'shot_video', modelOverride: 'volc:seedance');
+        expect(result.upstreamState, state);
+        expect(result.isTerminal, isFalse);
+        expect(result.localVideoPath, isNull);
+        expect(adapter.requests, hasLength(1));
+        expect(adapter.requests.single.method, 'GET');
+      }
+    });
+
+    test('pollVideo downloads a succeeded result once and saves it locally',
+        () async {
+      final adapter = FakeAdapter((o) {
+        if (o.path.endsWith('/tasks/task-success')) {
+          return jsonBody({
+            'status': 'succeeded',
+            'content': {'video_url': 'https://cdn.test/result.mp4'},
+          });
+        }
+        return ResponseBody.fromBytes(Uint8List.fromList([4, 5]), 200,
+            headers: {});
+      });
+
+      final result = await gw(adapter).pollVideo('task-success', '7',
+          stage: 'shot_video', modelOverride: 'volc:seedance');
+      expect(result.upstreamState, 'succeeded');
+      expect(result.isTerminal, isTrue);
+      expect(result.localVideoPath, startsWith('7/vid_'));
+      expect(File(media.absPath(result.localVideoPath!)).readAsBytesSync(),
+          [4, 5]);
+      expect(adapter.requests.where((o) => o.method == 'GET'), hasLength(2));
+    });
+
+    test('pollVideo returns terminal upstream failures without downloading',
+        () async {
+      for (final entry in <String, String>{
+        'failed': '内容违规',
+        'cancelled': '已取消',
+        'expired': '已过期',
+      }.entries) {
+        final adapter = FakeAdapter((_) => jsonBody({
+              'status': entry.key,
+              'error': {'message': entry.value},
+            }));
+        final result = await gw(adapter).pollVideo('task-${entry.key}', '7',
+            stage: 'shot_video', modelOverride: 'volc:seedance');
+        expect(result.upstreamState, entry.key);
+        expect(result.isTerminal, isTrue);
+        expect(result.errorMessage, entry.value);
+        expect(adapter.requests, hasLength(1));
+      }
+    });
+
+    test('cancelVideo DELETEs task path and ignores unsupported cancellation',
+        () async {
+      final adapter =
+          FakeAdapter((_) => jsonBody({'error': 'unsupported'}, status: 404));
+
+      await gw(adapter).cancelVideo('task-cancel',
+          stage: 'shot_video', modelOverride: 'volc:seedance');
+
+      expect(adapter.requests, hasLength(1));
+      expect(adapter.requests.single.method, 'DELETE');
+      expect(adapter.requests.single.path,
+          endsWith('/contents/generations/tasks/task-cancel'));
+    });
+  });
+
+  group('generateVideo compatibility shim', () {
     late String frame;
     setUp(() {
       frame = '${tmp.path}/frame.png';

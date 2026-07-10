@@ -2,9 +2,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:path/path.dart' as path;
 import 'package:sqlite3/sqlite3.dart';
 import '../config.dart';
 import '../credentials.dart';
+import '../errors.dart';
 import '../media.dart';
 import 'openai_text.dart';
 import 'openai_vision.dart';
@@ -12,6 +14,7 @@ import 'openai_image.dart';
 import 'openai_tts.dart';
 import 'resolve.dart';
 import 'volcengine_video.dart';
+import '../video_request.dart';
 
 export 'openai_text.dart' show AgentTurnResult, AgentToolDef;
 
@@ -62,6 +65,23 @@ abstract class ProviderGateway {
   Future<String> generateVideo(
       String prompt, String firstFrameAbsPath, String projectId,
       {required String stage, CancelToken? cancelToken});
+
+  /// Submits a typed video request without waiting for rendering.
+  Future<VideoSubmission> submitVideo(VideoGenerationRequest request,
+          {required String stage, CancelToken? cancelToken}) =>
+      Future.error(UnsupportedError('此网关不支持视频提交'));
+
+  /// Reads exactly one upstream video-task state, downloading only successes.
+  Future<VideoPollResult> pollVideo(String upstreamTaskId, String projectId,
+          {required String stage,
+          required String? modelOverride,
+          CancelToken? cancelToken}) =>
+      Future.error(UnsupportedError('此网关不支持视频轮询'));
+
+  /// Requests best-effort cancellation of an upstream video task.
+  Future<void> cancelVideo(String upstreamTaskId,
+          {required String stage, required String? modelOverride}) =>
+      Future.error(UnsupportedError('此网关不支持视频取消'));
 
   /// 返回 rel 媒体路径（如 `proj1/aud_xxx.mp3`）。
   Future<String> generateSpeech(
@@ -237,15 +257,111 @@ class HttpProviderGateway
   }
 
   @override
+  Future<VideoSubmission> submitVideo(
+    VideoGenerationRequest request, {
+    required String stage,
+    CancelToken? cancelToken,
+  }) async {
+    final model = await _resolveVideoModel(request.modelBinding, stage);
+    return volcengineSubmitVideo(dio, media, model, request,
+        cancelToken: cancelToken);
+  }
+
+  @override
+  Future<VideoPollResult> pollVideo(
+    String upstreamTaskId,
+    String projectId, {
+    required String stage,
+    required String? modelOverride,
+    CancelToken? cancelToken,
+  }) async {
+    final model = await _resolveVideoModel(modelOverride, stage);
+    return volcenginePollVideo(dio, media, model, upstreamTaskId, projectId,
+        cancelToken: cancelToken);
+  }
+
+  @override
+  Future<void> cancelVideo(
+    String upstreamTaskId, {
+    required String stage,
+    required String? modelOverride,
+  }) async {
+    final model = await _resolveVideoModel(modelOverride, stage);
+    await volcengineCancelVideo(dio, model, upstreamTaskId);
+  }
+
+  Future<ResolvedModel> _resolveVideoModel(String? modelBinding, String stage) {
+    if (modelBinding != null && modelBinding.trim().isNotEmpty) {
+      return resolveModelBinding(db, credentials, modelBinding, kind: 'video');
+    }
+    return resolveStage(db, credentials, stage);
+  }
+
+  @override
   Future<String> generateVideo(
       String prompt, String firstFrameAbsPath, String projectId,
       {required String stage, CancelToken? cancelToken}) async {
-    final model = await resolveStage(db, credentials, stage);
-    return volcengineGenerateVideo(
-        dio, config, media, model, prompt, firstFrameAbsPath, projectId,
-        cancelToken: cancelToken,
-        pollInterval: pollInterval,
-        pollTimeout: pollTimeout);
+    final referencePath = path
+        .relative(firstFrameAbsPath, from: media.rootDir)
+        .replaceAll(path.separator, '/');
+    if (referencePath == '..' || referencePath.startsWith('../')) {
+      throw const EngineException(
+          errLlmFormat, {'reason': 'invalidReferencePath'});
+    }
+    final request = VideoGenerationRequest(
+      modelBinding: '',
+      mode: VideoMode.firstFrame,
+      prompt: prompt,
+      references: [
+        VideoReference(
+          mediaType: 'image',
+          role: 'first_frame',
+          localPath: referencePath,
+        ),
+      ],
+      duration: config.intOf('videoDuration'),
+      resolution: config.str('videoResolution'),
+      ratio: '1:1',
+      generateAudio: true,
+      projectId: int.tryParse(projectId) ?? 0,
+      storyboardId: 0,
+      videoTrackId: 0,
+    );
+    final submission =
+        await submitVideo(request, stage: stage, cancelToken: cancelToken);
+    final deadline = DateTime.now().add(pollTimeout);
+    while (true) {
+      if (cancelToken?.isCancelled ?? false) {
+        throw DioException.requestCancelled(
+            requestOptions: RequestOptions(path: submission.upstreamTaskId),
+            reason: '用户取消');
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        throw EngineException(
+            errNetwork, {'message': '轮询超时${pollTimeout.inMinutes}分钟'});
+      }
+      await Future<void>.delayed(pollInterval);
+      final result = await pollVideo(submission.upstreamTaskId, projectId,
+          stage: stage, modelOverride: null, cancelToken: cancelToken);
+      if (!result.isTerminal) continue;
+      if (result.upstreamState == 'succeeded' &&
+          result.localVideoPath != null) {
+        return result.localVideoPath!;
+      }
+      switch (result.upstreamState) {
+        case 'failed':
+          throw EngineException(result.errorMessage ?? '视频生成失败');
+        case 'expired':
+          throw EngineException(
+              errNetwork, {'message': result.errorMessage ?? '上游任务超时'});
+        case 'cancelled':
+          throw EngineException(
+              errCanceled, {'message': result.errorMessage ?? '上游取消'});
+        default:
+          throw EngineException(
+              errNetwork, {'message': result.errorMessage ?? '未知视频任务状态'});
+      }
+    }
   }
 
   @override
@@ -300,9 +416,31 @@ class HttpProviderGateway
       ..parent.createSync(recursive: true)
       ..writeAsBytesSync(_tinyPngBytes);
     try {
-      await volcengineGenerateVideo(dio, config, media, model,
-          'connectivity test', tmp.path, '__conn_test__',
-          submitOnly: true, cancelToken: cancelToken);
+      await volcengineSubmitVideo(
+        dio,
+        media,
+        model,
+        VideoGenerationRequest(
+          modelBinding: '',
+          mode: VideoMode.firstFrame,
+          prompt: 'connectivity test',
+          references: [
+            VideoReference(
+              mediaType: 'image',
+              role: 'first_frame',
+              localPath: '__conn_test__/vtest_frame.png',
+            ),
+          ],
+          duration: 5,
+          resolution: '720p',
+          ratio: '16:9',
+          generateAudio: false,
+          projectId: 0,
+          storyboardId: 0,
+          videoTrackId: 0,
+        ),
+        cancelToken: cancelToken,
+      );
     } finally {
       if (tmp.existsSync()) tmp.deleteSync();
     }

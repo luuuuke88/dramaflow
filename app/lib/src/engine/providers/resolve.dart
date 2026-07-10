@@ -169,6 +169,46 @@ Future<ResolvedModel> resolveAssistantStage(
   );
 }
 
+/// Parses one `providerId:modelId` binding and resolves an enabled model of the
+/// requested kind. Project-scoped bindings use this instead of bypassing kind
+/// validation through [resolveModelById].
+Future<ResolvedModel> resolveModelBinding(
+  Database db,
+  CredentialStore credentials,
+  String binding, {
+  required String kind,
+}) async {
+  final match = RegExp(r'^([^:\s]+):([^:\s]+)$').firstMatch(binding.trim());
+  if (match == null) {
+    throw const EngineException(
+        errModelMissing, {'reason': 'invalidModelBinding'});
+  }
+  final providerId = match.group(1)!;
+  final modelId = match.group(2)!;
+  final providers = db.select(
+      'SELECT id, inputValues, models FROM o_vendorConfig WHERE id=? AND COALESCE(enable,1)=1',
+      [providerId]);
+  if (providers.isEmpty) {
+    throw EngineException(errProviderMissing, {'providerId': providerId});
+  }
+  final provider = providers.first;
+  final models = _jsonList(provider['models']);
+  final enabled = models.whereType<Map>().map(Map<String, dynamic>.from).any(
+      (model) =>
+          model['modelId'] == modelId &&
+          model['kind'] == kind &&
+          _enabled(model['enabled']));
+  if (!enabled) {
+    throw EngineException(errModelMissing, {'modelId': modelId, 'kind': kind});
+  }
+  return _resolvedModel(
+    provider,
+    _jsonMap(provider['inputValues']),
+    modelId,
+    credentials,
+  );
+}
+
 /// 按 providerId + modelId 直接解析一个已启用模型（用于逐次生成时覆盖阶段绑定，
 /// 对齐 ToonFlow generateAssets/generateFlowImage 的 model 入参）。kind 不限。
 Future<ResolvedModel> resolveModelById(

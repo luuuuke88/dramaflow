@@ -789,7 +789,7 @@ String _referencePrompt(String type) {
   return match.group(1)!;
 }
 
-class _NoopGateway implements ProviderGateway {
+class _NoopGateway extends ProviderGateway {
   @override
   Future<TextResult> generateText(
     String system,

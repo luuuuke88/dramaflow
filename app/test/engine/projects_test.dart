@@ -315,7 +315,7 @@ void _insertCascadeGraph(Database db, int projectId) {
   );
 }
 
-class _NoopGateway implements ProviderGateway {
+class _NoopGateway extends ProviderGateway {
   @override
   Future<TextResult> generateText(
     String system,

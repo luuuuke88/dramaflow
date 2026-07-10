@@ -1,113 +1,244 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:dio/dio.dart';
-import '../config.dart';
+import 'package:path/path.dart' as path;
+
 import '../media.dart';
 import '../util.dart';
+import '../video_request.dart';
 import 'resolve.dart';
 
-/// Volcengine Seedance 视频生成（移植 server/src/providers/video.ts，
-/// 其源头为 ToonFlow volcengine vendor v2.4）。
-/// 流程：POST /contents/generations/tasks → 轮询 → 下载 video_url。
-/// ⚠️ 通道按同款参数移植，实测留给用户（spec 约定）。
-Future<String> volcengineGenerateVideo(
+class VideoSubmission {
+  final String upstreamTaskId;
+
+  const VideoSubmission(this.upstreamTaskId);
+}
+
+class VideoPollResult {
+  final String upstreamState;
+  final String? localVideoPath;
+  final String? errorMessage;
+
+  const VideoPollResult({
+    required this.upstreamState,
+    this.localVideoPath,
+    this.errorMessage,
+  });
+
+  bool get isTerminal =>
+      upstreamState != 'queued' && upstreamState != 'running';
+}
+
+Future<VideoSubmission> volcengineSubmitVideo(
   Dio dio,
-  EngineConfig config,
   MediaStore media,
   ResolvedModel model,
-  String prompt,
-  String firstFrameAbsPath,
-  String projectId, {
+  VideoGenerationRequest request, {
   CancelToken? cancelToken,
-  Duration pollInterval = const Duration(seconds: 10),
-  Duration pollTimeout = const Duration(minutes: 30),
-  // 连通测试用：提交任务、确认已受理后立即返回 taskId，不轮询到渲染完成
-  // （视频渲染耗时且计费，测试无需等待成片）。
-  bool submitOnly = false,
 }) async {
-  final apiKey = model.apiKey;
-  if (apiKey.isEmpty) {
-    throw EngineException(errProviderMissing, {'providerId': model.providerId, 'reason': 'apiKey'});
-  }
-  final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
-  final headers = {
-    'Authorization': 'Bearer ${apiKey.replaceAll(RegExp(r'^Bearer\s+'), '')}'
-  };
-
-  final imgB64 = base64Encode(File(firstFrameAbsPath).readAsBytesSync());
-  final createRes = await dio.post(
+  final base = _baseUrl(model);
+  final response = await dio.post(
     '$base/contents/generations/tasks',
     data: {
       'model': model.modelId,
-      'content': [
-        {'type': 'text', 'text': prompt},
-        {
-          'type': 'image_url',
-          'image_url': {'url': 'data:image/png;base64,$imgB64'},
-          'role': 'first_frame',
-        },
-      ],
-      'ratio': '1:1',
-      'duration': config.intOf('videoDuration'),
-      'resolution': config.str('videoResolution'),
+      'content': _contentForRequest(media, request),
+      'ratio': request.ratio,
+      'duration': request.duration,
+      'resolution': request.resolution,
       'watermark': false,
-      'generate_audio': true,
+      'generate_audio': request.generateAudio,
     },
-    options: Options(
-        headers: headers,
-        sendTimeout: const Duration(seconds: 60),
-        receiveTimeout: const Duration(seconds: 60),
-        validateStatus: (s) => s != null && s < 400),
+    options: _options(model, receiveTimeout: const Duration(seconds: 60)),
     cancelToken: cancelToken,
   );
-  final taskId = (createRes.data as Map?)?['id'] as String?;
+  final taskId = (response.data as Map?)?['id'] as String?;
   if (taskId == null || taskId.isEmpty) {
-    throw EngineException(errLlmFormat, {'message': '视频任务创建未返回任务ID'});
+    throw const EngineException(errLlmFormat, {'reason': '视频任务创建未返回任务ID'});
   }
-  // 连通测试：任务已受理即返回，不等待渲染成片。
-  if (submitOnly) return taskId;
+  return VideoSubmission(taskId);
+}
 
-  final deadline = DateTime.now().add(pollTimeout);
-  while (true) {
-    if (cancelToken?.isCancelled ?? false) {
-      throw DioException.requestCancelled(
-          requestOptions: RequestOptions(path: '$base/tasks/$taskId'),
-          reason: '用户取消');
-    }
-    if (DateTime.now().isAfter(deadline)) {
-      throw EngineException(errNetwork, {'message': '轮询超时${pollTimeout.inMinutes}分钟'});
-    }
-    await Future<void>.delayed(pollInterval);
-    final q = await dio.get(
-      '$base/contents/generations/tasks/$taskId',
-      options: Options(
-          headers: headers,
-          receiveTimeout: const Duration(seconds: 30),
-          validateStatus: (s) => s != null && s < 400),
-      cancelToken: cancelToken,
-    );
-    final task = q.data as Map? ?? const {};
-    switch (task['status'] as String?) {
-      case 'succeeded':
-        final videoUrl = (task['content'] as Map?)?['video_url'] as String?;
-        if (videoUrl == null || videoUrl.isEmpty) {
-          throw EngineException(errLlmFormat, {'message': '任务成功但未返回视频URL'});
-        }
-        final dl = await dio.get<List<int>>(videoUrl,
-            options: Options(
-                responseType: ResponseType.bytes,
-                receiveTimeout: const Duration(seconds: 300)),
-            cancelToken: cancelToken);
-        return media.saveVideo(dl.data ?? const [], projectId);
-      case 'failed':
-        throw EngineException(
-            ((task['error'] as Map?)?['message'] as String?) ?? '视频生成失败');
-      case 'expired':
-        throw EngineException(errNetwork, {'message': '上游任务超时'});
-      case 'cancelled':
-        throw EngineException(errCanceled, {'message': '上游取消'});
-      default:
-        break; // queued / running → 继续轮询
-    }
+Future<VideoPollResult> volcenginePollVideo(
+  Dio dio,
+  MediaStore media,
+  ResolvedModel model,
+  String upstreamTaskId,
+  String projectId, {
+  CancelToken? cancelToken,
+}) async {
+  final base = _baseUrl(model);
+  final response = await dio.get(
+    '$base/contents/generations/tasks/$upstreamTaskId',
+    options: _options(model, receiveTimeout: const Duration(seconds: 30)),
+    cancelToken: cancelToken,
+  );
+  final task = response.data as Map? ?? const {};
+  final state = task['status'] as String?;
+  if (state == null || state.isEmpty) {
+    throw const EngineException(errLlmFormat, {'reason': '视频任务未返回状态'});
   }
+  if (state != 'succeeded') {
+    return VideoPollResult(
+      upstreamState: state,
+      errorMessage: _upstreamError(task),
+    );
+  }
+
+  final videoUrl = (task['content'] as Map?)?['video_url'] as String?;
+  if (videoUrl == null || videoUrl.isEmpty) {
+    throw const EngineException(errLlmFormat, {'reason': '任务成功但未返回视频URL'});
+  }
+  final download = await dio.get<List<int>>(
+    videoUrl,
+    options: Options(
+      responseType: ResponseType.bytes,
+      receiveTimeout: const Duration(seconds: 300),
+    ),
+    cancelToken: cancelToken,
+  );
+  return VideoPollResult(
+    upstreamState: state,
+    localVideoPath: media.saveVideo(download.data ?? const [], projectId),
+  );
+}
+
+Future<void> volcengineCancelVideo(
+  Dio dio,
+  ResolvedModel model,
+  String upstreamTaskId,
+) async {
+  try {
+    await dio.delete(
+      '${_baseUrl(model)}/contents/generations/tasks/$upstreamTaskId',
+      options: _options(model, receiveTimeout: const Duration(seconds: 30)),
+    );
+  } on DioException {
+    // Seedance cancellation is not available on every upstream deployment.
+  }
+}
+
+String _baseUrl(ResolvedModel model) {
+  if (model.apiKey.isEmpty) {
+    throw EngineException(errProviderMissing,
+        {'providerId': model.providerId, 'reason': 'apiKey'});
+  }
+  return model.baseUrl.replaceAll(RegExp(r'/+$'), '');
+}
+
+Options _options(ResolvedModel model, {required Duration receiveTimeout}) =>
+    Options(
+      headers: {
+        'Authorization':
+            'Bearer ${model.apiKey.replaceAll(RegExp(r'^Bearer\s+'), '')}',
+      },
+      sendTimeout: const Duration(seconds: 60),
+      receiveTimeout: receiveTimeout,
+      validateStatus: (status) => status != null && status < 400,
+    );
+
+List<Map<String, Object>> _contentForRequest(
+  MediaStore media,
+  VideoGenerationRequest request,
+) =>
+    [
+      {'type': 'text', 'text': request.prompt},
+      for (final reference in _orderedReferences(request))
+        _referenceContent(media, reference),
+    ];
+
+Map<String, Object> _referenceContent(
+  MediaStore media,
+  VideoReference reference,
+) {
+  final url = _dataUrl(media, reference.localPath);
+  return switch (reference.mediaType) {
+    'image' => {
+        'type': 'image_url',
+        'image_url': {'url': url},
+        'role': reference.role,
+      },
+    'video' => {
+        'type': 'video_url',
+        'video_url': {'url': url},
+        'role': reference.role,
+      },
+    'audio' => {
+        'type': 'audio_url',
+        'audio_url': {'url': url},
+        'role': reference.role,
+      },
+    _ => throw EngineException(
+        errFileType,
+        {'reason': '不支持的视频参考媒体类型'},
+      ),
+  };
+}
+
+Iterable<VideoReference> _orderedReferences(VideoGenerationRequest request) {
+  switch (request.mode) {
+    case VideoMode.text:
+      return const [];
+    case VideoMode.firstFrame:
+      return [
+        request.references
+            .singleWhere((reference) => reference.role == 'first_frame'),
+      ];
+    case VideoMode.firstLastFrame:
+      return [
+        request.references
+            .singleWhere((reference) => reference.role == 'first_frame'),
+        request.references
+            .singleWhere((reference) => reference.role == 'last_frame'),
+      ];
+    case VideoMode.multiReference:
+      return request.references;
+  }
+}
+
+String _dataUrl(MediaStore media, String localPath) {
+  final mime = _mimeForPath(localPath);
+  if (mime == null) {
+    throw EngineException(errFileType, {'reason': '不支持的视频参考文件类型'});
+  }
+  final bytes = File(media.absPath(localPath)).readAsBytesSync();
+  return 'data:$mime;base64,${base64Encode(bytes)}';
+}
+
+String? _mimeForPath(String localPath) {
+  switch (path.extension(localPath).toLowerCase()) {
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.mp4':
+      return 'video/mp4';
+    case '.mov':
+      return 'video/quicktime';
+    case '.webm':
+      return 'video/webm';
+    case '.mp3':
+      return 'audio/mpeg';
+    case '.wav':
+      return 'audio/wav';
+    case '.m4a':
+      return 'audio/mp4';
+    case '.aac':
+      return 'audio/aac';
+    default:
+      return null;
+  }
+}
+
+String? _upstreamError(Map task) {
+  final error = task['error'];
+  if (error is Map && error['message'] is String) {
+    return error['message'] as String;
+  }
+  return task['message'] as String?;
 }
