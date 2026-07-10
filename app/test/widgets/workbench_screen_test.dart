@@ -5152,6 +5152,42 @@ void main() {
     );
   });
 
+  testWidgets('取消视频参数不创建视频轨', (tester) async {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '不应落库的参数预览',
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      engine.db.select('SELECT trackId FROM o_storyboard WHERE id=?',
+          [storyboardId]).single['trackId'],
+      isNull,
+    );
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(
+      engine.db.select('SELECT trackId FROM o_storyboard WHERE id=?',
+          [storyboardId]).single['trackId'],
+      isNull,
+    );
+    expect(
+      engine.db
+          .select('SELECT COUNT(*) count FROM o_videoTrack')
+          .single['count'],
+      0,
+    );
+  });
+
   testWidgets('工作台锁定供应商要求生成的音频', (tester) async {
     engine.db.execute(
       'UPDATE o_vendorConfig SET models=? WHERE id=?',
@@ -5241,6 +5277,10 @@ void main() {
       bytes: [3, 2, 1],
       type: 'role',
       ext: 'png',
+    );
+    engine.db.execute(
+      'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?)',
+      [lastFrameAsset, storyboardId],
     );
     final trackId = engine.ensureTrackForStoryboard(storyboardId);
 

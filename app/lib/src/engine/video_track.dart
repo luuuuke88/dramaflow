@@ -235,7 +235,10 @@ extension VideoTrackApi on Engine {
     if (row == null) {
       throw EngineException(errPromptMissing, {'type': 'videoTrack'});
     }
-    final defaults = _videoRequestDefaults(trackId, row);
+    final storyboardId = db.select(
+        'SELECT id FROM o_storyboard WHERE trackId=? LIMIT 1',
+        [trackId]).firstOrNull?['id'] as int?;
+    final defaults = _videoRequestDefaults(storyboardId, row);
     final raw = row['videoRequest'] as String?;
     if (raw == null || raw.trim().isEmpty) return defaults;
     try {
@@ -248,6 +251,21 @@ extension VideoTrackApi on Engine {
       // Invalid legacy payloads use the same in-memory defaults as null rows.
     }
     return defaults;
+  }
+
+  /// 返回分镜当前或尚未持久化的视频请求默认值；预览参数时不创建视频轨。
+  VideoRequestDraft videoRequestForStoryboard(int storyboardId) {
+    final row = db.select(
+      'SELECT s.trackId,p.videoModel,p.videoRatio FROM o_storyboard s '
+      'JOIN o_project p ON p.id=s.projectId WHERE s.id=?',
+      [storyboardId],
+    ).firstOrNull;
+    if (row == null) {
+      throw EngineException(errPromptMissing, {'type': 'storyboard'});
+    }
+    final trackId = row['trackId'] as int?;
+    if (trackId != null) return videoRequestForTrack(trackId);
+    return _videoRequestDefaults(storyboardId, row);
   }
 
   VideoModelCapabilities? videoCapabilitiesForProject(int projectId) {
@@ -299,10 +317,11 @@ extension VideoTrackApi on Engine {
       );
     }
     for (final row in db.select(
-      'SELECT a.id,a.name,a.type,i.filePath FROM o_assets a '
-      'JOIN o_image i ON i.id=a.imageId WHERE a.projectId=? '
+      'SELECT a.id,a.name,a.type,i.filePath FROM o_assets2Storyboard l '
+      'JOIN o_assets a ON a.id=l.assetId '
+      'JOIN o_image i ON i.id=a.imageId WHERE l.storyboardId=? AND a.projectId=? '
       "AND i.filePath IS NOT NULL AND trim(i.filePath)<>''",
-      [projectId],
+      [storyboardId, projectId],
     )) {
       final type = row['type'] as String? ?? '';
       final mediaType =
@@ -435,16 +454,13 @@ extension VideoTrackApi on Engine {
     return localPath;
   }
 
-  VideoRequestDraft _videoRequestDefaults(int trackId, Row project) {
+  VideoRequestDraft _videoRequestDefaults(int? storyboardId, Row project) {
     final capabilities = _videoCapabilities(project);
     final availableModes = capabilities?.modes.toList()
       ?..sort((a, b) => a.wireValue.compareTo(b.wireValue));
     final mode = capabilities?.supports(VideoMode.firstFrame) == true
         ? VideoMode.firstFrame
         : availableModes?.firstOrNull ?? VideoMode.firstFrame;
-    final storyboardId = db.select(
-        'SELECT id FROM o_storyboard WHERE trackId=? LIMIT 1',
-        [trackId]).firstOrNull?['id'] as int?;
     final durations = capabilities?.durations.toList()?..sort();
     final resolutions = capabilities?.resolutions.toList()?..sort();
     final ratios = capabilities?.ratios.toList()?..sort();

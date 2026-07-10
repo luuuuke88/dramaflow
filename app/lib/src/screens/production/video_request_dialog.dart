@@ -266,8 +266,32 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
           children: [
             Text(l10n.videoRequestReferences,
                 style: Theme.of(context).textTheme.labelLarge),
-            for (final candidate in widget.candidates)
-              _multiReferenceTile(candidate),
+            _candidateGroup(
+              context,
+              l10n.videoRequestStoryboardImages,
+              widget.candidates.where((candidate) =>
+                  candidate.source.sourceType == 'storyboard' &&
+                  candidate.source.mediaType == 'image'),
+            ),
+            _candidateGroup(
+              context,
+              l10n.videoRequestAssetImages,
+              widget.candidates.where((candidate) =>
+                  candidate.source.sourceType == 'asset' &&
+                  candidate.source.mediaType == 'image'),
+            ),
+            _candidateGroup(
+              context,
+              l10n.videoRequestReferenceVideos,
+              widget.candidates
+                  .where((candidate) => candidate.source.mediaType == 'video'),
+            ),
+            _candidateGroup(
+              context,
+              l10n.videoRequestReferenceAudio,
+              widget.candidates
+                  .where((candidate) => candidate.source.mediaType == 'audio'),
+            ),
           ],
         );
     }
@@ -317,6 +341,23 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
                 }
               })
           : null,
+    );
+  }
+
+  Widget _candidateGroup(
+    BuildContext context,
+    String label,
+    Iterable<VideoReferenceCandidate> candidates,
+  ) {
+    final items = candidates.toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        for (final candidate in items) _multiReferenceTile(candidate),
+      ],
     );
   }
 

@@ -246,11 +246,30 @@ void main() {
     );
     db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
         [db.lastInsertRowId, assetId]);
+    db.execute(
+      'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?)',
+      [assetId, sbId],
+    );
+    final unrelatedAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '不相关场景',
+      describe: '',
+    );
+    writeMedia('p/candidate-unrelated.png');
+    db.execute(
+      "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,'image','已完成')",
+      [unrelatedAssetId, 'p/candidate-unrelated.png'],
+    );
+    db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
+        [db.lastInsertRowId, unrelatedAssetId]);
 
     final candidates = engine.videoReferenceCandidates(projectId, sbId);
 
     expect(candidates.map((candidate) => candidate.localPath),
         containsAll(['p/candidate-first.png', 'p/candidate-role.png']));
+    expect(candidates.map((candidate) => candidate.localPath),
+        isNot(contains('p/candidate-unrelated.png')));
     expect(candidates.every((candidate) => candidate.localPath.startsWith('/')),
         isFalse);
   });

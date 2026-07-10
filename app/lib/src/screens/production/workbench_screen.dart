@@ -3717,15 +3717,19 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
       }
       return;
     }
-    final trackId = engine.ensureTrackForStoryboard(widget.shot.id);
+    final existingTrackId = _effectiveTrackId;
     final saved = await showVideoRequestDialog(
       context,
-      initial: engine.videoRequestForTrack(trackId),
+      initial: existingTrackId == null
+          ? engine.videoRequestForStoryboard(widget.shot.id)
+          : engine.videoRequestForTrack(existingTrackId),
       capabilities: capabilities,
       candidates:
           engine.videoReferenceCandidates(widget.projectId, widget.shot.id),
     );
     if (saved == null || !mounted) return;
+    final trackId =
+        existingTrackId ?? engine.ensureTrackForStoryboard(widget.shot.id);
     engine.updateVideoRequest(trackId, saved);
     setState(() => _localTrackId = trackId);
   }

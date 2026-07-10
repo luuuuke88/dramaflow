@@ -1539,6 +1539,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get videoRequestReferences => '参考素材';
 
   @override
+  String get videoRequestStoryboardImages => '分镜图片';
+
+  @override
+  String get videoRequestAssetImages => '关联资产图片';
+
+  @override
+  String get videoRequestReferenceVideos => '视频素材';
+
+  @override
+  String get videoRequestReferenceAudio => '音频素材';
+
+  @override
   String get workbenchGenerateAll => '全部生成视频';
 
   @override

@@ -1583,6 +1583,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get videoRequestReferences => 'Reference media';
 
   @override
+  String get videoRequestStoryboardImages => 'Storyboard images';
+
+  @override
+  String get videoRequestAssetImages => 'Associated asset images';
+
+  @override
+  String get videoRequestReferenceVideos => 'Video media';
+
+  @override
+  String get videoRequestReferenceAudio => 'Audio media';
+
+  @override
   String get workbenchGenerateAll => 'Generate All Videos';
 
   @override

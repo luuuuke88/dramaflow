@@ -3064,6 +3064,30 @@ abstract class AppLocalizations {
   /// **'参考素材'**
   String get videoRequestReferences;
 
+  /// No description provided for @videoRequestStoryboardImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜图片'**
+  String get videoRequestStoryboardImages;
+
+  /// No description provided for @videoRequestAssetImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'关联资产图片'**
+  String get videoRequestAssetImages;
+
+  /// No description provided for @videoRequestReferenceVideos.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频素材'**
+  String get videoRequestReferenceVideos;
+
+  /// No description provided for @videoRequestReferenceAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频素材'**
+  String get videoRequestReferenceAudio;
+
   /// No description provided for @workbenchGenerateAll.
   ///
   /// In zh, this message translates to:
