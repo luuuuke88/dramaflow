@@ -131,6 +131,48 @@ void main() {
     expect(caps.supports(VideoMode.multiReference), isFalse);
   });
 
+  test('missing or unsupported video capability reports a model error', () {
+    final missing = VideoModelCapabilities.fromJson(const {});
+    final declared = VideoModelCapabilities.fromJson({
+      'video': {
+        'modes': ['text'],
+        'references': const {},
+        'durations': [4],
+        'resolutions': ['720p'],
+        'ratios': ['16:9'],
+        'audio': 'none',
+        'promptTemplates': const {},
+      },
+    });
+
+    expect(
+      () => missing.validate(requestFor(
+        mode: VideoMode.firstFrame,
+        references: [firstFrameOnly],
+      )),
+      throwsA(
+        isA<EngineException>().having(
+          (e) => e.errKey,
+          'errKey',
+          errModelMissing,
+        ),
+      ),
+    );
+    expect(
+      () => declared.validate(requestFor(
+        mode: VideoMode.firstFrame,
+        references: [firstFrameOnly],
+      )),
+      throwsA(
+        isA<EngineException>().having(
+          (e) => e.errKey,
+          'errKey',
+          errModelMissing,
+        ),
+      ),
+    );
+  });
+
   test(
       'fingerprints change with output-affecting inputs and ignore absolute media roots',
       () {
@@ -183,5 +225,21 @@ void main() {
       request.fingerprint(),
     );
     expect(request.fingerprintMaterial(), isNot(contains(tempDirectory.path)));
+    expect(
+      () => request.copyWith(references: const [
+        VideoReference(
+          mediaType: 'image',
+          role: 'first_frame',
+          localPath: '/tmp/absolute.png',
+        ),
+      ]).fingerprintMaterial(),
+      throwsA(
+        isA<EngineException>().having(
+          (e) => e.errKey,
+          'errKey',
+          errLlmFormat,
+        ),
+      ),
+    );
   });
 }

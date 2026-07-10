@@ -95,16 +95,19 @@ class VideoGenerationRequest {
         videoTrackId: videoTrackId ?? this.videoTrackId,
       );
 
-  String fingerprintMaterial() => jsonEncode({
-        'modelBinding': modelBinding,
-        'mode': mode.wireValue,
-        'prompt': prompt,
-        'references': [for (final reference in references) reference.toJson()],
-        'duration': duration,
-        'resolution': resolution,
-        'ratio': ratio,
-        'generateAudio': generateAudio,
-      });
+  String fingerprintMaterial() {
+    _requireRelativeVideoPaths(references);
+    return jsonEncode({
+      'modelBinding': modelBinding,
+      'mode': mode.wireValue,
+      'prompt': prompt,
+      'references': [for (final reference in references) reference.toJson()],
+      'duration': duration,
+      'resolution': resolution,
+      'ratio': ratio,
+      'generateAudio': generateAudio,
+    });
+  }
 
   String fingerprint() =>
       sha256.convert(utf8.encode(fingerprintMaterial())).toString();
@@ -194,8 +197,11 @@ class VideoModelCapabilities {
   bool supports(VideoMode mode) => modes.contains(mode);
 
   void validate(VideoGenerationRequest request) {
+    if (modes.isEmpty) {
+      _missingModel('missingVideoCapability');
+    }
     if (!supports(request.mode)) {
-      _invalid('unsupportedMode:${request.mode.wireValue}');
+      _missingModel('unsupportedMode:${request.mode.wireValue}');
     }
     if (!durations.contains(request.duration)) {
       _invalid('unsupportedDuration:${request.duration}');
@@ -212,12 +218,7 @@ class VideoModelCapabilities {
     if (audio == 'required' && !request.generateAudio) {
       _invalid('audioRequired');
     }
-    for (final reference in request.references) {
-      if (reference.localPath.trim().isEmpty ||
-          path.isAbsolute(reference.localPath)) {
-        _invalid('invalidReferencePath');
-      }
-    }
+    _requireRelativeVideoPaths(request.references);
 
     switch (request.mode) {
       case VideoMode.text:
@@ -272,6 +273,19 @@ class VideoModelCapabilities {
 
   Never _invalid(String reason) =>
       throw EngineException(errLlmFormat, {'reason': reason});
+
+  Never _missingModel(String reason) =>
+      throw EngineException(errModelMissing, {'reason': reason});
+}
+
+void _requireRelativeVideoPaths(Iterable<VideoReference> references) {
+  for (final reference in references) {
+    if (reference.localPath.trim().isEmpty ||
+        path.isAbsolute(reference.localPath)) {
+      throw const EngineException(
+          errLlmFormat, {'reason': 'invalidReferencePath'});
+    }
+  }
 }
 
 int? _positiveInt(Object? value) {
