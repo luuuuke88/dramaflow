@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 9;
+const schemaVersion = 10;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
@@ -18,6 +18,7 @@ Database openEngineDb(String path) {
   }
   if (version == 0) {
     initSchema(db);
+    _ensureV10Indexes(db);
     return db;
   }
   if (version < schemaVersion) {
@@ -26,6 +27,7 @@ Database openEngineDb(String path) {
     try {
       initSchema(db, setVersion: false);
       migrateSchema(db, version, schemaVersion);
+      _ensureV10Indexes(db);
       db.execute('PRAGMA user_version = $schemaVersion');
       db.execute('COMMIT');
     } catch (_) {
@@ -36,6 +38,7 @@ Database openEngineDb(String path) {
   }
 
   initSchema(db, setVersion: false);
+  _ensureV10Indexes(db);
   return db;
 }
 
@@ -63,12 +66,33 @@ void _backupBeforeMigration(Database db, String path, int version) {
 /// historical steps are intentionally additive: `initSchema` creates missing
 /// tables/indexes and no step drops user data. Keeping this dispatcher explicit
 /// gives later releases one safe place to add real versioned transformations.
+void _addColumnIfMissing(Database db, String table, String definition) {
+  final name = definition.trim().split(RegExp(r'\s+')).first;
+  final columns = db
+      .select('PRAGMA table_info($table)')
+      .map((row) => row['name'] as String)
+      .toSet();
+  if (!columns.contains(name)) {
+    db.execute('ALTER TABLE $table ADD COLUMN $definition');
+  }
+}
+
 void migrateSchema(Database db, int fromVersion, int toVersion) {
   for (var version = fromVersion; version < toVersion; version++) {
     switch (version) {
       case 8:
         // v8 -> v9 switches the opener to transactional, non-destructive
         // migrations. The schema itself is completed by initSchema below.
+        break;
+      case 9:
+        _addColumnIfMissing(db, 'o_videoTrack', 'videoRequest TEXT');
+        _addColumnIfMissing(db, 'o_videoTrack', 'promptProvenance TEXT');
+        _addColumnIfMissing(db, 'o_video', 'modelBinding TEXT');
+        _addColumnIfMissing(db, 'o_video', 'requestFingerprint TEXT');
+        _addColumnIfMissing(db, 'o_video', 'submissionState TEXT');
+        _addColumnIfMissing(db, 'o_video', 'upstreamTaskId TEXT');
+        _addColumnIfMissing(db, 'o_video', 'upstreamState TEXT');
+        _addColumnIfMissing(db, 'o_video', 'upstreamUpdatedAt INTEGER');
         break;
       default:
         // Versions before v8 have no published Flutter-only schema delta.
@@ -322,16 +346,23 @@ CREATE TABLE IF NOT EXISTS o_video (
   errorReason TEXT,
   filePath TEXT,
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  modelBinding TEXT,
   projectId INTEGER,
+  requestFingerprint TEXT,
   scriptId INTEGER,
   state TEXT,
+  submissionState TEXT,
   time INTEGER,
+  upstreamState TEXT,
+  upstreamTaskId TEXT,
+  upstreamUpdatedAt INTEGER,
   videoTrackId INTEGER
 );
 CREATE TABLE IF NOT EXISTS o_videoTrack (
   duration INTEGER,
   filterPreset TEXT,
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  promptProvenance TEXT,
   projectId INTEGER,
   prompt TEXT,
   reason TEXT,
@@ -339,7 +370,8 @@ CREATE TABLE IF NOT EXISTS o_videoTrack (
   selectVideoId INTEGER,
   state TEXT,
   transition TEXT,
-  videoId INTEGER
+  videoId INTEGER,
+  videoRequest TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_o_novel_project_chapter ON o_novel(projectId, chapterIndex);
 CREATE INDEX IF NOT EXISTS idx_o_eventChapter_event ON o_eventChapter(eventId);
@@ -350,4 +382,11 @@ CREATE INDEX IF NOT EXISTS idx_o_timelineClip_script ON o_timelineClip(scriptId,
 CREATE INDEX IF NOT EXISTS idx_o_memoryVector_scope ON o_memoryVector(isolationKey, type, provider, model);
 ''');
   if (setVersion) db.execute('PRAGMA user_version = $schemaVersion');
+}
+
+void _ensureV10Indexes(Database db) {
+  db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_o_video_upstream ON o_video(upstreamTaskId)');
+  db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_o_video_track_state ON o_video(videoTrackId, state)');
 }

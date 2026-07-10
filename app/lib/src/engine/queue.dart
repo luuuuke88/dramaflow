@@ -54,6 +54,10 @@ class TasksRow {
 typedef TaskRunner = Future<void> Function(TasksRow task, CancelToken token);
 typedef TaskRecover = void Function(TasksRow task);
 
+enum ColdStartDisposition { fail, resume }
+
+typedef TaskColdStartResumer = ColdStartDisposition Function(TasksRow task);
+
 class JobQueue {
   final Database db;
   final TaskRunner run;
@@ -64,6 +68,7 @@ class JobQueue {
   final _runningByLane = {'text': 0, 'image': 0, 'video': 0};
   final _cancelTokens = <int, CancelToken>{};
   final _recover = <String, TaskRecover>{};
+  final _coldStartResumers = <String, TaskColdStartResumer>{};
   final _events = StreamController<void>.broadcast();
 
   void Function(int taskId, String taskClass, String state)? onTaskFinished;
@@ -95,6 +100,10 @@ class JobQueue {
     _recover[taskClass] = fn;
   }
 
+  void registerColdStartResumer(String taskClass, TaskColdStartResumer fn) {
+    _coldStartResumers[taskClass] = fn;
+  }
+
   void start() {
     if (_started) return;
     _started = true;
@@ -107,12 +116,33 @@ class JobQueue {
         .map(TasksRow.fromRow)
         .toList();
     if (rows.isEmpty) return;
+    final resumableIds = <int>[];
+    for (final task in rows) {
+      if (_coldStartResumers[task.taskClass]?.call(task) ==
+          ColdStartDisposition.resume) {
+        resumableIds.add(task.id);
+      }
+    }
+    if (resumableIds.isNotEmpty) {
+      db.execute(
+        "UPDATE o_tasks SET state='pending', reason=NULL WHERE id IN (${_placeholders(resumableIds)})",
+        resumableIds,
+      );
+    }
+    final failedRows = rows
+        .where((task) => !resumableIds.contains(task.id))
+        .toList(growable: false);
+    if (failedRows.isEmpty) {
+      _events.add(null);
+      return;
+    }
     final reason = const EngineException(errAppRestart).toReasonJson();
     db.execute(
-      "UPDATE o_tasks SET state='failed', reason=? WHERE state='processing'",
-      [reason],
+      "UPDATE o_tasks SET state='failed', reason=? WHERE state='processing' "
+      'AND id IN (${_placeholders(failedRows.map((task) => task.id).toList())})',
+      [reason, ...failedRows.map((task) => task.id)],
     );
-    for (final task in rows) {
+    for (final task in failedRows) {
       _recover[task.taskClass]?.call(task);
     }
     _events.add(null);
@@ -253,3 +283,5 @@ class JobQueue {
     _events.close();
   }
 }
+
+String _placeholders(List<int> ids) => List.filled(ids.length, '?').join(',');

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -11,6 +12,7 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/video_request.dart';
 import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -130,6 +132,34 @@ void main() {
       "('binding.shot_video','volcengine:doubao-seedance-2-0-mini-260615')",
     );
     db.execute(
+      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+      [
+        'volcengine',
+        1,
+        '{}',
+        jsonEncode([
+          {
+            'modelId': 'doubao-seedance-2-0-mini-260615',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['first_frame'],
+                'references': {'image': 1},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+                'promptTemplates': {
+                  'first_frame': 'video/seedance2Multi-parameterMode.md',
+                },
+              },
+            },
+          },
+        ]),
+      ],
+    );
+    db.execute(
       'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
       'VALUES (?,?,?,?,?)',
       [
@@ -153,8 +183,65 @@ void main() {
 
     expect(
       seenSystem,
-      'Seedance 2.0 Mini 专属视频提示词模板\n\n视频视觉手册',
+      '运镜提示词系统词\n\n视频视觉手册\n\nSeedance 2.0 Mini 专属视频提示词模板',
     );
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final provenanceRaw = db.select(
+        'SELECT promptProvenance FROM o_videoTrack WHERE id=?',
+        [trackId]).single['promptProvenance'] as String;
+    final provenance = jsonDecode(provenanceRaw) as Map<String, dynamic>;
+    final sources = (provenance['promptSources'] as List)
+        .map((source) => Map<String, dynamic>.from(source as Map))
+        .toList();
+    expect(sources.map((source) => source['id']), [
+      'base:video_prompt_gen',
+      'visual:video_pack:art_storyboard_video',
+      'model:volcengine:doubao-seedance-2-0-mini-260615:video/seedance2Multi-parameterMode.md',
+    ]);
+    expect(sources, everyElement(isNot(contains('content'))));
+  });
+
+  test('generateVideoPrompt 为旧版模型提示词保存实际来源', () async {
+    db.execute(
+      "INSERT OR REPLACE INTO o_setting (key,value) VALUES "
+      "('binding.shot_video','legacy:video')",
+    );
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'legacy',
+        'video',
+        'video_prompt_gen',
+        'video_prompt_gen',
+        '旧版模型视频提示词模板',
+      ],
+    );
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '旧版模型镜头');
+
+    String? seenSystem;
+    gateway.textHandler = (system, user) {
+      seenSystem = system;
+      return 'slow pan';
+    };
+
+    await engine.generateVideoPrompt(sbId);
+
+    expect(seenSystem, '旧版模型视频提示词模板\n\n视频视觉手册');
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final provenanceRaw = db.select(
+        'SELECT promptProvenance FROM o_videoTrack WHERE id=?',
+        [trackId]).single['promptProvenance'] as String;
+    final provenance = jsonDecode(provenanceRaw) as Map<String, dynamic>;
+    final sources = (provenance['promptSources'] as List)
+        .map((source) => Map<String, dynamic>.from(source as Map))
+        .toList();
+    expect(sources.map((source) => source['id']), [
+      'model:legacy:video:video_prompt_gen',
+      'visual:video_pack:art_storyboard_video',
+    ]);
+    expect(sources, everyElement(isNot(contains('content'))));
   });
 
   test('updateVideoPrompt 手动覆盖运镜提示词', () {
@@ -162,6 +249,55 @@ void main() {
     final trackId = engine.ensureTrackForStoryboard(sbId);
     engine.updateVideoPrompt(trackId, '缓慢推近特写');
     expect(engine.track(trackId)!.prompt, '缓慢推近特写');
+  });
+
+  test('video request JSON round-trips without changing storyboard audio', () {
+    final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    db.execute(
+      "UPDATE o_storyboard SET audioAssetId=77,audioPath='audio/voice.m4a',audioState='已完成',audioText='台词' WHERE id=?",
+      [sbId],
+    );
+    final normalized = engine.videoRequestForTrack(trackId);
+    expect(normalized.mode, VideoMode.firstFrame);
+    expect(normalized.references.single.sourceId, sbId);
+    expect(
+        db.select('SELECT videoRequest FROM o_videoTrack WHERE id=?',
+            [trackId]).single['videoRequest'],
+        isNull,
+        reason: '读取旧行只归一化，不在未保存时写回');
+    final request = VideoRequestDraft(
+      version: 1,
+      mode: VideoMode.firstFrame,
+      references: [
+        VideoReferenceSource(
+          sourceType: 'storyboard',
+          sourceId: sbId,
+          mediaType: 'image',
+          role: 'first_frame',
+        ),
+      ],
+      duration: 5,
+      resolution: '720p',
+      ratio: '16:9',
+      generateAudio: true,
+    );
+
+    engine.updateVideoRequest(trackId, request);
+
+    final restored = engine.videoRequestForTrack(trackId);
+    expect(restored.toJson(), request.toJson());
+    final stored = jsonDecode(db.select(
+        'SELECT videoRequest FROM o_videoTrack WHERE id=?',
+        [trackId]).single['videoRequest'] as String) as Map<String, dynamic>;
+    expect(stored['generateAudio'], isTrue);
+    final storyboard = db.select(
+        'SELECT audioAssetId,audioPath,audioState,audioText FROM o_storyboard WHERE id=?',
+        [sbId]).single;
+    expect(storyboard['audioAssetId'], 77);
+    expect(storyboard['audioPath'], 'audio/voice.m4a');
+    expect(storyboard['audioState'], '已完成');
+    expect(storyboard['audioText'], '台词');
   });
 
   test('updateVideoDuration 写入/清空本镜时长；非正值清空', () {
@@ -424,6 +560,48 @@ void main() {
     final track = engine.track(trackId)!;
     expect(track.state, vtFailed);
     expect(track.candidates.every((v) => v.state == vtFailed), isTrue);
+  });
+
+  test('冷启动恢复：仅已接受且有上游任务 ID 的视频任务回到 pending', () {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: 'x');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    db.execute(
+        'UPDATE o_videoTrack SET state=? WHERE id=?', [vtGenerating, trackId]);
+    db.execute(
+      "INSERT INTO o_video (videoTrackId,state,submissionState,upstreamTaskId) VALUES (?,?,'accepted','upstream-1')",
+      [trackId, vtGenerating],
+    );
+    db.execute(
+      "INSERT INTO o_video (videoTrackId,state,submissionState) VALUES (?,?,'prepared')",
+      [trackId, vtGenerating],
+    );
+    final taskId = engine.queue.enqueue(
+      projectId: projectId,
+      taskClass: 'video_generation',
+      relatedObjects: {
+        'trackIds': [trackId],
+      },
+    );
+    db.execute("UPDATE o_tasks SET state='processing' WHERE id=?", [taskId]);
+
+    engine.queue.recoverOnColdStart();
+
+    expect(
+        db.select(
+            'SELECT state FROM o_tasks WHERE id=?', [taskId]).single['state'],
+        'pending');
+    final candidates = db.select(
+        'SELECT submissionState,state,errorReason FROM o_video WHERE videoTrackId=? ORDER BY id',
+        [trackId]);
+    expect(candidates.first['state'], vtGenerating);
+    expect(candidates.last['state'], vtFailed);
+    expect(
+        EngineException.fromReasonJson(
+                candidates.last['errorReason'] as String?)
+            ?.errKey,
+        errAppRestart);
+    expect(engine.track(trackId)!.state, vtGenerating);
   });
 }
 

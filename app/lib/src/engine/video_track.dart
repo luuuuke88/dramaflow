@@ -4,6 +4,7 @@
 // 与 P3 分镜=图片槽位同构）；o_video = 该槽位下的候选生成结果；
 // selectVideoId = 用户选中的候选（videoId 字段保持同步写入，避免死字段）。
 // 状态枚举为 DB 中文字符串（逐字）：未生成/生成中/已完成/生成失败。
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -16,11 +17,106 @@ import 'errors.dart';
 import 'events.dart' show stripThink;
 import 'prompt_resolver.dart';
 import 'queue.dart';
+import 'video_request.dart';
 
 const vtNotGenerated = '未生成';
 const vtGenerating = '生成中';
 const vtDone = '已完成';
 const vtFailed = '生成失败';
+
+class VideoReferenceSource {
+  final String sourceType;
+  final int sourceId;
+  final String mediaType;
+  final String role;
+
+  const VideoReferenceSource({
+    required this.sourceType,
+    required this.sourceId,
+    required this.mediaType,
+    required this.role,
+  });
+
+  factory VideoReferenceSource.fromJson(Map<String, dynamic> json) =>
+      VideoReferenceSource(
+        sourceType: (json['sourceType'] as String?) ?? '',
+        sourceId: (json['sourceId'] as num?)?.toInt() ?? 0,
+        mediaType: (json['mediaType'] as String?) ?? '',
+        role: (json['role'] as String?) ?? '',
+      );
+
+  Map<String, Object?> toJson() => {
+        'sourceType': sourceType,
+        'sourceId': sourceId,
+        'mediaType': mediaType,
+        'role': role,
+      };
+}
+
+class VideoRequestDraft {
+  final int version;
+  final VideoMode mode;
+  final List<VideoReferenceSource> references;
+  final int duration;
+  final String resolution;
+  final String ratio;
+  final bool generateAudio;
+
+  VideoRequestDraft({
+    required this.version,
+    required this.mode,
+    required List<VideoReferenceSource> references,
+    required this.duration,
+    required this.resolution,
+    required this.ratio,
+    required this.generateAudio,
+  }) : references = List.unmodifiable(references);
+
+  factory VideoRequestDraft.fromJson(
+    Map<String, dynamic> json,
+    VideoRequestDraft defaults,
+  ) =>
+      VideoRequestDraft(
+        version: (json['version'] as num?)?.toInt() ?? defaults.version,
+        mode: VideoMode.fromWireValue(json['mode']) ?? defaults.mode,
+        references: json['references'] is List
+            ? [
+                for (final reference in json['references'] as List)
+                  if (reference is Map)
+                    VideoReferenceSource.fromJson(
+                        Map<String, dynamic>.from(reference)),
+              ]
+            : defaults.references,
+        duration: (json['duration'] as num?)?.toInt() ?? defaults.duration,
+        resolution: (json['resolution'] as String?) ?? defaults.resolution,
+        ratio: (json['ratio'] as String?) ?? defaults.ratio,
+        generateAudio: json['generateAudio'] is bool
+            ? json['generateAudio'] as bool
+            : defaults.generateAudio,
+      );
+
+  Map<String, Object?> toJson() => {
+        'version': version,
+        'mode': mode.wireValue,
+        'references': [for (final reference in references) reference.toJson()],
+        'duration': duration,
+        'resolution': resolution,
+        'ratio': ratio,
+        'generateAudio': generateAudio,
+      };
+}
+
+class VideoReferenceCandidate {
+  final VideoReferenceSource source;
+  final String label;
+  final String localPath;
+
+  const VideoReferenceCandidate({
+    required this.source,
+    required this.label,
+    required this.localPath,
+  });
+}
 
 class VideoRow {
   final int id;
@@ -72,6 +168,8 @@ extension VideoTrackApi on Engine {
   void installVideoTrackPipeline() {
     taskRunners['video_generation'] = _runVideoGeneration;
     queue.registerRecover('video_generation', _recoverVideoGeneration);
+    queue.registerColdStartResumer(
+        'video_generation', _resumeVideoGenerationOnColdStart);
   }
 
   /// 懒建分镜对应的视频轨（trackId 未建时新建并回填 o_storyboard.trackId）。
@@ -129,6 +227,114 @@ extension VideoTrackApi on Engine {
     );
   }
 
+  VideoRequestDraft videoRequestForTrack(int trackId) {
+    final row = db.select(
+        'SELECT v.videoRequest,p.videoModel,p.videoRatio FROM o_videoTrack v '
+        'JOIN o_project p ON p.id=v.projectId WHERE v.id=?',
+        [trackId]).firstOrNull;
+    if (row == null) {
+      throw EngineException(errPromptMissing, {'type': 'videoTrack'});
+    }
+    final defaults = _videoRequestDefaults(trackId, row);
+    final raw = row['videoRequest'] as String?;
+    if (raw == null || raw.trim().isEmpty) return defaults;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        return VideoRequestDraft.fromJson(
+            Map<String, dynamic>.from(decoded), defaults);
+      }
+    } on FormatException {
+      // Invalid legacy payloads use the same in-memory defaults as null rows.
+    }
+    return defaults;
+  }
+
+  void updateVideoRequest(int trackId, VideoRequestDraft draft) {
+    db.execute('UPDATE o_videoTrack SET videoRequest=? WHERE id=?',
+        [jsonEncode(draft.toJson()), trackId]);
+  }
+
+  VideoRequestDraft _videoRequestDefaults(int trackId, Row project) {
+    final capabilities = _videoCapabilities(project);
+    final availableModes = capabilities?.modes.toList()
+      ?..sort((a, b) => a.wireValue.compareTo(b.wireValue));
+    final mode = capabilities?.supports(VideoMode.firstFrame) == true
+        ? VideoMode.firstFrame
+        : availableModes?.firstOrNull ?? VideoMode.firstFrame;
+    final storyboardId = db.select(
+        'SELECT id FROM o_storyboard WHERE trackId=? LIMIT 1',
+        [trackId]).firstOrNull?['id'] as int?;
+    final durations = capabilities?.durations.toList()?..sort();
+    final resolutions = capabilities?.resolutions.toList()?..sort();
+    final ratios = capabilities?.ratios.toList()?..sort();
+    final configuredDuration = config.intOf('videoDuration');
+    final configuredResolution = config.str('videoResolution');
+    final projectRatio = (project['videoRatio'] as String?)?.trim() ?? '';
+    return VideoRequestDraft(
+      version: 1,
+      mode: mode,
+      references: mode == VideoMode.firstFrame && storyboardId != null
+          ? [
+              VideoReferenceSource(
+                sourceType: 'storyboard',
+                sourceId: storyboardId,
+                mediaType: 'image',
+                role: 'first_frame',
+              ),
+            ]
+          : const [],
+      duration: capabilities?.durations.contains(configuredDuration) == true
+          ? configuredDuration
+          : durations?.firstOrNull ?? configuredDuration,
+      resolution:
+          capabilities?.resolutions.contains(configuredResolution) == true
+              ? configuredResolution
+              : resolutions?.firstOrNull ?? configuredResolution,
+      ratio: capabilities?.ratios.contains(projectRatio) == true
+          ? projectRatio
+          : (capabilities?.ratios.contains('16:9') == true
+              ? '16:9'
+              : ratios?.firstOrNull ?? '16:9'),
+      generateAudio: capabilities?.audio == 'required',
+    );
+  }
+
+  VideoModelCapabilities? _videoCapabilities(Row project) {
+    final projectBinding = (project['videoModel'] as String?)?.trim() ?? '';
+    final fallback = db.select(
+            'SELECT value FROM o_setting WHERE key=? LIMIT 1',
+            ['binding.shot_video']).firstOrNull?['value'] as String? ??
+        '';
+    final binding =
+        projectBinding.isNotEmpty ? projectBinding : fallback.trim();
+    final separator = binding.indexOf(':');
+    if (separator <= 0 || separator == binding.length - 1) return null;
+    final providerId = binding.substring(0, separator);
+    final modelId = binding.substring(separator + 1);
+    final raw = db.select(
+        'SELECT models FROM o_vendorConfig WHERE id=? LIMIT 1',
+        [providerId]).firstOrNull?['models'] as String?;
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final models = jsonDecode(raw);
+      if (models is! List) return null;
+      for (final model in models.whereType<Map>()) {
+        final candidate = Map<String, dynamic>.from(model);
+        if (candidate['modelId'] == modelId &&
+            candidate['kind'] == 'video' &&
+            candidate['capabilities'] is Map) {
+          return VideoModelCapabilities.fromJson(
+              Map<String, dynamic>.from(candidate['capabilities'] as Map),
+              legacyFirstFrame: true);
+        }
+      }
+    } on FormatException {
+      return null;
+    }
+    return null;
+  }
+
   /// 同步生成运镜提示词（text 调用，非队列——与资产提示词润色同步语义一致）。
   /// 用户消息在画面描述/运镜说明之外，附带本分镜关联资产名称与时长做适度增强
   /// （o_assets2Storyboard→o_assets 取名字），让 LLM 知道镜头里有哪些角色/场景/道具、
@@ -142,6 +348,7 @@ extension VideoTrackApi on Engine {
       throw EngineException(errPromptMissing, {'type': 'storyboard'});
     }
     final trackId = ensureTrackForStoryboard(storyboardId);
+    final request = videoRequestForTrack(trackId);
     final assetNames = db
         .select(
           'SELECT a.name name FROM o_assets2Storyboard l '
@@ -164,18 +371,24 @@ extension VideoTrackApi on Engine {
       basePromptKey: 'video_prompt_gen',
       visualSection: 'art_storyboard_video',
       modelStage: 'shot_video',
+      modelPromptPath: _videoCapabilities(db.select(
+              'SELECT videoModel,videoRatio FROM o_project WHERE id=?',
+              [sb['projectId']]).first)
+          ?.promptTemplates[request.mode],
     );
     final genericPrompt = await getPrompt('video_prompt_gen');
     final legacyModelPrompt =
         await getPromptForStageModel('video_prompt_gen', 'shot_video');
-    final system = legacyModelPrompt == genericPrompt
-        ? resolution.system
-        : [
-            legacyModelPrompt,
-            ...resolution.sources
-                .where((source) => source.kind != 'base')
-                .map((source) => source.content),
-          ].where((content) => content.trim().isNotEmpty).join('\n\n');
+    final hasExplicitModelTemplate =
+        resolution.sources.any((source) => source.kind == 'model');
+    final effectiveResolution =
+        hasExplicitModelTemplate || legacyModelPrompt == genericPrompt
+            ? resolution
+            : _legacyVideoPromptResolution(
+                resolution,
+                legacyModelPrompt,
+              );
+    final system = effectiveResolution.system;
     final user = StringBuffer()
       ..writeln('画面描述：${sb['prompt'] ?? ''}')
       ..writeln('运镜/动作说明：${sb['videoDesc'] ?? ''}');
@@ -188,8 +401,36 @@ extension VideoTrackApi on Engine {
     final res = await gateway.generateText(system, user.toString().trimRight(),
         stage: 'video_prompt_gen');
     final text = stripThink(res.content);
-    db.execute('UPDATE o_videoTrack SET prompt=? WHERE id=?', [text, trackId]);
+    db.execute(
+      'UPDATE o_videoTrack SET prompt=?,promptProvenance=? WHERE id=?',
+      [text, jsonEncode(effectiveResolution.toTaskJson()), trackId],
+    );
     return text;
+  }
+
+  PromptResolution _legacyVideoPromptResolution(
+    PromptResolution resolution,
+    String modelPrompt,
+  ) {
+    final binding = db.select('SELECT value FROM o_setting WHERE key=? LIMIT 1',
+            ['binding.shot_video']).firstOrNull?['value'] as String? ??
+        'legacy';
+    final sources = <PromptSource>[
+      PromptSource(
+        id: 'model:$binding:video_prompt_gen',
+        kind: 'model',
+        version: promptContentHash(modelPrompt),
+        content: modelPrompt,
+      ),
+      ...resolution.sources.where((source) => source.kind != 'base'),
+    ];
+    return PromptResolution(
+      system: sources
+          .map((source) => source.content)
+          .where((content) => content.trim().isNotEmpty)
+          .join('\n\n'),
+      sources: sources,
+    );
   }
 
   /// 手动编辑运镜提示词（覆盖写入 o_videoTrack.prompt）。
@@ -272,8 +513,9 @@ extension VideoTrackApi on Engine {
           continue;
         }
         db.execute(
-          'INSERT INTO o_video (projectId,scriptId,videoTrackId,state,time) '
-          'VALUES (?,?,?,?,?)',
+          'INSERT INTO o_video '
+          '(projectId,scriptId,videoTrackId,state,time,submissionState) '
+          "VALUES (?,?,?,?,?,'prepared')",
           [
             projectId,
             trackRow['scriptId'],
@@ -349,6 +591,29 @@ extension VideoTrackApi on Engine {
       'WHERE videoTrackId IN (${_ph(trackIds)}) AND state=?',
       [vtFailed, reason, ...trackIds, vtGenerating],
     );
+  }
+
+  ColdStartDisposition _resumeVideoGenerationOnColdStart(TasksRow task) {
+    final trackIds = (task.relatedObjectsJson['trackIds'] as List? ?? const [])
+        .map((e) => (e as num).toInt())
+        .toList();
+    if (trackIds.isEmpty) return ColdStartDisposition.fail;
+    final reason = const EngineException(errAppRestart).toReasonJson();
+    db.execute(
+      'UPDATE o_video SET state=?, errorReason=? '
+      'WHERE videoTrackId IN (${_ph(trackIds)}) '
+      "AND submissionState IN ('prepared','submitting','uncertain')",
+      [vtFailed, reason, ...trackIds],
+    );
+    final accepted = db.select(
+      'SELECT id FROM o_video WHERE videoTrackId IN (${_ph(trackIds)}) '
+      "AND submissionState='accepted' "
+      "AND trim(coalesce(upstreamTaskId,''))<>'' LIMIT 1",
+      trackIds,
+    );
+    return accepted.isEmpty
+        ? ColdStartDisposition.fail
+        : ColdStartDisposition.resume;
   }
 
   /// 选择候选视频（更新 selectVideoId，videoId 同步写入避免死字段）。
