@@ -120,7 +120,7 @@
 - Produces `PromptResolution Engine.resolvePrompt({required int projectId, required String basePromptKey, String? visualSection, String? directorSection, String? modelStage, String? modelPromptPath})`.
 - Produces `String promptContentHash(String content)` using SHA-256 hex.
 
-- [ ] **Step 1: Write exact-order and hash-stability tests.**
+- [x] **Step 1: Write exact-order and hash-stability tests.**
 
   Construct a project with visual pack `ink_pack`, director pack `fast_cut`, a base prompt, and an explicit model prompt. Assert `resolution.system` joins the four content strings in order using exactly two newlines; assert its source IDs are `base:<key>`, `visual:ink_pack:<section>`, `director:fast_cut:<section>`, `model:<provider>:<model>:<path>`; assert an unchanged source produces the same SHA-256 and an edited manual produces a different source version.
 
@@ -135,29 +135,29 @@
   expect(resolution.toTaskJson()['promptSources'], isA<List>());
   ```
 
-- [ ] **Step 2: Run resolver tests and verify they fail because the API is absent.**
+- [x] **Step 2: Run resolver tests and verify they fail because the API is absent.**
 
   Run: `cd app && flutter test test/engine/prompt_resolver_test.dart`
 
   Expected: FAIL with undefined `resolvePrompt` or `PromptResolution`.
 
-- [ ] **Step 3: Implement the resolver with strict source selection.**
+- [x] **Step 3: Implement the resolver with strict source selection.**
 
   Add `crypto: ^3.0.7`. `promptContentHash` must return `sha256.convert(utf8.encode(content)).toString()`. The resolver reads the effective base content from `o_prompt` (`useData` when nonempty, otherwise `data`), then gets manual sections by stable `pack` ID, then gets a model prompt only when `modelPromptPath` is supplied. Model lookup resolves `binding.<modelStage>` and queries `o_modelPrompt` by exact `vendorId`, `model`, and `path`.
 
   A missing selected pack section throws `EngineException(errPromptMissing, {'type': '<kind>:<pack>:<section>'})`; a missing optional director/model source is omitted only when its corresponding parameter is null. Empty source content is omitted. `PromptResolution.toTaskJson()` returns only `id`, `kind`, and `version`, never prompt text.
 
-- [ ] **Step 4: Preserve compatibility without accidental template selection.**
+- [x] **Step 4: Preserve compatibility without accidental template selection.**
 
   Rewrite `Engine.getPromptForStageModel(type, modelStage)` to select an override only when `o_modelPrompt.fileName == type` or `path == type` or `path LIKE '%/$type%'`; otherwise return `getPrompt(type)`. This prevents a Seedance template file from being selected by an older one-shot caller solely because it belongs to the same model.
 
-- [ ] **Step 5: Run resolver and existing prompt tests.**
+- [x] **Step 5: Run resolver and existing prompt tests.**
 
   Run: `cd app && flutter test test/engine/prompt_resolver_test.dart test/engine/engine_facade_test.dart test/engine/video_track_test.dart && flutter analyze`
 
   Expected: PASS. Existing tests that install a `fileName='video_prompt_gen'` override still resolve it; the new bundled `seedance2Multi-parameterMode.md` row does not change legacy behavior.
 
-- [ ] **Step 6: Commit prompt resolution.**
+- [x] **Step 6: Commit prompt resolution.**
 
   ```bash
   git add app/pubspec.yaml app/pubspec.lock app/lib/src/engine/prompt_resolver.dart app/lib/src/engine/engine.dart app/test/engine/prompt_resolver_test.dart app/test/engine/engine_facade_test.dart app/test/engine/video_track_test.dart
