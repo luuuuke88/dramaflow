@@ -62,6 +62,38 @@ void main() {
     expect(() => engine.setAppLocale('fr'), throwsA(isA<EngineException>()));
   });
 
+  test('fresh desktop boot does not touch credential storage', () async {
+    final credentials = _UnavailableCredentialStore();
+    final booted = await bootForTest(
+      p.join(dir.path, 'fresh-boot'),
+      credentials: credentials,
+    );
+    addTearDown(() {
+      booted.dispose();
+      booted.db.close();
+    });
+
+    expect(credentials.accessCount, 0);
+  });
+
+  test('provider list stays readable when credential storage is unavailable',
+      () async {
+    final credentials = _UnavailableCredentialStore();
+    final booted = await bootForTest(
+      p.join(dir.path, 'provider-list'),
+      credentials: credentials,
+    );
+    addTearDown(() {
+      booted.dispose();
+      booted.db.close();
+    });
+
+    final providers = await booted.listProviders();
+
+    expect(providers, hasLength(2));
+    expect(providers.every((provider) => !provider.hasCredential), isTrue);
+  });
+
   test('createProject/listProjects 兼容包装使用 o_project', () async {
     final project = await engine.createProject('兼容项目', artStyle: '国风');
 
@@ -792,6 +824,24 @@ description: 分镜表构建 Agent
     expect(health['version'], Engine.version);
     expect((health['providers'] as Map), contains('text'));
   });
+}
+
+class _UnavailableCredentialStore implements CredentialStore {
+  int accessCount = 0;
+
+  Future<T> _fail<T>() {
+    accessCount += 1;
+    return Future<T>.error(StateError('credential storage unavailable'));
+  }
+
+  @override
+  Future<void> delete(String key) => _fail<void>();
+
+  @override
+  Future<String?> read(String key) => _fail<String?>();
+
+  @override
+  Future<void> write(String key, String value) => _fail<void>();
 }
 
 String _referencePrompt(String type) {

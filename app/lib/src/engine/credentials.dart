@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Stores provider secrets outside the SQLite configuration database.
@@ -14,7 +15,12 @@ class SecureCredentialStore implements CredentialStore {
   final FlutterSecureStorage _storage;
 
   SecureCredentialStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ??
+            const FlutterSecureStorage(
+              mOptions: MacOsOptions(
+                usesDataProtectionKeychain: kReleaseMode,
+              ),
+            );
 
   @override
   Future<String?> read(String key) => _storage.read(key: key);

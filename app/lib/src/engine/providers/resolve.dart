@@ -127,8 +127,15 @@ Future<ResolvedModel> _resolvedModel(
       (inputValues['credentialRef'] as String?)?.trim().isNotEmpty == true
           ? inputValues['credentialRef'] as String
           : providerCredentialRef(providerId);
-  final apiKey = await credentials.read(credentialRef);
-  if (apiKey == null || apiKey.isEmpty) {
+  final baseUrl = inputValues['baseUrl'] as String? ?? '';
+  final isLoopback = _isLoopbackBaseUrl(baseUrl);
+  var apiKey = '';
+  try {
+    apiKey = await credentials.read(credentialRef) ?? '';
+  } catch (_) {
+    if (!isLoopback) rethrow;
+  }
+  if (!isLoopback && apiKey.isEmpty) {
     throw EngineException(errProviderMissing, {
       'providerId': providerId,
       'reason': '未配置 API Key',
@@ -137,10 +144,15 @@ Future<ResolvedModel> _resolvedModel(
   return ResolvedModel(
     providerId: providerId,
     protocol: inputValues['protocol'] as String? ?? 'openai_compatible',
-    baseUrl: inputValues['baseUrl'] as String? ?? '',
+    baseUrl: baseUrl,
     apiKey: apiKey,
     modelId: modelId,
   );
+}
+
+bool _isLoopbackBaseUrl(String value) {
+  final host = Uri.tryParse(value)?.host.toLowerCase();
+  return host == '127.0.0.1' || host == 'localhost' || host == '::1';
 }
 
 /// 助手（v0.4 瘦身版）阶段解析：优先 o_agentDeploy 覆盖，否则回退 `binding.<stage>`。

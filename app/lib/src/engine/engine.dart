@@ -676,11 +676,6 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       if (legacyApiKey.isNotEmpty) {
         await credentials.write(credentialRef, legacyApiKey);
       }
-      if (providerId == 'azt' &&
-          legacyApiKey.isEmpty &&
-          (await credentials.read(credentialRef)) == null) {
-        await credentials.write(credentialRef, 'local');
-      }
       if (legacyApiKey.isNotEmpty || raw != jsonEncode(input)) {
         db.execute(
           'UPDATE o_vendorConfig SET inputValues=? WHERE id=?',
@@ -1072,13 +1067,20 @@ WHERE id=?
     final credentialRef =
         (input['credentialRef'] ?? providerCredentialRef(providerId))
             .toString();
+    var hasCredential = false;
+    try {
+      hasCredential =
+          (await credentials.read(credentialRef))?.isNotEmpty == true;
+    } catch (_) {
+      // Provider metadata must remain readable while the OS credential store
+      // is locked or unavailable; an actual remote request still fails closed.
+    }
     return ProviderInfo.fromJson({
       'id': providerId,
       'name': input['name'] ?? providerId,
       'protocol': input['protocol'] ?? 'openai_compatible',
       'baseUrl': input['baseUrl'] ?? '',
-      'hasCredential':
-          (await credentials.read(credentialRef))?.isNotEmpty == true,
+      'hasCredential': hasCredential,
       'enabled': row['enable'] ?? 1,
       'createdAt': input['createdAt'] ?? '',
     });

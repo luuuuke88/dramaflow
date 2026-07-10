@@ -57,7 +57,8 @@ void main() {
       {String providerId = 'p1',
       String modelId = 'm1',
       String protocol = 'openai_compatible',
-      String apiKey = 'sk-test'}) {
+      String apiKey = 'sk-test',
+      String baseUrl = 'https://api.test/v1'}) {
     final credentialRef = providerCredentialRef(providerId);
     credentials.seed(credentialRef, apiKey);
     db.execute(
@@ -68,7 +69,7 @@ void main() {
           jsonEncode({
             'name': providerId,
             'protocol': protocol,
-            'baseUrl': 'https://api.test/v1',
+            'baseUrl': baseUrl,
             'credentialRef': credentialRef,
             'createdAt': 'x',
           }),
@@ -130,6 +131,70 @@ void main() {
   }
 
   group('generateText', () {
+    for (final baseUrl in <String>[
+      'http://127.0.0.1:8787/v1',
+      'http://localhost:8787/v1',
+      'http://[::1]:8787/v1',
+    ]) {
+      test('回环地址 $baseUrl 允许空 API Key', () async {
+        final adapter = FakeAdapter((o) => jsonBody({
+              'choices': [
+                {
+                  'message': {'content': 'LOCAL'}
+                }
+              ],
+            }));
+        bindModel('script_gen', 'text', apiKey: '', baseUrl: baseUrl);
+
+        final result =
+            await gw(adapter).generateText('sys', 'user', stage: 'script_gen');
+
+        expect(result.content, 'LOCAL');
+        expect(
+            adapter.requests.single.headers, isNot(contains('Authorization')));
+      });
+    }
+
+    test('回环地址保留显式配置的 API Key', () async {
+      final adapter = FakeAdapter((o) => jsonBody({
+            'choices': [
+              {
+                'message': {'content': 'AUTHED'}
+              }
+            ],
+          }));
+      bindModel(
+        'script_gen',
+        'text',
+        apiKey: 'local-secret',
+        baseUrl: 'http://127.0.0.1:8787/v1',
+      );
+
+      await gw(adapter).generateText('sys', 'user', stage: 'script_gen');
+
+      expect(
+        adapter.requests.single.headers['Authorization'],
+        'Bearer local-secret',
+      );
+    });
+
+    for (final baseUrl in <String>[
+      'https://api.test/v1',
+      'http://localhost.evil.example/v1',
+      'http://localhost@evil.example/v1',
+    ]) {
+      test('远程地址 $baseUrl 拒绝空 API Key', () async {
+        final adapter = FakeAdapter((o) => jsonBody({}));
+        bindModel('script_gen', 'text', apiKey: '', baseUrl: baseUrl);
+
+        expect(
+          () => gw(adapter).generateText('sys', 'user', stage: 'script_gen'),
+          throwsA(isA<EngineException>()),
+        );
+        expect(adapter.requests, isEmpty);
+      });
+    }
+
     test('正常解析 content 与 usage', () async {
       final g = gw(FakeAdapter((o) => jsonBody({
             'choices': [
