@@ -284,6 +284,105 @@ void main() {
     );
   });
 
+  test('取消后的批量润色保留私有要求，重试成功后清理', () async {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      data: const {'art_character': 'VISUAL ROLE'},
+    );
+    final id = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸',
+      describe: '主角侠客',
+    );
+    final taskId = engine.batchPolishAssetPrompts(
+      projectId,
+      [id],
+      otherTextPrompt: 'RETRY INSTRUCTION',
+    );
+    final payload = File(p.join(dir.path, 'task_payloads', '$taskId.payload'));
+    expect(payload.existsSync(), isTrue);
+
+    await engine.cancelJob(taskId);
+    expect(
+      db.select(
+          'SELECT state FROM o_tasks WHERE id=?', [taskId]).single['state'],
+      'failed',
+    );
+    expect(payload.existsSync(), isTrue, reason: '失败任务重试仍需原始补充要求');
+
+    gateway.textHandler = (system, user) {
+      expect(user, contains('RETRY INSTRUCTION'));
+      return 'retried prompt';
+    };
+    await engine.retryJob(taskId);
+    await waitTask(taskId);
+    expect(payload.existsSync(), isFalse);
+    expect(engine.assetsByIds([id]).single.prompt, 'retried prompt');
+  });
+
+  test('删除项目同时删除该项目任务的私有要求文件', () {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      data: const {'art_character': 'VISUAL ROLE'},
+    );
+    final id = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸',
+      describe: '主角侠客',
+    );
+    final taskId = engine.batchPolishAssetPrompts(
+      projectId,
+      [id],
+      otherTextPrompt: 'DELETE WITH PROJECT',
+    );
+    final payload = File(p.join(dir.path, 'task_payloads', '$taskId.payload'));
+    expect(payload.existsSync(), isTrue);
+
+    engine.deleteProject(projectId);
+
+    expect(payload.existsSync(), isFalse);
+    expect(db.select('SELECT id FROM o_tasks WHERE id=?', [taskId]), isEmpty);
+  });
+
+  test('私有要求写入失败时任务和资产都失败，不留下可执行 pending', () {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      data: const {'art_character': 'VISUAL ROLE'},
+    );
+    final id = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸',
+      describe: '主角侠客',
+    );
+    File(p.join(dir.path, 'task_payloads'))
+        .writeAsStringSync('block directory');
+
+    expect(
+      () => engine.batchPolishAssetPrompts(
+        projectId,
+        [id],
+        otherTextPrompt: 'WILL NOT PERSIST',
+      ),
+      throwsA(isA<FileSystemException>()),
+    );
+
+    expect(
+      db
+          .select('SELECT state FROM o_tasks ORDER BY id DESC LIMIT 1')
+          .single['state'],
+      'failed',
+    );
+    final asset = engine.assetsByIds([id]).single;
+    expect(asset.promptState, stateFailed);
+    expect(
+      EngineException.fromReasonJson(asset.promptErrorReason)?.errKey,
+      errNetwork,
+    );
+  });
+
   test('批量润色：并发任务、单个失败不失败任务、衍生用 _derivative 手册', () async {
     engine.saveVisualManual(
       name: '国风水墨',

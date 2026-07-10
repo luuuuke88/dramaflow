@@ -765,6 +765,10 @@ WHERE id=?
 
   void deleteProject(int id) {
     _mustProject(id);
+    final taskIds = db
+        .select('SELECT id FROM o_tasks WHERE projectId=?', [id])
+        .map((row) => row['id'] as int)
+        .toList();
     db.execute('BEGIN');
     try {
       db.execute('DELETE FROM o_agentWorkData WHERE projectId=?', [id]);
@@ -807,6 +811,9 @@ WHERE id=?
       rethrow;
     }
     media.deleteProject(id.toString());
+    for (final taskId in taskIds) {
+      deleteTaskPrivatePayload(taskId);
+    }
     queue.notifyChanged();
   }
 
@@ -890,7 +897,6 @@ WHERE id=?
 
   Future<void> cancelJob(int taskId) async {
     queue.cancel(taskId);
-    deleteTaskPrivatePayload(taskId);
   }
 
   Future<AppSettings> getSettings() async =>

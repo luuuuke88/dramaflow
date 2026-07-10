@@ -627,7 +627,19 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       },
     );
     if (otherTextPrompt != null && otherTextPrompt.isNotEmpty) {
-      writeTaskPrivatePayload(taskId, otherTextPrompt);
+      try {
+        writeTaskPrivatePayload(taskId, otherTextPrompt);
+      } catch (e) {
+        final reason = EngineException(errNetwork, {'message': '$e'});
+        queue.cancel(taskId);
+        deleteTaskPrivatePayload(taskId);
+        db.execute(
+          'UPDATE o_assets SET promptState=?, promptErrorReason=? '
+          'WHERE id IN (${_ph(assetIds)})',
+          [stateFailed, reason.toReasonJson(), ...assetIds],
+        );
+        rethrow;
+      }
     }
     return taskId;
   }
