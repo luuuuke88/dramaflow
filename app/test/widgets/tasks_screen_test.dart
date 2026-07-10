@@ -112,6 +112,8 @@ void main() {
   testWidgets('任务中心本地化展示全部流水线任务类型', (tester) async {
     final classes = {
       'asset_prompt_polish': '素材提示词润色',
+      'director_plan_generation': '导演规划生成',
+      'storyboard_table_generation': '分镜表生成',
       'asset_image_generation': '素材生图',
       'storyboard_generate': '分镜生成',
       'storyboard_image_generation': '首帧图生成',

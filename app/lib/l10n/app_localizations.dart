@@ -2866,11 +2866,47 @@ abstract class AppLocalizations {
   /// **'生成分镜'**
   String get productionStoryboardGenerate;
 
+  /// No description provided for @productionStoryboardRegenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新生成分镜'**
+  String get productionStoryboardRegenerate;
+
+  /// No description provided for @storyboardGenerateDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'根据分镜表生成结构化分镜'**
+  String get storyboardGenerateDescription;
+
+  /// No description provided for @storyboardGenerateTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'按当前分镜表生成画面提示词和运镜描述'**
+  String get storyboardGenerateTooltip;
+
+  /// No description provided for @storyboardReplaceDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'替换现有分镜及其图片、视频和时间线'**
+  String get storyboardReplaceDescription;
+
   /// No description provided for @productionStoryboardGenerating.
   ///
   /// In zh, this message translates to:
   /// **'分镜生成中...'**
   String get productionStoryboardGenerating;
+
+  /// No description provided for @productionStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'已过期'**
+  String get productionStale;
+
+  /// No description provided for @productionNeedsRegeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'上游内容已变化，需要重新生成'**
+  String get productionNeedsRegeneration;
 
   /// No description provided for @productionStoryboardSelectedCount.
   ///
@@ -4582,6 +4618,36 @@ abstract class AppLocalizations {
   /// **'剧本规划已保存'**
   String get scriptPlanSaved;
 
+  /// No description provided for @directorPlanGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成规划'**
+  String get directorPlanGenerate;
+
+  /// No description provided for @directorPlanRegenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新生成'**
+  String get directorPlanRegenerate;
+
+  /// No description provided for @directorPlanGenerateDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成导演规划'**
+  String get directorPlanGenerateDescription;
+
+  /// No description provided for @directorPlanGenerateTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'根据当前项目的全部剧本生成导演规划'**
+  String get directorPlanGenerateTooltip;
+
+  /// No description provided for @directorPlanGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演规划生成已提交'**
+  String get directorPlanGenerating;
+
   /// No description provided for @canvasChatTitle.
   ///
   /// In zh, this message translates to:
@@ -4905,6 +4971,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分镜表已保存'**
   String get storyboardTableSaved;
+
+  /// No description provided for @storyboardTableGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成分镜表'**
+  String get storyboardTableGenerate;
+
+  /// No description provided for @storyboardTableRegenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新生成'**
+  String get storyboardTableRegenerate;
+
+  /// No description provided for @storyboardTableGenerateDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成分镜表'**
+  String get storyboardTableGenerateDescription;
+
+  /// No description provided for @storyboardTableGenerateTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'根据导演规划、当前剧本和关联资产生成分镜表'**
+  String get storyboardTableGenerateTooltip;
+
+  /// No description provided for @storyboardTableGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜表生成已提交'**
+  String get storyboardTableGenerating;
 
   /// No description provided for @scriptNodeEditTitle.
   ///
@@ -6249,6 +6345,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'剧本生成'**
   String get taskClassScriptGeneration;
+
+  /// No description provided for @taskClassDirectorPlanGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演规划生成'**
+  String get taskClassDirectorPlanGeneration;
+
+  /// No description provided for @taskClassStoryboardTableGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜表生成'**
+  String get taskClassStoryboardTableGeneration;
 
   /// No description provided for @taskClassAssetExtraction.
   ///

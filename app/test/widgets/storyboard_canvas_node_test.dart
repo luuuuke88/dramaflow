@@ -7,8 +7,10 @@ import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/script_plan.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/storyboard_table.dart';
 import 'package:dramaflow/src/screens/production/storyboard_canvas_node.dart';
 import 'package:dramaflow/src/screens/production/storyboard_gallery.dart';
 import 'package:dramaflow/src/state/providers.dart';
@@ -53,7 +55,8 @@ void main() {
     );
     engine.installStoryboardPipeline();
     projectId = engine.addProject(projectType: 'novel', name: '画布测试');
-    scriptId = engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
   });
 
   tearDown(() {
@@ -212,5 +215,72 @@ void main() {
     expect(find.byType(PageView), findsOneWidget);
     expect(find.text('S01 尚未生成首帧图'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('重新生成分镜依次经过破坏确认和费用确认', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    engine.saveScriptPlan(projectId, '导演规划');
+    engine.saveStoryboardTable(projectId, scriptId, '''
+| 画面提示词 | 画面描述 | 时长 |
+| --- | --- | --- |
+| 雪夜山门 | 推近 | 3 |
+''');
+    seedShot(withImage: false);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    final generate = find.byKey(Key('storyboard-generate-$scriptId'));
+    expect(generate, findsOneWidget);
+    expect(find.byKey(Key('storyboard-stale-$scriptId')), findsOneWidget);
+
+    await tester.tap(generate);
+    await tester.pumpAndSettle();
+    expect(find.text('危险操作确认'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+    expect(await engine.projectJobs(projectId), isEmpty);
+
+    expect(tester.widget<FilledButton>(generate).onPressed, isNotNull);
+    await tester.tap(generate);
+    await tester.pumpAndSettle();
+    expect(find.text('危险操作确认'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+    expect(find.text('花费确认'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+    expect(await engine.projectJobs(projectId), isEmpty);
+
+    await tester.tap(generate);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pump();
+    final tasks = await engine.projectJobs(projectId);
+    expect(tasks, hasLength(1));
+    expect(tasks.single.taskClass, 'storyboard_generate');
+    expect(tasks.single.relatedObjectsJson['replaceExisting'], isTrue);
+  });
+
+  testWidgets('只有分镜表但没有导演规划时生成按钮禁用', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    engine.saveStoryboardTable(projectId, scriptId, '''
+| 画面提示词 | 画面描述 | 时长 |
+| --- | --- | --- |
+| 雪夜山门 | 推近 | 3 |
+''');
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<FilledButton>(
+      find.byKey(Key('storyboard-generate-$scriptId')),
+    );
+    expect(button.onPressed, isNull);
+    expect(await engine.projectJobs(projectId), isEmpty);
   });
 }

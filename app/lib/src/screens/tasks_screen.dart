@@ -418,6 +418,8 @@ String _taskClassLabel(AppLocalizations l10n, String taskClass) =>
     switch (taskClass) {
       'event_generation' => l10n.taskClassEventGeneration,
       'script_generation' => l10n.taskClassScriptGeneration,
+      'director_plan_generation' => l10n.taskClassDirectorPlanGeneration,
+      'storyboard_table_generation' => l10n.taskClassStoryboardTableGeneration,
       'asset_extraction' => l10n.taskClassAssetExtraction,
       'asset_prompt_polish' => l10n.taskClassAssetPromptPolish,
       'asset_image_generation' => l10n.taskClassAssetImageGeneration,
@@ -431,6 +433,8 @@ String _taskClassLabel(AppLocalizations l10n, String taskClass) =>
 IconData _taskIcon(String taskClass) => switch (taskClass) {
       'event_generation' => Icons.auto_awesome_motion_outlined,
       'script_generation' => Icons.article_outlined,
+      'director_plan_generation' => Icons.assignment_outlined,
+      'storyboard_table_generation' => Icons.table_rows_outlined,
       'asset_extraction' => Icons.category_outlined,
       'asset_prompt_polish' => Icons.auto_fix_high_outlined,
       'asset_image_generation' => Icons.image_outlined,

@@ -379,4 +379,40 @@ void main() {
     // 保存后节点预览应显示已写入的 Markdown。
     expect(find.textContaining('S01 开场雪景'), findsWidgets);
   });
+
+  testWidgets('分镜表生成按钮入队并显示过期状态', (tester) async {
+    engine.config.update({'policy.confirmMoney': '1'});
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '雪夜');
+    engine.saveScriptPlan(projectId, '导演规划');
+    engine.saveStoryboardTable(projectId, scriptId, '''
+| 画面提示词 | 画面描述 | 时长 |
+| --- | --- | --- |
+| 雪夜山门 | 推近 | 3 |
+''');
+    engine.updateScript(scriptId, content: '雪夜山门改稿');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    final generate = find.byKey(Key('storyboard-table-generate-$scriptId'));
+    expect(generate, findsOneWidget);
+    expect(find.byKey(Key('storyboard-table-stale-$scriptId')), findsOneWidget);
+    await tester.tap(generate);
+    await tester.pumpAndSettle();
+    expect(find.text('花费确认'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+    expect(await engine.projectJobs(projectId), isEmpty);
+
+    await tester.tap(generate);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pump();
+    final tasks = await engine.projectJobs(projectId);
+    expect(tasks.map((task) => task.taskClass),
+        contains('storyboard_table_generation'));
+  });
 }

@@ -9,6 +9,7 @@ import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/production_dependencies.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/script_plan.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard_table.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -140,6 +141,33 @@ void main() {
               scriptId: scriptB)
           .stale,
       isFalse,
+    );
+  });
+
+  test('新增、修改或删除剧本会使导演规划过期', () {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '旧内容');
+    engine.saveScriptPlan(projectId, '规划 v1');
+
+    engine.updateScript(scriptId, content: '新内容');
+    expect(
+      engine.productionDependencyState(projectId, directorPlanStateKey).stale,
+      isTrue,
+    );
+
+    engine.saveScriptPlan(projectId, '规划 v2');
+    final second =
+        engine.addScript(projectId: projectId, name: '第二集', content: '续集');
+    expect(
+      engine.productionDependencyState(projectId, directorPlanStateKey).stale,
+      isTrue,
+    );
+
+    engine.saveScriptPlan(projectId, '规划 v3');
+    engine.deleteScripts([second]);
+    expect(
+      engine.productionDependencyState(projectId, directorPlanStateKey).stale,
+      isTrue,
     );
   });
 

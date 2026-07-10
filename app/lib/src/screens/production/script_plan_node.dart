@@ -7,12 +7,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/production_dependencies.dart';
 import '../../engine/script_plan.dart';
+import '../../engine/scripts.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/policy_confirm.dart';
 
 /// 剧本规划节点卡片。桌面（画布节点）与移动端（Tab 内容）共用同一实现。
 class ScriptPlanNode extends ConsumerStatefulWidget {
@@ -28,15 +31,55 @@ class _ScriptPlanNodeState extends ConsumerState<ScriptPlanNode> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
-    final markdown = ref.read(engineProvider).scriptPlan(widget.projectId);
+    ref.watch(jobsGenerationProvider);
+    final engine = ref.read(engineProvider);
+    final markdown = engine.scriptPlan(widget.projectId);
     final hasPlan = markdown.trim().isNotEmpty;
+    final canGenerate = engine.scripts(widget.projectId).isNotEmpty;
+    final stale = hasPlan &&
+        engine
+            .productionDependencyState(
+              widget.projectId,
+              directorPlanStateKey,
+            )
+            .stale;
 
     return _NodeFrame(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _NodeHeader(
           title: l10n.productionNodeScriptPlanTitle,
           onEdit: () => _openEditor(markdown),
+          action: Tooltip(
+            message: l10n.directorPlanGenerateTooltip,
+            child: FilledButton.icon(
+              key: const Key('script-plan-generate'),
+              onPressed: canGenerate ? _generatePlan : null,
+              icon: const Icon(Icons.auto_awesome, size: 13),
+              label: Text(
+                hasPlan
+                    ? l10n.directorPlanRegenerate
+                    : l10n.directorPlanGenerate,
+                style: const TextStyle(fontSize: 11),
+              ),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                minimumSize: const Size(0, 28),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+          ),
         ),
+        if (stale)
+          Container(
+            key: const Key('script-plan-stale'),
+            width: double.infinity,
+            color: df.warning.withValues(alpha: .12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: Text(
+              l10n.productionNeedsRegeneration,
+              style: TextStyle(fontSize: 11, color: df.warning),
+            ),
+          ),
         Expanded(
           child: InkWell(
             onTap: () => _openEditor(markdown),
@@ -71,6 +114,23 @@ class _ScriptPlanNodeState extends ConsumerState<ScriptPlanNode> {
           ),
         ),
       ]),
+    );
+  }
+
+  Future<void> _generatePlan() async {
+    final engine = ref.read(engineProvider);
+    final allowed = await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'director_plan_generation',
+      description: context.l10n.directorPlanGenerateDescription,
+    );
+    if (!allowed || !mounted) return;
+    final taskId = engine.generateDirectorPlan(widget.projectId);
+    if (taskId == 0) return;
+    ref.read(activeJobsProvider.notifier).poke();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.directorPlanGenerating)),
     );
   }
 
@@ -111,9 +171,7 @@ class _ScriptPlanEditorState extends ConsumerState<_ScriptPlanEditor> {
   }
 
   void _save() {
-    ref
-        .read(engineProvider)
-        .saveScriptPlan(widget.projectId, _controller.text);
+    ref.read(engineProvider).saveScriptPlan(widget.projectId, _controller.text);
     if (!mounted) return;
     final l10n = context.l10n;
     Navigator.of(context).pop(true);
@@ -181,7 +239,12 @@ class _NodeFrame extends StatelessWidget {
 class _NodeHeader extends StatelessWidget {
   final String title;
   final VoidCallback onEdit;
-  const _NodeHeader({required this.title, required this.onEdit});
+  final Widget? action;
+  const _NodeHeader({
+    required this.title,
+    required this.onEdit,
+    this.action,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -197,6 +260,10 @@ class _NodeHeader extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: df.surface)),
         ),
+        if (action != null) ...[
+          action!,
+          const SizedBox(width: 4),
+        ],
         IconButton(
           tooltip: context.l10n.commonEdit,
           visualDensity: VisualDensity.compact,

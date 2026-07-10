@@ -83,6 +83,17 @@ extension ProductionDependenciesApi on Engine {
     }
   }
 
+  void markDirectorPlanStale(int projectId) {
+    final current = productionDependencyState(projectId, directorPlanStateKey);
+    setProductionDependencyState(
+      projectId: projectId,
+      scriptId: 0,
+      key: directorPlanStateKey,
+      sourceHash: current.sourceHash,
+      stale: true,
+    );
+  }
+
   void markProjectStoryboardTablesAndShotsStale(int projectId) {
     final scriptIds = db
         .select('SELECT id FROM o_script WHERE projectId=? ORDER BY id',

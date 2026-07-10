@@ -1436,7 +1436,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get productionStoryboardGenerate => '生成分镜';
 
   @override
+  String get productionStoryboardRegenerate => '重新生成分镜';
+
+  @override
+  String get storyboardGenerateDescription => '根据分镜表生成结构化分镜';
+
+  @override
+  String get storyboardGenerateTooltip => '按当前分镜表生成画面提示词和运镜描述';
+
+  @override
+  String get storyboardReplaceDescription => '替换现有分镜及其图片、视频和时间线';
+
+  @override
   String get productionStoryboardGenerating => '分镜生成中...';
+
+  @override
+  String get productionStale => '已过期';
+
+  @override
+  String get productionNeedsRegeneration => '上游内容已变化，需要重新生成';
 
   @override
   String productionStoryboardSelectedCount(String count) {
@@ -2342,6 +2360,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get scriptPlanSaved => '剧本规划已保存';
 
   @override
+  String get directorPlanGenerate => '生成规划';
+
+  @override
+  String get directorPlanRegenerate => '重新生成';
+
+  @override
+  String get directorPlanGenerateDescription => '生成导演规划';
+
+  @override
+  String get directorPlanGenerateTooltip => '根据当前项目的全部剧本生成导演规划';
+
+  @override
+  String get directorPlanGenerating => '导演规划生成已提交';
+
+  @override
   String get canvasChatTitle => '制作 Agent';
 
   @override
@@ -2507,6 +2540,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get storyboardTableSaved => '分镜表已保存';
+
+  @override
+  String get storyboardTableGenerate => '生成分镜表';
+
+  @override
+  String get storyboardTableRegenerate => '重新生成';
+
+  @override
+  String get storyboardTableGenerateDescription => '生成分镜表';
+
+  @override
+  String get storyboardTableGenerateTooltip => '根据导演规划、当前剧本和关联资产生成分镜表';
+
+  @override
+  String get storyboardTableGenerating => '分镜表生成已提交';
 
   @override
   String get scriptNodeEditTitle => '编辑剧本';
@@ -3210,6 +3258,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get taskClassScriptGeneration => '剧本生成';
+
+  @override
+  String get taskClassDirectorPlanGeneration => '导演规划生成';
+
+  @override
+  String get taskClassStoryboardTableGeneration => '分镜表生成';
 
   @override
   String get taskClassAssetExtraction => '素材提取';

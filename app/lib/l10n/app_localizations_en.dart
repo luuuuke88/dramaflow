@@ -1478,7 +1478,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get productionStoryboardGenerate => 'Generate Storyboard';
 
   @override
+  String get productionStoryboardRegenerate => 'Regenerate Storyboards';
+
+  @override
+  String get storyboardGenerateDescription =>
+      'Generate structured storyboards from the storyboard table';
+
+  @override
+  String get storyboardGenerateTooltip =>
+      'Generate visual prompts and motion descriptions from the current storyboard table';
+
+  @override
+  String get storyboardReplaceDescription =>
+      'Replace existing storyboards, images, videos, and timeline clips';
+
+  @override
   String get productionStoryboardGenerating => 'Generating storyboard...';
+
+  @override
+  String get productionStale => 'Stale';
+
+  @override
+  String get productionNeedsRegeneration =>
+      'Upstream content changed; regeneration is required';
 
   @override
   String productionStoryboardSelectedCount(String count) {
@@ -2421,6 +2443,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scriptPlanSaved => 'Script plan saved';
 
   @override
+  String get directorPlanGenerate => 'Generate Plan';
+
+  @override
+  String get directorPlanRegenerate => 'Regenerate';
+
+  @override
+  String get directorPlanGenerateDescription => 'Generate the director plan';
+
+  @override
+  String get directorPlanGenerateTooltip =>
+      'Generate a director plan from all current project scripts';
+
+  @override
+  String get directorPlanGenerating => 'Director plan generation queued';
+
+  @override
   String get canvasChatTitle => 'Production Agent';
 
   @override
@@ -2589,6 +2627,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get storyboardTableSaved => 'Storyboard table saved';
+
+  @override
+  String get storyboardTableGenerate => 'Generate Table';
+
+  @override
+  String get storyboardTableRegenerate => 'Regenerate';
+
+  @override
+  String get storyboardTableGenerateDescription =>
+      'Generate the storyboard table';
+
+  @override
+  String get storyboardTableGenerateTooltip =>
+      'Generate a storyboard table from the director plan, current script, and linked assets';
+
+  @override
+  String get storyboardTableGenerating => 'Storyboard table generation queued';
 
   @override
   String get scriptNodeEditTitle => 'Edit script';
@@ -3308,6 +3363,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get taskClassScriptGeneration => 'Script generation';
+
+  @override
+  String get taskClassDirectorPlanGeneration => 'Director plan generation';
+
+  @override
+  String get taskClassStoryboardTableGeneration =>
+      'Storyboard table generation';
 
   @override
   String get taskClassAssetExtraction => 'Asset extraction';

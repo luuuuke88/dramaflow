@@ -1447,7 +1447,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productionStoryboardGenerate => '絵コンテ生成';
 
   @override
+  String get productionStoryboardRegenerate => '絵コンテ再生成';
+
+  @override
+  String get storyboardGenerateDescription => '絵コンテ表から構造化された絵コンテを生成';
+
+  @override
+  String get storyboardGenerateTooltip => '現在の絵コンテ表から画像プロンプトとカメラワークを生成';
+
+  @override
+  String get storyboardReplaceDescription => '既存の絵コンテ、画像、動画、タイムラインを置き換え';
+
+  @override
   String get productionStoryboardGenerating => '絵コンテ生成中...';
+
+  @override
+  String get productionStale => '期限切れ';
+
+  @override
+  String get productionNeedsRegeneration => '上流の内容が変更されたため、再生成が必要です';
 
   @override
   String productionStoryboardSelectedCount(String count) {
@@ -2359,6 +2377,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scriptPlanSaved => '脚本プランを保存しました';
 
   @override
+  String get directorPlanGenerate => 'プランを生成';
+
+  @override
+  String get directorPlanRegenerate => '再生成';
+
+  @override
+  String get directorPlanGenerateDescription => '演出プランを生成';
+
+  @override
+  String get directorPlanGenerateTooltip => '現在のプロジェクトの全脚本から演出プランを生成';
+
+  @override
+  String get directorPlanGenerating => '演出プランの生成をキューに追加しました';
+
+  @override
   String get canvasChatTitle => '制作エージェント';
 
   @override
@@ -2526,6 +2559,21 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get storyboardTableSaved => '絵コンテ表を保存しました';
+
+  @override
+  String get storyboardTableGenerate => '絵コンテ表を生成';
+
+  @override
+  String get storyboardTableRegenerate => '再生成';
+
+  @override
+  String get storyboardTableGenerateDescription => '絵コンテ表を生成';
+
+  @override
+  String get storyboardTableGenerateTooltip => '演出プラン、現在の脚本、関連素材から絵コンテ表を生成';
+
+  @override
+  String get storyboardTableGenerating => '絵コンテ表の生成をキューに追加しました';
 
   @override
   String get scriptNodeEditTitle => '脚本を編集';
@@ -3234,6 +3282,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get taskClassScriptGeneration => 'シナリオ生成';
+
+  @override
+  String get taskClassDirectorPlanGeneration => '演出プラン生成';
+
+  @override
+  String get taskClassStoryboardTableGeneration => '絵コンテ表生成';
 
   @override
   String get taskClassAssetExtraction => 'アセット抽出';

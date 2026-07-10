@@ -148,6 +148,7 @@ extension ScriptsApi on Engine {
         [id, assetId],
       );
     }
+    markDirectorPlanStale(projectId);
     return id;
   }
 
@@ -209,6 +210,7 @@ extension ScriptsApi on Engine {
     final projectId = existing?['projectId'] as int?;
     if (projectId != null &&
         (name != null || content != null || assets != null)) {
+      markDirectorPlanStale(projectId);
       markStoryboardTableAndShotsStale(projectId, id);
     }
   }
@@ -324,6 +326,14 @@ ORDER BY MIN(n.chapterIndex), e.id
   void deleteScripts(List<int> ids) {
     if (ids.isEmpty) return;
     final ph = _ph(ids);
+    final projectIds = db
+        .select(
+          'SELECT DISTINCT projectId FROM o_script WHERE id IN ($ph)',
+          ids,
+        )
+        .map((row) => row['projectId'] as int?)
+        .whereType<int>()
+        .toList();
     db.execute('DELETE FROM o_agentWorkData WHERE episodesId IN ($ph)', ids);
     db.execute(
       'DELETE FROM o_assets2Storyboard WHERE storyboardId IN '
@@ -354,6 +364,9 @@ ORDER BY MIN(n.chapterIndex), e.id
     db.execute('DELETE FROM o_videoTrack WHERE scriptId IN ($ph)', ids);
     db.execute('DELETE FROM o_timelineClip WHERE scriptId IN ($ph)', ids);
     db.execute('DELETE FROM o_script WHERE id IN ($ph)', ids);
+    for (final projectId in projectIds) {
+      markDirectorPlanStale(projectId);
+    }
   }
 
   /// 提取资产：目标剧本置 2（待提取）→ 入队 asset_extraction。

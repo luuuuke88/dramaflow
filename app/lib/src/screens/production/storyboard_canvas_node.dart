@@ -11,7 +11,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
+import '../../engine/production_dependencies.dart';
+import '../../engine/script_plan.dart';
 import '../../engine/storyboard.dart';
+import '../../engine/storyboard_table.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -52,19 +55,41 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
   }
 
   Future<void> _generateStoryboard() async {
-    final config = ref.read(engineProvider).config;
+    final engine = ref.read(engineProvider);
+    if (engine.scriptPlan(widget.projectId).trim().isEmpty ||
+        engine
+            .storyboardTable(widget.projectId, widget.scriptId)
+            .trim()
+            .isEmpty) {
+      return;
+    }
+    final hasExisting = engine.storyboards(widget.scriptId).isNotEmpty;
+    if (hasExisting &&
+        !await confirmPolicyAction(
+          context,
+          engine.config,
+          destructiveKey: 'replace_storyboards',
+          description: context.l10n.storyboardReplaceDescription,
+        )) {
+      return;
+    }
+    if (!mounted) return;
     if (!await confirmPolicyAction(
       context,
-      config,
+      engine.config,
       taskClass: 'storyboard_generate',
-      description: context.l10n.productionStoryboardGenerate,
+      description: context.l10n.storyboardGenerateDescription,
     )) {
       return;
     }
     if (!mounted) return;
-    ref
-        .read(engineProvider)
-        .generateStoryboards(widget.projectId, widget.scriptId);
+    final taskId = engine.generateStoryboards(
+      widget.projectId,
+      widget.scriptId,
+      replaceExisting: hasExisting,
+    );
+    if (taskId == 0) return;
+    ref.read(activeJobsProvider.notifier).poke();
     _toast(context.l10n.productionStoryboardGenerating);
   }
 
@@ -428,7 +453,21 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
     final l10n = context.l10n;
     final df = context.df;
     ref.watch(jobsGenerationProvider);
-    final rows = ref.watch(engineProvider).storyboards(widget.scriptId);
+    final engine = ref.watch(engineProvider);
+    final rows = engine.storyboards(widget.scriptId);
+    final hasTable = engine
+        .storyboardTable(widget.projectId, widget.scriptId)
+        .trim()
+        .isNotEmpty;
+    final hasPlan = engine.scriptPlan(widget.projectId).trim().isNotEmpty;
+    final stale = rows.isNotEmpty &&
+        engine
+            .productionDependencyState(
+              widget.projectId,
+              structuredStoryboardStateKey,
+              scriptId: widget.scriptId,
+            )
+            .stale;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
@@ -455,14 +494,37 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Wrap(spacing: 6, runSpacing: 6, children: [
-          if (rows.isEmpty)
-            FilledButton.icon(
-              onPressed: _generateStoryboard,
+          Tooltip(
+            message: l10n.storyboardGenerateTooltip,
+            child: FilledButton.icon(
+              key: Key('storyboard-generate-${widget.scriptId}'),
+              onPressed: hasPlan && hasTable ? _generateStoryboard : null,
               icon: const Icon(Icons.auto_awesome, size: 14),
-              label: Text(l10n.productionStoryboardGenerate,
-                  style: const TextStyle(fontSize: 12)),
-            )
-          else ...[
+              label: Text(
+                rows.isEmpty
+                    ? l10n.productionStoryboardGenerate
+                    : l10n.productionStoryboardRegenerate,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+          if (stale)
+            Tooltip(
+              message: l10n.productionNeedsRegeneration,
+              child: Container(
+                key: Key('storyboard-stale-${widget.scriptId}'),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: df.warning.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  l10n.productionStale,
+                  style: TextStyle(fontSize: 11, color: df.warning),
+                ),
+              ),
+            ),
+          if (rows.isNotEmpty) ...[
             Text(l10n.productionStoryboardSelectedCount('${_selected.length}'),
                 style: TextStyle(fontSize: 11, color: df.textSecondary)),
             TextButton(

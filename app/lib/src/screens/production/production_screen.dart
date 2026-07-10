@@ -13,6 +13,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../engine/assets.dart';
 import '../../engine/compose_episode.dart';
+import '../../engine/production_dependencies.dart';
+import '../../engine/script_plan.dart';
 import '../../engine/scripts.dart';
 import '../../engine/storyboard_table.dart';
 import '../../state/providers.dart';
@@ -22,6 +24,7 @@ import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_canvas.dart';
 import '../../widgets/df_empty.dart';
+import '../../widgets/policy_confirm.dart';
 import '../../widgets/script_markdown_editor.dart';
 import 'canvas_chat_panel.dart';
 import 'image_flow_editor.dart';
@@ -457,7 +460,8 @@ class _NodeFrame extends StatelessWidget {
 class _NodeHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onEdit;
-  const _NodeHeader({required this.title, this.onEdit});
+  final Widget? action;
+  const _NodeHeader({required this.title, this.onEdit, this.action});
 
   @override
   Widget build(BuildContext context) {
@@ -474,6 +478,10 @@ class _NodeHeader extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: df.surface)),
         ),
+        if (action != null) ...[
+          action!,
+          const SizedBox(width: 4),
+        ],
         if (onEdit != null)
           IconButton(
             tooltip: context.l10n.commonEdit,
@@ -724,17 +732,56 @@ class _StoryboardTableNodeState extends ConsumerState<_StoryboardTableNode> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
-    final markdown = ref
-        .read(engineProvider)
-        .storyboardTable(widget.projectId, widget.scriptId);
+    ref.watch(jobsGenerationProvider);
+    final engine = ref.read(engineProvider);
+    final markdown = engine.storyboardTable(widget.projectId, widget.scriptId);
     final hasTable = markdown.trim().isNotEmpty;
+    final canGenerate = engine.scriptPlan(widget.projectId).trim().isNotEmpty;
+    final stale = hasTable &&
+        engine
+            .productionDependencyState(
+              widget.projectId,
+              storyboardTableStateKey,
+              scriptId: widget.scriptId,
+            )
+            .stale;
     return _NodeFrame(
       title: l10n.productionNodeStoryboardTableTitle,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _NodeHeader(
           title: l10n.productionNodeStoryboardTableTitle,
           onEdit: () => _openEditor(markdown),
+          action: Tooltip(
+            message: l10n.storyboardTableGenerateTooltip,
+            child: FilledButton.icon(
+              key: Key('storyboard-table-generate-${widget.scriptId}'),
+              onPressed: canGenerate ? _generateTable : null,
+              icon: const Icon(Icons.auto_awesome, size: 13),
+              label: Text(
+                hasTable
+                    ? l10n.storyboardTableRegenerate
+                    : l10n.storyboardTableGenerate,
+                style: const TextStyle(fontSize: 11),
+              ),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                minimumSize: const Size(0, 28),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+          ),
         ),
+        if (stale)
+          Container(
+            key: Key('storyboard-table-stale-${widget.scriptId}'),
+            width: double.infinity,
+            color: df.warning.withValues(alpha: .12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: Text(
+              l10n.productionNeedsRegeneration,
+              style: TextStyle(fontSize: 11, color: df.warning),
+            ),
+          ),
         Expanded(
           child: InkWell(
             onTap: () => _openEditor(markdown),
@@ -770,6 +817,24 @@ class _StoryboardTableNodeState extends ConsumerState<_StoryboardTableNode> {
           ),
         ),
       ]),
+    );
+  }
+
+  Future<void> _generateTable() async {
+    final engine = ref.read(engineProvider);
+    final allowed = await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'storyboard_table_generation',
+      description: context.l10n.storyboardTableGenerateDescription,
+    );
+    if (!allowed || !mounted) return;
+    final taskId =
+        engine.generateStoryboardTable(widget.projectId, widget.scriptId);
+    if (taskId == 0) return;
+    ref.read(activeJobsProvider.notifier).poke();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.storyboardTableGenerating)),
     );
   }
 
