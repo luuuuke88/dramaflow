@@ -400,6 +400,46 @@ void main() {
     );
   });
 
+  test('冷启动时私有要求文件被篡改会在模型调用前失败关闭', () async {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      data: const {'art_character': 'VISUAL ROLE'},
+    );
+    final id = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸',
+      describe: '主角侠客',
+    );
+    final taskId = engine.batchPolishAssetPrompts(
+      projectId,
+      [id],
+      otherTextPrompt: 'MUST NOT CHANGE',
+    );
+    File(p.join(dir.path, 'task_payloads', '$taskId.payload'))
+        .writeAsStringSync('TAMPERED');
+
+    engine.dispose();
+    gateway.textHandler = (system, user) => fail('私有要求被篡改时不得调用模型');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'media')),
+      gateway: gateway,
+      config: EngineConfig(db, isMobile: false),
+      queueTick: const Duration(milliseconds: 10),
+    );
+    engine.installAssetPipeline();
+    engine.queue.start();
+
+    await waitTask(taskId, expectState: 'failed');
+    final asset = engine.assetsByIds([id]).single;
+    expect(asset.promptState, stateFailed);
+    expect(
+      EngineException.fromReasonJson(asset.promptErrorReason)?.errKey,
+      errPromptMissing,
+    );
+  });
+
   test('删除项目同时删除该项目任务的私有要求文件', () {
     engine.saveVisualManual(
       name: '国风水墨',
