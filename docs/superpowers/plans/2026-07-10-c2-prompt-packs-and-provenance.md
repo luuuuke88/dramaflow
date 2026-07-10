@@ -218,6 +218,6 @@
 
 ## C2 Completion Review
 
-- [ ] Run `rg -n "seedance2Multi-parameterMode|promptSources|resolvePrompt" app/lib/src app/test` and confirm all three have production and test coverage.
-- [ ] Run `git diff 85f5a77..HEAD -- app/lib app/test app/pubspec.yaml` and confirm C2 did not introduce video-request mode logic reserved for C3.
-- [ ] Update this plan's checkboxes with actual command evidence and commit the completed plan only with C2's final code commit.
+- [x] Run `rg -n "seedance2Multi-parameterMode|promptSources|resolvePrompt" app/lib/src app/test` and confirm all three have production and test coverage.
+- [x] Run `git diff 85f5a77..HEAD -- app/lib app/test app/pubspec.yaml` and confirm C2 did not introduce video-request mode logic reserved for C3.
+- [x] Update this plan's checkboxes with actual command evidence and commit the completed plan only with C2's final code commit.

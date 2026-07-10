@@ -21,3 +21,5 @@ Task 15: complete (进度文档改为 v0.4 assistant 降级版现状; ES-DSL/JS�
 # ToonFlow Core Parity C2（plan: docs/superpowers/plans/2026-07-10-c2-prompt-packs-and-provenance.md）
 C2 Task 1: complete (commits 28bb476..7e05a6c; 23 focused tests green; analyze clean; independent re-review approved)
 C2 Task 2: complete (commits febd8e8..9bd1322; deterministic source resolution; focused tests green; analyze clean; independent re-review approved)
+C2 Task 3: complete (commits 64d7dc6..6ab3250; 502 full tests green before review fixes, focused lifecycle tests green after; analyze clean; independent final re-review approved)
+C2 completion gate: complete (final HEAD f53f516; 505 tests green; analyze clean; macOS debug build green; C3 boundary scan clean)
