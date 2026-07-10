@@ -346,7 +346,7 @@ void main() {
     expect(db.select('SELECT id FROM o_tasks WHERE id=?', [taskId]), isEmpty);
   });
 
-  test('私有要求写入失败时任务和资产都失败，不留下可执行 pending', () {
+  test('私有要求写入失败时撤销任务并标记资产失败', () {
     engine.saveVisualManual(
       name: '国风水墨',
       data: const {'art_character': 'VISUAL ROLE'},
@@ -369,12 +369,7 @@ void main() {
       throwsA(isA<FileSystemException>()),
     );
 
-    expect(
-      db
-          .select('SELECT state FROM o_tasks ORDER BY id DESC LIMIT 1')
-          .single['state'],
-      'failed',
-    );
+    expect(db.select('SELECT id FROM o_tasks'), isEmpty);
     final asset = engine.assetsByIds([id]).single;
     expect(asset.promptState, stateFailed);
     expect(

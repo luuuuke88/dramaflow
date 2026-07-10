@@ -633,6 +633,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         final reason = EngineException(errNetwork, {'message': '$e'});
         queue.cancel(taskId);
         deleteTaskPrivatePayload(taskId);
+        db.execute('DELETE FROM o_tasks WHERE id=?', [taskId]);
         db.execute(
           'UPDATE o_assets SET promptState=?, promptErrorReason=? '
           'WHERE id IN (${_ph(assetIds)})',
