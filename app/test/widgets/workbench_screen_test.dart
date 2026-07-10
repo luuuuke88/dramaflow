@@ -14,6 +14,7 @@ import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:dramaflow/src/engine/storyboard_audio.dart';
 import 'package:dramaflow/src/engine/timeline_clip.dart';
+import 'package:dramaflow/src/engine/video_request.dart';
 import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:dramaflow/src/screens/production/workbench_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
@@ -5007,6 +5008,267 @@ void main() {
     expect(shot1.trackId, isNull);
     expect(engine.track(shot2.trackId!)!.prompt, '批量运镜提示词 #1');
     expect(gateway.textCalls, 1);
+  });
+
+  testWidgets('移动端工作台按模型能力保存单镜视频参数', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': [
+                  'text',
+                  'first_frame',
+                  'first_last_frame',
+                  'multi_reference',
+                ],
+                'references': {'image': 3, 'video': 1, 'audio': 1},
+                'durations': [4, 5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'optional',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+    );
+    final image = File(engine.mediaAbsPath('p/first.png'))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    expect(image.existsSync(), isTrue);
+    engine.db.execute(
+      "UPDATE o_storyboard SET filePath='p/first.png' WHERE id=?",
+      [storyboardId],
+    );
+    final trackId = engine.ensureTrackForStoryboard(storyboardId);
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('video-request-mode')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('video-request-mode')));
+    await tester.pumpAndSettle();
+    expect(find.text('first_last_frame'), findsOneWidget);
+    expect(find.text('multi_reference'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('video-request-provider-audio')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('multi_reference').last);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('video-request-reference-storyboard-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('video-request-save')));
+    await tester.pumpAndSettle();
+
+    final draft = engine.videoRequestForTrack(trackId);
+    expect(draft.mode, VideoMode.multiReference);
+    expect(draft.references, hasLength(1));
+    expect(draft.references.single.role, 'reference_image');
+    final request = engine.buildVideoRequest(
+      projectId: projectId,
+      storyboardId: storyboardId,
+      trackId: trackId,
+    );
+    expect(request.mode, VideoMode.multiReference);
+    expect(request.references.single.role, 'reference_image');
+  });
+
+  testWidgets('桌面工作台为纯文生模型隐藏参考素材和供应商音频', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['text'],
+                'references': {'image': 0, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '文本镜头',
+    );
+
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('video-request-mode')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('video-request-provider-audio')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(ValueKey('video-request-reference-storyboard-$storyboardId')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('工作台锁定供应商要求生成的音频', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['first_frame'],
+                'references': {'image': 1, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'required',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '首帧镜头',
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+
+    final providerAudio = tester.widget<SwitchListTile>(
+      find.byKey(const ValueKey('video-request-provider-audio')),
+    );
+    expect(providerAudio.value, isTrue);
+    expect(providerAudio.onChanged, isNull);
+  });
+
+  testWidgets('工作台首尾帧模式要求尾帧并保存为正确引用角色', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['first_last_frame'],
+                'references': {'image': 2, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '首尾帧镜头',
+    );
+    final firstFrame = File(engine.mediaAbsPath('p/first-last-start.png'))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    expect(firstFrame.existsSync(), isTrue);
+    engine.db.execute(
+      "UPDATE o_storyboard SET filePath='p/first-last-start.png' WHERE id=?",
+      [storyboardId],
+    );
+    final lastFrameAsset = engine.uploadClip(
+      projectId: projectId,
+      name: '尾帧',
+      bytes: [3, 2, 1],
+      type: 'role',
+      ext: 'png',
+    );
+    final trackId = engine.ensureTrackForStoryboard(storyboardId);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('video-request-save')), findsOneWidget);
+    await tester.tap(
+      find.byKey(ValueKey('video-request-reference-asset-$lastFrameAsset')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('video-request-save')));
+    await tester.pumpAndSettle();
+
+    final request = engine.buildVideoRequest(
+      projectId: projectId,
+      storyboardId: storyboardId,
+      trackId: trackId,
+    );
+    expect(request.mode, VideoMode.firstLastFrame);
+    expect(request.references.map((reference) => reference.role),
+        ['first_frame', 'last_frame']);
   });
 
   testWidgets('点击生成运镜提示词按钮不崩溃且写入轨道', (tester) async {

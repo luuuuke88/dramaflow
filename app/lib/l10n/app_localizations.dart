@@ -2998,6 +2998,72 @@ abstract class AppLocalizations {
   /// **'生成视频'**
   String get workbenchGenerateVideo;
 
+  /// No description provided for @workbenchVideoParameters.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频参数'**
+  String get workbenchVideoParameters;
+
+  /// No description provided for @workbenchVideoParametersUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前项目未配置可用的视频模型能力'**
+  String get workbenchVideoParametersUnavailable;
+
+  /// No description provided for @workbenchCompositionAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'合成音频'**
+  String get workbenchCompositionAudio;
+
+  /// No description provided for @videoRequestMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成模式'**
+  String get videoRequestMode;
+
+  /// No description provided for @videoRequestDuration.
+  ///
+  /// In zh, this message translates to:
+  /// **'时长'**
+  String get videoRequestDuration;
+
+  /// No description provided for @videoRequestResolution.
+  ///
+  /// In zh, this message translates to:
+  /// **'分辨率'**
+  String get videoRequestResolution;
+
+  /// No description provided for @videoRequestRatio.
+  ///
+  /// In zh, this message translates to:
+  /// **'画幅比例'**
+  String get videoRequestRatio;
+
+  /// No description provided for @videoRequestProviderAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成音频'**
+  String get videoRequestProviderAudio;
+
+  /// No description provided for @videoRequestFirstFrame.
+  ///
+  /// In zh, this message translates to:
+  /// **'首帧'**
+  String get videoRequestFirstFrame;
+
+  /// No description provided for @videoRequestLastFrame.
+  ///
+  /// In zh, this message translates to:
+  /// **'尾帧'**
+  String get videoRequestLastFrame;
+
+  /// No description provided for @videoRequestReferences.
+  ///
+  /// In zh, this message translates to:
+  /// **'参考素材'**
+  String get videoRequestReferences;
+
   /// No description provided for @workbenchGenerateAll.
   ///
   /// In zh, this message translates to:

@@ -268,6 +268,7 @@ void main() {
         'capabilities': {
           'providerSpecific': {'region': 'cn-north-1'},
           'video': {
+            'providerSpecific': {'nativeAudioCodec': 'aac'},
             'modes': ['first_frame'],
             'references': {'image': 1, 'video': 0, 'audio': 0},
             'durations': [4],
@@ -352,6 +353,7 @@ void main() {
     final model = (await engine.listProviderModels(provider.id)).single;
     expect(model.capabilities['providerSpecific'], {'region': 'cn-north-1'});
     expect(model.capabilities['video'], {
+      'providerSpecific': {'nativeAudioCodec': 'aac'},
       'modes': ['first_frame', 'multi_reference'],
       'references': {'image': 3, 'video': 2, 'audio': 1},
       'durations': [4, 6],

@@ -26,6 +26,7 @@ import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/policy_confirm.dart';
 import '../../widgets/common.dart';
+import 'video_request_dialog.dart';
 
 /// media_kit 一次性初始化。放懒调用（工作台/配音页首次进入时），避免侵入未持有的
 /// main.dart；MediaKit.ensureInitialized 幂等，可多次调用。
@@ -3706,6 +3707,29 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
     setState(() => _localTrackId = trackId);
   }
 
+  Future<void> _editVideoRequest() async {
+    final engine = ref.read(engineProvider);
+    final capabilities = engine.videoCapabilitiesForProject(widget.projectId);
+    if (capabilities == null || capabilities.modes.isEmpty) {
+      if (mounted) {
+        _showWorkbenchSnackBar(
+            context, context.l10n.workbenchVideoParametersUnavailable);
+      }
+      return;
+    }
+    final trackId = engine.ensureTrackForStoryboard(widget.shot.id);
+    final saved = await showVideoRequestDialog(
+      context,
+      initial: engine.videoRequestForTrack(trackId),
+      capabilities: capabilities,
+      candidates:
+          engine.videoReferenceCandidates(widget.projectId, widget.shot.id),
+    );
+    if (saved == null || !mounted) return;
+    engine.updateVideoRequest(trackId, saved);
+    setState(() => _localTrackId = trackId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -3786,6 +3810,13 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
                 seconds: track?.duration,
                 onTap: () => _editDuration(track?.duration),
               ),
+              IconButton(
+                key: ValueKey('workbench-video-params-${widget.shot.id}'),
+                tooltip: l10n.workbenchVideoParameters,
+                visualDensity: VisualDensity.compact,
+                onPressed: _editVideoRequest,
+                icon: const Icon(Icons.tune_rounded, size: 18),
+              ),
             ]),
             const SizedBox(height: 4),
             // 运镜提示词：可点击编辑（此前只读）。空时显示占位。
@@ -3833,6 +3864,11 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
             ]),
             const SizedBox(height: 8),
             if (audioPool.isNotEmpty || selectedAudioId != null) ...[
+              Text(
+                l10n.workbenchCompositionAudio,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              const SizedBox(height: 4),
               _ShotAudioPicker(
                 value: audioValue,
                 options: audioPool,

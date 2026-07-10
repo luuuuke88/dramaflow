@@ -2386,15 +2386,17 @@ class _ModelDraft {
         if (modes.contains(entry.key) && entry.value.text.trim().isNotEmpty)
           entry.key: entry.value.text.trim(),
     };
-    capabilities['video'] = {
-      'modes': modes,
-      'references': limits,
-      'durations': _positiveInts(videoDurations.text),
-      'resolutions': _uniqueStrings(videoResolutions.text),
-      'ratios': _uniqueStrings(videoRatios.text),
-      'audio': videoAudio,
-      'promptTemplates': templates,
-    };
+    final video = _videoCapability(capabilities)
+      ..addAll({
+        'modes': modes,
+        'references': limits,
+        'durations': _positiveInts(videoDurations.text),
+        'resolutions': _uniqueStrings(videoResolutions.text),
+        'ratios': _uniqueStrings(videoRatios.text),
+        'audio': videoAudio,
+        'promptTemplates': templates,
+      });
+    capabilities['video'] = video;
     return capabilities;
   }
 }

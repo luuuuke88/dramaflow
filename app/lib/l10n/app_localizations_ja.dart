@@ -1517,6 +1517,40 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchGenerateVideo => '動画を生成';
 
   @override
+  String get workbenchVideoParameters => '動画パラメータ';
+
+  @override
+  String get workbenchVideoParametersUnavailable =>
+      'このプロジェクトには利用可能な動画モデル機能が設定されていません';
+
+  @override
+  String get workbenchCompositionAudio => '合成音声';
+
+  @override
+  String get videoRequestMode => '生成モード';
+
+  @override
+  String get videoRequestDuration => '長さ';
+
+  @override
+  String get videoRequestResolution => '解像度';
+
+  @override
+  String get videoRequestRatio => 'アスペクト比';
+
+  @override
+  String get videoRequestProviderAudio => '音声を生成';
+
+  @override
+  String get videoRequestFirstFrame => '開始フレーム';
+
+  @override
+  String get videoRequestLastFrame => '終了フレーム';
+
+  @override
+  String get videoRequestReferences => '参照メディア';
+
+  @override
   String get workbenchGenerateAll => 'すべて動画生成';
 
   @override

@@ -1549,6 +1549,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchGenerateVideo => 'Generate Video';
 
   @override
+  String get workbenchVideoParameters => 'Video parameters';
+
+  @override
+  String get workbenchVideoParametersUnavailable =>
+      'No usable video model capabilities are configured for this project';
+
+  @override
+  String get workbenchCompositionAudio => 'Composition audio';
+
+  @override
+  String get videoRequestMode => 'Generation mode';
+
+  @override
+  String get videoRequestDuration => 'Duration';
+
+  @override
+  String get videoRequestResolution => 'Resolution';
+
+  @override
+  String get videoRequestRatio => 'Aspect ratio';
+
+  @override
+  String get videoRequestProviderAudio => 'Generate audio';
+
+  @override
+  String get videoRequestFirstFrame => 'First frame';
+
+  @override
+  String get videoRequestLastFrame => 'Last frame';
+
+  @override
+  String get videoRequestReferences => 'Reference media';
+
+  @override
   String get workbenchGenerateAll => 'Generate All Videos';
 
   @override

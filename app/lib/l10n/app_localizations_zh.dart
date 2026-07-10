@@ -1506,6 +1506,39 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchGenerateVideo => '生成视频';
 
   @override
+  String get workbenchVideoParameters => '视频参数';
+
+  @override
+  String get workbenchVideoParametersUnavailable => '当前项目未配置可用的视频模型能力';
+
+  @override
+  String get workbenchCompositionAudio => '合成音频';
+
+  @override
+  String get videoRequestMode => '生成模式';
+
+  @override
+  String get videoRequestDuration => '时长';
+
+  @override
+  String get videoRequestResolution => '分辨率';
+
+  @override
+  String get videoRequestRatio => '画幅比例';
+
+  @override
+  String get videoRequestProviderAudio => '生成音频';
+
+  @override
+  String get videoRequestFirstFrame => '首帧';
+
+  @override
+  String get videoRequestLastFrame => '尾帧';
+
+  @override
+  String get videoRequestReferences => '参考素材';
+
+  @override
   String get workbenchGenerateAll => '全部生成视频';
 
   @override
