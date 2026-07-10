@@ -215,6 +215,22 @@ void main() {
     ]);
     expect(relatedRaw, isNot(contains('分镜系统提示词')));
     expect(relatedRaw, isNot(contains('分镜视觉手册')));
+    final requests = related['promptRequests'] as List;
+    expect(requests, hasLength(1));
+    final request = Map<String, dynamic>.from(requests.single as Map);
+    expect(request['targetId'], scriptId);
+    final requestSources = request['sources'] as List;
+    expect(requestSources.map((source) => (source as Map)['id']), [
+      'base:storyboard_gen',
+      'visual:storyboard_pack:director_storyboard',
+      'data:script:$scriptId',
+    ]);
+    expect(
+      (requestSources.last as Map)['version'],
+      promptContentHash('请根据以下剧本内容生成分镜列表（每个分镜包含画面提示词、'
+          '运镜/画面描述、预估时长秒数、涉及的资产名称）：\n'
+          '林朝雪拔剑，白衣如雪。'),
+    );
   });
 
   test('生成分镜失败：空 shots 抛 errLlmFormat', () async {

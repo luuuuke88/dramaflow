@@ -37,11 +37,33 @@ class PromptResolution {
       };
 }
 
+class PromptRequestTrace {
+  final String targetType;
+  final int targetId;
+  final List<PromptSource> sources;
+
+  const PromptRequestTrace({
+    required this.targetType,
+    required this.targetId,
+    required this.sources,
+  });
+
+  Map<String, Object?> toTaskJson() => {
+        'targetType': targetType,
+        'targetId': targetId,
+        'sources': [for (final source in sources) source.toTaskJson()],
+      };
+}
+
 String promptContentHash(String content) =>
     sha256.convert(utf8.encode(content)).toString();
 
 extension PromptResolverApi on Engine {
-  void recordTaskPromptSources(int taskId, PromptResolution resolution) {
+  void recordTaskPromptSources(
+    int taskId,
+    PromptResolution resolution, {
+    List<PromptRequestTrace> requests = const [],
+  }) {
     final rows = db.select(
       'SELECT relatedObjects FROM o_tasks WHERE id=? LIMIT 1',
       [taskId],
@@ -54,6 +76,11 @@ extension PromptResolverApi on Engine {
         ? <String, dynamic>{}
         : Map<String, dynamic>.from(jsonDecode(raw) as Map);
     decoded['promptSources'] = resolution.toTaskJson()['promptSources'];
+    if (requests.isNotEmpty) {
+      decoded['promptRequests'] = [
+        for (final request in requests) request.toTaskJson(),
+      ];
+    }
     db.execute(
       'UPDATE o_tasks SET relatedObjects=? WHERE id=?',
       [jsonEncode(decoded), taskId],
@@ -89,7 +116,7 @@ extension PromptResolverApi on Engine {
     }
 
     final baseRows = db.select(
-      'SELECT useData,data FROM o_prompt WHERE name=? LIMIT 1',
+      'SELECT useData,data FROM o_prompt WHERE name=? ORDER BY id DESC LIMIT 1',
       [basePromptKey],
     );
     if (baseRows.isEmpty) {

@@ -345,9 +345,27 @@ extension StoryboardApi on Engine {
       visualSection: 'director_storyboard',
       modelStage: 'storyboard_gen',
     );
-    recordTaskPromptSources(task.id, resolution);
     final user = '请根据以下剧本内容生成分镜列表（每个分镜包含画面提示词、'
         '运镜/画面描述、预估时长秒数、涉及的资产名称）：\n${script['content'] ?? ''}';
+    recordTaskPromptSources(
+      task.id,
+      resolution,
+      requests: [
+        PromptRequestTrace(
+          targetType: 'script',
+          targetId: scriptId,
+          sources: List.unmodifiable([
+            ...resolution.sources,
+            PromptSource(
+              id: 'data:script:$scriptId',
+              kind: 'data',
+              version: promptContentHash(user),
+              content: user,
+            ),
+          ]),
+        ),
+      ],
+    );
     final result = await gateway.generateToolJson(
       resolution.system,
       user,

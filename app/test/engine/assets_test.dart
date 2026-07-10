@@ -278,6 +278,46 @@ void main() {
     expect(jsonEncode(related), isNot(contains('VISUAL ROLE')));
     expect(jsonEncode(related), isNot(contains('SECRET INSTRUCTION')));
     expect(
+      related['privateInstructionVersion'],
+      promptContentHash('SECRET INSTRUCTION'),
+    );
+    final requests = (related['promptRequests'] as List)
+        .map((request) => Map<String, dynamic>.from(request as Map))
+        .toList();
+    expect(
+        requests.map((request) => request['targetId']), [parent, derivative]);
+    expect(
+      (requests[0]['sources'] as List).map((source) => (source as Map)['id']),
+      [
+        'base:asset_prompt_polish',
+        'visual:国风水墨:art_character',
+        'data:asset:$parent',
+        'instruction:asset_prompt_polish',
+      ],
+    );
+    expect(
+      (requests[1]['sources'] as List).map((source) => (source as Map)['id']),
+      [
+        'base:asset_prompt_polish',
+        'visual:国风水墨:art_character_derivative',
+        'data:asset:$derivative',
+        'instruction:asset_prompt_polish',
+      ],
+    );
+    expect(
+      (requests[0]['sources'] as List)
+          .map((source) => (source as Map)['version']),
+      [
+        promptContentHash('BASE ASSET'),
+        promptContentHash('VISUAL ROLE'),
+        promptContentHash('**基础参数：**\n'
+            '**角色设定：**\n'
+            '- 角色名称:林逸,\n'
+            '- 角色描述:主角侠客,'),
+        promptContentHash('SECRET INSTRUCTION'),
+      ],
+    );
+    expect(
       File(p.join(dir.path, 'task_payloads', '$taskId.payload')).existsSync(),
       isFalse,
       reason: '成功任务应清理私有补充要求文件',
@@ -319,6 +359,45 @@ void main() {
     await waitTask(taskId);
     expect(payload.existsSync(), isFalse);
     expect(engine.assetsByIds([id]).single.prompt, 'retried prompt');
+  });
+
+  test('冷启动时私有要求文件缺失会在模型调用前失败关闭', () async {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      data: const {'art_character': 'VISUAL ROLE'},
+    );
+    final id = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸',
+      describe: '主角侠客',
+    );
+    final taskId = engine.batchPolishAssetPrompts(
+      projectId,
+      [id],
+      otherTextPrompt: 'MUST SURVIVE',
+    );
+    File(p.join(dir.path, 'task_payloads', '$taskId.payload')).deleteSync();
+
+    engine.dispose();
+    gateway.textHandler = (system, user) => fail('私有要求缺失时不得调用模型');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'media')),
+      gateway: gateway,
+      config: EngineConfig(db, isMobile: false),
+      queueTick: const Duration(milliseconds: 10),
+    );
+    engine.installAssetPipeline();
+    engine.queue.start();
+
+    await waitTask(taskId, expectState: 'failed');
+    final asset = engine.assetsByIds([id]).single;
+    expect(asset.promptState, stateFailed);
+    expect(
+      EngineException.fromReasonJson(asset.promptErrorReason)?.errKey,
+      errPromptMissing,
+    );
   });
 
   test('删除项目同时删除该项目任务的私有要求文件', () {

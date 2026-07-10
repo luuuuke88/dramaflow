@@ -548,8 +548,12 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
 
   // ───────── 提示词润色 ─────────
 
-  ({PromptResolution resolution, String system, String user}) _polishMessages(
-      int projectId, String type, String name, String describe,
+  ({
+    PromptResolution resolution,
+    String currentData,
+    String system,
+    String user,
+  }) _polishMessages(int projectId, String type, String name, String describe,
       {required bool isDerivative, String? otherTextPrompt}) {
     final cfg = _typeConfigs[type];
     if (cfg == null) {
@@ -561,14 +565,20 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       visualSection: isDerivative ? cfg.manualKeyDerivative : cfg.manualKey,
     );
     // user 模板逐字照抄 polishAssetsPrompt.ts
-    var user = '**基础参数：**\n'
+    final currentData = '**基础参数：**\n'
         '**${cfg.nameLabel}设定：**\n'
         '- ${cfg.nameLabel}名称:$name,\n'
         '- ${cfg.nameLabel}描述:$describe,';
+    var user = currentData;
     if (otherTextPrompt != null && otherTextPrompt.isNotEmpty) {
       user = '$user\n\n**补充要求：**\n$otherTextPrompt';
     }
-    return (resolution: resolution, system: resolution.system, user: user);
+    return (
+      resolution: resolution,
+      currentData: currentData,
+      system: resolution.system,
+      user: user,
+    );
   }
 
   /// 单资产润色（对话框"智能生成"，同步等待返回）。
@@ -624,6 +634,8 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         'kind': 'asset',
         'ids': assetIds,
         'concurrentCount': concurrentCount,
+        if (otherTextPrompt != null && otherTextPrompt.isNotEmpty)
+          'privateInstructionVersion': promptContentHash(otherTextPrompt),
       },
     );
     if (otherTextPrompt != null && otherTextPrompt.isNotEmpty) {
@@ -653,12 +665,29 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     final concurrent =
         ((related['concurrentCount'] as num?)?.toInt() ?? 5).clamp(1, 16);
     final other = readTaskPrivatePayload(task.id);
+    final expectedInstructionVersion =
+        related['privateInstructionVersion'] as String?;
+    if (expectedInstructionVersion != null &&
+        (other == null ||
+            promptContentHash(other) != expectedInstructionVersion)) {
+      final reason = EngineException(
+        errPromptMissing,
+        {'type': 'privateInstruction:${task.id}'},
+      );
+      db.execute(
+        'UPDATE o_assets SET promptState=?, promptErrorReason=? '
+        'WHERE id IN (${_ph(ids)})',
+        [stateFailed, reason.toReasonJson(), ...ids],
+      );
+      throw reason;
+    }
     var success = 0;
     EngineException? firstFailure;
     var cursor = 0;
     final messagesById = <int,
         ({
       PromptResolution resolution,
+      String currentData,
       String system,
       String user,
     })>{};
@@ -699,14 +728,16 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         );
       }
     }
+    PromptSource? instructionSource;
     if (other != null && other.isNotEmpty && messagesById.isNotEmpty) {
-      final source = PromptSource(
+      instructionSource = PromptSource(
         id: 'instruction:asset_prompt_polish',
         kind: 'instruction',
         version: promptContentHash(other),
         content: other,
       );
-      uniqueSources['${source.id}:${source.version}'] = source;
+      uniqueSources['${instructionSource.id}:${instructionSource.version}'] =
+          instructionSource;
     }
     if (uniqueSources.isNotEmpty) {
       final ordered = <PromptSource>[];
@@ -724,6 +755,24 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       recordTaskPromptSources(
         task.id,
         PromptResolution(system: '', sources: List.unmodifiable(ordered)),
+        requests: [
+          for (final id in ids)
+            if (messagesById[id] case final messages?)
+              PromptRequestTrace(
+                targetType: 'asset',
+                targetId: id,
+                sources: List.unmodifiable([
+                  ...messages.resolution.sources,
+                  PromptSource(
+                    id: 'data:asset:$id',
+                    kind: 'data',
+                    version: promptContentHash(messages.currentData),
+                    content: messages.currentData,
+                  ),
+                  if (instructionSource != null) instructionSource,
+                ]),
+              ),
+        ],
       );
     }
 

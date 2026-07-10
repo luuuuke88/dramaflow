@@ -159,4 +159,23 @@ void main() {
       ),
     );
   });
+
+  test('重复基础模板按最新 id 确定性选择', () {
+    final projectId = engine.addProject(
+      projectType: 'drama',
+      name: 'p',
+    );
+    db.execute(
+      'INSERT INTO o_prompt (name,type,data,useData) VALUES (?,?,?,NULL)',
+      ['storyboard_gen', 'storyboard_gen', 'BASE NEWEST'],
+    );
+
+    final resolution = engine.resolvePrompt(
+      projectId: projectId,
+      basePromptKey: 'storyboard_gen',
+    );
+
+    expect(resolution.system, 'BASE NEWEST');
+    expect(resolution.sources.single.version, promptContentHash('BASE NEWEST'));
+  });
 }
