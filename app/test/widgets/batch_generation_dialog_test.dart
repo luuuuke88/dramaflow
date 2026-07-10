@@ -166,12 +166,18 @@ void main() {
 
     final row = db
         .select(
-            "SELECT relatedObjects FROM o_tasks WHERE taskClass='asset_prompt_polish' ORDER BY id DESC LIMIT 1")
+            "SELECT id,relatedObjects FROM o_tasks WHERE taskClass='asset_prompt_polish' ORDER BY id DESC LIMIT 1")
         .single;
     final related =
         jsonDecode(row['relatedObjects'] as String) as Map<String, dynamic>;
     expect(related['concurrentCount'], 4);
-    expect(related['otherTextPrompt'], '统一国风赛璐璐');
+    expect(related, isNot(contains('otherTextPrompt')));
+    expect(row['relatedObjects'] as String, isNot(contains('统一国风赛璐璐')));
+    expect(
+      File(p.join(dir.path, 'task_payloads', '${row['id']}.payload'))
+          .readAsStringSync(),
+      '统一国风赛璐璐',
+    );
     expect(related['ids'], hasLength(2));
     expect(tester.takeException(), isNull);
   });
