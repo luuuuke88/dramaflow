@@ -13,6 +13,7 @@ import 'package:sqlite3/sqlite3.dart' show Row;
 import 'engine.dart';
 import 'errors.dart';
 import 'manuals.dart';
+import 'prompt_resolver.dart';
 import 'queue.dart';
 
 const stateGenerating = '生成中';
@@ -547,31 +548,29 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
 
   // ───────── 提示词润色 ─────────
 
-  ({String system, String user}) _polishMessages(
+  ({PromptResolution resolution, String system, String user}) _polishMessages(
       int projectId, String type, String name, String describe,
       {required bool isDerivative, String? otherTextPrompt}) {
     final cfg = _typeConfigs[type];
     if (cfg == null) {
       throw EngineException(errTaskUnsupported, {'type': type});
     }
-    final artStyle = db.select('SELECT artStyle FROM o_project WHERE id=?',
-        [projectId]).firstOrNull?['artStyle'] as String?;
-    var system = '';
-    if (artStyle != null && artStyle.isNotEmpty) {
-      final pack = visualManuals().where((p) => p.pack == artStyle).firstOrNull;
-      system =
-          pack?.data[isDerivative ? cfg.manualKeyDerivative : cfg.manualKey] ??
-              '';
-    }
+    final resolution = resolvePrompt(
+      projectId: projectId,
+      basePromptKey: 'asset_prompt_polish',
+      visualSection: isDerivative ? cfg.manualKeyDerivative : cfg.manualKey,
+    );
+    var system = resolution.system;
     if (otherTextPrompt != null && otherTextPrompt.isNotEmpty) {
-      system = '$system\n$otherTextPrompt';
+      system =
+          [system, otherTextPrompt].where((s) => s.isNotEmpty).join('\n\n');
     }
     // user 模板逐字照抄 polishAssetsPrompt.ts
     final user = '**基础参数：**\n'
         '**${cfg.nameLabel}设定：**\n'
         '- ${cfg.nameLabel}名称:$name,\n'
         '- ${cfg.nameLabel}描述:$describe,';
-    return (system: system, user: user);
+    return (resolution: resolution, system: system, user: user);
   }
 
   /// 单资产润色（对话框"智能生成"，同步等待返回）。
@@ -661,6 +660,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
             isDerivative: row['assetsId'] != null,
             otherTextPrompt: other,
           );
+          recordTaskPromptSources(task.id, msgs.resolution);
           final res = await gateway.generateText(msgs.system, msgs.user,
               stage: 'asset_extract', cancelToken: token);
           db.execute(

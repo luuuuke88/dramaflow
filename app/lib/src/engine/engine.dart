@@ -480,6 +480,11 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
           '涉及的资产名称（assetNames，取剧本中出现的角色/道具/场景原名）。'
           '必须通过调用 resultTool 工具返回结果，禁止输出任何其他文字。',
     );
+    prompt(
+      name: 'asset_prompt_polish',
+      type: 'asset_prompt_polish',
+      data: '',
+    );
     // 视频提示词生成（照抄 ToonFlow generateVideoPrompt 语义，DramaFlow 补齐为可编辑提示词）
     prompt(
       name: 'video_prompt_gen',

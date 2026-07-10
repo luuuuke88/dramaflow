@@ -41,6 +41,25 @@ String promptContentHash(String content) =>
     sha256.convert(utf8.encode(content)).toString();
 
 extension PromptResolverApi on Engine {
+  void recordTaskPromptSources(int taskId, PromptResolution resolution) {
+    final rows = db.select(
+      'SELECT relatedObjects FROM o_tasks WHERE id=? LIMIT 1',
+      [taskId],
+    );
+    if (rows.isEmpty) {
+      throw EngineException(errPromptMissing, {'type': 'task:$taskId'});
+    }
+    final raw = rows.first['relatedObjects'] as String?;
+    final decoded = raw == null || raw.trim().isEmpty
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    decoded['promptSources'] = resolution.toTaskJson()['promptSources'];
+    db.execute(
+      'UPDATE o_tasks SET relatedObjects=? WHERE id=?',
+      [jsonEncode(decoded), taskId],
+    );
+  }
+
   PromptResolution resolvePrompt({
     required int projectId,
     required String basePromptKey,

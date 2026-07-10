@@ -14,6 +14,7 @@ import 'assets.dart';
 import 'engine.dart';
 import 'errors.dart';
 import 'events.dart' show stripThink;
+import 'prompt_resolver.dart';
 import 'queue.dart';
 
 const vtNotGenerated = '未生成';
@@ -134,7 +135,8 @@ extension VideoTrackApi on Engine {
   /// 该镜多长，产出更贴合的运镜词；不做过度堆料（只带名称，不带长描述与图片）。
   Future<String> generateVideoPrompt(int storyboardId) async {
     final sb = db.select(
-        'SELECT prompt,videoDesc,duration FROM o_storyboard WHERE id=?',
+        'SELECT projectId,prompt,videoDesc,duration '
+        'FROM o_storyboard WHERE id=?',
         [storyboardId]).firstOrNull;
     if (sb == null) {
       throw EngineException(errPromptMissing, {'type': 'storyboard'});
@@ -157,8 +159,23 @@ extension VideoTrackApi on Engine {
     final durationText = trackDuration != null
         ? '$trackDuration'
         : (sb['duration'] as String?) ?? '';
-    final system =
+    final resolution = resolvePrompt(
+      projectId: (sb['projectId'] as int?) ?? 0,
+      basePromptKey: 'video_prompt_gen',
+      visualSection: 'art_storyboard_video',
+      modelStage: 'shot_video',
+    );
+    final genericPrompt = await getPrompt('video_prompt_gen');
+    final legacyModelPrompt =
         await getPromptForStageModel('video_prompt_gen', 'shot_video');
+    final system = legacyModelPrompt == genericPrompt
+        ? resolution.system
+        : [
+            legacyModelPrompt,
+            ...resolution.sources
+                .where((source) => source.kind != 'base')
+                .map((source) => source.content),
+          ].where((content) => content.trim().isNotEmpty).join('\n\n');
     final user = StringBuffer()
       ..writeln('画面描述：${sb['prompt'] ?? ''}')
       ..writeln('运镜/动作说明：${sb['videoDesc'] ?? ''}');
@@ -430,9 +447,8 @@ extension VideoTrackApi on Engine {
   /// 删除整条视频轨：保留分镜行本身，但清空 storyboard.trackId，并删除该轨道
   /// 下所有候选视频。候选文件删除沿用 deleteVideo 的素材库引用保护逻辑。
   void deleteVideoTrack(int trackId) {
-    final row = db
-        .select('SELECT id FROM o_videoTrack WHERE id=?', [trackId])
-        .firstOrNull;
+    final row = db.select(
+        'SELECT id FROM o_videoTrack WHERE id=?', [trackId]).firstOrNull;
     if (row == null) return;
     final videoIds = db
         .select('SELECT id FROM o_video WHERE videoTrackId=? ORDER BY id',
@@ -442,8 +458,8 @@ extension VideoTrackApi on Engine {
     for (final videoId in videoIds) {
       deleteVideo(videoId);
     }
-    db.execute('UPDATE o_storyboard SET trackId=NULL WHERE trackId=?',
-        [trackId]);
+    db.execute(
+        'UPDATE o_storyboard SET trackId=NULL WHERE trackId=?', [trackId]);
     db.execute('DELETE FROM o_videoTrack WHERE id=?', [trackId]);
   }
 }

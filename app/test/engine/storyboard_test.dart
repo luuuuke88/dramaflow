@@ -5,6 +5,7 @@ import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/errors.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
@@ -38,8 +39,17 @@ void main() {
     );
     engine.installStoryboardPipeline();
     engine.queue.start();
+    engine.saveVisualManual(
+      name: '分镜视觉',
+      pack: 'storyboard_pack',
+      data: const {'director_storyboard': '分镜视觉手册'},
+    );
     projectId = engine.addProject(
-        projectType: 'novel', name: '分镜测试', videoRatio: '16:9');
+      projectType: 'novel',
+      name: '分镜测试',
+      videoRatio: '16:9',
+      artStyle: 'storyboard_pack',
+    );
     scriptId = engine.addScript(
         projectId: projectId, name: '第一集', content: '林朝雪拔剑，白衣如雪。');
   });
@@ -185,6 +195,13 @@ void main() {
     expect(rows[0].assetIds, [assetId]);
     expect(rows[0].track, '主线');
     expect(rows[1].assetIds, isEmpty);
+    expect(gateway.seenSystem, '分镜系统提示词\n\n分镜视觉手册');
+    final related = db.select('SELECT relatedObjects FROM o_tasks WHERE id=?',
+        [taskId]).single['relatedObjects'] as String;
+    expect(related, contains('base:storyboard_gen'));
+    expect(related, contains('visual:storyboard_pack:director_storyboard'));
+    expect(related, isNot(contains('分镜系统提示词')));
+    expect(related, isNot(contains('分镜视觉手册')));
   });
 
   test('生成分镜失败：空 shots 抛 errLlmFormat', () async {
@@ -260,6 +277,7 @@ void main() {
 
 class _Gateway implements ProviderGateway {
   Map<String, dynamic> Function(String user)? toolResult;
+  String? seenSystem;
   String Function(String prompt, String projectId, String? refPath)?
       imageHandler;
 
@@ -270,6 +288,7 @@ class _Gateway implements ProviderGateway {
       required Map<String, dynamic> schema,
       CancelToken? cancelToken}) async {
     expect(stage, 'storyboard_gen');
+    seenSystem = system;
     await Future<void>.delayed(const Duration(milliseconds: 5));
     return toolResult!(user);
   }

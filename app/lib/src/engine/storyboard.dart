@@ -9,6 +9,7 @@ import 'package:sqlite3/sqlite3.dart' show Row;
 
 import 'engine.dart';
 import 'errors.dart';
+import 'prompt_resolver.dart';
 import 'queue.dart';
 
 const sbNotGenerated = '未生成';
@@ -338,11 +339,17 @@ extension StoryboardApi on Engine {
       for (final a in assets)
         if (a['name'] != null) a['name'] as String: a['id'] as int,
     };
-    final system = await getPrompt('storyboard_gen');
+    final resolution = resolvePrompt(
+      projectId: projectId,
+      basePromptKey: 'storyboard_gen',
+      visualSection: 'director_storyboard',
+      modelStage: 'storyboard_gen',
+    );
+    recordTaskPromptSources(task.id, resolution);
     final user = '请根据以下剧本内容生成分镜列表（每个分镜包含画面提示词、'
         '运镜/画面描述、预估时长秒数、涉及的资产名称）：\n${script['content'] ?? ''}';
     final result = await gateway.generateToolJson(
-      system,
+      resolution.system,
       user,
       stage: 'storyboard_gen',
       toolName: 'resultTool',

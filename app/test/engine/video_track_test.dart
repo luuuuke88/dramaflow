@@ -6,6 +6,7 @@ import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/errors.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
@@ -40,7 +41,16 @@ void main() {
     );
     engine.installVideoTrackPipeline();
     engine.queue.start();
-    projectId = engine.addProject(projectType: 'novel', name: '视频测试');
+    engine.saveVisualManual(
+      name: '视频视觉',
+      pack: 'video_pack',
+      data: const {'art_storyboard_video': '视频视觉手册'},
+    );
+    projectId = engine.addProject(
+      projectType: 'novel',
+      name: '视频测试',
+      artStyle: 'video_pack',
+    );
     scriptId = engine.addScript(projectId: projectId, name: '一', content: 'x');
   });
 
@@ -79,6 +89,7 @@ void main() {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '少年拔剑');
     gateway.textHandler = (system, user) {
+      expect(system, '运镜提示词系统词\n\n视频视觉手册');
       expect(user, contains('少年拔剑'));
       return '<think>x</think>slow pan across snowy mountain, hero draws sword';
     };
@@ -140,7 +151,10 @@ void main() {
 
     await engine.generateVideoPrompt(sbId);
 
-    expect(seenSystem, 'Seedance 2.0 Mini 专属视频提示词模板');
+    expect(
+      seenSystem,
+      'Seedance 2.0 Mini 专属视频提示词模板\n\n视频视觉手册',
+    );
   });
 
   test('updateVideoPrompt 手动覆盖运镜提示词', () {

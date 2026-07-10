@@ -7,6 +7,7 @@ import 'package:dramaflow/src/engine/compose.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
@@ -107,7 +108,16 @@ void main() {
     // （见「移动端…」系列用例），该设置随 db 一并继承，无需重复关闸。
     engine.config.update({'policy.confirmMoney': '0'});
     engine.installVideoTrackPipeline();
-    projectId = engine.addProject(projectType: 'novel', name: '工作台测试');
+    engine.saveVisualManual(
+      name: '工作台视觉',
+      pack: 'workbench_pack',
+      data: const {'art_storyboard_video': '工作台视频视觉手册'},
+    );
+    projectId = engine.addProject(
+      projectType: 'novel',
+      name: '工作台测试',
+      artStyle: 'workbench_pack',
+    );
     scriptId = engine.addScript(projectId: projectId, name: '一', content: 'x');
   });
 

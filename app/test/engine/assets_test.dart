@@ -34,6 +34,10 @@ void main() {
     );
     engine.installAssetPipeline();
     engine.queue.start();
+    db.execute(
+      "INSERT INTO o_prompt (name,type,data,useData) VALUES "
+      "('asset_prompt_polish','asset_prompt_polish','',NULL)",
+    );
     projectId =
         engine.addProject(projectType: 'novel', name: '素材测试', artStyle: '国风水墨');
   });
@@ -203,6 +207,42 @@ void main() {
     final row = engine.getAssets(projectId, type: 'role').data.single;
     expect(row.promptState, stateDone);
     expect(row.prompt, prompt);
+  });
+
+  test('批量润色按基础模板和视觉章节组装并记录来源', () async {
+    db.execute(
+      "UPDATE o_prompt SET data='BASE ASSET' WHERE name='asset_prompt_polish'",
+    );
+    engine.saveVisualManual(
+      name: '国风水墨',
+      data: const {'art_character': 'VISUAL ROLE'},
+    );
+    final id = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸',
+      describe: '主角侠客',
+    );
+    gateway.textHandler = (system, user) {
+      expect(system, 'BASE ASSET\n\nVISUAL ROLE');
+      return 'resolved prompt';
+    };
+
+    final taskId = engine.batchPolishAssetPrompts(projectId, [id]);
+    await waitTask(taskId);
+
+    final related = jsonDecode(db.select(
+        'SELECT relatedObjects FROM o_tasks WHERE id=?',
+        [taskId]).single['relatedObjects'] as String) as Map<String, dynamic>;
+    expect(
+      (related['promptSources'] as List).map((source) => (source as Map)['id']),
+      [
+        'base:asset_prompt_polish',
+        'visual:国风水墨:art_character',
+      ],
+    );
+    expect(jsonEncode(related), isNot(contains('BASE ASSET')));
+    expect(jsonEncode(related), isNot(contains('VISUAL ROLE')));
   });
 
   test('批量润色：并发任务、单个失败不失败任务、衍生用 _derivative 手册', () async {

@@ -180,7 +180,7 @@
 - Structured storyboard generation uses `basePromptKey='storyboard_gen'`, visual `director_storyboard`, and `modelStage='storyboard_gen'`.
 - Current one-shot motion prompt generation uses `basePromptKey='video_prompt_gen'`, visual `art_storyboard_video`, and `modelStage='shot_video'`; it does not request a model-specific full Seedance template before C3.
 
-- [ ] **Step 1: Write failing provenance tests for queued generators.**
+- [x] **Step 1: Write failing provenance tests for queued generators.**
 
   In the asset and storyboard tests, create visual/director packs with recognizable sections, run one queued generation, then read `o_tasks.relatedObjects` and assert `promptSources` has the expected stable IDs and hashes. Assert the fake gateway receives base content before visual content. In the video-track test, assert the motion generator system prompt includes the active visual video section while maintaining the existing generic/model-override behavior.
 
@@ -191,25 +191,25 @@
   expect(system.indexOf('BASE'), lessThan(system.indexOf('VISUAL')));
   ```
 
-- [ ] **Step 2: Run focused generator tests and verify absent provenance fails.**
+- [x] **Step 2: Run focused generator tests and verify absent provenance fails.**
 
   Run: `cd app && flutter test test/engine/assets_test.dart test/engine/storyboard_test.dart test/engine/video_track_test.dart`
 
   Expected: FAIL because current tasks contain no `promptSources` and systems do not consistently include the selected sections.
 
-- [ ] **Step 3: Implement task metadata merge and integrate source selection.**
+- [x] **Step 3: Implement task metadata merge and integrate source selection.**
 
   Add `recordTaskPromptSources` to `Engine`; parse current `relatedObjects`, replace only `promptSources`, and update the same task row. In each task runner, resolve the prompt immediately before its gateway call, record provenance using the running task ID, and pass `resolution.system` to the gateway. Do not store raw prompt content in `relatedObjects`.
 
   Seed the `asset_prompt_polish` base prompt as an empty string so the manual remains the authoritative system instruction until a project deliberately edits its base task template. C4 will add director-plan and storyboard-table generators using the same resolver.
 
-- [ ] **Step 4: Run generation tests, all tests, analysis, and macOS Debug build.**
+- [x] **Step 4: Run generation tests, all tests, analysis, and macOS Debug build.**
 
   Run: `cd app && flutter test test/engine/assets_test.dart test/engine/storyboard_test.dart test/engine/video_track_test.dart && flutter test && flutter analyze && flutter build macos --debug`
 
   Expected: all tests pass, analysis is clean, and the native build succeeds. Inspect one queued task's `relatedObjects` to confirm it contains source IDs/hashes but no API key or full prompt content.
 
-- [ ] **Step 5: Commit C2 integration.**
+- [x] **Step 5: Commit C2 integration.**
 
   ```bash
   git add app/lib/src/engine/assets.dart app/lib/src/engine/storyboard.dart app/lib/src/engine/video_track.dart app/lib/src/engine/engine.dart app/test/engine/assets_test.dart app/test/engine/storyboard_test.dart app/test/engine/video_track_test.dart
