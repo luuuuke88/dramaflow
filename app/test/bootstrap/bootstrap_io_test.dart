@@ -68,6 +68,14 @@ void main() {
         'Seedance default template',
       ));
     final bundle = _ZipBundle(ZipEncoder().encode(archive));
+    final custom = File(p.join(
+      dir.path,
+      'model_prompts',
+      'video',
+      'custom.md',
+    ));
+    custom.createSync(recursive: true);
+    custom.writeAsStringSync('custom template');
 
     await seedBundledModelPrompts(dir.path, bundle: bundle);
 
@@ -77,6 +85,7 @@ void main() {
       'video',
       'seedance2Multi-parameterMode.md',
     ));
+    expect(custom.readAsStringSync(), 'custom template');
     expect(target.readAsStringSync(), 'Seedance default template');
 
     target.writeAsStringSync('user edited template');

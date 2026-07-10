@@ -458,6 +458,10 @@ description: 分镜表构建 Agent
     expect(rows.single['fileName'], 'seedance2Multi-parameterMode.md');
     expect(rows.single['path'], 'video/seedance2Multi-parameterMode.md');
     expect(rows.single['prompt'], 'Seedance bundled template');
+    expect(
+      await seeded.getPromptForStageModel('video_prompt_gen', 'shot_video'),
+      await seeded.getPrompt('video_prompt_gen'),
+    );
 
     await seeded.updateModelPrompt(rows.single['id'] as int, 'user edited');
     seeded.dispose();

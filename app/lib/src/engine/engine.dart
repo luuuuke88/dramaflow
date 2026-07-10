@@ -1106,6 +1106,7 @@ WHERE id=?
         '''
 SELECT prompt FROM o_modelPrompt
 WHERE vendorId=? AND model=? AND prompt IS NOT NULL AND trim(prompt)<>''
+  AND (fileName=? OR path=? OR path LIKE ?)
 ORDER BY
   CASE
     WHEN fileName=? THEN 0
@@ -1116,7 +1117,16 @@ ORDER BY
   id DESC
 LIMIT 1
 ''',
-        [parts[0], parts[1], type, type, '%/$type%'],
+        [
+          parts[0],
+          parts[1],
+          type,
+          type,
+          '%/$type%',
+          type,
+          type,
+          '%/$type%',
+        ],
       );
       if (rows.isNotEmpty) {
         final prompt = rows.first['prompt'] as String?;
