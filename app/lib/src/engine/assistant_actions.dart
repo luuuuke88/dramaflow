@@ -5,6 +5,7 @@
 import 'audio_bind.dart';
 import 'compose_episode.dart';
 import 'engine.dart';
+import 'errors.dart';
 import 'events.dart';
 import 'novel.dart';
 import 'project_notes.dart';
@@ -58,7 +59,9 @@ List<AssistantAction> assistantActions() => const [
       AssistantAction(
         name: 'generate_storyboards',
         description: '为指定剧本生成分镜列表（画面提示词/运镜描述）。',
-        schema: {'scriptId': {'type': 'integer'}},
+        schema: {
+          'scriptId': {'type': 'integer'}
+        },
         costsMoney: true,
         taskClass: 'storyboard_generate',
       ),
@@ -74,7 +77,7 @@ List<AssistantAction> assistantActions() => const [
       ),
       AssistantAction(
         name: 'generate_videos',
-        description: '为指定剧本的分镜生成视频（需已有首帧图）。不传 storyboardIds 时对全部已有首帧图的分镜执行。',
+        description: '为指定剧本的分镜生成视频。不传 storyboardIds 时对全部分镜执行；请求参数和参考素材会在提交前校验。',
         schema: {
           'scriptId': {'type': 'integer'},
           'storyboardIds': _idArraySchema,
@@ -92,7 +95,9 @@ List<AssistantAction> assistantActions() => const [
       AssistantAction(
         name: 'compose_episode',
         description: '本地合成整集成片（要求每个分镜都已选定视频），不调用付费供应商。',
-        schema: {'scriptId': {'type': 'integer'}},
+        schema: {
+          'scriptId': {'type': 'integer'}
+        },
       ),
       AssistantAction(
         name: 'write_script',
@@ -115,12 +120,16 @@ List<AssistantAction> assistantActions() => const [
       AssistantAction(
         name: 'note_search',
         description: '按关键词检索项目笔记，返回最相关的几条。',
-        schema: {'query': {'type': 'string'}},
+        schema: {
+          'query': {'type': 'string'}
+        },
       ),
       AssistantAction(
         name: 'note_delete',
         description: '删除一条项目笔记（危险操作：不可恢复）。',
-        schema: {'noteId': {'type': 'string'}},
+        schema: {
+          'noteId': {'type': 'string'}
+        },
         destructive: true,
       ),
     ];
@@ -240,13 +249,14 @@ Future<String> runAssistantAction(
       final scriptId = _intOf(args['scriptId']);
       if (scriptId == null) return '缺少 scriptId 参数。';
       final ids = _intList(args['storyboardIds']) ??
-          engine
-              .storyboards(scriptId)
-              .where((s) => s.filePath != null)
-              .map((s) => s.id)
-              .toList();
-      if (ids.isEmpty) return '该剧本没有已生成首帧图的分镜。';
-      final taskId = engine.batchGenerateVideos(projectId, ids);
+          engine.storyboards(scriptId).map((s) => s.id).toList();
+      if (ids.isEmpty) return '该剧本暂无分镜。';
+      int taskId;
+      try {
+        taskId = engine.batchGenerateVideos(projectId, ids);
+      } on EngineException catch (error) {
+        return '无法提交视频生成：${error.message}';
+      }
       return '已提交视频生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
     case 'bind_audio':
       final ids = _intList(args['roleIds']) ??

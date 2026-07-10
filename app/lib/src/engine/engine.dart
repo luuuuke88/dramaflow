@@ -1006,7 +1006,12 @@ WHERE id=?
   }
 
   Future<void> cancelJob(int taskId) async {
+    final task = db.select(
+        'SELECT taskClass FROM o_tasks WHERE id=?', [taskId]).firstOrNull;
     queue.cancel(taskId);
+    if (task?['taskClass'] == 'video_generation') {
+      await cancelVideoGenerationTask(taskId);
+    }
   }
 
   Future<AppSettings> getSettings() async =>

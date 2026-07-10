@@ -255,6 +255,98 @@ extension VideoTrackApi on Engine {
         [jsonEncode(draft.toJson()), trackId]);
   }
 
+  VideoGenerationRequest buildVideoRequest({
+    required int projectId,
+    required int storyboardId,
+    required int trackId,
+  }) {
+    final project = db
+        .select('SELECT * FROM o_project WHERE id=?', [projectId]).firstOrNull;
+    if (project == null) {
+      throw EngineException(errPromptMissing, {'type': 'project'});
+    }
+    final storyboard = db.select(
+        'SELECT projectId,trackId,prompt FROM o_storyboard WHERE id=?',
+        [storyboardId]).firstOrNull;
+    if (storyboard == null ||
+        storyboard['projectId'] != projectId ||
+        storyboard['trackId'] != trackId) {
+      throw EngineException(errPromptMissing, {'type': 'storyboard'});
+    }
+    final capabilities = _videoCapabilities(project);
+    if (capabilities == null) {
+      throw const EngineException(
+          errModelMissing, {'reason': 'missingVideoCapability'});
+    }
+    final draft = videoRequestForTrack(trackId);
+    final request = VideoGenerationRequest(
+      modelBinding: _videoModelBinding(project),
+      mode: draft.mode,
+      prompt: (track(trackId)?.prompt?.trim().isNotEmpty ?? false)
+          ? track(trackId)!.prompt!.trim()
+          : (storyboard['prompt'] as String? ?? '').trim(),
+      references: [
+        for (final source in draft.references)
+          VideoReference(
+            mediaType: source.mediaType,
+            role: source.role,
+            localPath: _referencePathForSource(projectId, source),
+          ),
+      ],
+      duration: draft.duration,
+      resolution: draft.resolution,
+      ratio: draft.ratio,
+      generateAudio: draft.generateAudio,
+      projectId: projectId,
+      storyboardId: storyboardId,
+      videoTrackId: trackId,
+    );
+    capabilities.validate(request);
+    return request;
+  }
+
+  String _referencePathForSource(
+    int projectId,
+    VideoReferenceSource source,
+  ) {
+    String? localPath;
+    switch (source.sourceType) {
+      case 'storyboard':
+        localPath = db.select(
+          "SELECT filePath FROM o_storyboard WHERE id=? AND projectId=? "
+          "AND filePath IS NOT NULL AND trim(filePath)<>''",
+          [source.sourceId, projectId],
+        ).firstOrNull?['filePath'] as String?;
+      case 'asset':
+        localPath = db.select(
+          'SELECT i.filePath FROM o_assets a JOIN o_image i ON i.id=a.imageId '
+          "WHERE a.id=? AND a.projectId=? AND i.filePath IS NOT NULL AND trim(i.filePath)<>''",
+          [source.sourceId, projectId],
+        ).firstOrNull?['filePath'] as String?;
+      case 'video':
+        localPath = db.select(
+          "SELECT filePath FROM o_video WHERE id=? AND projectId=? "
+          "AND filePath IS NOT NULL AND trim(filePath)<>''",
+          [source.sourceId, projectId],
+        ).firstOrNull?['filePath'] as String?;
+      case 'audio':
+        localPath = db.select(
+          'SELECT i.filePath FROM o_assets a JOIN o_image i ON i.id=a.imageId '
+          "WHERE a.id=? AND a.projectId=? AND i.filePath IS NOT NULL AND trim(i.filePath)<>''",
+          [source.sourceId, projectId],
+        ).firstOrNull?['filePath'] as String?;
+      default:
+        break;
+    }
+    if (localPath == null || localPath.isEmpty) {
+      throw EngineException(errPromptMissing, {'type': 'videoReference'});
+    }
+    if (!File(media.absPath(localPath)).existsSync()) {
+      throw EngineException(errFileType, {'type': 'videoReference'});
+    }
+    return localPath;
+  }
+
   VideoRequestDraft _videoRequestDefaults(int trackId, Row project) {
     final capabilities = _videoCapabilities(project);
     final availableModes = capabilities?.modes.toList()
@@ -301,13 +393,7 @@ extension VideoTrackApi on Engine {
   }
 
   VideoModelCapabilities? _videoCapabilities(Row project) {
-    final projectBinding = (project['videoModel'] as String?)?.trim() ?? '';
-    final fallback = db.select(
-            'SELECT value FROM o_setting WHERE key=? LIMIT 1',
-            ['binding.shot_video']).firstOrNull?['value'] as String? ??
-        '';
-    final binding =
-        projectBinding.isNotEmpty ? projectBinding : fallback.trim();
+    final binding = _videoModelBinding(project);
     final separator = binding.indexOf(':');
     if (separator <= 0 || separator == binding.length - 1) return null;
     final providerId = binding.substring(0, separator);
@@ -333,6 +419,15 @@ extension VideoTrackApi on Engine {
       return null;
     }
     return null;
+  }
+
+  String _videoModelBinding(Row project) {
+    final projectBinding = (project['videoModel'] as String?)?.trim() ?? '';
+    if (projectBinding.isNotEmpty) return projectBinding;
+    return (db.select('SELECT value FROM o_setting WHERE key=? LIMIT 1',
+                ['binding.shot_video']).firstOrNull?['value'] as String? ??
+            '')
+        .trim();
   }
 
   /// 同步生成运镜提示词（text 调用，非队列——与资产提示词润色同步语义一致）。
@@ -464,6 +559,36 @@ extension VideoTrackApi on Engine {
     final trackIds = [
       for (final sbId in storyboardIds) ensureTrackForStoryboard(sbId),
     ];
+    final requests = <int, VideoGenerationRequest>{
+      for (var index = 0; index < storyboardIds.length; index++)
+        trackIds[index]: buildVideoRequest(
+          projectId: projectId,
+          storyboardId: storyboardIds[index],
+          trackId: trackIds[index],
+        ),
+    };
+    final candidateIds = <int>[];
+    for (final trackId in trackIds) {
+      final request = requests[trackId]!;
+      final trackRow = db.select(
+          'SELECT scriptId FROM o_videoTrack WHERE id=?', [trackId]).first;
+      db.execute(
+        'INSERT INTO o_video '
+        '(projectId,scriptId,videoTrackId,state,time,submissionState,'
+        'modelBinding,requestFingerprint) '
+        "VALUES (?,?,?,?,?,'prepared',?,?)",
+        [
+          projectId,
+          trackRow['scriptId'],
+          trackId,
+          vtGenerating,
+          DateTime.now().millisecondsSinceEpoch,
+          request.modelBinding,
+          request.fingerprint(),
+        ],
+      );
+      candidateIds.add(db.lastInsertRowId);
+    }
     db.execute(
       'UPDATE o_videoTrack SET state=? WHERE id IN (${_ph(trackIds)})',
       [vtGenerating, ...trackIds],
@@ -475,16 +600,17 @@ extension VideoTrackApi on Engine {
       relatedObjects: {
         'kind': 'videoTrack',
         'trackIds': trackIds,
+        'videoIds': candidateIds,
         'concurrentCount': concurrentCount,
       },
+      model: requests.values.first.modelBinding,
     );
   }
 
   Future<void> _runVideoGeneration(TasksRow task, CancelToken token) async {
     final related = task.relatedObjectsJson;
-    final trackIds = (related['trackIds'] as List? ?? const [])
-        .map((e) => (e as num).toInt())
-        .toList();
+    final trackIds = _taskIds(related['trackIds']);
+    final videoIds = _taskIds(related['videoIds']);
     final concurrent =
         ((related['concurrentCount'] as num?)?.toInt() ?? 2).clamp(1, 8);
     final projectId = task.projectId ?? 0;
@@ -496,62 +622,23 @@ extension VideoTrackApi on Engine {
     Future<void> worker() async {
       while (!token.isCancelled) {
         final i = cursor++;
-        if (i >= trackIds.length) return;
-        final trackId = trackIds[i];
-        final trackRow = db.select(
-            'SELECT * FROM o_videoTrack WHERE id=?', [trackId]).firstOrNull;
-        if (trackRow == null) continue;
-        final storyboard = db.select(
-            'SELECT filePath,prompt FROM o_storyboard WHERE trackId=?',
-            [trackId]).firstOrNull;
-        final firstFrame = storyboard?['filePath'] as String?;
-        if (firstFrame == null || firstFrame.isEmpty) {
-          final ex = EngineException(errPromptMissing, {'type': 'firstFrame'});
-          firstFailure ??= ex;
-          db.execute('UPDATE o_videoTrack SET state=?, reason=? WHERE id=?',
-              [vtFailed, ex.toReasonJson(), trackId]);
-          continue;
-        }
-        db.execute(
-          'INSERT INTO o_video '
-          '(projectId,scriptId,videoTrackId,state,time,submissionState) '
-          "VALUES (?,?,?,?,?,'prepared')",
-          [
-            projectId,
-            trackRow['scriptId'],
-            trackId,
-            vtGenerating,
-            DateTime.now().millisecondsSinceEpoch,
-          ],
-        );
-        final videoId = db.lastInsertRowId;
+        if (i >= videoIds.length) return;
+        final videoId = videoIds[i];
+        final candidate = db.select(
+            'SELECT * FROM o_video WHERE id=? AND projectId=?',
+            [videoId, projectId]).firstOrNull;
+        if (candidate == null) continue;
+        final trackId = candidate['videoTrackId'] as int?;
+        if (trackId == null || !trackIds.contains(trackId)) continue;
         try {
-          final prompt = (trackRow['prompt'] as String?)?.isNotEmpty == true
-              ? trackRow['prompt'] as String
-              : (storyboard?['prompt'] as String? ?? '');
-          final rel = await gateway.generateVideo(
-            prompt,
-            media.absPath(firstFrame),
-            '$projectId',
-            stage: 'shot_video',
-            cancelToken: token,
+          final completed = await _runVideoCandidate(
+            candidate,
+            projectId: projectId,
+            token: token,
           );
-          db.execute(
-            'UPDATE o_video SET state=?, filePath=? WHERE id=?',
-            [vtDone, rel, videoId],
-          );
-          // 首个候选自动选中（无选择时，减少摩擦；见 P4 参照 §2）
-          final hasSelection = db.select(
-                  'SELECT selectVideoId FROM o_videoTrack WHERE id=?',
-                  [trackId]).first['selectVideoId'] !=
-              null;
-          db.execute(
-            'UPDATE o_videoTrack SET state=?, reason=NULL'
-            '${hasSelection ? '' : ', selectVideoId=?, videoId=?'} WHERE id=?',
-            hasSelection
-                ? [vtDone, trackId]
-                : [vtDone, videoId, videoId, trackId],
-          );
+          if (completed) {
+            _completeVideoTrack(trackId, videoId);
+          }
           success++;
         } catch (e) {
           if (token.isCancelled) return;
@@ -574,6 +661,186 @@ extension VideoTrackApi on Engine {
     if (token.isCancelled) throw const EngineException(errCanceled);
     if (success == 0 && firstFailure != null) throw firstFailure!;
   }
+
+  Future<bool> _runVideoCandidate(
+    Row candidate, {
+    required int projectId,
+    required CancelToken token,
+  }) async {
+    final videoId = candidate['id'] as int;
+    final trackId = candidate['videoTrackId'] as int;
+    var submissionState = candidate['submissionState'] as String? ?? 'prepared';
+    var modelBinding = candidate['modelBinding'] as String? ?? '';
+    var upstreamTaskId = candidate['upstreamTaskId'] as String? ?? '';
+
+    if (submissionState == 'prepared') {
+      final storyboardId = db.select(
+          'SELECT id FROM o_storyboard WHERE trackId=? LIMIT 1',
+          [trackId]).firstOrNull?['id'] as int?;
+      if (storyboardId == null) {
+        throw EngineException(errPromptMissing, {'type': 'storyboard'});
+      }
+      final request = buildVideoRequest(
+        projectId: projectId,
+        storyboardId: storyboardId,
+        trackId: trackId,
+      );
+      final storedFingerprint =
+          candidate['requestFingerprint'] as String? ?? '';
+      if (storedFingerprint != request.fingerprint() ||
+          modelBinding != request.modelBinding) {
+        throw const EngineException(
+            errLlmFormat, {'reason': 'videoRequestChanged'});
+      }
+      db.execute(
+        "UPDATE o_video SET submissionState='submitting' WHERE id=?",
+        [videoId],
+      );
+      try {
+        final submission = await gateway.submitVideo(
+          request,
+          stage: 'shot_video',
+          cancelToken: token,
+        );
+        upstreamTaskId = submission.upstreamTaskId;
+      } catch (_) {
+        db.execute(
+          "UPDATE o_video SET submissionState='uncertain' WHERE id=?",
+          [videoId],
+        );
+        rethrow;
+      }
+      db.execute(
+        "UPDATE o_video SET submissionState='accepted',upstreamTaskId=?,"
+        "upstreamState='queued',upstreamUpdatedAt=? WHERE id=?",
+        [upstreamTaskId, DateTime.now().millisecondsSinceEpoch, videoId],
+      );
+      submissionState = 'accepted';
+      modelBinding = request.modelBinding;
+    }
+
+    if (submissionState != 'accepted' || upstreamTaskId.trim().isEmpty) {
+      throw const EngineException(errLlmFormat, {'reason': 'videoNotAccepted'});
+    }
+    final deadline = DateTime.now().add(const Duration(minutes: 30));
+    while (true) {
+      if (token.isCancelled) throw const EngineException(errCanceled);
+      final result = await gateway.pollVideo(
+        upstreamTaskId,
+        '$projectId',
+        stage: 'shot_video',
+        modelOverride: modelBinding,
+        cancelToken: token,
+      );
+      if (token.isCancelled) throw const EngineException(errCanceled);
+      db.execute(
+          'UPDATE o_video SET upstreamState=?,upstreamUpdatedAt=? '
+          'WHERE id=?',
+          [
+            result.upstreamState,
+            DateTime.now().millisecondsSinceEpoch,
+            videoId,
+          ]);
+      if (!result.isTerminal) {
+        if (DateTime.now().isAfter(deadline)) {
+          throw const EngineException(errNetwork, {'message': '上游任务超时'});
+        }
+        await Future<void>.delayed(const Duration(seconds: 10));
+        continue;
+      }
+      if (result.upstreamState == 'succeeded' &&
+          result.localVideoPath != null) {
+        db.execute('UPDATE o_video SET state=?,filePath=? WHERE id=?',
+            [vtDone, result.localVideoPath, videoId]);
+        return true;
+      }
+      throw EngineException(
+        result.errorMessage ?? '视频生成失败',
+      );
+    }
+  }
+
+  void _completeVideoTrack(int trackId, int videoId) {
+    final hasSelection = db.select(
+            'SELECT selectVideoId FROM o_videoTrack WHERE id=?',
+            [trackId]).first['selectVideoId'] !=
+        null;
+    db.execute(
+      'UPDATE o_videoTrack SET state=?, reason=NULL'
+      '${hasSelection ? '' : ', selectVideoId=?, videoId=?'} WHERE id=?',
+      hasSelection ? [vtDone, trackId] : [vtDone, videoId, videoId, trackId],
+    );
+  }
+
+  Future<void> cancelVideoGenerationTask(int taskId) async {
+    final task = db.select(
+        'SELECT relatedObjects FROM o_tasks WHERE id=?', [taskId]).firstOrNull;
+    if (task == null) return;
+    final raw = task['relatedObjects'] as String?;
+    final related = raw == null || raw.trim().isEmpty
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    final trackIds = _taskIds(related['trackIds']);
+    var videoIds = _taskIds(related['videoIds']);
+    if (videoIds.isEmpty && trackIds.isNotEmpty) {
+      videoIds = db
+          .select(
+            "SELECT id FROM o_video WHERE videoTrackId IN (${_ph(trackIds)}) "
+            'AND state=?',
+            [...trackIds, vtGenerating],
+          )
+          .map((row) => row['id'] as int)
+          .toList();
+    }
+    if (videoIds.isEmpty) return;
+    final candidates = db.select(
+      'SELECT id,videoTrackId,upstreamTaskId,modelBinding,submissionState '
+      'FROM o_video WHERE id IN (${_ph(videoIds)})',
+      videoIds,
+    );
+    final cancelled = <String>{};
+    for (final candidate in candidates) {
+      final upstreamTaskId = candidate['upstreamTaskId'] as String? ?? '';
+      final modelBinding = candidate['modelBinding'] as String? ?? '';
+      if (candidate['submissionState'] != 'accepted' ||
+          upstreamTaskId.trim().isEmpty ||
+          !cancelled.add('$modelBinding:$upstreamTaskId')) {
+        continue;
+      }
+      try {
+        await gateway.cancelVideo(
+          upstreamTaskId,
+          stage: 'shot_video',
+          modelOverride: modelBinding.isEmpty ? null : modelBinding,
+        );
+      } catch (_) {
+        // Remote cancellation is best effort; local state must still settle.
+      }
+    }
+    final reason = const EngineException(errCanceled).toReasonJson();
+    db.execute(
+      'UPDATE o_video SET state=?,errorReason=?,upstreamState=? '
+      'WHERE id IN (${_ph(videoIds)}) AND state=?',
+      [vtFailed, reason, 'cancelled', ...videoIds, vtGenerating],
+    );
+    final affectedTrackIds = candidates
+        .map((candidate) => candidate['videoTrackId'] as int?)
+        .whereType<int>()
+        .toSet()
+        .toList();
+    if (affectedTrackIds.isNotEmpty) {
+      db.execute(
+        'UPDATE o_videoTrack SET state=?,reason=? '
+        'WHERE id IN (${_ph(affectedTrackIds)}) AND state=?',
+        [vtFailed, reason, ...affectedTrackIds, vtGenerating],
+      );
+    }
+  }
+
+  List<int> _taskIds(Object? value) => [
+        for (final item in value is List ? value : const [])
+          if (item is num) item.toInt(),
+      ];
 
   void _recoverVideoGeneration(TasksRow task) {
     final trackIds = (task.relatedObjectsJson['trackIds'] as List? ?? const [])

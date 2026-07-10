@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,6 +11,7 @@ import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/providers/volcengine_video.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:dramaflow/src/engine/video_request.dart';
@@ -25,6 +27,49 @@ void main() {
   late _Gateway gateway;
   late int projectId;
   late int scriptId;
+
+  void configureVideoModel({
+    String modelId = 'test-video',
+    bool selectProject = true,
+  }) {
+    db.execute(
+      'INSERT OR REPLACE INTO o_vendorConfig (id,enable,inputValues,models) '
+      'VALUES (?,?,?,?)',
+      [
+        'volcengine',
+        1,
+        '{}',
+        jsonEncode([
+          {
+            'modelId': modelId,
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['first_frame', 'first_last_frame'],
+                'references': {'image': 2, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9', '9:16'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+      ],
+    );
+    db.execute(
+      "INSERT OR REPLACE INTO o_setting (key,value) VALUES "
+      "('binding.shot_video','volcengine:$modelId')",
+    );
+    if (selectProject) {
+      engine.editProject(
+        projectId,
+        videoModel: 'volcengine:$modelId',
+        videoRatio: '9:16',
+      );
+    }
+  }
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('dramaflow-video-');
@@ -54,6 +99,7 @@ void main() {
       artStyle: 'video_pack',
     );
     scriptId = engine.addScript(projectId: projectId, name: '一', content: 'x');
+    configureVideoModel(selectProject: false);
   });
 
   tearDown(() {
@@ -75,6 +121,21 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
     fail('任务超时');
+  }
+
+  Future<void> waitUntil(bool Function() condition) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (DateTime.now().isBefore(deadline)) {
+      if (condition()) return;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    fail('等待条件超时');
+  }
+
+  void writeMedia(String rel) {
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
   }
 
   test('ensureTrackForStoryboard 懒建轨道并回填 storyboard.trackId', () {
@@ -99,6 +160,235 @@ void main() {
     expect(text, 'slow pan across snowy mountain, hero draws sword');
     final trackId = engine.storyboards(scriptId).single.trackId!;
     expect(engine.track(trackId)!.prompt, text);
+  });
+
+  test('buildVideoRequest uses project model and persisted reference sources',
+      () {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '少年御剑');
+    writeMedia('p/first.png');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/first.png' WHERE id=?", [sbId]);
+    final lastAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山巅',
+      describe: '',
+    );
+    writeMedia('p/last.png');
+    db.execute(
+      "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,'image','已完成')",
+      [lastAssetId, 'p/last.png'],
+    );
+    db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
+        [db.lastInsertRowId, lastAssetId]);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    engine.updateVideoRequest(
+      trackId,
+      VideoRequestDraft(
+        version: 1,
+        mode: VideoMode.firstLastFrame,
+        references: [
+          VideoReferenceSource(
+            sourceType: 'storyboard',
+            sourceId: sbId,
+            mediaType: 'image',
+            role: 'first_frame',
+          ),
+          VideoReferenceSource(
+            sourceType: 'asset',
+            sourceId: lastAssetId,
+            mediaType: 'image',
+            role: 'last_frame',
+          ),
+        ],
+        duration: 5,
+        resolution: '720p',
+        ratio: '9:16',
+        generateAudio: false,
+      ),
+    );
+
+    final request = engine.buildVideoRequest(
+      projectId: projectId,
+      storyboardId: sbId,
+      trackId: trackId,
+    );
+
+    expect(request.modelBinding, 'volcengine:test-video');
+    expect(request.mode, VideoMode.firstLastFrame);
+    expect(request.ratio, '9:16');
+    expect(request.references.map((reference) => reference.role),
+        ['first_frame', 'last_frame']);
+    expect(request.references.map((reference) => reference.localPath),
+        ['p/first.png', 'p/last.png']);
+  });
+
+  test('batchGenerateVideos rejects unsupported controls before enqueue', () {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '不能提交');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    engine.updateVideoRequest(
+      trackId,
+      VideoRequestDraft(
+        version: 1,
+        mode: VideoMode.text,
+        references: const [],
+        duration: 5,
+        resolution: '720p',
+        ratio: '9:16',
+        generateAudio: false,
+      ),
+    );
+
+    expect(
+      () => engine.batchGenerateVideos(projectId, [sbId]),
+      throwsA(isA<EngineException>()
+          .having((error) => error.errKey, 'errKey', errModelMissing)),
+    );
+    expect(db.select('SELECT id FROM o_tasks'), isEmpty);
+    expect(db.select('SELECT id FROM o_video'), isEmpty);
+    expect(engine.track(trackId)!.state, vtNotGenerated);
+  });
+
+  test('video pipeline persists accepted upstream identity before first poll',
+      () async {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '安全提交');
+    writeMedia('p/frame.png');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    writeMedia('p/accepted.mp4');
+    final pollGate = Completer<VideoPollResult>();
+    gateway.submitHandler = (request) {
+      expect(request.modelBinding, 'volcengine:test-video');
+      return const VideoSubmission('upstream-accepted');
+    };
+    gateway.pollHandler = (upstreamTaskId, projectId, modelBinding) {
+      expect(upstreamTaskId, 'upstream-accepted');
+      expect(modelBinding, 'volcengine:test-video');
+      return pollGate.future;
+    };
+
+    final taskId = engine.batchGenerateVideos(projectId, [sbId]);
+    await waitUntil(() => gateway.pollCount == 1);
+
+    final candidate = db
+        .select(
+          'SELECT state,submissionState,upstreamTaskId,modelBinding,requestFingerprint '
+          'FROM o_video',
+        )
+        .single;
+    expect(candidate['state'], vtGenerating);
+    expect(candidate['submissionState'], 'accepted');
+    expect(candidate['upstreamTaskId'], 'upstream-accepted');
+    expect(candidate['modelBinding'], 'volcengine:test-video');
+    expect(candidate['requestFingerprint'], isNotEmpty);
+    expect(gateway.submitCount, 1);
+
+    pollGate.complete(const VideoPollResult(
+      upstreamState: 'succeeded',
+      localVideoPath: 'p/accepted.mp4',
+    ));
+    await waitTask(taskId);
+    expect(engine.track(engine.storyboards(scriptId).single.trackId!)!.state,
+        vtDone);
+  });
+
+  test('cold restart polls accepted candidate without a second submission',
+      () async {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '恢复轮询');
+    writeMedia('p/recovery-frame.png');
+    writeMedia('p/recovered.mp4');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/recovery-frame.png' WHERE id=?",
+        [sbId]);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    db.execute(
+        'UPDATE o_videoTrack SET state=? WHERE id=?', [vtGenerating, trackId]);
+    db.execute(
+      "INSERT INTO o_video (projectId,scriptId,videoTrackId,state,submissionState,modelBinding,requestFingerprint,upstreamTaskId,upstreamState) "
+      "VALUES (?,?,?,?, 'accepted', ?, ?, 'upstream-recovery', 'running')",
+      [
+        projectId,
+        scriptId,
+        trackId,
+        vtGenerating,
+        'volcengine:test-video',
+        'fingerprint',
+      ],
+    );
+    final videoId = db.lastInsertRowId;
+    gateway.pollHandler = (upstreamTaskId, projectId, modelBinding) {
+      expect(upstreamTaskId, 'upstream-recovery');
+      expect(modelBinding, 'volcengine:test-video');
+      return const VideoPollResult(
+        upstreamState: 'succeeded',
+        localVideoPath: 'p/recovered.mp4',
+      );
+    };
+    final taskId = engine.queue.enqueue(
+      projectId: projectId,
+      taskClass: 'video_generation',
+      relatedObjects: {
+        'kind': 'videoTrack',
+        'trackIds': [trackId],
+        'videoIds': [videoId],
+      },
+    );
+    db.execute("UPDATE o_tasks SET state='processing' WHERE id=?", [taskId]);
+
+    engine.queue.recoverOnColdStart();
+    await waitTask(taskId);
+
+    expect(gateway.submitCount, 0);
+    expect(gateway.pollCount, 1);
+    final candidate = db.select(
+        'SELECT state,submissionState,upstreamTaskId FROM o_video WHERE id=?',
+        [videoId]).single;
+    expect(candidate['state'], vtDone);
+    expect(candidate['submissionState'], 'accepted');
+    expect(candidate['upstreamTaskId'], 'upstream-recovery');
+  });
+
+  test('canceling an accepted video also cancels the upstream task', () async {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '取消远端');
+    writeMedia('p/cancel-frame.png');
+    writeMedia('p/cancel-race.mp4');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/cancel-frame.png' WHERE id=?",
+        [sbId]);
+    final pollGate = Completer<VideoPollResult>();
+    gateway.submitHandler = (_) => const VideoSubmission('upstream-cancel');
+    gateway.pollHandler = (_, __, ___) => pollGate.future;
+
+    final taskId = engine.batchGenerateVideos(projectId, [sbId]);
+    await waitUntil(() => gateway.pollCount == 1);
+    await engine.cancelJob(taskId);
+    pollGate.complete(const VideoPollResult(
+      upstreamState: 'succeeded',
+      localVideoPath: 'p/cancel-race.mp4',
+    ));
+    await waitTask(taskId, expectState: 'failed');
+
+    expect(gateway.cancelledUpstreamIds, ['upstream-cancel']);
+    final candidate = db.select(
+        'SELECT state,errorReason FROM o_video WHERE upstreamTaskId=?',
+        ['upstream-cancel']).single;
+    expect(candidate['state'], vtFailed);
+    expect(
+        EngineException.fromReasonJson(candidate['errorReason'] as String?)
+            ?.errKey,
+        errCanceled);
+    expect(engine.track(engine.storyboards(scriptId).single.trackId!)!.state,
+        vtFailed);
   });
 
   test('generateVideoPrompt 用户消息带上关联资产名称与时长做增强', () async {
@@ -132,7 +422,7 @@ void main() {
       "('binding.shot_video','volcengine:doubao-seedance-2-0-mini-260615')",
     );
     db.execute(
-      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+      'INSERT OR REPLACE INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
       [
         'volcengine',
         1,
@@ -344,19 +634,18 @@ void main() {
     expect(seenUser, contains('9'), reason: '视频轨时长优先于分镜时长文本');
   });
 
-  test('批量生成：无首帧图直接失败；有首帧图成功且首个候选自动选中', () async {
+  test('批量生成：合法首帧成功且首个候选自动选中', () async {
     final withImage = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');
     db.execute("UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?",
         [withImage]);
-    final noImage = engine.addStoryboard(
-        projectId: projectId, scriptId: scriptId, prompt: 'y');
+    writeMedia('p/frame.png');
 
     gateway.videoHandler = (prompt, firstFrame, pid) {
       expect(firstFrame, contains('frame.png'));
       return 'p/vid_out.mp4';
     };
-    final taskId = engine.batchGenerateVideos(projectId, [withImage, noImage]);
+    final taskId = engine.batchGenerateVideos(projectId, [withImage]);
     await waitTask(taskId);
 
     final okTrackId = engine
@@ -368,15 +657,6 @@ void main() {
     expect(okTrack.candidates.single.filePath, 'p/vid_out.mp4');
     expect(okTrack.selectVideoId, okTrack.candidates.single.id,
         reason: '首个候选自动选中');
-
-    final badTrackId = engine
-        .storyboards(scriptId)
-        .firstWhere((r) => r.id == noImage)
-        .trackId!;
-    final badTrack = engine.track(badTrackId)!;
-    expect(badTrack.state, vtFailed);
-    expect(EngineException.fromReasonJson(badTrack.reason)?.errKey,
-        errPromptMissing);
   });
 
   test('selectVideo 手动切换选中候选；deleteVideo 清空被删的选中引用并删除磁盘文件', () async {
@@ -384,6 +664,7 @@ void main() {
         projectId: projectId, scriptId: scriptId, prompt: 'x');
     db.execute(
         "UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    writeMedia('p/frame.png');
     final mediaRoot = p.join(dir.path, 'media');
     var callCount = 0;
     gateway.videoHandler = (prompt, firstFrame, pid) {
@@ -507,6 +788,7 @@ void main() {
         projectId: projectId, scriptId: scriptId, prompt: 'x');
     db.execute(
         "UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    writeMedia('p/frame.png');
     final mediaRoot = p.join(dir.path, 'media');
     gateway.videoHandler = (prompt, firstFrame, pid) {
       final rel = 'p/vid_del.mp4';
@@ -548,6 +830,7 @@ void main() {
         projectId: projectId, scriptId: scriptId, prompt: 'x');
     db.execute(
         "UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    writeMedia('p/frame.png');
     final trackId = engine.ensureTrackForStoryboard(sbId);
     db.execute(
         'UPDATE o_videoTrack SET state=? WHERE id=?', [vtGenerating, trackId]);
@@ -609,6 +892,17 @@ class _Gateway implements ProviderGateway {
   String Function(String system, String user)? textHandler;
   String Function(String prompt, String firstFrameAbsPath, String projectId)?
       videoHandler;
+  VideoSubmission Function(VideoGenerationRequest request)? submitHandler;
+  FutureOr<VideoPollResult> Function(
+    String upstreamTaskId,
+    String projectId,
+    String? modelBinding,
+  )? pollHandler;
+  final submittedRequests = <VideoGenerationRequest>[];
+  final generatedPaths = <String, String>{};
+  final cancelledUpstreamIds = <String>[];
+  var submitCount = 0;
+  var pollCount = 0;
 
   @override
   Future<TextResult> generateText(String system, String user,
@@ -624,6 +918,54 @@ class _Gateway implements ProviderGateway {
     expect(stage, 'shot_video');
     await Future<void>.delayed(const Duration(milliseconds: 5));
     return videoHandler!(prompt, firstFrameAbsPath, projectId);
+  }
+
+  @override
+  Future<VideoSubmission> submitVideo(
+    VideoGenerationRequest request, {
+    required String stage,
+    CancelToken? cancelToken,
+  }) async {
+    expect(stage, 'shot_video');
+    submitCount++;
+    submittedRequests.add(request);
+    if (submitHandler != null) return submitHandler!(request);
+    final taskId = 'fake-$submitCount';
+    generatedPaths[taskId] = videoHandler!(
+      request.prompt,
+      request.references.first.localPath,
+      '$request.projectId',
+    );
+    return VideoSubmission(taskId);
+  }
+
+  @override
+  Future<VideoPollResult> pollVideo(
+    String upstreamTaskId,
+    String projectId, {
+    required String stage,
+    required String? modelOverride,
+    CancelToken? cancelToken,
+  }) async {
+    expect(stage, 'shot_video');
+    pollCount++;
+    if (pollHandler != null) {
+      return pollHandler!(upstreamTaskId, projectId, modelOverride);
+    }
+    return VideoPollResult(
+      upstreamState: 'succeeded',
+      localVideoPath: generatedPaths[upstreamTaskId],
+    );
+  }
+
+  @override
+  Future<void> cancelVideo(
+    String upstreamTaskId, {
+    required String stage,
+    required String? modelOverride,
+  }) async {
+    expect(stage, 'shot_video');
+    cancelledUpstreamIds.add(upstreamTaskId);
   }
 
   @override

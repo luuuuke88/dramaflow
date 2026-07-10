@@ -249,9 +249,13 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       return;
     }
     if (!mounted) return;
-    engine.batchGenerateVideos(
-        widget.projectId, selected.map((s) => s.id).toList());
-    _showWorkbenchSnackBar(context, context.l10n.workbenchGenerateVideo);
+    try {
+      engine.batchGenerateVideos(
+          widget.projectId, selected.map((s) => s.id).toList());
+      _showWorkbenchSnackBar(context, context.l10n.workbenchGenerateVideo);
+    } catch (error) {
+      _showWorkbenchSnackBar(context, localizeError(context, error));
+    }
   }
 
   Future<void> _generateCheckedPrompts(List<StoryboardRow> shots) async {

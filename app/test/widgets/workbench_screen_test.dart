@@ -102,6 +102,36 @@ void main() {
       config: EngineConfig(db, isMobile: false),
       composer: _FakeComposer(),
     );
+    db.execute(
+      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) '
+      'VALUES (?,?,?,?)',
+      [
+        'volcengine',
+        1,
+        '{}',
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['first_frame'],
+                'references': {'image': 1},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+      ],
+    );
+    db.execute(
+      "INSERT INTO o_setting (key,value) VALUES "
+      "('binding.shot_video','volcengine:test-video')",
+    );
     // 本文件断言的是工作台批量/单条生成视频等业务逻辑，不是确认闸弹窗本身
     // （闸本身已由 policy_confirm_test.dart 覆盖）；关闸避免每个用例都要多点一次确认。
     // 设置写入共享 db（o_setting 表），文件内部分用例会用同一个 db 重建 Engine
@@ -4920,6 +4950,12 @@ void main() {
         projectId: projectId, scriptId: scriptId, prompt: '镜头一');
     final s2 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头二');
+    final frame = File(engine.mediaAbsPath('p/s2.png'))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    expect(frame.existsSync(), isTrue);
+    engine.db.execute(
+        "UPDATE o_storyboard SET filePath='p/s2.png' WHERE id=?", [s2]);
 
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dramaflow/src/engine/assistant_actions.dart';
@@ -10,6 +11,7 @@ import 'package:dramaflow/src/engine/novel_parse.dart';
 import 'package:dramaflow/src/engine/project_notes.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
+import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
@@ -47,12 +49,22 @@ void main() {
     test('12 个动作齐全且金钱/破坏标记正确', () {
       final actions = assistantActions();
       final byName = {for (final a in actions) a.name: a};
-      expect(byName.keys, containsAll([
-        'get_status', 'generate_events', 'extract_assets',
-        'generate_storyboards', 'generate_shot_images', 'generate_videos',
-        'bind_audio', 'compose_episode', 'write_script',
-        'note_save', 'note_search', 'note_delete',
-      ]));
+      expect(
+          byName.keys,
+          containsAll([
+            'get_status',
+            'generate_events',
+            'extract_assets',
+            'generate_storyboards',
+            'generate_shot_images',
+            'generate_videos',
+            'bind_audio',
+            'compose_episode',
+            'write_script',
+            'note_save',
+            'note_search',
+            'note_delete',
+          ]));
       expect(byName['generate_events']!.costsMoney, isTrue);
       expect(byName['generate_videos']!.costsMoney, isTrue);
       expect(byName['get_status']!.costsMoney, isFalse);
@@ -74,7 +86,9 @@ void main() {
     };
 
     test('snake_case → camelCase', () {
-      final out = normalizeActionArgs({'script_ids': [1, 2]}, schema);
+      final out = normalizeActionArgs({
+        'script_ids': [1, 2]
+      }, schema);
       expect(out['scriptIds'], [1, 2]);
     });
 
@@ -94,14 +108,16 @@ void main() {
     });
 
     test('未知键丢弃、已知键类型原样保留', () {
-      final out = normalizeActionArgs(
-          {'unknown_field': 'x', 'prompt': '青霜剑'}, schema);
+      final out =
+          normalizeActionArgs({'unknown_field': 'x', 'prompt': '青霜剑'}, schema);
       expect(out.containsKey('unknown_field'), isFalse);
       expect(out['prompt'], '青霜剑');
     });
 
     test('精确键直通优先', () {
-      final out = normalizeActionArgs({'scriptIds': [9]}, schema);
+      final out = normalizeActionArgs({
+        'scriptIds': [9]
+      }, schema);
       expect(out['scriptIds'], [9]);
     });
   });
@@ -114,22 +130,22 @@ void main() {
       final summary = await runAssistantAction(
           engine, projectId, 'generate_events', const {});
       expect(summary, contains('1'));
-      final tasks =
-          db.select("SELECT taskClass FROM o_tasks WHERE projectId=?", [projectId]);
+      final tasks = db.select(
+          "SELECT taskClass FROM o_tasks WHERE projectId=?", [projectId]);
       expect(tasks.map((t) => t['taskClass']), contains('event_generation'));
     });
 
     test('write_script 分发到 updateScript', () async {
-      final scriptId = engine.addScript(
-          projectId: projectId, name: '一', content: '旧内容');
+      final scriptId =
+          engine.addScript(projectId: projectId, name: '一', content: '旧内容');
       await runAssistantAction(engine, projectId, 'write_script',
           {'scriptId': scriptId, 'content': '新内容'});
       expect(engine.scripts(projectId).single.content, '新内容');
     });
 
     test('note_save/note_search 分发到项目笔记', () async {
-      await runAssistantAction(engine, projectId, 'note_save',
-          {'name': '设定', 'content': '林朝雪的青霜剑'});
+      await runAssistantAction(
+          engine, projectId, 'note_save', {'name': '设定', 'content': '林朝雪的青霜剑'});
       expect(engine.projectNotes(projectId), hasLength(1));
       final found = await runAssistantAction(
           engine, projectId, 'note_search', {'query': '青霜'});
@@ -141,6 +157,49 @@ void main() {
           await runAssistantAction(engine, projectId, 'get_status', const {});
       expect(summary, contains('章节'));
       expect(summary, contains('剧本'));
+    });
+
+    test('generate_videos uses the same local preflight as the workbench',
+        () async {
+      db.execute(
+        'INSERT INTO o_vendorConfig (id,enable,inputValues,models) '
+        'VALUES (?,?,?,?)',
+        [
+          'volcengine',
+          1,
+          '{}',
+          jsonEncode([
+            {
+              'modelId': 'test-video',
+              'kind': 'video',
+              'enabled': true,
+              'capabilities': {
+                'video': {
+                  'modes': ['first_frame'],
+                  'references': {'image': 1},
+                  'durations': [5],
+                  'resolutions': ['720p'],
+                  'ratios': ['16:9'],
+                  'audio': 'none',
+                },
+              },
+            },
+          ]),
+        ],
+      );
+      db.execute(
+        "INSERT INTO o_setting (key,value) VALUES "
+        "('binding.shot_video','volcengine:test-video')",
+      );
+      final scriptId =
+          engine.addScript(projectId: projectId, name: '一', content: 'x');
+      engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+
+      final result = await runAssistantAction(
+          engine, projectId, 'generate_videos', {'scriptId': scriptId});
+
+      expect(result, contains('无法提交视频生成'));
+      expect(db.select('SELECT id FROM o_tasks'), isEmpty);
     });
 
     test('未知动作返回错误文案不崩溃', () async {
