@@ -8,6 +8,7 @@ import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/script_plan.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:dramaflow/src/engine/storyboard_table.dart';
@@ -285,7 +286,14 @@ void main() {
   });
 
   testWidgets('点击「生成分镜」触发任务入队', (tester) async {
-    engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    engine.saveScriptPlan(projectId, '测试导演规划');
+    engine.saveStoryboardTable(projectId, scriptId, '''
+| 画面提示词 | 画面描述 | 时长 |
+| --- | --- | --- |
+| 测试镜头 | 推近 | 3 |
+''');
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

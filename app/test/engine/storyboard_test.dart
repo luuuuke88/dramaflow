@@ -8,10 +8,13 @@ import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/production_dependencies.dart';
 import 'package:dramaflow/src/engine/prompt_resolver.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/script_plan.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/storyboard_table.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
@@ -69,12 +72,41 @@ void main() {
               'SELECT state FROM o_tasks WHERE id=?', [taskId]).first['state']
           as String;
       if (state == 'success' || state == 'failed') {
-        expect(state, expectState);
+        final reason = db.select(
+            'SELECT reason FROM o_tasks WHERE id=?', [taskId]).first['reason'];
+        expect(state, expectState, reason: reason?.toString());
         return;
       }
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
     fail('任务超时');
+  }
+
+  const validTable = '''
+# 第一集分镜表
+
+| 镜头 | 画面提示词 | 画面描述 | 时长 | 分轨 | 资产 | 生成首帧 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 雪夜山门\\|剑光 | 慢镜推近 | 3 | 主线 | 林朝雪，山门, 青霜剑 | 是 |
+| 2 | 近景剑锋 | 横向跟拍 | 2 | 副线 | 林朝雪 | 否 |
+''';
+
+  void seedDocuments({String table = validTable, String plan = '导演规划 A'}) {
+    engine.saveScriptPlan(projectId, plan);
+    engine.saveStoryboardTable(projectId, scriptId, table);
+  }
+
+  int addLinkedAsset(String name, String type, {String describe = ''}) {
+    db.execute(
+      'INSERT INTO o_assets (name,type,projectId,describe) VALUES (?,?,?,?)',
+      [name, type, projectId, describe],
+    );
+    final id = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
+      [scriptId, id],
+    );
+    return id;
   }
 
   test('CRUD：新增/插入排序/编辑/批量删除后重排', () {
@@ -169,78 +201,378 @@ void main() {
     expect(rows.map((r) => r.index), [1, 2]);
   });
 
-  test('剧本生成分镜：tool-calling 落库+资产名映射为 id', () async {
+  test('严格解析分镜表：中英表头、转义竖线、资产和布尔值', () {
+    final shots = engine.parseStoryboardTable(validTable);
+    expect(shots, hasLength(2));
+    expect(shots.first.prompt, '雪夜山门|剑光');
+    expect(shots.first.assetNames, ['林朝雪', '山门', '青霜剑']);
+    expect(shots.first.shouldGenerateImage, isTrue);
+    expect(shots.last.shouldGenerateImage, isFalse);
+
+    final english = engine.parseStoryboardTable('''
+notes
+| prompt | videoDesc | duration | track | assetNames | shouldGenerateImage |
+| --- | --- | --- | --- | --- | --- |
+| close shot | dolly in | 4 | main | Alice, Gate | true |
+''');
+    expect(english.single.duration, '4');
+    expect(english.single.track, 'main');
+    expect(english.single.assetNames, ['Alice', 'Gate']);
+    expect(english.single.shouldGenerateImage, isTrue);
+  });
+
+  test('严格解析分镜表：缺必填列或空提示词拒绝', () {
+    for (final markdown in [
+      '| 镜头 | 时长 |\n| --- | --- |\n| 1 | 5 |',
+      '| 画面提示词 | 画面描述 | 时长 |\n| --- | --- | --- |\n| | 推近 | 5 |',
+    ]) {
+      expect(
+        () => engine.parseStoryboardTable(markdown),
+        throwsA(isA<EngineException>()
+            .having((e) => e.errKey, 'errKey', errLlmFormat)
+            .having((e) => e.errParams['reason'], 'reason',
+                startsWith('storyboard_table:'))),
+      );
+    }
+  });
+
+  test('无规划/分镜表不入队，已有分镜且不替换也不入队', () {
+    expect(engine.generateStoryboards(projectId, scriptId), 0);
+    engine.saveScriptPlan(projectId, '导演规划 A');
+    expect(engine.generateStoryboards(projectId, scriptId), 0);
+    engine.saveStoryboardTable(projectId, scriptId, validTable);
+    engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '旧镜头');
+    expect(engine.generateStoryboards(projectId, scriptId), 0);
+  });
+
+  test('分镜表驱动生成：表内元数据权威、仅关联资产、追溯不泄漏原文', () async {
+    final roleId = addLinkedAsset('林朝雪', 'role', describe: '白衣剑客');
+    final sceneId = addLinkedAsset('山门', 'scene', describe: '雪夜宗门');
     db.execute(
-        "INSERT INTO o_assets (name,type,projectId) VALUES ('林朝雪','role',?)",
-        [projectId]);
-    final assetId = db.lastInsertRowId;
-    gateway.toolResult = (user) {
-      expect(user, contains('林朝雪拔剑'));
-      return {
-        'shots': [
-          {
-            'prompt': '少年白衣拔剑，逆光',
-            'videoDesc': '慢镜推近',
-            'duration': '3',
-            'track': '主线',
-            'assetNames': ['林朝雪'],
-          },
-          {'prompt': '剑光一闪', 'duration': '2'},
-        ],
-      };
-    };
+      "INSERT INTO o_assets (name,type,projectId) VALUES ('青霜剑','tool',?)",
+      [projectId],
+    );
+    seedDocuments();
+    gateway.toolResult = (_) => {
+          'shots': [
+            {
+              'prompt': '模型润色镜头一',
+              'videoDesc': '模型运镜一',
+              'duration': '999',
+              'track': '错误分轨',
+              'assetNames': ['青霜剑'],
+            },
+            {'prompt': '模型润色镜头二', 'videoDesc': '模型运镜二'},
+          ],
+        };
+
     final taskId = engine.generateStoryboards(projectId, scriptId);
     await waitTask(taskId);
+
     final rows = engine.storyboards(scriptId);
     expect(rows, hasLength(2));
-    expect(rows[0].prompt, '少年白衣拔剑，逆光');
-    expect(rows[0].assetIds, [assetId]);
-    expect(rows[0].track, '主线');
-    expect(rows[1].assetIds, isEmpty);
+    expect(rows.first.prompt, '模型润色镜头一');
+    expect(rows.first.videoDesc, '模型运镜一');
+    expect(rows.first.duration, '3');
+    expect(rows.first.track, '主线');
+    expect(rows.first.assetIds, unorderedEquals([roleId, sceneId]));
+    expect(rows.first.shouldGenerateImage, 1);
+    expect(rows.last.duration, '2');
+    expect(rows.last.track, '副线');
+    expect(rows.last.shouldGenerateImage, 0);
     expect(gateway.seenSystem, '分镜系统提示词\n\n分镜视觉手册');
+    expect(gateway.seenUser!.indexOf('导演规划：'),
+        lessThan(gateway.seenUser!.indexOf('分镜表：')));
+    expect(gateway.seenUser!.indexOf('分镜表：'),
+        lessThan(gateway.seenUser!.indexOf('当前剧本：')));
+    expect(gateway.seenUser!.indexOf('当前剧本：'),
+        lessThan(gateway.seenUser!.indexOf('候选资产：')));
+
     final relatedRaw = db.select(
         'SELECT relatedObjects FROM o_tasks WHERE id=?',
         [taskId]).single['relatedObjects'] as String;
     final related = jsonDecode(relatedRaw) as Map<String, dynamic>;
-    final sources = (related['promptSources'] as List)
-        .map((source) => Map<String, dynamic>.from(source as Map))
-        .toList();
-    expect(sources.map((source) => source['id']), [
-      'base:storyboard_gen',
-      'visual:storyboard_pack:director_storyboard',
-    ]);
-    expect(sources.map((source) => source['version']), [
-      promptContentHash('分镜系统提示词'),
-      promptContentHash('分镜视觉手册'),
-    ]);
-    expect(relatedRaw, isNot(contains('分镜系统提示词')));
-    expect(relatedRaw, isNot(contains('分镜视觉手册')));
-    final requests = related['promptRequests'] as List;
-    expect(requests, hasLength(1));
-    final request = Map<String, dynamic>.from(requests.single as Map);
-    expect(request['targetId'], scriptId);
-    final requestSources = request['sources'] as List;
-    expect(requestSources.map((source) => (source as Map)['id']), [
-      'base:storyboard_gen',
-      'visual:storyboard_pack:director_storyboard',
-      'data:script:$scriptId',
-    ]);
+    expect(related.keys,
+        containsAll(['scriptHash', 'planHash', 'tableHash', 'assetsHash']));
+    expect(relatedRaw, isNot(contains('导演规划 A')));
+    expect(relatedRaw, isNot(contains('雪夜山门')));
+    expect(relatedRaw, isNot(contains('林朝雪拔剑')));
+    final request = (related['promptRequests'] as List).single as Map;
     expect(
-      (requestSources.last as Map)['version'],
-      promptContentHash('请根据以下剧本内容生成分镜列表（每个分镜包含画面提示词、'
-          '运镜/画面描述、预估时长秒数、涉及的资产名称）：\n'
-          '林朝雪拔剑，白衣如雪。'),
+        (request['sources'] as List).map((source) => (source as Map)['id']), [
+      'base:storyboard_gen',
+      'visual:storyboard_pack:director_storyboard',
+      'data:directorPlan:$projectId',
+      'data:storyboardTable:$scriptId',
+      'data:script:$scriptId',
+      'data:scriptAssets:$scriptId',
+    ]);
+    final state = engine.productionDependencyState(
+      projectId,
+      structuredStoryboardStateKey,
+      scriptId: scriptId,
     );
+    expect(state.stale, isFalse);
+    expect(state.sourceHash, promptContentHash(validTable));
   });
 
-  test('生成分镜失败：空 shots 抛 errLlmFormat', () async {
+  test('生成结果未验证时保留旧数据，验证通过后原子替换并清理媒体', () async {
+    seedDocuments(table: '''
+| 画面提示词 | 画面描述 | 时长 | 资产 | 生成首帧 |
+| --- | --- | --- | --- | --- |
+| 雪夜山门 | 慢镜推近 | 3 | 林朝雪 | 是 |
+''');
+    final assetId = addLinkedAsset('林朝雪', 'role');
+    final oldId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '旧镜头',
+      assetIds: [assetId],
+    );
+    const oldImageRel = 'old/frame.png';
+    const oldVideoRel = 'old/video.mp4';
+    const protectedVideoRel = 'old/saved-clip.mp4';
+    for (final rel in [oldImageRel, oldVideoRel, protectedVideoRel]) {
+      final file = File(engine.media.absPath(rel));
+      file.parent.createSync(recursive: true);
+      file.writeAsBytesSync([1, 2, 3]);
+    }
+    db.execute(
+        'UPDATE o_storyboard SET filePath=? WHERE id=?', [oldImageRel, oldId]);
+    db.execute(
+      'INSERT INTO o_videoTrack (projectId,scriptId,state) VALUES (?,?,?)',
+      [projectId, scriptId, '已完成'],
+    );
+    final trackId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, oldVideoRel, '已完成'],
+    );
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, protectedVideoRel, '已完成'],
+    );
+    db.execute(
+      "INSERT INTO o_image (filePath,type,state) VALUES (?,'clip','已完成')",
+      [protectedVideoRel],
+    );
+    db.execute(
+      'INSERT INTO o_timelineClip (projectId,scriptId,filePath,lane,startMs) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, oldVideoRel, 0, 0],
+    );
+
     gateway.toolResult = (_) => {'shots': []};
+    final failed = engine.generateStoryboards(
+      projectId,
+      scriptId,
+      replaceExisting: true,
+    );
+    await waitTask(failed, expectState: 'failed');
+    expect(engine.storyboards(scriptId).single.id, oldId);
+    expect(File(engine.media.absPath(oldImageRel)).existsSync(), isTrue);
+    expect(File(engine.media.absPath(oldVideoRel)).existsSync(), isTrue);
+    expect(
+        db.select('SELECT id FROM o_videoTrack WHERE scriptId=?', [scriptId]),
+        isNotEmpty);
+
+    gateway.toolResult = (_) => {
+          'shots': [
+            {'prompt': '新镜头', 'videoDesc': '新运镜'},
+          ],
+        };
+    final succeeded = engine.generateStoryboards(
+      projectId,
+      scriptId,
+      replaceExisting: true,
+    );
+    await waitTask(succeeded);
+    final rows = engine.storyboards(scriptId);
+    expect(rows.single.prompt, '新镜头');
+    expect(rows.single.id, isNot(oldId));
+    expect(rows.single.assetIds, [assetId]);
+    expect(File(engine.media.absPath(oldImageRel)).existsSync(), isFalse);
+    expect(File(engine.media.absPath(oldVideoRel)).existsSync(), isFalse);
+    expect(File(engine.media.absPath(protectedVideoRel)).existsSync(), isTrue,
+        reason: '已登记为可复用素材的候选视频不能删文件');
+    expect(
+        db.select('SELECT id FROM o_videoTrack WHERE scriptId=?', [scriptId]),
+        isEmpty);
+    expect(db.select('SELECT id FROM o_video WHERE scriptId=?', [scriptId]),
+        isEmpty);
+    expect(
+        db.select('SELECT id FROM o_timelineClip WHERE scriptId=?', [scriptId]),
+        isEmpty);
+  });
+
+  test('事务内新分镜插入失败时完整回滚旧输出且不删文件', () async {
+    seedDocuments(table: '''
+| 画面提示词 | 画面描述 | 时长 | 资产 |
+| --- | --- | --- | --- |
+| 雪夜山门 | 慢镜推近 | 3 | 林朝雪 |
+''');
+    final assetId = addLinkedAsset('林朝雪', 'role');
+    final oldId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '事务前旧镜头',
+      assetIds: [assetId],
+    );
+    const imageRel = 'rollback/frame.png';
+    const videoRel = 'rollback/video.mp4';
+    for (final rel in [imageRel, videoRel]) {
+      final file = File(engine.media.absPath(rel));
+      file.parent.createSync(recursive: true);
+      file.writeAsBytesSync([4, 5, 6]);
+    }
+    db.execute(
+        'UPDATE o_storyboard SET filePath=? WHERE id=?', [imageRel, oldId]);
+    db.execute(
+      'INSERT INTO o_videoTrack (projectId,scriptId,state) VALUES (?,?,?)',
+      [projectId, scriptId, '已完成'],
+    );
+    final trackId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, videoRel, '已完成'],
+    );
+    db.execute(
+      'INSERT INTO o_timelineClip (projectId,scriptId,filePath,lane,startMs) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, videoRel, 0, 0],
+    );
+    db.execute('''
+CREATE TRIGGER fail_storyboard_insert
+BEFORE INSERT ON o_storyboard
+BEGIN
+  SELECT RAISE(ABORT, 'forced storyboard insert failure');
+END
+''');
+    gateway.toolResult = (_) => {
+          'shots': [
+            {'prompt': '不应落库', 'videoDesc': '不应落库'},
+          ],
+        };
+
+    final taskId = engine.generateStoryboards(
+      projectId,
+      scriptId,
+      replaceExisting: true,
+    );
+    await waitTask(taskId, expectState: 'failed');
+
+    final rows = engine.storyboards(scriptId);
+    expect(rows.single.id, oldId);
+    expect(rows.single.prompt, '事务前旧镜头');
+    expect(rows.single.assetIds, [assetId]);
+    expect(
+        db.select('SELECT id FROM o_videoTrack WHERE scriptId=?', [scriptId]),
+        isNotEmpty);
+    expect(db.select('SELECT id FROM o_video WHERE scriptId=?', [scriptId]),
+        isNotEmpty);
+    expect(
+        db.select('SELECT id FROM o_timelineClip WHERE scriptId=?', [scriptId]),
+        isNotEmpty);
+    expect(File(engine.media.absPath(imageRel)).existsSync(), isTrue);
+    expect(File(engine.media.absPath(videoRel)).existsSync(), isTrue);
+  });
+
+  test('分镜表格式错误在调用供应商前失败', () async {
+    seedDocuments(table: '| 镜头 | 时长 |\n| --- | --- |\n| 1 | 5 |');
+    gateway.toolResult = (_) => fail('不应调用供应商');
     final taskId = engine.generateStoryboards(projectId, scriptId);
     await waitTask(taskId, expectState: 'failed');
-    final reason = db.select(
-            'SELECT reason FROM o_tasks WHERE id=?', [taskId]).first['reason']
-        as String;
-    expect(EngineException.fromReasonJson(reason)?.errKey, errLlmFormat);
+    expect(gateway.toolCalls, 0);
+  });
+
+  test('入队后剧本/规划/分镜表/资产变化均在供应商前拒绝', () async {
+    Future<void> expectStale(void Function() mutate) async {
+      seedDocuments();
+      final beforeCalls = gateway.toolCalls;
+      final taskId = engine.generateStoryboards(projectId, scriptId);
+      mutate();
+      await waitTask(taskId, expectState: 'failed');
+      expect(gateway.toolCalls, beforeCalls);
+    }
+
+    await expectStale(() => db.execute(
+        "UPDATE o_script SET content='changed script' WHERE id=?", [scriptId]));
+    db.execute(
+        "UPDATE o_script SET content='林朝雪拔剑，白衣如雪。' WHERE id=?", [scriptId]);
+    await expectStale(() => engine.saveScriptPlan(projectId, '导演规划 B'));
+    engine.saveScriptPlan(projectId, '导演规划 A');
+    await expectStale(() =>
+        engine.saveStoryboardTable(projectId, scriptId, '$validTable\n说明'));
+    engine.saveStoryboardTable(projectId, scriptId, validTable);
+    await expectStale(() => addLinkedAsset('新道具', 'tool'));
+  });
+
+  test('供应商等待期间分镜表变化时拒绝旧响应并保留旧分镜', () async {
+    seedDocuments(table: '''
+| 画面提示词 | 画面描述 | 时长 |
+| --- | --- | --- |
+| 雪夜山门 | 慢镜推近 | 3 |
+''');
+    final oldId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '旧镜头',
+    );
+    gateway.toolResult = (_) {
+      engine.saveStoryboardTable(projectId, scriptId, '''
+| 画面提示词 | 画面描述 | 时长 |
+| --- | --- | --- |
+| 已编辑的新镜头 | 横向跟拍 | 4 |
+''');
+      return {
+        'shots': [
+          {'prompt': '过期响应', 'videoDesc': '过期运镜'},
+        ],
+      };
+    };
+
+    final taskId = engine.generateStoryboards(
+      projectId,
+      scriptId,
+      replaceExisting: true,
+    );
+    await waitTask(taskId, expectState: 'failed');
+    expect(engine.storyboards(scriptId).single.id, oldId);
+    expect(engine.storyboards(scriptId).single.prompt, '旧镜头');
+  });
+
+  test('供应商等待期间旧分镜被编辑时不用生成结果覆盖', () async {
+    seedDocuments(table: '''
+| 画面提示词 | 画面描述 | 时长 |
+| --- | --- | --- |
+| 雪夜山门 | 慢镜推近 | 3 |
+''');
+    final oldId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '旧镜头',
+    );
+    gateway.toolResult = (_) {
+      engine.editStoryboard(oldId, prompt: '用户等待时的手动修改');
+      return {
+        'shots': [
+          {'prompt': '过期响应', 'videoDesc': '过期运镜'},
+        ],
+      };
+    };
+
+    final taskId = engine.generateStoryboards(
+      projectId,
+      scriptId,
+      replaceExisting: true,
+    );
+    await waitTask(taskId, expectState: 'failed');
+    expect(engine.storyboards(scriptId).single.id, oldId);
+    expect(engine.storyboards(scriptId).single.prompt, '用户等待时的手动修改');
   });
 
   test('首帧图批量生成：预置生成中→完成/失败/关联资产参考图', () async {
@@ -307,6 +639,8 @@ void main() {
 class _Gateway implements ProviderGateway {
   Map<String, dynamic> Function(String user)? toolResult;
   String? seenSystem;
+  String? seenUser;
+  int toolCalls = 0;
   String Function(String prompt, String projectId, String? refPath)?
       imageHandler;
 
@@ -317,7 +651,9 @@ class _Gateway implements ProviderGateway {
       required Map<String, dynamic> schema,
       CancelToken? cancelToken}) async {
     expect(stage, 'storyboard_gen');
+    toolCalls++;
     seenSystem = system;
+    seenUser = user;
     await Future<void>.delayed(const Duration(milliseconds: 5));
     return toolResult!(user);
   }

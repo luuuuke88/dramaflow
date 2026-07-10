@@ -32,6 +32,7 @@ const destructiveActionKeys = <String>{
   'note_delete',
   'clear_chat',
   'clear_all_data',
+  'replace_storyboards',
 };
 
 enum PolicyVerdict { allow, confirmMoney, confirmDestructive }

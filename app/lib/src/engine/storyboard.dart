@@ -9,8 +9,11 @@ import 'package:sqlite3/sqlite3.dart' show Row;
 
 import 'engine.dart';
 import 'errors.dart';
+import 'production_dependencies.dart';
 import 'prompt_resolver.dart';
 import 'queue.dart';
+import 'script_plan.dart';
+import 'storyboard_table.dart';
 
 const sbNotGenerated = '未生成';
 const sbGenerating = '生成中';
@@ -63,6 +66,24 @@ class StoryboardRow {
   });
 }
 
+class StoryboardTableShot {
+  final String prompt;
+  final String videoDesc;
+  final String duration;
+  final String track;
+  final List<String> assetNames;
+  final bool shouldGenerateImage;
+
+  const StoryboardTableShot({
+    required this.prompt,
+    required this.videoDesc,
+    required this.duration,
+    required this.track,
+    required this.assetNames,
+    required this.shouldGenerateImage,
+  });
+}
+
 /// resultTool schema：剧本 → 分镜列表（照抄 batchAddStoryboardInfo 语义）。
 const storyboardListToolSchema = <String, dynamic>{
   'type': 'object',
@@ -81,7 +102,7 @@ const storyboardListToolSchema = <String, dynamic>{
             'items': {'type': 'string'},
           },
         },
-        'required': ['prompt'],
+        'required': ['prompt', 'videoDesc'],
       },
     },
   },
@@ -97,6 +118,40 @@ bool _sameOrder(List<int> a, List<int> b) {
   }
   return true;
 }
+
+List<String> _splitMarkdownRow(String line) {
+  final cells = <String>[];
+  final cell = StringBuffer();
+  final text = line.trim();
+  for (var i = 0; i < text.length; i++) {
+    final char = text[i];
+    if (char == r'\' && i + 1 < text.length && text[i + 1] == '|') {
+      cell.write('|');
+      i++;
+    } else if (char == '|') {
+      cells.add(cell.toString().trim());
+      cell.clear();
+    } else {
+      cell.write(char);
+    }
+  }
+  cells.add(cell.toString().trim());
+  if (cells.isNotEmpty && cells.first.isEmpty) cells.removeAt(0);
+  if (cells.isNotEmpty && cells.last.isEmpty) cells.removeLast();
+  return cells;
+}
+
+String _normalizedTableHeader(String value) =>
+    value.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+
+bool _isMarkdownSeparator(List<String> cells) =>
+    cells.isNotEmpty &&
+    cells.every((cell) => RegExp(r'^:?-{3,}:?$').hasMatch(cell));
+
+Never _storyboardTableError(String reason) => throw EngineException(
+      errLlmFormat,
+      {'reason': 'storyboard_table:$reason'},
+    );
 
 extension StoryboardApi on Engine {
   void installStoryboardPipeline() {
@@ -312,41 +367,328 @@ extension StoryboardApi on Engine {
 
   // ───────── 剧本 → 分镜生成（LLM tool-calling） ─────────
 
-  int generateStoryboards(int projectId, int scriptId) {
+  List<StoryboardTableShot> parseStoryboardTable(String markdown) {
+    final lines = markdown.split(RegExp(r'\r?\n'));
+    List<String>? headers;
+    var separatorIndex = -1;
+    for (var i = 0; i + 1 < lines.length; i++) {
+      if (!lines[i].contains('|') || !lines[i + 1].contains('|')) continue;
+      final candidateHeaders = _splitMarkdownRow(lines[i]);
+      final separator = _splitMarkdownRow(lines[i + 1]);
+      if (!_isMarkdownSeparator(separator) ||
+          candidateHeaders.length != separator.length) {
+        continue;
+      }
+      final normalized = candidateHeaders.map(_normalizedTableHeader).toList();
+      if (normalized.contains('画面提示词') || normalized.contains('prompt')) {
+        headers = normalized;
+        separatorIndex = i + 1;
+        break;
+      }
+    }
+    if (headers == null) _storyboardTableError('missing_table');
+
+    int column(Set<String> aliases) {
+      for (var i = 0; i < headers!.length; i++) {
+        if (aliases.contains(headers[i])) return i;
+      }
+      return -1;
+    }
+
+    final promptColumn = column({'画面提示词', 'prompt'});
+    final videoDescColumn = column({'画面描述', 'videodesc'});
+    final durationColumn = column({'时长', 'duration'});
+    final trackColumn = column({'分轨', 'track'});
+    final assetsColumn = column({'资产', 'assetnames'});
+    final imageColumn = column({'生成首帧', 'shouldgenerateimage'});
+    if (promptColumn < 0 || videoDescColumn < 0 || durationColumn < 0) {
+      _storyboardTableError('missing_required_columns');
+    }
+
+    final shots = <StoryboardTableShot>[];
+    for (var i = separatorIndex + 1; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty || !line.contains('|')) break;
+      final cells = _splitMarkdownRow(line);
+      if (cells.length != headers.length) {
+        _storyboardTableError('row_${i + 1}_column_count');
+      }
+      final prompt = cells[promptColumn].trim();
+      final videoDesc = cells[videoDescColumn].trim();
+      final duration = cells[durationColumn].trim();
+      if (prompt.isEmpty || videoDesc.isEmpty || duration.isEmpty) {
+        _storyboardTableError('row_${i + 1}_required_value');
+      }
+      var shouldGenerateImage = true;
+      if (imageColumn >= 0) {
+        final raw = cells[imageColumn].trim().toLowerCase();
+        if (raw.isEmpty || raw == '否' || raw == 'false' || raw == '0') {
+          shouldGenerateImage = false;
+        } else if (raw == '是' || raw == 'true' || raw == '1') {
+          shouldGenerateImage = true;
+        } else {
+          _storyboardTableError('row_${i + 1}_boolean');
+        }
+      }
+      final assetNames = assetsColumn < 0
+          ? const <String>[]
+          : cells[assetsColumn]
+              .split(RegExp('[,，]'))
+              .map((name) => name.trim())
+              .where((name) => name.isNotEmpty)
+              .toSet()
+              .toList();
+      shots.add(StoryboardTableShot(
+        prompt: prompt,
+        videoDesc: videoDesc,
+        duration: duration,
+        track: trackColumn < 0 ? '' : cells[trackColumn].trim(),
+        assetNames: List.unmodifiable(assetNames),
+        shouldGenerateImage: shouldGenerateImage,
+      ));
+    }
+    if (shots.isEmpty) _storyboardTableError('empty_rows');
+    return List.unmodifiable(shots);
+  }
+
+  int generateStoryboards(
+    int projectId,
+    int scriptId, {
+    bool replaceExisting = false,
+  }) {
+    final script = db.select(
+      'SELECT content FROM o_script WHERE id=? AND projectId=? LIMIT 1',
+      [scriptId, projectId],
+    ).firstOrNull;
+    final plan = scriptPlan(projectId);
+    final table = storyboardTable(projectId, scriptId);
+    if (script == null || plan.trim().isEmpty || table.trim().isEmpty) return 0;
+    if (!replaceExisting &&
+        db.select('SELECT id FROM o_storyboard WHERE scriptId=? LIMIT 1',
+            [scriptId]).isNotEmpty) {
+      return 0;
+    }
+    final content = script['content'] as String? ?? '';
     return queue.enqueue(
       projectId: projectId,
       taskClass: 'storyboard_generate',
       describe: '分镜生成',
-      relatedObjects: {'kind': 'script', 'scriptId': scriptId},
+      relatedObjects: {
+        'kind': 'script',
+        'scriptId': scriptId,
+        'replaceExisting': replaceExisting,
+        'scriptHash': promptContentHash(content),
+        'planHash': promptContentHash(plan),
+        'tableHash': promptContentHash(table),
+        'assetsHash': scriptAssetsHash(projectId, scriptId),
+      },
     );
   }
 
+  void _assertStoryboardSourcesCurrent(
+    int projectId,
+    int scriptId,
+    Map<String, dynamic> related,
+  ) {
+    final script = db.select(
+      'SELECT content FROM o_script WHERE id=? AND projectId=? LIMIT 1',
+      [scriptId, projectId],
+    ).firstOrNull;
+    if (script == null) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'storyboard:staleScript'},
+      );
+    }
+    final content = script['content'] as String? ?? '';
+    final plan = scriptPlan(projectId);
+    final table = storyboardTable(projectId, scriptId);
+    if ((related['scriptHash'] ?? '').toString() !=
+        promptContentHash(content)) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'storyboard:staleScript'},
+      );
+    }
+    if ((related['planHash'] ?? '').toString() != promptContentHash(plan)) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'storyboard:stalePlan'},
+      );
+    }
+    if ((related['tableHash'] ?? '').toString() != promptContentHash(table)) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'storyboard:staleTable'},
+      );
+    }
+    if ((related['assetsHash'] ?? '').toString() !=
+        scriptAssetsHash(projectId, scriptId)) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'storyboard:staleAssets'},
+      );
+    }
+  }
+
+  String _storyboardOutputHash(int scriptId) {
+    String material(
+      String label,
+      String sql,
+      List<String> columns,
+    ) {
+      final rows = db.select(sql, [scriptId]);
+      return rows.map((row) {
+        final values = [for (final column in columns) row[column] ?? ''];
+        return '$label\u0000${values.join('\u0000')}';
+      }).join('\n');
+    }
+
+    return promptContentHash([
+      material(
+        'storyboard',
+        'SELECT id,"index",prompt,videoDesc,duration,filePath,'
+            'shouldGenerateImage,track,trackId,audioAssetId,audioText,audioPath,'
+            'audioState,state FROM o_storyboard WHERE scriptId=? ORDER BY id',
+        const [
+          'id',
+          'index',
+          'prompt',
+          'videoDesc',
+          'duration',
+          'filePath',
+          'shouldGenerateImage',
+          'track',
+          'trackId',
+          'audioAssetId',
+          'audioText',
+          'audioPath',
+          'audioState',
+          'state',
+        ],
+      ),
+      material(
+        'assetLink',
+        'SELECT ats.storyboardId,ats.assetId FROM o_assets2Storyboard ats '
+            'JOIN o_storyboard s ON s.id=ats.storyboardId '
+            'WHERE s.scriptId=? ORDER BY ats.storyboardId,ats.assetId',
+        const ['storyboardId', 'assetId'],
+      ),
+      material(
+        'videoTrack',
+        'SELECT id,prompt,duration,transition,filterPreset,selectVideoId,videoId,'
+            'state,videoRequest FROM o_videoTrack WHERE scriptId=? ORDER BY id',
+        const [
+          'id',
+          'prompt',
+          'duration',
+          'transition',
+          'filterPreset',
+          'selectVideoId',
+          'videoId',
+          'state',
+          'videoRequest',
+        ],
+      ),
+      material(
+        'video',
+        'SELECT id,videoTrackId,filePath,state,modelBinding,requestFingerprint,'
+            'upstreamTaskId,upstreamState FROM o_video '
+            'WHERE scriptId=? ORDER BY id',
+        const [
+          'id',
+          'videoTrackId',
+          'filePath',
+          'state',
+          'modelBinding',
+          'requestFingerprint',
+          'upstreamTaskId',
+          'upstreamState',
+        ],
+      ),
+      material(
+        'timeline',
+        'SELECT id,assetId,filePath,lane,startMs,durationMs,name,opacity '
+            'FROM o_timelineClip WHERE scriptId=? ORDER BY id',
+        const [
+          'id',
+          'assetId',
+          'filePath',
+          'lane',
+          'startMs',
+          'durationMs',
+          'name',
+          'opacity',
+        ],
+      ),
+    ].join('\n'));
+  }
+
   Future<void> _runStoryboardGenerate(TasksRow task, CancelToken token) async {
-    final scriptId =
-        ((task.relatedObjectsJson['scriptId'] as num?) ?? 0).toInt();
-    final script =
-        db.select('SELECT * FROM o_script WHERE id=?', [scriptId]).firstOrNull;
+    final related = task.relatedObjectsJson;
+    final scriptId = ((related['scriptId'] as num?) ?? 0).toInt();
+    final replaceExisting = related['replaceExisting'] == true;
+    final projectId = task.projectId ?? 0;
+    final script = db.select(
+      'SELECT content FROM o_script WHERE id=? AND projectId=? LIMIT 1',
+      [scriptId, projectId],
+    ).firstOrNull;
     if (script == null) {
       throw EngineException(errPromptMissing, {'type': 'script'});
     }
-    final projectId = (script['projectId'] as int?) ?? task.projectId ?? 0;
+    final content = script['content'] as String? ?? '';
+    final plan = scriptPlan(projectId);
+    final table = storyboardTable(projectId, scriptId);
+    if (plan.trim().isEmpty || table.trim().isEmpty) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'storyboard:dependencies'},
+      );
+    }
+    _assertStoryboardSourcesCurrent(projectId, scriptId, related);
+    final tableShots = parseStoryboardTable(table);
+    if (!replaceExisting &&
+        db.select('SELECT id FROM o_storyboard WHERE scriptId=? LIMIT 1',
+            [scriptId]).isNotEmpty) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'storyboard:existing'},
+      );
+    }
+    final existingOutputHash =
+        replaceExisting ? _storyboardOutputHash(scriptId) : '';
     final assets = db.select(
-      'SELECT id,name FROM o_assets WHERE projectId=? '
-      "AND type IN ('role','tool','scene')",
-      [projectId],
+      "SELECT a.id,a.type,a.name,a.describe FROM o_scriptAssets sa "
+      "JOIN o_assets a ON a.id=sa.assetId "
+      "WHERE sa.scriptId=? AND a.projectId=? "
+      "AND a.type IN ('role','tool','scene') ORDER BY a.id",
+      [scriptId, projectId],
     );
     final nameToId = {
       for (final a in assets)
-        if (a['name'] != null) a['name'] as String: a['id'] as int,
+        if ((a['name'] as String? ?? '').trim().isNotEmpty)
+          (a['name'] as String).trim(): a['id'] as int,
     };
+    final assetsText = assets.map((row) {
+      final name = (row['name'] as String? ?? '').trim();
+      final type = (row['type'] as String? ?? '').trim();
+      final describe = (row['describe'] as String? ?? '').trim();
+      return '$name（$type）：$describe';
+    }).join('\n');
     final resolution = resolvePrompt(
       projectId: projectId,
       basePromptKey: 'storyboard_gen',
       visualSection: 'director_storyboard',
       modelStage: 'storyboard_gen',
+      modelPromptPath: 'text/storyboard_gen.md',
+      requireModelPrompt: false,
     );
-    final user = '请根据以下剧本内容生成分镜列表（每个分镜包含画面提示词、'
-        '运镜/画面描述、预估时长秒数、涉及的资产名称）：\n${script['content'] ?? ''}';
+    final user = '导演规划：\n$plan\n\n'
+        '分镜表：\n$table\n\n'
+        '当前剧本：\n$content\n\n'
+        '候选资产：\n${assetsText.isEmpty ? '（无）' : assetsText}\n\n'
+        '请严格按分镜表的行数和顺序输出，保持每行的时长、分轨和资产意图，'
+        '只润色画面提示词和画面描述。';
     recordTaskPromptSources(
       task.id,
       resolution,
@@ -357,10 +699,28 @@ extension StoryboardApi on Engine {
           sources: List.unmodifiable([
             ...resolution.sources,
             PromptSource(
+              id: 'data:directorPlan:$projectId',
+              kind: 'data',
+              version: promptContentHash(plan),
+              content: plan,
+            ),
+            PromptSource(
+              id: 'data:storyboardTable:$scriptId',
+              kind: 'data',
+              version: promptContentHash(table),
+              content: table,
+            ),
+            PromptSource(
               id: 'data:script:$scriptId',
               kind: 'data',
-              version: promptContentHash(user),
-              content: user,
+              version: promptContentHash(content),
+              content: content,
+            ),
+            PromptSource(
+              id: 'data:scriptAssets:$scriptId',
+              kind: 'data',
+              version: scriptAssetsHash(projectId, scriptId),
+              content: assetsText,
             ),
           ]),
         ),
@@ -374,44 +734,145 @@ extension StoryboardApi on Engine {
       schema: storyboardListToolSchema,
       cancelToken: token,
     );
-    final shots = (result['shots'] as List? ?? const []).whereType<Map>();
-    if (shots.isEmpty) {
-      throw const EngineException(errLlmFormat, {'reason': 'empty shots'});
-    }
-    var index = 0;
-    for (final shot in shots) {
-      index++;
-      final assetNames = (shot['assetNames'] as List? ?? const [])
-          .map((e) => e.toString())
-          .toList();
-      final assetIds = [
-        for (final name in assetNames)
-          if (nameToId[name] != null) nameToId[name]!,
-      ];
-      db.execute(
-        'INSERT INTO o_storyboard '
-        '(projectId,scriptId,"index",prompt,videoDesc,duration,state,'
-        'shouldGenerateImage,track,createTime) VALUES (?,?,?,?,?,?,?,1,?,?)',
-        [
-          projectId,
-          scriptId,
-          index,
-          (shot['prompt'] ?? '').toString(),
-          (shot['videoDesc'] ?? '').toString(),
-          (shot['duration'] ?? '').toString(),
-          sbNotGenerated,
-          (shot['track'] ?? '').toString(),
-          DateTime.now().millisecondsSinceEpoch,
-        ],
+    if (token.isCancelled) throw const EngineException(errCanceled);
+    _assertStoryboardSourcesCurrent(projectId, scriptId, related);
+    if (replaceExisting &&
+        existingOutputHash != _storyboardOutputHash(scriptId)) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'storyboard:staleExisting'},
       );
-      final id = db.lastInsertRowId;
-      for (final assetId in assetIds) {
-        db.execute(
-          'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?)',
-          [assetId, id],
+    }
+    if (!replaceExisting &&
+        db.select('SELECT id FROM o_storyboard WHERE scriptId=? LIMIT 1',
+            [scriptId]).isNotEmpty) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'storyboard:existing'},
+      );
+    }
+    final rawShots = result['shots'];
+    if (rawShots is! List ||
+        rawShots.isEmpty ||
+        rawShots.length != tableShots.length) {
+      throw const EngineException(
+        errLlmFormat,
+        {'reason': 'storyboard_shots:count'},
+      );
+    }
+    final generated = <({String prompt, String videoDesc})>[];
+    for (var i = 0; i < rawShots.length; i++) {
+      final raw = rawShots[i];
+      if (raw is! Map) {
+        throw EngineException(
+          errLlmFormat,
+          {'reason': 'storyboard_shots:row_${i + 1}'},
         );
       }
+      final prompt = (raw['prompt'] ?? '').toString().trim();
+      final videoDesc = (raw['videoDesc'] ?? '').toString().trim();
+      if (prompt.isEmpty || videoDesc.isEmpty) {
+        throw EngineException(
+          errLlmFormat,
+          {'reason': 'storyboard_shots:row_${i + 1}_required'},
+        );
+      }
+      generated.add((prompt: prompt, videoDesc: videoDesc));
     }
+
+    final oldMediaPaths = <String>{};
+    if (replaceExisting) {
+      for (final row in db.select(
+        'SELECT filePath FROM o_storyboard WHERE scriptId=? '
+        'AND filePath IS NOT NULL',
+        [scriptId],
+      )) {
+        final path = (row['filePath'] as String? ?? '').trim();
+        if (path.isNotEmpty) oldMediaPaths.add(path);
+      }
+      for (final row in db.select(
+        'SELECT filePath FROM o_video WHERE scriptId=? AND filePath IS NOT NULL',
+        [scriptId],
+      )) {
+        final path = (row['filePath'] as String? ?? '').trim();
+        if (path.isNotEmpty) oldMediaPaths.add(path);
+      }
+    }
+
+    db.execute('SAVEPOINT replace_storyboards');
+    try {
+      if (replaceExisting) {
+        db.execute(
+          'DELETE FROM o_assets2Storyboard WHERE storyboardId IN '
+          '(SELECT id FROM o_storyboard WHERE scriptId=?)',
+          [scriptId],
+        );
+        db.execute('DELETE FROM o_storyboard WHERE scriptId=?', [scriptId]);
+        db.execute('DELETE FROM o_video WHERE scriptId=?', [scriptId]);
+        db.execute('DELETE FROM o_videoTrack WHERE scriptId=?', [scriptId]);
+        db.execute('DELETE FROM o_timelineClip WHERE scriptId=?', [scriptId]);
+      }
+      final now = DateTime.now().millisecondsSinceEpoch;
+      for (var i = 0; i < tableShots.length; i++) {
+        final tableShot = tableShots[i];
+        final generatedShot = generated[i];
+        db.execute(
+          'INSERT INTO o_storyboard '
+          '(projectId,scriptId,"index",prompt,videoDesc,duration,state,'
+          'shouldGenerateImage,track,createTime) VALUES (?,?,?,?,?,?,?,?,?,?)',
+          [
+            projectId,
+            scriptId,
+            i + 1,
+            generatedShot.prompt,
+            generatedShot.videoDesc,
+            tableShot.duration,
+            sbNotGenerated,
+            tableShot.shouldGenerateImage ? 1 : 0,
+            tableShot.track,
+            now,
+          ],
+        );
+        final storyboardId = db.lastInsertRowId;
+        final assetIds = <int>{
+          for (final name in tableShot.assetNames)
+            if (nameToId[name] != null) nameToId[name]!,
+        };
+        for (final assetId in assetIds) {
+          db.execute(
+            'INSERT INTO o_assets2Storyboard (assetId,storyboardId) '
+            'VALUES (?,?)',
+            [assetId, storyboardId],
+          );
+        }
+      }
+      db.execute('RELEASE SAVEPOINT replace_storyboards');
+    } catch (_) {
+      db.execute('ROLLBACK TO SAVEPOINT replace_storyboards');
+      db.execute('RELEASE SAVEPOINT replace_storyboards');
+      rethrow;
+    }
+
+    for (final path in oldMediaPaths) {
+      try {
+        final stillReferencedByAsset = db.select(
+          'SELECT id FROM o_image WHERE filePath=? LIMIT 1',
+          [path],
+        ).isNotEmpty;
+        if (stillReferencedByAsset) continue;
+        final file = File(media.absPath(path));
+        if (file.existsSync()) file.deleteSync();
+      } on FileSystemException {
+        // Database replacement is already committed; orphan cleanup can retry later.
+      }
+    }
+    setProductionDependencyState(
+      projectId: projectId,
+      scriptId: scriptId,
+      key: structuredStoryboardStateKey,
+      sourceHash: promptContentHash(table),
+      stale: false,
+    );
   }
 
   void _recoverStoryboardGenerate(TasksRow task) {

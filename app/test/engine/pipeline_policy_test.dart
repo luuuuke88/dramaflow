@@ -51,8 +51,8 @@ void main() {
   });
 
   group('destructiveActionKeys', () {
-    test('包含 9 个破坏动作', () {
-      expect(destructiveActionKeys.length, 9);
+    test('包含 10 个破坏动作', () {
+      expect(destructiveActionKeys.length, 10);
     });
 
     test('包括删除与清空系列', () {
@@ -65,6 +65,7 @@ void main() {
       expect(destructiveActionKeys, contains('note_delete'));
       expect(destructiveActionKeys, contains('clear_chat'));
       expect(destructiveActionKeys, contains('clear_all_data'));
+      expect(destructiveActionKeys, contains('replace_storyboards'));
     });
   });
 
@@ -230,7 +231,7 @@ void main() {
       }
     });
 
-    test('9 个 destructiveKey × confirmDestructive 开/关', () {
+    test('10 个 destructiveKey × confirmDestructive 开/关', () {
       final destructiveKeys = [
         'delete_assets',
         'delete_scripts',
@@ -241,6 +242,7 @@ void main() {
         'note_delete',
         'clear_chat',
         'clear_all_data',
+        'replace_storyboards',
       ];
 
       for (final key in destructiveKeys) {
