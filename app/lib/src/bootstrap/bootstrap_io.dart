@@ -16,12 +16,15 @@ import '../state/providers.dart';
 
 const _defaultSkillsZipAsset =
     'assets/default_skills/toonflow_default_skills.zip';
+const _defaultPromptsZipAsset =
+    'assets/default_prompts/toonflow_model_prompts.zip';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   final docs = await getApplicationDocumentsDirectory();
   final dataDir = p.join(docs.path, 'dramaflow');
   await seedBundledDefaultSkills(dataDir);
+  await seedBundledModelPrompts(dataDir);
   final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
   final videoComposer =
       !kIsWeb && (Platform.isMacOS || Platform.isIOS || Platform.isAndroid)
@@ -46,15 +49,47 @@ Future<void> seedBundledDefaultSkills(
   String dataDir, {
   AssetBundle? bundle,
 }) async {
+  await _seedArchivePrefix(
+    dataDir: dataDir,
+    asset: _defaultSkillsZipAsset,
+    prefix: 'skills',
+    bundle: bundle,
+    allow: (parts) =>
+        parts.length >= 3 &&
+        (parts[1] == 'art_skills' || parts[1] == 'story_skills'),
+  );
+}
+
+/// Copy bundled model prompt templates when their local files are absent.
+///
+/// Existing files are user-editable and are therefore never overwritten.
+Future<void> seedBundledModelPrompts(
+  String dataDir, {
+  AssetBundle? bundle,
+}) async {
+  await _seedArchivePrefix(
+    dataDir: dataDir,
+    asset: _defaultPromptsZipAsset,
+    prefix: 'model_prompts',
+    bundle: bundle,
+  );
+}
+
+Future<void> _seedArchivePrefix({
+  required String dataDir,
+  required String asset,
+  required String prefix,
+  AssetBundle? bundle,
+  bool Function(List<String> parts)? allow,
+}) async {
   final assetBundle = bundle ?? rootBundle;
-  final zipBytes = await assetBundle.load(_defaultSkillsZipAsset);
+  final zipBytes = await assetBundle.load(asset);
   final archive = ZipDecoder().decodeBytes(_byteDataToList(zipBytes));
   for (final file in archive.files) {
     if (!file.isFile) continue;
     final parts = file.name.split('/');
-    if (parts.length < 3 || parts.first != 'skills') continue;
-    final kind = parts[1];
-    if (kind != 'art_skills' && kind != 'story_skills') continue;
+    if (parts.length < 2 || parts.first != prefix) continue;
+    if (allow != null && !allow(parts)) continue;
     final target = File(p.joinAll([dataDir, ...parts]));
     if (target.existsSync()) continue;
     target.parent.createSync(recursive: true);

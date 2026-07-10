@@ -44,7 +44,7 @@
 - Produces `<dataDir>/model_prompts/video/{seedance2Multi-parameterMode,universalFirstAndLastFrameMode,universalMulti-parameterMode,wan2.6Single-imageFirstFrameMode}.md`.
 - Produces an editable default row for `volcengine:doubao-seedance-2-0-mini-260615` with `path='video/seedance2Multi-parameterMode.md'` and `fileName='seedance2Multi-parameterMode.md'`.
 
-- [ ] **Step 1: Write failing seed and model-template registration tests.**
+- [x] **Step 1: Write failing seed and model-template registration tests.**
 
   Extend the bootstrap fixture archive with a `model_prompts/video/seedance2Multi-parameterMode.md` entry. Assert that a custom local file does not suppress the missing default file, and that a second seed does not replace an edited default file. In `engine_facade_test.dart`, boot with an explicit `InMemoryCredentialStore`, create the default model-prompt source directory, and assert exactly one Seedance Mini model prompt row is created with nonempty prompt text and the expected path.
 
@@ -55,13 +55,13 @@
   expect((row['prompt'] as String).trim(), isNotEmpty);
   ```
 
-- [ ] **Step 2: Run the focused tests and verify both fail before implementation.**
+- [x] **Step 2: Run the focused tests and verify both fail before implementation.**
 
   Run: `cd app && flutter test test/bootstrap/bootstrap_io_test.dart test/engine/engine_facade_test.dart`
 
   Expected: FAIL because the current bootstrap only seeds `skills/`, and no default model-prompt row exists.
 
-- [ ] **Step 3: Build the bundled archive and add per-file prompt seeding.**
+- [x] **Step 3: Build the bundled archive and add per-file prompt seeding.**
 
   Create `assets/default_prompts/toonflow_model_prompts.zip` from the four original files, preserving their `video/` relative paths. Add the archive path to `pubspec.yaml`. In `bootstrap_io.dart`, add a separate archive constant and function which writes only `model_prompts/**` entries to `<dataDir>/model_prompts`, skipping existing targets.
 
@@ -80,7 +80,7 @@
 
   Call it from `bootstrap()` after `seedBundledDefaultSkills(dataDir)` and before `Engine.boot`.
 
-- [ ] **Step 4: Register the editable Seedance template after provider defaults.**
+- [x] **Step 4: Register the editable Seedance template after provider defaults.**
 
   In `Engine.boot`, call a private `_seedBundledModelPromptRows(db, dataDir)` after `_seedDefaults`. It reads `<dataDir>/model_prompts/video/seedance2Multi-parameterMode.md` and inserts only when no `o_modelPrompt` row exists for the same `(vendorId, model, path)`. Use the exact values below.
 
@@ -93,13 +93,13 @@
 
   Do not automatically return this full multi-parameter template from the legacy single-shot `getPromptForStageModel` path; C3 will pass its template path explicitly when it builds a compatible request.
 
-- [ ] **Step 5: Run focused tests and static analysis.**
+- [x] **Step 5: Run focused tests and static analysis.**
 
   Run: `cd app && flutter test test/bootstrap/bootstrap_io_test.dart test/engine/engine_facade_test.dart && flutter analyze`
 
   Expected: PASS. Confirm with `unzip -l assets/default_prompts/toonflow_model_prompts.zip` that all four source files are present.
 
-- [ ] **Step 6: Commit the bundled prompt pack.**
+- [x] **Step 6: Commit the bundled prompt pack.**
 
   ```bash
   git add app/assets/default_prompts app/pubspec.yaml app/pubspec.lock app/lib/src/bootstrap/bootstrap_io.dart app/lib/src/engine/engine.dart app/test/bootstrap/bootstrap_io_test.dart app/test/engine/engine_facade_test.dart

@@ -289,6 +289,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     final db = openEngineDb(path.join(dataDir, 'dramaflow.sqlite'));
     final config = EngineConfig(db, isMobile: isMobile);
     _seedDefaults(db, config, isMobile: isMobile);
+    _seedBundledModelPromptRows(db, dataDir);
     final credentials = credentialStore ?? SecureCredentialStore();
     await _migrateLegacyProviderCredentials(db, credentials);
     final media = MediaStore(path.join(dataDir, 'media'));
@@ -495,6 +496,29 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       data: '你是配音匹配助手。根据角色资产的名称与描述，从候选音频列表中'
           '选出音色气质最匹配的一条。必须通过调用 resultTool 工具返回结果'
           '（每个角色对应一个音频 id），禁止输出任何其他文字。',
+    );
+  }
+
+  static void _seedBundledModelPromptRows(Database db, String dataDir) {
+    const vendorId = 'volcengine';
+    const modelId = 'doubao-seedance-2-0-mini-260615';
+    const modelPromptPath = 'video/seedance2Multi-parameterMode.md';
+    const fileName = 'seedance2Multi-parameterMode.md';
+    final source = File(path.join(dataDir, 'model_prompts', modelPromptPath));
+    if (!source.existsSync()) return;
+
+    final existing = db.select(
+      'SELECT id FROM o_modelPrompt WHERE vendorId=? AND model=? AND path=?',
+      [vendorId, modelId, modelPromptPath],
+    );
+    if (existing.isNotEmpty) return;
+
+    final prompt = source.readAsStringSync();
+    if (prompt.trim().isEmpty) return;
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [vendorId, modelId, fileName, modelPromptPath, prompt],
     );
   }
 

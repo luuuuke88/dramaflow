@@ -56,6 +56,33 @@ void main() {
     await seedBundledDefaultSkills(dir.path, bundle: bundle);
     expect(defaultReadme.readAsStringSync(), '用户编辑默认包');
   });
+
+  test('默认模型提示词按文件补齐，不覆盖用户编辑', () async {
+    final dir = Directory.systemTemp.createTempSync('dramaflow-prompt-seed-');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    final archive = Archive()
+      ..addFile(_file(
+        'model_prompts/video/seedance2Multi-parameterMode.md',
+        'Seedance default template',
+      ));
+    final bundle = _ZipBundle(ZipEncoder().encode(archive));
+
+    await seedBundledModelPrompts(dir.path, bundle: bundle);
+
+    final target = File(p.join(
+      dir.path,
+      'model_prompts',
+      'video',
+      'seedance2Multi-parameterMode.md',
+    ));
+    expect(target.readAsStringSync(), 'Seedance default template');
+
+    target.writeAsStringSync('user edited template');
+    await seedBundledModelPrompts(dir.path, bundle: bundle);
+    expect(target.readAsStringSync(), 'user edited template');
+  });
 }
 
 ArchiveFile _file(String path, String content) {

@@ -434,6 +434,42 @@ description: 分镜表构建 Agent
         '新模板');
   });
 
+  test('boot 注册 Seedance Mini 默认模板且不覆盖用户编辑', () async {
+    final dataDir = p.join(dir.path, 'seeded-model-prompts');
+    final template = File(p.join(
+      dataDir,
+      'model_prompts',
+      'video',
+      'seedance2Multi-parameterMode.md',
+    ));
+    template.createSync(recursive: true);
+    template.writeAsStringSync('Seedance bundled template');
+
+    final seeded = await bootForTest(dataDir);
+    var seededDisposed = false;
+    addTearDown(() {
+      if (!seededDisposed) seeded.dispose();
+    });
+
+    final rows = await seeded.listModelPrompts();
+    expect(rows, hasLength(1));
+    expect(rows.single['vendorId'], 'volcengine');
+    expect(rows.single['model'], 'doubao-seedance-2-0-mini-260615');
+    expect(rows.single['fileName'], 'seedance2Multi-parameterMode.md');
+    expect(rows.single['path'], 'video/seedance2Multi-parameterMode.md');
+    expect(rows.single['prompt'], 'Seedance bundled template');
+
+    await seeded.updateModelPrompt(rows.single['id'] as int, 'user edited');
+    seeded.dispose();
+    seededDisposed = true;
+
+    final rebooted = await bootForTest(dataDir);
+    addTearDown(rebooted.dispose);
+    final rebootedRows = await rebooted.listModelPrompts();
+    expect(rebootedRows, hasLength(1));
+    expect(rebootedRows.single['prompt'], 'user edited');
+  });
+
   test('exportConfig/importConfig 往返供应商、绑定、提示词', () async {
     final provider = await engine.createProvider(
       name: '导出供应商',
