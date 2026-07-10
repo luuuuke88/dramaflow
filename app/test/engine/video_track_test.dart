@@ -225,6 +225,36 @@ void main() {
         ['p/first.png', 'p/last.png']);
   });
 
+  test('videoReferenceCandidates exposes only local media available to a shot',
+      () {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '参考素材');
+    writeMedia('p/candidate-first.png');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/candidate-first.png' WHERE id=?",
+        [sbId]);
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '角色参考',
+      describe: '',
+    );
+    writeMedia('p/candidate-role.png');
+    db.execute(
+      "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,'image','已完成')",
+      [assetId, 'p/candidate-role.png'],
+    );
+    db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
+        [db.lastInsertRowId, assetId]);
+
+    final candidates = engine.videoReferenceCandidates(projectId, sbId);
+
+    expect(candidates.map((candidate) => candidate.localPath),
+        containsAll(['p/candidate-first.png', 'p/candidate-role.png']));
+    expect(candidates.every((candidate) => candidate.localPath.startsWith('/')),
+        isFalse);
+  });
+
   test('batchGenerateVideos rejects unsupported controls before enqueue', () {
     configureVideoModel();
     final sbId = engine.addStoryboard(

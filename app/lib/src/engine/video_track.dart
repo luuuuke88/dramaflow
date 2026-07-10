@@ -250,6 +250,94 @@ extension VideoTrackApi on Engine {
     return defaults;
   }
 
+  VideoModelCapabilities? videoCapabilitiesForProject(int projectId) {
+    final project = db
+        .select('SELECT * FROM o_project WHERE id=?', [projectId]).firstOrNull;
+    return project == null ? null : _videoCapabilities(project);
+  }
+
+  List<VideoReferenceCandidate> videoReferenceCandidates(
+    int projectId,
+    int storyboardId,
+  ) {
+    final rows = <VideoReferenceCandidate>[];
+
+    void add({
+      required String sourceType,
+      required int sourceId,
+      required String mediaType,
+      required String role,
+      required String label,
+      required String? localPath,
+    }) {
+      if (localPath == null || localPath.isEmpty) return;
+      if (!File(media.absPath(localPath)).existsSync()) return;
+      rows.add(VideoReferenceCandidate(
+        source: VideoReferenceSource(
+          sourceType: sourceType,
+          sourceId: sourceId,
+          mediaType: mediaType,
+          role: role,
+        ),
+        label: label,
+        localPath: localPath,
+      ));
+    }
+
+    final storyboard = db.select(
+      'SELECT id,filePath FROM o_storyboard WHERE id=? AND projectId=?',
+      [storyboardId, projectId],
+    ).firstOrNull;
+    if (storyboard != null) {
+      add(
+        sourceType: 'storyboard',
+        sourceId: storyboard['id'] as int,
+        mediaType: 'image',
+        role: 'first_frame',
+        label: 'Storyboard $storyboardId',
+        localPath: storyboard['filePath'] as String?,
+      );
+    }
+    for (final row in db.select(
+      'SELECT a.id,a.name,a.type,i.filePath FROM o_assets a '
+      'JOIN o_image i ON i.id=a.imageId WHERE a.projectId=? '
+      "AND i.filePath IS NOT NULL AND trim(i.filePath)<>''",
+      [projectId],
+    )) {
+      final type = row['type'] as String? ?? '';
+      final mediaType =
+          type == 'audio' ? 'audio' : (type == 'clip' ? 'video' : 'image');
+      final role = switch (mediaType) {
+        'audio' => 'reference_audio',
+        'video' => 'reference_video',
+        _ => 'reference_image',
+      };
+      add(
+        sourceType: 'asset',
+        sourceId: row['id'] as int,
+        mediaType: mediaType,
+        role: role,
+        label: row['name'] as String? ?? '',
+        localPath: row['filePath'] as String?,
+      );
+    }
+    for (final row in db.select(
+      "SELECT id,filePath FROM o_video WHERE projectId=? AND state=? "
+      "AND filePath IS NOT NULL AND trim(filePath)<>''",
+      [projectId, vtDone],
+    )) {
+      add(
+        sourceType: 'video',
+        sourceId: row['id'] as int,
+        mediaType: 'video',
+        role: 'reference_video',
+        label: 'Video ${row['id']}',
+        localPath: row['filePath'] as String?,
+      );
+    }
+    return rows;
+  }
+
   void updateVideoRequest(int trackId, VideoRequestDraft draft) {
     db.execute('UPDATE o_videoTrack SET videoRequest=? WHERE id=?',
         [jsonEncode(draft.toJson()), trackId]);
