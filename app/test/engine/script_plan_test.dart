@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/production_dependencies.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/script_plan.dart';
@@ -14,6 +18,16 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 class _Gateway implements ProviderGateway {
+  String Function(String system, String user, String stage)? textHandler;
+  var textCalls = 0;
+
+  @override
+  Future<TextResult> generateText(String system, String user,
+      {required String stage, CancelToken? cancelToken}) async {
+    textCalls++;
+    return TextResult(textHandler!(system, user, stage));
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -21,19 +35,41 @@ class _Gateway implements ProviderGateway {
 void main() {
   late Directory dir;
   late Database db;
+  late _Gateway gateway;
   late Engine engine;
   late int projectId;
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('dramaflow-plan-');
     db = openEngineDb(':memory:');
+    gateway = _Gateway();
     engine = Engine(
       db: db,
       media: MediaStore(p.join(dir.path, 'media')),
-      gateway: _Gateway(),
+      gateway: gateway,
       config: EngineConfig(db, isMobile: false),
+      queueTick: const Duration(milliseconds: 10),
     );
-    projectId = engine.addProject(projectType: 'novel', name: '规划测试');
+    engine.saveVisualManual(
+      name: 'Ink',
+      pack: 'ink_pack',
+      data: const {'director_planning_style': 'VISUAL PLAN'},
+    );
+    engine.saveDirectorManual(
+      name: 'Pace',
+      pack: 'pace_pack',
+      data: const {'director_planning_narrative': 'DIRECTOR PLAN'},
+    );
+    db.execute(
+      'INSERT INTO o_prompt (name,type,data,useData) VALUES (?,?,?,NULL)',
+      ['director_plan', 'director_plan', 'BASE PLAN'],
+    );
+    projectId = engine.addProject(
+      projectType: 'novel',
+      name: '规划测试',
+      artStyle: 'ink_pack',
+      directorManual: 'pace_pack',
+    );
   });
 
   tearDown(() {
@@ -122,4 +158,76 @@ void main() {
       isTrue,
     );
   });
+
+  test('无剧本时不提交导演规划任务', () {
+    expect(engine.generateDirectorPlan(projectId), 0);
+    expect(db.select('SELECT id FROM o_tasks'), isEmpty);
+  });
+
+  test('导演规划生成记录来源并写入项目 Markdown', () async {
+    engine.addScript(projectId: projectId, name: '第一集', content: '林朝雪雪夜拔剑');
+    gateway.textHandler = (system, user, stage) {
+      expect(stage, 'director_plan');
+      expect(system, 'BASE PLAN\n\nVISUAL PLAN\n\nDIRECTOR PLAN');
+      expect(user, contains('第一集'));
+      expect(user, contains('林朝雪雪夜拔剑'));
+      return '<think>分析</think># 导演规划\n\n## 节奏\n快切推进';
+    };
+    engine.installScriptPlanPipeline();
+    engine.queue.start();
+
+    final taskId = engine.generateDirectorPlan(projectId);
+    await _waitTask(db, taskId);
+
+    expect(engine.scriptPlan(projectId), '# 导演规划\n\n## 节奏\n快切推进');
+    final related = Map<String, dynamic>.from(jsonDecode(db.select(
+        'SELECT relatedObjects FROM o_tasks WHERE id=?',
+        [taskId]).single['relatedObjects'] as String) as Map);
+    expect(related['scriptsHash'], matches(RegExp(r'^[0-9a-f]{64}$')));
+    expect(related['promptSources'], isNotEmpty);
+    expect(related['promptRequests'], hasLength(1));
+    expect(jsonEncode(related), isNot(contains('林朝雪雪夜拔剑')));
+  });
+
+  test('手册缺失时在模型调用前失败', () async {
+    engine.addScript(projectId: projectId, name: '第一集', content: '初稿');
+    engine.installScriptPlanPipeline();
+
+    engine.deleteVisualManual('ink_pack');
+    engine.queue.start();
+    final missingManualTask = engine.generateDirectorPlan(projectId);
+    await _waitTask(db, missingManualTask, expected: 'failed');
+    expect(gateway.textCalls, 0);
+  });
+
+  test('排队后剧本变化时在模型调用前失败', () async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '初稿');
+    engine.installScriptPlanPipeline();
+
+    final staleTask = engine.generateDirectorPlan(projectId);
+    engine.updateScript(scriptId, content: '修订稿');
+    engine.queue.start();
+    await _waitTask(db, staleTask, expected: 'failed');
+    expect(gateway.textCalls, 0);
+    final reason = db.select('SELECT reason FROM o_tasks WHERE id=?',
+        [staleTask]).single['reason'] as String;
+    expect(EngineException.fromReasonJson(reason)?.errKey, errPromptMissing);
+  });
+}
+
+Future<void> _waitTask(Database db, int taskId,
+    {String expected = 'success'}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 3));
+  while (DateTime.now().isBefore(deadline)) {
+    final state = db.select(
+            'SELECT state FROM o_tasks WHERE id=?', [taskId]).single['state']
+        as String;
+    if (state == 'success' || state == 'failed') {
+      expect(state, expected);
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  fail('task $taskId timed out');
 }
