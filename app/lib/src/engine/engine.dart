@@ -21,6 +21,7 @@ import 'providers/resolve.dart';
 import 'prompts.dart' as prompt_defaults;
 import 'queue.dart';
 import 'scripts.dart';
+import 'video_request.dart';
 import 'video_track.dart' show VideoTrackApi;
 
 class ProjectRow {
@@ -86,6 +87,116 @@ class ProjectStats {
     this.assets = 0,
     this.storyboards = 0,
   });
+}
+
+Map<String, Object?> _legacySeedanceMiniCapabilities() => {
+      'durations': [for (var i = 4; i <= 15; i++) i],
+      'resolutions': ['480p', '720p'],
+      'video': {
+        'modes': [VideoMode.firstFrame.wireValue],
+        'references': const {},
+        'durations': [for (var i = 4; i <= 15; i++) i],
+        'resolutions': ['480p', '720p'],
+        'ratios': ['16:9', '9:16'],
+        'audio': 'none',
+        'promptTemplates': const {},
+      },
+    };
+
+Map<String, Object?> _seedanceTwoCapabilities() => {
+      'video': {
+        'modes': [for (final mode in VideoMode.values) mode.wireValue],
+        'references': {'image': 9, 'video': 3, 'audio': 3},
+        'durations': [for (var i = 4; i <= 15; i++) i],
+        'resolutions': ['480p', '720p'],
+        'ratios': ['16:9', '9:16'],
+        'audio': 'optional',
+        'promptTemplates': {
+          'text': 'video/universalMulti-parameterMode.md',
+          'first_frame': 'video/wan2.6Single-imageFirstFrameMode.md',
+          'first_last_frame': 'video/universalFirstAndLastFrameMode.md',
+          'multi_reference': 'video/seedance2Multi-parameterMode.md',
+        },
+      },
+    };
+
+Map<String, Object?> _seedanceModel(
+  String modelId,
+  Map<String, Object?> capabilities,
+) =>
+    {
+      'id': 'volcengine:$modelId',
+      'providerId': 'volcengine',
+      'modelId': modelId,
+      'label': modelId,
+      'kind': 'video',
+      'capabilities': capabilities,
+      'enabled': true,
+    };
+
+void _seedSeedanceVideoProfiles(Database db) {
+  final row = db.select('SELECT models FROM o_vendorConfig WHERE id=?',
+      ['volcengine']).firstOrNull;
+  if (row == null) return;
+  final raw = row['models'] as String?;
+  final decoded =
+      raw == null || raw.trim().isEmpty ? const [] : jsonDecode(raw);
+  if (decoded is! List) return;
+  final models = [
+    for (final value in decoded)
+      if (value is Map) Map<String, dynamic>.from(value),
+  ];
+  var changed = false;
+
+  Map<String, dynamic>? find(String modelId) {
+    for (final model in models) {
+      if (model['modelId'] == modelId) return model;
+    }
+    return null;
+  }
+
+  final miniId = 'doubao-seedance-2-0-mini-260615';
+  final mini = find(miniId);
+  if (mini == null) {
+    models.add(_seedanceModel(miniId, _legacySeedanceMiniCapabilities()));
+    changed = true;
+  } else {
+    final rawCapabilities = mini['capabilities'];
+    final capabilities = rawCapabilities is Map
+        ? Map<String, dynamic>.from(rawCapabilities)
+        : <String, dynamic>{};
+    if (capabilities['video'] is! Map) {
+      final legacy = _legacySeedanceMiniCapabilities();
+      final video = Map<String, Object?>.from(legacy['video'] as Map);
+      final durations = capabilities['durations'];
+      final resolutions = capabilities['resolutions'];
+      if (durations is List && durations.isNotEmpty) {
+        video['durations'] = durations;
+      }
+      if (resolutions is List && resolutions.isNotEmpty) {
+        video['resolutions'] = resolutions;
+      }
+      capabilities['video'] = video;
+      mini['capabilities'] = capabilities;
+      changed = true;
+    }
+  }
+
+  for (final modelId in const [
+    'doubao-seedance-2-0-260128',
+    'doubao-seedance-2-0-fast-260128',
+  ]) {
+    if (find(modelId) == null) {
+      models.add(_seedanceModel(modelId, _seedanceTwoCapabilities()));
+      changed = true;
+    }
+  }
+  if (changed) {
+    db.execute('UPDATE o_vendorConfig SET models=? WHERE id=?', [
+      jsonEncode(models),
+      'volcengine',
+    ]);
+  }
 }
 
 class Engine {
@@ -386,14 +497,13 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
             'doubao-seedance-2-0-mini-260615',
             'doubao-seedance-2-0-mini-260615',
             'video',
-            {
-              'durations': [for (var i = 4; i <= 15; i++) i],
-              'resolutions': ['480p', '720p'],
-            },
+            _legacySeedanceMiniCapabilities(),
           ),
         ],
       );
     }
+
+    _seedSeedanceVideoProfiles(db);
 
     void binding(String stage, String value) {
       final key = 'binding.$stage';

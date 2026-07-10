@@ -12,6 +12,7 @@ import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/video_request.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
@@ -472,6 +473,161 @@ description: 分镜表构建 Agent
     final rebootedRows = await rebooted.listModelPrompts();
     expect(rebootedRows, hasLength(1));
     expect(rebootedRows.single['prompt'], 'user edited');
+  });
+
+  test('boot seeds structured Seedance video capabilities', () async {
+    final seeded = await bootForTest(p.join(dir.path, 'seeded-video-caps'));
+    addTearDown(seeded.dispose);
+
+    final models = await seeded.listProviderModels('volcengine');
+    final byId = {for (final model in models) model.modelId: model};
+
+    final mini = VideoModelCapabilities.fromJson(
+      byId['doubao-seedance-2-0-mini-260615']!.capabilities,
+    );
+    final full = VideoModelCapabilities.fromJson(
+      byId['doubao-seedance-2-0-260128']!.capabilities,
+    );
+    final fast = VideoModelCapabilities.fromJson(
+      byId['doubao-seedance-2-0-fast-260128']!.capabilities,
+    );
+
+    expect(mini.modes, {VideoMode.firstFrame});
+    expect(mini.durations, {for (var i = 4; i <= 15; i++) i});
+    expect(mini.resolutions, {'480p', '720p'});
+    expect(mini.ratios, {'16:9', '9:16'});
+    expect(mini.audio, 'none');
+
+    expect(
+      full.modes,
+      {
+        VideoMode.text,
+        VideoMode.firstFrame,
+        VideoMode.firstLastFrame,
+        VideoMode.multiReference,
+      },
+    );
+    expect(full.referenceLimits, {'image': 9, 'video': 3, 'audio': 3});
+    expect(full.audio, 'optional');
+    expect(
+      full.promptTemplates[VideoMode.multiReference],
+      'video/seedance2Multi-parameterMode.md',
+    );
+
+    expect(fast.modes, full.modes);
+    expect(fast.referenceLimits, full.referenceLimits);
+    expect(fast.audio, 'optional');
+  });
+
+  test(
+      'boot backfills full fast profiles and upgrades legacy mini capabilities without overwriting the row',
+      () async {
+    final dataDir = p.join(dir.path, 'seeded-video-cap-upgrade');
+    final seeded = await bootForTest(dataDir);
+    var seededDisposed = false;
+    addTearDown(() {
+      if (!seededDisposed) seeded.dispose();
+    });
+
+    final existingModels = await seeded.listProviderModels('volcengine');
+    final downgraded = [
+      for (final model in existingModels)
+        if (!{
+          'doubao-seedance-2-0-260128',
+          'doubao-seedance-2-0-fast-260128',
+        }.contains(model.modelId))
+          {
+            'id': model.id,
+            'modelId': model.modelId,
+            'label': model.modelId == 'doubao-seedance-2-0-mini-260615'
+                ? 'Custom Mini'
+                : model.label,
+            'kind': model.kind,
+            'capabilities': model.modelId == 'doubao-seedance-2-0-mini-260615'
+                ? {
+                    'durations': [4, 5],
+                    'resolutions': ['720p'],
+                  }
+                : model.capabilities,
+            'enabled': model.enabled,
+          },
+    ];
+    await seeded.saveProviderModels('volcengine', downgraded);
+    seeded.dispose();
+    seededDisposed = true;
+
+    final rebooted = await bootForTest(dataDir);
+    addTearDown(rebooted.dispose);
+    final rebootedModels = await rebooted.listProviderModels('volcengine');
+    final byId = {for (final model in rebootedModels) model.modelId: model};
+
+    expect(byId['doubao-seedance-2-0-mini-260615']!.label, 'Custom Mini');
+    final mini = VideoModelCapabilities.fromJson(
+      byId['doubao-seedance-2-0-mini-260615']!.capabilities,
+    );
+    expect(mini.modes, {VideoMode.firstFrame});
+    expect(mini.durations, {4, 5});
+    expect(mini.resolutions, {'720p'});
+    expect(
+      byId.containsKey('doubao-seedance-2-0-260128'),
+      isTrue,
+    );
+    expect(
+      byId.containsKey('doubao-seedance-2-0-fast-260128'),
+      isTrue,
+    );
+  });
+
+  test('boot preserves an existing custom full Seedance model declaration',
+      () async {
+    final dataDir = p.join(dir.path, 'seeded-video-cap-preserve');
+    final seeded = await bootForTest(dataDir);
+    final models = await seeded.listProviderModels('volcengine');
+    await seeded.saveProviderModels('volcengine', [
+      for (final model in models)
+        if (model.modelId == 'doubao-seedance-2-0-260128')
+          {
+            'id': model.id,
+            'providerId': model.providerId,
+            'modelId': model.modelId,
+            'label': 'My Full Seedance',
+            'kind': 'video',
+            'capabilities': {
+              'video': {
+                'modes': ['text'],
+                'references': const {},
+                'durations': [8],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+                'promptTemplates': const {},
+              },
+            },
+            'enabled': true,
+          }
+        else
+          {
+            'id': model.id,
+            'providerId': model.providerId,
+            'modelId': model.modelId,
+            'label': model.label,
+            'kind': model.kind,
+            'capabilities': model.capabilities,
+            'enabled': model.enabled,
+          },
+    ]);
+    seeded.dispose();
+
+    final rebooted = await bootForTest(dataDir);
+    addTearDown(rebooted.dispose);
+    final full = (await rebooted.listProviderModels('volcengine'))
+        .singleWhere((model) => model.modelId == 'doubao-seedance-2-0-260128');
+
+    expect(full.label, 'My Full Seedance');
+    final caps = VideoModelCapabilities.fromJson(full.capabilities);
+    expect(caps.modes, {VideoMode.text});
+    expect(caps.durations, {8});
+    expect(caps.audio, 'none');
   });
 
   test('exportConfig/importConfig 往返供应商、绑定、提示词', () async {
