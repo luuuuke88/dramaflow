@@ -866,7 +866,32 @@ WHERE id=?
     return taskId;
   }
 
-  Future<void> cancelJob(int taskId) async => queue.cancel(taskId);
+  File _taskPrivatePayloadFile(int taskId) => File(path.join(
+        path.dirname(media.rootDir),
+        'task_payloads',
+        '$taskId.payload',
+      ));
+
+  void writeTaskPrivatePayload(int taskId, String payload) {
+    final file = _taskPrivatePayloadFile(taskId);
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(payload);
+  }
+
+  String? readTaskPrivatePayload(int taskId) {
+    final file = _taskPrivatePayloadFile(taskId);
+    return file.existsSync() ? file.readAsStringSync() : null;
+  }
+
+  void deleteTaskPrivatePayload(int taskId) {
+    final file = _taskPrivatePayloadFile(taskId);
+    if (file.existsSync()) file.deleteSync();
+  }
+
+  Future<void> cancelJob(int taskId) async {
+    queue.cancel(taskId);
+    deleteTaskPrivatePayload(taskId);
+  }
 
   Future<AppSettings> getSettings() async =>
       AppSettings.fromJson(config.getAllMasked());

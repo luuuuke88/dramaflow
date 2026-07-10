@@ -9,6 +9,7 @@ import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/prompt_resolver.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -215,34 +216,72 @@ void main() {
     );
     engine.saveVisualManual(
       name: '国风水墨',
-      data: const {'art_character': 'VISUAL ROLE'},
+      data: const {
+        'art_character': 'VISUAL ROLE',
+        'art_character_derivative': 'VISUAL DERIVATIVE',
+      },
     );
-    final id = engine.addAsset(
+    final parent = engine.addAsset(
       projectId: projectId,
       type: 'role',
       name: '林逸',
       describe: '主角侠客',
     );
+    final derivative = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸战损',
+      describe: '战后造型',
+      parentAssetsId: parent,
+    );
     gateway.textHandler = (system, user) {
-      expect(system, 'BASE ASSET\n\nVISUAL ROLE');
+      expect(system, isNot(contains('SECRET INSTRUCTION')));
+      if (user.contains('林逸战损')) {
+        expect(system, 'BASE ASSET\n\nVISUAL DERIVATIVE');
+      } else {
+        expect(system, 'BASE ASSET\n\nVISUAL ROLE');
+      }
+      expect(
+        user.indexOf('角色描述'),
+        lessThan(user.indexOf('SECRET INSTRUCTION')),
+      );
       return 'resolved prompt';
     };
 
-    final taskId = engine.batchPolishAssetPrompts(projectId, [id]);
+    final taskId = engine.batchPolishAssetPrompts(
+      projectId,
+      [parent, derivative],
+      concurrentCount: 2,
+      otherTextPrompt: 'SECRET INSTRUCTION',
+    );
     await waitTask(taskId);
 
     final related = jsonDecode(db.select(
         'SELECT relatedObjects FROM o_tasks WHERE id=?',
         [taskId]).single['relatedObjects'] as String) as Map<String, dynamic>;
-    expect(
-      (related['promptSources'] as List).map((source) => (source as Map)['id']),
-      [
-        'base:asset_prompt_polish',
-        'visual:国风水墨:art_character',
-      ],
-    );
+    final sources = (related['promptSources'] as List)
+        .map((source) => Map<String, dynamic>.from(source as Map))
+        .toList();
+    expect(sources.map((source) => source['id']), [
+      'base:asset_prompt_polish',
+      'visual:国风水墨:art_character',
+      'visual:国风水墨:art_character_derivative',
+      'instruction:asset_prompt_polish',
+    ]);
+    expect(sources.map((source) => source['version']), [
+      promptContentHash('BASE ASSET'),
+      promptContentHash('VISUAL ROLE'),
+      promptContentHash('VISUAL DERIVATIVE'),
+      promptContentHash('SECRET INSTRUCTION'),
+    ]);
     expect(jsonEncode(related), isNot(contains('BASE ASSET')));
     expect(jsonEncode(related), isNot(contains('VISUAL ROLE')));
+    expect(jsonEncode(related), isNot(contains('SECRET INSTRUCTION')));
+    expect(
+      File(p.join(dir.path, 'task_payloads', '$taskId.payload')).existsSync(),
+      isFalse,
+      reason: '成功任务应清理私有补充要求文件',
+    );
   });
 
   test('批量润色：并发任务、单个失败不失败任务、衍生用 _derivative 手册', () async {

@@ -560,17 +560,15 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       basePromptKey: 'asset_prompt_polish',
       visualSection: isDerivative ? cfg.manualKeyDerivative : cfg.manualKey,
     );
-    var system = resolution.system;
-    if (otherTextPrompt != null && otherTextPrompt.isNotEmpty) {
-      system =
-          [system, otherTextPrompt].where((s) => s.isNotEmpty).join('\n\n');
-    }
     // user 模板逐字照抄 polishAssetsPrompt.ts
-    final user = '**基础参数：**\n'
+    var user = '**基础参数：**\n'
         '**${cfg.nameLabel}设定：**\n'
         '- ${cfg.nameLabel}名称:$name,\n'
         '- ${cfg.nameLabel}描述:$describe,';
-    return (resolution: resolution, system: system, user: user);
+    if (otherTextPrompt != null && otherTextPrompt.isNotEmpty) {
+      user = '$user\n\n**补充要求：**\n$otherTextPrompt';
+    }
+    return (resolution: resolution, system: resolution.system, user: user);
   }
 
   /// 单资产润色（对话框"智能生成"，同步等待返回）。
@@ -618,7 +616,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       'UPDATE o_assets SET promptState=? WHERE id IN (${_ph(assetIds)})',
       [stateGenerating, ...assetIds],
     );
-    return queue.enqueue(
+    final taskId = queue.enqueue(
       projectId: projectId,
       taskClass: 'asset_prompt_polish',
       describe: '提示词批量润色',
@@ -626,9 +624,12 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         'kind': 'asset',
         'ids': assetIds,
         'concurrentCount': concurrentCount,
-        if (otherTextPrompt != null) 'otherTextPrompt': otherTextPrompt,
       },
     );
+    if (otherTextPrompt != null && otherTextPrompt.isNotEmpty) {
+      writeTaskPrivatePayload(taskId, otherTextPrompt);
+    }
+    return taskId;
   }
 
   Future<void> _runPromptPolish(TasksRow task, CancelToken token) async {
@@ -638,29 +639,90 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         .toList();
     final concurrent =
         ((related['concurrentCount'] as num?)?.toInt() ?? 5).clamp(1, 16);
-    final other = related['otherTextPrompt'] as String?;
+    final other = readTaskPrivatePayload(task.id);
     var success = 0;
     EngineException? firstFailure;
     var cursor = 0;
+    final messagesById = <int,
+        ({
+      PromptResolution resolution,
+      String system,
+      String user,
+    })>{};
+
+    for (final id in ids) {
+      final row =
+          db.select('SELECT * FROM o_assets WHERE id=?', [id]).firstOrNull;
+      if (row == null) continue;
+      try {
+        messagesById[id] = _polishMessages(
+          (row['projectId'] as int?) ?? 0,
+          (row['type'] as String?) ?? '',
+          (row['name'] as String?) ?? '',
+          (row['describe'] as String?) ?? '',
+          isDerivative: row['assetsId'] != null,
+          otherTextPrompt: other,
+        );
+      } catch (e) {
+        final ex = e is EngineException
+            ? e
+            : EngineException(errLlmFormat, {'message': '$e'});
+        firstFailure ??= ex;
+        db.execute(
+          'UPDATE o_assets SET promptState=?, promptErrorReason=? WHERE id=?',
+          [stateFailed, ex.toReasonJson(), id],
+        );
+      }
+    }
+
+    final uniqueSources = <String, PromptSource>{};
+    for (final id in ids) {
+      final messages = messagesById[id];
+      if (messages == null) continue;
+      for (final source in messages.resolution.sources) {
+        uniqueSources.putIfAbsent(
+          '${source.id}:${source.version}',
+          () => source,
+        );
+      }
+    }
+    if (other != null && other.isNotEmpty && messagesById.isNotEmpty) {
+      final source = PromptSource(
+        id: 'instruction:asset_prompt_polish',
+        kind: 'instruction',
+        version: promptContentHash(other),
+        content: other,
+      );
+      uniqueSources['${source.id}:${source.version}'] = source;
+    }
+    if (uniqueSources.isNotEmpty) {
+      final ordered = <PromptSource>[];
+      for (final kind in const [
+        'base',
+        'visual',
+        'director',
+        'model',
+        'instruction',
+      ]) {
+        ordered.addAll(
+          uniqueSources.values.where((source) => source.kind == kind),
+        );
+      }
+      recordTaskPromptSources(
+        task.id,
+        PromptResolution(system: '', sources: List.unmodifiable(ordered)),
+      );
+    }
+
+    final runIds = messagesById.keys.toList();
 
     Future<void> worker() async {
       while (!token.isCancelled) {
         final i = cursor++;
-        if (i >= ids.length) return;
-        final id = ids[i];
-        final row =
-            db.select('SELECT * FROM o_assets WHERE id=?', [id]).firstOrNull;
-        if (row == null) continue;
+        if (i >= runIds.length) return;
+        final id = runIds[i];
+        final msgs = messagesById[id]!;
         try {
-          final msgs = _polishMessages(
-            (row['projectId'] as int?) ?? 0,
-            (row['type'] as String?) ?? '',
-            (row['name'] as String?) ?? '',
-            (row['describe'] as String?) ?? '',
-            isDerivative: row['assetsId'] != null,
-            otherTextPrompt: other,
-          );
-          recordTaskPromptSources(task.id, msgs.resolution);
           final res = await gateway.generateText(msgs.system, msgs.user,
               stage: 'asset_extract', cancelToken: token);
           db.execute(
@@ -684,10 +746,12 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       }
     }
 
-    await Future.wait(
-        [for (var w = 0; w < min(concurrent, ids.length); w++) worker()]);
+    await Future.wait([
+      for (var w = 0; w < min(concurrent, runIds.length); w++) worker(),
+    ]);
     if (token.isCancelled) throw const EngineException(errCanceled);
     if (success == 0 && firstFailure != null) throw firstFailure!;
+    deleteTaskPrivatePayload(task.id);
   }
 
   void _recoverPromptPolish(TasksRow task) {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -7,6 +8,7 @@ import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/prompt_resolver.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
@@ -196,12 +198,23 @@ void main() {
     expect(rows[0].track, '主线');
     expect(rows[1].assetIds, isEmpty);
     expect(gateway.seenSystem, '分镜系统提示词\n\n分镜视觉手册');
-    final related = db.select('SELECT relatedObjects FROM o_tasks WHERE id=?',
+    final relatedRaw = db.select(
+        'SELECT relatedObjects FROM o_tasks WHERE id=?',
         [taskId]).single['relatedObjects'] as String;
-    expect(related, contains('base:storyboard_gen'));
-    expect(related, contains('visual:storyboard_pack:director_storyboard'));
-    expect(related, isNot(contains('分镜系统提示词')));
-    expect(related, isNot(contains('分镜视觉手册')));
+    final related = jsonDecode(relatedRaw) as Map<String, dynamic>;
+    final sources = (related['promptSources'] as List)
+        .map((source) => Map<String, dynamic>.from(source as Map))
+        .toList();
+    expect(sources.map((source) => source['id']), [
+      'base:storyboard_gen',
+      'visual:storyboard_pack:director_storyboard',
+    ]);
+    expect(sources.map((source) => source['version']), [
+      promptContentHash('分镜系统提示词'),
+      promptContentHash('分镜视觉手册'),
+    ]);
+    expect(relatedRaw, isNot(contains('分镜系统提示词')));
+    expect(relatedRaw, isNot(contains('分镜视觉手册')));
   });
 
   test('生成分镜失败：空 shots 抛 errLlmFormat', () async {
