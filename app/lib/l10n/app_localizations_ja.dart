@@ -3085,6 +3085,52 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsModelsSaved => 'モデルを保存しました';
 
   @override
+  String get settingsVideoCapabilities => '動画機能';
+
+  @override
+  String get settingsVideoReferenceImage => '画像参照';
+
+  @override
+  String get settingsVideoReferenceVideo => '動画参照';
+
+  @override
+  String get settingsVideoReferenceAudio => '音声参照';
+
+  @override
+  String get settingsVideoDurations => '長さ（秒）';
+
+  @override
+  String get settingsVideoResolutions => '解像度';
+
+  @override
+  String get settingsVideoRatios => 'アスペクト比';
+
+  @override
+  String get settingsVideoAudio => '音声';
+
+  @override
+  String get settingsVideoAudioNone => '音声なし';
+
+  @override
+  String get settingsVideoAudioOptional => '任意の音声';
+
+  @override
+  String get settingsVideoAudioRequired => '音声必須';
+
+  @override
+  String get settingsVideoPromptTemplate => 'プロンプトテンプレート';
+
+  @override
+  String get settingsVideoCapabilityModeRequired =>
+      '動画モデルには少なくとも 1 つの生成モードが必要です';
+
+  @override
+  String get settingsVideoReferenceNegative => '動画の参照数は負の値にできません';
+
+  @override
+  String get settingsVideoCapabilityListRequired => '動画モデルには長さ、解像度、アスペクト比が必要です';
+
+  @override
   String get settingsDeleteModel => 'モデルを削除';
 
   @override

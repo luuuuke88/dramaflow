@@ -3157,6 +3157,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsModelsSaved => 'Models saved';
 
   @override
+  String get settingsVideoCapabilities => 'Video capabilities';
+
+  @override
+  String get settingsVideoReferenceImage => 'Image references';
+
+  @override
+  String get settingsVideoReferenceVideo => 'Video references';
+
+  @override
+  String get settingsVideoReferenceAudio => 'Audio references';
+
+  @override
+  String get settingsVideoDurations => 'Durations (seconds)';
+
+  @override
+  String get settingsVideoResolutions => 'Resolutions';
+
+  @override
+  String get settingsVideoRatios => 'Aspect ratios';
+
+  @override
+  String get settingsVideoAudio => 'Audio';
+
+  @override
+  String get settingsVideoAudioNone => 'No audio';
+
+  @override
+  String get settingsVideoAudioOptional => 'Optional audio';
+
+  @override
+  String get settingsVideoAudioRequired => 'Required audio';
+
+  @override
+  String get settingsVideoPromptTemplate => 'Prompt template';
+
+  @override
+  String get settingsVideoCapabilityModeRequired =>
+      'A video model needs at least one generation mode';
+
+  @override
+  String get settingsVideoReferenceNegative =>
+      'Video reference counts cannot be negative';
+
+  @override
+  String get settingsVideoCapabilityListRequired =>
+      'Video models require durations, resolutions, and aspect ratios';
+
+  @override
   String get settingsDeleteModel => 'Delete model';
 
   @override

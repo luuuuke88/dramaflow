@@ -5956,6 +5956,96 @@ abstract class AppLocalizations {
   /// **'模型已保存'**
   String get settingsModelsSaved;
 
+  /// No description provided for @settingsVideoCapabilities.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频能力'**
+  String get settingsVideoCapabilities;
+
+  /// No description provided for @settingsVideoReferenceImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片参考'**
+  String get settingsVideoReferenceImage;
+
+  /// No description provided for @settingsVideoReferenceVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频参考'**
+  String get settingsVideoReferenceVideo;
+
+  /// No description provided for @settingsVideoReferenceAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频参考'**
+  String get settingsVideoReferenceAudio;
+
+  /// No description provided for @settingsVideoDurations.
+  ///
+  /// In zh, this message translates to:
+  /// **'时长（秒）'**
+  String get settingsVideoDurations;
+
+  /// No description provided for @settingsVideoResolutions.
+  ///
+  /// In zh, this message translates to:
+  /// **'分辨率'**
+  String get settingsVideoResolutions;
+
+  /// No description provided for @settingsVideoRatios.
+  ///
+  /// In zh, this message translates to:
+  /// **'画幅比例'**
+  String get settingsVideoRatios;
+
+  /// No description provided for @settingsVideoAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频'**
+  String get settingsVideoAudio;
+
+  /// No description provided for @settingsVideoAudioNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无音频'**
+  String get settingsVideoAudioNone;
+
+  /// No description provided for @settingsVideoAudioOptional.
+  ///
+  /// In zh, this message translates to:
+  /// **'可选音频'**
+  String get settingsVideoAudioOptional;
+
+  /// No description provided for @settingsVideoAudioRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'必须音频'**
+  String get settingsVideoAudioRequired;
+
+  /// No description provided for @settingsVideoPromptTemplate.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词模板'**
+  String get settingsVideoPromptTemplate;
+
+  /// No description provided for @settingsVideoCapabilityModeRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频模型至少需要一种生成模式'**
+  String get settingsVideoCapabilityModeRequired;
+
+  /// No description provided for @settingsVideoReferenceNegative.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频参考数量不能为负数'**
+  String get settingsVideoReferenceNegative;
+
+  /// No description provided for @settingsVideoCapabilityListRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频模型必须填写时长、分辨率和画幅比例'**
+  String get settingsVideoCapabilityListRequired;
+
   /// No description provided for @settingsDeleteModel.
   ///
   /// In zh, this message translates to:

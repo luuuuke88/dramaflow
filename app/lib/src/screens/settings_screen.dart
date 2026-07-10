@@ -1779,6 +1779,121 @@ class _ProviderCard extends StatelessWidget {
   }
 }
 
+class _VideoCapabilityEditor extends StatelessWidget {
+  final _ModelDraft draft;
+  final VoidCallback onChanged;
+
+  const _VideoCapabilityEditor({required this.draft, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final id = draft.modelId.text.trim().isEmpty
+        ? draft.id
+        : draft.modelId.text.trim();
+    return ExpansionTile(
+      key: ValueKey('video-capability-$id'),
+      title: Text(l10n.settingsVideoCapabilities),
+      childrenPadding: const EdgeInsets.only(bottom: 8),
+      children: [
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final mode in _videoModeValues)
+              FilterChip(
+                key: ValueKey('video-capability-mode-$mode-$id'),
+                label: Text(mode),
+                selected: draft.videoModes.contains(mode),
+                onSelected: (selected) {
+                  if (selected) {
+                    draft.videoModes.add(mode);
+                  } else {
+                    draft.videoModes.remove(mode);
+                  }
+                  onChanged();
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+              child: _capabilityInput(
+                  draft.videoImageReferences,
+                  ValueKey('video-capability-reference-image-$id'),
+                  l10n.settingsVideoReferenceImage)),
+          const SizedBox(width: 8),
+          Expanded(
+              child: _capabilityInput(
+                  draft.videoReferences,
+                  ValueKey('video-capability-reference-video-$id'),
+                  l10n.settingsVideoReferenceVideo)),
+          const SizedBox(width: 8),
+          Expanded(
+              child: _capabilityInput(
+                  draft.audioReferences,
+                  ValueKey('video-capability-reference-audio-$id'),
+                  l10n.settingsVideoReferenceAudio)),
+        ]),
+        const SizedBox(height: 8),
+        _capabilityInput(
+            draft.videoDurations,
+            ValueKey('video-capability-durations-$id'),
+            l10n.settingsVideoDurations),
+        const SizedBox(height: 8),
+        _capabilityInput(
+            draft.videoResolutions,
+            ValueKey('video-capability-resolutions-$id'),
+            l10n.settingsVideoResolutions),
+        const SizedBox(height: 8),
+        _capabilityInput(draft.videoRatios,
+            ValueKey('video-capability-ratios-$id'), l10n.settingsVideoRatios),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          key: ValueKey('video-capability-audio-$id'),
+          initialValue: draft.videoAudio,
+          items: [
+            DropdownMenuItem(
+                value: 'none', child: Text(l10n.settingsVideoAudioNone)),
+            DropdownMenuItem(
+                value: 'optional',
+                child: Text(l10n.settingsVideoAudioOptional)),
+            DropdownMenuItem(
+                value: 'required',
+                child: Text(l10n.settingsVideoAudioRequired)),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+            draft.videoAudio = value;
+            onChanged();
+          },
+        ),
+        for (final mode in _videoModeValues)
+          if (draft.videoModes.contains(mode)) ...[
+            const SizedBox(height: 8),
+            _capabilityInput(
+              draft.videoTemplates[mode]!,
+              ValueKey('video-capability-template-$mode-$id'),
+              '${l10n.settingsVideoPromptTemplate}: $mode',
+            ),
+          ],
+      ],
+    );
+  }
+
+  Widget _capabilityInput(
+    TextEditingController controller,
+    Key key,
+    String label,
+  ) =>
+      TextField(
+        key: key,
+        controller: controller,
+        decoration: InputDecoration(labelText: label),
+        onChanged: (_) => onChanged(),
+      );
+}
+
 class _ProviderActions extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onManageModels;
@@ -2060,6 +2175,20 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
         );
         return;
       }
+      final capabilityError = draft.videoCapabilityError;
+      if (capabilityError != null) {
+        final message = switch (capabilityError) {
+          _VideoCapabilityError.modeRequired =>
+            l10n.settingsVideoCapabilityModeRequired,
+          _VideoCapabilityError.negativeReference =>
+            l10n.settingsVideoReferenceNegative,
+          _VideoCapabilityError.listRequired =>
+            l10n.settingsVideoCapabilityListRequired,
+        };
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+        return;
+      }
     }
 
     final payload = [
@@ -2071,7 +2200,7 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
               ? draft.modelId.text.trim()
               : draft.label.text.trim(),
           'kind': draft.kind,
-          'capabilities': draft.capabilities,
+          'capabilities': draft.serializedCapabilities(),
           'enabled': draft.enabled,
         }
     ];
@@ -2152,6 +2281,15 @@ class _ModelDraft {
   final TextEditingController modelId;
   final TextEditingController label;
   final Map<String, dynamic> capabilities;
+  final Set<String> videoModes;
+  final TextEditingController videoImageReferences;
+  final TextEditingController videoReferences;
+  final TextEditingController audioReferences;
+  final TextEditingController videoDurations;
+  final TextEditingController videoResolutions;
+  final TextEditingController videoRatios;
+  final Map<String, TextEditingController> videoTemplates;
+  String videoAudio;
   String kind;
   bool enabled;
 
@@ -2162,14 +2300,32 @@ class _ModelDraft {
     required this.kind,
     required this.capabilities,
     required this.enabled,
-  });
+  })  : videoModes = _videoModes(capabilities),
+        videoImageReferences = TextEditingController(
+            text: '${_videoReferences(capabilities, 'image')}'),
+        videoReferences = TextEditingController(
+            text: '${_videoReferences(capabilities, 'video')}'),
+        audioReferences = TextEditingController(
+            text: '${_videoReferences(capabilities, 'audio')}'),
+        videoDurations = TextEditingController(
+            text: _videoList(capabilities, 'durations').join(', ')),
+        videoResolutions = TextEditingController(
+            text: _videoList(capabilities, 'resolutions').join(', ')),
+        videoRatios = TextEditingController(
+            text: _videoList(capabilities, 'ratios').join(', ')),
+        videoTemplates = {
+          for (final mode in _videoModeValues)
+            mode:
+                TextEditingController(text: _videoTemplate(capabilities, mode)),
+        },
+        videoAudio = _videoAudio(capabilities);
 
   factory _ModelDraft.fromModel(ProviderModelInfo model) => _ModelDraft(
         id: model.id,
         modelId: TextEditingController(text: model.modelId),
         label: TextEditingController(text: model.label),
         kind: model.kind,
-        capabilities: model.capabilities,
+        capabilities: Map<String, dynamic>.from(model.capabilities),
         enabled: model.enabled,
       );
 
@@ -2178,14 +2334,157 @@ class _ModelDraft {
         modelId: TextEditingController(),
         label: TextEditingController(),
         kind: 'text',
-        capabilities: const {},
+        capabilities: <String, dynamic>{},
         enabled: true,
       );
 
   void dispose() {
     modelId.dispose();
     label.dispose();
+    videoImageReferences.dispose();
+    videoReferences.dispose();
+    audioReferences.dispose();
+    videoDurations.dispose();
+    videoResolutions.dispose();
+    videoRatios.dispose();
+    for (final controller in videoTemplates.values) {
+      controller.dispose();
+    }
   }
+
+  _VideoCapabilityError? get videoCapabilityError {
+    if (kind != 'video') return null;
+    if (videoModes.isEmpty) return _VideoCapabilityError.modeRequired;
+    if ([
+      videoImageReferences.text,
+      videoReferences.text,
+      audioReferences.text,
+    ].any(_isInvalidReferenceLimit)) {
+      return _VideoCapabilityError.negativeReference;
+    }
+    if (!_hasPositiveIntegers(videoDurations.text) ||
+        _uniqueStrings(videoResolutions.text).isEmpty ||
+        _uniqueStrings(videoRatios.text).isEmpty) {
+      return _VideoCapabilityError.listRequired;
+    }
+    return null;
+  }
+
+  Map<String, dynamic> serializedCapabilities() {
+    if (kind != 'video') return capabilities;
+    final modes = [
+      for (final mode in _videoModeValues)
+        if (videoModes.contains(mode)) mode,
+    ];
+    final limits = {
+      'image': _nonNegative(videoImageReferences.text),
+      'video': _nonNegative(videoReferences.text),
+      'audio': _nonNegative(audioReferences.text),
+    };
+    final templates = <String, String>{
+      for (final entry in videoTemplates.entries)
+        if (modes.contains(entry.key) && entry.value.text.trim().isNotEmpty)
+          entry.key: entry.value.text.trim(),
+    };
+    capabilities['video'] = {
+      'modes': modes,
+      'references': limits,
+      'durations': _positiveInts(videoDurations.text),
+      'resolutions': _uniqueStrings(videoResolutions.text),
+      'ratios': _uniqueStrings(videoRatios.text),
+      'audio': videoAudio,
+      'promptTemplates': templates,
+    };
+    return capabilities;
+  }
+}
+
+const _videoModeValues = [
+  'text',
+  'first_frame',
+  'first_last_frame',
+  'multi_reference',
+];
+
+enum _VideoCapabilityError {
+  modeRequired,
+  negativeReference,
+  listRequired,
+}
+
+Map<String, dynamic> _videoCapability(Map<String, dynamic> capabilities) =>
+    capabilities['video'] is Map
+        ? Map<String, dynamic>.from(capabilities['video'] as Map)
+        : const {};
+
+Set<String> _videoModes(Map<String, dynamic> capabilities) => {
+      for (final value
+          in (_videoCapability(capabilities)['modes'] as List? ?? const []))
+        if (_videoModeValues.contains('$value')) '$value',
+    };
+
+int _videoReferences(Map<String, dynamic> capabilities, String type) =>
+    ((_videoCapability(capabilities)['references'] as Map?)?[type] as num?)
+        ?.toInt() ??
+    0;
+
+List<String> _videoList(Map<String, dynamic> capabilities, String key) => [
+      for (final value
+          in (_videoCapability(capabilities)[key] as List? ?? const []))
+        '$value',
+    ];
+
+String _videoTemplate(Map<String, dynamic> capabilities, String mode) =>
+    ((_videoCapability(capabilities)['promptTemplates'] as Map?)?[mode]
+        as String?) ??
+    '';
+
+String _videoAudio(Map<String, dynamic> capabilities) {
+  final value = _videoCapability(capabilities)['audio'];
+  return const {'none', 'optional', 'required'}.contains(value)
+      ? value as String
+      : 'none';
+}
+
+int _nonNegative(String value) {
+  final parsed = int.tryParse(value.trim()) ?? 0;
+  return parsed < 0 ? 0 : parsed;
+}
+
+bool _isInvalidReferenceLimit(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return false;
+  final parsed = int.tryParse(value);
+  return parsed == null || parsed < 0;
+}
+
+bool _hasPositiveIntegers(String raw) {
+  final values = raw.split(',').map((part) => part.trim()).toList();
+  return values.isNotEmpty &&
+      values.every((value) {
+        final parsed = int.tryParse(value);
+        return parsed != null && parsed > 0;
+      });
+}
+
+List<int> _positiveInts(String raw) {
+  final values = <int>[];
+  for (final part in raw.split(',')) {
+    final value = int.tryParse(part.trim());
+    if (value != null && value > 0 && !values.contains(value)) {
+      values.add(value);
+    }
+  }
+  return values;
+}
+
+List<String> _uniqueStrings(String raw) {
+  final values = <String>[];
+  for (final part in raw.split(',')) {
+    final value = part.trim();
+    if (value.isNotEmpty && !values.contains(value)) values.add(value);
+  }
+  return values;
 }
 
 class _ModelsTable extends StatelessWidget {
@@ -2234,60 +2533,79 @@ class _ModelsTable extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: context.df.stroke)),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  _FormFlexCell(
-                    flex: 18,
-                    child: TextField(
-                      controller: draft.modelId,
-                      decoration: const InputDecoration(labelText: 'Model ID'),
-                    ),
+                  Row(
+                    children: [
+                      _FormFlexCell(
+                        flex: 18,
+                        child: TextField(
+                          controller: draft.modelId,
+                          decoration:
+                              const InputDecoration(labelText: 'Model ID'),
+                        ),
+                      ),
+                      _FormFlexCell(
+                        flex: 18,
+                        child: TextField(
+                          controller: draft.label,
+                          decoration: const InputDecoration(labelText: 'Label'),
+                        ),
+                      ),
+                      _FixedCell(
+                        width: 132,
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _validKind(draft.kind),
+                          decoration:
+                              InputDecoration(labelText: l10n.commonType),
+                          items: [
+                            for (final kind in _modelKinds)
+                              DropdownMenuItem(
+                                value: kind.value,
+                                child: Text(kind.label(context.l10n)),
+                              ),
+                          ],
+                          onChanged: (value) {
+                            if (value == null) return;
+                            draft.kind = value;
+                            onChanged();
+                          },
+                        ),
+                      ),
+                      _FixedCell(
+                        width: 92,
+                        child: Switch(
+                          value: draft.enabled,
+                          onChanged: (value) {
+                            draft.enabled = value;
+                            onChanged();
+                          },
+                        ),
+                      ),
+                      _FixedCell(
+                        width: 64,
+                        child: IconButton(
+                          tooltip: l10n.settingsDeleteModel,
+                          icon: Icon(Icons.delete_outline_rounded,
+                              color: context.df.red),
+                          onPressed: () => onRemove(draft),
+                        ),
+                      ),
+                    ],
                   ),
-                  _FormFlexCell(
-                    flex: 18,
-                    child: TextField(
-                      controller: draft.label,
-                      decoration: const InputDecoration(labelText: 'Label'),
+                  if (draft.kind == 'video') ...[
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Material(
+                        color: context.df.surface,
+                        child: _VideoCapabilityEditor(
+                          draft: draft,
+                          onChanged: onChanged,
+                        ),
+                      ),
                     ),
-                  ),
-                  _FixedCell(
-                    width: 132,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _validKind(draft.kind),
-                      decoration: InputDecoration(labelText: l10n.commonType),
-                      items: [
-                        for (final kind in _modelKinds)
-                          DropdownMenuItem(
-                            value: kind.value,
-                            child: Text(kind.label(context.l10n)),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        draft.kind = value;
-                        onChanged();
-                      },
-                    ),
-                  ),
-                  _FixedCell(
-                    width: 92,
-                    child: Switch(
-                      value: draft.enabled,
-                      onChanged: (value) {
-                        draft.enabled = value;
-                        onChanged();
-                      },
-                    ),
-                  ),
-                  _FixedCell(
-                    width: 64,
-                    child: IconButton(
-                      tooltip: l10n.settingsDeleteModel,
-                      icon: Icon(Icons.delete_outline_rounded,
-                          color: context.df.red),
-                      onPressed: () => onRemove(draft),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -2366,6 +2684,13 @@ class _ModelDraftCard extends StatelessWidget {
               ),
             ],
           ),
+          if (draft.kind == 'video') ...[
+            const SizedBox(height: 10),
+            Material(
+              color: context.df.surface,
+              child: _VideoCapabilityEditor(draft: draft, onChanged: onChanged),
+            ),
+          ],
         ],
       ),
     );

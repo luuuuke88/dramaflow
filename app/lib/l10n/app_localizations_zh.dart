@@ -3063,6 +3063,51 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsModelsSaved => '模型已保存';
 
   @override
+  String get settingsVideoCapabilities => '视频能力';
+
+  @override
+  String get settingsVideoReferenceImage => '图片参考';
+
+  @override
+  String get settingsVideoReferenceVideo => '视频参考';
+
+  @override
+  String get settingsVideoReferenceAudio => '音频参考';
+
+  @override
+  String get settingsVideoDurations => '时长（秒）';
+
+  @override
+  String get settingsVideoResolutions => '分辨率';
+
+  @override
+  String get settingsVideoRatios => '画幅比例';
+
+  @override
+  String get settingsVideoAudio => '音频';
+
+  @override
+  String get settingsVideoAudioNone => '无音频';
+
+  @override
+  String get settingsVideoAudioOptional => '可选音频';
+
+  @override
+  String get settingsVideoAudioRequired => '必须音频';
+
+  @override
+  String get settingsVideoPromptTemplate => '提示词模板';
+
+  @override
+  String get settingsVideoCapabilityModeRequired => '视频模型至少需要一种生成模式';
+
+  @override
+  String get settingsVideoReferenceNegative => '视频参考数量不能为负数';
+
+  @override
+  String get settingsVideoCapabilityListRequired => '视频模型必须填写时长、分辨率和画幅比例';
+
+  @override
   String get settingsDeleteModel => '删除模型';
 
   @override

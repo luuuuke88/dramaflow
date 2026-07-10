@@ -252,6 +252,183 @@ void main() {
     expect(find.text('o_project'), findsOneWidget);
   });
 
+  testWidgets('移动端设置页：视频模型能力可编辑并保留未知能力键', (tester) async {
+    final provider = await engine.createProvider(
+      name: 'Volcengine',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
+      apiKey: 'sk',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'seedance-custom',
+        'label': 'Seedance Custom',
+        'kind': 'video',
+        'enabled': true,
+        'capabilities': {
+          'providerSpecific': {'region': 'cn-north-1'},
+          'video': {
+            'modes': ['first_frame'],
+            'references': {'image': 1, 'video': 0, 'audio': 0},
+            'durations': [4],
+            'resolutions': ['720p'],
+            'ratios': ['16:9'],
+            'audio': 'none',
+            'promptTemplates': {
+              'first_frame': 'video/legacy-first-frame.md',
+            },
+          },
+        },
+      },
+    ]);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('模型管理').first);
+    await tester.pumpAndSettle();
+
+    final capabilityEditor =
+        find.byKey(const ValueKey('video-capability-seedance-custom'));
+    expect(capabilityEditor, findsOneWidget);
+    await tester.ensureVisible(capabilityEditor);
+    await tester.tap(capabilityEditor);
+    await tester.pumpAndSettle();
+
+    expect(find.text('视频能力'), findsOneWidget);
+    expect(find.text('first_frame'), findsOneWidget);
+    expect(find.text('multi_reference'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey(
+        'video-capability-mode-multi_reference-seedance-custom')));
+    await tester.enterText(
+      find.byKey(
+          const ValueKey('video-capability-reference-image-seedance-custom')),
+      ' 3 ',
+    );
+    await tester.enterText(
+      find.byKey(
+          const ValueKey('video-capability-reference-video-seedance-custom')),
+      ' 2 ',
+    );
+    await tester.enterText(
+      find.byKey(
+          const ValueKey('video-capability-reference-audio-seedance-custom')),
+      ' 1 ',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('video-capability-durations-seedance-custom')),
+      '4, 6, 4',
+    );
+    await tester.enterText(
+      find.byKey(
+          const ValueKey('video-capability-resolutions-seedance-custom')),
+      '720p, 480p, 720p',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('video-capability-ratios-seedance-custom')),
+      '16:9, 9:16, 16:9',
+    );
+    await tester.tap(
+      find.byKey(
+        const ValueKey('video-capability-audio-seedance-custom'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('可选音频').last);
+    await tester.enterText(
+      find.byKey(const ValueKey(
+          'video-capability-template-multi_reference-seedance-custom')),
+      ' video/seedance2-multi.md ',
+    );
+
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final model = (await engine.listProviderModels(provider.id)).single;
+    expect(model.capabilities['providerSpecific'], {'region': 'cn-north-1'});
+    expect(model.capabilities['video'], {
+      'modes': ['first_frame', 'multi_reference'],
+      'references': {'image': 3, 'video': 2, 'audio': 1},
+      'durations': [4, 6],
+      'resolutions': ['720p', '480p'],
+      'ratios': ['16:9', '9:16'],
+      'audio': 'optional',
+      'promptTemplates': {
+        'first_frame': 'video/legacy-first-frame.md',
+        'multi_reference': 'video/seedance2-multi.md',
+      },
+    });
+  });
+
+  testWidgets('移动端设置页：拒绝不完整或非法的视频能力配置', (tester) async {
+    final provider = await engine.createProvider(
+      name: 'Volcengine',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
+      apiKey: 'sk',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'seedance-validated',
+        'label': 'Seedance Validated',
+        'kind': 'video',
+        'enabled': true,
+        'capabilities': {
+          'video': {
+            'modes': ['first_frame'],
+            'references': {'image': 1, 'video': 0, 'audio': 0},
+            'durations': [4],
+            'resolutions': ['720p'],
+            'ratios': ['16:9'],
+            'audio': 'none',
+            'promptTemplates': {},
+          },
+        },
+      },
+    ]);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('模型管理').first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-capability-seedance-validated')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(
+      const ValueKey('video-capability-mode-first_frame-seedance-validated'),
+    ));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('视频模型至少需要一种生成模式'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(
+      const ValueKey('video-capability-mode-first_frame-seedance-validated'),
+    ));
+    await tester.enterText(
+      find.byKey(
+        const ValueKey('video-capability-reference-image-seedance-validated'),
+      ),
+      '-1',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('视频参考数量不能为负数'), findsOneWidget);
+  });
+
   testWidgets('移动端设置页：编辑供应商配置并刷新卡片', (tester) async {
     await engine.createProvider(
       name: 'Old Gateway',
