@@ -61,6 +61,28 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
   void initState() {
     super.initState();
     _reloadManuals();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hydrateExistingVideoModes();
+    });
+  }
+
+  Future<void> _hydrateExistingVideoModes() async {
+    final selected = _videoModel;
+    if (selected == null || selected.isEmpty) return;
+    final options = await ref.read(modelOptionsProvider('video').future);
+    if (!mounted) return;
+    final option = options.where((item) => item.value == selected).firstOrNull;
+    if (option == null) return;
+    setState(() => _setVideoModes(option));
+  }
+
+  void _setVideoModes(ModelOption? option) {
+    final rawVideo = option?.capabilities['video'];
+    final modes =
+        rawVideo is Map ? rawVideo['modes'] : option?.capabilities['modes'];
+    _videoModes =
+        modes is List ? modes.map((item) => '$item').toList() : const [];
+    if (!_videoModes.contains(_mode)) _mode = null;
   }
 
   void _reloadManuals() {
@@ -232,10 +254,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
             hint: l10n.projectMsgEnterVideoModel,
             onChanged: (o) => setState(() {
               _videoModel = o?.value;
-              final modes = o?.capabilities['modes'];
-              _videoModes =
-                  modes is List ? modes.map((e) => '$e').toList() : const [];
-              if (!_videoModes.contains(_mode)) _mode = null;
+              _setVideoModes(o);
             }),
           ),
         ),
