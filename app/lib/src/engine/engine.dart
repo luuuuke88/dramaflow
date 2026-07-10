@@ -22,6 +22,7 @@ import 'prompts.dart' as prompt_defaults;
 import 'queue.dart';
 import 'script_plan.dart' show ScriptPlanApi;
 import 'scripts.dart';
+import 'storyboard_table.dart' show StoryboardTableApi;
 import 'video_request.dart';
 import 'video_track.dart' show VideoTrackApi;
 
@@ -416,6 +417,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     engine.installNovelEventPipeline();
     engine.installScriptPipeline();
     engine.installScriptPlanPipeline();
+    engine.installStoryboardTablePipeline();
     engine.installAssetPipeline();
     engine.installStoryboardPipeline();
     engine.installVideoTrackPipeline();
