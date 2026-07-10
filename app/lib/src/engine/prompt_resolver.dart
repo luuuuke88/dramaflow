@@ -125,7 +125,7 @@ extension PromptResolverApi on Engine {
       final modelId = binding.substring(separator + 1);
       final rows = db.select(
         'SELECT prompt FROM o_modelPrompt '
-        'WHERE vendorId=? AND model=? AND path=? LIMIT 1',
+        'WHERE vendorId=? AND model=? AND path=? ORDER BY id DESC LIMIT 1',
         [providerId, modelId, modelPromptPath],
       );
       final content = rows.firstOrNull?['prompt'] as String? ?? '';

@@ -77,6 +77,17 @@ void main() {
       artStyle: 'ink_pack',
       directorManual: 'fast_cut',
     );
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'volcengine',
+        'seedance',
+        'seedance2Multi-parameterMode.md',
+        'video/seedance2Multi-parameterMode.md',
+        'MODEL NEWEST',
+      ],
+    );
 
     final resolution = engine.resolvePrompt(
       projectId: projectId,
@@ -87,7 +98,10 @@ void main() {
       modelPromptPath: 'video/seedance2Multi-parameterMode.md',
     );
 
-    expect(resolution.system, 'BASE\n\nVISUAL\n\nDIRECTOR\n\nMODEL');
+    expect(
+      resolution.system,
+      'BASE\n\nVISUAL\n\nDIRECTOR\n\nMODEL NEWEST',
+    );
     expect(resolution.sources.map((source) => source.id), [
       'base:storyboard_gen',
       'visual:ink_pack:director_storyboard',
