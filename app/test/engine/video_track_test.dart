@@ -920,7 +920,7 @@ void main() {
 
 class _Gateway implements ProviderGateway {
   String Function(String system, String user)? textHandler;
-  String Function(String prompt, String firstFrameAbsPath, String projectId)?
+  String Function(String prompt, String referencePath, String projectId)?
       videoHandler;
   VideoSubmission Function(VideoGenerationRequest request)? submitHandler;
   FutureOr<VideoPollResult> Function(
@@ -939,15 +939,6 @@ class _Gateway implements ProviderGateway {
       {required String stage, CancelToken? cancelToken}) async {
     expect(stage, 'video_prompt_gen');
     return TextResult(textHandler!(system, user));
-  }
-
-  @override
-  Future<String> generateVideo(
-      String prompt, String firstFrameAbsPath, String projectId,
-      {required String stage, CancelToken? cancelToken}) async {
-    expect(stage, 'shot_video');
-    await Future<void>.delayed(const Duration(milliseconds: 5));
-    return videoHandler!(prompt, firstFrameAbsPath, projectId);
   }
 
   @override

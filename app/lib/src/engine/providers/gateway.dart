@@ -2,11 +2,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:path/path.dart' as path;
 import 'package:sqlite3/sqlite3.dart';
 import '../config.dart';
 import '../credentials.dart';
-import '../errors.dart';
 import '../media.dart';
 import 'openai_text.dart';
 import 'openai_vision.dart';
@@ -60,11 +58,6 @@ abstract class ProviderGateway {
     String? quality,
     String? modelOverride,
   });
-
-  /// 返回 rel 媒体路径（如 `proj1/vid_xxx.mp4`）
-  Future<String> generateVideo(
-      String prompt, String firstFrameAbsPath, String projectId,
-      {required String stage, CancelToken? cancelToken});
 
   /// Submits a typed video request without waiting for rendering.
   Future<VideoSubmission> submitVideo(VideoGenerationRequest request,
@@ -295,73 +288,6 @@ class HttpProviderGateway
       return resolveModelBinding(db, credentials, modelBinding, kind: 'video');
     }
     return resolveStage(db, credentials, stage);
-  }
-
-  @override
-  Future<String> generateVideo(
-      String prompt, String firstFrameAbsPath, String projectId,
-      {required String stage, CancelToken? cancelToken}) async {
-    final referencePath = path
-        .relative(firstFrameAbsPath, from: media.rootDir)
-        .replaceAll(path.separator, '/');
-    if (referencePath == '..' || referencePath.startsWith('../')) {
-      throw const EngineException(
-          errLlmFormat, {'reason': 'invalidReferencePath'});
-    }
-    final request = VideoGenerationRequest(
-      modelBinding: '',
-      mode: VideoMode.firstFrame,
-      prompt: prompt,
-      references: [
-        VideoReference(
-          mediaType: 'image',
-          role: 'first_frame',
-          localPath: referencePath,
-        ),
-      ],
-      duration: config.intOf('videoDuration'),
-      resolution: config.str('videoResolution'),
-      ratio: '1:1',
-      generateAudio: true,
-      projectId: int.tryParse(projectId) ?? 0,
-      storyboardId: 0,
-      videoTrackId: 0,
-    );
-    final submission =
-        await submitVideo(request, stage: stage, cancelToken: cancelToken);
-    final deadline = DateTime.now().add(pollTimeout);
-    while (true) {
-      if (cancelToken?.isCancelled ?? false) {
-        throw DioException.requestCancelled(
-            requestOptions: RequestOptions(path: submission.upstreamTaskId),
-            reason: '用户取消');
-      }
-      if (DateTime.now().isAfter(deadline)) {
-        throw EngineException(
-            errNetwork, {'message': '轮询超时${pollTimeout.inMinutes}分钟'});
-      }
-      await Future<void>.delayed(pollInterval);
-      final result = await pollVideo(submission.upstreamTaskId, projectId,
-          stage: stage, modelOverride: null, cancelToken: cancelToken);
-      if (!result.isTerminal) continue;
-      if (result.upstreamState == 'succeeded' &&
-          result.localVideoPath != null) {
-        return result.localVideoPath!;
-      }
-      switch (result.upstreamState) {
-        case 'failed':
-          throw EngineException(result.errorMessage ?? '视频生成失败');
-        case 'expired':
-          throw EngineException(
-              errNetwork, {'message': result.errorMessage ?? '上游任务超时'});
-        case 'cancelled':
-          throw EngineException(
-              errCanceled, {'message': result.errorMessage ?? '上游取消'});
-        default:
-          throw EngineException(
-              errNetwork, {'message': result.errorMessage ?? '未知视频任务状态'});
-      }
-    }
   }
 
   @override

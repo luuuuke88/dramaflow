@@ -817,17 +817,6 @@ class _NoopGateway extends ProviderGateway {
   }
 
   @override
-  Future<String> generateVideo(
-    String prompt,
-    String firstFrameAbsPath,
-    String projectId, {
-    required String stage,
-    CancelToken? cancelToken,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
   Future<String> generateSpeech(
     String text,
     String projectId, {
