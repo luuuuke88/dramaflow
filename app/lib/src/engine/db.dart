@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 10;
+const schemaVersion = 11;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
@@ -250,6 +250,15 @@ CREATE TABLE IF NOT EXISTS o_prompt (
   name TEXT,
   type TEXT,
   useData TEXT
+);
+CREATE TABLE IF NOT EXISTS o_productionDependencyState (
+  projectId INTEGER NOT NULL,
+  scriptId INTEGER NOT NULL DEFAULT 0,
+  key TEXT NOT NULL,
+  sourceHash TEXT NOT NULL DEFAULT '',
+  stale INTEGER NOT NULL DEFAULT 0,
+  updateTime INTEGER NOT NULL,
+  PRIMARY KEY (projectId, scriptId, key)
 );
 CREATE TABLE IF NOT EXISTS o_script (
   content TEXT,

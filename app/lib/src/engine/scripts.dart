@@ -13,6 +13,7 @@ import 'engine.dart';
 import 'errors.dart';
 import 'events.dart' show stripThink;
 import 'queue.dart';
+import 'production_dependencies.dart';
 import 'util.dart' show extractJson;
 
 class ScriptRow {
@@ -180,6 +181,8 @@ extension ScriptsApi on Engine {
 
   void updateScript(int id,
       {String? name, String? content, List<int>? assets}) {
+    final existing = db.select(
+        'SELECT projectId FROM o_script WHERE id=? LIMIT 1', [id]).firstOrNull;
     final sets = <String>[];
     final args = <Object?>[];
     if (name != null) {
@@ -202,6 +205,11 @@ extension ScriptsApi on Engine {
           [id, assetId],
         );
       }
+    }
+    final projectId = existing?['projectId'] as int?;
+    if (projectId != null &&
+        (name != null || content != null || assets != null)) {
+      markStoryboardTableAndShotsStale(projectId, id);
     }
   }
 
@@ -519,6 +527,9 @@ ORDER BY MIN(n.chapterIndex), e.id
         'INSERT INTO o_scriptAssets (scriptId,assetId) VALUES (?,?)',
         [link.scriptId, link.assetId],
       );
+    }
+    for (final scriptId in groupScriptIds) {
+      markStoryboardTableAndShotsStale(projectId, scriptId);
     }
   }
 

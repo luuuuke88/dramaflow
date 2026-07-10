@@ -4,6 +4,7 @@ import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/production_dependencies.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard_table.dart';
@@ -64,5 +65,39 @@ void main() {
     engine.saveStoryboardTable(projectId, scriptB, 'B 表');
     expect(engine.storyboardTable(projectId, scriptA), 'A 表');
     expect(engine.storyboardTable(projectId, scriptB), 'B 表');
+  });
+
+  test('保存分镜表仅使同剧集结构分镜过期', () {
+    engine.setProductionDependencyState(
+      projectId: projectId,
+      scriptId: scriptA,
+      key: structuredStoryboardStateKey,
+      sourceHash: 'old-a',
+      stale: false,
+    );
+    engine.setProductionDependencyState(
+      projectId: projectId,
+      scriptId: scriptB,
+      key: structuredStoryboardStateKey,
+      sourceHash: 'old-b',
+      stale: false,
+    );
+
+    engine.saveStoryboardTable(projectId, scriptA, 'A 表');
+
+    expect(
+      engine
+          .productionDependencyState(projectId, structuredStoryboardStateKey,
+              scriptId: scriptA)
+          .stale,
+      isTrue,
+    );
+    expect(
+      engine
+          .productionDependencyState(projectId, structuredStoryboardStateKey,
+              scriptId: scriptB)
+          .stale,
+      isFalse,
+    );
   });
 }

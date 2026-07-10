@@ -7,8 +7,10 @@ import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/production_dependencies.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
+import 'package:dramaflow/src/engine/storyboard_table.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
@@ -92,12 +94,70 @@ void main() {
     expect(engine.scripts(projectId), hasLength(2));
   });
 
+  test('更新剧本名称或内容会使本集下游过期', () {
+    final scriptA =
+        engine.addScript(projectId: projectId, name: '第一集', content: '旧内容');
+    final scriptB =
+        engine.addScript(projectId: projectId, name: '第二集', content: '第二集');
+    engine.saveStoryboardTable(projectId, scriptA, 'A 表');
+    engine.saveStoryboardTable(projectId, scriptB, 'B 表');
+    for (final scriptId in [scriptA, scriptB]) {
+      engine.setProductionDependencyState(
+        projectId: projectId,
+        scriptId: scriptId,
+        key: storyboardTableStateKey,
+        sourceHash: 'table-$scriptId',
+        stale: false,
+      );
+      engine.setProductionDependencyState(
+        projectId: projectId,
+        scriptId: scriptId,
+        key: structuredStoryboardStateKey,
+        sourceHash: 'shots-$scriptId',
+        stale: false,
+      );
+    }
+
+    engine.updateScript(scriptA, name: '第一集（修订）');
+
+    expect(
+      engine
+          .productionDependencyState(projectId, storyboardTableStateKey,
+              scriptId: scriptA)
+          .stale,
+      isTrue,
+    );
+    expect(
+      engine
+          .productionDependencyState(projectId, structuredStoryboardStateKey,
+              scriptId: scriptA)
+          .stale,
+      isTrue,
+    );
+    expect(
+      engine
+          .productionDependencyState(projectId, storyboardTableStateKey,
+              scriptId: scriptB)
+          .stale,
+      isFalse,
+    );
+  });
+
   test('提取资产：tool JSON 落库、已有资产去重、组内链接重建', () async {
     db.execute(
         "INSERT INTO o_assets (name,type,projectId) VALUES ('林逸','role',?)",
         [projectId]);
     final s1 = engine.addScript(projectId: projectId, name: '一', content: 'A');
     final s2 = engine.addScript(projectId: projectId, name: '二', content: 'B');
+    for (final scriptId in [s1, s2]) {
+      engine.setProductionDependencyState(
+        projectId: projectId,
+        scriptId: scriptId,
+        key: storyboardTableStateKey,
+        sourceHash: 'table-$scriptId',
+        stale: false,
+      );
+    }
 
     gateway.result = (user) {
       expect(user, contains('===== 【剧本ID: $s1】一 ====='));
@@ -145,6 +205,20 @@ void main() {
     expect(rows.map((s) => s.extractState), everyElement(1));
     expect(rows.first.relatedAssets.map((a) => a.name).toSet(), {'林逸', '寒山剑'});
     expect(rows.last.relatedAssets.map((a) => a.name).toSet(), {'林逸', '寒山剑'});
+    expect(
+      engine
+          .productionDependencyState(projectId, storyboardTableStateKey,
+              scriptId: s1)
+          .stale,
+      isTrue,
+    );
+    expect(
+      engine
+          .productionDependencyState(projectId, storyboardTableStateKey,
+              scriptId: s2)
+          .stale,
+      isTrue,
+    );
   });
 
   test('提取失败：extractState=-1 且 errorReason 为错误码 JSON', () async {

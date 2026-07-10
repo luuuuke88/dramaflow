@@ -111,7 +111,7 @@ CREATE TABLE o_video (
     final db = openEngineDb(path);
     addTearDown(db.close);
 
-    expect(db.select('PRAGMA user_version').single.values.single, 10);
+    expect(db.select('PRAGMA user_version').single.values.single, schemaVersion);
     expect(db.select('SELECT * FROM o_project').single['name'], '保留项目');
     expect(db.select('SELECT * FROM o_project').single['videoModel'],
         'volcengine:seedance');
@@ -145,6 +145,39 @@ CREATE TABLE o_video (
       expect(videos[name], isNotNull);
       expect(videos[name]!['notnull'], 0);
     }
+  });
+
+  test('v10 升级保留项目并创建生产依赖状态表', () {
+    final dir = Directory.systemTemp.createTempSync('dramaflow-db-v10-');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    final path = p.join(dir.path, 'dramaflow.sqlite');
+    final old = sqlite3.open(path);
+    old.execute('''
+CREATE TABLE o_project (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  projectType TEXT
+);
+''');
+    old.execute(
+        "INSERT INTO o_project (id,name,projectType) VALUES (7,'保留项目','novel')");
+    old.execute('PRAGMA user_version = 10');
+    old.close();
+
+    final db = openEngineDb(path);
+    addTearDown(db.close);
+
+    expect(
+        db.select('PRAGMA user_version').single.values.single, schemaVersion);
+    expect(db.select('SELECT name FROM o_project WHERE id=7').single['name'],
+        '保留项目');
+    expect(
+      db.select(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='o_productionDependencyState'"),
+      hasLength(1),
+    );
   });
 
   test('cold-start resumer opts a processing task into pending or failure', () {
