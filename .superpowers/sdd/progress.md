@@ -23,3 +23,6 @@ C2 Task 1: complete (commits 28bb476..7e05a6c; 23 focused tests green; analyze c
 C2 Task 2: complete (commits febd8e8..9bd1322; deterministic source resolution; focused tests green; analyze clean; independent re-review approved)
 C2 Task 3: complete (commits 64d7dc6..4ec713d; queue task carries deterministic source unions plus per-target request traces without raw prompt text; private instruction payload is local-only and fails closed when missing or hash-mismatched; independent final re-review approved)
 C2 completion gate: complete (final code 4ec713d plus tamper regression follow-up; focused prompt tests green; full suite, analyze, and macOS debug build green before the review follow-up; C3 boundary scan clean)
+
+# ToonFlow Core Parity C3（plan: docs/superpowers/plans/2026-07-10-c3-seedance-capability-video.md）
+C3 Task 1: complete (commits c97bc14..fc30a4c; explicit capability parser/request fingerprint and conservative Seedance profiles; 28 focused tests green; analyze clean; task re-review accepted. Cross-task gate: Task 4 must route runtime video submission through this validator.)

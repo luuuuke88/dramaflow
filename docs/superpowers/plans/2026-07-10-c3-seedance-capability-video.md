@@ -111,7 +111,7 @@ class VideoGenerationRequest {
 }
 ```
 
-- [ ] **Step 1: Write failing parser and local-validation tests.**
+- [x] **Step 1: Write failing parser and local-validation tests.**
 
 Create a fully declared capability fixture and assert parsing plus rejection before any provider call. Cover the exact cardinality rules below.
 
@@ -166,13 +166,13 @@ expect(request.copyWith(duration: 5).fingerprint(),
 expect(request.fingerprintMaterial(), isNot(contains(tempDirectory.path)));
 ```
 
-- [ ] **Step 2: Run the focused test and verify it fails because the capability/request API is absent.**
+- [x] **Step 2: Run the focused test and verify it fails because the capability/request API is absent.**
 
 Run: `cd app && flutter test test/engine/video_request_test.dart --reporter compact`
 
 Expected: FAIL with missing `VideoModelCapabilities`, `VideoGenerationRequest`, or `VideoMode` symbols.
 
-- [ ] **Step 3: Implement the pure domain layer.**
+- [x] **Step 3: Implement the pure domain layer.**
 
 Use enum wire values and deterministic sorted fingerprint JSON. Compute the fingerprint directly with `sha256.convert(utf8.encode(material)).toString()` from `crypto`; do not import C2's `prompt_resolver.dart` into this pure request file. The validator must enforce:
 
@@ -200,7 +200,7 @@ require(audio != 'required' || request.generateAudio);
 
 Throw `EngineException(errModelMissing, {'reason': ...})` for a missing/unsupported profile and `EngineException(errLlmFormat, {'reason': ...})` for an invalid local request. Keep `VideoReference.localPath` relative and reject empty/absolute paths.
 
-- [ ] **Step 4: Seed explicit known profiles without overstating Mini support.**
+- [x] **Step 4: Seed explicit known profiles without overstating Mini support.**
 
 In `Engine._seedDefaults`, retain the existing Mini duration/resolution data and add only its compatibility `first_frame` capability. Add the documented full/fast Seedance 2.0 entries with all declared modes only when no user row for the same model exists. Use the exact C3 capability document structure; neither model is selected automatically for an existing project.
 
@@ -212,13 +212,13 @@ VideoModelCapabilities.fromJson(oldCapabilities, legacyFirstFrame: true)
 
 It returns `{firstFrame}`, the existing durations/resolutions, ratios `{16:9, 9:16}`, and audio `none` only for records with no `video` object. It must not invent `multi_reference`.
 
-- [ ] **Step 5: Run focused tests, format, and static analysis.**
+- [x] **Step 5: Run focused tests, format, and static analysis.**
 
 Run: `cd app && dart format --output=none --set-exit-if-changed lib/src/engine/video_request.dart lib/src/engine/engine.dart test/engine/video_request_test.dart && flutter test test/engine/video_request_test.dart test/engine/engine_facade_test.dart --reporter compact && flutter analyze`
 
 Expected: both test files pass and analysis reports `No issues found`.
 
-- [ ] **Step 6: Commit the capability layer.**
+- [x] **Step 6: Commit the capability layer.**
 
 ```bash
 git add app/lib/src/engine/video_request.dart app/lib/src/engine/engine.dart app/test/engine/video_request_test.dart app/test/engine/engine_facade_test.dart
