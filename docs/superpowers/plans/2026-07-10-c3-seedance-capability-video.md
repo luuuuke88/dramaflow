@@ -174,7 +174,7 @@ Expected: FAIL with missing `VideoModelCapabilities`, `VideoGenerationRequest`, 
 
 - [ ] **Step 3: Implement the pure domain layer.**
 
-Use enum wire values, deterministic sorted fingerprint JSON, and `promptContentHash`/SHA-256. The validator must enforce:
+Use enum wire values and deterministic sorted fingerprint JSON. Compute the fingerprint directly with `sha256.convert(utf8.encode(material)).toString()` from `crypto`; do not import C2's `prompt_resolver.dart` into this pure request file. The validator must enforce:
 
 ```dart
 switch (request.mode) {
