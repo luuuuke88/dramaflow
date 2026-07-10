@@ -10,8 +10,10 @@ import 'package:dramaflow/src/engine/novel.dart';
 import 'package:dramaflow/src/engine/novel_parse.dart';
 import 'package:dramaflow/src/engine/project_notes.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/script_plan.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/storyboard_table.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
@@ -46,14 +48,16 @@ void main() {
   });
 
   group('assistantActions 注册表', () {
-    test('12 个动作齐全且金钱/破坏标记正确', () {
+    test('13 个动作齐全且金钱/破坏标记正确', () {
       final actions = assistantActions();
+      expect(actions, hasLength(13));
       final byName = {for (final a in actions) a.name: a};
       expect(
           byName.keys,
           containsAll([
             'get_status',
             'generate_events',
+            'generate_scripts',
             'extract_assets',
             'generate_storyboards',
             'generate_shot_images',
@@ -74,6 +78,7 @@ void main() {
       expect(byName['note_delete']!.destructive, isTrue);
       expect(byName['note_save']!.destructive, isFalse);
       expect(byName['generate_events']!.taskClass, 'event_generation');
+      expect(byName['generate_scripts']!.taskClass, 'script_generation');
       expect(byName['generate_videos']!.taskClass, 'video_generation');
     });
   });
@@ -82,6 +87,7 @@ void main() {
     final schema = <String, dynamic>{
       'scriptIds': {'type': 'array'},
       'novelIds': {'type': 'array'},
+      'eventIds': {'type': 'array'},
       'prompt': {'type': 'string'},
     };
 
@@ -103,8 +109,12 @@ void main() {
     });
 
     test('中文别名命中', () {
-      final out = normalizeActionArgs({'剧本id': 5}, schema);
+      final out = normalizeActionArgs({
+        '剧本id': 5,
+        '事件ids': [7, 8]
+      }, schema);
       expect(out['scriptIds'], 5);
+      expect(out['eventIds'], [7, 8]);
     });
 
     test('未知键丢弃、已知键类型原样保留', () {
@@ -133,6 +143,72 @@ void main() {
       final tasks = db.select(
           "SELECT taskClass FROM o_tasks WHERE projectId=?", [projectId]);
       expect(tasks.map((t) => t['taskClass']), contains('event_generation'));
+    });
+
+    test('generate_scripts 默认取项目事件并委托既有剧本队列', () async {
+      engine.addNovels(projectId, const [
+        ChapterItem(index: 1, reel: '正文卷', chapter: '雪夜', chapterData: 'x'),
+      ]);
+      final novelId = db.select('SELECT id FROM o_novel').single['id'] as int;
+      db.execute(
+        "INSERT INTO o_event (name,detail) VALUES ('雪夜破门','黑衣人破门')",
+      );
+      final eventId = db.lastInsertRowId;
+      db.execute(
+        'INSERT INTO o_eventChapter (eventId,novelId) VALUES (?,?)',
+        [eventId, novelId],
+      );
+
+      final summary = await runAssistantAction(
+        engine,
+        projectId,
+        'generate_scripts',
+        const {},
+      );
+
+      expect(summary, contains('剧本生成'));
+      final task = db.select(
+        'SELECT taskClass,relatedObjects FROM o_tasks WHERE projectId=?',
+        [projectId],
+      ).single;
+      expect(task['taskClass'], 'script_generation');
+      expect(task['relatedObjects'] as String, contains('$eventId'));
+    });
+
+    test('generate_storyboards 仅从已保存分镜表入队，已有分镜时拒绝覆盖', () async {
+      final scriptId =
+          engine.addScript(projectId: projectId, name: '第一集', content: '雪夜');
+      engine.saveScriptPlan(projectId, '导演规划');
+      engine.saveStoryboardTable(projectId, scriptId, '''
+| 画面提示词 | 画面描述 | 时长 |
+| --- | --- | --- |
+| 雪夜山门 | 推近 | 3 |
+''');
+
+      final queued = await runAssistantAction(
+        engine,
+        projectId,
+        'generate_storyboards',
+        {'scriptId': scriptId},
+      );
+      expect(queued, contains('分镜生成'));
+      expect(db.select('SELECT taskClass FROM o_tasks').single['taskClass'],
+          'storyboard_generate');
+
+      db.execute('DELETE FROM o_tasks');
+      engine.addStoryboard(
+        projectId: projectId,
+        scriptId: scriptId,
+        prompt: '旧分镜',
+      );
+      final refused = await runAssistantAction(
+        engine,
+        projectId,
+        'generate_storyboards',
+        {'scriptId': scriptId},
+      );
+      expect(refused, '该剧集已有分镜，请在制作面板确认替换后重新生成。');
+      expect(db.select('SELECT id FROM o_tasks'), isEmpty);
     });
 
     test('write_script 分发到 updateScript', () async {

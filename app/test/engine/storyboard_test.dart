@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/config.dart';
+import 'package:dramaflow/src/engine/credentials.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/errors.dart';
@@ -40,20 +41,37 @@ void main() {
     );
     db.execute(
       "INSERT INTO o_prompt (name,type,data,useData) VALUES "
-      "('storyboard_gen','storyboard_gen','分镜系统提示词',NULL)",
+      "('storyboard_gen','storyboard_gen','分镜系统提示词',NULL),"
+      "('director_plan','director_plan','导演规划系统词',NULL),"
+      "('storyboard_table','storyboard_table','分镜表系统词',NULL)",
     );
     engine.installStoryboardPipeline();
+    engine.installScriptPlanPipeline();
+    engine.installStoryboardTablePipeline();
     engine.queue.start();
     engine.saveVisualManual(
       name: '分镜视觉',
       pack: 'storyboard_pack',
-      data: const {'director_storyboard': '分镜视觉手册'},
+      data: const {
+        'director_storyboard': '分镜视觉手册',
+        'director_planning_style': '导演规划视觉手册',
+        'director_storyboard_table_style': '分镜表视觉手册',
+      },
+    );
+    engine.saveDirectorManual(
+      name: '导演叙事',
+      pack: 'director_pack',
+      data: const {
+        'director_planning_narrative': '导演规划叙事手册',
+        'director_storyboard_table_narrative': '分镜表叙事手册',
+      },
     );
     projectId = engine.addProject(
       projectType: 'novel',
       name: '分镜测试',
       videoRatio: '16:9',
       artStyle: 'storyboard_pack',
+      directorManual: 'director_pack',
     );
     scriptId = engine.addScript(
         projectId: projectId, name: '第一集', content: '林朝雪拔剑，白衣如雪。');
@@ -315,6 +333,105 @@ notes
     );
     expect(state.stale, isFalse);
     expect(state.sourceHash, promptContentHash(validTable));
+  });
+
+  test('C4 fake provider 全链：剧本到规划、分镜表和结构分镜', () async {
+    const apiKey = 'sk-c4-task-json-must-not-leak';
+    const scriptSource = '林朝雪拔剑，白衣如雪。';
+    const planSource = '# 导演规划\n雪夜开场，三秒建立危机。';
+    const tableSource = '''
+| 画面提示词 | 画面描述 | 时长 | 分轨 | 资产 | 生成首帧 |
+| --- | --- | --- | --- | --- | --- |
+| 雪夜山门，林朝雪拔剑 | 慢镜推近 | 3 | 主线 | 林朝雪 | 是 |
+''';
+    const assetSource = '林朝雪（role）：白衣剑客';
+    await engine.credentials.write(providerCredentialRef('azt'), apiKey);
+    final assetId = addLinkedAsset('林朝雪', 'role', describe: '白衣剑客');
+    gateway.textResult = (system, user, stage) => switch (stage) {
+          'director_plan' => planSource,
+          'storyboard_table' => tableSource,
+          _ => throw StateError('unexpected text stage: $stage'),
+        };
+    gateway.toolResult = (_) => {
+          'shots': [
+            {'prompt': '雪夜山门拔剑，冷蓝逆光', 'videoDesc': '慢镜推近'},
+          ],
+        };
+
+    final planTask = engine.generateDirectorPlan(projectId);
+    await waitTask(planTask);
+    final tableTask = engine.generateStoryboardTable(projectId, scriptId);
+    await waitTask(tableTask);
+    final shotsTask = engine.generateStoryboards(
+      projectId,
+      scriptId,
+      replaceExisting: false,
+    );
+    await waitTask(shotsTask);
+
+    final plan = engine.scriptPlan(projectId);
+    expect(plan, contains('导演规划'));
+    final table = engine.storyboardTable(projectId, scriptId);
+    expect(table, contains('雪夜山门'));
+    final shots = engine.storyboards(scriptId);
+    expect(shots.single.prompt, contains('冷蓝逆光'));
+    expect(shots.single.assetIds, [assetId]);
+    expect(
+      engine
+          .productionDependencyState(
+            projectId,
+            structuredStoryboardStateKey,
+            scriptId: scriptId,
+          )
+          .sourceHash,
+      promptContentHash(table),
+    );
+
+    Map<String, dynamic> taskTrace(int taskId) => Map<String, dynamic>.from(
+          jsonDecode(db.select('SELECT relatedObjects FROM o_tasks WHERE id=?',
+              [taskId]).single['relatedObjects'] as String) as Map,
+        );
+
+    final planTrace = taskTrace(planTask);
+    final tableTrace = taskTrace(tableTask);
+    final shotsTrace = taskTrace(shotsTask);
+    expect(planTrace['scriptsHash'], engine.projectScriptsHash(projectId));
+    expect(tableTrace,
+        containsPair('scriptHash', promptContentHash(scriptSource)));
+    expect(tableTrace, containsPair('planHash', promptContentHash(plan)));
+    expect(
+        tableTrace,
+        containsPair(
+            'assetsHash', engine.scriptAssetsHash(projectId, scriptId)));
+    expect(shotsTrace,
+        containsPair('scriptHash', promptContentHash(scriptSource)));
+    expect(shotsTrace, containsPair('planHash', promptContentHash(plan)));
+    expect(shotsTrace, containsPair('tableHash', promptContentHash(table)));
+    expect(
+        shotsTrace,
+        containsPair(
+            'assetsHash', engine.scriptAssetsHash(projectId, scriptId)));
+
+    for (final trace in [planTrace, tableTrace, shotsTrace]) {
+      final raw = jsonEncode(trace);
+      for (final sensitive in [
+        apiKey,
+        scriptSource,
+        plan,
+        table,
+        assetSource,
+        '分镜系统提示词',
+        '导演规划系统词',
+        '分镜表系统词',
+        '分镜视觉手册',
+        '导演规划视觉手册',
+        '分镜表视觉手册',
+        '导演规划叙事手册',
+        '分镜表叙事手册',
+      ]) {
+        expect(raw, isNot(contains(sensitive)));
+      }
+    }
   });
 
   test('生成结果未验证时保留旧数据，验证通过后原子替换并清理媒体', () async {
@@ -638,11 +755,18 @@ END
 
 class _Gateway implements ProviderGateway {
   Map<String, dynamic> Function(String user)? toolResult;
+  String Function(String system, String user, String stage)? textResult;
   String? seenSystem;
   String? seenUser;
   int toolCalls = 0;
   String Function(String prompt, String projectId, String? refPath)?
       imageHandler;
+
+  @override
+  Future<TextResult> generateText(String system, String user,
+      {required String stage, CancelToken? cancelToken}) async {
+    return TextResult(textResult!(system, user, stage));
+  }
 
   @override
   Future<Map<String, dynamic>> generateToolJson(String system, String user,

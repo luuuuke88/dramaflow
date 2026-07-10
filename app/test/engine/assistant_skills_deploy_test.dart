@@ -41,15 +41,16 @@ void main() {
   });
 
   group('assistant_skills', () {
-    test('12 个内置动作自动播种为可开关技能', () {
+    test('13 个内置动作自动播种为可开关技能', () {
       final skills = engine.assistantSkills();
       final toolIds = skills
           .where((s) => s.type == assistantToolSkillType)
           .map((s) => s.id)
           .toSet();
       expect(toolIds, contains('get_status'));
+      expect(toolIds, contains('generate_scripts'));
       expect(toolIds, contains('generate_videos'));
-      expect(toolIds, hasLength(12));
+      expect(toolIds, hasLength(13));
       expect(skills.every((s) => s.enabled), isTrue, reason: '默认全启用');
     });
 
@@ -82,8 +83,7 @@ void main() {
       expect(contexts.single, contains('style_guide'));
 
       f.deleteSync();
-      expect(engine.assistantSkillContexts(), isEmpty,
-          reason: '文件被删后跳过，不抛异常');
+      expect(engine.assistantSkillContexts(), isEmpty, reason: '文件被删后跳过，不抛异常');
     });
 
     test('readAssistantSkillFile 拒绝路径穿越', () {

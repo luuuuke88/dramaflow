@@ -50,6 +50,13 @@ List<AssistantAction> assistantActions() => const [
         taskClass: 'event_generation',
       ),
       AssistantAction(
+        name: 'generate_scripts',
+        description: '根据已提取事件生成短剧剧本。不传 eventIds 时对项目内全部事件执行。',
+        schema: {'eventIds': _idArraySchema},
+        costsMoney: true,
+        taskClass: 'script_generation',
+      ),
+      AssistantAction(
         name: 'extract_assets',
         description: '从剧本提取角色/道具/场景资产。不传 scriptIds 时对全部尚未成功提取的剧本执行。',
         schema: {'scriptIds': _idArraySchema},
@@ -58,7 +65,7 @@ List<AssistantAction> assistantActions() => const [
       ),
       AssistantAction(
         name: 'generate_storyboards',
-        description: '为指定剧本生成分镜列表（画面提示词/运镜描述）。',
+        description: '根据已保存的分镜表，为指定剧本生成结构化分镜。',
         schema: {
           'scriptId': {'type': 'integer'}
         },
@@ -140,6 +147,8 @@ const _chineseArgAliases = <String, String>{
   '剧本ids': 'scriptIds',
   '章节id': 'novelId',
   '章节ids': 'novelIds',
+  '事件id': 'eventId',
+  '事件ids': 'eventIds',
   '分镜id': 'storyboardId',
   '分镜ids': 'storyboardIds',
   '角色id': 'roleId',
@@ -221,6 +230,16 @@ Future<String> runAssistantAction(
       if (ids.isEmpty) return '没有需要生成事件的章节。';
       final taskId = engine.generateEvents(projectId, ids);
       return '已提交事件生成任务（任务 #$taskId），涉及 ${ids.length} 个章节。';
+    case 'generate_scripts':
+      final ids = _intList(args['eventIds']) ??
+          engine
+              .events(projectId, limit: 100000)
+              .list
+              .map((event) => event.id)
+              .toList();
+      if (ids.isEmpty) return '没有可用于生成剧本的事件。';
+      final taskId = engine.generateScriptsFromEvents(projectId, ids);
+      return '已提交剧本生成任务（任务 #$taskId），涉及 ${ids.length} 个事件。';
     case 'extract_assets':
       final ids = _intList(args['scriptIds']) ??
           engine
@@ -234,7 +253,15 @@ Future<String> runAssistantAction(
     case 'generate_storyboards':
       final scriptId = _intOf(args['scriptId']);
       if (scriptId == null) return '缺少 scriptId 参数。';
-      final taskId = engine.generateStoryboards(projectId, scriptId);
+      if (engine.storyboards(scriptId).isNotEmpty) {
+        return '该剧集已有分镜，请在制作面板确认替换后重新生成。';
+      }
+      final taskId = engine.generateStoryboards(
+        projectId,
+        scriptId,
+        replaceExisting: false,
+      );
+      if (taskId == 0) return '缺少已保存的导演规划或分镜表，无法生成分镜。';
       return '已提交分镜生成任务（任务 #$taskId）。';
     case 'generate_shot_images':
       final scriptId = _intOf(args['scriptId']);
