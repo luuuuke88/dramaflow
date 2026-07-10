@@ -29,6 +29,7 @@
 - Modify: `app/lib/src/engine/db.dart` - schema version 11 and additive `o_productionDependencyState` table.
 - Modify: `app/lib/src/engine/queue.dart` - add director-plan and storyboard-table text task classes.
 - Modify: `app/lib/src/engine/pipeline_policy.dart` - make the two text tasks charge-confirmed and add the structured-shot replacement destructive key.
+- Modify: `app/lib/src/engine/providers/resolve.dart` - declare both stages as text stages so bindings resolve safely.
 - Modify: `app/lib/src/engine/engine.dart` - register default prompts and bindings for the two new stages.
 - Modify: `app/lib/src/engine/prompt_resolver.dart` - include an optional model-specific template when a matching row exists, without making it required for text stages.
 - Modify: `app/lib/src/engine/script_plan.dart` - director-plan queue runner, persistence, provenance, and downstream invalidation.
@@ -227,9 +228,11 @@ git commit -m "feat(production): track document dependencies"
 - Modify: `app/lib/src/engine/engine.dart`
 - Modify: `app/lib/src/engine/queue.dart`
 - Modify: `app/lib/src/engine/pipeline_policy.dart`
+- Modify: `app/lib/src/engine/providers/resolve.dart`
 - Modify: `app/lib/src/screens/settings_screen.dart`
 - Test: `app/test/engine/prompt_resolver_test.dart`
 - Test: `app/test/engine/engine_facade_test.dart`
+- Test: `app/test/engine/pipeline_policy_test.dart`
 - Test: `app/test/widgets/settings_screen_test.dart`
 
 **Consumes:** Task provenance format and existing `binding.<stage>` settings.
@@ -270,7 +273,7 @@ Expected: FAIL because `requireModelPrompt`, new bindings, and new settings entr
 
 - [ ] **Step 3: Implement optional templates and stage defaults.**
 
-Add `bool requireModelPrompt = false` to `resolvePrompt`. When `modelPromptPath` is set but no matching binding/model row/template exists, skip the source only when `requireModelPrompt` is false; preserve today's throwing behavior for a true requirement.
+Add `bool requireModelPrompt = true` to `resolvePrompt`. This preserves the existing strict behavior for C3 video templates. When `modelPromptPath` is set but no matching binding/model row/template exists, skip the source only when the C4 caller explicitly passes `requireModelPrompt: false`; otherwise retain today's actionable error.
 
 Seed these text bindings beside existing `script_gen` and `storyboard_gen` bindings:
 

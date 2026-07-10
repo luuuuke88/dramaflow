@@ -34,13 +34,17 @@ void main() {
     engine.saveVisualManual(
       name: 'Ink',
       pack: 'ink_pack',
-      data: const {'director_storyboard': 'VISUAL'},
+      data: const {
+        'director_storyboard': 'VISUAL',
+        'director_planning_style': 'PLAN VISUAL',
+      },
     );
     engine.saveDirectorManual(
       name: 'Fast Cut',
       pack: 'fast_cut',
       data: const {
         'director_storyboard_table_narrative': 'DIRECTOR',
+        'director_planning_narrative': 'PLAN DIRECTOR',
       },
     );
     db.execute(
@@ -50,6 +54,14 @@ void main() {
     db.execute(
       'INSERT INTO o_setting (key,value) VALUES (?,?)',
       ['binding.storyboard_gen', 'volcengine:seedance'],
+    );
+    db.execute(
+      'INSERT INTO o_setting (key,value) VALUES (?,?)',
+      ['binding.director_plan', 'azt:gpt-5.5'],
+    );
+    db.execute(
+      'INSERT INTO o_prompt (name,type,data,useData) VALUES (?,?,?,NULL)',
+      ['director_plan', 'director_plan', 'PLAN BASE'],
     );
     db.execute(
       'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
@@ -177,5 +189,46 @@ void main() {
 
     expect(resolution.system, 'BASE NEWEST');
     expect(resolution.sources.single.version, promptContentHash('BASE NEWEST'));
+  });
+
+  test('可选文字模型模板缺失时跳过，存在时按固定顺序注入', () {
+    final projectId = engine.addProject(
+      projectType: 'drama',
+      name: 'p',
+      artStyle: 'ink_pack',
+      directorManual: 'fast_cut',
+    );
+
+    final withoutModel = engine.resolvePrompt(
+      projectId: projectId,
+      basePromptKey: 'director_plan',
+      visualSection: 'director_planning_style',
+      directorSection: 'director_planning_narrative',
+      modelStage: 'director_plan',
+      modelPromptPath: 'text/director_plan.md',
+      requireModelPrompt: false,
+    );
+    expect(withoutModel.system, 'PLAN BASE\n\nPLAN VISUAL\n\nPLAN DIRECTOR');
+    expect(withoutModel.sources.map((source) => source.kind),
+        ['base', 'visual', 'director']);
+
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      ['azt', 'gpt-5.5', 'director_plan.md', 'text/director_plan.md', 'MODEL'],
+    );
+    final withModel = engine.resolvePrompt(
+      projectId: projectId,
+      basePromptKey: 'director_plan',
+      visualSection: 'director_planning_style',
+      directorSection: 'director_planning_narrative',
+      modelStage: 'director_plan',
+      modelPromptPath: 'text/director_plan.md',
+      requireModelPrompt: false,
+    );
+    expect(
+        withModel.system, 'PLAN BASE\n\nPLAN VISUAL\n\nPLAN DIRECTOR\n\nMODEL');
+    expect(
+        withModel.sources.last.id, 'model:azt:gpt-5.5:text/director_plan.md');
   });
 }

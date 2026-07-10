@@ -6,12 +6,14 @@ class ActionPolicyMeta {
   const ActionPolicyMeta({this.costsMoney = false, this.destructive = false});
 }
 
-/// 队列 taskClass → 策略元数据（与 queue.dart laneOf 的 9 个 key 完全一致）
+/// 队列 taskClass → 策略元数据（与 queue.dart laneOf 的键保持一致）
 const actionPolicyByTaskClass = <String, ActionPolicyMeta>{
   'event_generation': ActionPolicyMeta(costsMoney: true),
   'script_generation': ActionPolicyMeta(costsMoney: true),
   'asset_extraction': ActionPolicyMeta(costsMoney: true),
   'asset_prompt_polish': ActionPolicyMeta(costsMoney: true),
+  'director_plan_generation': ActionPolicyMeta(costsMoney: true),
+  'storyboard_table_generation': ActionPolicyMeta(costsMoney: true),
   'asset_image_generation': ActionPolicyMeta(costsMoney: true),
   'storyboard_generate': ActionPolicyMeta(costsMoney: true),
   'storyboard_image_generation': ActionPolicyMeta(costsMoney: true),
@@ -52,7 +54,8 @@ PolicyVerdict checkAction(
   }
 
   // 其次检查 destructiveKey（破坏动作）
-  if (destructiveKey != null && destructiveActionKeys.contains(destructiveKey)) {
+  if (destructiveKey != null &&
+      destructiveActionKeys.contains(destructiveKey)) {
     if (config.str('policy.confirmDestructive') != '0') {
       return PolicyVerdict.confirmDestructive;
     }

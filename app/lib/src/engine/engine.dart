@@ -521,6 +521,8 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       binding('script_gen', 'volcengine:doubao-seed-1-6-250615');
       binding('event_extract', 'volcengine:doubao-seed-1-6-250615');
       binding('asset_extract', 'volcengine:doubao-seed-1-6-250615');
+      binding('director_plan', 'volcengine:doubao-seed-1-6-250615');
+      binding('storyboard_table', 'volcengine:doubao-seed-1-6-250615');
       binding('storyboard_gen', 'volcengine:doubao-seed-1-6-250615');
       binding('video_prompt_gen', 'volcengine:doubao-seed-1-6-250615');
       binding('asset_image', 'volcengine:doubao-seedream-4-0-250828');
@@ -530,6 +532,8 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       binding('script_gen', 'azt:gpt-5.5');
       binding('event_extract', 'azt:gpt-5.5');
       binding('asset_extract', 'azt:gpt-5.5');
+      binding('director_plan', 'azt:gpt-5.5');
+      binding('storyboard_table', 'azt:gpt-5.5');
       binding('storyboard_gen', 'azt:gpt-5.5');
       binding('video_prompt_gen', 'azt:gpt-5.5');
       binding('asset_image', 'azt:gpt-image-2');
@@ -589,6 +593,20 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
           '（videoDesc）、预估时长秒数（duration）、所属分轨名称（track，如"主线"）、'
           '涉及的资产名称（assetNames，取剧本中出现的角色/道具/场景原名）。'
           '必须通过调用 resultTool 工具返回结果，禁止输出任何其他文字。',
+    );
+    prompt(
+      name: 'director_plan',
+      type: 'director_plan',
+      data: '你是短剧总导演。根据项目已有剧本写出可执行的导演规划。'
+          '必须覆盖：整体视觉与节奏、人物弧光、分集冲突升级、场景复用、关键转场和每集钩子。'
+          '只输出 Markdown 导演规划，不要解释生成过程。',
+    );
+    prompt(
+      name: 'storyboard_table',
+      type: 'storyboard_table',
+      data: '你是短剧分镜导演。根据导演规划、当前剧本和资产清单生成可执行的 Markdown 分镜表。'
+          '必须只输出一个包含“镜头、画面提示词、画面描述、时长、分轨、资产、生成首帧”列的表格；'
+          '资产列只写候选清单中的原名，单元格内的竖线必须写成\\|。',
     );
     prompt(
       name: 'asset_prompt_polish',

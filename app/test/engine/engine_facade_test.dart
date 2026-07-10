@@ -263,6 +263,33 @@ void main() {
       );
       expect(row['useData'], isNull);
     }
+
+    final bindings = await seeded.getBindings();
+    expect(bindings['director_plan'], 'azt:gpt-5.5');
+    expect(bindings['storyboard_table'], 'azt:gpt-5.5');
+    final c4Prompts = seeded.db.select(
+      'SELECT name,type FROM o_prompt WHERE name IN (?,?) ORDER BY name',
+      ['director_plan', 'storyboard_table'],
+    );
+    expect(c4Prompts.map((row) => row['name']),
+        ['director_plan', 'storyboard_table']);
+    expect(c4Prompts.map((row) => row['type']),
+        ['director_plan', 'storyboard_table']);
+
+    final mobile = await Engine.boot(
+      dataDir: p.join(dir.path, 'seeded-mobile'),
+      isMobile: true,
+      credentialStore: InMemoryCredentialStore(),
+    );
+    addTearDown(() {
+      mobile.dispose();
+      mobile.db.close();
+    });
+    final mobileBindings = await mobile.getBindings();
+    expect(
+        mobileBindings['director_plan'], 'volcengine:doubao-seed-1-6-250615');
+    expect(mobileBindings['storyboard_table'],
+        'volcengine:doubao-seed-1-6-250615');
   });
 
   test('boot 不再 seed ToonFlow 根级 Markdown 技能；助手内置技能懒播种且不重置禁用状态', () async {

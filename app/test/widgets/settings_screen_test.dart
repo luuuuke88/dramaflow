@@ -252,6 +252,22 @@ void main() {
     expect(find.text('o_project'), findsOneWidget);
   });
 
+  testWidgets('移动端设置页显示导演规划和分镜表阶段', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '模型绑定');
+    expect(find.text('director_plan'), findsOneWidget);
+    expect(find.text('storyboard_table'), findsOneWidget);
+
+    await _selectSection(tester, '提示词');
+    expect(find.text('director_plan'), findsOneWidget);
+    expect(find.text('storyboard_table'), findsOneWidget);
+  });
+
   testWidgets('移动端设置页：视频模型能力可编辑并保留未知能力键', (tester) async {
     final provider = await engine.createProvider(
       name: 'Volcengine',

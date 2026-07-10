@@ -94,6 +94,7 @@ extension PromptResolverApi on Engine {
     String? directorSection,
     String? modelStage,
     String? modelPromptPath,
+    bool requireModelPrompt = true,
   }) {
     final projectRows = db.select(
       'SELECT artStyle,directorManual FROM o_project WHERE id=? LIMIT 1',
@@ -162,30 +163,36 @@ extension PromptResolverApi on Engine {
               .trim();
       final separator = binding.indexOf(':');
       if (separator <= 0 || separator == binding.length - 1) {
-        throw EngineException(
-          errPromptMissing,
-          {'type': 'model:$stage:$modelPromptPath'},
+        if (requireModelPrompt) {
+          throw EngineException(
+            errPromptMissing,
+            {'type': 'model:$stage:$modelPromptPath'},
+          );
+        }
+      } else {
+        final providerId = binding.substring(0, separator);
+        final modelId = binding.substring(separator + 1);
+        final rows = db.select(
+          'SELECT prompt FROM o_modelPrompt '
+          'WHERE vendorId=? AND model=? AND path=? ORDER BY id DESC LIMIT 1',
+          [providerId, modelId, modelPromptPath],
         );
+        final content = rows.firstOrNull?['prompt'] as String? ?? '';
+        if (content.trim().isEmpty) {
+          if (requireModelPrompt) {
+            throw EngineException(
+              errPromptMissing,
+              {'type': 'model:$providerId:$modelId:$modelPromptPath'},
+            );
+          }
+        } else {
+          addSource(
+            'model:$providerId:$modelId:$modelPromptPath',
+            'model',
+            content,
+          );
+        }
       }
-      final providerId = binding.substring(0, separator);
-      final modelId = binding.substring(separator + 1);
-      final rows = db.select(
-        'SELECT prompt FROM o_modelPrompt '
-        'WHERE vendorId=? AND model=? AND path=? ORDER BY id DESC LIMIT 1',
-        [providerId, modelId, modelPromptPath],
-      );
-      final content = rows.firstOrNull?['prompt'] as String? ?? '';
-      if (content.trim().isEmpty) {
-        throw EngineException(
-          errPromptMissing,
-          {'type': 'model:$providerId:$modelId:$modelPromptPath'},
-        );
-      }
-      addSource(
-        'model:$providerId:$modelId:$modelPromptPath',
-        'model',
-        content,
-      );
     }
 
     return PromptResolution(

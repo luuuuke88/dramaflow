@@ -78,6 +78,8 @@ class JobQueue {
     'script_generation': 'text',
     'asset_extraction': 'text',
     'asset_prompt_polish': 'text',
+    'director_plan_generation': 'text',
+    'storyboard_table_generation': 'text',
     'asset_image_generation': 'image',
     'storyboard_generate': 'text',
     'storyboard_image_generation': 'image',

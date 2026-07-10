@@ -19,8 +19,8 @@ void main() {
   });
 
   group('actionPolicyByTaskClass', () {
-    test('包含 9 个 taskClass', () {
-      expect(actionPolicyByTaskClass.length, 9);
+    test('包含 11 个 taskClass', () {
+      expect(actionPolicyByTaskClass.length, 11);
     });
 
     test('所有生成类任务都收费', () {
@@ -29,6 +29,8 @@ void main() {
         'script_generation',
         'asset_extraction',
         'asset_prompt_polish',
+        'director_plan_generation',
+        'storyboard_table_generation',
         'asset_image_generation',
         'storyboard_generate',
         'storyboard_image_generation',
@@ -178,7 +180,8 @@ void main() {
     test('同时提供 taskClass 和 destructiveKey → taskClass 优先', () {
       final db = openEngineDb(':memory:');
       final config = EngineConfig(db, isMobile: false);
-      config.update({'policy.confirmMoney': '1', 'policy.confirmDestructive': '0'});
+      config.update(
+          {'policy.confirmMoney': '1', 'policy.confirmDestructive': '0'});
 
       final verdict = checkAction(config,
           taskClass: 'event_generation', destructiveKey: 'delete_assets');
@@ -193,6 +196,8 @@ void main() {
       'script_generation',
       'asset_extraction',
       'asset_prompt_polish',
+      'director_plan_generation',
+      'storyboard_table_generation',
       'asset_image_generation',
       'storyboard_generate',
       'storyboard_image_generation',
@@ -200,7 +205,7 @@ void main() {
       'audio_bind',
     ];
 
-    test('9 个 taskClass × confirmMoney 开/关 × autoMode 真/假', () {
+    test('11 个 taskClass × confirmMoney 开/关 × autoMode 真/假', () {
       for (final taskClass in taskClasses) {
         for (final confirmMoneyValue in ['0', '1']) {
           for (final autoMode in [true, false]) {
@@ -208,8 +213,8 @@ void main() {
             final config = EngineConfig(db, isMobile: false);
             config.update({'policy.confirmMoney': confirmMoneyValue});
 
-            final verdict = checkAction(config,
-                taskClass: taskClass, autoMode: autoMode);
+            final verdict =
+                checkAction(config, taskClass: taskClass, autoMode: autoMode);
 
             if (confirmMoneyValue == '1' && !autoMode) {
               expect(verdict, PolicyVerdict.confirmMoney,
