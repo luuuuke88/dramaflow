@@ -280,7 +280,7 @@ class VideoReferenceCandidate {
 }
 ```
 
-- [ ] **Step 1: Write failing migration and recovery-disposition tests.**
+- [x] **Step 1: Write failing migration and recovery-disposition tests.**
 
 Create a v9 fixture database containing populated project/video/videoTrack rows, open it through `openEngineDb`, and assert every old value remains while the new nullable columns exist. Test the new queue behavior without changing any old recovery hook:
 
@@ -299,13 +299,13 @@ expect(taskState(taskId), 'failed');
 
 Add a video-track JSON round-trip assertion that provider audio does not alter the unrelated storyboard composition audio binding.
 
-- [ ] **Step 2: Run targeted tests and verify the missing schema/API failure.**
+- [x] **Step 2: Run targeted tests and verify the missing schema/API failure.**
 
 Run: `cd app && flutter test test/engine/db_test.dart test/engine/video_track_test.dart --reporter compact`
 
 Expected: FAIL because schema version 10, `videoRequest`, and `registerColdStartResumer` do not exist.
 
-- [ ] **Step 3: Add only additive v10 storage.**
+- [x] **Step 3: Add only additive v10 storage.**
 
 Bump `schemaVersion` to 10. In `initSchema`, declare these columns on new databases:
 
@@ -346,7 +346,7 @@ void _addColumnIfMissing(Database db, String table, String definition) {
 
 `submissionState` values are exactly `prepared`, `submitting`, `accepted`, and `uncertain`. A newly created local candidate begins `prepared`; it changes to `submitting` before the HTTP create call and to `accepted` only after a nonempty upstream ID is committed.
 
-- [ ] **Step 4: Add opt-in queue resumption.**
+- [x] **Step 4: Add opt-in queue resumption.**
 
 Keep current `registerRecover` behavior. Add a separate `_coldStartResumers` map and change `recoverOnColdStart` to evaluate each processing task before the bulk failure update:
 
@@ -367,17 +367,17 @@ if (resumableIds.isNotEmpty) {
 
 Register one video resumer that returns `resume` only when the task has at least one associated `o_video` candidate with `submissionState='accepted'` and a nonempty `upstreamTaskId`. It marks `prepared`, `submitting`, and `uncertain` in-flight rows failed with `errAppRestart`, never submits them.
 
-- [ ] **Step 5: Store per-shot controls and raw-prompt provenance separately.**
+- [x] **Step 5: Store per-shot controls and raw-prompt provenance separately.**
 
 Add `videoRequestForTrack`, `updateVideoRequest`, and a `VideoRequestDraft` value API in `video_track.dart`. It must normalize old/null rows to project model defaults, but it must not write until the user saves or a generation requires a compatibility migration. `generateVideoPrompt` resolves the exact `promptTemplates[mode]` path through C2's `resolvePrompt`, then writes only C2-style IDs/kinds/hashes to `o_videoTrack.promptProvenance`; it does not use `o_videoTrack.reason` as a storage shortcut.
 
-- [ ] **Step 6: Run the database, queue, and video-track tests.**
+- [x] **Step 6: Run the database, queue, and video-track tests.**
 
 Run: `cd app && flutter test test/engine/db_test.dart test/engine/video_track_test.dart --reporter compact && flutter analyze`
 
 Expected: new v9 migration and resume/fail cases pass; existing cold-start failures for tasks without an upstream ID still pass.
 
-- [ ] **Step 7: Commit persistence and recovery.**
+- [x] **Step 7: Commit persistence and recovery.**
 
 ```bash
 git add app/lib/src/engine/db.dart app/lib/src/engine/queue.dart app/lib/src/engine/video_track.dart app/test/engine/db_test.dart app/test/engine/video_track_test.dart
@@ -415,7 +415,7 @@ abstract class ProviderGateway {
 }
 ```
 
-- [ ] **Step 1: Write failing provider serialization tests.**
+- [x] **Step 1: Write failing provider serialization tests.**
 
 Use Dio's fake adapter and a real temporary media directory. Assert exact request bodies for all four canonical modes:
 
@@ -432,13 +432,13 @@ expect(body['content'], [
 
 For `first_last_frame`, assert ordered `first_frame`, `last_frame`; for `multi_reference`, assert image/video/audio roles are `reference_image`, `reference_video`, `reference_audio`; for text assert the content contains only the text item. Add one-poll cases for `queued`, `running`, `succeeded` (downloads and returns a local path), `failed`, `cancelled`, and `expired`. Assert DELETE is made to the same upstream task path and a 404/unsupported cancellation is ignored by the engine caller but observable in adapter test.
 
-- [ ] **Step 2: Run provider tests and verify the old three-argument API does not satisfy them.**
+- [x] **Step 2: Run provider tests and verify the old three-argument API does not satisfy them.**
 
 Run: `cd app && flutter test test/engine/providers_test.dart test/engine/video_conn_test.dart --reporter compact`
 
 Expected: FAIL because `submitVideo`, `pollVideo`, `cancelVideo`, and `VideoGenerationRequest` are absent.
 
-- [ ] **Step 3: Split Volcengine transport into submission and one-poll operations.**
+- [x] **Step 3: Split Volcengine transport into submission and one-poll operations.**
 
 `volcengineSubmitVideo` reads each relative reference path through `media.absPath`, detects a concrete data URI MIME type from its extension, and serializes roles exactly as above. It uses the model resolved from `request.modelBinding`, not a global config model. The body has `watermark: false` and carries ratio/duration/resolution/audio directly from the validated request.
 
@@ -446,17 +446,17 @@ Expected: FAIL because `submitVideo`, `pollVideo`, `cancelVideo`, and `VideoGene
 
 `volcengineCancelVideo` sends DELETE to `contents/generations/tasks/<id>` using the same credential/model resolution path. It treats a provider's unsupported cancel response as a best-effort failure, not a reason to leave the local candidate processing.
 
-- [ ] **Step 4: Resolve a requested project model safely.**
+- [x] **Step 4: Resolve a requested project model safely.**
 
 Add a typed `resolveModelBinding` helper that parses exactly one `providerId:modelId`, checks it is enabled and kind `video`, and returns the credential-backed `ResolvedModel`. `HttpProviderGateway` uses it whenever the request provides a binding; the old stage binding is used only when the request binding is null for legacy compatibility.
 
-- [ ] **Step 5: Run provider tests and static analysis.**
+- [x] **Step 5: Run provider tests and static analysis.**
 
 Run: `cd app && flutter test test/engine/providers_test.dart test/engine/video_conn_test.dart --reporter compact && flutter analyze`
 
 Expected: all role/parameter/poll/cancel cases pass and no production path still calls the removed all-in-one `generateVideo` function.
 
-- [ ] **Step 6: Commit the provider split.**
+- [x] **Step 6: Commit the provider split.**
 
 ```bash
 git add app/lib/src/engine/providers/gateway.dart app/lib/src/engine/providers/volcengine_video.dart app/lib/src/engine/providers/resolve.dart app/test/engine/providers_test.dart app/test/engine/video_conn_test.dart
@@ -484,7 +484,7 @@ int Engine.batchGenerateVideos(int projectId, List<int> storyboardIds,
     {int concurrentCount = 2});
 ```
 
-- [ ] **Step 1: Write failing pipeline tests before implementation.**
+- [x] **Step 1: Write failing pipeline tests before implementation.**
 
 Add focused cases that prove the request is constructed from persisted project/track controls and not globals:
 
@@ -516,13 +516,13 @@ Cover all of these behavior contracts:
 7. Cancel invokes `cancelVideo` best-effort for accepted candidates and marks all local candidate/track states terminal.
 8. Batch partial success remains a success when one candidate completes and another fails.
 
-- [ ] **Step 2: Run the focused engine tests and verify they fail.**
+- [x] **Step 2: Run the focused engine tests and verify they fail.**
 
 Run: `cd app && flutter test test/engine/video_track_test.dart test/engine/assistant_actions_test.dart --reporter compact`
 
 Expected: FAIL because the current pipeline needs a first frame, ignores model/request controls, and has no upstream identity.
 
-- [ ] **Step 3: Build and validate each request before enqueueing.**
+- [x] **Step 3: Build and validate each request before enqueueing.**
 
 `batchGenerateVideos` resolves all selected storyboard/track rows synchronously and calls `buildVideoRequest` before it changes a track state or creates an `o_tasks` row. It stores:
 
@@ -538,7 +538,7 @@ model: modelBinding,
 
 Create candidate rows with `submissionState='prepared'`, `modelBinding`, and a request fingerprint. Request control JSON references source IDs, not absolute paths. A valid retry may reuse only a `prepared` candidate with the same fingerprint; all other user-triggered regenerations create a new candidate, retaining history.
 
-- [ ] **Step 4: Submit first, persist the upstream identity, then poll.**
+- [x] **Step 4: Submit first, persist the upstream identity, then poll.**
 
 For every prepared candidate:
 
@@ -551,23 +551,23 @@ UPDATE o_video SET submissionState='accepted', upstreamTaskId=?,
 
 On a submission exception after attempting HTTP, set `submissionState='uncertain'` and fail locally. Do not re-submit it from a queue retry/cold start. Poll accepted IDs until terminal with the existing 10-second interval and 30-minute ceiling. Write every observed upstream state/time. On success, save the returned media path, select the first candidate only if no selection exists, and clear the track reason. On failure, store the provider reason on both candidate and track.
 
-- [ ] **Step 5: Implement restart and cancellation behavior.**
+- [x] **Step 5: Implement restart and cancellation behavior.**
 
 The cold-start resumer returns `resume` only if the task has accepted candidates. `_runVideoGeneration` sees accepted rows and invokes only `pollVideo`; it never calls `submitVideo` for them. It marks interrupted `prepared/submitting/uncertain` rows failed and allows a manual fresh generation to make a distinct candidate.
 
 When queue cancellation is observed, call `cancelVideo` once per distinct accepted upstream ID without the cancelled Dio token, ignore a transport/404 cancel failure, then mark locally pending/generating candidates and tracks `vtFailed` with `errCanceled`. This repairs the current dangling `生成中` state for both pending and active cancellations.
 
-- [ ] **Step 6: Integrate the assistant without a separate path.**
+- [x] **Step 6: Integrate the assistant without a separate path.**
 
 Keep `generate_videos` calling `batchGenerateVideos`; it receives the same preflight/confirmation/capability behavior as the workbench. Update its result text to distinguish unsupported local request errors from queued work; do not add a direct provider call in `assistant_actions.dart`.
 
-- [ ] **Step 7: Run focused tests, the full suite, analysis, and macOS build.**
+- [x] **Step 7: Run focused tests, the full suite, analysis, and macOS build.**
 
 Run: `cd app && flutter test test/engine/video_track_test.dart test/engine/assistant_actions_test.dart --reporter compact && flutter test --reporter compact && flutter analyze && flutter build macos --debug`
 
 Expected: all engine and existing candidate-history tests pass, the full suite is green, analysis is clean, and the debug app builds.
 
-- [ ] **Step 8: Commit the pipeline.**
+- [x] **Step 8: Commit the pipeline.**
 
 ```bash
 git add app/lib/src/engine/video_track.dart app/lib/src/engine/assistant_actions.dart app/test/engine/video_track_test.dart app/test/engine/assistant_actions_test.dart
