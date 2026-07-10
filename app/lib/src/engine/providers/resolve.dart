@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:sqlite3/sqlite3.dart';
 
 import '../assistant_stage_registry.dart';
+import '../credentials.dart';
 import '../util.dart';
 
 const stageKindByStage = {
@@ -11,8 +12,6 @@ const stageKindByStage = {
   'asset_extract': 'text',
   'storyboard_gen': 'text',
   'video_prompt_gen': 'text',
-  'agent_embedding': 'embedding',
-  'agent_vision': 'text',
   'asset_image': 'image',
   'shot_image': 'image',
   'shot_video': 'video',
@@ -61,7 +60,11 @@ String requiredKindForStage(String stage) {
   return kind;
 }
 
-ResolvedModel resolveStage(Database db, String stage) {
+Future<ResolvedModel> resolveStage(
+  Database db,
+  CredentialStore credentials,
+  String stage,
+) async {
   final requiredKind = requiredKindForStage(stage);
   final key = 'binding.$stage';
   final bindings = db.select('SELECT value FROM o_setting WHERE key=?', [key]);
@@ -103,17 +106,47 @@ ResolvedModel resolveStage(Database db, String stage) {
         errModelMissing, {'stage': stage, 'modelId': modelId});
   }
 
+  return _resolvedModel(
+    p,
+    inputValues,
+    modelId,
+    credentials,
+  );
+}
+
+Future<ResolvedModel> _resolvedModel(
+  Row provider,
+  Map<String, dynamic> inputValues,
+  String modelId,
+  CredentialStore credentials,
+) async {
+  final providerId = provider['id'] as String;
+  final credentialRef =
+      (inputValues['credentialRef'] as String?)?.trim().isNotEmpty == true
+          ? inputValues['credentialRef'] as String
+          : providerCredentialRef(providerId);
+  final apiKey = await credentials.read(credentialRef);
+  if (apiKey == null || apiKey.isEmpty) {
+    throw EngineException(errProviderMissing, {
+      'providerId': providerId,
+      'reason': '未配置 API Key',
+    });
+  }
   return ResolvedModel(
-    providerId: p['id'] as String,
+    providerId: providerId,
     protocol: inputValues['protocol'] as String? ?? 'openai_compatible',
     baseUrl: inputValues['baseUrl'] as String? ?? '',
-    apiKey: inputValues['apiKey'] as String? ?? '',
+    apiKey: apiKey,
     modelId: modelId,
   );
 }
 
 /// 助手（v0.4 瘦身版）阶段解析：优先 o_agentDeploy 覆盖，否则回退 `binding.<stage>`。
-ResolvedModel resolveAssistantStage(Database db, String stage) {
+Future<ResolvedModel> resolveAssistantStage(
+  Database db,
+  CredentialStore credentials,
+  String stage,
+) async {
   final fallbackStage = assistantStageFallback(stage);
   final rows = db.select(
     'SELECT vendorId,modelName,disabled,maxOutputTokens,temperature '
@@ -121,15 +154,16 @@ ResolvedModel resolveAssistantStage(Database db, String stage) {
     [stage],
   );
   if (rows.isEmpty || _disabled(rows.first['disabled'])) {
-    return resolveStage(db, fallbackStage);
+    return resolveStage(db, credentials, fallbackStage);
   }
   final row = rows.first;
   final providerId = (row['vendorId'] as String?)?.trim() ?? '';
   final modelName = (row['modelName'] as String?)?.trim() ?? '';
   if (providerId.isEmpty || modelName.isEmpty) {
-    return resolveStage(db, fallbackStage);
+    return resolveStage(db, credentials, fallbackStage);
   }
-  return resolveModelById(db, providerId, modelName).copyWith(
+  return (await resolveModelById(db, credentials, providerId, modelName))
+      .copyWith(
     maxOutputTokens: row['maxOutputTokens'] as int?,
     temperature: row['temperature'] as int?,
   );
@@ -137,7 +171,12 @@ ResolvedModel resolveAssistantStage(Database db, String stage) {
 
 /// 按 providerId + modelId 直接解析一个已启用模型（用于逐次生成时覆盖阶段绑定，
 /// 对齐 ToonFlow generateAssets/generateFlowImage 的 model 入参）。kind 不限。
-ResolvedModel resolveModelById(Database db, String providerId, String modelId) {
+Future<ResolvedModel> resolveModelById(
+  Database db,
+  CredentialStore credentials,
+  String providerId,
+  String modelId,
+) async {
   final providers = db.select(
       'SELECT id, inputValues, models FROM o_vendorConfig WHERE id=? AND COALESCE(enable,1)=1',
       [providerId]);
@@ -158,13 +197,7 @@ ResolvedModel resolveModelById(Database db, String providerId, String modelId) {
   if (model == null) {
     throw EngineException(errModelMissing, {'modelId': modelId});
   }
-  return ResolvedModel(
-    providerId: p['id'] as String,
-    protocol: inputValues['protocol'] as String? ?? 'openai_compatible',
-    baseUrl: inputValues['baseUrl'] as String? ?? '',
-    apiKey: inputValues['apiKey'] as String? ?? '',
-    modelId: modelId,
-  );
+  return _resolvedModel(p, inputValues, modelId, credentials);
 }
 
 Map<String, dynamic> _jsonMap(Object? value) {

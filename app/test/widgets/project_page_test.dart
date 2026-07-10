@@ -182,10 +182,12 @@ void main() {
     ]);
     engine.saveVisualManual(
       name: '国风视觉',
+      pack: 'ink_pack',
       data: const {'README': 'ink visual'},
     );
     engine.saveDirectorManual(
       name: '悬疑导演',
+      pack: 'fast_cut',
       data: const {'README': 'suspense director'},
     );
 
@@ -230,8 +232,8 @@ void main() {
     expect(project.name, '移动端短剧');
     expect(project.type, '玄幻');
     expect(project.intro, '少年入山修行');
-    expect(project.artStyle, '国风视觉');
-    expect(project.directorManual, '悬疑导演');
+    expect(project.artStyle, 'ink_pack');
+    expect(project.directorManual, 'fast_cut');
     expect(project.imageModel, 'demo-provider:img-demo');
     expect(project.imageQuality, '4K');
     expect(project.videoModel, 'demo-provider:video-demo');
@@ -239,7 +241,12 @@ void main() {
     expect(project.videoRatio, '9:16');
   });
 
-  testWidgets('移动端新建向导：可进入画风库并选择新增画风', (tester) async {
+  testWidgets('移动端新建向导不再暴露重复画风库入口', (tester) async {
+    engine.saveVisualManual(
+      name: '国风赛璐璐',
+      pack: 'anime_ink',
+      data: const {'README': 'anime ink style'},
+    );
     tester.view.physicalSize = const Size(390, 760);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -248,42 +255,9 @@ void main() {
 
     await tester.tap(find.text('新建项目').first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), '画风库项目');
-
-    await tester.scrollUntilVisible(
-      find.text('管理画风库'),
-      260,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('管理画风库'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('新增画风').last);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), '国风赛璐璐');
-    await tester.enterText(find.byType(TextField).at(1), 'anime ink style');
-    await tester.tap(find.text('保存'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('关闭'));
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
-
-    await tester.scrollUntilVisible(
-      find.text('国风赛璐璐'),
-      260,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('国风赛璐璐'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-
-    final project = engine.projects().single;
-    expect(project.name, '画风库项目');
-    expect(project.artStyle, 'anime ink style');
-    expect(engine.artStyles().single.name, '国风赛璐璐');
-    expect(tester.takeException(), isNull);
+    expect(find.text('管理画风库'), findsNothing);
+    expect(find.text('国风赛璐璐'), findsOneWidget);
+    expect(engine.artStyles(), isEmpty);
   });
 
   testWidgets('移动端项目卡片：无需 hover 也能编辑和删除', (tester) async {

@@ -6,7 +6,7 @@ class EngineConfig {
   final Database _db;
   final bool isMobile;
 
-  static const maskedKeys = ['textApiKey', 'imageApiKey', 'videoApiKey'];
+  static const maskedKeys = <String>[];
 
   static const _sizeDirective =
       'You MUST generate this image at exactly 1024x1024 resolution as a SQUARE 1:1 canvas. Do not add any text, watermark or border.';
@@ -15,17 +15,14 @@ class EngineConfig {
     'textBaseUrl': isMobile
         ? 'https://ark.cn-beijing.volces.com/api/v3'
         : 'http://127.0.0.1:8787/v1',
-    'textApiKey': isMobile ? '' : 'local',
     'textModel': isMobile ? 'doubao-seed-1-6-250615' : 'gpt-5.5',
     'imageBaseUrl': isMobile
         ? 'https://ark.cn-beijing.volces.com/api/v3'
         : 'http://127.0.0.1:8787/v1',
-    'imageApiKey': isMobile ? '' : 'local',
     'imageModel': isMobile ? 'doubao-seedream-4-0-250828' : 'gpt-image-2',
     'imageSizeDirective': _sizeDirective,
     'videoProvider': 'volcengine',
     'videoBaseUrl': 'https://ark.cn-beijing.volces.com/api/v3',
-    'videoApiKey': '',
     'videoModel': 'doubao-seedance-2-0-mini-260615',
     'videoResolution': '720p',
     'videoDuration': '5',

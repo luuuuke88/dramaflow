@@ -9,6 +9,7 @@ import '../api/models.dart';
 import 'assets.dart';
 import 'audio_bind.dart' show AudioBindApi;
 import 'compose.dart';
+import 'credentials.dart';
 import 'storyboard.dart' show StoryboardApi;
 import 'config.dart';
 import 'db.dart';
@@ -242,6 +243,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
   final MediaStore media;
   final ProviderGateway gateway;
   final EngineConfig config;
+  final CredentialStore credentials;
   final VideoComposer composer;
   late final JobQueue queue;
 
@@ -253,10 +255,12 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     required this.media,
     required this.gateway,
     required this.config,
+    CredentialStore? credentials,
     VideoComposer? composer,
     Duration queueTick = const Duration(milliseconds: 500),
     TaskRunner? taskRunner,
-  }) : composer = composer ?? const UnsupportedComposer() {
+  })  : credentials = credentials ?? InMemoryCredentialStore(),
+        composer = composer ?? const UnsupportedComposer() {
     queue = JobQueue(
       db,
       run: taskRunner ?? _dispatchTask,
@@ -279,17 +283,21 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     required String dataDir,
     required bool isMobile,
     VideoComposer? composer,
+    CredentialStore? credentialStore,
   }) async {
     Directory(dataDir).createSync(recursive: true);
     final db = openEngineDb(path.join(dataDir, 'dramaflow.sqlite'));
     final config = EngineConfig(db, isMobile: isMobile);
     _seedDefaults(db, config, isMobile: isMobile);
+    final credentials = credentialStore ?? SecureCredentialStore();
+    await _migrateLegacyProviderCredentials(db, credentials);
     final media = MediaStore(path.join(dataDir, 'media'));
     final engine = Engine(
       db: db,
       media: media,
-      gateway: HttpProviderGateway(db, config, media),
+      gateway: HttpProviderGateway(db, config, media, credentials: credentials),
       config: config,
+      credentials: credentials,
       composer: composer,
     );
     engine.installNovelEventPipeline();
@@ -316,7 +324,6 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
         required String name,
         required String protocol,
         required String baseUrl,
-        required String apiKey,
         required List<Map<String, Object?>> models,
       }) {
         db.execute(
@@ -328,7 +335,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
               'name': name,
               'protocol': protocol,
               'baseUrl': baseUrl,
-              'apiKey': apiKey,
+              'credentialRef': providerCredentialRef(id),
               'createdAt': nowIso(),
             }),
             jsonEncode(models),
@@ -355,7 +362,6 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
           name: 'azt',
           protocol: 'openai_compatible',
           baseUrl: 'http://127.0.0.1:8787/v1',
-          apiKey: 'local',
           models: [
             for (final modelId in ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'])
               model('azt', modelId, modelId, 'text'),
@@ -369,7 +375,6 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
         name: 'volcengine',
         protocol: 'volcengine',
         baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
-        apiKey: isMobile ? '' : config.str('videoApiKey'),
         models: [
           model('volcengine', 'doubao-seed-1-6-250615',
               'doubao-seed-1-6-250615', 'text'),
@@ -491,6 +496,64 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
           '选出音色气质最匹配的一条。必须通过调用 resultTool 工具返回结果'
           '（每个角色对应一个音频 id），禁止输出任何其他文字。',
     );
+  }
+
+  static Future<void> _migrateLegacyProviderCredentials(
+    Database db,
+    CredentialStore credentials,
+  ) async {
+    for (final row in db.select('SELECT id,inputValues FROM o_vendorConfig')) {
+      final providerId = row['id'] as String;
+      final raw = row['inputValues'] as String? ?? '{}';
+      final decoded = jsonDecode(raw);
+      final input = decoded is Map
+          ? Map<String, dynamic>.from(decoded)
+          : <String, dynamic>{};
+      final legacyApiKey = (input.remove('apiKey') ?? '').toString().trim();
+      final credentialRef =
+          (input['credentialRef'] ?? providerCredentialRef(providerId))
+              .toString();
+      input['credentialRef'] = credentialRef;
+      if (legacyApiKey.isNotEmpty) {
+        await credentials.write(credentialRef, legacyApiKey);
+      }
+      if (providerId == 'azt' &&
+          legacyApiKey.isEmpty &&
+          (await credentials.read(credentialRef)) == null) {
+        await credentials.write(credentialRef, 'local');
+      }
+      if (legacyApiKey.isNotEmpty || raw != jsonEncode(input)) {
+        db.execute(
+          'UPDATE o_vendorConfig SET inputValues=? WHERE id=?',
+          [jsonEncode(input), providerId],
+        );
+      }
+    }
+
+    const legacySettings = {
+      'textApiKey': 'azt',
+      'imageApiKey': 'azt',
+      'videoApiKey': 'volcengine',
+    };
+    for (final entry in legacySettings.entries) {
+      final row = db.select(
+        'SELECT value FROM o_setting WHERE key=?',
+        [entry.key],
+      ).firstOrNull;
+      final legacyApiKey = (row?['value'] as String?)?.trim() ?? '';
+      if (legacyApiKey.isEmpty) continue;
+      final providerExists = db.select(
+        'SELECT id FROM o_vendorConfig WHERE id=?',
+        [entry.value],
+      ).isNotEmpty;
+      if (providerExists) {
+        await credentials.write(
+          providerCredentialRef(entry.value),
+          legacyApiKey,
+        );
+      }
+      db.execute('DELETE FROM o_setting WHERE key=?', [entry.key]);
+    }
   }
 
   void dispose() {
@@ -802,19 +865,25 @@ WHERE id=?
     config.update({'app.locale': locale});
   }
 
-  Future<List<ProviderInfo>> listProviders() async => db
-      .select('SELECT * FROM o_vendorConfig ORDER BY id')
-      .map(_providerInfo)
-      .toList();
+  Future<List<ProviderInfo>> listProviders() => Future.wait(
+        db
+            .select('SELECT * FROM o_vendorConfig ORDER BY id')
+            .map(_providerInfo),
+      );
 
-  ProviderInfo _providerInfo(Row row) {
+  Future<ProviderInfo> _providerInfo(Row row) async {
     final input = _jsonMap(row['inputValues']);
+    final providerId = row['id'] as String;
+    final credentialRef =
+        (input['credentialRef'] ?? providerCredentialRef(providerId))
+            .toString();
     return ProviderInfo.fromJson({
-      'id': row['id'],
-      'name': input['name'] ?? row['id'],
+      'id': providerId,
+      'name': input['name'] ?? providerId,
       'protocol': input['protocol'] ?? 'openai_compatible',
       'baseUrl': input['baseUrl'] ?? '',
-      'apiKey': input['apiKey'] ?? '',
+      'hasCredential':
+          (await credentials.read(credentialRef))?.isNotEmpty == true,
       'enabled': row['enable'] ?? 1,
       'createdAt': input['createdAt'] ?? '',
     });
@@ -827,6 +896,10 @@ WHERE id=?
     required String apiKey,
   }) async {
     final id = _providerId(name);
+    final credentialRef = providerCredentialRef(id);
+    if (apiKey.trim().isNotEmpty) {
+      await credentials.write(credentialRef, apiKey.trim());
+    }
     db.execute(
       'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
       [
@@ -836,7 +909,7 @@ WHERE id=?
           'name': name.trim(),
           'protocol': protocol,
           'baseUrl': baseUrl.trim(),
-          'apiKey': apiKey,
+          'credentialRef': credentialRef,
           'createdAt': nowIso(),
         }),
         '[]',
@@ -858,7 +931,10 @@ WHERE id=?
     final input = _jsonMap(row['inputValues']);
     if (name != null) input['name'] = name.trim();
     if (baseUrl != null) input['baseUrl'] = baseUrl.trim();
-    if (apiKey != null) input['apiKey'] = apiKey;
+    input['credentialRef'] ??= providerCredentialRef(id);
+    if (apiKey != null && apiKey.trim().isNotEmpty) {
+      await credentials.write(input['credentialRef'] as String, apiKey.trim());
+    }
     db.execute(
       'UPDATE o_vendorConfig SET enable=COALESCE(?,enable), inputValues=? WHERE id=?',
       [enabled == null ? null : (enabled ? 1 : 0), jsonEncode(input), id],
@@ -873,6 +949,10 @@ WHERE id=?
     if (bindings.values.any((value) => value.startsWith('$id:'))) {
       throw const EngineException(errProviderMissing, {'reason': '供应商正在使用'});
     }
+    final input = _jsonMap(_mustProvider(id)['inputValues']);
+    final credentialRef =
+        (input['credentialRef'] ?? providerCredentialRef(id)).toString();
+    await credentials.delete(credentialRef);
     db.execute('DELETE FROM o_vendorConfig WHERE id=?', [id]);
   }
 
@@ -896,7 +976,6 @@ WHERE id=?
   }
 
   Future<int> testProvider(String providerId, String modelId) async {
-    final provider = _providerInfo(_mustProvider(providerId));
     final model = (await listProviderModels(providerId)).firstWhere(
       (item) => item.modelId == modelId,
       // 未找到时抛稳定 errKey 而非裸 StateError（否则绕过全局错误码约定，
@@ -908,12 +987,11 @@ WHERE id=?
           errProviderMissing, {'reason': '当前网关不支持连通测试'});
     }
     final http = gateway as HttpProviderGateway;
-    final resolved = ResolvedModel(
-      providerId: provider.id,
-      protocol: provider.protocol,
-      baseUrl: provider.baseUrl,
-      apiKey: provider.apiKey,
-      modelId: model.modelId,
+    final resolved = await resolveModelById(
+      db,
+      credentials,
+      providerId,
+      model.modelId,
     );
     // 分模态测试（照抄 ToonFlow textTest/imageTest/videoTest）：
     switch (model.kind) {
@@ -923,8 +1001,6 @@ WHERE id=?
         return http.testImageModel(resolved);
       case 'video':
         return http.testVideoModel(resolved);
-      case 'embedding':
-        return http.testEmbeddingModel(resolved);
       default:
         throw const EngineException(errModelMissing, {'reason': '该模态暂不支持连通测试'});
     }
@@ -1096,7 +1172,7 @@ LIMIT 1
               'name': provider.name,
               'protocol': provider.protocol,
               'baseUrl': provider.baseUrl,
-              'apiKey': provider.apiKey,
+              'hasCredential': provider.hasCredential,
               'enabled': provider.enabled,
               'models': [
                 for (final model in await listProviderModels(provider.id))
@@ -1142,9 +1218,13 @@ LIMIT 1
           'name': (raw['name'] ?? id).toString(),
           'protocol': (raw['protocol'] ?? 'openai_compatible').toString(),
           'baseUrl': (raw['baseUrl'] ?? '').toString(),
-          'apiKey': (raw['apiKey'] ?? '').toString(),
+          'credentialRef': providerCredentialRef(id),
           'createdAt': nowIso(),
         };
+        final apiKey = (raw['apiKey'] ?? '').toString().trim();
+        if (apiKey.isNotEmpty) {
+          await credentials.write(providerCredentialRef(id), apiKey);
+        }
         final models = [
           for (final model
               in (raw['models'] as List? ?? const []).whereType<Map>())
@@ -1229,7 +1309,7 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
       throw const EngineException(errModelMissing, {'reason': '模型 ID 不能为空'});
     }
     final kind = (model['kind'] ?? 'text').toString();
-    if (!{'text', 'image', 'video', 'tts', 'embedding'}.contains(kind)) {
+    if (!{'text', 'image', 'video', 'tts'}.contains(kind)) {
       throw const EngineException(errModelMissing, {'reason': '模型类型无效'});
     }
     return {

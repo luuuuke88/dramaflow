@@ -96,10 +96,10 @@ class _TypeConfig {
 }
 
 const _typeConfigs = {
-  'role': _TypeConfig('角色', '角色', '角色标准四视图', '人物角色四视图', 'role',
-      'art_character', 'art_character_derivative'),
-  'scene': _TypeConfig(
-      '场景', '场景', '标准场景图', '标准场景图', 'scene', 'art_scene', 'art_scene_derivative'),
+  'role': _TypeConfig('角色', '角色', '角色标准四视图', '人物角色四视图', 'role', 'art_character',
+      'art_character_derivative'),
+  'scene': _TypeConfig('场景', '场景', '标准场景图', '标准场景图', 'scene', 'art_scene',
+      'art_scene_derivative'),
   'tool': _TypeConfig(
       '道具', '道具', '标准道具图', '标准道具图', 'props', 'art_prop', 'art_prop_derivative'),
 };
@@ -147,7 +147,8 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     int limit = 10,
     String? search,
   }) {
-    final where = StringBuffer('a.projectId=? AND a.type=? AND a.assetsId IS NULL');
+    final where =
+        StringBuffer('a.projectId=? AND a.type=? AND a.assetsId IS NULL');
     final args = <Object?>[projectId, type];
     if (search != null && search.trim().isNotEmpty) {
       where.write(' AND a.name LIKE ?');
@@ -206,9 +207,8 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
   }
 
   List<AssetImageRow> assetImages(int assetsId) {
-    final selectedId = db
-        .select('SELECT imageId FROM o_assets WHERE id=?', [assetsId])
-        .firstOrNull?['imageId'] as int?;
+    final selectedId = db.select('SELECT imageId FROM o_assets WHERE id=?',
+        [assetsId]).firstOrNull?['imageId'] as int?;
     return db
         .select(
           'SELECT * FROM o_image WHERE assetsId=? ORDER BY id',
@@ -280,8 +280,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       [assetsId, rel, type, stateDone],
     );
     final imageId = db.lastInsertRowId;
-    db.execute(
-        'UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetsId]);
+    db.execute('UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetsId]);
     return assetsId;
   }
 
@@ -308,8 +307,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       [assetsId, relPath, type, stateDone],
     );
     final imageId = db.lastInsertRowId;
-    db.execute(
-        'UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetsId]);
+    db.execute('UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetsId]);
     return assetsId;
   }
 
@@ -370,9 +368,8 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
 
   /// 图片编辑器"保存"应用到资产：登记已落盘的 rel 路径为新图片版本并选中。
   void attachAssetImage(int assetsId, String rel, {int? flowId}) {
-    final type = db
-            .select('SELECT type FROM o_assets WHERE id=?', [assetsId])
-            .firstOrNull?['type'] as String? ??
+    final type = db.select('SELECT type FROM o_assets WHERE id=?',
+            [assetsId]).firstOrNull?['type'] as String? ??
         'role';
     db.execute(
       "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,?,?)",
@@ -418,8 +415,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     }
     db.execute(
         'DELETE FROM o_image WHERE assetsId IN (${_ph(allList)})', allList);
-    db.execute(
-        'DELETE FROM o_scriptAssets WHERE assetId IN (${_ph(allList)})',
+    db.execute('DELETE FROM o_scriptAssets WHERE assetId IN (${_ph(allList)})',
         allList);
     db.execute('DELETE FROM o_assets WHERE id IN (${_ph(allList)})', allList);
   }
@@ -432,7 +428,15 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     required String name,
     required String sex,
     required String describe,
-    required List<({String? base64, String? ext, String prompt, String name, String describe, int? existingImageId})>
+    required List<
+            ({
+              String? base64,
+              String? ext,
+              String prompt,
+              String name,
+              String describe,
+              int? existingImageId
+            })>
         items,
   }) {
     final parentId = addAsset(
@@ -451,15 +455,21 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     required String name,
     required String sex,
     required String describe,
-    required List<({String? base64, String? ext, String prompt, String name, String describe, int? existingImageId})>
+    required List<
+            ({
+              String? base64,
+              String? ext,
+              String prompt,
+              String name,
+              String describe,
+              int? existingImageId
+            })>
         items,
   }) {
     updateAsset(parentId, name: name, describe: '$sex|$describe');
     // 子条目全删重建（保留 existingImageId 引用的音频文件）
-    final keepImageIds = items
-        .map((i) => i.existingImageId)
-        .whereType<int>()
-        .toList();
+    final keepImageIds =
+        items.map((i) => i.existingImageId).whereType<int>().toList();
     final oldChildren = db
         .select('SELECT id FROM o_assets WHERE assetsId=?', [parentId])
         .map((r) => r['id'] as int)
@@ -477,8 +487,8 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         }
         db.execute('DELETE FROM o_image WHERE id=?', [r['id']]);
       }
-      db.execute(
-          'DELETE FROM o_assets WHERE id IN (${_ph(oldChildren)})', oldChildren);
+      db.execute('DELETE FROM o_assets WHERE id IN (${_ph(oldChildren)})',
+          oldChildren);
     }
     _writeAudioItems(projectId, parentId, items);
   }
@@ -486,7 +496,15 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
   void _writeAudioItems(
     int projectId,
     int parentId,
-    List<({String? base64, String? ext, String prompt, String name, String describe, int? existingImageId})>
+    List<
+            ({
+              String? base64,
+              String? ext,
+              String prompt,
+              String name,
+              String describe,
+              int? existingImageId
+            })>
         items,
   ) {
     for (final item in items) {
@@ -498,8 +516,8 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         prompt: item.prompt,
         parentAssetsId: parentId,
       );
-      db.execute('UPDATE o_assets SET prompt=? WHERE id=?',
-          [item.prompt, childId]);
+      db.execute(
+          'UPDATE o_assets SET prompt=? WHERE id=?', [item.prompt, childId]);
       int? imageId = item.existingImageId;
       if (item.base64 != null && item.base64!.isNotEmpty) {
         final raw = item.base64!.contains(',')
@@ -536,17 +554,14 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     if (cfg == null) {
       throw EngineException(errTaskUnsupported, {'type': type});
     }
-    final artStyle = db
-        .select('SELECT artStyle FROM o_project WHERE id=?', [projectId])
-        .firstOrNull?['artStyle'] as String?;
+    final artStyle = db.select('SELECT artStyle FROM o_project WHERE id=?',
+        [projectId]).firstOrNull?['artStyle'] as String?;
     var system = '';
     if (artStyle != null && artStyle.isNotEmpty) {
-      final pack = visualManuals()
-          .where((p) => p.name == artStyle)
-          .firstOrNull;
-      system = pack?.data[
-              isDerivative ? cfg.manualKeyDerivative : cfg.manualKey] ??
-          '';
+      final pack = visualManuals().where((p) => p.pack == artStyle).firstOrNull;
+      system =
+          pack?.data[isDerivative ? cfg.manualKeyDerivative : cfg.manualKey] ??
+              '';
     }
     if (otherTextPrompt != null && otherTextPrompt.isNotEmpty) {
       system = '$system\n$otherTextPrompt';
@@ -561,14 +576,13 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
 
   /// 单资产润色（对话框"智能生成"，同步等待返回）。
   Future<String> polishAssetPrompt(int assetsId) async {
-    final row = db
-        .select('SELECT * FROM o_assets WHERE id=?', [assetsId])
-        .firstOrNull;
+    final row =
+        db.select('SELECT * FROM o_assets WHERE id=?', [assetsId]).firstOrNull;
     if (row == null) {
       throw const EngineException(errPromptMissing, {'type': 'asset'});
     }
-    db.execute(
-        'UPDATE o_assets SET promptState=? WHERE id=?', [stateGenerating, assetsId]);
+    db.execute('UPDATE o_assets SET promptState=? WHERE id=?',
+        [stateGenerating, assetsId]);
     try {
       final msgs = _polishMessages(
         (row['projectId'] as int?) ?? 0,
@@ -695,13 +709,26 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
 
   // ───────── 生图 ─────────
 
+  String _visualPackContext(int projectId) {
+    final packId = db.select('SELECT artStyle FROM o_project WHERE id=?',
+        [projectId]).firstOrNull?['artStyle'] as String?;
+    if (packId == null || packId.isEmpty) return '';
+    final pack =
+        visualManuals().where((item) => item.pack == packId).firstOrNull;
+    // Older Flutter projects stored a visible style string or prompt here.
+    // Preserve that context until the project is next edited with a pack ID.
+    if (pack == null) return packId;
+    final prefix = pack.data['prefix']?.trim() ?? '';
+    return prefix.isNotEmpty ? prefix : pack.name;
+  }
+
   String _imageUserPrompt(
-      String type, String? artStyle, String name, String prompt) {
+      String type, String visualContext, String name, String prompt) {
     final cfg = _typeConfigs[type]!;
     // 模板逐字照抄 generateAssets.ts
     return '请根据以下参数生成${cfg.promptTitle}：\n\n'
         '**基础参数：**\n'
-        '- 画风风格: ${artStyle ?? ''}\n\n'
+        '- 画风风格: $visualContext\n\n'
         '**${cfg.label}设定：**\n'
         '- 名称:$name,\n'
         '- 提示词:$prompt,\n\n'
@@ -720,17 +747,16 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     if (items.isEmpty) return 0;
     final payload = <Map<String, Object?>>[];
     for (final item in items) {
-      final row = db
-          .select('SELECT type FROM o_assets WHERE id=?', [item.assetsId])
-          .firstOrNull;
+      final row = db.select(
+          'SELECT type FROM o_assets WHERE id=?', [item.assetsId]).firstOrNull;
       if (row == null) continue;
       db.execute(
         'INSERT INTO o_image (assetsId,type,state,resolution) VALUES (?,?,?,?)',
         [item.assetsId, row['type'], stateGenerating, resolution],
       );
       final imageId = db.lastInsertRowId;
-      db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
-          [imageId, item.assetsId]);
+      db.execute(
+          'UPDATE o_assets SET imageId=? WHERE id=?', [imageId, item.assetsId]);
       payload.add({
         'assetsId': item.assetsId,
         'imageId': imageId,
@@ -757,15 +783,12 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     final related = task.relatedObjectsJson;
     final resolution = related['resolution'] as String?;
     final modelOverride = related['model'] as String?;
-    final items = (related['items'] as List? ?? const [])
-        .whereType<Map>()
-        .toList();
+    final items =
+        (related['items'] as List? ?? const []).whereType<Map>().toList();
     final concurrent =
         ((related['concurrentCount'] as num?)?.toInt() ?? 1).clamp(1, 8);
     final projectId = task.projectId ?? 0;
-    final artStyle = db
-        .select('SELECT artStyle FROM o_project WHERE id=?', [projectId])
-        .firstOrNull?['artStyle'] as String?;
+    final visualContext = _visualPackContext(projectId);
 
     var success = 0;
     EngineException? firstFailure;
@@ -778,25 +801,23 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         final item = items[i];
         final assetsId = ((item['assetsId'] as num?) ?? 0).toInt();
         final imageId = ((item['imageId'] as num?) ?? 0).toInt();
-        final row = db
-            .select('SELECT * FROM o_assets WHERE id=?', [assetsId])
-            .firstOrNull;
+        final row = db.select(
+            'SELECT * FROM o_assets WHERE id=?', [assetsId]).firstOrNull;
         if (row == null) continue;
         String? refPath;
         try {
           final b64 = item['refImageBase64'] as String?;
           if (b64 != null && b64.isNotEmpty) {
-            final raw = b64.contains(',')
-                ? b64.substring(b64.indexOf(',') + 1)
-                : b64;
-            final tmp = File(
-                '${Directory.systemTemp.path}/df_ref_$imageId.png');
+            final raw =
+                b64.contains(',') ? b64.substring(b64.indexOf(',') + 1) : b64;
+            final tmp =
+                File('${Directory.systemTemp.path}/df_ref_$imageId.png');
             tmp.writeAsBytesSync(base64Decode(raw));
             refPath = tmp.path;
           }
           final user = _imageUserPrompt(
             (row['type'] as String?) ?? '',
-            artStyle,
+            visualContext,
             (row['name'] as String?) ?? '',
             (row['prompt'] as String?) ?? '',
           );
@@ -813,8 +834,8 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
             'UPDATE o_image SET state=?, filePath=?, errorReason=NULL WHERE id=?',
             [stateDone, rel, imageId],
           );
-          db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
-              [imageId, assetsId]);
+          db.execute(
+              'UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetsId]);
           success++;
         } catch (e) {
           if (token.isCancelled) return;

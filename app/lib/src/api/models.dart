@@ -483,7 +483,6 @@ class AppSettings {
   final String imageBaseUrl;
   final String imageModel;
   final String videoProvider;
-  final String videoApiKey;
   final String videoModel;
   final String videoResolution;
   final int videoDuration;
@@ -494,7 +493,6 @@ class AppSettings {
     required this.imageBaseUrl,
     required this.imageModel,
     required this.videoProvider,
-    required this.videoApiKey,
     required this.videoModel,
     required this.videoResolution,
     required this.videoDuration,
@@ -506,7 +504,6 @@ class AppSettings {
         imageBaseUrl: j['imageBaseUrl'] as String? ?? '',
         imageModel: j['imageModel'] as String? ?? '',
         videoProvider: j['videoProvider'] as String? ?? '',
-        videoApiKey: j['videoApiKey'] as String? ?? '',
         videoModel: j['videoModel'] as String? ?? '',
         videoResolution: j['videoResolution'] as String? ?? '',
         videoDuration: (j['videoDuration'] as num?)?.toInt() ?? 5,
@@ -518,7 +515,7 @@ class ProviderInfo {
   final String name;
   final String protocol;
   final String baseUrl;
-  final String apiKey;
+  final bool hasCredential;
   final bool enabled;
   final String createdAt;
 
@@ -527,7 +524,7 @@ class ProviderInfo {
     required this.name,
     required this.protocol,
     required this.baseUrl,
-    required this.apiKey,
+    required this.hasCredential,
     required this.enabled,
     required this.createdAt,
   });
@@ -537,7 +534,7 @@ class ProviderInfo {
         name: j['name'] as String? ?? '',
         protocol: j['protocol'] as String? ?? '',
         baseUrl: j['baseUrl'] as String? ?? '',
-        apiKey: j['apiKey'] as String? ?? '',
+        hasCredential: _jsonBool(j['hasCredential']),
         enabled: _jsonBool(j['enabled']),
         createdAt: j['createdAt'] as String? ?? '',
       );

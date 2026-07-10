@@ -72,8 +72,6 @@ const _stages = [
   _StageMeta('asset_extract', 'text'),
   _StageMeta('storyboard_gen', 'text'),
   _StageMeta('video_prompt_gen', 'text'),
-  _StageMeta('agent_embedding', 'embedding'),
-  _StageMeta('agent_vision', 'text'),
   _StageMeta('asset_image', 'image'),
   _StageMeta('shot_image', 'image'),
   _StageMeta('shot_video', 'video'),
@@ -96,7 +94,6 @@ const _modelKinds = [
   _KindMeta('image'),
   _KindMeta('video'),
   _KindMeta('tts'),
-  _KindMeta('embedding'),
 ];
 
 class _StageMeta {
@@ -111,8 +108,6 @@ class _StageMeta {
         'asset_extract' => l10n.stageAssetExtractTitle,
         'storyboard_gen' => l10n.stageStoryboardGenTitle,
         'video_prompt_gen' => l10n.stageVideoPromptGenTitle,
-        'agent_embedding' => l10n.stageAgentEmbeddingTitle,
-        'agent_vision' => l10n.stageAgentVisionTitle,
         'asset_image' => l10n.stageAssetImageTitle,
         'shot_image' => l10n.stageShotImageTitle,
         'shot_video' => l10n.stageShotVideoTitle,
@@ -126,8 +121,6 @@ class _StageMeta {
         'asset_extract' => l10n.stageAssetExtractDescription,
         'storyboard_gen' => l10n.stageStoryboardGenDescription,
         'video_prompt_gen' => l10n.stageVideoPromptGenDescription,
-        'agent_embedding' => l10n.stageAgentEmbeddingDescription,
-        'agent_vision' => l10n.stageAgentVisionDescription,
         'asset_image' => l10n.stageAssetImageDescription,
         'shot_image' => l10n.stageShotImageDescription,
         'shot_video' => l10n.stageShotVideoDescription,
@@ -569,7 +562,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final testable = models!
         .where((model) =>
             model.enabled &&
-            const {'text', 'image', 'video', 'embedding'}.contains(model.kind))
+            const {'text', 'image', 'video', 'tts'}.contains(model.kind))
         .toList();
     if (testable.isEmpty) {
       await runAction(context, ref, () async {
@@ -1920,7 +1913,7 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
     final provider = widget.provider;
     _name = TextEditingController(text: provider?.name ?? '');
     _baseUrl = TextEditingController(text: provider?.baseUrl ?? '');
-    _apiKey = TextEditingController(text: provider?.apiKey ?? '');
+    _apiKey = TextEditingController();
     _protocol = provider?.protocol ?? 'openai_compatible';
   }
 

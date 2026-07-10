@@ -13,14 +13,11 @@ void main() {
     expect(m.str('imageModel'), contains('seedream'));
   });
 
-  test('打码与不修改语义', () {
+  test('旧通用 API Key 设置不再写入 SQLite', () {
     final c = EngineConfig(openEngineDb(':memory:'), isMobile: false);
     c.update({'videoApiKey': 'sk-realkey1234'});
-    expect(c.getAllMasked()['videoApiKey'], '****1234');
-    c.update({'videoApiKey': '****1234'});
-    expect(c.str('videoApiKey'), 'sk-realkey1234');
-    c.update({'videoApiKey': ''});
-    expect(c.str('videoApiKey'), 'sk-realkey1234');
+    expect(c.str('videoApiKey'), isEmpty);
+    expect(c.getAllMasked(), isNot(contains('videoApiKey')));
   });
 
   test('videoDuration 数值', () {

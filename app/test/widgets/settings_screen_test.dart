@@ -48,13 +48,6 @@ class _RecordingHttpGateway extends HttpProviderGateway {
     calls.add('video:${model.modelId}');
     return 33;
   }
-
-  @override
-  Future<int> testEmbeddingModel(ResolvedModel model,
-      {CancelToken? cancelToken}) async {
-    calls.add('embedding:${model.modelId}');
-    return 44;
-  }
 }
 
 class _FailingFileSelector extends FileSelectorPlatform {
@@ -245,7 +238,7 @@ void main() {
     expect(models.single.kind, 'text');
 
     await _selectSection(tester, '模型绑定');
-    expect(find.text('Agent 视觉理解'), findsOneWidget);
+    expect(find.text('Agent 视觉理解'), findsNothing);
     await _chooseFirstDropdown(tester, 'Local Gateway · 本地文本模型');
     expect(
       (await engine.getBindings())['script_gen'],
@@ -290,12 +283,12 @@ void main() {
     final provider = (await engine.listProviders()).single;
     expect(provider.name, 'AZT Gateway');
     expect(provider.baseUrl, 'http://127.0.0.1:8787/v1');
-    expect(provider.apiKey, 'local');
+    expect(provider.hasCredential, isTrue);
     expect(find.text('AZT Gateway'), findsOneWidget);
     expect(find.text('Old Gateway'), findsNothing);
   });
 
-  testWidgets('移动端设置页：分模态连通测试可选择图片、视频和向量模型', (tester) async {
+  testWidgets('移动端设置页：分模态连通测试可选择图片和视频模型', (tester) async {
     engine.dispose();
     final db = openEngineDb(':memory:');
     final media = MediaStore(p.join(dir.path, 'media'));
@@ -332,12 +325,6 @@ void main() {
         'kind': 'video',
         'enabled': true,
       },
-      {
-        'modelId': 'local-embed',
-        'label': '本地向量',
-        'kind': 'embedding',
-        'enabled': true,
-      },
     ]);
 
     tester.view.physicalSize = const Size(390, 760);
@@ -361,16 +348,9 @@ void main() {
     await tester.tap(find.text('测试').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('测试连通').first);
-    await tester.pumpAndSettle();
-    await _chooseFirstDropdown(tester, '向量 · 本地向量');
-    await tester.tap(find.text('测试').last);
-    await tester.pumpAndSettle();
-
     expect(gateway.calls, [
       'image:local-image',
       'video:local-video',
-      'embedding:local-embed',
     ]);
   });
 

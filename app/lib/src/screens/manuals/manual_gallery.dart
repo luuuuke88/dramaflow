@@ -13,7 +13,7 @@ class ManualGallery extends StatelessWidget {
   final String title;
   final String addLabel;
   final List<ManualPack> packs;
-  final String? selectedName;
+  final String? selectedPackId;
   final ValueChanged<ManualPack?> onSelect;
   final VoidCallback onCreate;
   final ValueChanged<ManualPack> onEdit;
@@ -24,7 +24,7 @@ class ManualGallery extends StatelessWidget {
     required this.title,
     required this.addLabel,
     required this.packs,
-    required this.selectedName,
+    required this.selectedPackId,
     required this.onSelect,
     required this.onCreate,
     required this.onEdit,
@@ -38,7 +38,8 @@ class ManualGallery extends StatelessWidget {
       Row(children: [
         Expanded(
           child: Text(title,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         ),
         OutlinedButton.icon(
           onPressed: onCreate,
@@ -67,9 +68,8 @@ class ManualGallery extends StatelessWidget {
           for (final pack in packs)
             _ManualCell(
               pack: pack,
-              selected: pack.name == selectedName,
-              onTap: () =>
-                  onSelect(pack.name == selectedName ? null : pack),
+              selected: pack.pack == selectedPackId,
+              onTap: () => onSelect(pack.pack == selectedPackId ? null : pack),
               onEdit: () => onEdit(pack),
               onDelete: () => onDelete(pack),
             ),
@@ -131,8 +131,7 @@ class _ManualCellState extends State<_ManualCell> {
               child: Container(
                 width: double.infinity,
                 color: Colors.black.withValues(alpha: 0.5),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Text(
                   widget.pack.name,
                   maxLines: 1,

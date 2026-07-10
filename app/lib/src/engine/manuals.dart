@@ -37,8 +37,8 @@ const directorManualKeys = [
 ];
 
 class ManualPack {
-  final String name; // 显示名（项目 artStyle/directorManual 存的值）
-  final String pack; // 目录名
+  final String name; // 可编辑显示名
+  final String pack; // 稳定目录 ID（项目 artStyle/directorManual 存的值）
   final List<String> images; // 封面绝对路径
   final Map<String, String> data; // key → md 内容
 
@@ -63,8 +63,7 @@ String sanitizePackName(String name) =>
 extension ManualsApi on Engine {
   String get skillsRoot => p.join(p.dirname(media.rootDir), 'skills');
 
-  List<ManualPack> visualManuals() =>
-      _list('art_skills', visualManualKeys);
+  List<ManualPack> visualManuals() => _list('art_skills', visualManualKeys);
   List<ManualPack> directorManuals() =>
       _list('story_skills', directorManualKeys);
 
@@ -172,9 +171,8 @@ extension ManualsApi on Engine {
     var i = DateTime.now().millisecondsSinceEpoch;
     for (final b64 in imageBytesBase64) {
       try {
-        final bytes = base64Decode(b64.contains(',')
-            ? b64.substring(b64.indexOf(',') + 1)
-            : b64);
+        final bytes = base64Decode(
+            b64.contains(',') ? b64.substring(b64.indexOf(',') + 1) : b64);
         File(p.join(imagesDir.path, 'cover_${i++}.png'))
             .writeAsBytesSync(bytes);
       } catch (_) {

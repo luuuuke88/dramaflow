@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dramaflow/src/engine/assistant_skills.dart';
+import 'package:dramaflow/src/engine/art_style.dart';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/config.dart';
+import 'package:dramaflow/src/engine/credentials.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -16,6 +20,13 @@ void main() {
   late Directory dir;
   late Database db;
   late Engine engine;
+
+  Future<Engine> bootForTest(String dataDir, {CredentialStore? credentials}) =>
+      Engine.boot(
+        dataDir: dataDir,
+        isMobile: false,
+        credentialStore: credentials ?? InMemoryCredentialStore(),
+      );
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('dramaflow-engine-');
@@ -115,6 +126,58 @@ void main() {
     expect(models.single.kind, 'text');
   });
 
+  test('供应商 API Key 不写入 SQLite 或普通配置导出', () async {
+    const secret = 'sk-provider-secret';
+    final provider = await engine.createProvider(
+      name: '安全供应商',
+      protocol: 'openai_compatible',
+      baseUrl: 'https://api.test/v1',
+      apiKey: secret,
+    );
+
+    final stored = db.select(
+      'SELECT inputValues FROM o_vendorConfig WHERE id=?',
+      [provider.id],
+    ).single['inputValues'] as String;
+    final exported = jsonEncode(await engine.exportConfig());
+
+    expect(stored, isNot(contains(secret)));
+    expect(exported, isNot(contains(secret)));
+  });
+
+  test('导入旧配置时迁移 API Key 到凭据存储', () async {
+    const secret = 'sk-imported-secret';
+    await engine.importConfig({
+      'configVersion': 3,
+      'providers': [
+        {
+          'id': 'legacy-provider',
+          'name': 'Legacy',
+          'protocol': 'openai_compatible',
+          'baseUrl': 'https://api.test/v1',
+          'apiKey': secret,
+          'enabled': true,
+          'models': const [],
+        },
+      ],
+      'bindings': const {},
+      'prompts': const [],
+      'modelPrompts': const [],
+    });
+
+    final stored = db.select(
+      'SELECT inputValues FROM o_vendorConfig WHERE id=?',
+      ['legacy-provider'],
+    ).single['inputValues'] as String;
+
+    expect(
+      await engine.credentials.read(providerCredentialRef('legacy-provider')),
+      secret,
+    );
+    expect(stored, isNot(contains(secret)));
+    expect(jsonEncode(await engine.exportConfig()), isNot(contains(secret)));
+  });
+
   test('setBinding 校验模型类型并持久化', () async {
     final provider = await engine.createProvider(
       name: '绑定供应商',
@@ -136,33 +199,37 @@ void main() {
     );
   });
 
-  test('setBinding 支持 Agent embedding 模型绑定', () async {
+  test('setBinding 拒绝已移除的 Agent embedding 阶段', () async {
     final provider = await engine.createProvider(
       name: 'Embedding供应商',
       protocol: 'openai_compatible',
       baseUrl: 'https://api.test/v1',
       apiKey: 'sk',
     );
-    await engine.saveProviderModels(provider.id, [
-      {'modelId': 'embed-1', 'kind': 'embedding', 'enabled': true},
-      {'modelId': 'text-1', 'kind': 'text', 'enabled': true},
-    ]);
+    db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'id': '${provider.id}:embed-1',
+            'providerId': provider.id,
+            'modelId': 'embed-1',
+            'kind': 'embedding',
+            'enabled': true,
+          },
+        ]),
+        provider.id,
+      ],
+    );
 
-    await engine.setBinding('agent_embedding', provider.id, 'embed-1');
-
-    expect((await engine.getBindings())['agent_embedding'],
-        '${provider.id}:embed-1');
-    expect(
-      () => engine.setBinding('agent_embedding', provider.id, 'text-1'),
+    await expectLater(
+      engine.setBinding('agent_embedding', provider.id, 'embed-1'),
       throwsA(isA<EngineException>()),
     );
   });
 
   test('seeded ToonFlow prompt 可通过 getPrompt 读取', () async {
-    final seeded = await Engine.boot(
-      dataDir: p.join(dir.path, 'seeded'),
-      isMobile: false,
-    );
+    final seeded = await bootForTest(p.join(dir.path, 'seeded'));
     addTearDown(() {
       seeded.dispose();
       seeded.db.close();
@@ -229,7 +296,7 @@ description: 分镜表构建 Agent
       ..parent.createSync(recursive: true)
       ..writeAsStringSync('分镜表技法：必须包含时长。');
 
-    final seeded = await Engine.boot(dataDir: dataDir, isMobile: false);
+    final seeded = await bootForTest(dataDir);
     final legacyRows = seeded.db.select(
       "SELECT id FROM o_skillList WHERE id IN (?,?) ORDER BY id",
       [
@@ -249,7 +316,7 @@ description: 分镜表构建 Agent
     seeded.dispose();
     seeded.db.close();
 
-    final rebooted = await Engine.boot(dataDir: dataDir, isMobile: false);
+    final rebooted = await bootForTest(dataDir);
     addTearDown(() {
       rebooted.dispose();
       rebooted.db.close();
@@ -274,10 +341,7 @@ description: 分镜表构建 Agent
   });
 
   test('prompt update/get/reset 使用 useData 覆写并回落 data', () async {
-    final seeded = await Engine.boot(
-      dataDir: p.join(dir.path, 'prompt-reset'),
-      isMobile: false,
-    );
+    final seeded = await bootForTest(p.join(dir.path, 'prompt-reset'));
     addTearDown(() {
       seeded.dispose();
       seeded.db.close();
@@ -446,7 +510,7 @@ description: 分镜表构建 Agent
 
   test('prompt 种子幂等补种缺失单行', () async {
     final dataDir = p.join(dir.path, 'seed-idempotent');
-    final seeded = await Engine.boot(dataDir: dataDir, isMobile: false);
+    final seeded = await bootForTest(dataDir);
     seeded.db.execute(
       'DELETE FROM o_prompt WHERE name=?',
       ['eventExtraction'],
@@ -459,7 +523,7 @@ description: 分镜表构建 Agent
     seeded.dispose();
     seeded.db.close();
 
-    final rebooted = await Engine.boot(dataDir: dataDir, isMobile: false);
+    final rebooted = await bootForTest(dataDir);
     addTearDown(() {
       rebooted.dispose();
       rebooted.db.close();
@@ -472,6 +536,31 @@ description: 分镜表构建 Agent
           ['scriptAssetExtraction']).first['n'],
       1,
     );
+  });
+
+  test('视觉手册是项目画风的唯一种子来源，不派生画风库条目', () async {
+    final dataDir = p.join(dir.path, 'art-style-seed');
+    final packDir = Directory(
+      p.join(dataDir, 'skills', 'art_skills', 'toonflow_default'),
+    )..createSync(recursive: true);
+    File(p.join(packDir.path, 'README.md'))
+        .writeAsStringSync('# 国风二次元新国潮风格说明\n');
+    File(p.join(packDir.path, 'prefix.md')).writeAsStringSync('国风二次元提示词前缀');
+    final imagesDir = Directory(p.join(packDir.path, 'images'))
+      ..createSync(recursive: true);
+    File(p.join(imagesDir.path, '1.png')).writeAsBytesSync([137, 80, 78, 71]);
+
+    final seeded = await bootForTest(dataDir);
+    addTearDown(() {
+      seeded.dispose();
+      seeded.db.close();
+    });
+
+    final manuals = seeded.visualManuals();
+    expect(manuals, hasLength(1));
+    expect(manuals.single.pack, 'toonflow_default');
+    expect(manuals.single.data['prefix'], '国风二次元提示词前缀');
+    expect(seeded.artStyles(), isEmpty);
   });
 
   test('health 返回版本与绑定摘要', () async {

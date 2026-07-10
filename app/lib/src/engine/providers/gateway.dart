@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
 import '../config.dart';
+import '../credentials.dart';
 import '../media.dart';
 import 'openai_text.dart';
 import 'openai_vision.dart';
@@ -107,28 +108,25 @@ class HttpProviderGateway
   final Database db;
   final EngineConfig config;
   final MediaStore media;
+  final CredentialStore credentials;
   final Dio dio;
   final Duration pollInterval;
   final Duration pollTimeout;
 
   HttpProviderGateway(this.db, this.config, this.media,
       {Dio? dio,
+      CredentialStore? credentials,
       this.pollInterval = const Duration(seconds: 10),
       this.pollTimeout = const Duration(minutes: 30)})
-      : dio = dio ?? Dio();
+      : dio = dio ?? Dio(),
+        credentials = credentials ?? InMemoryCredentialStore();
 
   @override
   Future<TextResult> generateText(String system, String user,
-      {required String stage, CancelToken? cancelToken}) {
-    final model = resolveStage(db, stage);
+      {required String stage, CancelToken? cancelToken}) async {
+    final model = await resolveStage(db, credentials, stage);
     return openaiGenerateText(dio, model, system, user,
         cancelToken: cancelToken);
-  }
-
-  Future<List<double>> generateEmbedding(String input,
-      {required String stage, CancelToken? cancelToken}) {
-    final model = resolveStage(db, stage);
-    return openaiGenerateEmbedding(dio, model, input, cancelToken: cancelToken);
   }
 
   @override
@@ -137,8 +135,8 @@ class HttpProviderGateway
     String imageAbsPath, {
     required String stage,
     CancelToken? cancelToken,
-  }) {
-    final model = resolveStage(db, stage);
+  }) async {
+    final model = await resolveStage(db, credentials, stage);
     return openaiAnalyzeImage(dio, model, prompt, imageAbsPath,
         cancelToken: cancelToken);
   }
@@ -151,8 +149,8 @@ class HttpProviderGateway
     required String toolName,
     required Map<String, dynamic> schema,
     CancelToken? cancelToken,
-  }) {
-    final model = resolveStage(db, stage);
+  }) async {
+    final model = await resolveStage(db, credentials, stage);
     return openaiGenerateToolJson(dio, model, system, user,
         toolName: toolName, schema: schema, cancelToken: cancelToken);
   }
@@ -164,8 +162,8 @@ class HttpProviderGateway
     List<AgentToolDef> tools, {
     required String stage,
     CancelToken? cancelToken,
-  }) {
-    final model = resolveAssistantStage(db, stage);
+  }) async {
+    final model = await resolveAssistantStage(db, credentials, stage);
     return openaiGenerateAgentTurn(dio, model, system, messages, tools,
         cancelToken: cancelToken);
   }
@@ -182,15 +180,15 @@ class HttpProviderGateway
     String? ratio,
     String? quality,
     String? modelOverride,
-  }) {
+  }) async {
     // 逐次可覆盖阶段绑定的图模型（'providerId:modelId'）；否则按 stage 解析。
     ResolvedModel model;
     if (modelOverride != null && modelOverride.contains(':')) {
       final i = modelOverride.indexOf(':');
-      model = resolveModelById(
-          db, modelOverride.substring(0, i), modelOverride.substring(i + 1));
+      model = await resolveModelById(db, credentials,
+          modelOverride.substring(0, i), modelOverride.substring(i + 1));
     } else {
-      model = resolveStage(db, stage);
+      model = await resolveStage(db, credentials, stage);
     }
     final directiveRows = db.select(
         'SELECT useData, data FROM o_prompt WHERE name=?',
@@ -241,8 +239,8 @@ class HttpProviderGateway
   @override
   Future<String> generateVideo(
       String prompt, String firstFrameAbsPath, String projectId,
-      {required String stage, CancelToken? cancelToken}) {
-    final model = resolveStage(db, stage);
+      {required String stage, CancelToken? cancelToken}) async {
+    final model = await resolveStage(db, credentials, stage);
     return volcengineGenerateVideo(
         dio, config, media, model, prompt, firstFrameAbsPath, projectId,
         cancelToken: cancelToken,
@@ -258,8 +256,8 @@ class HttpProviderGateway
     required String voice,
     CancelToken? cancelToken,
     String? format,
-  }) {
-    final model = resolveStage(db, stage);
+  }) async {
+    final model = await resolveStage(db, credentials, stage);
     return openaiGenerateSpeech(
       dio,
       model,
@@ -276,15 +274,6 @@ class HttpProviderGateway
       {CancelToken? cancelToken}) async {
     final sw = Stopwatch()..start();
     await openaiGenerateText(dio, model, '', '只回复OK', cancelToken: cancelToken);
-    sw.stop();
-    return sw.elapsedMilliseconds;
-  }
-
-  Future<int> testEmbeddingModel(ResolvedModel model,
-      {CancelToken? cancelToken}) async {
-    final sw = Stopwatch()..start();
-    await openaiGenerateEmbedding(dio, model, 'connectivity test',
-        cancelToken: cancelToken);
     sw.stop();
     return sw.elapsedMilliseconds;
   }

@@ -23,6 +23,7 @@ dependencies:
   file_selector: ^1.1.0
   archive: ^4.0.9
   image: ^4.8.0
+  flutter_secure_storage: ^10.3.1
   url_launcher: ^6.3.2
   # 视频播放 + 音频试听：media_kit 单包覆盖 macOS（主目标，内置 libmpv）/Windows/Linux/
   # iOS/Android，避开 video_player_avfoundation 在桌面端的历史缺口，且同时支持音频，
@@ -44,3 +45,4 @@ flutter:
   uses-material-design: true
   assets:
     - integration_test/fixtures/
+    - assets/default_skills/toonflow_default_skills.zip

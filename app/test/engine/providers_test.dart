@@ -8,6 +8,7 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/config.dart';
+import 'package:dramaflow/src/engine/credentials.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/util.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
@@ -37,12 +38,14 @@ void main() {
   late MediaStore media;
   late EngineConfig config;
   late Database db;
+  late InMemoryCredentialStore credentials;
 
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('prov');
     media = MediaStore(tmp.path);
     db = openEngineDb(':memory:');
     config = EngineConfig(db, isMobile: false);
+    credentials = InMemoryCredentialStore();
   });
   tearDown(() {
     db.close();
@@ -54,6 +57,8 @@ void main() {
       String modelId = 'm1',
       String protocol = 'openai_compatible',
       String apiKey = 'sk-test'}) {
+    final credentialRef = providerCredentialRef(providerId);
+    credentials.seed(credentialRef, apiKey);
     db.execute(
         'INSERT OR REPLACE INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
         [
@@ -63,7 +68,7 @@ void main() {
             'name': providerId,
             'protocol': protocol,
             'baseUrl': 'https://api.test/v1',
-            'apiKey': apiKey,
+            'credentialRef': credentialRef,
             'createdAt': 'x',
           }),
           jsonEncode([
@@ -85,7 +90,7 @@ void main() {
   HttpProviderGateway gw(FakeAdapter adapter) {
     final dio = Dio()..httpClientAdapter = adapter;
     return HttpProviderGateway(db, config, media,
-        dio: dio, pollInterval: Duration.zero);
+        credentials: credentials, dio: dio, pollInterval: Duration.zero);
   }
 
   group('generateText', () {
@@ -145,31 +150,6 @@ void main() {
     });
   });
 
-  group('generateEmbedding', () {
-    test('OpenAI 兼容 embeddings 解析向量并发送模型与输入', () async {
-      final adapter = FakeAdapter((o) => jsonBody({
-            'data': [
-              {
-                'embedding': [0.25, -0.5, 1]
-              }
-            ],
-          }));
-      bindModel('agent_embedding', 'embedding', modelId: 'embed-1');
-
-      final vector = await gw(adapter).generateEmbedding(
-        '寒山师承羁绊',
-        stage: 'agent_embedding',
-      );
-
-      expect(vector, [0.25, -0.5, 1.0]);
-      final request = adapter.requests.single;
-      expect(request.path, endsWith('/embeddings'));
-      final body = request.data as Map;
-      expect(body['model'], 'embed-1');
-      expect(body['input'], '寒山师承羁绊');
-    });
-  });
-
   group('analyzeImage', () {
     test('OpenAI 兼容 chat completions 发送本地图像 data URL', () async {
       final image = File('${tmp.path}/style.png')
@@ -182,12 +162,12 @@ void main() {
             ],
             'usage': {'prompt_tokens': 11, 'completion_tokens': 7},
           }));
-      bindModel('agent_vision', 'text', modelId: 'gpt-vision');
+      bindModel('script_gen', 'text', modelId: 'gpt-vision');
 
       final r = await (gw(adapter) as dynamic).analyzeImage(
         '提炼这张参考图的短剧画风关键词',
         image.path,
-        stage: 'agent_vision',
+        stage: 'script_gen',
       ) as TextResult;
 
       expect(r.content, '冷白水墨、低饱和、角色边缘清晰');
@@ -396,7 +376,7 @@ void main() {
               'name': '火山',
               'protocol': 'volcengine',
               'baseUrl': 'https://api.test/v1',
-              'apiKey': '',
+              'credentialRef': providerCredentialRef('volc'),
               'createdAt': 'x',
             }),
             jsonEncode([
@@ -414,6 +394,7 @@ void main() {
       freshDb.execute(
           "INSERT INTO o_setting (key,value) VALUES ('binding.shot_video','volc:seedance')");
       final g = HttpProviderGateway(freshDb, freshConfig, media,
+          credentials: InMemoryCredentialStore(),
           dio: Dio()..httpClientAdapter = FakeAdapter((o) => jsonBody({})),
           pollInterval: Duration.zero);
       expect(
@@ -421,7 +402,7 @@ void main() {
           throwsA(predicate((e) =>
               e is EngineException &&
               e.errKey == errProviderMissing &&
-              e.errParams['reason'] == 'apiKey')));
+              e.errParams['reason'] == '未配置 API Key')));
       freshDb.close();
     });
   });
