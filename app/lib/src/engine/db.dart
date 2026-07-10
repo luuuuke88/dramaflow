@@ -2,28 +2,40 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 8;
+const schemaVersion = 9;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
 Database openEngineDb(String path) {
-  if (path == ':memory:') {
-    final db = sqlite3.openInMemory();
-    _configure(db);
+  final db = path == ':memory:' ? sqlite3.openInMemory() : sqlite3.open(path);
+  _configure(db);
+  final version = _userVersion(db);
+  if (version > schemaVersion) {
+    db.close();
+    throw StateError(
+      'Database version $version is newer than supported version $schemaVersion.',
+    );
+  }
+  if (version == 0) {
     initSchema(db);
     return db;
   }
-
-  var db = sqlite3.open(path);
-  final version = db.select('PRAGMA user_version').first.values.first as int;
   if (version < schemaVersion) {
-    db.close();
-    _deleteDatabaseFiles(path);
-    db = sqlite3.open(path);
+    _backupBeforeMigration(db, path, version);
+    db.execute('BEGIN IMMEDIATE');
+    try {
+      initSchema(db, setVersion: false);
+      migrateSchema(db, version, schemaVersion);
+      db.execute('PRAGMA user_version = $schemaVersion');
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+    return db;
   }
 
-  _configure(db);
-  initSchema(db);
+  initSchema(db, setVersion: false);
   return db;
 }
 
@@ -32,14 +44,41 @@ void _configure(Database db) {
   db.execute('PRAGMA foreign_keys = ON');
 }
 
-void _deleteDatabaseFiles(String path) {
-  for (final filePath in [path, '$path-wal', '$path-shm']) {
-    final file = File(filePath);
-    if (file.existsSync()) file.deleteSync();
+int _userVersion(Database db) =>
+    db.select('PRAGMA user_version').first.values.first as int;
+
+void _backupBeforeMigration(Database db, String path, int version) {
+  if (path == ':memory:') return;
+  final source = File(path);
+  if (!source.existsSync()) return;
+  final backup = File('$path.backup-v$version.sqlite');
+  if (backup.existsSync()) return;
+  db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
+  source.copySync(backup.path);
+}
+
+/// Runs the ordered schema steps between two known versions.
+///
+/// The early Flutter releases were destructively rebuilt on upgrade, so their
+/// historical steps are intentionally additive: `initSchema` creates missing
+/// tables/indexes and no step drops user data. Keeping this dispatcher explicit
+/// gives later releases one safe place to add real versioned transformations.
+void migrateSchema(Database db, int fromVersion, int toVersion) {
+  for (var version = fromVersion; version < toVersion; version++) {
+    switch (version) {
+      case 8:
+        // v8 -> v9 switches the opener to transactional, non-destructive
+        // migrations. The schema itself is completed by initSchema below.
+        break;
+      default:
+        // Versions before v8 have no published Flutter-only schema delta.
+        // They are completed additively by initSchema without dropping tables.
+        break;
+    }
   }
 }
 
-void initSchema(Database db) {
+void initSchema(Database db, {bool setVersion = true}) {
   db.execute('''
 CREATE TABLE IF NOT EXISTS memories (
   content TEXT,
@@ -310,5 +349,5 @@ CREATE INDEX IF NOT EXISTS idx_o_tasks_project_state ON o_tasks(projectId, state
 CREATE INDEX IF NOT EXISTS idx_o_timelineClip_script ON o_timelineClip(scriptId, startMs, lane);
 CREATE INDEX IF NOT EXISTS idx_o_memoryVector_scope ON o_memoryVector(isolationKey, type, provider, model);
 ''');
-  db.execute('PRAGMA user_version = $schemaVersion');
+  if (setVersion) db.execute('PRAGMA user_version = $schemaVersion');
 }

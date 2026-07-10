@@ -160,23 +160,18 @@ void main() {
           ]));
     });
 
-    test('打开旧版本磁盘库会删库重建但不碰 media 目录', () {
-      final dir = Directory.systemTemp.createTempSync('dramaflow-db-v6-');
+    test('v8 升级保留项目与媒体引用并创建升级前备份', () {
+      final dir = Directory.systemTemp.createTempSync('dramaflow-db-v8-');
       addTearDown(() {
         if (dir.existsSync()) dir.deleteSync(recursive: true);
       });
       final dbPath = p.join(dir.path, 'dramaflow.sqlite');
-      final mediaDir = Directory(p.join(dir.path, 'media', 'keep'));
-      mediaDir.createSync(recursive: true);
-      File(p.join(mediaDir.path, 'asset.txt')).writeAsStringSync('keep');
-
       final old = sqlite3.open(dbPath);
-      old.execute('CREATE TABLE legacy_data (id INTEGER PRIMARY KEY)');
-      old.execute('INSERT INTO legacy_data (id) VALUES (1)');
-      old.execute('PRAGMA user_version = 2');
+      initSchema(old);
+      old.execute("INSERT INTO o_project (name,artStyle) VALUES ('保留项目','ink_pack')");
+      old.execute("INSERT INTO o_image (filePath) VALUES ('p1/role.png')");
+      old.execute('PRAGMA user_version = 8');
       old.close();
-      File('$dbPath-wal').writeAsStringSync('wal');
-      File('$dbPath-shm').writeAsStringSync('shm');
 
       final db = openEngineDb(dbPath);
       addTearDown(db.close);
@@ -185,18 +180,56 @@ void main() {
           db.select('PRAGMA user_version').first.values.first, schemaVersion);
       expect(
         db.select(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='legacy_data'",
+          'SELECT name,artStyle FROM o_project',
         ),
-        isEmpty,
+        hasLength(1),
       );
-      if (File('$dbPath-wal').existsSync()) {
-        expect(File('$dbPath-wal').readAsBytesSync(), isNot([119, 97, 108]));
-      }
-      if (File('$dbPath-shm').existsSync()) {
-        expect(File('$dbPath-shm').readAsBytesSync(), isNot([115, 104, 109]));
-      }
       expect(
-          File(p.join(mediaDir.path, 'asset.txt')).readAsStringSync(), 'keep');
+        db.select('SELECT filePath FROM o_image').single['filePath'],
+        'p1/role.png',
+      );
+      expect(File('$dbPath.backup-v8.sqlite').existsSync(), isTrue);
+    });
+
+    test('旧库补全 schema 时保留未知旧表的数据', () {
+      final dir = Directory.systemTemp.createTempSync('dramaflow-db-v2-');
+      addTearDown(() {
+        if (dir.existsSync()) dir.deleteSync(recursive: true);
+      });
+      final dbPath = p.join(dir.path, 'dramaflow.sqlite');
+      final old = sqlite3.open(dbPath);
+      old.execute('CREATE TABLE legacy_data (id INTEGER PRIMARY KEY, name TEXT)');
+      old.execute("INSERT INTO legacy_data (id,name) VALUES (1,'不能丢')");
+      old.execute('PRAGMA user_version = 2');
+      old.close();
+
+      final db = openEngineDb(dbPath);
+      addTearDown(db.close);
+
+      expect(db.select('SELECT name FROM legacy_data').single['name'], '不能丢');
+      expect(
+          db.select('PRAGMA user_version').first.values.first, schemaVersion);
+      expect(File('$dbPath.backup-v2.sqlite').existsSync(), isTrue);
+    });
+
+    test('拒绝比应用更新的数据库且不修改文件', () {
+      final dir = Directory.systemTemp.createTempSync('dramaflow-db-newer-');
+      addTearDown(() {
+        if (dir.existsSync()) dir.deleteSync(recursive: true);
+      });
+      final dbPath = p.join(dir.path, 'dramaflow.sqlite');
+      final old = sqlite3.open(dbPath);
+      old.execute('CREATE TABLE future_data (id INTEGER PRIMARY KEY)');
+      old.execute('INSERT INTO future_data (id) VALUES (1)');
+      old.execute('PRAGMA user_version = 99');
+      old.close();
+
+      expect(() => openEngineDb(dbPath), throwsA(isA<StateError>()));
+
+      final untouched = sqlite3.open(dbPath);
+      addTearDown(untouched.close);
+      expect(untouched.select('SELECT id FROM future_data').single['id'], 1);
+      expect(untouched.select('PRAGMA user_version').single.values.single, 99);
     });
   });
 }
