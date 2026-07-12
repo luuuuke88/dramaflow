@@ -338,7 +338,7 @@ The test must:
 4. Bind the standalone audio fixture to one storyboard.
 5. Set a supported `fade` transition.
 6. Call `composeEpisode`.
-7. Assert output exists, `segmentCount == 2`, video track count is one, audio track count is one, duration is within the expected combined range, and the returned `clipAssetId` resolves to the output path.
+7. Assert output exists, `segmentCount == 2`, video track count is one, audio track count is at least one (the source clips may retain audio in addition to bound narration), duration is within the expected combined range, and the returned `clipAssetId` resolves to the output path.
 
 - [ ] **Step 2: Run the real macOS integration test.**
 

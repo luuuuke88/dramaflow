@@ -61,6 +61,22 @@ void main() {
       expect(source, contains('dissolveDuration'));
       expect(source, contains('applyFadeOpacityRamps'));
       expect(source, contains('transition == "dissolve"'));
+      expect(
+        source,
+        contains(
+          'hasDissolveTransition(segments) || hasFadeTransition(segments) || hasWhipPanTransition(segments)',
+        ),
+        reason:
+            'fade must use the AVFoundation layer-instruction path, not the Core Image callback path.',
+      );
+      expect(
+        source,
+        contains(
+          'hasDissolveTransition(renderSegments) || hasFadeTransition(renderSegments) || hasWhipPanTransition(renderSegments)',
+        ),
+        reason:
+            'The rendered segment route must choose the matching layered composition.',
+      );
     }
   });
 

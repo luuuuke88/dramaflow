@@ -203,7 +203,7 @@ final class ComposerPlugin {
   }
 
   private func requiresLayeredVideoComposition(_ segments: [ComposeSegment]) -> Bool {
-    hasDissolveTransition(segments) || hasWhipPanTransition(segments)
+    hasDissolveTransition(segments) || hasFadeTransition(segments) || hasWhipPanTransition(segments)
   }
 
   private func hasTimelineOverlays(_ segments: [ComposeSegment]) -> Bool {
@@ -225,6 +225,10 @@ final class ComposerPlugin {
 
   private func hasDissolveTransition(_ segments: [ComposeSegment]) -> Bool {
     segments.contains { $0.transition == "dissolve" }
+  }
+
+  private func hasFadeTransition(_ segments: [ComposeSegment]) -> Bool {
+    segments.contains { $0.transition == "fade" }
   }
 
   private func hasWhipPanTransition(_ segments: [ComposeSegment]) -> Bool {
@@ -589,12 +593,16 @@ final class ComposerPlugin {
     renderSegments.contains { $0.transition == "dissolve" && CMTimeCompare($0.dissolveDuration, .zero) > 0 }
   }
 
+  private func hasFadeTransition(_ renderSegments: [RenderSegment]) -> Bool {
+    renderSegments.contains { $0.transition == "fade" }
+  }
+
   private func hasWhipPanTransition(_ renderSegments: [RenderSegment]) -> Bool {
     renderSegments.contains { $0.transition == "whip_pan" }
   }
 
   private func requiresLayeredVideoComposition(_ renderSegments: [RenderSegment]) -> Bool {
-    hasDissolveTransition(renderSegments) || hasWhipPanTransition(renderSegments)
+    hasDissolveTransition(renderSegments) || hasFadeTransition(renderSegments) || hasWhipPanTransition(renderSegments)
   }
 
   private func makeLayeredVideoComposition(
