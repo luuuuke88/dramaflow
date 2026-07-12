@@ -4006,6 +4006,18 @@ abstract class AppLocalizations {
   /// **'我可以调用已有流水线真实动作，也可以读取启用的 Markdown 技能作为提示词上下文。流水线动作会在「任务中心」留下可查看、可重试的任务记录。'**
   String get agentChatSkillsBody;
 
+  /// No description provided for @agentChatAdvanced.
+  ///
+  /// In zh, this message translates to:
+  /// **'高级设置'**
+  String get agentChatAdvanced;
+
+  /// No description provided for @agentChatAdvancedTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'Agent 高级设置'**
+  String get agentChatAdvancedTitle;
+
   /// No description provided for @agentTabChat.
   ///
   /// In zh, this message translates to:

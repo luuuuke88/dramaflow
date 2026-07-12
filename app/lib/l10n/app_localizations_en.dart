@@ -2104,6 +2104,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'I can call real pipeline actions and read enabled Markdown skills as prompt context. Pipeline actions leave reviewable, retryable records in Task Center.';
 
   @override
+  String get agentChatAdvanced => 'Advanced settings';
+
+  @override
+  String get agentChatAdvancedTitle => 'Agent advanced settings';
+
+  @override
   String get agentTabChat => 'Chat';
 
   @override

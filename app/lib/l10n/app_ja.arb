@@ -726,6 +726,8 @@
   "agentChatModeHint": "手動モードは1ステップ実行して確認を待ちます。自動モードは安全上限内で連続実行します。",
   "agentChatSkillsInfo": "組み込み機能",
   "agentChatSkillsBody": "既存パイプラインの実アクションを呼び出し、有効な Markdown 技能をプロンプト文脈として読み込めます。パイプラインアクションはタスクセンターに確認・再試行可能な記録を残します。",
+  "agentChatAdvanced": "詳細設定",
+  "agentChatAdvancedTitle": "エージェント詳細設定",
   "agentTabChat": "対話",
   "agentTabDeploy": "配置",
   "agentTabSkills": "技能",

@@ -726,6 +726,8 @@
   "agentChatModeHint": "Manual mode runs one step and waits for you; auto mode chains steps automatically (within a safety cap).",
   "agentChatSkillsInfo": "Built-in capabilities",
   "agentChatSkillsBody": "I can call real pipeline actions and read enabled Markdown skills as prompt context. Pipeline actions leave reviewable, retryable records in Task Center.",
+  "agentChatAdvanced": "Advanced settings",
+  "agentChatAdvancedTitle": "Agent advanced settings",
   "agentTabChat": "Chat",
   "agentTabDeploy": "Deploy",
   "agentTabSkills": "Skills",

@@ -1,4 +1,4 @@
-// 精简助手页：只承载 v0.4 收敛后的对话、部署、技能开关、项目笔记。
+// 精简助手页：默认只承载工作流对话；保留的管理能力收进高级面板。
 // 被砍功能（custom JS 执行、监督 Agent、RAG 设置）不再从 UI 暴露。
 import 'dart:convert';
 
@@ -127,6 +127,16 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     );
   }
 
+  void _openAdvanced() {
+    final l10n = context.l10n;
+    showDFAdaptiveDialog<void>(
+      context,
+      title: l10n.agentChatAdvancedTitle,
+      desktopWidthFactor: .56,
+      builder: (_) => _AssistantAdvancedPanel(projectId: widget.projectId),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -136,161 +146,181 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
           family: _family,
         );
 
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(_family == assistantFamilyScript
-              ? l10n.agentDeployGroupScriptAgent
-              : l10n.agentDeployGroupProductionAgent),
-          bottom: TabBar(
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_family == assistantFamilyScript
+            ? l10n.agentDeployGroupScriptAgent
+            : l10n.agentDeployGroupProductionAgent),
+        actions: [
+          IconButton(
+            key: const ValueKey('assistant-advanced-button'),
+            tooltip: l10n.agentChatAdvanced,
+            icon: const Icon(Icons.tune_rounded),
+            onPressed: _openAdvanced,
+          ),
+          IconButton(
+            tooltip: l10n.agentChatSkillsInfo,
+            icon: const Icon(Icons.info_outline),
+            onPressed: _showSkillsInfo,
+          ),
+          Tooltip(
+            message: l10n.agentChatModeHint,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(children: [
+                Text(
+                  _autoMode ? l10n.agentChatAutoMode : l10n.agentChatManualMode,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                Switch(value: _autoMode, onChanged: _setAutoMode),
+              ]),
+            ),
+          ),
+          IconButton(
+            tooltip: l10n.agentChatClearMemory,
+            icon: const Icon(Icons.delete_sweep_outlined),
+            onPressed: _clearChat,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: SegmentedButton<String>(
+              key: const ValueKey('assistant-family-switch'),
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(
+                  value: assistantFamilyScript,
+                  icon: const Icon(Icons.edit_note_outlined),
+                  label: Text(
+                    l10n.agentDeployGroupScriptAgent,
+                    key: const ValueKey('assistant-family-script'),
+                  ),
+                ),
+                ButtonSegment(
+                  value: assistantFamilyProduction,
+                  icon: const Icon(Icons.movie_creation_outlined),
+                  label: Text(
+                    l10n.agentDeployGroupProductionAgent,
+                    key: const ValueKey('assistant-family-production'),
+                  ),
+                ),
+              ],
+              selected: {_family},
+              onSelectionChanged: (selection) {
+                _setFamily(selection.single);
+              },
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            controller: _scroll,
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (messages.isEmpty)
+                _WelcomeBubble(
+                  text: _family == assistantFamilyScript
+                      ? l10n.agentChatWelcome
+                      : l10n.canvasChatWelcome,
+                ),
+              for (final message in messages)
+                _AssistantMessageBubble(
+                  message: message,
+                  onApprove: () => _confirmPending(true),
+                  onReject: () => _confirmPending(false),
+                ),
+              if (_sending)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      l10n.agentChatThinking,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: df.textTertiary,
+                      ),
+                    ),
+                  ]),
+                ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: df.surface,
+            border: Border(top: BorderSide(color: df.stroke)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _input,
+                  minLines: 1,
+                  maxLines: 4,
+                  onSubmitted: (_) => _send(),
+                  decoration: InputDecoration(
+                    hintText: l10n.agentChatInputPlaceholder,
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _sending ? null : _send,
+                child: Text(l10n.agentChatSend),
+              ),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _AssistantAdvancedPanel extends StatelessWidget {
+  final int projectId;
+
+  const _AssistantAdvancedPanel({required this.projectId});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return SizedBox(
+      width: 720,
+      height: 560,
+      child: DefaultTabController(
+        length: 3,
+        child: Column(children: [
+          TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [
-              Tab(text: l10n.agentTabChat),
               Tab(text: l10n.agentTabDeploy),
               Tab(text: l10n.agentTabSkills),
               Tab(text: l10n.agentTabMemory),
             ],
           ),
-          actions: [
-            IconButton(
-              tooltip: l10n.agentChatSkillsInfo,
-              icon: const Icon(Icons.info_outline),
-              onPressed: _showSkillsInfo,
-            ),
-            Tooltip(
-              message: l10n.agentChatModeHint,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(children: [
-                  Text(
-                    _autoMode
-                        ? l10n.agentChatAutoMode
-                        : l10n.agentChatManualMode,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  Switch(value: _autoMode, onChanged: _setAutoMode),
-                ]),
-              ),
-            ),
-            IconButton(
-              tooltip: l10n.agentChatClearMemory,
-              icon: const Icon(Icons.delete_sweep_outlined),
-              onPressed: _clearChat,
-            ),
-            const SizedBox(width: 8),
-          ],
-        ),
-        body: TabBarView(
-          children: [
-            Column(children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SegmentedButton<String>(
-                    key: const ValueKey('assistant-family-switch'),
-                    showSelectedIcon: false,
-                    segments: [
-                      ButtonSegment(
-                        value: assistantFamilyScript,
-                        icon: const Icon(Icons.edit_note_outlined),
-                        label: Text(
-                          l10n.agentDeployGroupScriptAgent,
-                          key: const ValueKey('assistant-family-script'),
-                        ),
-                      ),
-                      ButtonSegment(
-                        value: assistantFamilyProduction,
-                        icon: const Icon(Icons.movie_creation_outlined),
-                        label: Text(
-                          l10n.agentDeployGroupProductionAgent,
-                          key: const ValueKey('assistant-family-production'),
-                        ),
-                      ),
-                    ],
-                    selected: {_family},
-                    onSelectionChanged: (selection) {
-                      _setFamily(selection.single);
-                    },
-                  ),
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: _scroll,
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    if (messages.isEmpty)
-                      _WelcomeBubble(
-                        text: _family == assistantFamilyScript
-                            ? l10n.agentChatWelcome
-                            : l10n.canvasChatWelcome,
-                      ),
-                    for (final message in messages)
-                      _AssistantMessageBubble(
-                        message: message,
-                        onApprove: () => _confirmPending(true),
-                        onReject: () => _confirmPending(false),
-                      ),
-                    if (_sending)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Row(children: [
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            l10n.agentChatThinking,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: df.textTertiary,
-                            ),
-                          ),
-                        ]),
-                      ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: df.surface,
-                  border: Border(top: BorderSide(color: df.stroke)),
-                ),
-                child: SafeArea(
-                  top: false,
-                  child: Row(children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _input,
-                        minLines: 1,
-                        maxLines: 4,
-                        onSubmitted: (_) => _send(),
-                        decoration: InputDecoration(
-                          hintText: l10n.agentChatInputPlaceholder,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: _sending ? null : _send,
-                      child: Text(l10n.agentChatSend),
-                    ),
-                  ]),
-                ),
-              ),
+          Expanded(
+            child: TabBarView(children: [
+              const _AssistantDeployPane(),
+              const _AssistantSkillsPane(),
+              _ProjectNotesPane(projectId: projectId),
             ]),
-            const _AssistantDeployPane(),
-            const _AssistantSkillsPane(),
-            _ProjectNotesPane(projectId: widget.projectId),
-          ],
-        ),
+          ),
+        ]),
       ),
     );
   }

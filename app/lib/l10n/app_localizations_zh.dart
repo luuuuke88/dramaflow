@@ -2031,6 +2031,12 @@ class AppLocalizationsZh extends AppLocalizations {
       '我可以调用已有流水线真实动作，也可以读取启用的 Markdown 技能作为提示词上下文。流水线动作会在「任务中心」留下可查看、可重试的任务记录。';
 
   @override
+  String get agentChatAdvanced => '高级设置';
+
+  @override
+  String get agentChatAdvancedTitle => 'Agent 高级设置';
+
+  @override
   String get agentTabChat => '对话';
 
   @override

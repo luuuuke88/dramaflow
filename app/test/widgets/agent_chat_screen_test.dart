@@ -61,6 +61,11 @@ $body
 ''');
 }
 
+Future<void> _openAssistantAdvanced(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('assistant-advanced-button')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   late Directory dir;
   late Engine engine;
@@ -155,6 +160,22 @@ void main() {
     expect(find.text('自动连跑'), findsOneWidget);
   });
 
+  testWidgets('助手默认页只显示对话，高级面板按需打开管理功能', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.text('部署'), findsNothing);
+    expect(find.text('技能'), findsNothing);
+    expect(find.text('项目笔记'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('assistant-advanced-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('部署'), findsOneWidget);
+    expect(find.text('技能'), findsOneWidget);
+    expect(find.text('项目笔记'), findsOneWidget);
+  });
+
   testWidgets('确认卡片可拒绝，不执行待确认动作', (tester) async {
     gateway.turns.add(const AgentTurnResult.tool('generate_events', {}));
 
@@ -177,9 +198,7 @@ void main() {
   testWidgets('部署页只展示两个助手基座并可保存文本模型绑定', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
-
-    await tester.tap(find.text('部署'));
-    await tester.pumpAndSettle();
+    await _openAssistantAdvanced(tester);
 
     expect(engine.assistantDeployments(), hasLength(2));
     expect(find.text('scriptAgent'), findsOneWidget);
@@ -216,6 +235,7 @@ void main() {
 
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
+    await _openAssistantAdvanced(tester);
     await tester.tap(find.text('技能'));
     await tester.pumpAndSettle();
 
@@ -235,6 +255,7 @@ void main() {
   testWidgets('项目笔记页使用 project_notes API，删除走危险确认', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
+    await _openAssistantAdvanced(tester);
     await tester.tap(find.text('项目笔记'));
     await tester.pumpAndSettle();
 
@@ -272,6 +293,7 @@ void main() {
     expect(find.textContaining('监督模式'), findsNothing);
     expect(find.textContaining('RAG'), findsNothing);
 
+    await _openAssistantAdvanced(tester);
     await tester.tap(find.text('项目笔记'));
     await tester.pumpAndSettle();
     expect(find.textContaining('监督模式'), findsNothing);

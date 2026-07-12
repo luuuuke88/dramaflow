@@ -2044,6 +2044,12 @@ class AppLocalizationsJa extends AppLocalizations {
       '既存パイプラインの実アクションを呼び出し、有効な Markdown 技能をプロンプト文脈として読み込めます。パイプラインアクションはタスクセンターに確認・再試行可能な記録を残します。';
 
   @override
+  String get agentChatAdvanced => '詳細設定';
+
+  @override
+  String get agentChatAdvancedTitle => 'エージェント詳細設定';
+
+  @override
   String get agentTabChat => '対話';
 
   @override
