@@ -48,6 +48,21 @@ class TasksRow {
     return decoded is Map ? Map<String, dynamic>.from(decoded) : const {};
   }
 
+  Map<String, dynamic> get retryJson {
+    final value = relatedObjectsJson['_retry'];
+    return value is Map ? Map<String, dynamic>.from(value) : const {};
+  }
+
+  int get attempt {
+    final value = (retryJson['attempt'] as num?)?.toInt() ?? 1;
+    return value < 1 ? 1 : value;
+  }
+
+  int? get previousAttemptId => (retryJson['previousTaskId'] as num?)?.toInt();
+
+  int? get supersededByTaskId =>
+      (retryJson['supersededByTaskId'] as num?)?.toInt();
+
   EngineException? get engineReason => EngineException.fromReasonJson(reason);
 }
 

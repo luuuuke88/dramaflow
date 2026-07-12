@@ -226,17 +226,28 @@ void main() {
     await tester.tap(find.byTooltip('重试').first);
     await settle(tester);
 
-    final retried = db
-        .select(
-          "SELECT state, reason FROM o_tasks WHERE describe='素材提取失败'",
-        )
-        .single;
-    expect(retried['state'], 'pending');
-    expect(retried['reason'], isNull);
+    final attempts = db.select(
+      "SELECT state, reason FROM o_tasks WHERE describe='素材提取失败' ORDER BY id",
+    );
+    expect(attempts, hasLength(2));
+    expect(attempts.first['state'], 'failed');
+    expect(attempts.first['reason'], isNotNull);
+    expect(attempts.last['state'], 'pending');
+    expect(attempts.last['reason'], isNull);
     expect(find.text('已重新排队'), findsOneWidget);
+    expect(find.textContaining('第 2 次'), findsWidgets);
+    expect(find.byTooltip('重试'), findsNothing,
+        reason: '已有后续 attempt 的失败行不能重复重试');
 
     await tester.pump(const Duration(seconds: 3));
-    await tester.tap(find.byTooltip('取消任务').first);
+    final pendingTile = find.ancestor(
+      of: find.textContaining('等待取消的事件生成').first,
+      matching: find.byType(ListTile),
+    );
+    await tester.tap(find.descendant(
+      of: pendingTile,
+      matching: find.byTooltip('取消任务'),
+    ));
     await settle(tester);
 
     final canceled = db.select(

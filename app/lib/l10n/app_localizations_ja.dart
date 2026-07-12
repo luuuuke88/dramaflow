@@ -3278,6 +3278,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get taskRetryQueued => '再度キューに追加しました';
 
   @override
+  String taskAttemptLabel(int attempt) {
+    return '$attempt 回目';
+  }
+
+  @override
   String get taskClassEventGeneration => 'イベント生成';
 
   @override

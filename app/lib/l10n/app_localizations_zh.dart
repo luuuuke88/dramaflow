@@ -3254,6 +3254,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get taskRetryQueued => '已重新排队';
 
   @override
+  String taskAttemptLabel(int attempt) {
+    return '第 $attempt 次';
+  }
+
+  @override
   String get taskClassEventGeneration => '事件生成';
 
   @override

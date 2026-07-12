@@ -3359,6 +3359,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get taskRetryQueued => 'Queued again';
 
   @override
+  String taskAttemptLabel(int attempt) {
+    return 'Attempt $attempt';
+  }
+
+  @override
   String get taskClassEventGeneration => 'Event generation';
 
   @override

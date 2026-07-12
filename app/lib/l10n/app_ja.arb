@@ -1222,6 +1222,14 @@
   "taskCancelTooltip": "タスクをキャンセル",
   "taskCanceledMessage": "タスクをキャンセルしました",
   "taskRetryQueued": "再度キューに追加しました",
+  "taskAttemptLabel": "{attempt} 回目",
+  "@taskAttemptLabel": {
+    "placeholders": {
+      "attempt": {
+        "type": "int"
+      }
+    }
+  },
   "taskClassEventGeneration": "イベント生成",
   "taskClassScriptGeneration": "シナリオ生成",
   "taskClassDirectorPlanGeneration": "演出プラン生成",

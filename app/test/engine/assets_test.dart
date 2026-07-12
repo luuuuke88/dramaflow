@@ -355,9 +355,22 @@ void main() {
       expect(user, contains('RETRY INSTRUCTION'));
       return 'retried prompt';
     };
-    await engine.retryJob(taskId);
-    await waitTask(taskId);
-    expect(payload.existsSync(), isFalse);
+    final retryId = await engine.retryJob(taskId);
+    final retryPayload =
+        File(p.join(dir.path, 'task_payloads', '$retryId.payload'));
+    expect(retryId, isNot(taskId));
+    expect(payload.existsSync(), isFalse, reason: '私有要求只保留在最新 attempt');
+    expect(retryPayload.existsSync(), isTrue);
+    expect(
+      db.select('SELECT state,reason FROM o_tasks WHERE id=?', [taskId]).single,
+      containsPair('state', 'failed'),
+    );
+    expect(
+        db.select(
+            'SELECT reason FROM o_tasks WHERE id=?', [taskId]).single['reason'],
+        isNotNull);
+    await waitTask(retryId);
+    expect(retryPayload.existsSync(), isFalse);
     expect(engine.assetsByIds([id]).single.prompt, 'retried prompt');
   });
 

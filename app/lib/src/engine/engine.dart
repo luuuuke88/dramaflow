@@ -992,12 +992,65 @@ WHERE id=?
     if (task.state != 'failed') {
       throw const EngineException(errLlmFormat, {'reason': '只有失败的任务可以重试'});
     }
-    db.execute(
-      "UPDATE o_tasks SET state='pending', reason=NULL, startTime=? WHERE id=?",
-      [DateTime.now().millisecondsSinceEpoch, taskId],
-    );
+    if (task.supersededByTaskId != null) {
+      throw const EngineException(errLlmFormat, {'reason': '任务已有后续重试'});
+    }
+
+    final oldRelated = Map<String, dynamic>.from(task.relatedObjectsJson);
+    final newRelated = Map<String, dynamic>.from(oldRelated)
+      ..['_retry'] = {
+        'attempt': task.attempt + 1,
+        'rootTaskId': task.retryJson['rootTaskId'] ?? task.id,
+        'previousTaskId': task.id,
+      };
+    final oldPayloadFile = _taskPrivatePayloadFile(task.id);
+    File? retryPayloadFile;
+    var movedPayload = false;
+    var retryId = 0;
+
+    db.execute('SAVEPOINT retry_task');
+    try {
+      db.execute(
+        "INSERT INTO o_tasks "
+        "(projectId,state,taskClass,describe,model,relatedObjects,startTime) "
+        "VALUES (?,'pending',?,?,?,?,?)",
+        [
+          task.projectId,
+          task.taskClass,
+          task.describe,
+          task.model,
+          jsonEncode(newRelated),
+          DateTime.now().millisecondsSinceEpoch,
+        ],
+      );
+      retryId = db.lastInsertRowId;
+      final oldRetry = Map<String, dynamic>.from(task.retryJson)
+        ..['attempt'] = task.attempt
+        ..['supersededByTaskId'] = retryId;
+      oldRelated['_retry'] = oldRetry;
+      db.execute(
+        'UPDATE o_tasks SET relatedObjects=? WHERE id=?',
+        [jsonEncode(oldRelated), task.id],
+      );
+      if (oldPayloadFile.existsSync()) {
+        retryPayloadFile = _taskPrivatePayloadFile(retryId);
+        retryPayloadFile.parent.createSync(recursive: true);
+        oldPayloadFile.renameSync(retryPayloadFile.path);
+        movedPayload = true;
+      }
+      db.execute('RELEASE SAVEPOINT retry_task');
+    } catch (_) {
+      db.execute('ROLLBACK TO SAVEPOINT retry_task');
+      db.execute('RELEASE SAVEPOINT retry_task');
+      if (movedPayload &&
+          retryPayloadFile?.existsSync() == true &&
+          !oldPayloadFile.existsSync()) {
+        retryPayloadFile!.renameSync(oldPayloadFile.path);
+      }
+      rethrow;
+    }
     queue.notifyChanged();
-    return taskId;
+    return retryId;
   }
 
   File _taskPrivatePayloadFile(int taskId) => File(path.join(

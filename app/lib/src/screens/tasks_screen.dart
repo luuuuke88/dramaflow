@@ -365,6 +365,7 @@ class _TaskTile extends ConsumerWidget {
       title: Text(_taskClassLabel(l10n, task.taskClass)),
       subtitle: Text([
         if (task.describe?.isNotEmpty == true) task.describe!,
+        if (task.attempt > 1) l10n.taskAttemptLabel(task.attempt),
         if (task.projectId != null) l10n.taskProjectLabel(task.projectId!),
         if (task.startTime != null) _formatTime(task.startTime!),
         if (reason != null) reason,
@@ -385,7 +386,7 @@ class _TaskTile extends ConsumerWidget {
                 }
               }, successMessage: l10n.taskCanceledMessage),
             ),
-          if (task.state == 'failed')
+          if (task.state == 'failed' && task.supersededByTaskId == null)
             IconButton(
               tooltip: l10n.commonRetry,
               icon: const Icon(Icons.refresh_rounded),

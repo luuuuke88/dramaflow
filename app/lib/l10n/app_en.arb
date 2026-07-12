@@ -1222,6 +1222,14 @@
   "taskCancelTooltip": "Cancel task",
   "taskCanceledMessage": "Task canceled",
   "taskRetryQueued": "Queued again",
+  "taskAttemptLabel": "Attempt {attempt}",
+  "@taskAttemptLabel": {
+    "placeholders": {
+      "attempt": {
+        "type": "int"
+      }
+    }
+  },
   "taskClassEventGeneration": "Event generation",
   "taskClassScriptGeneration": "Script generation",
   "taskClassDirectorPlanGeneration": "Director plan generation",

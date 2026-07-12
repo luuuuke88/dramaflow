@@ -1453,6 +1453,14 @@
   "taskCancelTooltip": "取消任务",
   "taskCanceledMessage": "任务已取消",
   "taskRetryQueued": "已重新排队",
+  "taskAttemptLabel": "第 {attempt} 次",
+  "@taskAttemptLabel": {
+    "placeholders": {
+      "attempt": {
+        "type": "int"
+      }
+    }
+  },
   "taskClassEventGeneration": "事件生成",
   "taskClassScriptGeneration": "剧本生成",
   "taskClassDirectorPlanGeneration": "导演规划生成",

@@ -12,6 +12,7 @@ import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/queue.dart';
 import 'package:dramaflow/src/engine/video_request.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -117,22 +118,28 @@ void main() {
     expect(await engine.projectJobs(projectId), hasLength(2));
   });
 
-  test('retryJob 将 failed 任务重新置为 pending', () async {
+  test('retryJob 保留失败历史并创建可追溯的新 attempt', () async {
     final projectId = engine.addProject(projectType: 'drama', name: 'p');
+    final reason = const EngineException(errNetwork).toReasonJson();
     db.execute(
       "INSERT INTO o_tasks (id,projectId,state,taskClass,reason) VALUES (5,?,'failed','event_generation',?)",
-      [projectId, const EngineException(errNetwork).toReasonJson()],
+      [projectId, reason],
     );
 
     final id = await engine.retryJob(5);
 
-    expect(id, 5);
-    expect(
-      db.select('SELECT state FROM o_tasks WHERE id=5').first['state'],
-      'pending',
-    );
-    expect(db.select('SELECT reason FROM o_tasks WHERE id=5').first['reason'],
-        isNull);
+    expect(id, isNot(5));
+    final rows = db.select('SELECT * FROM o_tasks ORDER BY id');
+    expect(rows, hasLength(2));
+    final failed = TasksRow.fromRow(rows.first);
+    final retry = TasksRow.fromRow(rows.last);
+    expect(failed.state, 'failed');
+    expect(failed.reason, reason);
+    expect(failed.supersededByTaskId, id);
+    expect(retry.state, 'pending');
+    expect(retry.reason, isNull);
+    expect(retry.attempt, 2);
+    expect(retry.previousAttemptId, 5);
   });
 
   test('provider CRUD + model 保存走 o_vendorConfig', () async {

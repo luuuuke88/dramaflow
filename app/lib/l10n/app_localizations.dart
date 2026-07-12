@@ -6334,6 +6334,12 @@ abstract class AppLocalizations {
   /// **'已重新排队'**
   String get taskRetryQueued;
 
+  /// No description provided for @taskAttemptLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {attempt} 次'**
+  String taskAttemptLabel(int attempt);
+
   /// No description provided for @taskClassEventGeneration.
   ///
   /// In zh, this message translates to:
