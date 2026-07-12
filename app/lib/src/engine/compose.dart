@@ -1,5 +1,41 @@
 import 'errors.dart';
 
+const supportedComposeTransitions = <String>{
+  'fade',
+  'dissolve',
+  'whip_pan',
+};
+
+const supportedComposeFilters = <String>{
+  'cinematic',
+  'warm',
+  'cool',
+  'vintage',
+};
+
+void validateComposeSegments(List<ComposeSegment> segments) {
+  for (final segment in segments) {
+    final transition = segment.transition;
+    if (transition != null &&
+        transition.isNotEmpty &&
+        !supportedComposeTransitions.contains(transition)) {
+      throw EngineException(errPlatformComposer, {
+        'effect': 'transition',
+        'value': transition,
+      });
+    }
+    final filter = segment.filter;
+    if (filter != null &&
+        filter.isNotEmpty &&
+        !supportedComposeFilters.contains(filter)) {
+      throw EngineException(errPlatformComposer, {
+        'effect': 'filter',
+        'value': filter,
+      });
+    }
+  }
+}
+
 class ComposeSegment {
   final String videoAbsPath;
   final String? audioAbsPath;
@@ -42,6 +78,7 @@ abstract class VideoComposer {
     List<ComposeSegment> segments,
     String outputAbsPath,
   ) async {
+    validateComposeSegments(segments);
     if (segments.any((s) => s.hasAudio)) {
       throw const EngineException(errFileType, {'reason': '当前平台暂不支持配音混合'});
     }

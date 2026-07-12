@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dramaflow/src/engine/compose.dart';
+import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/platform/avfoundation_composer.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -173,6 +174,42 @@ void main() {
     expect(first['startMs'], 1500);
     expect(first['durationMs'], 1200);
     expect(first['opacity'], 1.0);
+  });
+
+  test('Dart composer wrapper rejects unsupported effects before channel',
+      () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final calls = <MethodCall>[];
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('dramaflow/composer'),
+        null,
+      );
+    });
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('dramaflow/composer'),
+      (call) async {
+        calls.add(call);
+        return null;
+      },
+    );
+
+    await expectLater(
+      const AVFoundationComposer().compose(
+        const [
+          ComposeSegment(
+            videoAbsPath: '/tmp/a.mp4',
+            transition: 'unknown_transition',
+          ),
+        ],
+        '/tmp/out.mp4',
+      ),
+      throwsA(isA<EngineException>()
+          .having((error) => error.errKey, 'errKey', errPlatformComposer)),
+    );
+    expect(calls, isEmpty);
   });
 
   test('Apple composer routes timeline clip layers into AVFoundation overlays',

@@ -227,6 +227,56 @@ void main() {
     expect(segment.filter, 'cinematic');
   });
 
+  test('composeEpisode：未知转场在调用 composer 前失败关闭', () async {
+    final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final track1 = engine.ensureTrackForStoryboard(sb1);
+    db.execute(
+        "INSERT INTO o_video (videoTrackId,filePath,state) VALUES (?,?,?)",
+        [track1, 'p/vid_1.mp4', vtDone]);
+    engine.selectVideo(track1, db.lastInsertRowId);
+    db.execute(
+      "UPDATE o_videoTrack SET transition='unknown_transition' WHERE id=?",
+      [track1],
+    );
+
+    await expectLater(
+      engine.composeEpisode(projectId, scriptId),
+      throwsA(isA<EngineException>()
+          .having((error) => error.errKey, 'errKey', errPlatformComposer)
+          .having(
+              (error) => error.errParams['effect'], 'effect', 'transition')),
+    );
+    expect(composer.concatCalls, isEmpty);
+    expect(composer.composeCalls, isEmpty);
+  });
+
+  test('known composition presets pass shared validation', () {
+    expect(
+      () => validateComposeSegments(const [
+        ComposeSegment(
+          videoAbsPath: '/tmp/a.mp4',
+          transition: 'dissolve',
+          filter: 'vintage',
+        ),
+      ]),
+      returnsNormally,
+    );
+  });
+
+  test('shared validation rejects an unknown filter', () {
+    expect(
+      () => validateComposeSegments(const [
+        ComposeSegment(
+          videoAbsPath: '/tmp/a.mp4',
+          filter: 'unknown_filter',
+        ),
+      ]),
+      throwsA(isA<EngineException>()
+          .having((error) => error.errKey, 'errKey', errPlatformComposer)
+          .having((error) => error.errParams['effect'], 'effect', 'filter')),
+    );
+  });
+
   test('orderedComposeSegments 传递每镜转场与滤镜元数据', () {
     final sb1 = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     final track1 = engine.ensureTrackForStoryboard(sb1);

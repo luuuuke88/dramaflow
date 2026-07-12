@@ -61,6 +61,7 @@ class AVFoundationComposer implements VideoComposer {
   @override
   Future<void> compose(
       List<ComposeSegment> segments, String outputAbsPath) async {
+    validateComposeSegments(segments);
     await _invoke<void>(
       'compose',
       {

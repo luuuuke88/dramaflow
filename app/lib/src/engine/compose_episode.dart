@@ -150,6 +150,7 @@ extension ComposeEpisodeApi on Engine {
           errPromptMissing, {'type': 'selectedVideo', 'missing': missingCount});
     }
     final composeSegments = [for (final s in segments) s!];
+    validateComposeSegments(composeSegments);
     final outputRel = '$projectId/episode_${scriptId}_'
         '${DateTime.now().millisecondsSinceEpoch}.mp4';
     final outputAbs = media.absPath(outputRel);
