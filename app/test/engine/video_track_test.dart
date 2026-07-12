@@ -405,6 +405,303 @@ void main() {
     expect(candidate['upstreamTaskId'], 'upstream-recovery');
   });
 
+  test('retry accepted running candidate only polls its existing upstream task',
+      () async {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '继续轮询');
+    writeMedia('p/retry-running-frame.png');
+    writeMedia('p/retry-running.mp4');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/retry-running-frame.png' WHERE id=?",
+        [sbId]);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    final request = engine.buildVideoRequest(
+      projectId: projectId,
+      storyboardId: sbId,
+      trackId: trackId,
+    );
+    db.execute(
+      "INSERT INTO o_video (projectId,scriptId,videoTrackId,state,submissionState,modelBinding,requestFingerprint,upstreamTaskId,upstreamState) "
+      "VALUES (?,?,?,?, 'accepted', ?, ?, 'upstream-running', 'running')",
+      [
+        projectId,
+        scriptId,
+        trackId,
+        vtFailed,
+        request.modelBinding,
+        request.fingerprint(),
+      ],
+    );
+    final videoId = db.lastInsertRowId;
+    db.execute(
+      "INSERT INTO o_tasks (projectId,state,taskClass,reason,relatedObjects) "
+      "VALUES (?,'failed','video_generation',?,?)",
+      [
+        projectId,
+        const EngineException(errNetwork).toReasonJson(),
+        jsonEncode({
+          'trackIds': [trackId],
+          'videoIds': [videoId],
+        }),
+      ],
+    );
+    final failedTaskId = db.lastInsertRowId;
+    gateway.pollHandler = (upstreamTaskId, _, modelBinding) {
+      expect(upstreamTaskId, 'upstream-running');
+      expect(modelBinding, request.modelBinding);
+      return const VideoPollResult(
+        upstreamState: 'succeeded',
+        localVideoPath: 'p/retry-running.mp4',
+      );
+    };
+
+    final retryId = await engine.retryJob(failedTaskId);
+    await waitTask(retryId);
+
+    expect(gateway.submitCount, 0);
+    expect(gateway.pollCount, 1);
+    final retry = db.select('SELECT relatedObjects FROM o_tasks WHERE id=?',
+        [retryId]).single['relatedObjects'] as String;
+    expect(jsonDecode(retry), containsPair('videoIds', [videoId]));
+  });
+
+  test('retry terminal failed candidate creates a new paid submission',
+      () async {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '重新提交');
+    writeMedia('p/retry-terminal-frame.png');
+    writeMedia('p/retry-terminal.mp4');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/retry-terminal-frame.png' WHERE id=?",
+        [sbId]);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    final request = engine.buildVideoRequest(
+      projectId: projectId,
+      storyboardId: sbId,
+      trackId: trackId,
+    );
+    db.execute(
+      "INSERT INTO o_video (projectId,scriptId,videoTrackId,state,submissionState,modelBinding,requestFingerprint,upstreamTaskId,upstreamState) "
+      "VALUES (?,?,?,?, 'accepted', ?, ?, 'upstream-failed', 'failed')",
+      [
+        projectId,
+        scriptId,
+        trackId,
+        vtFailed,
+        request.modelBinding,
+        request.fingerprint(),
+      ],
+    );
+    final oldVideoId = db.lastInsertRowId;
+    engine.selectVideo(trackId, oldVideoId);
+    db.execute(
+      "INSERT INTO o_tasks (projectId,state,taskClass,reason,relatedObjects) "
+      "VALUES (?,'failed','video_generation',?,?)",
+      [
+        projectId,
+        const EngineException(errNetwork).toReasonJson(),
+        jsonEncode({
+          'trackIds': [trackId],
+          'videoIds': [oldVideoId],
+        }),
+      ],
+    );
+    final failedTaskId = db.lastInsertRowId;
+    gateway.submitHandler = (received) {
+      expect(received.fingerprint(), request.fingerprint());
+      return const VideoSubmission('upstream-retry');
+    };
+    gateway.pollHandler = (upstreamTaskId, _, __) {
+      expect(upstreamTaskId, 'upstream-retry');
+      return const VideoPollResult(
+        upstreamState: 'succeeded',
+        localVideoPath: 'p/retry-terminal.mp4',
+      );
+    };
+
+    final retryId = await engine.retryJob(failedTaskId);
+    final retry = jsonDecode(db.select(
+        'SELECT relatedObjects FROM o_tasks WHERE id=?',
+        [retryId]).single['relatedObjects'] as String) as Map;
+    final retryVideoId = (retry['videoIds'] as List).single as int;
+    expect(retryVideoId, isNot(oldVideoId));
+    await waitTask(retryId);
+
+    expect(gateway.submitCount, 1);
+    expect(gateway.pollCount, 1);
+    final old = db.select('SELECT state,upstreamTaskId FROM o_video WHERE id=?',
+        [oldVideoId]).single;
+    expect(old['state'], vtFailed);
+    expect(old['upstreamTaskId'], 'upstream-failed');
+    expect(engine.track(trackId)!.selectVideoId, retryVideoId);
+  });
+
+  test('retry prepared candidate rebuilds a corrected current request',
+      () async {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '修正参数后重试');
+    writeMedia('p/retry-prepared-frame.png');
+    writeMedia('p/retry-prepared.mp4');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/retry-prepared-frame.png' WHERE id=?",
+        [sbId]);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    db.execute(
+      "INSERT INTO o_video (projectId,scriptId,videoTrackId,state,submissionState,modelBinding,requestFingerprint) "
+      "VALUES (?,?,?,?, 'prepared', 'volcengine:old-model', 'stale-request')",
+      [projectId, scriptId, trackId, vtFailed],
+    );
+    final oldVideoId = db.lastInsertRowId;
+    db.execute(
+      "INSERT INTO o_tasks (projectId,state,taskClass,reason,relatedObjects) "
+      "VALUES (?,'failed','video_generation',?,?)",
+      [
+        projectId,
+        const EngineException(errLlmFormat).toReasonJson(),
+        jsonEncode({
+          'trackIds': [trackId],
+          'videoIds': [oldVideoId],
+        }),
+      ],
+    );
+    final failedTaskId = db.lastInsertRowId;
+    final current = engine.buildVideoRequest(
+      projectId: projectId,
+      storyboardId: sbId,
+      trackId: trackId,
+    );
+    gateway.submitHandler = (received) {
+      expect(received.fingerprint(), current.fingerprint());
+      return const VideoSubmission('upstream-prepared-retry');
+    };
+    gateway.pollHandler = (_, __, ___) => const VideoPollResult(
+          upstreamState: 'succeeded',
+          localVideoPath: 'p/retry-prepared.mp4',
+        );
+
+    final retryId = await engine.retryJob(failedTaskId);
+    final retry = jsonDecode(db.select(
+        'SELECT relatedObjects FROM o_tasks WHERE id=?',
+        [retryId]).single['relatedObjects'] as String) as Map;
+    final retryVideoId = (retry['videoIds'] as List).single as int;
+    expect(retryVideoId, isNot(oldVideoId));
+    await waitTask(retryId);
+
+    expect(gateway.submitCount, 1);
+    final rebuilt = db.select(
+        'SELECT modelBinding,requestFingerprint FROM o_video WHERE id=?',
+        [retryVideoId]).single;
+    expect(rebuilt['modelBinding'], current.modelBinding);
+    expect(rebuilt['requestFingerprint'], current.fingerprint());
+  });
+
+  test('legacy retry without video ids uses only the latest failed candidate',
+      () async {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '旧任务重试');
+    writeMedia('p/retry-legacy-frame.png');
+    writeMedia('p/retry-legacy.mp4');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/retry-legacy-frame.png' WHERE id=?",
+        [sbId]);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    final request = engine.buildVideoRequest(
+      projectId: projectId,
+      storyboardId: sbId,
+      trackId: trackId,
+    );
+    for (final upstreamTaskId in ['upstream-old', 'upstream-latest']) {
+      db.execute(
+        "INSERT INTO o_video (projectId,scriptId,videoTrackId,state,submissionState,modelBinding,requestFingerprint,upstreamTaskId,upstreamState) "
+        "VALUES (?,?,?,?, 'accepted', ?, ?, ?, 'failed')",
+        [
+          projectId,
+          scriptId,
+          trackId,
+          vtFailed,
+          request.modelBinding,
+          request.fingerprint(),
+          upstreamTaskId,
+        ],
+      );
+    }
+    db.execute(
+      "INSERT INTO o_tasks (projectId,state,taskClass,reason,relatedObjects) "
+      "VALUES (?,'failed','video_generation',?,?)",
+      [
+        projectId,
+        const EngineException(errNetwork).toReasonJson(),
+        jsonEncode({
+          'trackIds': [trackId]
+        }),
+      ],
+    );
+    final failedTaskId = db.lastInsertRowId;
+    gateway.submitHandler = (_) => const VideoSubmission('upstream-legacy');
+    gateway.pollHandler = (_, __, ___) => const VideoPollResult(
+          upstreamState: 'succeeded',
+          localVideoPath: 'p/retry-legacy.mp4',
+        );
+
+    final retryId = await engine.retryJob(failedTaskId);
+    final retry = jsonDecode(db.select(
+        'SELECT relatedObjects FROM o_tasks WHERE id=?',
+        [retryId]).single['relatedObjects'] as String) as Map;
+    expect(retry['videoIds'], hasLength(1));
+    await waitTask(retryId);
+
+    expect(gateway.submitCount, 1);
+    expect(gateway.pollCount, 1);
+  });
+
+  test('retry uncertain submission is refused before another paid request',
+      () async {
+    configureVideoModel();
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '不确定提交');
+    writeMedia('p/retry-uncertain-frame.png');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/retry-uncertain-frame.png' WHERE id=?",
+        [sbId]);
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    db.execute(
+      "INSERT INTO o_video (projectId,scriptId,videoTrackId,state,submissionState) "
+      "VALUES (?,?,?,?, 'uncertain')",
+      [projectId, scriptId, trackId, vtFailed],
+    );
+    final videoId = db.lastInsertRowId;
+    db.execute(
+      "INSERT INTO o_tasks (projectId,state,taskClass,reason,relatedObjects) "
+      "VALUES (?,'failed','video_generation',?,?)",
+      [
+        projectId,
+        const EngineException(errNetwork).toReasonJson(),
+        jsonEncode({
+          'trackIds': [trackId],
+          'videoIds': [videoId],
+        }),
+      ],
+    );
+    final failedTaskId = db.lastInsertRowId;
+
+    await expectLater(
+      engine.retryJob(failedTaskId),
+      throwsA(isA<EngineException>().having(
+        (error) => error.errParams['reason'],
+        'reason',
+        'videoSubmissionUncertain',
+      )),
+    );
+
+    expect(gateway.submitCount, 0);
+    expect(db.select('SELECT id FROM o_tasks'), hasLength(1));
+    expect(db.select('SELECT id FROM o_video'), hasLength(1));
+  });
+
   test('canceling an accepted video also cancels the upstream task', () async {
     configureVideoModel();
     final sbId = engine.addStoryboard(

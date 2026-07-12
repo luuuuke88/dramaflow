@@ -865,15 +865,142 @@ extension VideoTrackApi on Engine {
   }
 
   void _completeVideoTrack(int trackId, int videoId) {
-    final hasSelection = db.select(
-            'SELECT selectVideoId FROM o_videoTrack WHERE id=?',
-            [trackId]).first['selectVideoId'] !=
-        null;
+    final selectedVideoId = db.select(
+        'SELECT selectVideoId FROM o_videoTrack WHERE id=?',
+        [trackId]).first['selectVideoId'] as int?;
+    final hasDoneSelection = selectedVideoId != null &&
+        db.select(
+          'SELECT id FROM o_video WHERE id=? AND state=? LIMIT 1',
+          [selectedVideoId, vtDone],
+        ).isNotEmpty;
     db.execute(
       'UPDATE o_videoTrack SET state=?, reason=NULL'
-      '${hasSelection ? '' : ', selectVideoId=?, videoId=?'} WHERE id=?',
-      hasSelection ? [vtDone, trackId] : [vtDone, videoId, videoId, trackId],
+      '${hasDoneSelection ? '' : ', selectVideoId=?, videoId=?'} WHERE id=?',
+      hasDoneSelection
+          ? [vtDone, trackId]
+          : [vtDone, videoId, videoId, trackId],
     );
+  }
+
+  /// Builds retry task data without ever resubmitting an unknown upstream job.
+  /// The caller owns the surrounding savepoint so candidate rows and the retry
+  /// task either appear together or not at all.
+  Map<String, dynamic> prepareVideoRetry(TasksRow task) {
+    final projectId = task.projectId;
+    if (projectId == null) {
+      throw const EngineException(errPromptMissing, {'type': 'videoProject'});
+    }
+    final related = Map<String, dynamic>.from(task.relatedObjectsJson);
+    var videoIds = _taskIds(related['videoIds']);
+    final trackIds = _taskIds(related['trackIds']);
+    if (videoIds.isEmpty && trackIds.isNotEmpty) {
+      videoIds = db
+          .select(
+            'SELECT id FROM o_video WHERE id IN ('
+            'SELECT MAX(id) FROM o_video '
+            'WHERE videoTrackId IN (${_ph(trackIds)}) AND state=? '
+            'GROUP BY videoTrackId'
+            ') ORDER BY id',
+            [...trackIds, vtFailed],
+          )
+          .map((row) => row['id'] as int)
+          .toList();
+    }
+    if (videoIds.isEmpty) {
+      throw const EngineException(errPromptMissing, {'type': 'videoRetry'});
+    }
+
+    final retryVideoIds = <int>[];
+    final retryTrackIds = <int>{};
+    for (final videoId in videoIds) {
+      final candidate = db.select(
+        'SELECT id,videoTrackId,submissionState,upstreamTaskId,upstreamState '
+        'FROM o_video WHERE id=? AND projectId=? LIMIT 1',
+        [videoId, projectId],
+      ).firstOrNull;
+      if (candidate == null) {
+        throw EngineException(errPromptMissing, {'type': 'video:$videoId'});
+      }
+      final trackId = candidate['videoTrackId'] as int?;
+      if (trackId == null) {
+        throw EngineException(
+            errPromptMissing, {'type': 'videoTrack:$videoId'});
+      }
+      final submissionState =
+          (candidate['submissionState'] as String? ?? 'prepared').trim();
+      final upstreamTaskId =
+          (candidate['upstreamTaskId'] as String? ?? '').trim();
+      final upstreamState =
+          (candidate['upstreamState'] as String? ?? '').trim().toLowerCase();
+
+      final retryVideoId = switch (submissionState) {
+        'prepared' => _createRetryVideoCandidate(projectId, trackId),
+        'accepted' when upstreamTaskId.isEmpty => _throwUncertainVideoRetry(),
+        'accepted'
+            when {'failed', 'canceled', 'cancelled'}.contains(upstreamState) =>
+          _createRetryVideoCandidate(projectId, trackId),
+        'accepted' => videoId,
+        _ => _throwUncertainVideoRetry(),
+      };
+      if (retryVideoId == videoId) {
+        db.execute(
+          'UPDATE o_video SET state=?,errorReason=NULL WHERE id=?',
+          [vtGenerating, videoId],
+        );
+      }
+      db.execute(
+        'UPDATE o_videoTrack SET state=?,reason=NULL WHERE id=?',
+        [vtGenerating, trackId],
+      );
+      retryVideoIds.add(retryVideoId);
+      retryTrackIds.add(trackId);
+    }
+    related['trackIds'] = retryTrackIds.toList(growable: false);
+    related['videoIds'] = retryVideoIds;
+    return related;
+  }
+
+  Never _throwUncertainVideoRetry() => throw const EngineException(
+        errLlmFormat,
+        {'reason': 'videoSubmissionUncertain'},
+      );
+
+  int _createRetryVideoCandidate(int projectId, int trackId) {
+    final storyboardId = db.select(
+      'SELECT id FROM o_storyboard WHERE trackId=? AND projectId=? LIMIT 1',
+      [trackId, projectId],
+    ).firstOrNull?['id'] as int?;
+    if (storyboardId == null) {
+      throw EngineException(errPromptMissing, {'type': 'storyboard:$trackId'});
+    }
+    final request = buildVideoRequest(
+      projectId: projectId,
+      storyboardId: storyboardId,
+      trackId: trackId,
+    );
+    final scriptId = db.select(
+      'SELECT scriptId FROM o_videoTrack WHERE id=? AND projectId=? LIMIT 1',
+      [trackId, projectId],
+    ).firstOrNull?['scriptId'] as int?;
+    if (scriptId == null) {
+      throw EngineException(errPromptMissing, {'type': 'videoTrack:$trackId'});
+    }
+    db.execute(
+      'INSERT INTO o_video '
+      '(projectId,scriptId,videoTrackId,state,time,submissionState,'
+      'modelBinding,requestFingerprint) '
+      "VALUES (?,?,?,?,?,'prepared',?,?)",
+      [
+        projectId,
+        scriptId,
+        trackId,
+        vtGenerating,
+        DateTime.now().millisecondsSinceEpoch,
+        request.modelBinding,
+        request.fingerprint(),
+      ],
+    );
+    return db.lastInsertRowId;
   }
 
   Future<void> cancelVideoGenerationTask(int taskId) async {

@@ -997,12 +997,6 @@ WHERE id=?
     }
 
     final oldRelated = Map<String, dynamic>.from(task.relatedObjectsJson);
-    final newRelated = Map<String, dynamic>.from(oldRelated)
-      ..['_retry'] = {
-        'attempt': task.attempt + 1,
-        'rootTaskId': task.retryJson['rootTaskId'] ?? task.id,
-        'previousTaskId': task.id,
-      };
     final oldPayloadFile = _taskPrivatePayloadFile(task.id);
     File? retryPayloadFile;
     var movedPayload = false;
@@ -1010,6 +1004,15 @@ WHERE id=?
 
     db.execute('SAVEPOINT retry_task');
     try {
+      final retryRelated = task.taskClass == 'video_generation'
+          ? prepareVideoRetry(task)
+          : oldRelated;
+      final newRelated = Map<String, dynamic>.from(retryRelated)
+        ..['_retry'] = {
+          'attempt': task.attempt + 1,
+          'rootTaskId': task.retryJson['rootTaskId'] ?? task.id,
+          'previousTaskId': task.id,
+        };
       db.execute(
         "INSERT INTO o_tasks "
         "(projectId,state,taskClass,describe,model,relatedObjects,startTime) "
