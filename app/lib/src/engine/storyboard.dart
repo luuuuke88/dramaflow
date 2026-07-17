@@ -419,15 +419,21 @@ extension StoryboardApi on Engine {
       if (prompt.isEmpty || videoDesc.isEmpty || duration.isEmpty) {
         _storyboardTableError('row_${i + 1}_required_value');
       }
+      // 宽松解析：LLM（尤其非默认调优模型）对该列的自然语言表达差异较大，
+      // 严格枚举曾在真实生成中导致整张表因单个单元格解析失败而报废。
+      // 无法识别的取值降级为默认需要生成（与该列整体缺失时的默认行为一致），
+      // 不再让单个模糊单元格拖垮整张分镜表。
       var shouldGenerateImage = true;
       if (imageColumn >= 0) {
         final raw = cells[imageColumn].trim().toLowerCase();
-        if (raw.isEmpty || raw == '否' || raw == 'false' || raw == '0') {
+        const falseValues = {'否', 'false', '0', 'no', 'n', '不需要', '✗', '×'};
+        const trueValues = {'是', 'true', '1', 'yes', 'y', '需要', '✓', '√'};
+        if (raw.isEmpty || falseValues.contains(raw)) {
           shouldGenerateImage = false;
-        } else if (raw == '是' || raw == 'true' || raw == '1') {
+        } else if (trueValues.contains(raw)) {
           shouldGenerateImage = true;
         } else {
-          _storyboardTableError('row_${i + 1}_boolean');
+          shouldGenerateImage = true;
         }
       }
       final assetNames = assetsColumn < 0

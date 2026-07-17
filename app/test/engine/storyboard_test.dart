@@ -254,6 +254,38 @@ notes
     }
   });
 
+  test('宽松解析生成首帧列：常见自然语言变体与无法识别时降级为需要生成', () {
+    final looseTrue = engine.parseStoryboardTable('''
+| 画面提示词 | 画面描述 | 时长 | 生成首帧 |
+| --- | --- | --- | --- |
+| 提示A | 描述A | 3 | 需要 |
+| 提示B | 描述B | 3 | ✓ |
+| 提示C | 描述C | 3 | yes |
+| 提示D | 描述D | 3 | Y |
+''');
+    expect(looseTrue.map((s) => s.shouldGenerateImage),
+        [true, true, true, true]);
+
+    final looseFalse = engine.parseStoryboardTable('''
+| 画面提示词 | 画面描述 | 时长 | 生成首帧 |
+| --- | --- | --- | --- |
+| 提示A | 描述A | 3 | 不需要 |
+| 提示B | 描述B | 3 | ✗ |
+| 提示C | 描述C | 3 | no |
+| 提示D | 描述D | 3 | N |
+''');
+    expect(looseFalse.map((s) => s.shouldGenerateImage),
+        [false, false, false, false]);
+
+    // 无法识别的取值不应炸掉整张表——降级为默认需要生成（与该列整体缺失时的默认行为一致）。
+    final unrecognized = engine.parseStoryboardTable('''
+| 画面提示词 | 画面描述 | 时长 | 生成首帧 |
+| --- | --- | --- | --- |
+| 提示A | 描述A | 3 | 待定 |
+''');
+    expect(unrecognized.single.shouldGenerateImage, isTrue);
+  });
+
   test('无规划/分镜表不入队，已有分镜且不替换也不入队', () {
     expect(engine.generateStoryboards(projectId, scriptId), 0);
     engine.saveScriptPlan(projectId, '导演规划 A');
