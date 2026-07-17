@@ -66,6 +66,11 @@ function logLine(obj) {
 }
 
 http.createServer((req, res) => {
+  if (req.method === 'GET' && req.url === '/__health') {
+    // 端口归属证明：调用方比对 pid 与自己 spawn 的子进程 pid。
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ pid: process.pid, upstream: UPSTREAM.href }));
+  }
   if (req.method === 'POST' && req.url === '/__mark') {
     let buf = '';
     req.on('data', (c) => (buf += c));
@@ -132,6 +137,9 @@ http.createServer((req, res) => {
       res.writeHead(code, { 'content-type': 'application/json' });
       res.end(JSON.stringify(obj));
     };
+    if (req.method === 'GET' && req.url === '/__health') {
+      return json(200, { pid: process.pid, mode: MODE });
+    }
     if (req.method === 'POST' && req.url.endsWith('/contents/generations/tasks')) {
       submits += 1;
       if (MODE === 'fail') return json(500, { error: { message: 'deterministic preflight failure' } });
@@ -190,7 +198,19 @@ const LOG = '/tmp/p0-selftest-proxy.jsonl';
 const CAPTURE = '/tmp/p0-selftest-capture.jsonl';
 const FAKE_AUTH = 'Bearer FAKE-SELFTEST-SECRET-DO-NOT-LOG';
 const FAKE_BODY = JSON.stringify({ model: 'selftest', content: [{ type: 'text', text: 'SECRET-PROMPT' }] });
-for (const f of [LOG, CAPTURE]) fs.rmSync(f, { force: true });
+// 开场即删旧 sentinel：本次自测异常退出时不会留下过期绿灯。
+for (const f of [LOG, CAPTURE, SENTINEL]) fs.rmSync(f, { force: true });
+
+function probe(port) {
+  return new Promise((resolve) => {
+    const r = http.request(
+      { host: '127.0.0.1', port, path: '/__health', method: 'GET', timeout: 500 },
+      (res) => { let b = ''; res.on('data', (c) => (b += c)); res.on('end', () => resolve(b)); });
+    r.on('error', () => resolve(null));
+    r.on('timeout', () => { r.destroy(); resolve(null); });
+    r.end();
+  });
+}
 
 function req(method, path, body, headers) {
   return new Promise((resolve, reject) => {
@@ -209,11 +229,22 @@ let failed = 0;
 const check = (name, ok) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}`); if (!ok) failed += 1; };
 
 (async () => {
+  // 端口占用预检：任何进程已在 8791/8792 监听 → 立即中止，避免请求打到外来进程。
+  if ((await probe(8791)) !== null || (await probe(8792)) !== null) {
+    console.error('FATAL: 8791/8792 已被占用，先清理旧进程再自测');
+    process.exit(1);
+  }
   const fake = spawn('node', ['tool/parity/fake_upstream.js'], {
     env: { ...process.env, P0_FAKE_MODE: 'ok', P0_FAKE_CAPTURE: CAPTURE }, stdio: 'inherit' });
   const proxy = spawn('node', ['tool/parity/sanitizing_proxy.js'], {
     env: { ...process.env, P0_PORT: '8791', P0_UPSTREAM: 'http://127.0.0.1:8792', P0_LOG: LOG }, stdio: 'inherit' });
   await sleep(500);
+  const proxyHealth = await probe(8791);
+  const fakeHealth = await probe(8792);
+  check('proxy port owned by spawned pid',
+    !!proxyHealth && JSON.parse(proxyHealth).pid === proxy.pid);
+  check('fake upstream port owned by spawned pid',
+    !!fakeHealth && JSON.parse(fakeHealth).pid === fake.pid);
 
   const post = await req('POST', '/api/v3/contents/generations/tasks?debug=1', FAKE_BODY,
     { 'content-type': 'application/json', authorization: FAKE_AUTH });
@@ -242,6 +273,9 @@ const check = (name, ok) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}`); if
   const proxy2 = spawn('node', ['tool/parity/sanitizing_proxy.js'], {
     env: { ...process.env, P0_PORT: '8791', P0_UPSTREAM: 'http://127.0.0.1:8792', P0_LOG: LOG }, stdio: 'inherit' });
   await sleep(500);
+  const proxyHealth2 = await probe(8791);
+  check('phase-2 proxy port owned by spawned pid',
+    !!proxyHealth2 && JSON.parse(proxyHealth2).pid === proxy2.pid);
   const fail500 = await req('POST', '/api/v3/contents/generations/tasks', FAKE_BODY, { authorization: FAKE_AUTH });
   check('5xx propagated', fail500.status === 500);
   fake2.kill(); proxy2.kill();
@@ -441,30 +475,42 @@ flutter test test/preflight/p0_failure_drill_test.dart --reporter expanded
 - [ ] **Step 3: 运行用例 A（uncertain，POST 总数必须保持 1）**
 
 ```bash
+if lsof -nP -iTCP:8792 -sTCP:LISTEN >/dev/null 2>&1; then echo 'FAIL: 8792 已被占用'; exit 1; fi
 rm -f /tmp/p0-fake-capture-a.jsonl
 P0_FAKE_MODE=fail P0_FAKE_CAPTURE=/tmp/p0-fake-capture-a.jsonl node tool/parity/fake_upstream.js &
 FAKE_PID=$!
+trap 'kill $FAKE_PID 2>/dev/null' EXIT
 sleep 1
-(cd app && P0_DRILL_CASE=uncertain flutter test test/preflight/p0_failure_drill_test.dart --reporter expanded)
-kill $FAKE_PID
-jq -s '[.[]|select(.method=="POST")]|length' /tmp/p0-fake-capture-a.jsonl
+[ "$(curl -sS -m 2 http://127.0.0.1:8792/__health | jq -r .pid)" = "$FAKE_PID" ] \
+  || { echo 'FAIL: 8792 归属异常'; exit 1; }
+(cd app && P0_DRILL_CASE=uncertain flutter test test/preflight/p0_failure_drill_test.dart --reporter expanded) \
+  || { echo 'DRILL-A FAIL: 用例未通过'; exit 1; }
+kill $FAKE_PID; trap - EXIT
+[ "$(jq -s '[.[]|select(.method=="POST")]|length' /tmp/p0-fake-capture-a.jsonl)" = "1" ] \
+  && echo DRILL-A-POST-OK || { echo 'DRILL-A FAIL: POST 总数 != 1（uncertain 被重提了）'; exit 1; }
 ```
 
-预期：测试 PASS 且输出 `P0_DRILL_UNCERTAIN_OK`；最后一行 POST 计数 == **1**（`retryJob` 拒绝了 uncertain 重提——这是防重复付费保护的直接证据）。
+预期：测试 PASS、输出 `P0_DRILL_UNCERTAIN_OK`、最后 `DRILL-A-POST-OK`（`retryJob` 拒绝 uncertain 重提是防重复付费保护的直接证据；计数是机器断言，不是打印）。
 
 - [ ] **Step 4: 运行用例 B（acceptedFail，POST 总数必须为 2）**
 
 ```bash
+if lsof -nP -iTCP:8792 -sTCP:LISTEN >/dev/null 2>&1; then echo 'FAIL: 8792 已被占用'; exit 1; fi
 rm -f /tmp/p0-fake-capture-b.jsonl
 P0_FAKE_MODE=acceptThenFail P0_FAKE_CAPTURE=/tmp/p0-fake-capture-b.jsonl node tool/parity/fake_upstream.js &
 FAKE_PID=$!
+trap 'kill $FAKE_PID 2>/dev/null' EXIT
 sleep 1
-(cd app && P0_DRILL_CASE=acceptedFail flutter test test/preflight/p0_failure_drill_test.dart --reporter expanded)
-kill $FAKE_PID
-jq -s '[.[]|select(.method=="POST")]|length' /tmp/p0-fake-capture-b.jsonl
+[ "$(curl -sS -m 2 http://127.0.0.1:8792/__health | jq -r .pid)" = "$FAKE_PID" ] \
+  || { echo 'FAIL: 8792 归属异常'; exit 1; }
+(cd app && P0_DRILL_CASE=acceptedFail flutter test test/preflight/p0_failure_drill_test.dart --reporter expanded) \
+  || { echo 'DRILL-B FAIL: 用例未通过'; exit 1; }
+kill $FAKE_PID; trap - EXIT
+[ "$(jq -s '[.[]|select(.method=="POST")]|length' /tmp/p0-fake-capture-b.jsonl)" = "2" ] \
+  && echo DRILL-B-POST-OK || { echo 'DRILL-B FAIL: POST 总数 != 2'; exit 1; }
 ```
 
-预期：测试 PASS 且输出 `P0_DRILL_ACCEPTED_FAIL_OK`；POST 计数 == **2**（原提交 + retryJob 允许的重试）。任一用例与预期不符：按修复纪律**只记录**（P0 发现，上报审核方），不在本分支修产品代码、不强改断言。
+预期：测试 PASS、输出 `P0_DRILL_ACCEPTED_FAIL_OK`、最后 `DRILL-B-POST-OK`（原提交 + retryJob 允许的重试，机器断言）。任一用例与预期不符：按修复纪律**只记录**（P0 发现，上报审核方），不在本分支修产品代码、不强改断言。
 
 - [ ] **Step 5: 提交**
 
@@ -686,16 +732,21 @@ const restartIdx = lines.findIndex((l) => l.mark === 'RESTART');
 const posts = lines.filter((l) => l.method === 'POST' && l.path.endsWith('/contents/generations/tasks'));
 const afterRestart = restartIdx >= 0 ? lines.slice(restartIdx + 1).filter((l) => l.method) : [];
 const sql = (q) => JSON.parse(execFileSync('sqlite3', ['-json', path.join(DATA, 'dramaflow.sqlite'), q]).toString() || '[]');
+const candidateRows = sql('SELECT filePath FROM o_video');
 const upstreamIds = sql("SELECT count(DISTINCT upstreamTaskId) c FROM o_video WHERE upstreamTaskId IS NOT NULL")[0].c;
 const mediaDir = path.join(DATA, 'media');
 const videos = execFileSync('find', [mediaDir, '-type', 'f', '-name', '*.mp4']).toString().trim().split('\n').filter(Boolean);
+const candidateFile = candidateRows.length === 1 && candidateRows[0].filePath
+  ? path.join(mediaDir, candidateRows[0].filePath) : null;
 
 let failed = 0;
 const check = (name, ok, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ` (${detail})` : ''}`); if (!ok) failed += 1; };
 check('真实 POST 提交次数 == 1', posts.length === 1, `posts=${posts.length}`);
 check('upstreamTaskId 数量 == 1', upstreamIds === 1, `distinct=${upstreamIds}`);
 check('重启后只有轮询/下载类请求（无 POST）', restartIdx >= 0 && afterRestart.every((l) => l.method !== 'POST'), `afterRestart=${afterRestart.length}`);
-check('本地生成候选数量 == 1', videos.length === 1, `videos=${videos.length}`);
+check('o_video 候选行数 == 1（主断言）', candidateRows.length === 1, `rows=${candidateRows.length}`);
+check('候选 filePath 文件真实存在', !!candidateFile && fs.existsSync(candidateFile), `file=${candidateFile}`);
+check('媒体目录 MP4 数量 == 1（辅助断言）', videos.length === 1, `videos=${videos.length}`);
 process.exit(failed === 0 ? 0 : 1);
 ```
 
@@ -715,44 +766,56 @@ git commit -m "test(preflight): add exactly-once live harness and assertions"
 
 ```bash
 WORK="$HOME/Documents/dramaflow-p0-preflight"
-# 门 0：自测 sentinel 复核（代理文件被改动或自测未过 → 禁止真实调用）
+# 门 0a：自测 sentinel 复核（代理文件被改动或自测未过 → 禁止真实调用）
 [ "$(shasum -a 256 tool/parity/sanitizing_proxy.js | awk '{print $1}')" = "$(cat "$WORK/proxy-selftest.ok" 2>/dev/null)" ] \
-  || { echo 'GATE0 FAIL: sentinel 缺失或代理文件已改动，先重跑 Task 2'; exit 1; }
+  || { echo 'GATE0a FAIL: sentinel 缺失或代理文件已改动，先重跑 Task 2'; exit 1; }
+# 门 0b：端口必须空闲（否则真实 key 可能交给外来进程）
+if lsof -nP -iTCP:8791 -sTCP:LISTEN >/dev/null 2>&1; then
+  echo 'GATE0b FAIL: 8791 已被占用，先清理旧进程'; exit 1
+fi
 rm -f /tmp/p0-live-proxy.jsonl /tmp/p0-submit-out.txt
 rm -rf "$WORK/live-data"
 P0_PORT=8791 P0_UPSTREAM=https://ark.cn-beijing.volces.com P0_LOG=/tmp/p0-live-proxy.jsonl \
   node tool/parity/sanitizing_proxy.js &
 PROXY_PID=$!
+trap 'kill $PROXY_PID 2>/dev/null' EXIT
 sleep 1
+# 门 0c：代理进程存活且端口归属于它（pid 比对）
+kill -0 $PROXY_PID 2>/dev/null || { echo 'GATE0c FAIL: 代理进程未存活'; exit 1; }
+[ "$(curl -sS -m 2 http://127.0.0.1:8791/__health | jq -r .pid)" = "$PROXY_PID" ] \
+  || { echo 'GATE0c FAIL: /__health pid 与 spawn 的进程不符'; exit 1; }
 ( cd app && P0_LIVE=1 P0_PHASE=submit P0_KEY_FIELD=<Step1记下的字段名> \
     flutter test test/preflight/p0_live_preflight_test.dart --reporter expanded 2>&1 \
     | tee /tmp/p0-submit-out.txt )
 # 门 1：达到强杀点（编译失败/缺 key/模型错误都到不了这里）
 grep -q 'P0_MARK upstream_persisted' /tmp/p0-submit-out.txt \
-  || { kill $PROXY_PID; echo 'GATE1 FAIL: 未达强杀点，读 /tmp/p0-submit-out.txt 诊断'; exit 1; }
+  || { echo 'GATE1 FAIL: 未达强杀点，读 /tmp/p0-submit-out.txt 诊断'; exit 1; }
 # 门 2：库中恰有一个 accepted + upstreamTaskId 候选
 [ "$(sqlite3 "$WORK/live-data/dramaflow.sqlite" \
     "SELECT count(*) FROM o_video WHERE submissionState='accepted' AND trim(coalesce(upstreamTaskId,''))<>'';")" = "1" ] \
-  || { kill $PROXY_PID; echo 'GATE2 FAIL: accepted 候选数异常'; exit 1; }
-# 门 3：代理恰记录一次成功提交 POST
+  || { echo 'GATE2 FAIL: accepted 候选数异常'; exit 1; }
+# 门 3a：全部提交 POST（无论状态码）== 1 —— 排除"一次失败 + 一次成功"的双请求
+[ "$(jq -s '[.[]|select(.method=="POST" and ((.path//"")|endswith("/contents/generations/tasks")))]|length' /tmp/p0-live-proxy.jsonl)" = "1" ] \
+  || { echo 'GATE3a FAIL: 提交 POST 总数 != 1'; exit 1; }
+# 门 3b：其中 status=200 的提交 POST == 1
 [ "$(jq -s '[.[]|select(.method=="POST" and ((.path//"")|endswith("/contents/generations/tasks")) and .status==200)]|length' /tmp/p0-live-proxy.jsonl)" = "1" ] \
-  || { kill $PROXY_PID; echo 'GATE3 FAIL: 成功提交 POST 计数异常'; exit 1; }
+  || { echo 'GATE3b FAIL: 成功提交 POST 计数 != 1'; exit 1; }
 curl -sS -X POST http://127.0.0.1:8791/__mark -H 'Content-Type: application/json' -d '{"mark":"RESTART"}'
 ( cd app && P0_LIVE=1 P0_PHASE=resume P0_KEY_FIELD=<同上> \
     flutter test test/preflight/p0_live_preflight_test.dart --reporter expanded ) \
-  || { kill $PROXY_PID; echo 'RESUME FAIL: 恢复阶段必须以退出码 0 结束'; exit 1; }
-kill $PROXY_PID
+  || { echo 'RESUME FAIL: 恢复阶段必须以退出码 0 结束'; exit 1; }
+kill $PROXY_PID; trap - EXIT
 ```
 
-预期：GATE0–3 依次通过；submit 输出 `P0_MARK upstream_persisted ...`；resume 输出 `P0_MARK done filePath=...` 且退出码 0。任何门失败：证据保全（`/tmp/p0-submit-out.txt` + 代理日志 + live-data 只读封存），按修复纪律记录诊断，**不得重试真实提交**，上报审核方。
+预期：GATE0a–3b 依次通过；submit 输出 `P0_MARK upstream_persisted ...`；resume 输出 `P0_MARK done filePath=...` 且退出码 0。任何门失败：`trap` 自动回收代理进程，证据保全（`/tmp/p0-submit-out.txt` + 代理日志 + live-data 只读封存），按修复纪律记录诊断，**不得重试真实提交**，上报审核方。
 
-- [ ] **Step 6: 跑四项断言**
+- [ ] **Step 6: 跑断言（4 项核心 + 2 项辅助，机器门）**
 
 ```bash
-node tool/parity/p0_assert.js; echo "exit=$?"
+node tool/parity/p0_assert.js && echo ASSERT-OK
 ```
 
-预期：四行 `PASS`，`exit=0`。任何 FAIL：证据保全（代理日志 + live-data 只读封存），诊断结论进证据文档，按任务卡纪律处理。
+预期：六行 `PASS`（POST==1 / upstreamTaskId==1 / 重启后无 POST / **o_video 行数==1 主断言** / 候选文件存在 / MP4 数==1）+ `ASSERT-OK`。任何 FAIL：`&&` 链中断，证据保全（代理日志 + live-data 只读封存），诊断结论进证据文档，按任务卡纪律处理。
 
 ---
 

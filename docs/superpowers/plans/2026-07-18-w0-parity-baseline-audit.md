@@ -142,7 +142,11 @@ const { execFileSync } = require('child_process');
 const OUT = path.join(__dirname, '..', '..', 'docs', 'parity', 'baseline-runtime-capabilities.json');
 const URL_FIELDS = new Set(['baseUrl', 'chatBaseUrl', 'imageBaseUrl']);
 const PLAIN_FIELDS = new Set(['imageQuality', 'imageSize', 'imageTimeoutMs']);
-const MODEL_FIELDS = new Set(['modelId', 'name', 'kind', 'type', 'enabled', 'capabilities', 'promptTemplate', 'modelPrompt']);
+// 已只读核实（2026-07-18）：本机运行库模型条目实际字段为
+// modelName/name/type/think/mode/audio/durationResolutionMap（无 modelId/capabilities）。
+// 白名单取"实测字段 ∪ DramaFlow 风格字段"，防止丢模型 ID 与视频能力声明。
+const MODEL_FIELDS = new Set(['modelName', 'name', 'type', 'think', 'mode', 'audio',
+  'durationResolutionMap', 'modelId', 'kind', 'enabled', 'capabilities', 'promptTemplate', 'modelPrompt']);
 
 function sanitizeUrl(value) {
   try {
@@ -218,13 +222,24 @@ const vendors = rows.map((r) => ({
   models: (JSON.parse(r.models || '[]')).map(exportModel),
 }));
 assertStructure(vendors); // 违反白名单 → 抛错退出，不写文件
+// 模型→提示词映射冻结：o_modelPrompt(vendorId, model, fileName, path)，只取安全字段，
+// path 缩减为 basename（原值含用户主目录路径）。
+const modelPrompts = JSON.parse(execFileSync('sqlite3', ['-json', DB,
+  'SELECT vendorId, model, fileName, path FROM o_modelPrompt ORDER BY vendorId, model;']).toString() || '[]')
+  .map((r) => ({
+    vendorId: r.vendorId,
+    model: r.model,
+    fileName: r.fileName,
+    pathBasename: r.path ? path.basename(r.path) : null,
+  }));
 const promptDir = path.join(os.homedir(), 'Library/Application Support/toonflow/data/modelPrompt');
 const promptFiles = fs.existsSync(promptDir)
   ? execFileSync('find', [promptDir, '-type', 'f', '-name', '*.md']).toString().trim().split('\n')
       .filter(Boolean).map((p) => path.relative(promptDir, p)).sort()
   : [];
-fs.writeFileSync(OUT, JSON.stringify({ generatedAt: new Date().toISOString(), vendors, promptFiles }, null, 2) + '\n');
-console.log(`vendors=${vendors.length} promptFiles=${promptFiles.length}`);
+fs.writeFileSync(OUT, JSON.stringify(
+  { generatedAt: new Date().toISOString(), vendors, modelPrompts, promptFiles }, null, 2) + '\n');
+console.log(`vendors=${vendors.length} modelPrompts=${modelPrompts.length} promptFiles=${promptFiles.length}`);
 ```
 
 - [ ] **Step 2: 夹具自测门（TDD，先于真实生成）**
@@ -243,7 +258,7 @@ jq -r '.vendors[] | "\(.id): \(.inputValues | keys | join(","))"' docs/parity/ba
 jq -r '[.vendors[].id] | join(",")' docs/parity/baseline-runtime-capabilities.json
 ```
 
-预期：每个 vendor 的 inputValues 输出键仅在 `keys,baseUrl,chatBaseUrl,imageBaseUrl,imageQuality,imageSize,imageTimeoutMs` 范围内；vendor 列表含 `volcengine`。models[].capabilities / promptTemplate 为声明性结构，由审核方目检一次确认无异常值。
+预期：每个 vendor 的 inputValues 输出键仅在 `keys,baseUrl,chatBaseUrl,imageBaseUrl,imageQuality,imageSize,imageTimeoutMs` 范围内；vendor 列表含 `volcengine`；models 条目保留 `modelName` 与 `durationResolutionMap`（视频能力）等实测字段。`modelPrompts` 当前预期为 0 条（已核实运行库该表为空——Seedance2 模板是文件拷贝进 modelPrompt 目录的，体现在 `promptFiles`；冻结"表为空"这一事实防止未来无声漂移）。models[].durationResolutionMap / capabilities 为声明性结构，由审核方目检一次确认无异常值。
 
 - [ ] **Step 4: 提交**
 
