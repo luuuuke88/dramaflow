@@ -336,6 +336,10 @@ import 'dart:io';
 
 import 'package:dramaflow/src/engine/credentials.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
+import 'package:dramaflow/src/engine/scripts.dart';
+import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -580,6 +584,10 @@ import 'dart:io';
 
 import 'package:dramaflow/src/engine/credentials.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
+import 'package:dramaflow/src/engine/scripts.dart';
+import 'package:dramaflow/src/engine/storyboard.dart';
+import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart' as sq;
@@ -606,7 +614,7 @@ void main() {
         "FROM o_vendorConfig WHERE id='volcengine'",
         [keyField]);
     final key = keyRow.isEmpty ? null : keyRow.first['k'] as String?;
-    tf.dispose();
+    tf.close();
     if (key == null || key.isEmpty) {
       fail('旧库未取到 key（字段 $keyField）：走用户填入一次的退化路径');
     }
