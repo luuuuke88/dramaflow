@@ -124,12 +124,12 @@ git commit -m "docs(parity): freeze toonflow baseline manifest"
 - Create: `docs/parity/baseline-runtime-capabilities.json`（脚本产物）
 
 **Interfaces:**
-- Consumes: `~/Library/Application Support/toonflow/data/db2.sqlite` 的 `o_vendorConfig(id, inputValues, models, enable)`（只读）。
-- Produces: 无密钥快照 JSON；Task 6+ 黑盒会话的前置条件。
+- Consumes: `~/Library/Application Support/toonflow/data/db2.sqlite` 的 `o_vendorConfig(id, inputValues, models, enable)`（只读）。**已核实该库 inputValues 存在 `ak` / `sk` / `apiKey` 等秘密键**——黑名单正则不可靠，必须真白名单。
+- Produces: 无密钥快照 JSON；Task 6+ 黑盒会话的前置条件。`--selftest` 模式为夹具防泄漏自测门：不过则禁止真实生成。
 
-- [ ] **Step 1: 写快照生成器（白名单式脱敏）**
+- [ ] **Step 1: 写快照生成器（真字段白名单）**
 
-创建 `tool/parity/gen_runtime_capabilities.js`。脱敏采用**白名单反向策略**：凡键名匹配 `/key|token|secret|password|authorization|cookie/i` 的值一律替换为 `"<redacted>"`（保留键名以冻结结构）：
+创建 `tool/parity/gen_runtime_capabilities.js`。策略：`inputValues` 只输出**明确批准字段**的值（URL 字段去 userinfo/query/fragment），其余一切键（含 `ak`/`sk`/`apiKey`/`credential`/`tos*` 及未知键）只在 `keys` 数组登记键名；`models` 条目只保留声明性字段；结构断言违规即退出、不写文件：
 
 ```js
 #!/usr/bin/env node
@@ -139,48 +139,113 @@ const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
 
-const DB = path.join(os.homedir(), 'Library/Application Support/toonflow/data/db2.sqlite');
 const OUT = path.join(__dirname, '..', '..', 'docs', 'parity', 'baseline-runtime-capabilities.json');
-const SECRET = /key|token|secret|password|authorization|cookie/i;
+const URL_FIELDS = new Set(['baseUrl', 'chatBaseUrl', 'imageBaseUrl']);
+const PLAIN_FIELDS = new Set(['imageQuality', 'imageSize', 'imageTimeoutMs']);
+const MODEL_FIELDS = new Set(['modelId', 'name', 'kind', 'type', 'enabled', 'capabilities', 'promptTemplate', 'modelPrompt']);
 
-function redact(value) {
-  if (Array.isArray(value)) return value.map(redact);
-  if (value && typeof value === 'object') {
-    const out = {};
-    for (const [k, v] of Object.entries(value)) out[k] = SECRET.test(k) ? '<redacted>' : redact(v);
-    return out;
+function sanitizeUrl(value) {
+  try {
+    const u = new URL(String(value));
+    return `${u.protocol}//${u.host}${u.pathname}`; // 去 userinfo / query / fragment
+  } catch (_) {
+    return '<non-url>';
   }
-  return value;
 }
 
+function exportInputValues(iv) {
+  const out = { keys: Object.keys(iv).sort() };
+  for (const [k, v] of Object.entries(iv)) {
+    if (URL_FIELDS.has(k)) out[k] = sanitizeUrl(v);
+    else if (PLAIN_FIELDS.has(k)) out[k] = v;
+    // 其余键：只出现在 keys 里，绝不输出值
+  }
+  return out;
+}
+
+function exportModel(m) {
+  const out = {};
+  for (const k of Object.keys(m)) if (MODEL_FIELDS.has(k)) out[k] = m[k];
+  return out;
+}
+
+function assertStructure(vendors) {
+  const allowed = new Set(['keys', ...URL_FIELDS, ...PLAIN_FIELDS]);
+  for (const v of vendors) {
+    for (const k of Object.keys(v.inputValues)) {
+      if (!allowed.has(k)) throw new Error(`whitelist violation: inputValues.${k}`);
+    }
+    for (const m of v.models) {
+      for (const k of Object.keys(m)) {
+        if (!MODEL_FIELDS.has(k)) throw new Error(`whitelist violation: models[].${k}`);
+      }
+    }
+  }
+}
+
+function selftest() {
+  const fixture = {
+    ak: 'AKLT-FIXTURE-SECRET', sk: 'SK-FIXTURE-SECRET', apiKey: 'FIXTURE-KEY',
+    credential: 'FIXTURE-CRED', token: 'FIXTURE-TOKEN',
+    baseUrl: 'https://user:pass@ark.example.com/api/v3?token=FIXTURE-QS#frag',
+    imageSize: '1024x1024',
+  };
+  const out = exportInputValues(fixture);
+  const text = JSON.stringify(out);
+  const leaks = ['AKLT-FIXTURE-SECRET', 'SK-FIXTURE-SECRET', 'FIXTURE-KEY',
+    'FIXTURE-CRED', 'FIXTURE-TOKEN', 'FIXTURE-QS', 'user:pass'];
+  for (const s of leaks) {
+    if (text.includes(s)) { console.error(`SELFTEST FAIL leaked: ${s}`); process.exit(1); }
+  }
+  if (out.baseUrl !== 'https://ark.example.com/api/v3') {
+    console.error(`SELFTEST FAIL url: ${out.baseUrl}`); process.exit(1);
+  }
+  if (!out.keys.includes('ak') || !out.keys.includes('sk')) {
+    console.error('SELFTEST FAIL keys missing'); process.exit(1);
+  }
+  console.log('SELFTEST PASS');
+}
+
+if (process.argv.includes('--selftest')) { selftest(); process.exit(0); }
+
+const DB = path.join(os.homedir(), 'Library/Application Support/toonflow/data/db2.sqlite');
 const rows = JSON.parse(execFileSync('sqlite3', ['-json', DB,
   "SELECT id, enable, inputValues, models FROM o_vendorConfig ORDER BY id;"]).toString() || '[]');
 const vendors = rows.map((r) => ({
   id: r.id,
   enable: r.enable,
-  inputValues: redact(JSON.parse(r.inputValues || '{}')),
-  models: redact(JSON.parse(r.models || '[]')),
+  inputValues: exportInputValues(JSON.parse(r.inputValues || '{}')),
+  models: (JSON.parse(r.models || '[]')).map(exportModel),
 }));
+assertStructure(vendors); // 违反白名单 → 抛错退出，不写文件
 const promptDir = path.join(os.homedir(), 'Library/Application Support/toonflow/data/modelPrompt');
 const promptFiles = fs.existsSync(promptDir)
   ? execFileSync('find', [promptDir, '-type', 'f', '-name', '*.md']).toString().trim().split('\n')
-      .map((p) => path.relative(promptDir, p)).sort()
+      .filter(Boolean).map((p) => path.relative(promptDir, p)).sort()
   : [];
 fs.writeFileSync(OUT, JSON.stringify({ generatedAt: new Date().toISOString(), vendors, promptFiles }, null, 2) + '\n');
 console.log(`vendors=${vendors.length} promptFiles=${promptFiles.length}`);
 ```
 
-- [ ] **Step 2: 运行并做防泄漏自检**
+- [ ] **Step 2: 夹具自测门（TDD，先于真实生成）**
+
+```bash
+node tool/parity/gen_runtime_capabilities.js --selftest && echo GATE-OK
+```
+
+预期：`SELFTEST PASS` + `GATE-OK`。夹具含 `ak`/`sk`/`credential`/带 token 的 URL/userinfo，断言产物无任何原值且 URL 已净化。**不过此门禁止执行 Step 3。**
+
+- [ ] **Step 3: 真实生成 + 目检导出键**
 
 ```bash
 node tool/parity/gen_runtime_capabilities.js
-grep -icE '"(api)?key[^"]*"\s*:\s*"[^<]' docs/parity/baseline-runtime-capabilities.json || echo CLEAN
+jq -r '.vendors[] | "\(.id): \(.inputValues | keys | join(","))"' docs/parity/baseline-runtime-capabilities.json
 jq -r '[.vendors[].id] | join(",")' docs/parity/baseline-runtime-capabilities.json
 ```
 
-预期：第二条输出 `CLEAN`（任何秘密键名的值都不是明文）；第三条含 `volcengine`（Seedance Mini 运行时模型所在 vendor）。若非 `CLEAN`：**禁止提交**，修脚本重跑。
+预期：每个 vendor 的 inputValues 输出键仅在 `keys,baseUrl,chatBaseUrl,imageBaseUrl,imageQuality,imageSize,imageTimeoutMs` 范围内；vendor 列表含 `volcengine`。models[].capabilities / promptTemplate 为声明性结构，由审核方目检一次确认无异常值。
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 4: 提交**
 
 ```bash
 git add tool/parity/gen_runtime_capabilities.js docs/parity/baseline-runtime-capabilities.json
@@ -241,6 +306,10 @@ for (const f of listFiles(WEB, 'src/router', '.ts')) {
 }
 for (const f of listFiles(WEB, 'src/pages', '.vue')) add(`web.page:pages/${f}`, `src/pages/${f}`);
 for (const f of listFiles(WEB, 'src/views', '.vue')) add(`web.page:views/${f}`, `src/views/${f}`);
+for (const f of listFiles(WEB, 'src/components', '.vue')) add(`web.component:${f}`, `src/components/${f}`);
+for (const f of listFiles(WEB, 'src/stores', '.ts')) add(`web.store:${f}`, `src/stores/${f}`);
+for (const f of listFiles(WEB, 'src/lib', '.ts')) add(`web.featureLib:lib/${f}`, `src/lib/${f}`);
+for (const f of listFiles(WEB, 'src/utils', '.ts')) add(`web.featureLib:utils/${f}`, `src/utils/${f}`);
 // app backend
 for (const f of listFiles(APP, 'src/routes', '.ts')) add(`app.route:${f}`, `src/routes/${f}`);
 for (const f of listFiles(APP, 'src/socket/routes', '.ts')) add(`app.socket:${f}`, `src/socket/routes/${f}`);
@@ -275,7 +344,7 @@ for (const i of dedup) { const k = i.id.split(':')[0]; byKind[k] = (byKind[k] ||
 console.log(JSON.stringify(byKind));
 ```
 
-维度说明：spec §5.2 的"菜单与主要操作"不可靠地机械正则化——它们是页面的行为面，归并进对应 `web.page:*` / `web.route:*` 条目的行为审计（Task 6 的"用户行为"列必须覆盖该页菜单入口与主要操作），不单设库存 id。
+维度说明：spec §5.2 的"菜单与主要操作"不可靠地机械正则化——它们是页面的行为面，归并进对应 `web.page:*` / `web.route:*` 条目的行为审计（Task 6 的"用户行为"列必须覆盖该页菜单入口与主要操作），不单设库存 id。前端逻辑面完整登记：`web.component:*`（约 30 个 Vue 组件，设置/弹窗多在此）、`web.store:*`（Pinia 状态）、`web.featureLib:*`（`src/lib` + `src/utils`，含 WebAV/NLE 逻辑）。**明确排除并说明理由**：`src/types`（编译期类型，无独立用户行为）、`src/locales`（文案随页面行为审计）、`src/assets`（静态资源随页面视觉审计）——此三类不设库存 id，排除理由以本段为准。
 
 - [ ] **Step 2: 运行并抽查**
 
@@ -631,25 +700,76 @@ git commit -m "docs(parity): audit electron platform unit"
 
 **Files:**
 - Create: `docs/parity/license-audit.md`
+- Create: `tool/parity/gen_license_trace.js`
+- Create: `docs/parity/license-trace.json`（脚本产物）
 
 **Interfaces:**
 - Consumes: `Toonflow-app/LICENSE`（258 行全文）、`NOTICES.txt`、`app/assets/default_skills/toonflow_default_skills.zip`、`app/assets/default_prompts/toonflow_model_prompts.zip`、master-checklist 中标注"本地扩展/移植"的行。
 - Produces: 事实清单 + 义务清单 + L0b 三选项决策材料（spec §5.3、§6.2）。**不构成法律意见**。
 
-- [ ] **Step 1: 衍生内容溯源**
+- [ ] **Step 1: 衍生内容溯源（完整逐文件 SHA-256 对照，不截断）**
 
-解包两个 zip 到临时目录（**只读对照，不改仓库内容**），逐文件对照 ToonFlow 源：
+zip 内层根已核实为 `skills/` 与 `model_prompts/`（`unzip -l` 确认），对照必须用内层路径。创建 `tool/parity/gen_license_trace.js`：
 
-```bash
-UNZ=$(mktemp -d)
-unzip -q app/assets/default_skills/toonflow_default_skills.zip -d "$UNZ/skills"
-unzip -q app/assets/default_prompts/toonflow_model_prompts.zip -d "$UNZ/prompts"
-diff -rq "$UNZ/skills" "/Users/luke/Documents/aivideo/Toonflow-app/data/skills" | head -20
-diff -rq "$UNZ/prompts" "/Users/luke/Documents/aivideo/Toonflow-app/data/modelPrompt" | head -20
-rm -rf "$UNZ"
+```js
+#!/usr/bin/env node
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
+const { execFileSync } = require('child_process');
+
+const APP = '/Users/luke/Documents/aivideo/Toonflow-app';
+const REPO = path.join(__dirname, '..', '..');
+const OUT = path.join(REPO, 'docs', 'parity', 'license-trace.json');
+
+function sha(f) { return crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex'); }
+function tree(root) {
+  const out = {};
+  if (!fs.existsSync(root)) return out;
+  for (const f of execFileSync('find', [root, '-type', 'f']).toString().trim().split('\n').filter(Boolean)) {
+    out[path.relative(root, f)] = sha(f);
+  }
+  return out;
+}
+function compare(name, dfRoot, tfRoot) {
+  const df = tree(dfRoot);
+  const tf = tree(tfRoot);
+  const files = [...new Set([...Object.keys(df), ...Object.keys(tf)])].sort();
+  const rows = files.map((f) => ({
+    file: f,
+    status: !(f in df) ? 'onlyInToonflow'
+      : !(f in tf) ? 'onlyInDramaflow'
+      : df[f] === tf[f] ? 'identical' : 'differs',
+  }));
+  const stats = rows.reduce((acc, r) => ((acc[r.status] = (acc[r.status] || 0) + 1), acc), {});
+  return { name, toonflowRoot: tfRoot, stats, rows };
+}
+
+const unz = fs.mkdtempSync(path.join(os.tmpdir(), 'license-trace-'));
+execFileSync('unzip', ['-q', path.join(REPO, 'app/assets/default_skills/toonflow_default_skills.zip'), '-d', path.join(unz, 'skills')]);
+execFileSync('unzip', ['-q', path.join(REPO, 'app/assets/default_prompts/toonflow_model_prompts.zip'), '-d', path.join(unz, 'prompts')]);
+const result = {
+  generatedAt: new Date().toISOString(),
+  comparisons: [
+    compare('default_skills', path.join(unz, 'skills', 'skills'), path.join(APP, 'data', 'skills')),
+    compare('model_prompts', path.join(unz, 'prompts', 'model_prompts'), path.join(APP, 'data', 'modelPrompt')),
+  ],
+};
+fs.rmSync(unz, { recursive: true, force: true });
+fs.writeFileSync(OUT, JSON.stringify(result, null, 2) + '\n');
+for (const c of result.comparisons) console.log(c.name, JSON.stringify(c.stats));
 ```
 
-把"完全同源 / 有修改 / DramaFlow 原创"的分类结果写入审计文档。
+运行并核对：
+
+```bash
+node tool/parity/gen_license_trace.js
+jq -r '.comparisons[] | "\(.name) total=\(.rows|length)"' docs/parity/license-trace.json
+```
+
+预期：两组各输出非空 stats（若 `identical` 为 0，多半仍是路径层级问题——立即修正，不许带错误对照提交）。全部差异保留在 `license-trace.json`，审计文档引用它而非截断输出。
 
 - [ ] **Step 2: 写审计文档**
 
@@ -682,7 +802,7 @@ rm -rf "$UNZ"
 
 ```bash
 grep -icE 'sk-|Bearer [A-Za-z0-9]|api[_-]?key\s*[:=]\s*[A-Za-z0-9]' docs/parity/license-audit.md || echo CLEAN
-git add docs/parity/license-audit.md
+git add docs/parity/license-audit.md docs/parity/license-trace.json tool/parity/gen_license_trace.js
 git commit -m "docs(parity): complete license audit for L0b"
 ```
 
@@ -713,14 +833,19 @@ grep -c '| 未审计 |' docs/parity/master-checklist.md || echo NO-UNAUDITED
 
 预期：`NO-UNAUDITED`。
 
-- [ ] **Step 3: 基线漂移复检**
+- [ ] **Step 3: 基线漂移复检（忽略 generatedAt 时间戳）**
+
+生成器每次都会写新的 `generatedAt`，直接 `git diff` 必然有差异——比较必须剔除该字段：
 
 ```bash
+git show HEAD:docs/parity/baseline-manifest.json | jq 'del(.generatedAt)' > /tmp/w0-drift-old.json
 node tool/parity/gen_baseline_manifest.js
-git diff --stat docs/parity/baseline-manifest.json
+jq 'del(.generatedAt)' docs/parity/baseline-manifest.json > /tmp/w0-drift-new.json
+diff -q /tmp/w0-drift-old.json /tmp/w0-drift-new.json && echo NO-DRIFT
+git checkout -- docs/parity/baseline-manifest.json
 ```
 
-预期：无 diff（审计期间基线未漂移）。若有 diff：按 spec §3 显式说明后重新冻结，不许无声吸收。
+预期：`NO-DRIFT`（审计期间基线未漂移），随后还原工作区的时间戳改动。若有 diff：按 spec §3 显式说明后重新冻结，不许无声吸收。
 
 - [ ] **Step 4: 汇总统计并提交终检**
 
@@ -744,3 +869,11 @@ git worktree remove ../dramaflow-w0 && git branch -d w0-audit
 - [ ] **Step 6: 用户范围确认（人工门，不可跳过）**
 
 向用户提交：六态统计 + `master-checklist.md` + `inventory-na.md` + `license-audit.md`，请求**范围确认**（确认清单条目与 N/A 判定；这是范围决策，不是测试）。用户确认后 W0 关闭，L0b 决策与 W1–W4 立项解锁。
+
+---
+
+## 执行方式（评审定案）
+
+- 混合子代理驱动：Task 1–5 与 Task 11 的脚本/文档工作可逐任务派子代理，**每个任务过审核门（逐行 diff 审阅 + 命令复跑）后才开下一个**。
+- Task 6–10（含 Task 11 对 `master-checklist.md` 的追加）写同一份 `master-checklist.md`，**必须串行执行，禁止并发子代理**。
+- 所有子代理只在 `w0-audit` worktree 内工作，遵守本计划 Global Constraints 的文件范围。

@@ -10,9 +10,10 @@
 
 **Authority:** `docs/superpowers/specs/2026-07-17-toonflow-100-parity-master-roadmap-and-w0-audit-design.md` 第 7 节。
 
-**计划级偏差声明（供审核方核准）：**
-1. spec §7 写"key 一次性迁移只写入 flutter_secure_storage/Keychain"。本计划采用**更保守**的实现：key 在线束运行时从旧 ToonFlow 运行库只读取入**进程内存**（`InMemoryCredentialStore`），全程零持久化——Keychain 写入推迟到终验收准备阶段（届时用户在设置页填一次，属 spec 已批准的一次性配置）。
-2. spec §7 的文本/图片 azt 冒烟按**服务链路冒烟**执行（curl 直测 azt 端点）；DramaFlow 引擎侧文本/图片链路已有全套测试与既往真实生成史（M0–M4 里程碑），不在 P0 重复付费验证。
+**计划级偏差声明（评审已接受，附范围限定）：**
+1. key 只进进程内存（`InMemoryCredentialStore`，零持久化），Keychain 写入推迟到终验收准备。**范围限定：P0 据此只验证引擎/供应商协议路径的凭证使用，不验证 Keychain、设置页与打包 App 凭证路径**——后者由终验收 12 步承担。
+2. azt 文本/图片按**服务级 curl 冒烟**执行；引擎侧文本/图片链路由既有测试与 M0–M4 真实生成史覆盖，不在 P0 重复付费验证。
+3. `Engine.boot` 直驱 = **引擎冷恢复预检**，不等于真实 App 生命周期验证；GUI 与 macOS 打包行为由终验收 12 步承担。
 
 ## Global Constraints
 
@@ -20,7 +21,7 @@
 - **key 卫生（spec §7）**：key 不得出现在日志、文档、SQLite 明文、git 提交、终端回显；探测旧库结构只允许输出**键名**，禁止输出值。
 - **恰好一次（spec §7）**：真实供应商提交全程 == 1 次。Task 2 自测门未通过前，禁止任何真实调用；失败演练（Task 4）不得触达真实供应商。
 - **数据隔离**：线束数据目录固定 `~/Documents/dramaflow-p0-preflight/`，与现用 `~/Documents/dramaflow` 无交集；对旧 ToonFlow 运行库只读。
-- 新增线束测试文件必须 env 变量守卫（`P0_LIVE` / `P0_DRILL`），默认 `flutter test` 全量跑时零副作用、零网络。
+- 新增线束测试文件必须 env 变量守卫（`P0_LIVE` / `P0_DRILL_CASE`），默认 `flutter test` 全量跑时零副作用、零网络。
 - 分支纪律：worktree 分支 `p0-preflight`，逐行审核后合入 `develop`；提交只 add 明确列出的文件（spec §9）。
 - 证据文档 `docs/parity/p0-provider-preflight.md` 记录任务 id、耗时、产物路径与断言输出；不含 key 与完整 prompt（spec §7）。
 
@@ -33,7 +34,7 @@
 - Create: `tool/parity/fake_upstream.js`
 
 **Interfaces:**
-- Produces: 代理监听 `P0_PORT`（默认 8791）转发到 `P0_UPSTREAM`；日志 JSONL 每行 `{ts, mark?, method, path, status, ms}`——**永不记录 headers 与 body**；本地控制端点 `POST /__mark`（body `{"mark":"..."}`）向日志插入阶段标记，控制请求不转发不计数。假上游监听 `P0_FAKE_PORT`（默认 8792），`P0_FAKE_MODE=ok|fail`。Task 2/4/5 均消费这两个进程。
+- Produces: 代理监听 `P0_PORT`（默认 8791）转发到 `P0_UPSTREAM`；日志 JSONL 每行 `{ts, mark?, method, path, status, ms}`——**永不记录 headers 与 body**；本地控制端点 `POST /__mark`（body `{"mark":"..."}`）向日志插入阶段标记，控制请求不转发不计数。假上游监听 `P0_FAKE_PORT`（默认 8792），`P0_FAKE_MODE=ok|fail|acceptThenFail`（fail=提交即 500；acceptThenFail=接受提交、轮询返回终态 failed）。Task 2/3/5 消费这两个进程。
 
 - [ ] **Step 1: 建 worktree**
 
@@ -113,7 +114,7 @@ const http = require('http');
 const fs = require('fs');
 
 const PORT = Number(process.env.P0_FAKE_PORT || 8792);
-const MODE = process.env.P0_FAKE_MODE || 'ok'; // ok | fail
+const MODE = process.env.P0_FAKE_MODE || 'ok'; // ok | fail | acceptThenFail
 const CAPTURE = process.env.P0_FAKE_CAPTURE || '/tmp/p0-fake-capture.jsonl';
 // 自测需要检查"上游确实收到了 Authorization 与 body"——capture 只写进假上游自己的文件，
 // 与代理日志分离；该文件仅在 Task 2 自测中使用假凭证，不会出现真实 key。
@@ -138,6 +139,9 @@ http.createServer((req, res) => {
     }
     if (req.method === 'GET' && req.url.includes('/contents/generations/tasks/')) {
       if (MODE === 'fail') return json(500, { error: { message: 'deterministic preflight failure' } });
+      if (MODE === 'acceptThenFail') {
+        return json(200, { status: 'failed', error: { message: 'deterministic terminal failure' } });
+      }
       return json(200, { status: 'succeeded', content: { video_url: `http://127.0.0.1:${PORT}/video.mp4` } });
     }
     if (req.method === 'GET' && req.url === '/video.mp4') {
@@ -177,7 +181,11 @@ git commit -m "test(preflight): add sanitizing proxy and fake upstream"
 const { spawn } = require('child_process');
 const fs = require('fs');
 const http = require('http');
+const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
 
+const SENTINEL = path.join(os.homedir(), 'Documents', 'dramaflow-p0-preflight', 'proxy-selftest.ok');
 const LOG = '/tmp/p0-selftest-proxy.jsonl';
 const CAPTURE = '/tmp/p0-selftest-capture.jsonl';
 const FAKE_AUTH = 'Bearer FAKE-SELFTEST-SECRET-DO-NOT-LOG';
@@ -237,17 +245,29 @@ const check = (name, ok) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}`); if
   const fail500 = await req('POST', '/api/v3/contents/generations/tasks', FAKE_BODY, { authorization: FAKE_AUTH });
   check('5xx propagated', fail500.status === 500);
   fake2.kill(); proxy2.kill();
+  if (failed === 0) {
+    // 机器门：sentinel 内容 = 通过自测的代理文件哈希。真实调用前必须复核。
+    fs.mkdirSync(path.dirname(SENTINEL), { recursive: true });
+    const hash = crypto.createHash('sha256')
+      .update(fs.readFileSync('tool/parity/sanitizing_proxy.js')).digest('hex');
+    fs.writeFileSync(SENTINEL, hash + '\n');
+    console.log(`SENTINEL ${SENTINEL}`);
+  } else {
+    fs.rmSync(SENTINEL, { force: true });
+  }
   process.exit(failed === 0 ? 0 : 1);
 })();
 ```
 
-- [ ] **Step 2: 运行自测（TDD 门）**
+- [ ] **Step 2: 运行自测（机器门）**
 
 ```bash
-node tool/parity/proxy_selftest.js; echo "exit=$?"
+node tool/parity/proxy_selftest.js \
+  && shasum -a 256 tool/parity/sanitizing_proxy.js | awk '{print $1}' \
+  && cat "$HOME/Documents/dramaflow-p0-preflight/proxy-selftest.ok"
 ```
 
-预期：全部 `PASS`，`exit=0`。任何 `FAIL` → 修 Task 1 的代理实现重跑；**exit 非 0 时后续任务禁止执行真实调用**。
+预期：全部 `PASS` + `SENTINEL ...` 行，且最后两行输出的哈希**一致**（sentinel 记录的就是通过自测的代理文件哈希）。任何 `FAIL` → 自测会删除 sentinel、以非零码退出，`&&` 链中断——**sentinel 不存在或哈希不匹配时，Task 5 的真实调用被门禁**（Task 5 Step 5 会复核）。
 
 - [ ] **Step 3: 清理自测残留 + 提交**
 
@@ -259,16 +279,19 @@ git commit -m "test(preflight): gate proxy hygiene behind fake-upstream selftest
 
 ---
 
-### Task 3: 失败与重试演练线束（零真实调用）
+### Task 3: 失败与重试演练线束（零真实调用，两用例）
 
 **Files:**
 - Create: `app/test/preflight/p0_failure_drill_test.dart`
 
 **Interfaces:**
-- Consumes: `Engine.boot`（`app/lib/src/engine/engine.dart:395`）、`InMemoryCredentialStore` + `providerCredentialRef`（`credentials.dart`）、`engine.batchGenerateVideos`、假上游（fail 模式）。种子模式取自 `app/test/engine/video_track_test.dart:95-102`（saveVisualManual→addProject→addScript→addStoryboard）。
-- Produces: env 守卫的演练测试：断言失败落库（`o_tasks.state='failed'` 且 reason 非空、`o_video` 错误状态）与重试路径可走通；假上游 capture 证明恰好 2 次 POST 且零真实外联。
+- Consumes: `Engine.boot`（`app/lib/src/engine/engine.dart:395`）、`InMemoryCredentialStore` + `providerCredentialRef`（`credentials.dart`）、`engine.batchGenerateVideos`、`engine.retryJob`（`engine.dart:986`）、假上游（`fail` 与 `acceptThenFail` 两模式）。种子模式取自 `app/test/engine/video_track_test.dart:95-102`。
+- Produces: env 守卫（`P0_DRILL_CASE=uncertain|acceptedFail`）的两用例演练。**设计依据（已核实源码）**：提交异常时 `video_track.dart:812` 将候选置 `submissionState='uncertain'`（供应商可能已收到但客户端没拿到 ID 的危险态），恢复/重试路径区别对待 `uncertain` 与 `accepted`（`video_track.dart:1103-1109`）。演练必须走 `retryJob` 验证该保护，**禁止**用再次 `batchGenerateVideos` 冒充重试（那会绕过防重复提交机制）：
+  - 用例 A（uncertain）：提交遇 500 → 任务 failed、候选 `uncertain`；`retryJob` 必须**拒绝重提**；假上游 POST 总数保持 1。
+  - 用例 B（acceptedFail）：提交被接受（拿到 ID）→ 轮询终态 failed；`retryJob` **允许**重试并发出第二次假 POST（总数 2）。
+  - 若实际语义与上述预期不符：按修复纪律记录为 P0 发现并上报审核方，不得强改断言迁就现状。
 
-- [ ] **Step 1: 写演练线束**
+- [ ] **Step 1: 写演练线束（两用例）**
 
 创建 `app/test/preflight/p0_failure_drill_test.dart`：
 
@@ -283,82 +306,125 @@ import 'package:path/path.dart' as p;
 
 const _model = 'doubao-seedance-2-0-mini-260615';
 
+Future<({Engine engine, int projectId, int sbId})> _bootDrill(
+    String sub) async {
+  final workRoot = p.join(
+      Platform.environment['HOME']!, 'Documents', 'dramaflow-p0-preflight');
+  final dataDir = p.join(workRoot, 'drill-$sub');
+  if (Directory(dataDir).existsSync()) {
+    Directory(dataDir).deleteSync(recursive: true);
+  }
+  final credentials = InMemoryCredentialStore()
+    ..seed(providerCredentialRef('volcengine'), 'drill-dummy-key');
+  final engine = await Engine.boot(
+    dataDir: dataDir,
+    isMobile: false,
+    credentialStore: credentials,
+  );
+  final db = engine.db;
+  // baseUrl → 假上游（loopback），保留 inputValues 其他键。
+  final row = db
+      .select("SELECT inputValues FROM o_vendorConfig WHERE id='volcengine'")
+      .first;
+  final iv = (jsonDecode((row['inputValues'] as String?) ?? '{}') as Map)
+      .cast<String, dynamic>();
+  iv['baseUrl'] = 'http://127.0.0.1:8792/api/v3';
+  db.execute("UPDATE o_vendorConfig SET inputValues=? WHERE id='volcengine'",
+      [jsonEncode(iv)]);
+  db.execute("INSERT OR REPLACE INTO o_setting (key,value) VALUES "
+      "('binding.shot_video','volcengine:$_model')");
+  engine.saveVisualManual(
+      name: 'P0视觉', pack: 'p0_pack', data: const {'art_storyboard_video': '预检'});
+  final projectId = engine.addProject(
+      projectType: 'novel', name: 'P0演练-$sub', artStyle: 'p0_pack');
+  engine.editProject(projectId,
+      videoModel: 'volcengine:$_model', videoRatio: '9:16');
+  final scriptId =
+      engine.addScript(projectId: projectId, name: 'P0', content: '预检');
+  final sbId = engine.addStoryboard(
+      projectId: projectId, scriptId: scriptId, prompt: '硬币在桌面缓慢旋转');
+  final frame = File(engine.mediaAbsPath('p0/frame.png'))
+    ..parent.createSync(recursive: true);
+  File('/Users/luke/Documents/aivideo/azt-gpt-image2-test.png')
+      .copySync(frame.path);
+  db.execute(
+      "UPDATE o_storyboard SET filePath='p0/frame.png' WHERE id=?", [sbId]);
+  return (engine: engine, projectId: projectId, sbId: sbId);
+}
+
+Future<String> _waitTask(Engine engine, int taskId) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 60));
+  while (DateTime.now().isBefore(deadline)) {
+    final state = engine.db.select(
+        'SELECT state FROM o_tasks WHERE id=?', [taskId]).first['state'] as String;
+    if (state == 'failed' || state == 'success') return state;
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+  }
+  fail('演练任务 60s 未达终态');
+}
+
 void main() {
-  test('p0 failure drill against fake upstream', () async {
-    if (Platform.environment['P0_DRILL'] != '1') {
-      // 默认套件零副作用：未显式开启时直接通过。
-      return;
-    }
-    final workRoot = p.join(
-        Platform.environment['HOME']!, 'Documents', 'dramaflow-p0-preflight');
-    final dataDir = p.join(workRoot, 'drill-data');
-    if (Directory(dataDir).existsSync()) {
-      Directory(dataDir).deleteSync(recursive: true);
-    }
-    final credentials = InMemoryCredentialStore()
-      ..seed(providerCredentialRef('volcengine'), 'drill-dummy-key');
-    final engine = await Engine.boot(
-      dataDir: dataDir,
-      isMobile: false,
-      credentialStore: credentials,
-    );
-    addTearDown(engine.dispose);
-    final db = engine.db;
+  test('p0 drill A: uncertain submission must not be resubmitted', () async {
+    if (Platform.environment['P0_DRILL_CASE'] != 'uncertain') return;
+    final ctx = await _bootDrill('uncertain');
+    addTearDown(ctx.engine.dispose);
+    final db = ctx.engine.db;
 
-    // baseUrl → 假上游（loopback），保留 inputValues 其他键。
-    final row = db
-        .select("SELECT inputValues FROM o_vendorConfig WHERE id='volcengine'")
-        .first;
-    final iv = (jsonDecode((row['inputValues'] as String?) ?? '{}') as Map)
-        .cast<String, dynamic>();
-    iv['baseUrl'] = 'http://127.0.0.1:8792/api/v3';
-    db.execute("UPDATE o_vendorConfig SET inputValues=? WHERE id='volcengine'",
-        [jsonEncode(iv)]);
-    db.execute("INSERT OR REPLACE INTO o_setting (key,value) VALUES "
-        "('binding.shot_video','volcengine:$_model')");
-
-    engine.saveVisualManual(
-        name: 'P0视觉', pack: 'p0_pack', data: const {'art_storyboard_video': '预检'});
-    final projectId = engine.addProject(
-        projectType: 'novel', name: 'P0失败演练', artStyle: 'p0_pack');
-    engine.editProject(projectId,
-        videoModel: 'volcengine:$_model', videoRatio: '9:16');
-    final scriptId =
-        engine.addScript(projectId: projectId, name: 'P0', content: '预检');
-    final sbId = engine.addStoryboard(
-        projectId: projectId, scriptId: scriptId, prompt: '硬币在桌面缓慢旋转');
-    final frame = File(engine.mediaAbsPath('p0/frame.png'))
-      ..parent.createSync(recursive: true);
-    File('/Users/luke/Documents/aivideo/azt-gpt-image2-test.png')
-        .copySync(frame.path);
-    db.execute(
-        "UPDATE o_storyboard SET filePath='p0/frame.png' WHERE id=?", [sbId]);
-
-    Future<String> runOnce() async {
-      final taskId = engine.batchGenerateVideos(projectId, [sbId]);
-      final deadline = DateTime.now().add(const Duration(seconds: 60));
-      while (DateTime.now().isBefore(deadline)) {
-        final state = db.select('SELECT state FROM o_tasks WHERE id=?',
-            [taskId]).first['state'] as String;
-        if (state == 'failed' || state == 'success') return state;
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-      }
-      fail('演练任务 60s 未达终态');
-    }
-
-    expect(await runOnce(), 'failed', reason: '假上游 500 必须以 failed 落库');
-    final firstReason = db
-        .select("SELECT reason FROM o_tasks WHERE state='failed' ORDER BY id DESC")
+    final taskId = ctx.engine.batchGenerateVideos(ctx.projectId, [ctx.sbId]);
+    expect(await _waitTask(ctx.engine, taskId), 'failed',
+        reason: '假上游 500 必须以 failed 落库');
+    final reason = db
+        .select('SELECT reason FROM o_tasks WHERE id=?', [taskId])
         .first['reason'] as String?;
-    expect(firstReason, isNotEmpty, reason: '失败原因必须可见（任务中心语义）');
+    expect(reason, isNotEmpty, reason: '失败原因必须可见（任务中心语义）');
+    final sub = db
+        .select('SELECT submissionState FROM o_video ORDER BY id DESC')
+        .first['submissionState'];
+    expect(sub, 'uncertain',
+        reason: '提交异常必须落 uncertain（video_track.dart:812 语义）');
 
-    // 重试路径：再次触发同一镜头，仍确定性失败且原因落库。
-    expect(await runOnce(), 'failed');
-    final videoRows = db.select(
-        "SELECT count(*) c FROM o_video WHERE upstreamTaskId IS NULL");
-    expect((videoRows.first['c'] as int) >= 1, isTrue,
-        reason: '失败候选不得持久化 upstreamTaskId');
-    stdout.writeln('P0_DRILL_OK reasons_sample=${firstReason!.substring(0, firstReason.length > 40 ? 40 : firstReason.length)}');
+    // 核心断言：retryJob 面对 uncertain 不得重新提交。
+    final candidatesBefore =
+        db.select('SELECT count(*) c FROM o_video').first['c'] as int;
+    Object? refusal;
+    try {
+      await ctx.engine.retryJob(taskId);
+    } catch (e) {
+      refusal = e;
+    }
+    final candidatesAfter =
+        db.select('SELECT count(*) c FROM o_video').first['c'] as int;
+    expect(candidatesAfter, candidatesBefore,
+        reason: 'uncertain 重试不得产生新候选（防重复付费保护）');
+    stdout.writeln(
+        'P0_DRILL_UNCERTAIN_OK refusal=${refusal?.runtimeType ?? "silent-no-resubmit"}');
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
+  test('p0 drill B: accepted terminal failure retries with a new submission',
+      () async {
+    if (Platform.environment['P0_DRILL_CASE'] != 'acceptedFail') return;
+    final ctx = await _bootDrill('accepted-fail');
+    addTearDown(ctx.engine.dispose);
+    final db = ctx.engine.db;
+
+    final taskId = ctx.engine.batchGenerateVideos(ctx.projectId, [ctx.sbId]);
+    expect(await _waitTask(ctx.engine, taskId), 'failed',
+        reason: '轮询终态 failed 必须以 failed 落库');
+    final row = db
+        .select('SELECT submissionState, upstreamTaskId FROM o_video '
+            'ORDER BY id DESC')
+        .first;
+    expect(row['submissionState'], 'accepted',
+        reason: '假上游已返回任务 ID，提交态必须是 accepted');
+    expect((row['upstreamTaskId'] as String?) ?? '', isNotEmpty);
+
+    // 核心断言：accepted+终态失败允许 retryJob，产生第二次（假）提交。
+    final retryTaskId = await ctx.engine.retryJob(taskId);
+    expect(await _waitTask(ctx.engine, retryTaskId), 'failed',
+        reason: '假上游仍确定性失败，但重试链路必须走通');
+    final candidates =
+        db.select('SELECT count(*) c FROM o_video').first['c'];
+    stdout.writeln('P0_DRILL_ACCEPTED_FAIL_OK candidates=$candidates');
   }, timeout: const Timeout(Duration(minutes: 3)));
 }
 ```
@@ -370,26 +436,41 @@ cd app
 flutter test test/preflight/p0_failure_drill_test.dart --reporter expanded
 ```
 
-预期：PASS（守卫直接返回），无网络、无目录创建。
+预期：两个用例均 PASS（守卫直接返回），无网络、无目录创建。
 
-- [ ] **Step 3: 起假上游并运行演练**
+- [ ] **Step 3: 运行用例 A（uncertain，POST 总数必须保持 1）**
 
 ```bash
-rm -f /tmp/p0-fake-capture.jsonl
-P0_FAKE_MODE=fail node tool/parity/fake_upstream.js &
+rm -f /tmp/p0-fake-capture-a.jsonl
+P0_FAKE_MODE=fail P0_FAKE_CAPTURE=/tmp/p0-fake-capture-a.jsonl node tool/parity/fake_upstream.js &
 FAKE_PID=$!
-cd app && P0_DRILL=1 flutter test test/preflight/p0_failure_drill_test.dart --reporter expanded; cd ..
+sleep 1
+(cd app && P0_DRILL_CASE=uncertain flutter test test/preflight/p0_failure_drill_test.dart --reporter expanded)
 kill $FAKE_PID
-grep -c '"method":"POST"' /tmp/p0-fake-capture.jsonl
+jq -s '[.[]|select(.method=="POST")]|length' /tmp/p0-fake-capture-a.jsonl
 ```
 
-预期：测试 PASS 且输出 `P0_DRILL_OK`；capture 中 POST 计数 == 2（两次演练提交都打在假上游，零真实外联）。若断言失败：按修复纪律**只记录**（缺陷进 W0 总清单或独立任务卡），不在本分支修产品代码。
+预期：测试 PASS 且输出 `P0_DRILL_UNCERTAIN_OK`；最后一行 POST 计数 == **1**（`retryJob` 拒绝了 uncertain 重提——这是防重复付费保护的直接证据）。
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 4: 运行用例 B（acceptedFail，POST 总数必须为 2）**
+
+```bash
+rm -f /tmp/p0-fake-capture-b.jsonl
+P0_FAKE_MODE=acceptThenFail P0_FAKE_CAPTURE=/tmp/p0-fake-capture-b.jsonl node tool/parity/fake_upstream.js &
+FAKE_PID=$!
+sleep 1
+(cd app && P0_DRILL_CASE=acceptedFail flutter test test/preflight/p0_failure_drill_test.dart --reporter expanded)
+kill $FAKE_PID
+jq -s '[.[]|select(.method=="POST")]|length' /tmp/p0-fake-capture-b.jsonl
+```
+
+预期：测试 PASS 且输出 `P0_DRILL_ACCEPTED_FAIL_OK`；POST 计数 == **2**（原提交 + retryJob 允许的重试）。任一用例与预期不符：按修复纪律**只记录**（P0 发现，上报审核方），不在本分支修产品代码、不强改断言。
+
+- [ ] **Step 5: 提交**
 
 ```bash
 git add app/test/preflight/p0_failure_drill_test.dart
-git commit -m "test(preflight): add zero-real failure and retry drill"
+git commit -m "test(preflight): drill uncertain refusal and accepted retry"
 ```
 
 ---
@@ -628,27 +709,42 @@ git commit -m "test(preflight): add exactly-once live harness and assertions"
 
 预期：默认（无 env）PASS 且零网络零目录。
 
-- [ ] **Step 5: 执行真实预检（唯一付费步骤，前置：Task 2 exit=0）**
+- [ ] **Step 5: 执行真实预检（唯一付费步骤，由 Claude 主会话亲自执行）**
+
+强杀阶段的退出码非零是预期，**不允许用 `|| true` 吞错**——判定改由三道证据门承担，三门全过才允许写 RESTART 标记并进入 resume：
 
 ```bash
-rm -f /tmp/p0-live-proxy.jsonl
-rm -rf "$HOME/Documents/dramaflow-p0-preflight/live-data"
+WORK="$HOME/Documents/dramaflow-p0-preflight"
+# 门 0：自测 sentinel 复核（代理文件被改动或自测未过 → 禁止真实调用）
+[ "$(shasum -a 256 tool/parity/sanitizing_proxy.js | awk '{print $1}')" = "$(cat "$WORK/proxy-selftest.ok" 2>/dev/null)" ] \
+  || { echo 'GATE0 FAIL: sentinel 缺失或代理文件已改动，先重跑 Task 2'; exit 1; }
+rm -f /tmp/p0-live-proxy.jsonl /tmp/p0-submit-out.txt
+rm -rf "$WORK/live-data"
 P0_PORT=8791 P0_UPSTREAM=https://ark.cn-beijing.volces.com P0_LOG=/tmp/p0-live-proxy.jsonl \
   node tool/parity/sanitizing_proxy.js &
 PROXY_PID=$!
-cd app
-P0_LIVE=1 P0_PHASE=submit P0_KEY_FIELD=<Step1记下的字段名> \
-  flutter test test/preflight/p0_live_preflight_test.dart --reporter expanded || true
-cd ..
-curl -sS -X POST http://127.0.0.1:8791/__mark -d '{"mark":"RESTART"}'
-cd app
-P0_LIVE=1 P0_PHASE=resume P0_KEY_FIELD=<同上> \
-  flutter test test/preflight/p0_live_preflight_test.dart --reporter expanded
-cd ..
+sleep 1
+( cd app && P0_LIVE=1 P0_PHASE=submit P0_KEY_FIELD=<Step1记下的字段名> \
+    flutter test test/preflight/p0_live_preflight_test.dart --reporter expanded 2>&1 \
+    | tee /tmp/p0-submit-out.txt )
+# 门 1：达到强杀点（编译失败/缺 key/模型错误都到不了这里）
+grep -q 'P0_MARK upstream_persisted' /tmp/p0-submit-out.txt \
+  || { kill $PROXY_PID; echo 'GATE1 FAIL: 未达强杀点，读 /tmp/p0-submit-out.txt 诊断'; exit 1; }
+# 门 2：库中恰有一个 accepted + upstreamTaskId 候选
+[ "$(sqlite3 "$WORK/live-data/dramaflow.sqlite" \
+    "SELECT count(*) FROM o_video WHERE submissionState='accepted' AND trim(coalesce(upstreamTaskId,''))<>'';")" = "1" ] \
+  || { kill $PROXY_PID; echo 'GATE2 FAIL: accepted 候选数异常'; exit 1; }
+# 门 3：代理恰记录一次成功提交 POST
+[ "$(jq -s '[.[]|select(.method=="POST" and ((.path//"")|endswith("/contents/generations/tasks")) and .status==200)]|length' /tmp/p0-live-proxy.jsonl)" = "1" ] \
+  || { kill $PROXY_PID; echo 'GATE3 FAIL: 成功提交 POST 计数异常'; exit 1; }
+curl -sS -X POST http://127.0.0.1:8791/__mark -H 'Content-Type: application/json' -d '{"mark":"RESTART"}'
+( cd app && P0_LIVE=1 P0_PHASE=resume P0_KEY_FIELD=<同上> \
+    flutter test test/preflight/p0_live_preflight_test.dart --reporter expanded ) \
+  || { kill $PROXY_PID; echo 'RESUME FAIL: 恢复阶段必须以退出码 0 结束'; exit 1; }
 kill $PROXY_PID
 ```
 
-预期：submit 阶段输出 `P0_MARK upstream_persisted ...` 后以退出码 9 结束（**这是预期行为**，`|| true` 吸收）；resume 阶段输出 `P0_MARK done filePath=...` 并 PASS。若 submit 阶段供应商返回 4xx/5xx：按修复纪律记录诊断，**不得重试真实提交**，上报审核方。
+预期：GATE0–3 依次通过；submit 输出 `P0_MARK upstream_persisted ...`；resume 输出 `P0_MARK done filePath=...` 且退出码 0。任何门失败：证据保全（`/tmp/p0-submit-out.txt` + 代理日志 + live-data 只读封存），按修复纪律记录诊断，**不得重试真实提交**，上报审核方。
 
 - [ ] **Step 6: 跑四项断言**
 
@@ -682,7 +778,9 @@ node tool/parity/p0_assert.js; echo "exit=$?"
 - p0_assert.js 完整输出（原样粘贴）
 
 ## 失败与重试演练（零真实调用）
-- 假上游 POST 计数 / o_tasks.reason 样例（截断 40 字符内）/ P0_DRILL_OK 输出行
+- 用例 A（uncertain）：POST 计数（必须 1）/ retryJob 拒绝形态 / P0_DRILL_UNCERTAIN_OK 输出行
+- 用例 B（acceptedFail）：POST 计数（必须 2）/ 重试任务终态 / P0_DRILL_ACCEPTED_FAIL_OK 输出行
+- o_tasks.reason 样例（截断 40 字符内）
 
 ## azt 服务冒烟
 - 文本耗时与返回；图片耗时与 base64 长度（/tmp/p0-azt-smoke.txt 摘录）
@@ -692,6 +790,9 @@ node tool/parity/p0_assert.js; echo "exit=$?"
 
 ## 凭证处置声明
 key 仅在线束进程内存存在，未持久化；Keychain 迁移按计划偏差声明推迟至终验收准备。
+
+## 覆盖范围声明
+本预检验证的是引擎/供应商协议路径（含冷启恢复），**不覆盖**：Keychain/设置页/打包 App 凭证路径、GUI 与 macOS App 生命周期——均由终验收 12 步承担。
 ```
 
 - [ ] **Step 2: 防泄漏自检**
@@ -725,3 +826,11 @@ git worktree remove ../dramaflow-p0 && git branch -d p0-preflight
 - 失败演练零真实外联且失败原因落库可重试。
 - 证据文档防泄漏自检 CLEAN，已合入 develop 并推送。
 - 预检工作目录 `~/Documents/dramaflow-p0-preflight` 保留至终验收（内含零秘密），供追溯。
+
+---
+
+## 执行方式（评审定案）
+
+- 混合子代理驱动：Task 1–3 的脚本/假上游/线束与 Task 6 文档可逐任务派子代理，**每个任务过审核门（逐行 diff 审阅 + 命令复跑）后才开下一个**。
+- **Task 5（唯一一次真实付费调用）由 Claude 主会话亲自执行与审核，绝不交给后台子代理**；Task 4 的 azt 冒烟同样在主会话执行（消耗订阅额度，需实时观察）。
+- 所有子代理只在 `p0-preflight` worktree 内工作，遵守本计划 Global Constraints 的文件范围与 key 卫生纪律。
