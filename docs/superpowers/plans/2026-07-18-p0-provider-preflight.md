@@ -137,22 +137,23 @@ http.createServer((req, res) => {
       res.writeHead(code, { 'content-type': 'application/json' });
       res.end(JSON.stringify(obj));
     };
-    if (req.method === 'GET' && req.url === '/__health') {
+    const pathOnly = req.url.split('?')[0];
+    if (req.method === 'GET' && pathOnly === '/__health') {
       return json(200, { pid: process.pid, mode: MODE });
     }
-    if (req.method === 'POST' && req.url.endsWith('/contents/generations/tasks')) {
+    if (req.method === 'POST' && pathOnly.endsWith('/contents/generations/tasks')) {
       submits += 1;
       if (MODE === 'fail') return json(500, { error: { message: 'deterministic preflight failure' } });
       return json(200, { id: `fake-task-${submits}` });
     }
-    if (req.method === 'GET' && req.url.includes('/contents/generations/tasks/')) {
+    if (req.method === 'GET' && pathOnly.includes('/contents/generations/tasks/')) {
       if (MODE === 'fail') return json(500, { error: { message: 'deterministic preflight failure' } });
       if (MODE === 'acceptThenFail') {
         return json(200, { status: 'failed', error: { message: 'deterministic terminal failure' } });
       }
       return json(200, { status: 'succeeded', content: { video_url: `http://127.0.0.1:${PORT}/video.mp4` } });
     }
-    if (req.method === 'GET' && req.url === '/video.mp4') {
+    if (req.method === 'GET' && pathOnly === '/video.mp4') {
       res.writeHead(200, { 'content-type': 'video/mp4' });
       return res.end(Buffer.from([0, 0, 0, 24, 102, 116, 121, 112]));
     }
