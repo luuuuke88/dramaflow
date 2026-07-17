@@ -2,7 +2,9 @@
 
 ## 结论
 
-**恰好一次真实生成未达成**——两次授权的真实提交均被火山引擎以 HTTP 400 拒绝，具体拒绝原因未能诊断（代理设计上不记录响应体，且引擎自身错误处理也只保留了 dio 的通用包装消息，未保留供应商返回的实际错误文本）。四项核心断言 2/6 PASS：**恰好一次提交纪律成立**（每次真实调用都确证只发出 1 次 POST、只产生 1 条候选行），**实际生成未成功**（无 upstreamTaskId、无候选文件、无 MP4）。经用户决策，视频供应商联调问题暂搁置，不在本轮继续排查；本预检验证的"提交/恢复/防重复"安全机制已证明有效，但"真实生成成功"这一环节未被证实。
+**恰好一次真实生成未达成**——两次授权的真实提交均被火山引擎以 HTTP 400 拒绝，具体拒绝原因未能诊断（代理设计上不记录响应体，且引擎自身错误处理也只保留了 dio 的通用包装消息，未保留供应商返回的实际错误文本）。六项断言 2/6 PASS（4 项核心 + 2 项辅助）：**恰好一次提交纪律成立**（每次真实调用都确证只发出 1 次 POST、只产生 1 条候选行），**实际生成未成功**（无 upstreamTaskId、无候选文件、无 MP4）。经用户决策，视频供应商联调问题暂搁置，不在本轮继续排查。
+
+本预检**已证明有效**的是：提交纪律（恰好一次）与 `uncertain`/`accepted` 两态对 `retryJob` 防重复付费的正确处理（后者经 Task 3 零真实调用演练验证，非本轮真实调用直接验证）。**未被证实**的是"真实生成成功"与**真实冷启动恢复路径本身**——两次真实调用均在 GATE1 止步，`RESTART` 标记从未写入，`P0_PHASE=resume`（`Engine.boot` 冷启轮询）从未被真实执行过；"恢复"在本预检中被验证的只是 `retryJob` 的决策逻辑（Task 3 演练，假上游），不是真实冷启动恢复本身。详见"覆盖范围声明"。
 
 ## 真实付费场景
 
@@ -43,9 +45,9 @@ exit=1
 
 按计划 Task 3 完成，与本次真实预检独立：
 
-- 用例 A（uncertain，假上游 `fail` 模式）：`P0_DRILL_UNCERTAIN_OK`，假上游 POST 计数 == 1（`retryJob` 正确拒绝重提，防重复付费保护成立）
+- 用例 A（uncertain，假上游 `fail` 模式）：`P0_DRILL_UNCERTAIN_OK`，假上游 POST 计数 == 1（`retryJob` 正确拒绝重提，防重复付费保护成立）；引擎语义见 `app/lib/src/engine/video_track.dart:812`（提交异常 → `uncertain`）与 `:1100-1114`（冷启动仅 `accepted`+非空 `upstreamTaskId` 才恢复轮询，`uncertain`/`prepared`/`submitting` 一律标 failed）
 - 用例 B（accepted+终态失败，假上游 `acceptThenFail` 模式）：`P0_DRILL_ACCEPTED_FAIL_OK`，假上游 POST 计数 == 2（`retryJob` 正确允许重试）
-- 详见 `.superpowers/sdd/task-p0-3-report.md`；两用例均零真实供应商调用
+- 两用例均零真实供应商调用；完整线束代码见 `app/test/preflight/p0_failure_drill_test.dart`（本仓库内，非外部报告文件引用）
 
 ## azt 服务冒烟
 
