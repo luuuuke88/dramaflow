@@ -169,3 +169,4 @@ ID | 模块/页面 | ToonFlow 源码证据 | 用户行为 | 数据依赖 | Drama
 - W2 不恢复 JS 解释器与 ES-DSL（经 `Toonflow-app` 后端源码验证为非原版能力；W0 须在完整基线上复核）；多 Agent / 向量记忆 / 摘要 / Markdown 技能按源码行为移植。
 - W4 长尾按批次过审核门，不穿插打断 W1–W3。
 - 本 spec 批准 L0a + W0 + P0；L0b 依赖 W0 产出；W1–W4 待 W0 清单确认与 L0b 过门后各写独立 spec。
+- **L0a 已执行（2026-07-18）**：经用户确认后，`luuuuke88/dramaflow` 已由 public 转为 private（执行时 0 fork / 0 star、无 releases / pages，公开分发面已完整撤下；已被 clone/缓存的副本无法追回）。W0 / P0 开工阻塞解除；L0b 决策仍待 W0 许可证审计产出。
