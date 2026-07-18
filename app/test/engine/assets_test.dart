@@ -119,6 +119,18 @@ void main() {
       name: '旁白',
       describe: '',
     );
+    final clip = engine.addAsset(
+      projectId: projectId,
+      type: 'clip',
+      name: '片头',
+      describe: '',
+    );
+    final unknown = engine.addAsset(
+      projectId: projectId,
+      type: 'unknown',
+      name: '未知',
+      describe: '',
+    );
     final child = engine.addAsset(
       projectId: projectId,
       type: 'role',
@@ -144,6 +156,8 @@ void main() {
 
     expect(byId.keys, unorderedEquals([role, scene, tool]));
     expect(byId.keys, isNot(contains(audio)));
+    expect(byId.keys, isNot(contains(clip)));
+    expect(byId.keys, isNot(contains(unknown)));
     expect(byId.keys, isNot(contains(child)));
     expect(byId[role]!.images.map((image) => image.id),
         orderedEquals(engine.assetImages(role).map((image) => image.id)));
@@ -188,6 +202,13 @@ void main() {
       name: '未知',
       describe: '',
     );
+    final roleChild = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '甲-侧脸',
+      describe: '',
+      parentAssetsId: role,
+    );
     engine.addAsset(
       projectId: projectId,
       type: 'scene',
@@ -202,6 +223,7 @@ void main() {
     );
 
     expect(result.map((item) => item.asset.id), unorderedEquals([role]));
+    expect(result.map((item) => item.asset.id), isNot(contains(roleChild)));
     expect(result.map((item) => item.asset.id), isNot(contains(scene)));
     expect(result.map((item) => item.asset.id), isNot(contains(tool)));
     expect(result.map((item) => item.asset.id), isNot(contains(audio)));
@@ -308,6 +330,48 @@ void main() {
     expect(engine.cornerScapeImageTaskId(completedAsset), isNull);
     expect(engine.cornerScapeImageTaskId(failedAsset), isNull);
     expect(engine.cornerScapeImageTaskId(imageOnlyAsset), isNull);
+  });
+
+  test('cornerScapeImageTaskId 分别返回 pending 和 processing 资产的任务', () {
+    final pendingAsset = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: 'pending-only',
+      describe: '',
+    );
+    final processingAsset = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: 'processing-only',
+      describe: '',
+    );
+
+    int addTask(int assetsId, String state) {
+      db.execute(
+        'INSERT INTO o_tasks '
+        '(projectId,state,taskClass,describe,relatedObjects,startTime) '
+        'VALUES (?,?,?,?,?,?)',
+        [
+          projectId,
+          state,
+          'asset_image_generation',
+          '测试任务',
+          jsonEncode({
+            'items': [
+              {'assetsId': assetsId},
+            ],
+          }),
+          DateTime.now().millisecondsSinceEpoch,
+        ],
+      );
+      return db.lastInsertRowId;
+    }
+
+    final pendingTask = addTask(pendingAsset, 'pending');
+    final processingTask = addTask(processingAsset, 'processing');
+
+    expect(engine.cornerScapeImageTaskId(pendingAsset), pendingTask);
+    expect(engine.cornerScapeImageTaskId(processingAsset), processingTask);
   });
 
   test('cornerScapeImageTaskId 返回同一资产最新的 processing 生图任务', () {
