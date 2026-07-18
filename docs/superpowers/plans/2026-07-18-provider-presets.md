@@ -16,6 +16,8 @@
 
 **v4 复审收口（2026-07-19）**：①原子创建不能只覆盖预设路径——自定义供应商也改为 `provisioning` 禁用行 → Keychain → 启用，重名在触碰 Key 前拒绝；新增重复、缺 Key、凭证写失败三条回归。②非火山 video 既不能经模型编辑保存，也不能从历史/导入配置绕到设置页的 `testVideoModel`；正式提交、轮询、取消与连通测试均在零 HTTP 前拒绝。③Task 7 的人工验收文档已存在（`docs/parity/provider-presets-acceptance.md`），不是“尚未建立”；其中只有 azt 有证据并被标 `acceptanceVerified=true`，其他预设和私有协议继续保持未验证。
 
+**v5 视频验收边界落地（2026-07-19）**：`Engine.testProvider` 对所有 `video` 模型在解析后、触碰网关前抛 `errTaskUnsupported(videoTestDeferred)`；设置页也不把 video 纳入可测试候选。视频的提交、轮询、取消和正常生成实现保持不动，留给用户最终手动验收。引擎与移动设置页回归均断言视频测试调用数为零。
+
 **已核实执行状态（2026-07-19）**：Task 1–6 的代码已分别落在 `63c84dc`、`2d18c37`、`7d4c31e`/`7ffc380`、`e543c9b`、`05b0ab5`/`8f805c5`、`29b90f4`；它们实现的是预设目录、通用 OpenAI 兼容配置与模型管理体验。Task 7 的正式验收记录已经建立，但除 azt 外均为“待验”；`protocol` 目前仍主要是配置元数据，尚未驱动 Claude/Gemini 等供应商的原生私有协议适配。不能据此把主清单的 `W6D-VENDOR-001` 标为完成。
 
 ## Global Constraints

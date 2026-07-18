@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:dramaflow/src/api/models.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/credentials.dart';
@@ -9,6 +10,7 @@ import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/engine/util.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -16,6 +18,20 @@ import 'package:sqlite3/sqlite3.dart';
 class _NoopGateway implements ProviderGateway {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// 只记录视频测试是否被分派；绝不触发真实 HTTP。
+class _VideoTestRecordingGateway extends HttpProviderGateway {
+  int videoTestCalls = 0;
+
+  _VideoTestRecordingGateway(super.db, super.config, super.media);
+
+  @override
+  Future<int> testVideoModel(ResolvedModel model,
+      {CancelToken? cancelToken}) async {
+    videoTestCalls++;
+    return 1;
+  }
 }
 
 /// write 恒抛错的凭证仓——用于真实走到"凭证失败→删行"分支。
@@ -263,6 +279,44 @@ void main() {
           ['custom-openai']).single['models'],
       '[]',
     );
+  });
+
+  test('视频模型连通测试被拒绝，且不会分派给上游网关', () async {
+    final db = openEngineDb(':memory:');
+    final config = EngineConfig(db, isMobile: false);
+    final media = MediaStore('/tmp/df-video-test-deferred-media');
+    final gateway = _VideoTestRecordingGateway(db, config, media);
+    final engine = Engine(
+      db: db,
+      media: media,
+      gateway: gateway,
+      config: config,
+    );
+    addTearDown(engine.dispose);
+    final provider = await engine.createProvider(
+      name: 'Volcengine',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.example.test',
+      apiKey: 'sk-test',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'doubao-seedance-2-0-mini-260615',
+        'label': 'Seedance Mini',
+        'kind': 'video',
+        'enabled': true,
+      },
+    ]);
+
+    await expectLater(
+      engine.testProvider(provider.id, 'doubao-seedance-2-0-mini-260615'),
+      throwsA(
+        isA<EngineException>()
+            .having((e) => e.errKey, 'errKey', errTaskUnsupported)
+            .having((e) => e.errParams['reason'], 'reason', 'videoTestDeferred'),
+      ),
+    );
+    expect(gateway.videoTestCalls, 0);
   });
 
   test('P0 场景：重复创建抛 errProviderExists 且旧凭证一字节不动', () async {

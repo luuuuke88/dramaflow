@@ -1429,6 +1429,14 @@ WHERE id=?
       // UI 层无法本地化）。
       orElse: () => throw const EngineException(errModelMissing),
     );
+    // 视频连通测试会向上游提交一条真实生成任务。视频流水线本身保持可用，
+    // 但按产品验收边界，只允许用户在最终手动验收阶段发起它。
+    if (model.kind == 'video') {
+      throw const EngineException(
+        errTaskUnsupported,
+        {'reason': 'videoTestDeferred'},
+      );
+    }
     if (gateway is! HttpProviderGateway) {
       throw const EngineException(
           errProviderMissing, {'reason': '当前网关不支持连通测试'});

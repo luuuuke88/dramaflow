@@ -621,12 +621,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
     if (!mounted || models == null) return;
 
-    // 分模态测试（对齐引擎 testProvider 的 text/image/video 分派）：
-    // 允许测试任一启用的文本/图片/视频模型，而非仅文本。
+    // 视频测试会提交真实生成任务，留给用户最终手动验收；文本、图片和语音
+    // 仍可在设置页做低成本连通检查。
     final testable = models!
         .where((model) =>
             model.enabled &&
-            const {'text', 'image', 'video', 'tts'}.contains(model.kind))
+            const {'text', 'image', 'tts'}.contains(model.kind))
         .toList();
     if (testable.isEmpty) {
       await runAction(context, ref, () async {

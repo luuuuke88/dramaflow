@@ -497,7 +497,7 @@ void main() {
     expect(find.text('Old Gateway'), findsNothing);
   });
 
-  testWidgets('移动端设置页：分模态连通测试可选择图片和视频模型', (tester) async {
+  testWidgets('移动端设置页：连通测试只分派文字和图片，视频保持人工验收', (tester) async {
     engine.dispose();
     final db = openEngineDb(':memory:');
     final media = MediaStore(p.join(dir.path, 'media'));
@@ -572,10 +572,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(gateway.calls, [
-      'image:local-image',
-      'video:local-video',
-    ]);
+    expect(gateway.calls, ['image:local-image']);
   });
 
   testWidgets('移动端设置页：清空数据确认只清内容保留配置', (tester) async {
