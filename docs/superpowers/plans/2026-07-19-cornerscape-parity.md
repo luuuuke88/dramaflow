@@ -93,7 +93,7 @@ git commit -m "feat(cornerscape): expose asset generation state"
 - Consumes: `o_assetsRole2Audio`（历史列名 `assetsRoleId` 代表任意父资产）、`Engine.audioPool`、既有 `RoleAudioBinding` API。
 - Produces: `AssetAudioBinding`、`Engine.assetAudioBindings(int projectId, {Set<String> types})`、`Engine.bindAssetAudio(int assetId, int? audioAssetId)`；`roleAudioBindings`、`bindRoleAudio` 保持可用，内部委托通用 API。
 
-- [ ] **Step 1: 写失败的通用关联测试**
+- [x] **Step 1: 写失败的通用关联测试**
 
 ```dart
 test('场景和道具可以复用原有关联表绑定音频，角色兼容 API 不回归', () {
@@ -109,13 +109,13 @@ test('场景和道具可以复用原有关联表绑定音频，角色兼容 API 
 });
 ```
 
-- [ ] **Step 2: 运行失败测试**
+- [x] **Step 2: 运行失败测试**
 
 Run: `cd app && flutter test --concurrency=1 test/engine/audio_bind_test.dart --name 场景和道具可以复用`
 
 Expected: fail because only role-specific query and binding APIs exist.
 
-- [ ] **Step 3: 实现泛化且兼容的关联 API**
+- [x] **Step 3: 实现泛化且兼容的关联 API**
 
 ```dart
 class AssetAudioBinding {
@@ -135,13 +135,13 @@ void bindAssetAudio(int assetId, int? audioAssetId) {
 
 `batchBindAudio` 的 payload 改为 `assetIds`，工具结果读取 `assetId`；为已有队列记录和角色测试兼容，读取时也接受旧 `roleIds`/`roleId` 字段。提示词必须显示资产类型，且仅允许项目内角色、场景、道具和项目内音频 id。
 
-- [ ] **Step 4: 验证通过**
+- [x] **Step 4: 验证通过**
 
 Run: `cd app && flutter test --concurrency=1 test/engine/audio_bind_test.dart`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/lib/src/engine/audio_bind.dart app/test/engine/audio_bind_test.dart
