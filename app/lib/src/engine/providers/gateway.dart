@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -6,6 +7,7 @@ import 'package:sqlite3/sqlite3.dart';
 import '../config.dart';
 import '../credentials.dart';
 import '../media.dart';
+import '../util.dart';
 import 'openai_text.dart';
 import 'openai_vision.dart';
 import 'openai_image.dart';
@@ -75,6 +77,10 @@ abstract class ProviderGateway {
   Future<void> cancelVideo(String upstreamTaskId,
           {required String stage, required String? modelOverride}) =>
       Future.error(UnsupportedError('此网关不支持视频取消'));
+
+  /// GET {baseUrl}/models，仅返回远端模型 ID 候选（不写库；spec §5 第 5 条）。
+  Future<List<String>> listRemoteModelIds(String providerId) =>
+      Future.error(UnsupportedError('此网关不支持模型列表拉取'));
 
   /// 返回 rel 媒体路径（如 `proj1/aud_xxx.mp3`）。
   Future<String> generateSpeech(
@@ -288,6 +294,56 @@ class HttpProviderGateway
       return resolveModelBinding(db, credentials, modelBinding, kind: 'video');
     }
     return resolveStage(db, credentials, stage);
+  }
+
+  @override
+  Future<List<String>> listRemoteModelIds(String providerId) async {
+    final rows = db.select(
+        'SELECT id, inputValues FROM o_vendorConfig WHERE id=? AND COALESCE(enable,1)=1',
+        [providerId]);
+    if (rows.isEmpty) {
+      throw EngineException(errProviderMissing, {'providerId': providerId});
+    }
+    final raw = rows.first['inputValues'] as String?;
+    final inputValues = raw != null && raw.trim().isNotEmpty
+        ? jsonDecode(raw) as Map
+        : const {};
+    var baseUrl = (inputValues['baseUrl'] ?? '').toString().trim();
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+    }
+    final credentialRef =
+        (inputValues['credentialRef'] ?? providerCredentialRef(providerId))
+            .toString();
+    var apiKey = '';
+    try {
+      apiKey = await credentials.read(credentialRef) ?? '';
+    } catch (_) {}
+    try {
+      final resp = await dio.get<dynamic>(
+        '$baseUrl/models',
+        options: Options(headers: {
+          if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey',
+        }),
+      );
+      final body = resp.data;
+      final list = body is Map ? body['data'] : body;
+      if (list is! List) {
+        throw const EngineException(
+            errLlmFormat, {'reason': '/models 响应缺 data 数组'});
+      }
+      return [
+        for (final item in list.whereType<Map>())
+          if ((item['id'] ?? '').toString().trim().isNotEmpty)
+            (item['id'] as Object).toString(),
+      ];
+    } on DioException catch (e) {
+      throw EngineException(errNetwork, {
+        'op': 'listRemoteModels',
+        'status': e.response?.statusCode,
+        'message': e.message,
+      });
+    }
   }
 
   @override

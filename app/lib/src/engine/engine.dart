@@ -1315,6 +1315,12 @@ WHERE id=?
     );
   }
 
+  /// /models 拉取候选（只出列表不写库；UI 定 kind 后走 saveProviderModels）。
+  Future<List<String>> fetchProviderModelCandidates(String providerId) {
+    _mustProvider(providerId);
+    return gateway.listRemoteModelIds(providerId);
+  }
+
   Future<int> testProvider(String providerId, String modelId) async {
     final model = (await listProviderModels(providerId)).firstWhere(
       (item) => item.modelId == modelId,
