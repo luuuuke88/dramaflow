@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -49,9 +50,9 @@ void main() {
   Future<void> waitTask(int taskId, {String expectState = 'success'}) async {
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (DateTime.now().isBefore(deadline)) {
-      final state = db
-          .select('SELECT state FROM o_tasks WHERE id=?', [taskId])
-          .first['state'] as String;
+      final state = db.select(
+              'SELECT state FROM o_tasks WHERE id=?', [taskId]).first['state']
+          as String;
       if (state == 'success' || state == 'failed') {
         expect(state, expectState);
         return;
@@ -81,12 +82,58 @@ void main() {
     expect(engine.roleAudioBindings(projectId).single.audioAssetId, audioA);
 
     engine.bindRoleAudio(roleId, audioB);
-    final rows = db.select('SELECT COUNT(*) n FROM o_assetsRole2Audio').first['n'];
+    final rows =
+        db.select('SELECT COUNT(*) n FROM o_assetsRole2Audio').first['n'];
     expect(rows, 1, reason: '覆盖写入，不残留旧绑定');
     expect(engine.roleAudioBindings(projectId).single.audioAssetId, audioB);
 
     engine.bindRoleAudio(roleId, null);
     expect(engine.roleAudioBindings(projectId).single.audioAssetId, isNull);
+  });
+
+  test('场景和道具可以复用原有关联表绑定音频，角色兼容 API 不回归', () {
+    final scene = engine.addAsset(
+        projectId: projectId, type: 'scene', name: '山门', describe: '雪夜');
+    final tool = engine.addAsset(
+        projectId: projectId, type: 'tool', name: '灵剑', describe: '长剑');
+    final role = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: '剑客');
+    final audio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: '');
+
+    engine.bindAssetAudio(scene, audio);
+    engine.bindAssetAudio(tool, audio);
+    engine.bindRoleAudio(role, audio);
+
+    expect(engine.assetAudioBindings(projectId).map((row) => row.assetId),
+        containsAll([scene, tool, role]));
+    expect(engine.roleAudioBindings(projectId).single.audioAssetId, audio);
+  });
+
+  test('通用查询只列项目内 role/scene/tool 父资产', () {
+    final role = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: '剑客');
+    final scene = engine.addAsset(
+        projectId: projectId, type: 'scene', name: '山门', describe: '雪夜');
+    final tool = engine.addAsset(
+        projectId: projectId, type: 'tool', name: '灵剑', describe: '长剑');
+    engine.addAsset(
+        projectId: projectId, type: 'audio', name: '音频', describe: '');
+    engine.addAsset(
+        projectId: projectId,
+        type: 'scene',
+        name: '山门子项',
+        describe: '',
+        parentAssetsId: scene);
+    final otherProject = engine.addProject(projectType: 'novel', name: '其他项目');
+    engine.addAsset(
+        projectId: otherProject, type: 'role', name: '越权角色', describe: '');
+
+    expect(engine.assetAudioBindings(projectId).map((row) => row.assetId),
+        unorderedEquals([role, scene, tool]));
+    expect(
+        engine.assetAudioBindings(projectId, types: {'scene'}).single.assetId,
+        scene);
   });
 
   test('批量 LLM 匹配：tool-calling 结果写入绑定表', () async {
@@ -113,9 +160,78 @@ void main() {
     await waitTask(taskId);
 
     final bindings = engine.roleAudioBindings(projectId);
-    expect(bindings.firstWhere((b) => b.roleId == role1).audioAssetId,
-        audioYoung);
-    expect(bindings.firstWhere((b) => b.roleId == role2).audioAssetId, audioOld);
+    expect(
+        bindings.firstWhere((b) => b.roleId == role1).audioAssetId, audioYoung);
+    expect(
+        bindings.firstWhere((b) => b.roleId == role2).audioAssetId, audioOld);
+  });
+
+  test('批量 LLM 使用新 assetIds 绑定场景和道具，提示包含资产类型', () async {
+    final scene = engine.addAsset(
+        projectId: projectId, type: 'scene', name: '山门', describe: '雪夜');
+    final tool = engine.addAsset(
+        projectId: projectId, type: 'tool', name: '灵剑', describe: '长剑');
+    final audio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: '');
+
+    gateway.toolResult = (user) {
+      expect(user, contains('资产ID:$scene'));
+      expect(user, contains('名称:山门'));
+      expect(user, contains('描述:雪夜'));
+      expect(user, contains('类型:scene'));
+      expect(user, contains('资产ID:$tool'));
+      expect(user, contains('类型:tool'));
+      expect(user, isNot(contains('待匹配角色')));
+      return {
+        'matches': [
+          {'assetId': scene, 'audioAssetId': audio},
+          {'assetId': tool, 'audioAssetId': audio},
+        ],
+      };
+    };
+    final taskId = engine.batchBindAudio(projectId, [scene, tool]);
+    final related = jsonDecode(db.select(
+        'SELECT relatedObjects FROM o_tasks WHERE id=?',
+        [taskId]).single['relatedObjects'] as String) as Map<String, dynamic>;
+    expect(related['assetIds'], [scene, tool]);
+    expect(related.containsKey('roleIds'), isFalse);
+    await waitTask(taskId);
+
+    final bindings = engine.assetAudioBindings(projectId);
+    expect(bindings.firstWhere((b) => b.assetId == scene).audioAssetId, audio);
+    expect(bindings.firstWhere((b) => b.assetId == tool).audioAssetId, audio);
+    final matchItem = ((gateway.lastSchema!['properties'] as Map)['matches']
+        as Map)['items'] as Map;
+    expect((matchItem['properties'] as Map).containsKey('assetId'), isTrue);
+    expect(matchItem['required'], contains('assetId'));
+  });
+
+  test('旧 roleIds payload 和 roleId 工具结果仍可恢复执行', () async {
+    final role = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: '剑客');
+    final audio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: '');
+    gateway.toolResult = (_) => {
+          'matches': [
+            {'roleId': role, 'audioAssetId': audio},
+          ],
+        };
+    db.execute(
+      "INSERT INTO o_tasks (projectId,state,taskClass,describe,relatedObjects,startTime) "
+      "VALUES (?,'pending','audio_bind','配音绑定',?,?)",
+      [
+        projectId,
+        jsonEncode({
+          'kind': 'role',
+          'roleIds': [role]
+        }),
+        DateTime.now().millisecondsSinceEpoch,
+      ],
+    );
+    final taskId = db.lastInsertRowId;
+
+    await waitTask(taskId);
+    expect(engine.roleAudioBindings(projectId).single.audioAssetId, audio);
   });
 
   test('无候选音频池时抛 errPromptMissing', () async {
@@ -123,9 +239,9 @@ void main() {
         projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
     final taskId = engine.batchBindAudio(projectId, [role1]);
     await waitTask(taskId, expectState: 'failed');
-    final reason = db
-        .select('SELECT reason FROM o_tasks WHERE id=?', [taskId])
-        .first['reason'] as String;
+    final reason = db.select(
+            'SELECT reason FROM o_tasks WHERE id=?', [taskId]).first['reason']
+        as String;
     expect(EngineException.fromReasonJson(reason)?.errKey, errPromptMissing);
   });
 
@@ -159,24 +275,42 @@ void main() {
     expect(abs, endsWith('voice.mp3'));
   });
 
-  test('LLM 返回越权/无效 id 时安全忽略', () async {
-    final role1 = engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    engine.addAsset(
+  test('LLM 返回越权 asset/audio id 时不写绑定', () async {
+    final scene = engine.addAsset(
+        projectId: projectId, type: 'scene', name: '山门', describe: 'x');
+    final unselectedTool = engine.addAsset(
+        projectId: projectId, type: 'tool', name: '灵剑', describe: 'x');
+    final localAudio = engine.addAsset(
         projectId: projectId, type: 'audio', name: '音A', describe: 'x');
+    final otherProject = engine.addProject(projectType: 'novel', name: '其他项目');
+    final foreignAudio = engine.addAsset(
+        projectId: otherProject, type: 'audio', name: '越权音频', describe: 'x');
     gateway.toolResult = (_) => {
           'matches': [
-            {'roleId': 9999, 'audioAssetId': 9999}, // 无效角色/音频 id
+            {'assetId': unselectedTool, 'audioAssetId': localAudio},
+            {'assetId': scene, 'audioAssetId': foreignAudio},
           ],
         };
-    final taskId = engine.batchBindAudio(projectId, [role1]);
+    final taskId = engine.batchBindAudio(projectId, [scene]);
     await waitTask(taskId);
-    expect(engine.roleAudioBindings(projectId).single.audioAssetId, isNull);
+    expect(
+        engine
+            .assetAudioBindings(projectId)
+            .firstWhere((b) => b.assetId == scene)
+            .audioAssetId,
+        isNull);
+    expect(
+        engine
+            .assetAudioBindings(projectId)
+            .firstWhere((b) => b.assetId == unselectedTool)
+            .audioAssetId,
+        isNull);
   });
 }
 
 class _Gateway implements ProviderGateway {
   Map<String, dynamic> Function(String user)? toolResult;
+  Map<String, dynamic>? lastSchema;
 
   @override
   Future<Map<String, dynamic>> generateToolJson(String system, String user,
@@ -186,6 +320,7 @@ class _Gateway implements ProviderGateway {
       CancelToken? cancelToken}) async {
     expect(stage, 'asset_extract');
     expect(toolName, 'resultTool');
+    lastSchema = schema;
     await Future<void>.delayed(const Duration(milliseconds: 5));
     return toolResult!(user);
   }
