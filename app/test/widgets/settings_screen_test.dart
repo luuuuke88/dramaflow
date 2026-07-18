@@ -23,6 +23,15 @@ class _NoopGateway implements ProviderGateway {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _CandidatesGateway implements ProviderGateway {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  Future<List<String>> listRemoteModelIds(String providerId) async =>
+      ['deepseek-v4-flash', 'deepseek-v4-pro', 'brand-new-model'];
+}
+
 class _RecordingHttpGateway extends HttpProviderGateway {
   final calls = <String>[];
 
@@ -231,11 +240,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('模型管理 · Local Gateway'), findsOneWidget);
 
-    await tester.tap(find.text('添加模型').first);
+    await tester.tap(find.byKey(const Key('model-editor-add')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'local-text');
     await tester.enterText(find.byType(TextField).at(1), '本地文本模型');
-    await tester.tap(find.text('保存'));
+    await tester.tap(find.byKey(const Key('model-editor-save')));
     await tester.pumpAndSettle();
 
     final models = await engine.listProviderModels(provider.id);
@@ -368,7 +377,7 @@ void main() {
       ' video/seedance2-multi.md ',
     );
 
-    await tester.tap(find.text('保存'));
+    await tester.tap(find.byKey(const Key('model-editor-save')));
     await tester.pumpAndSettle();
 
     final model = (await engine.listProviderModels(provider.id)).single;
@@ -432,7 +441,7 @@ void main() {
     await tester.tap(find.byKey(
       const ValueKey('video-capability-mode-first_frame-seedance-validated'),
     ));
-    await tester.tap(find.text('保存'));
+    await tester.tap(find.byKey(const Key('model-editor-save')));
     await tester.pumpAndSettle();
     expect(find.text('视频模型至少需要一种生成模式'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
@@ -447,7 +456,7 @@ void main() {
       ),
       '-1',
     );
-    await tester.tap(find.text('保存'));
+    await tester.tap(find.byKey(const Key('model-editor-save')));
     await tester.pumpAndSettle();
     expect(find.text('视频参考数量不能为负数'), findsOneWidget);
   });
@@ -672,6 +681,86 @@ void main() {
     await tester.tap(find.text('花钱操作需确认'));
     await tester.pumpAndSettle();
     expect(engine.config.str('policy.confirmMoney'), '1');
+  });
+
+  testWidgets('模型管理：从 API 拉取候选，未分类必须定 kind 才能加入，且默认禁用', (tester) async {
+    // 换成能应答 /models 的 fake gateway（沿用本文件 setUp 的 db/media 构造方式）
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'media')),
+      gateway: _CandidatesGateway(),
+      config: EngineConfig(db, isMobile: true),
+    );
+    // deepseek 预设当前模型清单为 deepseek-v4-flash / deepseek-v4-pro
+    // （deepseek-chat 已随预设目录更新下线，2026-07-19 复核见 provider_presets.dart）。
+    await engine.createProviderFromPreset(
+        presetId: 'deepseek',
+        apiKey: 'k',
+        selectedModelIds: ['deepseek-v4-flash']);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('模型管理').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('model-editor-fetch-models')));
+    await tester.pumpAndSettle();
+
+    // deepseek-v4-flash 已在清单 → 候选剩 deepseek-v4-pro（目录已知，应自动
+    // 归类）与 brand-new-model（目录未收录，未分类）。
+    expect(
+        find.byKey(const Key('candidate-row-brand-new-model')), findsOneWidget);
+    expect(
+        find.byKey(const Key('candidate-row-deepseek-v4-pro')), findsOneWidget);
+    expect(
+        find.byKey(const Key('candidate-row-deepseek-v4-flash')), findsNothing);
+    expect(find.text('未分类'), findsOneWidget); // 仅 brand-new-model 未分类
+
+    // Task 1 目录已知模型（deepseek-v4-pro）：kind 应自动预填为 text，
+    // 不是留空（spec §5 第 5 条），且勾选它无需手动选类型即可通过校验。
+    final preFilledKind = tester.widget<DropdownButton<String>>(
+        find.byKey(const Key('candidate-kind-deepseek-v4-pro')));
+    expect(preFilledKind.value, 'text', reason: 'Task 1 目录已知模型应自动填充 kind，而非留空');
+    await tester.tap(find.byKey(const Key('candidate-check-deepseek-v4-pro')));
+    await tester.pump();
+
+    // 不定 kind 勾选加入 → 行内报错，不关弹层
+    await tester.tap(find.byKey(const Key('candidate-check-brand-new-model')));
+    await tester.pump();
+    await tester.tap(find.text('加入清单'));
+    await tester.pump();
+    expect(find.text('请先为勾选的模型选择类型'), findsOneWidget);
+
+    // 定 kind = 图片 → 加入成功
+    await tester.tap(find.byKey(const Key('candidate-kind-brand-new-model')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('图片').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('加入清单'));
+    await tester.pumpAndSettle();
+    // 新草稿同时预填模型 ID 与显示名称，两个输入框都应保留远端 ID。
+    expect(find.text('brand-new-model'), findsNWidgets(2));
+
+    // 保存后落库：新模型默认禁用；已知目录模型 kind 正确落地；原模型不受影响
+    await tester.tap(find.byKey(const Key('model-editor-save')));
+    await tester.pumpAndSettle();
+    final models = await engine.listProviderModels('deepseek');
+    final byId = {for (final m in models) m.modelId: m};
+    expect(byId['brand-new-model']!.kind, 'image');
+    expect(byId['brand-new-model']!.enabled, isFalse,
+        reason: '拉取候选默认禁用（spec §5 第 5 条）');
+    expect(byId['deepseek-v4-pro']!.kind, 'text',
+        reason: '目录已知模型的自动预填 kind 应随保存正确落库');
+    expect(byId['deepseek-v4-pro']!.enabled, isFalse,
+        reason: '拉取候选默认禁用（spec §5 第 5 条），即便 kind 是自动预填的');
+    expect(byId['deepseek-v4-flash']!.enabled, isTrue, reason: '已有条目不受影响');
   });
 }
 

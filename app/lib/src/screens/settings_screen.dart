@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api/models.dart';
 import '../engine/db_admin.dart';
+import '../engine/provider_presets.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
@@ -2190,6 +2191,52 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
     draft.dispose();
   }
 
+  Future<void> _fetchCandidates() async {
+    final l10n = context.l10n;
+    List<String> ids;
+    try {
+      ids = await ref
+          .read(engineProvider)
+          .fetchProviderModelCandidates(widget.provider.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      return;
+    }
+    if (!mounted) return;
+    final known = {for (final d in _drafts) d.modelId.text.trim()};
+    final candidates = [
+      for (final id in ids)
+        if (!known.contains(id)) id,
+    ];
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.presetFetchEmpty)));
+      return;
+    }
+    final picked = await showModalBottomSheet<List<(String, String)>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _CandidateSheet(
+        candidates: candidates,
+        knownKinds: presetModelKinds(widget.provider.id),
+      ),
+    );
+    if (picked == null || picked.isEmpty || !mounted) return;
+    setState(() {
+      for (final (id, kind) in picked) {
+        _drafts.add(_ModelDraft(
+          id: '',
+          modelId: TextEditingController(text: id),
+          label: TextEditingController(text: id),
+          kind: kind,
+          capabilities: <String, dynamic>{},
+          enabled: false, // spec：候选默认禁用，用户手动启用
+        ));
+      }
+    });
+  }
+
   Future<void> _save() async {
     final l10n = context.l10n;
     for (final draft in _drafts) {
@@ -2245,17 +2292,47 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
       appBar: AppBar(
         title: Text(l10n.settingsModelManagementTitle(widget.provider.name)),
         actions: [
-          TextButton.icon(
-            onPressed: _addModel,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(l10n.settingsAddModel),
-          ),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.save_outlined, size: 18),
-            label: Text(l10n.settingsSaveModels),
-          ),
+          if (wide) ...[
+            TextButton.icon(
+              key: const Key('model-editor-add'),
+              onPressed: _addModel,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(l10n.settingsAddModel),
+            ),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              key: const Key('model-editor-fetch-models'),
+              onPressed: _fetchCandidates,
+              icon: const Icon(Icons.cloud_download_outlined, size: 18),
+              label: Text(l10n.presetFetchModels),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              key: const Key('model-editor-save'),
+              onPressed: _save,
+              icon: const Icon(Icons.save_outlined, size: 18),
+              label: Text(l10n.settingsSaveModels),
+            ),
+          ] else ...[
+            IconButton(
+              key: const Key('model-editor-add'),
+              onPressed: _addModel,
+              icon: const Icon(Icons.add_rounded),
+              tooltip: l10n.settingsAddModel,
+            ),
+            IconButton(
+              key: const Key('model-editor-fetch-models'),
+              onPressed: _fetchCandidates,
+              icon: const Icon(Icons.cloud_download_outlined),
+              tooltip: l10n.presetFetchModels,
+            ),
+            IconButton(
+              key: const Key('model-editor-save'),
+              onPressed: _save,
+              icon: const Icon(Icons.save_outlined),
+              tooltip: l10n.settingsSaveModels,
+            ),
+          ],
           const SizedBox(width: 16),
         ],
       ),
@@ -2511,6 +2588,111 @@ List<String> _uniqueStrings(String raw) {
     if (value.isNotEmpty && !values.contains(value)) values.add(value);
   }
   return values;
+}
+
+class _CandidateSheet extends StatefulWidget {
+  final List<String> candidates;
+  final Map<String, String> knownKinds;
+  const _CandidateSheet({required this.candidates, required this.knownKinds});
+
+  @override
+  State<_CandidateSheet> createState() => _CandidateSheetState();
+}
+
+class _CandidateSheetState extends State<_CandidateSheet> {
+  late final Map<String, String?> _kinds = {
+    for (final id in widget.candidates) id: widget.knownKinds[id],
+  };
+  final Set<String> _checked = {};
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    String kindLabel(String k) => switch (k) {
+          'image' => l10n.presetKindImage,
+          'video' => l10n.presetKindVideo,
+          'tts' => l10n.presetKindTts,
+          _ => l10n.presetKindText,
+        };
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final id in widget.candidates)
+                    Row(
+                      key: Key('candidate-row-$id'),
+                      children: [
+                        Checkbox(
+                          key: Key('candidate-check-$id'),
+                          value: _checked.contains(id),
+                          onChanged: (v) => setState(() {
+                            if (v == true) {
+                              _checked.add(id);
+                            } else {
+                              _checked.remove(id);
+                            }
+                          }),
+                        ),
+                        Expanded(
+                          child: Text(id,
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                        DropdownButton<String>(
+                          key: Key('candidate-kind-$id'),
+                          value: _kinds[id],
+                          hint: Text(l10n.presetUncategorized),
+                          items: [
+                            for (final k in const [
+                              'text',
+                              'image',
+                              'video',
+                              'tts'
+                            ])
+                              DropdownMenuItem(
+                                  value: k, child: Text(kindLabel(k))),
+                          ],
+                          onChanged: (v) => setState(() => _kinds[id] = v),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!,
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error)),
+              ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () {
+                final missing =
+                    _checked.where((id) => _kinds[id] == null).toList();
+                if (missing.isNotEmpty) {
+                  setState(() => _error = l10n.presetKindRequired);
+                  return;
+                }
+                Navigator.of(context).pop([
+                  for (final id in _checked) (id, _kinds[id]!),
+                ]);
+              },
+              child: Text(l10n.presetAddCandidates),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ModelsTable extends StatelessWidget {
