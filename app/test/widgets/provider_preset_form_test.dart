@@ -110,4 +110,34 @@ void main() {
     final models = await engine.listProviderModels('deepseek');
     expect(models.map((m) => m.modelId).toList(), ['deepseek-v4-flash']);
   });
+
+  testWidgets('保存失败（供应商已存在）：展示本地化文案，不泄漏原始异常（评审 round 2）',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    // 复用 Task 2 已在引擎层验证过的 errProviderExists 场景：预先真实创建一次
+    // 同 presetId 的供应商，制造表单在“重复创建竞争”下会遇到的真实异常
+    // （不是伪造/mock 出来的），再让表单对同一 presetId 保存去触发它。
+    await engine.createProviderFromPreset(
+      presetId: 'deepseek',
+      apiKey: '',
+      selectedModelIds: const ['deepseek-v4-flash'],
+    );
+
+    await tester.pumpWidget(host());
+    await tester.tap(find.byKey(const Key('open-form')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('preset-form-save')));
+    await tester.pumpAndSettle();
+
+    // 必须是 Task 4 添加的本地化文案（app_zh.arb: presetProviderExists），
+    // 而不是 EngineException.toString() 产出的原始
+    // `errProviderExists {providerId: deepseek}`。
+    expect(find.text('该供应商已添加，请直接编辑'), findsOneWidget);
+    expect(find.textContaining('errProviderExists'), findsNothing);
+    expect(find.textContaining('providerId'), findsNothing);
+  });
 }

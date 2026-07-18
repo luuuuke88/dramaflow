@@ -222,7 +222,7 @@ Future<void> runAction(
   } on EngineException catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_engineErrorText(context, e),
+        content: Text(engineErrorText(context, e),
             style: const TextStyle(color: Colors.white)),
         backgroundColor: context.df.red,
         duration: const Duration(seconds: 4),
@@ -231,7 +231,11 @@ Future<void> runAction(
   }
 }
 
-String _engineErrorText(BuildContext context, EngineException error) {
+/// EngineException.errKey → 本地化文案的唯一映射。`runAction` 内部用它渲染
+/// SnackBar；不经过 `runAction`（例如保存失败需要保留对话框、行内展示错误，
+/// 不能先关闭再弹 SnackBar）的屏幕也应复用这个函数，而不是各自把
+/// EngineException 的 errKey/参数 Map 原样 toString() 给用户看。
+String engineErrorText(BuildContext context, EngineException error) {
   final l10n = AppLocalizations.of(context);
   return switch (error.errKey) {
     errProviderMissing => l10n.errProviderMissing,

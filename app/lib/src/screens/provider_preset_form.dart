@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../engine/provider_presets.dart';
+import '../engine/util.dart';
 import '../state/providers.dart';
 import '../util/l10n_ext.dart';
+import '../widgets/common.dart';
 import '../widgets/df_adaptive_dialog.dart';
 
 /// 预设预填表单（spec §5 第 2 条）。返回 true = 创建成功。
@@ -67,10 +69,27 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
             baseUrl: _baseUrl.text,
           );
       if (mounted) Navigator.of(context).pop(true);
-    } catch (e) {
+    } on EngineException catch (e) {
+      // 与 settings_screen.dart 其它供应商增删改路径同源的本地化映射
+      // （common.dart 的 engineErrorText，runAction 内部也用它），不把
+      // errKey/参数 Map 原样 toString() 展示给用户。errProviderExists 是最
+      // 现实的失败场景（重复创建竞争），路由到 Task 4 专门加的文案。
+      if (!mounted) return;
+      final l10n = context.l10n;
       setState(() {
         _saving = false;
-        _error = '$e';
+        _error = e.errKey == errProviderExists
+            ? l10n.presetProviderExists
+            : engineErrorText(context, e);
+      });
+    } catch (e) {
+      // 非 EngineException 的意外失败：Task 2/3 的引擎方法已把用户能真实
+      // 触发的失败（重复创建/缺模型/网络/凭证）包装成 EngineException 走上面
+      // 分支；这里退到已有的通用“操作失败”本地化文案，绝不裸露 '$e'。
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = context.l10n.projectMsgOperationFailed;
       });
     }
   }
