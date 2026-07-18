@@ -246,7 +246,7 @@ voice_880hz_1500ms.m4a  19626 字节
 | 4(a)，第 95–96 行 | 向 Work/Derivative Works 的接收者提供一份 License 副本 | 仓库根目录、`app/` 目录均未发现 `LICENSE` 文件（`find . -iname "LICENSE*"` 核实，DramaFlow 仓库内目前无匹配文件） |
 | 4(b)，第 98–99 行 | 修改过的文件须带有说明"你修改过此文件"的显著提示 | 第 2.2 节 A/B 类列出的文件头部注释（如"照抄 addAssets.vue""逐行移植 toonflow-parseNovel.ts"）客观上起到了"本文件相对 ToonFlow 源文件有变化/来源说明"的作用，但这些是审计中人工识别到的、非统一格式的散在注释，不是 Apache License 语境下正式的"modified files carry prominent notices"声明 |
 | 4(c)，第 101–105 行 | Derivative Works 的 Source form 中保留 Work 的版权/专利/商标/署名声明（不涉及本 Derivative Works 的部分除外） | 未发现 DramaFlow 仓库内有统一的、集中的版权/商标声明保留机制；第 2.2 节所列文件的头部注释是功能性来源说明，不等同于版权声明保留 |
-| 4(d)，第 107–122 行 | 若 Work 含 NOTICE 文本文件，Derivative Works 分发时须在（NOTICE 文件 / Source 或文档 / 生成的显示界面）三处之一包含该 NOTICE 内容的可读副本（不涉及本 Derivative Works 的部分除外） | `Toonflow-app/NOTICES.txt` 存在（332 行，56 个第三方 npm 包属性，见 4.3）；DramaFlow 仓库内未发现 `NOTICE`/`NOTICES` 文件，`README.md` 全文无许可证/版权相关字样（已 `grep -in "license\|apache\|copyright\|agpl" README.md` 核实为零命中） |
+| 4(d)，第 107–122 行 | 若 Work 含 NOTICE 文本文件，Derivative Works 分发时须在（NOTICE 文件 / Source 或文档 / 生成的显示界面）三处之一包含该 NOTICE 内容的可读副本（不涉及本 Derivative Works 的部分除外） | `Toonflow-app/NOTICES.txt` 存在（332 行，56 个第三方 npm 包属性，见 4.3）；DramaFlow 仓库内未发现 `NOTICE`/`NOTICES` 文件，`README.md` 全文无许可证/版权相关字样（已分别用 grep 核对 license、apache、copyright、agpl 四个关键词，均为零命中） |
 
 **第 6 条 Trademarks（第 139–142 行）事实核对**：该条款是 Apache-2.0 标准的商标免责声明（License 本身不授予使用 Licensor 商标的权利），与第 5 节讨论的补充协议品牌保留条款（第 218/220 行）是两个不同来源的条款，分别记录、不合并。
 
