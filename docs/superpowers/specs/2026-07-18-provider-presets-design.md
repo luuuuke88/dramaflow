@@ -25,6 +25,10 @@ class ProviderPreset {
   final String baseUrl;       // 预填端点
   final String keyUrl;        // "前往平台"拿 Key 的控制台链接
   final String protocol;      // 第一期均为 'openai_compatible'（火山为 'volcengine'）
+  final bool compatMode;      // true = 走官方 OpenAI 兼容层而非原生 API（Claude/Gemini/Grok），
+                              // 画廊卡片显示"兼容模式"角标，不暗示完整原生能力
+  final String sourceUrl;     // 模型清单出处（官方模型文档页）
+  final String verifiedAt;    // 'YYYY-MM-DD'，最后一次按 sourceUrl 人工核实模型清单的日期
   final List<PresetModel> models;
 }
 
@@ -36,19 +40,21 @@ class PresetModel {
 }
 ```
 
+**模型清单硬门**：`verifiedAt`/`sourceUrl` 不是注释是门禁——实施计划中，任何模型 ID 未经当日对照 sourceUrl 核实（或经该家真实 API 调用验证）不得写入常量；核实后必须填 `verifiedAt`。目录单测断言两字段非空。
+
 许可证红线：目录内容全部独立编写。公开 API 端点与模型 ID 是事实数据；**不复制 ToonFlow 的 `data/vendor/*.ts` 任何代码或文案**（其许可证非标准 Apache-2.0，W0 审计已确认）。
 
 ## 4. 目录内容（12 家预设 + 自定义入口，画廊 13 张卡）
 
-预置模型为 2-4 个旗舰模型的**策展快照**；下表模型 ID 以设计时点的公开资料为准，**实施时逐家用官方文档或 `GET /models` 核实**（核实属于实施计划的一个显式步骤，不是可跳过的注脚）。过时问题由"从 API 拉取模型列表"按钮（§5.4）长效解决。
+预置模型为 2-4 个旗舰模型的**策展快照**；下表模型 ID 以设计时点的公开资料为准，**实施时逐家用官方文档或 `GET /models` 核实**（核实属于实施计划的一个显式步骤，不是可跳过的注脚）。过时问题由"从 API 拉取模型列表"按钮（§5 第 5 条）长效解决。
 
-| # | id | 名称 | BaseURL | 预置模型（kind） |
+| # | id | 名称 | BaseURL | 预置模型（kind）——写入常量前逐条过 §3 硬门 |
 |---|---|---|---|---|
-| 1 | openai | OpenAI | https://api.openai.com/v1 | gpt-5.1(text)、gpt-5.1-mini(text)、gpt-image-1(image) |
-| 2 | anthropic | Claude (Anthropic) | https://api.anthropic.com/v1 | claude-sonnet-5(text)、claude-opus-4-8(text)、claude-haiku-4-5(text) |
-| 3 | gemini | Gemini (Google) | https://generativelanguage.googleapis.com/v1beta/openai | gemini-3-pro(text)、gemini-2.5-flash(text)；图片走原生 API，待协议后补 |
-| 4 | xai | Grok (xAI) | https://api.x.ai/v1 | grok-4(text)、grok-4-fast(text) |
-| 5 | openrouter | OpenRouter | https://openrouter.ai/api/v1 | anthropic/claude-sonnet-5(text)、google/gemini-3-pro(text)、openai/gpt-5.1(text) |
+| 1 | openai | OpenAI | https://api.openai.com/v1 | GPT-5.6 系（sol/terra/luna，text）、gpt-image-2(image)；出处 developers.openai.com/api/docs/models |
+| 2 | anthropic | Claude (Anthropic) | https://api.anthropic.com/v1 | claude-sonnet-5(text)、claude-opus-4-8(text)、claude-haiku-4-5(text)；**兼容模式** |
+| 3 | gemini | Gemini (Google) | https://generativelanguage.googleapis.com/v1beta/openai | gemini-3.5-flash(text) 及当期 pro 型号；**兼容模式**（官方标 beta）；图片走原生 API，待协议后补 |
+| 4 | xai | Grok (xAI) | https://api.x.ai/v1 | Grok 4.3/4.5 当期型号(text)；**兼容模式**（Chat Completions 已被 xAI 标 legacy） |
+| 5 | openrouter | OpenRouter | https://openrouter.ai/api/v1 | anthropic/claude-sonnet-5(text)、google/gemini-3-pro(text) 等当期热门(text) |
 | 6 | siliconflow | 硅基流动 | https://api.siliconflow.cn/v1 | deepseek-ai/DeepSeek-V3.2(text)、Qwen/Qwen3-Max(text)、Kwai-Kolors/Kolors(image) |
 | 7 | deepseek | DeepSeek | https://api.deepseek.com/v1 | deepseek-chat(text)、deepseek-reasoner(text) |
 | 8 | moonshot | Kimi (Moonshot) | https://api.moonshot.cn/v1 | kimi-latest(text)、kimi-thinking-preview(text) |
@@ -60,30 +66,46 @@ class PresetModel {
 
 keyUrl 每家指向其控制台 API Key 页（如 platform.openai.com/api-keys、console.anthropic.com、aistudio.google.com/apikey 等，实施时逐一核实链接有效）。
 
-默认种子行为不变：仍只种 azt（桌面）+ volcengine，其余 11 家通过画廊按需添加。
+**兼容模式的诚实标注**：Anthropic 官方明确其 OpenAI 兼容层"主要用于测试比较，非长期生产方案"；Gemini 兼容层官方标 beta；xAI 已把 Chat Completions 标 legacy。这三家画廊卡片显示"兼容模式"角标（`compatMode: true`），文案不得暗示完整原生能力；这也是"协议后补"阶段的优先级依据。
+
+**每家预设的验收标准**（不是"模型出现在 /models 就算通"——现有引擎文本恒走 `/chat/completions` 且携带 `tools/tool_choice/max_completion_tokens`，openai_text.dart:64）：
+1. 普通文本生成真实调用通过；
+2. 强制工具调用/结构化 JSON 输出通过（剧本、事件抽取、Agent 全依赖此路径）；
+3. 声称有"图片"角标的，图片生成与编辑真实调用通过——不通过则该家不显示图片能力；
+4. `GET /models` 拉取通过（不通的记录进该家 preset 备注，拉取按钮就地报错属预期）。
+验收方式：实施计划中的人工验收清单（需真实 Key，不进默认 CI），可另配 env-gated 集成测试。
+
+默认种子行为不变：仍只种 azt（桌面）+ volcengine，其余 10 家通过画廊按需添加。
 
 ## 5. UI 流程
 
 1. **画廊**：点"添加供应商"→ `showDFAdaptiveDialog` 弹预设画廊（手机 <840dp 自动全屏，与全 app 一致）。网格卡片 = 字母色块头像（不采购品牌 logo，避免商标与素材问题）+ 名称 + 能力角标（文字/图片/视频 chips）。手机 2 列、桌面 3-4 列。末位"自定义"卡。
-2. **预填表单**：选中预设后进入表单：名称可改、BaseURL 已预填可改、**焦点直接落在 API Key 输入框**、旁置"前往平台"外链（keyUrl）、下方预置模型清单（勾选框默认全勾，可取消不要的）。保存 = 调现有 `createProvider` + `saveProviderModels`。azt 类 loopback 地址沿用现有"本地地址免 Key"逻辑。
-3. **自定义路径**：与现在的裸表单完全一致，现有测试零改动即应继续通过（回归保障）。
-4. **从 API 拉取模型列表**：模型管理弹窗新增按钮，调 `GET {baseUrl}/models`（OpenAI 兼容端点普遍支持）。返回的新模型 ID 合并进清单（**默认禁用**，用户手动勾启用；已有条目不覆盖）。拉取失败就地报错——部分供应商不实现该端点，属预期而非 bug。
+2. **预填表单**：选中预设后进入表单：名称可改、BaseURL 已预填可改、**焦点直接落在 API Key 输入框**（`obscureText: true` + 明文切换眼睛按钮，对齐现有供应商表单的 Key 处理）、旁置"前往平台"外链（keyUrl）、下方预置模型清单（勾选框默认全勾，可取消不要的）。保存 = 调新增的 **`createProviderFromPreset`**（§6，单次原子调用，不用现有两步 create+saveModels——两步在第二步失败时会留下空供应商）。azt 类 loopback 地址沿用现有"本地地址免 Key"逻辑。
+3. **重复防护与"已添加"态**：画廊里已存在实例的预设（含默认种子 azt/volcengine）显示"已添加"角标，点击进入该供应商的**编辑**而非再次创建。第一版每个预设只允许一个实例；同一家要多账号走"自定义"。这同时封死现有 `createProvider` 的凭证覆盖缺陷路径（engine.dart:1163-1168 先写凭证后 INSERT，同名 slug 冲突时旧 Key 已被覆盖）——预设路径根本不会走到同名创建。
+4. **自定义路径**：与现在的裸表单完全一致，现有测试零改动即应继续通过（回归保障）。
+5. **从 API 拉取模型列表**：模型管理弹窗新增按钮，调 `GET {baseUrl}/models`。**拉取只返回候选，不直接写库**——标准 /models 响应只有 ID、无法判定模态，而引擎要求 kind ∈ {text,image,video,tts}（engine.dart:1578）。候选列表中：ID 与该家预设目录匹配的自动带出目录里的 kind；未知 ID 标"未分类"且**默认禁用，用户指定 kind 后才能启用保存，绝不默认猜成 text**。已有条目不覆盖。拉取失败就地报错——部分供应商不实现该端点，属预期而非 bug。
 
-国际化：画廊/表单的 UI 文案（"选择供应商""前往平台""从 API 拉取"等）走现有 l10n（zh/en 双份）；品牌名不翻译。
+国际化：画廊/表单的 UI 文案（"选择供应商""前往平台""从 API 拉取""兼容模式""已添加""未分类"等）走现有 l10n，**中/英/日三语**（app.dart:78-82 supportedLocales 为 zh/en/ja）；品牌名不翻译。
 
 ## 6. 引擎改动（刻意最小）
 
 - 新增 `provider_presets.dart`：常量目录 + 单元测试。
-- 新增 `fetchRemoteModels(providerId)`：gateway 层小函数，dio 调 `GET /models`、解析 `data[].id`、按 §5.4 规则合并。仅此一个新网络调用。
-- 不改：数据库 schema、`createProvider`/`saveProviderModels` 签名、协议分发、种子逻辑。
+- 新增 **`createProviderFromPreset(presetId, apiKey, selectedModelIds)`**：单次原子创建。顺序与失败语义：
+  1. 先查 `o_vendorConfig` 是否已有该 preset 实例（按 preset id 即 slug 查）——已存在直接抛"已添加"错误，**凭证一个字节都不写**（修复现有 `createProvider` 先写凭证后 INSERT、同名冲突时覆盖旧 Key 的缺陷路径）；
+  2. 无冲突后写凭证、INSERT 供应商与模型（同一调用内完成，不存在"建了供应商没模型"的半成品窗口）；
+  3. INSERT 失败时删除刚写入的新凭证再抛错，不留孤儿凭证。
+- 新增 `fetchRemoteModelCandidates(providerId)`：gateway 层小函数，dio 调 `GET /models`、解析 `data[].id`，**只返回候选列表不写库**（写库由 UI 在用户定 kind 后走现有 `saveProviderModels`）。仅此一个新网络调用。
+- 不改：数据库 schema、现有 `createProvider`/`saveProviderModels` 签名（自定义路径继续用）、协议分发、种子逻辑。
 
 ## 7. 测试计划
 
-- **目录单测**（`provider_presets_test.dart`）：12 家预设 id 唯一（custom 是 UI 入口不进目录常量）；URL 均为合法 https（azt 例外允许 http loopback）；每家 protocol ∈ {openai_compatible, volcengine}；模型清单非空且 kind ∈ {text,image,video,tts}；keyUrl 非空。
-- **画廊 widget 测试**：390px 与桌面各渲染一遍（沿用现有测试的手机视口约定）；断言 13 卡 + 自定义卡齐全、能力角标正确。
-- **预填流程测试**：选中某预设 → 断言表单 BaseURL/模型清单与目录一致；填 Key 保存 → 断言 in-memory 引擎里真实建出供应商与模型（含 kind/capabilities）。
+- **目录单测**（`provider_presets_test.dart`）：12 家预设 id 唯一（custom 是 UI 入口不进目录常量）；URL 均为合法 https（azt 例外允许 http loopback）；每家 protocol ∈ {openai_compatible, volcengine}；模型清单非空且 kind ∈ {text,image,video,tts}；keyUrl 非空；**verifiedAt/sourceUrl 非空**（§3 硬门的机器锁）。
+- **`createProviderFromPreset` 单测**：重复创建 → 抛"已添加"且断言旧凭证值未变（直击 P0 缺陷场景）；INSERT 失败注入 → 断言新凭证被回滚删除；正常路径 → 供应商+模型一次到位无中间态。
+- **画廊 widget 测试**：390px 与桌面各渲染一遍（沿用现有测试的手机视口约定）；断言 12 预设卡 + 自定义卡齐全、能力角标正确、兼容模式角标只出现在 anthropic/gemini/xai、已存在实例的卡显示"已添加"并进编辑。
+- **预填流程测试**：选中某预设 → 断言表单 BaseURL/模型清单与目录一致、Key 框 obscureText 且可切换明文；填 Key 保存 → 断言 in-memory 引擎里真实建出供应商与模型（含 kind/capabilities）。
 - **自定义回归**：现有添加供应商测试不改动、继续绿。
-- **拉取合并单测**：mock 网络层——新模型进来默认禁用、已有条目不被覆盖、端点 404/超时时报错不崩。
+- **拉取候选单测**：mock 网络层——候选不落库；目录内 ID 自动带 kind；未知 ID 标未分类且不能不选 kind 就保存；已有条目不被覆盖；端点 404/超时报错不崩。
+- **每家真实连通验收**（人工/env-gated，需真实 Key，不进默认 CI）：按 §4 验收标准逐家过文本、工具调用/JSON、图片（如声称）、/models 四项。
 
 ## 8. 范围外（明确不做）
 
