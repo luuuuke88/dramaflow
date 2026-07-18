@@ -27,6 +27,7 @@ class ProviderPreset {
   final String protocol;      // 第一期均为 'openai_compatible'（火山为 'volcengine'）
   final bool compatMode;      // true = 走官方 OpenAI 兼容层而非原生 API（Claude/Gemini/Grok），
                               // 画廊卡片显示"兼容模式"角标，不暗示完整原生能力
+  final bool desktopOnly;     // true = iOS/Android 画廊不展示（本机 loopback 预设）
   final String sourceUrl;     // 模型清单出处（官方模型文档页）
   final String verifiedAt;    // 'YYYY-MM-DD'，最后一次按 sourceUrl 人工核实模型清单的日期
   final List<PresetModel> models;
@@ -41,6 +42,8 @@ class PresetModel {
 ```
 
 **模型清单硬门**：`verifiedAt`/`sourceUrl` 不是注释是门禁——实施计划中，任何模型 ID 未经当日对照 sourceUrl 核实（或经该家真实 API 调用验证）不得写入常量；核实后必须填 `verifiedAt`。目录单测断言两字段非空。
+
+**平台可达性硬门**：预设不能只因在桌面可用就出现在移动端。`azt` 的地址是本机 loopback OAuth 代理，iOS/Android 上会指向手机自身，因此标为 `desktopOnly` 并从移动画廊隐藏；这与引擎移动端不播种 azt 的既有行为一致。
 
 许可证红线：目录内容全部独立编写。公开 API 端点与模型 ID 是事实数据；**不复制 ToonFlow 的 `data/vendor/*.ts` 任何代码或文案**（其许可证非标准 Apache-2.0，W0 审计已确认）。
 
@@ -61,7 +64,7 @@ class PresetModel {
 | 9 | zhipu | 智谱 GLM | https://open.bigmodel.cn/api/paas/v4 | glm-4.6(text)、cogview-4(image) |
 | 10 | dashscope | 通义 Qwen | https://dashscope.aliyuncs.com/compatible-mode/v1 | qwen3-max(text)、qwen-plus(text)；图片是否过兼容层实施时验证，不通则不预置 |
 | 11 | volcengine | 火山豆包 | https://ark.cn-beijing.volces.com/api/v3 | 与现有种子一致：doubao-seed(text)、seedream(image)、seedance(video，protocol=volcengine) |
-| 12 | azt | azt (本地 Codex OAuth) | http://127.0.0.1:8787/v1 | 与现有种子一致：gpt-5.x(text)、gpt-image-2(image) |
+| 12 | azt | azt (本地 Codex OAuth) | http://127.0.0.1:8787/v1 | 与现有种子一致：gpt-5.x(text)、gpt-image-2(image)；**仅桌面展示** |
 | 13 | custom | 自定义 | —（画廊末位卡，进现有裸表单） | 无预置 |
 
 keyUrl 每家指向其控制台 API Key 页（如 platform.openai.com/api-keys、console.anthropic.com、aistudio.google.com/apikey 等，实施时逐一核实链接有效）。
@@ -79,7 +82,7 @@ keyUrl 每家指向其控制台 API Key 页（如 platform.openai.com/api-keys�
 
 ## 5. UI 流程
 
-1. **画廊**：点"添加供应商"→ `showDFAdaptiveDialog` 弹预设画廊（手机 <840dp 自动全屏，与全 app 一致）。网格卡片 = 字母色块头像（不采购品牌 logo，避免商标与素材问题）+ 名称 + 能力角标（文字/图片/视频 chips）。手机 2 列、桌面 3-4 列。末位"自定义"卡。
+1. **画廊**：点"添加供应商"→ `showDFAdaptiveDialog` 弹预设画廊（手机 <840dp 自动全屏，与全 app 一致）。网格卡片 = 字母色块头像（不采购品牌 logo，避免商标与素材问题）+ 名称 + 能力角标（文字/图片/视频 chips）。手机 2 列、桌面 3-4 列；`desktopOnly` 预设在 iOS/Android 不渲染。末位"自定义"卡。
 2. **预填表单**：选中预设后进入表单：名称可改、BaseURL 已预填可改、**焦点直接落在 API Key 输入框**（`obscureText: true` + 明文切换眼睛按钮，对齐现有供应商表单的 Key 处理）、旁置"前往平台"外链（keyUrl）、下方预置模型清单（勾选框默认全勾，可取消不要的）。保存 = 调新增的 **`createProviderFromPreset`**（§6，单次原子调用，不用现有两步 create+saveModels——两步在第二步失败时会留下空供应商）。azt 类 loopback 地址沿用现有"本地地址免 Key"逻辑。
 3. **重复防护与"已添加"态**：画廊里已存在实例的预设（含默认种子 azt/volcengine）显示"已添加"角标，点击进入该供应商的**编辑**而非再次创建。第一版每个预设只允许一个实例；同一家要多账号走"自定义"。这同时封死现有 `createProvider` 的凭证覆盖缺陷路径（engine.dart:1163-1168 先写凭证后 INSERT，同名 slug 冲突时旧 Key 已被覆盖）——预设路径根本不会走到同名创建。
 4. **自定义路径**：与现在的裸表单完全一致，现有测试零改动即应继续通过（回归保障）。
@@ -101,7 +104,7 @@ keyUrl 每家指向其控制台 API Key 页（如 platform.openai.com/api-keys�
 
 - **目录单测**（`provider_presets_test.dart`）：12 家预设 id 唯一（custom 是 UI 入口不进目录常量）；URL 均为合法 https（azt 例外允许 http loopback）；每家 protocol ∈ {openai_compatible, volcengine}；模型清单非空且 kind ∈ {text,image,video,tts}；keyUrl 非空；**verifiedAt/sourceUrl 非空**（§3 硬门的机器锁）。
 - **`createProviderFromPreset` 单测**：重复创建 → 抛"已添加"且断言旧凭证值未变（直击 P0 缺陷场景）；INSERT 失败注入 → 断言新凭证被回滚删除；正常路径 → 供应商+模型一次到位无中间态。
-- **画廊 widget 测试**：390px 与桌面各渲染一遍（沿用现有测试的手机视口约定）；断言 12 预设卡 + 自定义卡齐全、能力角标正确、兼容模式角标只出现在 anthropic/gemini/xai、已存在实例的卡显示"已添加"并进编辑。
+- **画廊 widget 测试**：390px 与桌面各渲染一遍，并显式模拟 iOS；桌面断言 12 预设卡 + 自定义卡齐全，iOS/Android 断言 `desktopOnly` 的 azt 不出现；能力角标正确、兼容模式角标只出现在 anthropic/gemini/xai、已存在实例的卡显示"已添加"并进编辑。
 - **预填流程测试**：选中某预设 → 断言表单 BaseURL/模型清单与目录一致、Key 框 obscureText 且可切换明文；填 Key 保存 → 断言 in-memory 引擎里真实建出供应商与模型（含 kind/capabilities）。
 - **自定义回归**：现有添加供应商测试不改动、继续绿。
 - **拉取候选单测**：mock 网络层——候选不落库；目录内 ID 自动带 kind；未知 ID 标未分类且不能不选 kind 就保存；已有条目不被覆盖；端点 404/超时报错不崩。

@@ -1,4 +1,4 @@
-# 供应商预设体系 Implementation Plan（v2，吸收 5+1 条评审）
+# 供应商预设体系 Implementation Plan（v3，执行中勘误已回写）
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -12,6 +12,10 @@
 
 **v2 变更记录（对 `cf41f32` 评审的回应）**：①原子创建改"INSERT 先行抢占（SELECT+INSERT 连续同步无 await，单 isolate 无插入窗口；PK 冲突→errProviderExists）→ 凭证后写 → 凭证失败删行"，并发场景下不存在"删掉别人凭证"的代码路径，补并发测试；②回滚测试改用 `BEFORE INSERT` 触发器与注入失败的 `CredentialStore`，真实走到目标分支；③`createProviderFromPreset` 增加 `name/baseUrl` 覆盖参数，表单可编辑字段真实生效；④volcengine 预设对齐真实种子（`doubao-seedance-2-0-mini-260615` + Mini capabilities），种子改为从目录构建（单一定义），`Engine.boot` 对照测试锁漂移；⑤Task 6 全量代码化（真实 `_ModelDraft` 字段名 `modelId`/`label`/`kind`/`enabled`，完整 `_CandidateSheet` 实现，真实测试 harness）；⑥新增 `acceptanceVerified` 字段与"未验证"角标——未过人工验收的预设上架但明示未验证，azt 的"已验"在验收表中附证据。
 
+**v3 执行勘误（2026-07-19）**：①azt 是桌面机本地 loopback OAuth 代理，移动端展示会导致用户调用手机自身的 `127.0.0.1`；目录新增 `desktopOnly`，iOS/Android 画廊隐藏 azt，并用 iOS/桌面 widget 测试锁住。②Task 6 新增的"从 API 拉取模型"文字按钮使 390px 手机模型编辑页 AppBar 右溢出 41px；宽屏保留文字命令，窄屏改为带 tooltip 的加号/下载/保存图标，设置页全组回归通过。③本项目视频边界优先于本计划 Task 7：所有视频供应商只验证本地协议、状态机与 fake gateway，**不发起真实视频生成**，由用户后续单独验收。
+
+**已核实执行状态（2026-07-19）**：Task 1–6 的代码已分别落在 `63c84dc`、`2d18c37`、`7d4c31e`/`7ffc380`、`e543c9b`、`05b0ab5`/`8f805c5`、`29b90f4`；它们实现的是预设目录、通用 OpenAI 兼容配置与模型管理体验。Task 7 仍**未完成**：正式验收记录尚未建立，且 `protocol` 目前是配置元数据，尚未驱动 Claude/Gemini/Volcengine 等供应商的原生私有协议适配。不能据此把主清单的 `W6D-VENDOR-001` 标为完成。
+
 ## Global Constraints
 
 - 模型 ID 硬门：任何模型 ID 未经当日对照 `sourceUrl` 核实（或经该家真实 API 调用验证）**不得写入常量**；核实后必须填 `verifiedAt`（'YYYY-MM-DD'）。目录单测断言两字段非空。
@@ -23,6 +27,7 @@
 - 拉取只出候选：`/models` 结果不直接写库；未知 ID 标"未分类"默认禁用，用户定 kind 才能保存，绝不猜成 text。
 - 每预设一实例；"已添加"进编辑；多账号走"自定义"。
 - 默认种子**内容**不变（azt 桌面 + volcengine；实现重构为从目录构建，逐字段一致由 `Engine.boot` 对照测试锁定）。
+- 平台可达性：`desktopOnly` 预设（当前仅 azt）只在 macOS 等桌面平台画廊显示；测试必须分别固定桌面与 iOS/Android 平台，不能用屏幕宽度代替平台判断。
 - git 纪律：新提交不 amend、`git add` 逐个文件、不 `--no-verify`。
 - 所有命令在 `/Users/luke/Documents/aivideo/dramaflow/app` 下执行；每任务收尾 `flutter analyze <改动文件>` 0 issues。
 
@@ -1978,8 +1983,9 @@ Expected: 0 issues；全套件 PASS。失败先修再继续。
 # 供应商预设人工验收清单（需真实 Key，不进默认 CI）
 
 规则（spec §4 + 评审 P2）：
-- 每家 4 项——①普通文本生成；②强制工具调用/结构化 JSON；③图片生成与编辑（仅声称图片角标的家）；④GET /models。
-- ①②任一失败 = 该家不可置 `acceptanceVerified: true`；③失败 = 移除该家图片模型；④失败 = preset 备注"不支持 /models"。
+- 开发和 CI 不发起任何真实上游调用；视频一律只做 fake gateway 的协议/状态机验证，真实视频生成只由用户在最终验收时自行发起。
+- 用户自愿提供某一家真实 Key 后，才可按该家**已实现的协议路径**验证：①普通文本；②该路径支持时的工具调用/结构化 JSON；③仅该路径已实现时的图片生成或编辑；④`GET /models`。不能因为画廊里有预设，就假定四项全都适用。
+- ①②任一已宣称能力失败 = 该家不可置 `acceptanceVerified: true`；③失败 = 移除该家图片模型；④失败 = preset 备注"不支持 /models"。缺少原生协议适配的家，只能保留为“兼容模式/未验证”配置入口，不能用通用成功冒充原生适配成功。
 - **`provider_presets.dart` 里把某家 `acceptanceVerified` 翻 true 的唯一合法途径：本表该行填入日期+模型+证据路径。**画廊"未验证"角标随字段自动消失。
 - 记录格式：日期 / 所测模型 / 证据（日志路径、测试名或截图路径）。
 

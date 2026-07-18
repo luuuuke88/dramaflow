@@ -24,6 +24,7 @@ class ProviderPreset {
   final String keyUrl;
   final String protocol; // openai_compatible | volcengine
   final bool compatMode;
+  final bool desktopOnly;
   final bool acceptanceVerified; // 仅当 Task 7 验收表有证据行才可 true
   final String sourceUrl;
   final String verifiedAt; // YYYY-MM-DD
@@ -36,6 +37,7 @@ class ProviderPreset {
     required this.keyUrl,
     this.protocol = 'openai_compatible',
     this.compatMode = false,
+    this.desktopOnly = false,
     this.acceptanceVerified = false,
     required this.sourceUrl,
     required this.verifiedAt,
@@ -225,6 +227,7 @@ final kProviderPresets = <ProviderPreset>[
     name: 'azt (本地 Codex OAuth)',
     baseUrl: 'http://127.0.0.1:8787/v1',
     keyUrl: 'http://127.0.0.1:8787',
+    desktopOnly: true,
     acceptanceVerified: true, // 证据：本会话早前真实 e2e/smoke，非 Task 7 新验证——文本/图片服务冒烟见 .superpowers/sdd/progress.md「P0 Task 4」与 docs/parity/p0-provider-preflight.md「## azt 服务冒烟」（gpt-5.5 文本2.2s、gpt-image-2 1024x1024 图片26.7s，摘录 /tmp/p0-azt-smoke.txt）；gpt-5.6-luna 真实文本生成见 progress.md「QA真实全链路修复(storyboard boolean parser)」「QA全链路最终结果」全链路验证；Task 7 仅将此既有证据转录为正式验收记录
     sourceUrl: 'http://127.0.0.1:8787/v1/models',
     verifiedAt: '2026-07-18', // 以仓库 engine.dart 既有种子为真值（本地 loopback 代理，非公网可核实来源）

@@ -1,6 +1,7 @@
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/screens/provider_preset_gallery.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -55,21 +56,47 @@ void main() {
   });
 
   testWidgets('桌面宽度：已添加优先于未验证；azt 已验不显示未验证', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester
-        .pumpWidget(_host(existing: {'volcengine'}, onResult: (_) {}));
-    await tester.tap(find.byKey(const Key('open-gallery')));
-    await tester.pumpAndSettle();
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester
+          .pumpWidget(_host(existing: {'volcengine'}, onResult: (_) {}));
+      await tester.tap(find.byKey(const Key('open-gallery')));
+      await tester.pumpAndSettle();
 
-    expect(_inCard('volcengine', '已添加'), findsOneWidget);
-    expect(_inCard('volcengine', '未验证'), findsNothing,
-        reason: '已添加态优先，不再叠未验证');
-    await tester.scrollUntilVisible(
-        find.byKey(const Key('preset-card-azt')), 300);
-    expect(_inCard('azt', '未验证'), findsNothing,
-        reason: 'azt acceptanceVerified=true');
+      expect(_inCard('volcengine', '已添加'), findsOneWidget);
+      expect(_inCard('volcengine', '未验证'), findsNothing,
+          reason: '已添加态优先，不再叠未验证');
+      await tester.scrollUntilVisible(
+          find.byKey(const Key('preset-card-azt')), 300);
+      expect(_inCard('azt', '未验证'), findsNothing,
+          reason: 'azt acceptanceVerified=true');
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('移动平台不提供仅桌面可用的 azt 预设', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester
+          .pumpWidget(_host(existing: const {}, onResult: (_) {}));
+      await tester.tap(find.byKey(const Key('open-gallery')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('preset-card-azt')), findsNothing,
+          reason: '127.0.0.1 的本地 OAuth 代理不属于 iOS/Android 可用供应商');
+      expect(find.byKey(const Key('preset-card-volcengine')), findsOneWidget);
+      expect(find.byKey(const Key('preset-card-custom')), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets('自定义卡返回 custom', (tester) async {

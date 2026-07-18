@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../engine/provider_presets.dart';
@@ -27,6 +28,10 @@ class _PresetGalleryBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final columns = width < 600 ? 2 : (width < 1100 ? 3 : 4);
+    final isMobilePlatform = switch (defaultTargetPlatform) {
+      TargetPlatform.android || TargetPlatform.iOS => true,
+      _ => false,
+    };
     return GridView.count(
       padding: const EdgeInsets.all(16),
       crossAxisCount: columns,
@@ -35,6 +40,7 @@ class _PresetGalleryBody extends StatelessWidget {
       childAspectRatio: 1.3,
       children: [
         for (final p in kProviderPresets)
+          if (!isMobilePlatform || !p.desktopOnly)
           _PresetCard(preset: p, added: existing.contains(p.id)),
         const _CustomCard(),
       ],
@@ -68,13 +74,13 @@ class _PresetCard extends StatelessWidget {
     ];
     return InkWell(
       key: Key('preset-card-${preset.id}'),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(8),
       onTap: () => Navigator.of(context).pop(preset.id),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           border: Border.all(color: df.stroke),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,13 +129,13 @@ class _CustomCard extends StatelessWidget {
     final l10n = context.l10n;
     return InkWell(
       key: const Key('preset-card-custom'),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(8),
       onTap: () => Navigator.of(context).pop('custom'),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           border: Border.all(color: df.stroke),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
