@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/audio_bind.dart';
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -11,6 +13,7 @@ import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/screens/assets/assets_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,6 +43,33 @@ class _Gateway implements ProviderGateway {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _AudioFileSelector extends FileSelectorPlatform {
+  final List<XFile> files;
+  int openFileCalls = 0;
+
+  _AudioFileSelector(this.files);
+
+  @override
+  Future<FileSaveLocation?> getSaveLocation({
+    List<XTypeGroup>? acceptedTypeGroups,
+    SaveDialogOptions options = const SaveDialogOptions(),
+  }) async =>
+      null;
+
+  @override
+  Future<XFile?> openFile({
+    List<XTypeGroup>? acceptedTypeGroups,
+    String? initialDirectory,
+    String? confirmButtonText,
+  }) async {
+    openFileCalls++;
+    if (openFileCalls > files.length) {
+      throw StateError('no queued test file');
+    }
+    return files[openFileCalls - 1];
+  }
 }
 
 void main() {
@@ -142,4 +172,143 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('桌面端音频 tab：新增两个本地音频条目并保存父子资产', (tester) async {
+    final originalSelector = FileSelectorPlatform.instance;
+    final selector = _AudioFileSelector([
+      XFile.fromData(Uint8List.fromList(const [1, 2, 3]), path: 'voice-a.mp3'),
+      XFile.fromData(Uint8List.fromList(const [9]), path: 'removed.wav'),
+      XFile.fromData(Uint8List.fromList(const [4, 5, 6]), path: 'voice-b.m4a'),
+    ]);
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('音频'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '新增音频').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_fieldWithLabel('音色'), '清冷女声');
+    await tester.enterText(_fieldWithLabel('性别'), '女');
+    await tester.enterText(_fieldWithLabel('描述').at(0), '清冷');
+    await tester.tap(find.widgetWithText(OutlinedButton, '音频文件'));
+    await tester.pumpAndSettle();
+    expect(selector.openFileCalls, 1);
+    await tester.enterText(_fieldWithLabel('音频文本'), '第一句台词');
+    await tester.enterText(_fieldWithLabel('描述').at(1), '平静');
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '添加音频'));
+    await tester.pump();
+    expect(find.widgetWithText(OutlinedButton, 'voice-a.mp3'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '音频文件'), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, '音频文件'));
+    await tester.pumpAndSettle();
+    expect(selector.openFileCalls, 2);
+    await tester.enterText(_fieldWithLabel('音频文本').at(1), '第二句台词');
+    await tester.enterText(_fieldWithLabel('描述').at(2), '坚定');
+
+    await tester.tap(find.byTooltip('删除').at(1));
+    await tester.pump();
+    expect(find.widgetWithText(OutlinedButton, 'voice-a.mp3'), findsOneWidget);
+    expect(find.byTooltip('删除'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '添加音频'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(OutlinedButton, '音频文件'));
+    await tester.pumpAndSettle();
+    expect(selector.openFileCalls, 3);
+    await tester.enterText(_fieldWithLabel('音频文本').at(1), '第二句台词');
+    await tester.enterText(_fieldWithLabel('描述').at(2), '坚定');
+
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    final parent = engine.getAssets(projectId, type: 'audio').data.single;
+    expect(parent.name, '清冷女声');
+    expect(parent.sex, '女');
+    expect(parent.audioDescribe, '清冷');
+    expect(parent.sonAssets, hasLength(2));
+    expect(parent.sonAssets.map((row) => row.prompt), ['第一句台词', '第二句台词']);
+    expect(parent.sonAssets.map((row) => row.describe), ['平静', '坚定']);
+    expect(
+      parent.sonAssets
+          .map((son) =>
+              File(engine.mediaAbsPath(son.filePath!)).readAsBytesSync())
+          .toList(),
+      [
+        const [1, 2, 3],
+        const [4, 5, 6]
+      ],
+    );
+
+    await tester.tap(find.text('编辑'));
+    await tester.pumpAndSettle();
+    await tester.enterText(_fieldWithLabel('音色'), '清冷女声（已修改）');
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    final updated = engine.getAssets(projectId, type: 'audio').data.single;
+    expect(updated.name, '清冷女声（已修改）');
+    expect(updated.sonAssets, hasLength(2));
+    expect(
+      updated.sonAssets
+          .map((son) =>
+              File(engine.mediaAbsPath(son.filePath!)).readAsBytesSync())
+          .toList(),
+      [
+        const [1, 2, 3],
+        const [4, 5, 6]
+      ],
+    );
+  });
+
+  testWidgets('移动端音频 tab：本地音频资产使用全屏表单保存', (tester) async {
+    final originalSelector = FileSelectorPlatform.instance;
+    final selector = _AudioFileSelector([
+      XFile.fromData(Uint8List.fromList(const [4, 5]),
+          path: 'mobile-voice.wav'),
+    ]);
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(width: 390));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('音频'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '新增音频').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byType(AppBar), findsOneWidget);
+    await tester.enterText(_fieldWithLabel('音色'), '移动音色');
+    await tester.enterText(_fieldWithLabel('描述').at(0), '移动描述');
+    await tester.tap(find.widgetWithText(OutlinedButton, '音频文件'));
+    await tester.pumpAndSettle();
+    expect(selector.openFileCalls, 1);
+    expect(find.text('mobile-voice.wav'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppBar), findsNothing);
+    final audioAssets = engine.getAssets(projectId, type: 'audio');
+    expect(audioAssets.total, 1);
+    final parent = audioAssets.data.single;
+    expect(parent.name, '移动音色');
+    expect(parent.audioDescribe, '移动描述');
+    expect(parent.sonAssets, hasLength(1));
+    expect(parent.sonAssets.single.filePath, endsWith('.wav'));
+  });
 }
+
+Finder _fieldWithLabel(String label) => find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == label,
+      description: 'TextField(label: $label)',
+    );
