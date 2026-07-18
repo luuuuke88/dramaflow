@@ -1,81 +1,89 @@
-# 供应商预设体系 Implementation Plan
+# 供应商预设体系 Implementation Plan（v2，吸收 5+1 条评审）
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 预设画廊式添加供应商——12 家预设（含 OpenAI/Claude/Gemini/Grok 国际线）一键预填，原子创建防 Key 覆盖，`/models` 拉取候选。
 
-**Architecture:** 纯常量目录（`provider_presets.dart`）+ 一个新引擎 API（`createProviderFromPreset`，原子语义）+ 一个新网关方法（`listRemoteModelIds`，只出候选不写库）+ 设置页画廊/预填表单/候选合并三段 UI。数据库 schema、协议分发、现有 `createProvider`/`saveProviderModels` 零改动。
+**Architecture:** 目录常量（`provider_presets.dart`，同时成为种子的单一事实来源）+ 一个新引擎 API（`createProviderFromPreset`：先 INSERT 抢占、后写凭证、失败删行——结构性消除并发删 Key）+ 一个新网关方法（`listRemoteModelIds`，只出候选不写库）+ 设置页画廊/预填表单/候选合并三段 UI。数据库 schema、协议分发、现有 `createProvider`/`saveProviderModels` 零改动。
 
-**Tech Stack:** Flutter/Dart，sqlite3，dio，flutter_secure_storage（经 `CredentialStore`），riverpod，go_router，现有 l10n（zh/en/ja 三语）。
+**Tech Stack:** Flutter/Dart，sqlite3，dio，flutter_secure_storage（经 `CredentialStore`），riverpod，url_launcher，现有 l10n（zh/en/ja）。
 
-**Spec:** `docs/superpowers/specs/2026-07-18-provider-presets-design.md`（本计划的唯一需求来源，冲突以 spec 为准）
+**Spec:** `docs/superpowers/specs/2026-07-18-provider-presets-design.md`（唯一需求来源，冲突以 spec 为准）
+
+**v2 变更记录（对 `cf41f32` 评审的回应）**：①原子创建改"INSERT 先行抢占（SELECT+INSERT 连续同步无 await，单 isolate 无插入窗口；PK 冲突→errProviderExists）→ 凭证后写 → 凭证失败删行"，并发场景下不存在"删掉别人凭证"的代码路径，补并发测试；②回滚测试改用 `BEFORE INSERT` 触发器与注入失败的 `CredentialStore`，真实走到目标分支；③`createProviderFromPreset` 增加 `name/baseUrl` 覆盖参数，表单可编辑字段真实生效；④volcengine 预设对齐真实种子（`doubao-seedance-2-0-mini-260615` + Mini capabilities），种子改为从目录构建（单一定义），`Engine.boot` 对照测试锁漂移；⑤Task 6 全量代码化（真实 `_ModelDraft` 字段名 `modelId`/`label`/`kind`/`enabled`，完整 `_CandidateSheet` 实现，真实测试 harness）；⑥新增 `acceptanceVerified` 字段与"未验证"角标——未过人工验收的预设上架但明示未验证，azt 的"已验"在验收表中附证据。
 
 ## Global Constraints
 
 - 模型 ID 硬门：任何模型 ID 未经当日对照 `sourceUrl` 核实（或经该家真实 API 调用验证）**不得写入常量**；核实后必须填 `verifiedAt`（'YYYY-MM-DD'）。目录单测断言两字段非空。
-- 许可证红线：**不复制 ToonFlow `data/vendor/*.ts` 任何代码或文案**；预设内容独立编写（公开端点与模型 ID 是事实数据）。
-- 兼容模式诚实标注：anthropic/gemini/xai 三家 `compatMode: true`，画廊卡片显示"兼容模式"角标，文案不得暗示完整原生能力。
-- 新 UI 文案一律三语（zh/en/ja），品牌名不翻译。模板 arb 是 `app/lib/l10n/app_zh.arb`，改后跑 `flutter gen-l10n`。
-- 原子创建语义：已存在同 id 供应商时**凭证一个字节都不写**；INSERT 失败回滚删除新写凭证；供应商+模型一次调用写入，无中间态。
-- 拉取只出候选：`/models` 结果不直接写库；未知 ID 标"未分类"默认禁用，用户指定 kind 才能保存，**绝不默认猜成 text**。
-- 每预设一实例：画廊对已存在实例显示"已添加"并进编辑；多账号走"自定义"。
-- 默认种子不变：仍只种 azt（桌面）+ volcengine。
-- git 纪律：新提交不 amend、`git add` 逐个文件不用 `-A`、不 `--no-verify`。
-- 所有命令在 `/Users/luke/Documents/aivideo/dramaflow/app` 下执行；每个任务收尾跑 `flutter analyze <改动文件>` 须 0 issues。
+- 许可证红线：**不复制 ToonFlow `data/vendor/*.ts` 任何代码或文案**。
+- 兼容模式诚实标注：anthropic/gemini/xai 三家 `compatMode: true`，画廊显示"兼容模式"角标。
+- 验收诚实标注：`acceptanceVerified` 仅在人工验收表（Task 7）留下证据行后方可置 true；false 的预设画廊显示"未验证"角标。初始仅 azt 为 true（证据见 Task 7）。
+- 新 UI 文案一律三语（zh/en/ja）。模板 arb 是 `app/lib/l10n/app_zh.arb`，改后跑 `flutter gen-l10n`，`untranslated.txt` 必须为空。
+- 原子创建语义：重复创建**不写凭证**（结构上：凭证写在 INSERT 成功之后）；凭证写失败删除刚 INSERT 的行；无"建了供应商没模型"中间态。
+- 拉取只出候选：`/models` 结果不直接写库；未知 ID 标"未分类"默认禁用，用户定 kind 才能保存，绝不猜成 text。
+- 每预设一实例；"已添加"进编辑；多账号走"自定义"。
+- 默认种子**内容**不变（azt 桌面 + volcengine；实现重构为从目录构建，逐字段一致由 `Engine.boot` 对照测试锁定）。
+- git 纪律：新提交不 amend、`git add` 逐个文件、不 `--no-verify`。
+- 所有命令在 `/Users/luke/Documents/aivideo/dramaflow/app` 下执行；每任务收尾 `flutter analyze <改动文件>` 0 issues。
+
+## 已核实的代码事实（实现者直接引用，不必再查）
+
+- `Engine` 构造器（engine.dart:366）：`Engine({required db, required media, required gateway, required config, CredentialStore? credentials, ...})`——credentials 可注入。
+- 种子只在 `Engine.boot()`（engine.dart:395-404）里跑；测试用裸 `Engine(...)` 构造不种子。
+- volcengine 种子真值（engine.dart:~488-508）：`doubao-seed-1-6-250615`(text)、`doubao-seedream-4-0-250828`(image)、`doubao-seedance-2-0-mini-260615`(video, `_legacySeedanceMiniCapabilities()`)；azt 种子（桌面 only）：gpt-5.5/gpt-5.4/gpt-5.4-mini(text)+gpt-image-2(image)。
+- `_legacySeedanceMiniCapabilities()` 在 engine.dart:94-106，依赖 `VideoMode`（video_request.dart）；engine.dart:163（`_seedSeedanceVideoProfiles`）也调用它。
+- `_ModelDraft`（settings_screen.dart:2283）：`TextEditingController modelId`、`TextEditingController label`、`String kind`、`bool enabled`、`Map<String,dynamic> capabilities`；`_ModelDraft.empty()` 是 kind:'text'/enabled:true。
+- `ProviderModelInfo`（api/models.dart:544）有 `enabled` 字段。
+- l10n：`import 'package:dramaflow/l10n/app_localizations.dart'`；`context.l10n` 来自 `../util/l10n_ext.dart`；主题 token 来自 `../theme/theme.dart` 的 `context.df`（`DFColors`，已验字段：`stroke`/`strokeStrong`/`textSecondary`/`textTertiary`）。
+- settings_screen_test.dart harness：`setUp` 建 `engine`（`_NoopGateway`、`EngineConfig(db, isMobile: true)`、`MediaStore(p.join(dir.path,'media'))`）；`app()` helper 包 ProviderScope+MaterialApp(home: SettingsScreen)；`_selectSection(tester, '供应商')` 切分区；模型管理经 `find.byTooltip('模型管理')` 打开，"添加模型"/"保存"是真实按钮文案；供应商列表读法 `engine.listProviders()`。
+- 现有"添加供应商"用例在 `移动端设置页：外观语言、供应商与提示词入口可用` 内：点"添加供应商"→ 直接 3 个 TextField。Task 5 需把它改为：点按钮 → 画廊 → 点 `preset-card-custom` → 后续不变。
 
 ---
 
-### Task 1: 预设目录常量 + 模型 ID 核实 + 目录单测
+### Task 1: 预设目录常量（含种子单一化）+ 目录/防漂移单测
 
 **Files:**
 - Create: `app/lib/src/engine/provider_presets.dart`
+- Modify: `app/lib/src/engine/engine.dart`（`_legacySeedanceMiniCapabilities` 移出为公共函数；`_seedDefaults` 的 azt/volcengine 模型清单改为从目录构建）
 - Test: `app/test/engine/provider_presets_test.dart`
 
 **Interfaces:**
-- Produces: `class ProviderPreset`、`class PresetModel`、`const List<ProviderPreset> kProviderPresets`（12 项）、`ProviderPreset? providerPresetById(String id)`、`Map<String, String> presetModelKinds(String presetId)`（modelId→kind，Task 6 用）。
+- Produces: `class ProviderPreset`（含 `compatMode`/`sourceUrl`/`verifiedAt`/`acceptanceVerified`）、`class PresetModel`、`final List<ProviderPreset> kProviderPresets`（12 项，final 非 const——volcengine capabilities 来自函数调用）、`ProviderPreset? providerPresetById(String id)`、`Map<String, String> presetModelKinds(String presetId)`、`Map<String, Object?> seedanceMiniCapabilities()`（从 engine.dart 迁来，engine 内两处调用点改引此处）。
 
-- [ ] **Step 1: 核实模型 ID（硬门，先于写代码）**
+- [ ] **Step 1: 核实模型 ID（硬门）**
 
-对下表 6 家"易变"供应商，逐家用 WebFetch 打开 sourceUrl，核对/修正"候选模型"列，记录当日日期作为 `verifiedAt`。其余 6 家：azt/volcengine 以仓库现有种子为准（`engine.dart` `_seedDefaults` 里的模型即真值）；anthropic 的三个 ID（claude-sonnet-5 / claude-opus-4-8 / claude-haiku-4-5）与 deepseek 的两个 ID（deepseek-chat / deepseek-reasoner）为稳定公开 ID，仍须对 sourceUrl 快速确认后填 verifiedAt。
-
-| presetId | sourceUrl（核实处） | 候选模型（核实后可改） |
-|---|---|---|
-| openai | https://developers.openai.com/api/docs/models | gpt-5.6-sol(text)、gpt-5.6-terra(text)、gpt-5.6-luna(text)、gpt-image-2(image) |
-| gemini | https://ai.google.dev/gemini-api/docs/openai | gemini-3.5-flash(text)、当期 pro 型号(text) |
-| xai | https://docs.x.ai/developers/models | grok-4.5(text)、grok-4.3(text) |
-| openrouter | https://openrouter.ai/models | anthropic/claude-sonnet-5(text)、google/gemini-3-pro(text)、openai/gpt-5.1(text) |
-| siliconflow | https://docs.siliconflow.cn/cn/api-reference/models/get-model-list | deepseek-ai/DeepSeek-V3.2(text)、Qwen/Qwen3-Max(text)、Kwai-Kolors/Kolors(image) |
-| moonshot / zhipu / dashscope | https://platform.moonshot.cn/docs / https://docs.bigmodel.cn / https://help.aliyun.com/zh/model-studio/models | kimi-latest、kimi-thinking-preview / glm-4.6、cogview-4(image) / qwen3-max、qwen-plus |
-
-WebFetch 失败（网络/反爬）时的回退：改用该家 `GET {baseUrl}/models` 真实调用核实（需要环境变量里有对应 Key），仍不可得则**该家降级为只保留有把握的 1 个旗舰 ID**并在 preset 的 label 备注"清单待补"，不许臆造。
+对 6 家"易变"供应商逐家 WebFetch sourceUrl 核对/修正候选模型，记录当日 `verifiedAt`。评审人已对当前官方文档确认的大方向：OpenAI GPT-5.6 系、Claude Sonnet 5/Opus 4.8、Gemini 3.5 Flash、Grok 4.5（来源：developers.openai.com/api/docs/models、platform.claude.com/docs/en/about-claude/models/model-ids-and-versions、ai.google.dev/gemini-api/docs/openai、docs.x.ai/developers/models）——实施日仍须复核精确 ID 串写法。azt/volcengine 以仓库种子为真值（上面"已核实事实"）。WebFetch 失败回退：用该家 `GET {baseUrl}/models` 真实调用核实；仍不可得则该家只保留有把握的 1 个旗舰 ID，不臆造。
 
 - [ ] **Step 2: 写失败测试**
 
 ```dart
 // app/test/engine/provider_presets_test.dart
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:dramaflow/src/engine/credentials.dart';
+import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/provider_presets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('目录：12 家 id 唯一且必填字段完备', () {
+  test('目录：12 家 id 唯一且必填字段完备（含硬门字段）', () {
     expect(kProviderPresets.length, 12);
-    final ids = kProviderPresets.map((p) => p.id).toSet();
-    expect(ids.length, 12, reason: 'preset id 不得重复');
+    expect(kProviderPresets.map((p) => p.id).toSet().length, 12);
     for (final p in kProviderPresets) {
       expect(p.name.trim(), isNotEmpty);
       expect(p.keyUrl.trim(), isNotEmpty, reason: '${p.id} 缺 keyUrl');
       expect(p.sourceUrl.trim(), isNotEmpty, reason: '${p.id} 缺 sourceUrl（硬门）');
       expect(RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(p.verifiedAt), isTrue,
-          reason: '${p.id} verifiedAt 必须是 YYYY-MM-DD（硬门）');
-      expect({'openai_compatible', 'volcengine'}.contains(p.protocol), isTrue,
-          reason: '${p.id} 协议必须是已实现协议');
+          reason: '${p.id} verifiedAt 必须 YYYY-MM-DD（硬门）');
+      expect({'openai_compatible', 'volcengine'}.contains(p.protocol), isTrue);
       final uri = Uri.parse(p.baseUrl);
       if (p.id == 'azt') {
-        expect(uri.host, '127.0.0.1', reason: 'azt 是本地网关');
+        expect(uri.host, '127.0.0.1');
       } else {
         expect(uri.scheme, 'https', reason: '${p.id} 必须 https');
       }
-      expect(p.models, isNotEmpty, reason: '${p.id} 模型清单不得为空');
+      expect(p.models, isNotEmpty);
       for (final m in p.models) {
         expect({'text', 'image', 'video', 'tts'}.contains(m.kind), isTrue,
             reason: '${p.id}:${m.modelId} kind 非法');
@@ -83,16 +91,71 @@ void main() {
     }
   });
 
-  test('兼容模式只标在 anthropic/gemini/xai 三家', () {
-    final compat = kProviderPresets.where((p) => p.compatMode).map((p) => p.id).toSet();
-    expect(compat, {'anthropic', 'gemini', 'xai'});
+  test('兼容模式恰为 anthropic/gemini/xai；acceptanceVerified 初始仅 azt', () {
+    expect(
+        kProviderPresets.where((p) => p.compatMode).map((p) => p.id).toSet(),
+        {'anthropic', 'gemini', 'xai'});
+    expect(
+        kProviderPresets
+            .where((p) => p.acceptanceVerified)
+            .map((p) => p.id)
+            .toSet(),
+        {'azt'},
+        reason: '未过人工验收（Task 7 证据表）的预设不得标已验');
   });
 
   test('providerPresetById 与 presetModelKinds', () {
     expect(providerPresetById('openai'), isNotNull);
     expect(providerPresetById('nope'), isNull);
-    final kinds = presetModelKinds('volcengine');
-    expect(kinds.values.toSet(), containsAll({'text', 'image', 'video'}));
+    expect(presetModelKinds('volcengine').values.toSet(),
+        containsAll({'text', 'image', 'video'}));
+  });
+
+  test('防漂移：Engine.boot 种子与目录逐字段一致（桌面含 azt，移动不含）', () async {
+    final dir = await Directory.systemTemp.createTemp('df-seed-lock-');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final engine = await Engine.boot(
+      dataDir: dir.path,
+      isMobile: false,
+      credentialStore: InMemoryCredentialStore(),
+    );
+    addTearDown(engine.dispose);
+
+    for (final presetId in ['azt', 'volcengine']) {
+      final preset = providerPresetById(presetId)!;
+      final row = engine.db.select(
+          'SELECT inputValues, models FROM o_vendorConfig WHERE id=?',
+          [presetId]).single;
+      final inputValues = jsonDecode(row['inputValues'] as String) as Map;
+      expect(inputValues['baseUrl'], preset.baseUrl, reason: '$presetId baseUrl 漂移');
+      expect(inputValues['protocol'], preset.protocol);
+      final seeded = (jsonDecode(row['models'] as String) as List)
+          .whereType<Map>()
+          .toList();
+      expect(seeded.length, preset.models.length, reason: '$presetId 模型数漂移');
+      for (var i = 0; i < seeded.length; i++) {
+        final s = seeded[i];
+        final m = preset.models[i];
+        expect(s['modelId'], m.modelId, reason: '$presetId[$i] modelId 漂移');
+        expect(s['label'], m.label);
+        expect(s['kind'], m.kind);
+        expect(jsonEncode(s['capabilities'] ?? {}), jsonEncode(m.capabilities),
+            reason: '$presetId:${m.modelId} capabilities 漂移');
+      }
+    }
+
+    final mobileDir = await Directory.systemTemp.createTemp('df-seed-lock-m-');
+    addTearDown(() => mobileDir.deleteSync(recursive: true));
+    final mobile = await Engine.boot(
+      dataDir: mobileDir.path,
+      isMobile: true,
+      credentialStore: InMemoryCredentialStore(),
+    );
+    addTearDown(mobile.dispose);
+    expect(
+        mobile.db.select('SELECT id FROM o_vendorConfig WHERE id=?', ['azt']),
+        isEmpty,
+        reason: '移动端不种 azt（loopback 到不了手机）');
   });
 }
 ```
@@ -100,15 +163,19 @@ void main() {
 - [ ] **Step 3: 跑测试确认失败**
 
 Run: `flutter test test/engine/provider_presets_test.dart`
-Expected: FAIL（provider_presets.dart 不存在，编译错误）
+Expected: FAIL（provider_presets.dart 不存在）
 
-- [ ] **Step 4: 实现目录**
+- [ ] **Step 4: 实现目录 + 种子单一化**
+
+`app/lib/src/engine/provider_presets.dart`：
 
 ```dart
-// app/lib/src/engine/provider_presets.dart
-/// 供应商预设目录（spec: docs/superpowers/specs/2026-07-18-provider-presets-design.md §3-4）。
+/// 供应商预设目录（spec §3-4），同时是 azt/volcengine 种子的单一事实来源
+/// （engine.dart `_seedDefaults` 从这里构建，防漂移测试锁定）。
 /// 内容独立编写；模型 ID 经 sourceUrl 核实后方可入列（verifiedAt 为核实日）。
 /// 不得从 ToonFlow data/vendor/*.ts 复制任何代码或文案（许可证红线）。
+import 'video_request.dart';
+
 class PresetModel {
   final String modelId;
   final String label;
@@ -127,6 +194,7 @@ class ProviderPreset {
   final String keyUrl;
   final String protocol; // openai_compatible | volcengine
   final bool compatMode;
+  final bool acceptanceVerified; // 仅当 Task 7 验收表有证据行才可 true
   final String sourceUrl;
   final String verifiedAt; // YYYY-MM-DD
   final List<PresetModel> models;
@@ -138,6 +206,7 @@ class ProviderPreset {
     required this.keyUrl,
     this.protocol = 'openai_compatible',
     this.compatMode = false,
+    this.acceptanceVerified = false,
     required this.sourceUrl,
     required this.verifiedAt,
     required this.models,
@@ -151,21 +220,37 @@ ProviderPreset? providerPresetById(String id) {
   return null;
 }
 
-/// modelId -> kind 映射，供 /models 候选自动归类（spec §5 第 5 条）。
+/// modelId -> kind，供 /models 候选自动归类（spec §5 第 5 条）。
 Map<String, String> presetModelKinds(String presetId) {
   final p = providerPresetById(presetId);
   if (p == null) return const {};
   return {for (final m in p.models) m.modelId: m.kind};
 }
 
-const kProviderPresets = <ProviderPreset>[
-  ProviderPreset(
+/// Seedance Mini 能力集：从 engine.dart `_legacySeedanceMiniCapabilities` 迁来的
+/// 唯一定义（engine 的种子与 `_seedSeedanceVideoProfiles` 迁移均引用此处）。
+Map<String, Object?> seedanceMiniCapabilities() => {
+      'durations': [for (var i = 4; i <= 15; i++) i],
+      'resolutions': ['480p', '720p'],
+      'video': {
+        'modes': [VideoMode.firstFrame.wireValue],
+        'references': const {},
+        'durations': [for (var i = 4; i <= 15; i++) i],
+        'resolutions': ['480p', '720p'],
+        'ratios': ['16:9', '9:16'],
+        'audio': 'none',
+        'promptTemplates': const {},
+      },
+    };
+
+final kProviderPresets = <ProviderPreset>[
+  const ProviderPreset(
     id: 'openai',
     name: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
     keyUrl: 'https://platform.openai.com/api-keys',
     sourceUrl: 'https://developers.openai.com/api/docs/models',
-    verifiedAt: '2026-07-18', // Step 1 核实日，实施时以实际日期为准
+    verifiedAt: '2026-07-18', // Step 1 核实日，实施时以实际为准（下同）
     models: [
       PresetModel('gpt-5.6-sol', 'text'),
       PresetModel('gpt-5.6-terra', 'text'),
@@ -173,13 +258,14 @@ const kProviderPresets = <ProviderPreset>[
       PresetModel('gpt-image-2', 'image'),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'anthropic',
     name: 'Claude (Anthropic)',
     baseUrl: 'https://api.anthropic.com/v1',
     keyUrl: 'https://console.anthropic.com/settings/keys',
     compatMode: true,
-    sourceUrl: 'https://platform.claude.com/docs/en/cli-sdks-libraries/libraries/openai-sdk',
+    sourceUrl:
+        'https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions',
     verifiedAt: '2026-07-18',
     models: [
       PresetModel('claude-sonnet-5', 'text'),
@@ -187,7 +273,7 @@ const kProviderPresets = <ProviderPreset>[
       PresetModel('claude-haiku-4-5', 'text'),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'gemini',
     name: 'Gemini (Google)',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
@@ -200,7 +286,7 @@ const kProviderPresets = <ProviderPreset>[
       PresetModel('gemini-3-pro', 'text'),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'xai',
     name: 'Grok (xAI)',
     baseUrl: 'https://api.x.ai/v1',
@@ -213,7 +299,7 @@ const kProviderPresets = <ProviderPreset>[
       PresetModel('grok-4.3', 'text'),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'openrouter',
     name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
@@ -226,12 +312,13 @@ const kProviderPresets = <ProviderPreset>[
       PresetModel('openai/gpt-5.1', 'text'),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'siliconflow',
     name: '硅基流动 SiliconFlow',
     baseUrl: 'https://api.siliconflow.cn/v1',
     keyUrl: 'https://cloud.siliconflow.cn/account/ak',
-    sourceUrl: 'https://docs.siliconflow.cn/cn/api-reference/models/get-model-list',
+    sourceUrl:
+        'https://docs.siliconflow.cn/cn/api-reference/models/get-model-list',
     verifiedAt: '2026-07-18',
     models: [
       PresetModel('deepseek-ai/DeepSeek-V3.2', 'text'),
@@ -239,7 +326,7 @@ const kProviderPresets = <ProviderPreset>[
       PresetModel('Kwai-Kolors/Kolors', 'image'),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'deepseek',
     name: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/v1',
@@ -251,7 +338,7 @@ const kProviderPresets = <ProviderPreset>[
       PresetModel('deepseek-reasoner', 'text'),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'moonshot',
     name: 'Kimi (Moonshot)',
     baseUrl: 'https://api.moonshot.cn/v1',
@@ -263,7 +350,7 @@ const kProviderPresets = <ProviderPreset>[
       PresetModel('kimi-thinking-preview', 'text'),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'zhipu',
     name: '智谱 GLM',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
@@ -275,7 +362,7 @@ const kProviderPresets = <ProviderPreset>[
       PresetModel('cogview-4', 'image'),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'dashscope',
     name: '通义 Qwen',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -285,7 +372,7 @@ const kProviderPresets = <ProviderPreset>[
     models: [
       PresetModel('qwen3-max', 'text'),
       PresetModel('qwen-plus', 'text'),
-      // 图片是否过兼容层：spec §4 要求实施时验证，不通则不预置（Task 7 人工验收清单项）
+      // 图片是否过兼容层：spec §4 要求实施时验证，不通则不预置（Task 7 验收项）
     ],
   ),
   ProviderPreset(
@@ -297,20 +384,18 @@ const kProviderPresets = <ProviderPreset>[
     sourceUrl: 'https://www.volcengine.com/docs/82379',
     verifiedAt: '2026-07-18',
     models: [
-      // 与 engine.dart _seedDefaults 现有种子逐字一致（仓库内真值）
-      PresetModel('doubao-seed-1-6-250615', 'text'),
-      PresetModel('doubao-seedream-4-0-250828', 'image'),
-      PresetModel('doubao-seedance-1-0-pro-250528', 'video',
-          capabilities: {
-            'modes': ['text', 'singleImage'],
-          }),
+      const PresetModel('doubao-seed-1-6-250615', 'text'),
+      const PresetModel('doubao-seedream-4-0-250828', 'image'),
+      PresetModel('doubao-seedance-2-0-mini-260615', 'video',
+          capabilities: seedanceMiniCapabilities()),
     ],
   ),
-  ProviderPreset(
+  const ProviderPreset(
     id: 'azt',
     name: 'azt (本地 Codex OAuth)',
     baseUrl: 'http://127.0.0.1:8787/v1',
     keyUrl: 'http://127.0.0.1:8787',
+    acceptanceVerified: true, // 证据：Task 7 验收表 azt 行（2026-07-18 e2e/smoke）
     sourceUrl: 'http://127.0.0.1:8787/v1/models',
     verifiedAt: '2026-07-18',
     models: [
@@ -323,33 +408,68 @@ const kProviderPresets = <ProviderPreset>[
 ];
 ```
 
-实现前先打开 `app/lib/src/engine/engine.dart` 搜 `_seedDefaults`，把 volcengine/azt 两家的模型 ID、capabilities **逐字对齐现有种子**（上面代码块按当前仓库内容写好，若种子已变以仓库为准）。Step 1 核实结果若与上面候选不同，以核实结果为准修改。
+`engine.dart` 改动：
+1. 顶部加 `import 'provider_presets.dart';`。
+2. 删除 `_legacySeedanceMiniCapabilities`（:94-106），其两处调用（`_seedSeedanceVideoProfiles` 内 :163 附近与种子处）改调 `seedanceMiniCapabilities()`。
+3. `_seedDefaults` 里 azt/volcengine 两段 `provider(...)` 调用的 `models:` 参数改为从目录构建：
 
-- [ ] **Step 5: 跑测试确认通过**
+```dart
+      List<Map<String, Object?>> presetModels(String presetId) {
+        final preset = providerPresetById(presetId)!;
+        return [
+          for (final m in preset.models)
+            model(presetId, m.modelId, m.label, m.kind, m.capabilities),
+        ];
+      }
 
-Run: `flutter test test/engine/provider_presets_test.dart`
-Expected: PASS（3 tests）
+      if (!isMobile) {
+        final azt = providerPresetById('azt')!;
+        provider(
+          id: azt.id,
+          name: azt.id, // 种子历史名就是 'azt'，保持不变
+          protocol: azt.protocol,
+          baseUrl: azt.baseUrl,
+          models: presetModels('azt'),
+        );
+      }
+
+      final volc = providerPresetById('volcengine')!;
+      provider(
+        id: volc.id,
+        name: volc.id, // 种子历史名 'volcengine'，保持不变
+        protocol: volc.protocol,
+        baseUrl: volc.baseUrl,
+        models: presetModels('volcengine'),
+      );
+```
+
+（注意：种子的 `name` 历史值是 `'azt'`/`'volcengine'`（小写 id），不是目录展示名"火山豆包"——保持种子内容零变化，防漂移测试只对 baseUrl/protocol/models 断言，不对 name 断言，画廊展示名走目录。）
+
+- [ ] **Step 5: 跑测试确认通过 + 既有引擎回归**
+
+Run: `flutter test test/engine/provider_presets_test.dart && flutter test test/engine/`
+Expected: 新 4 test PASS；既有引擎套件全绿（种子内容未变）。
 
 - [ ] **Step 6: analyze + commit**
 
 ```bash
-flutter analyze lib/src/engine/provider_presets.dart test/engine/provider_presets_test.dart
-git add lib/src/engine/provider_presets.dart test/engine/provider_presets_test.dart
-git commit -m "feat(engine): 供应商预设目录常量（12 家，模型 ID 经 sourceUrl 核实）"
+flutter analyze lib/src/engine/provider_presets.dart lib/src/engine/engine.dart test/engine/provider_presets_test.dart
+git add lib/src/engine/provider_presets.dart lib/src/engine/engine.dart test/engine/provider_presets_test.dart
+git commit -m "feat(engine): 供应商预设目录（12 家，种子单一事实来源+防漂移锁）"
 ```
 
 ---
 
-### Task 2: `createProviderFromPreset` 原子创建
+### Task 2: `createProviderFromPreset` 原子创建（INSERT 先行抢占）
 
 **Files:**
-- Modify: `app/lib/src/engine/errors.dart`（加一个错误码常量）
-- Modify: `app/lib/src/engine/engine.dart`（在 `createProvider` 方法之后加新方法 + import provider_presets.dart）
+- Modify: `app/lib/src/engine/errors.dart`
+- Modify: `app/lib/src/engine/engine.dart`
 - Test: `app/test/engine/provider_preset_create_test.dart`
 
 **Interfaces:**
-- Consumes: Task 1 的 `providerPresetById`。
-- Produces: `Future<ProviderInfo> createProviderFromPreset({required String presetId, required String apiKey, List<String>? selectedModelIds})`；错误码 `errProviderExists`。语义：presetId 不存在→`errProviderMissing`；已有同 id 供应商→`errProviderExists` 且**不写凭证**；INSERT 失败→回滚删除新写凭证后 rethrow；成功→供应商+选中模型一次写入。
+- Consumes: Task 1 `providerPresetById`。
+- Produces: `Future<ProviderInfo> createProviderFromPreset({required String presetId, required String apiKey, List<String>? selectedModelIds, String? name, String? baseUrl})`；错误码 `errProviderExists`。语义：未知 preset→`errProviderMissing`；选空模型→`errModelMissing`（任何写入之前）；已存在→`errProviderExists` 且不写凭证（含并发：SELECT+INSERT 连续同步、PK 冲突兜底）；凭证写失败→删除刚 INSERT 的行后 rethrow；`name`/`baseUrl` 缺省用目录值，传入则覆盖。
 
 - [ ] **Step 1: 写失败测试**
 
@@ -363,142 +483,214 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/util.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 class _NoopGateway implements ProviderGateway {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-void main() {
-  late Engine engine;
-  late InMemoryCredentialStore credentials;
+/// write 恒抛错的凭证仓——用于真实走到"凭证失败→删行"分支。
+class _FailingCredentialStore implements CredentialStore {
+  final read_ = <String, String>{};
+  @override
+  Future<String?> read(String key) async => read_[key];
+  @override
+  Future<void> write(String key, String value) async {
+    throw StateError('secure storage unavailable');
+  }
+  @override
+  Future<void> delete(String key) async {}
+}
 
-  setUp(() {
-    final db = openEngineDb(':memory:');
-    credentials = InMemoryCredentialStore();
-    engine = Engine(
+Engine _engine(Database db, {CredentialStore? credentials}) => Engine(
       db: db,
-      media: MediaStore('/tmp/df-preset-test-media'),
+      media: MediaStore('/tmp/df-preset-create-test-media'),
       gateway: _NoopGateway(),
       config: EngineConfig(db, isMobile: false),
       credentials: credentials,
     );
-  });
 
-  tearDown(() => engine.dispose());
-
-  test('正常路径：供应商+选中模型一次写入', () async {
+void main() {
+  test('正常路径：供应商+选中模型一次写入，name/baseUrl 覆盖生效', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
     final info = await engine.createProviderFromPreset(
       presetId: 'deepseek',
       apiKey: 'sk-test',
       selectedModelIds: ['deepseek-chat'],
+      name: '我的 DeepSeek',
+      baseUrl: 'https://proxy.example.com/v1',
     );
     expect(info.id, 'deepseek');
+    expect(info.name, '我的 DeepSeek');
+    expect(info.baseUrl, 'https://proxy.example.com/v1');
     expect(info.hasCredential, isTrue);
+    final listed = (await engine.listProviders()).single;
+    expect(listed.name, '我的 DeepSeek', reason: '覆盖值必须真实落库');
+    expect(listed.baseUrl, 'https://proxy.example.com/v1');
     final models = await engine.listProviderModels('deepseek');
     expect(models.map((m) => m.modelId).toList(), ['deepseek-chat']);
   });
 
-  test('未知 presetId 抛 errProviderMissing', () async {
+  test('未知 presetId 抛 errProviderMissing；选空模型抛 errModelMissing 且零写入',
+      () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
     expect(
       () => engine.createProviderFromPreset(presetId: 'nope', apiKey: 'k'),
       throwsA(isA<EngineException>()
           .having((e) => e.code, 'code', 'errProviderMissing')),
     );
+    await expectLater(
+      engine.createProviderFromPreset(
+          presetId: 'deepseek', apiKey: 'k', selectedModelIds: const []),
+      throwsA(isA<EngineException>()
+          .having((e) => e.code, 'code', 'errModelMissing')),
+    );
+    expect(await engine.listProviders(), isEmpty);
+    expect(await engine.credentials.read(providerCredentialRef('deepseek')),
+        isNull, reason: '校验失败不得写凭证');
   });
 
-  test('P0 场景：重复创建抛 errProviderExists 且旧凭证一个字节不动', () async {
+  test('P0 场景：重复创建抛 errProviderExists 且旧凭证一字节不动', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
     await engine.createProviderFromPreset(presetId: 'deepseek', apiKey: 'old-key');
-    expect(
-      () => engine.createProviderFromPreset(presetId: 'deepseek', apiKey: 'NEW'),
+    await expectLater(
+      engine.createProviderFromPreset(presetId: 'deepseek', apiKey: 'NEW'),
       throwsA(isA<EngineException>()
           .having((e) => e.code, 'code', 'errProviderExists')),
     );
-    final stored = await credentials.read(providerCredentialRef('deepseek'));
-    expect(stored, 'old-key', reason: '重复创建绝不能覆盖旧 Key');
+    expect(await engine.credentials.read(providerCredentialRef('deepseek')),
+        'old-key');
   });
 
-  test('INSERT 失败回滚删除新凭证', () async {
-    // 先用自定义路径造一个 id 冲突但绕过 preset 查重的场景不可行（查重按 id），
-    // 改为直接验证回滚分支：关闭 db 让 INSERT 必然抛错。
-    engine.db.dispose();
+  test('INSERT 失败（BEFORE INSERT 触发器）：不写凭证、不留行', () async {
+    final db = openEngineDb(':memory:');
+    db.execute('''
+      CREATE TRIGGER fail_vendor_insert BEFORE INSERT ON o_vendorConfig
+      BEGIN SELECT RAISE(ABORT, 'boom'); END;
+    ''');
+    final engine = _engine(db);
+    addTearDown(engine.dispose);
     await expectLater(
       engine.createProviderFromPreset(presetId: 'moonshot', apiKey: 'k1'),
       throwsA(anything),
     );
-    final stored = await credentials.read(providerCredentialRef('moonshot'));
-    expect(stored, isNull, reason: 'INSERT 失败必须回滚删除新写入的凭证');
+    expect(await engine.credentials.read(providerCredentialRef('moonshot')),
+        isNull, reason: '凭证写在 INSERT 之后，INSERT 失败凭证必须从未写过');
+    expect(db.select('SELECT id FROM o_vendorConfig WHERE id=?', ['moonshot']),
+        isEmpty);
+  });
+
+  test('凭证写失败：刚 INSERT 的行被删除', () async {
+    final db = openEngineDb(':memory:');
+    final engine = _engine(db, credentials: _FailingCredentialStore());
+    addTearDown(engine.dispose);
+    await expectLater(
+      engine.createProviderFromPreset(presetId: 'zhipu', apiKey: 'k2'),
+      throwsA(isA<StateError>()),
+    );
+    expect(db.select('SELECT id FROM o_vendorConfig WHERE id=?', ['zhipu']),
+        isEmpty, reason: '凭证失败必须删除刚插入的供应商行');
+  });
+
+  test('并发：两个同 preset 创建恰一成一败，胜者凭证完好', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
+    final results = await Future.wait([
+      engine
+          .createProviderFromPreset(presetId: 'xai', apiKey: 'key-A')
+          .then<Object>((v) => v, onError: (Object e) => e),
+      engine
+          .createProviderFromPreset(presetId: 'xai', apiKey: 'key-B')
+          .then<Object>((v) => v, onError: (Object e) => e),
+    ]);
+    final successes = results.whereType<ProviderInfo>().toList();
+    final failures = results.whereType<EngineException>().toList();
+    expect(successes.length, 1, reason: '恰好一个成功');
+    expect(failures.single.code, 'errProviderExists');
+    final key = await engine.credentials.read(providerCredentialRef('xai'));
+    expect(key, isNotNull, reason: '败者绝不能删掉胜者的凭证');
+    expect({'key-A', 'key-B'}.contains(key), isTrue);
   });
 }
 ```
 
-先读 `test/engine/engine_facade_test.dart` 开头，确认 `Engine(...)` 构造参数名与上面一致（尤其 `credentials:` 是否为具名参数；若引擎不支持注入 credentials，改用引擎内部默认 `InMemoryCredentialStore` 的既有测试写法，并通过 `engine.credentials` 读取——以现有测试文件的真实写法为准调整 harness，断言不变）。
+（`engine.credentials` 若非公共字段，测试改为向 `_engine` 显式传入 `InMemoryCredentialStore` 实例并直接持有引用读取——两种写法二选一，断言不变。）
 
 - [ ] **Step 2: 跑测试确认失败**
 
 Run: `flutter test test/engine/provider_preset_create_test.dart`
-Expected: FAIL（`createProviderFromPreset` 未定义 / `errProviderExists` 未定义）
+Expected: FAIL（`createProviderFromPreset`/`errProviderExists` 未定义）
 
 - [ ] **Step 3: 实现**
 
-`app/lib/src/engine/errors.dart` 在 `errProviderMissing` 下一行加：
+`errors.dart` 在 `errProviderMissing` 下一行加：
 
 ```dart
 const errProviderExists = 'errProviderExists';
 ```
 
-`app/lib/src/engine/engine.dart` 顶部 import 区加 `import 'provider_presets.dart';`，在 `createProvider` 方法后加：
+`engine.dart` 在 `createProvider` 之后加（文件顶部确认已有 `import 'package:sqlite3/sqlite3.dart';`——引擎本来就用 sqlite3）：
 
 ```dart
-  /// 预设一键创建（spec §6）：原子语义——已存在同 id 供应商时凭证一个字节不写；
-  /// INSERT 失败回滚删除新凭证；供应商与选中模型同一调用写入，无中间态。
+  /// 预设一键创建（spec §6，v2 语义）：
+  /// 先校验与查重、再 INSERT（SELECT+INSERT 连续同步执行，单 isolate 下无
+  /// 交错窗口；即便未来出现多写入方，PK 冲突兜底映射为 errProviderExists）、
+  /// 凭证写在 INSERT 成功之后——重复/冲突路径在结构上不可能触碰既有凭证；
+  /// 凭证写失败则删除刚插入的行，不留半成品。
   Future<ProviderInfo> createProviderFromPreset({
     required String presetId,
     required String apiKey,
     List<String>? selectedModelIds,
+    String? name,
+    String? baseUrl,
   }) async {
     final preset = providerPresetById(presetId);
     if (preset == null) {
       throw EngineException(errProviderMissing, {'presetId': presetId});
     }
-    final existing = db
-        .select('SELECT id FROM o_vendorConfig WHERE id=?', [preset.id]);
+    final models = [
+      for (final m in preset.models)
+        if (selectedModelIds == null || selectedModelIds.contains(m.modelId))
+          {
+            'id': '${preset.id}:${m.modelId}',
+            'providerId': preset.id,
+            'modelId': m.modelId,
+            'label': m.label,
+            'kind': m.kind,
+            'capabilities': m.capabilities,
+            'enabled': true,
+          },
+    ];
+    if (models.isEmpty) {
+      throw const EngineException(errModelMissing, {'reason': '至少选择一个模型'});
+    }
+    final effectiveName =
+        (name?.trim().isNotEmpty ?? false) ? name!.trim() : preset.name;
+    final effectiveBaseUrl =
+        (baseUrl?.trim().isNotEmpty ?? false) ? baseUrl!.trim() : preset.baseUrl;
+    final credentialRef = providerCredentialRef(preset.id);
+    final createdAt = nowIso();
+
+    // —— 抢占段（连续同步，无 await）——
+    final existing =
+        db.select('SELECT id FROM o_vendorConfig WHERE id=?', [preset.id]);
     if (existing.isNotEmpty) {
       throw EngineException(errProviderExists, {'providerId': preset.id});
     }
-    final credentialRef = providerCredentialRef(preset.id);
-    final key = apiKey.trim();
-    final wroteCredential = key.isNotEmpty;
-    if (wroteCredential) {
-      await credentials.write(credentialRef, key);
-    }
-    final createdAt = nowIso();
     try {
-      final models = [
-        for (final m in preset.models)
-          if (selectedModelIds == null || selectedModelIds.contains(m.modelId))
-            {
-              'id': '${preset.id}:${m.modelId}',
-              'providerId': preset.id,
-              'modelId': m.modelId,
-              'label': m.label,
-              'kind': m.kind,
-              'capabilities': m.capabilities,
-              'enabled': true,
-            },
-      ];
-      if (models.isEmpty) {
-        throw const EngineException(errModelMissing, {'reason': '至少选择一个模型'});
-      }
       db.execute(
         'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
         [
           preset.id,
           1,
           jsonEncode({
-            'name': preset.name,
+            'name': effectiveName,
             'protocol': preset.protocol,
-            'baseUrl': preset.baseUrl,
+            'baseUrl': effectiveBaseUrl,
             'credentialRef': credentialRef,
             'presetId': preset.id,
             'createdAt': createdAt,
@@ -506,19 +698,31 @@ const errProviderExists = 'errProviderExists';
           jsonEncode(models),
         ],
       );
-    } catch (_) {
-      if (wroteCredential) {
-        try {
-          await credentials.delete(credentialRef);
-        } catch (_) {}
+    } on SqliteException catch (e) {
+      // 仅主键/唯一约束冲突（扩展码 1555/2067）映射为"已存在"；
+      // 不可按 primary code 19 一刀切——RAISE(ABORT) 触发器等其它约束错误也报 19，
+      // 那些必须原样上抛（Task 2 触发器测试依赖此语义）。
+      if (e.extendedResultCode == 1555 || e.extendedResultCode == 2067) {
+        throw EngineException(errProviderExists, {'providerId': preset.id});
       }
       rethrow;
     }
+    // —— 抢占成功后才允许触碰凭证 ——
+    final key = apiKey.trim();
+    final wroteCredential = key.isNotEmpty;
+    if (wroteCredential) {
+      try {
+        await credentials.write(credentialRef, key);
+      } catch (_) {
+        db.execute('DELETE FROM o_vendorConfig WHERE id=?', [preset.id]);
+        rethrow;
+      }
+    }
     return ProviderInfo(
       id: preset.id,
-      name: preset.name,
+      name: effectiveName,
       protocol: preset.protocol,
-      baseUrl: preset.baseUrl,
+      baseUrl: effectiveBaseUrl,
       hasCredential: wroteCredential,
       enabled: true,
       createdAt: createdAt,
@@ -529,15 +733,15 @@ const errProviderExists = 'errProviderExists';
 - [ ] **Step 4: 跑测试确认通过**
 
 Run: `flutter test test/engine/provider_preset_create_test.dart`
-Expected: PASS（4 tests）
+Expected: PASS（6 tests）
 
-- [ ] **Step 5: 全量引擎测试防回归 + commit**
+- [ ] **Step 5: 全量引擎回归 + commit**
 
 ```bash
 flutter test test/engine/
 flutter analyze lib/src/engine/errors.dart lib/src/engine/engine.dart test/engine/provider_preset_create_test.dart
 git add lib/src/engine/errors.dart lib/src/engine/engine.dart test/engine/provider_preset_create_test.dart
-git commit -m "feat(engine): createProviderFromPreset 原子创建（防旧 Key 覆盖/失败回滚）"
+git commit -m "feat(engine): createProviderFromPreset（INSERT 先行抢占，结构性消除并发删 Key）"
 ```
 
 ---
@@ -545,12 +749,12 @@ git commit -m "feat(engine): createProviderFromPreset 原子创建（防旧 Key 
 ### Task 3: `/models` 拉取候选（网关 + 引擎转发）
 
 **Files:**
-- Modify: `app/lib/src/engine/providers/gateway.dart`（接口默认方法 + `HttpProviderGateway` 实现）
-- Modify: `app/lib/src/engine/engine.dart`（转发方法）
+- Modify: `app/lib/src/engine/providers/gateway.dart`
+- Modify: `app/lib/src/engine/engine.dart`
 - Test: `app/test/engine/remote_model_candidates_test.dart`
 
 **Interfaces:**
-- Produces: `ProviderGateway.listRemoteModelIds(String providerId)`（默认 `Future.error(UnsupportedError(...))`，与 `submitVideo` 同款样式）；`HttpProviderGateway` 真实现（dio GET `{baseUrl}/models`，Bearer 头，解析 `data[].id`，DioException→`EngineException(errNetwork,...)`）；`Engine.fetchProviderModelCandidates(String providerId)` 转发。**只返回 `List<String>` 候选，不写库。**
+- Produces: `ProviderGateway.listRemoteModelIds(String providerId)`（默认 `Future.error(UnsupportedError('此网关不支持模型列表拉取'))`，与 `submitVideo` 同款样式）；`HttpProviderGateway` 实现（GET `{baseUrl}/models`、Bearer 头、解析 `data[].id`、`DioException`→`EngineException(errNetwork,...)`、非 List `data`→`errLlmFormat`）；`Engine.fetchProviderModelCandidates(String providerId)` 转发（前置 `_mustProvider`）。只返回 `List<String>`，不写库。
 
 - [ ] **Step 1: 写失败测试**
 
@@ -563,6 +767,17 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/util.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _FakeAdapter implements HttpClientAdapter {
+  final ResponseBody Function(RequestOptions) handler;
+  _FakeAdapter(this.handler);
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? _,
+          Future<void>? __) async =>
+      handler(options);
+  @override
+  void close({bool force = false}) {}
+}
 
 void main() {
   late HttpProviderGateway gateway;
@@ -591,19 +806,21 @@ void main() {
       return ResponseBody.fromString(
         '{"object":"list","data":[{"id":"m-a"},{"id":"m-b"}]}',
         200,
-        headers: {'content-type': ['application/json']},
+        headers: {
+          'content-type': ['application/json'],
+        },
       );
     });
-    final ids = await gateway.listRemoteModelIds('p1');
-    expect(ids, ['m-a', 'm-b']);
+    expect(await gateway.listRemoteModelIds('p1'), ['m-a', 'm-b']);
   });
 
   test('网络错误包装为 errNetwork', () async {
-    dio.httpClientAdapter = _FakeAdapter((options) =>
-        throw DioException(requestOptions: options, type: DioExceptionType.connectionTimeout));
+    dio.httpClientAdapter = _FakeAdapter((options) => throw DioException(
+        requestOptions: options, type: DioExceptionType.connectionTimeout));
     expect(
       () => gateway.listRemoteModelIds('p1'),
-      throwsA(isA<EngineException>().having((e) => e.code, 'code', 'errNetwork')),
+      throwsA(
+          isA<EngineException>().having((e) => e.code, 'code', 'errNetwork')),
     );
   });
 
@@ -615,20 +832,9 @@ void main() {
     );
   });
 }
-
-class _FakeAdapter implements HttpClientAdapter {
-  final ResponseBody Function(RequestOptions) handler;
-  _FakeAdapter(this.handler);
-  @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? _,
-          Future<void>? __) async =>
-      handler(options);
-  @override
-  void close({bool force = false}) {}
-}
 ```
 
-先看 `test/engine/` 里是否已有 mock dio 的既有模式（grep `httpClientAdapter`），有则沿用既有写法替换 `_FakeAdapter`。
+（动手前 grep `test/engine` 里既有 `httpClientAdapter` mock 模式，有则沿用既有类替换 `_FakeAdapter`；`credentialRef: 'provider:p1'` 的格式以 `providerCredentialRef` 真实前缀为准调整。）
 
 - [ ] **Step 2: 跑测试确认失败**
 
@@ -637,7 +843,7 @@ Expected: FAIL（`listRemoteModelIds` 未定义）
 
 - [ ] **Step 3: 实现**
 
-`gateway.dart` 抽象类 `ProviderGateway` 里（`cancelVideo` 之后）加：
+`gateway.dart` 抽象类里 `cancelVideo` 之后加：
 
 ```dart
   /// GET {baseUrl}/models，仅返回远端模型 ID 候选（不写库；spec §5 第 5 条）。
@@ -645,7 +851,7 @@ Expected: FAIL（`listRemoteModelIds` 未定义）
       Future.error(UnsupportedError('此网关不支持模型列表拉取'));
 ```
 
-`HttpProviderGateway` 类内加实现：
+`HttpProviderGateway` 类内加实现（`jsonDecode` 需要时补 `import 'dart:convert';`）：
 
 ```dart
   @override
@@ -656,21 +862,24 @@ Expected: FAIL（`listRemoteModelIds` 未定义）
     if (rows.isEmpty) {
       throw EngineException(errProviderMissing, {'providerId': providerId});
     }
-    final inputValues = jsonDecode(
-            (rows.first['inputValues'] as String?)?.trim().isNotEmpty == true
-                ? rows.first['inputValues'] as String
-                : '{}') as Map;
-    final baseUrl = (inputValues['baseUrl'] ?? '').toString().trimRight();
-    final credentialRef = (inputValues['credentialRef'] ??
-            providerCredentialRef(providerId))
-        .toString();
+    final raw = rows.first['inputValues'] as String?;
+    final inputValues = raw != null && raw.trim().isNotEmpty
+        ? jsonDecode(raw) as Map
+        : const {};
+    var baseUrl = (inputValues['baseUrl'] ?? '').toString().trim();
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+    }
+    final credentialRef =
+        (inputValues['credentialRef'] ?? providerCredentialRef(providerId))
+            .toString();
     var apiKey = '';
     try {
       apiKey = await credentials.read(credentialRef) ?? '';
     } catch (_) {}
     try {
       final resp = await dio.get<dynamic>(
-        '${baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl}/models',
+        '$baseUrl/models',
         options: Options(headers: {
           if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey',
         }),
@@ -678,7 +887,8 @@ Expected: FAIL（`listRemoteModelIds` 未定义）
       final body = resp.data;
       final list = body is Map ? body['data'] : body;
       if (list is! List) {
-        throw EngineException(errLlmFormat, {'reason': '/models 响应缺 data 数组'});
+        throw const EngineException(
+            errLlmFormat, {'reason': '/models 响应缺 data 数组'});
       }
       return [
         for (final item in list.whereType<Map>())
@@ -695,12 +905,10 @@ Expected: FAIL（`listRemoteModelIds` 未定义）
   }
 ```
 
-（`gateway.dart` 已 import dio/sqlite3/credentials/util——若 `jsonDecode` 未引入则补 `import 'dart:convert';`。）
-
-`engine.dart` 在 `saveProviderModels` 附近加转发：
+`engine.dart` 在 `saveProviderModels` 附近加：
 
 ```dart
-  /// /models 拉取候选（只出列表不写库，UI 定 kind 后走 saveProviderModels）。
+  /// /models 拉取候选（只出列表不写库；UI 定 kind 后走 saveProviderModels）。
   Future<List<String>> fetchProviderModelCandidates(String providerId) {
     _mustProvider(providerId);
     return gateway.listRemoteModelIds(providerId);
@@ -722,7 +930,7 @@ git commit -m "feat(engine): /models 拉取模型候选（只出候选不写库�
 
 ---
 
-### Task 4: 三语文案 + 预设画廊
+### Task 4: 三语文案 + 预设画廊（含未验证角标）
 
 **Files:**
 - Modify: `app/lib/l10n/app_zh.arb`、`app/lib/l10n/app_en.arb`、`app/lib/l10n/app_ja.arb`
@@ -730,18 +938,19 @@ git commit -m "feat(engine): /models 拉取模型候选（只出候选不写库�
 - Test: `app/test/widgets/provider_preset_gallery_test.dart`
 
 **Interfaces:**
-- Consumes: Task 1 的 `kProviderPresets`/`ProviderPreset`。
-- Produces: `Future<String?> showProviderPresetGallery(BuildContext context, {required Set<String> existingProviderIds})`——返回选中的 presetId；返回 `'custom'` 表示走自定义；返回 null 表示取消。已存在实例的卡显示"已添加"角标，点击返回该 presetId 并由调用方进编辑（Task 5 处理）。
+- Consumes: Task 1 `kProviderPresets`/`ProviderPreset`。
+- Produces: `Future<String?> showProviderPresetGallery(BuildContext context, {required Set<String> existingProviderIds})`——选中 presetId；`'custom'` 走自定义；null 取消。角标规则：已存在实例 →"已添加"；否则未过验收（`!acceptanceVerified`）显示"未验证"，且 `compatMode` 再叠加"兼容模式"（两枚可同现）。
 
-- [ ] **Step 1: 加 l10n 键（三语）**
+- [ ] **Step 1: 加 l10n 键（三语，17 个）**
 
-`app_zh.arb` 追加（模板文件，跑 gen-l10n 后 `untranslated.txt` 必须为空）：
+`app_zh.arb` 追加：
 
 ```json
   "presetGalleryTitle": "选择供应商",
   "presetGalleryCustom": "自定义",
   "presetGalleryCustomDesc": "手动填写名称、地址与密钥",
   "presetCompatMode": "兼容模式",
+  "presetUnverified": "未验证",
   "presetAdded": "已添加",
   "presetOpenPlatform": "前往平台",
   "presetKindText": "文字",
@@ -763,6 +972,7 @@ git commit -m "feat(engine): /models 拉取模型候选（只出候选不写库�
   "presetGalleryCustom": "Custom",
   "presetGalleryCustomDesc": "Enter name, base URL and key manually",
   "presetCompatMode": "Compat mode",
+  "presetUnverified": "Unverified",
   "presetAdded": "Added",
   "presetOpenPlatform": "Open platform",
   "presetKindText": "Text",
@@ -784,6 +994,7 @@ git commit -m "feat(engine): /models 拉取模型候选（只出候选不写库�
   "presetGalleryCustom": "カスタム",
   "presetGalleryCustomDesc": "名称・URL・キーを手動入力",
   "presetCompatMode": "互換モード",
+  "presetUnverified": "未検証",
   "presetAdded": "追加済み",
   "presetOpenPlatform": "プラットフォームへ",
   "presetKindText": "テキスト",
@@ -798,22 +1009,27 @@ git commit -m "feat(engine): /models 拉取模型候选（只出候选不写库�
   "presetProviderExists": "このプロバイダーは追加済みです。編集してください"
 ```
 
-Run: `flutter gen-l10n`，然后 `cat untranslated.txt`——Expected: 空（三语齐）。
+Run: `flutter gen-l10n && cat untranslated.txt`
+Expected: `untranslated.txt` 空。
 
 - [ ] **Step 2: 写失败 widget 测试**
 
 ```dart
 // app/test/widgets/provider_preset_gallery_test.dart
+import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/screens/provider_preset_gallery.dart';
+import 'package:dramaflow/src/theme/theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _host({required Set<String> existing, required void Function(String?) onResult}) {
+Widget _host(
+    {required Set<String> existing,
+    required void Function(String?) onResult}) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
+    supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
     locale: const Locale('zh'),
+    theme: buildTheme(Brightness.light),
     home: Builder(
       builder: (context) => Scaffold(
         body: Center(
@@ -831,8 +1047,11 @@ Widget _host({required Set<String> existing, required void Function(String?) onR
   );
 }
 
+Finder _inCard(String presetId, String text) => find.descendant(
+    of: find.byKey(Key('preset-card-$presetId')), matching: find.text(text));
+
 void main() {
-  testWidgets('手机宽度：12 预设卡+自定义卡齐全，兼容模式角标只在三家', (tester) async {
+  testWidgets('手机宽度：卡片、兼容模式+未验证双角标、选中回传', (tester) async {
     tester.view.physicalSize = const Size(390, 760);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -841,28 +1060,34 @@ void main() {
     await tester.tap(find.byKey(const Key('open-gallery')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('preset-card-openai')), findsOneWidget);
-    expect(find.byKey(const Key('preset-card-custom')), findsOneWidget);
-    // 12 家全渲染（滚动到底确认最后一家）
-    await tester.scrollUntilVisible(
-        find.byKey(const Key('preset-card-azt')), 300);
-    expect(find.byKey(const Key('preset-card-azt')), findsOneWidget);
-    // 兼容模式角标恰好 3 个
-    expect(find.text('兼容模式'), findsNWidgets(3));
+    // openai 未过验收 → 未验证；非兼容模式 → 无兼容模式角标
+    expect(_inCard('openai', '未验证'), findsOneWidget);
+    expect(_inCard('openai', '兼容模式'), findsNothing);
+    // anthropic 双角标
+    expect(_inCard('anthropic', '未验证'), findsOneWidget);
+    expect(_inCard('anthropic', '兼容模式'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('preset-card-openai')));
     await tester.pumpAndSettle();
     expect(picked, 'openai');
   });
 
-  testWidgets('已存在实例的卡显示已添加角标', (tester) async {
+  testWidgets('桌面宽度：已添加优先于未验证；azt 已验不显示未验证', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(_host(existing: {'volcengine'}, onResult: (_) {}));
+    await tester
+        .pumpWidget(_host(existing: {'volcengine'}, onResult: (_) {}));
     await tester.tap(find.byKey(const Key('open-gallery')));
     await tester.pumpAndSettle();
-    expect(find.text('已添加'), findsOneWidget);
+
+    expect(_inCard('volcengine', '已添加'), findsOneWidget);
+    expect(_inCard('volcengine', '未验证'), findsNothing,
+        reason: '已添加态优先，不再叠未验证');
+    await tester.scrollUntilVisible(
+        find.byKey(const Key('preset-card-azt')), 300);
+    expect(_inCard('azt', '未验证'), findsNothing,
+        reason: 'azt acceptanceVerified=true');
   });
 
   testWidgets('自定义卡返回 custom', (tester) async {
@@ -882,8 +1107,6 @@ void main() {
 }
 ```
 
-实现前 grep 现有 widget 测试确认 `AppLocalizations` 的 import 路径（`flutter_gen/gen_l10n/` 还是项目内路径），以现有测试为准。
-
 - [ ] **Step 3: 跑测试确认失败**
 
 Run: `flutter test test/widgets/provider_preset_gallery_test.dart`
@@ -896,11 +1119,11 @@ Expected: FAIL（文件不存在）
 import 'package:flutter/material.dart';
 
 import '../engine/provider_presets.dart';
-import '../theme.dart';
+import '../theme/theme.dart';
+import '../util/l10n_ext.dart';
 import '../widgets/df_adaptive_dialog.dart';
-import 'l10n_ext.dart';
 
-/// 预设画廊（spec §5 第 1 条）：返回选中的 presetId；'custom' 表示走自定义；null 取消。
+/// 预设画廊（spec §5 第 1 条）：返回选中 presetId；'custom' 走自定义；null 取消。
 Future<String?> showProviderPresetGallery(
   BuildContext context, {
   required Set<String> existingProviderIds,
@@ -927,7 +1150,7 @@ class _PresetGalleryBody extends StatelessWidget {
       crossAxisCount: columns,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.35,
+      childAspectRatio: 1.3,
       children: [
         for (final p in kProviderPresets)
           _PresetCard(preset: p, added: existing.contains(p.id)),
@@ -944,7 +1167,7 @@ class _PresetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final df = DFTheme.of(context);
+    final df = context.df;
     final l10n = context.l10n;
     final kinds = {for (final m in preset.models) m.kind};
     String kindLabel(String k) => switch (k) {
@@ -953,6 +1176,14 @@ class _PresetCard extends StatelessWidget {
           'tts' => l10n.presetKindTts,
           _ => l10n.presetKindText,
         };
+    final badges = <String>[
+      if (added)
+        l10n.presetAdded
+      else ...[
+        if (!preset.acceptanceVerified) l10n.presetUnverified,
+        if (preset.compatMode) l10n.presetCompatMode,
+      ],
+    ];
     return InkWell(
       key: Key('preset-card-${preset.id}'),
       borderRadius: BorderRadius.circular(12),
@@ -966,18 +1197,25 @@ class _PresetCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              CircleAvatar(
-                radius: 14,
-                child: Text(preset.name.characters.first.toUpperCase(),
-                    style: const TextStyle(fontSize: 13)),
-              ),
-              const Spacer(),
-              if (added)
-                _Badge(text: l10n.presetAdded)
-              else if (preset.compatMode)
-                _Badge(text: l10n.presetCompatMode),
-            ]),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  child: Text(preset.name.characters.first.toUpperCase(),
+                      style: const TextStyle(fontSize: 13)),
+                ),
+                const Spacer(),
+                Flexible(
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    alignment: WrapAlignment.end,
+                    children: [for (final b in badges) _Badge(text: b)],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Text(preset.name,
                 maxLines: 1,
@@ -986,16 +1224,7 @@ class _PresetCard extends StatelessWidget {
             const Spacer(),
             Wrap(spacing: 4, runSpacing: 4, children: [
               for (final k in kinds)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: df.surfaceMuted,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(kindLabel(k),
-                      style: TextStyle(fontSize: 11, color: df.textSecondary)),
-                ),
+                _Badge(text: kindLabel(k)),
             ]),
           ],
         ),
@@ -1009,7 +1238,7 @@ class _CustomCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final df = DFTheme.of(context);
+    final df = context.df;
     final l10n = context.l10n;
     return InkWell(
       key: const Key('preset-card-custom'),
@@ -1018,7 +1247,7 @@ class _CustomCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          border: Border.all(color: df.stroke, style: BorderStyle.solid),
+          border: Border.all(color: df.stroke),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -1047,20 +1276,21 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final df = DFTheme.of(context);
+    final df = context.df;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: df.surfaceMuted,
+        border: Border.all(color: df.stroke),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(text, style: TextStyle(fontSize: 10, color: df.textSecondary)),
+      child:
+          Text(text, style: TextStyle(fontSize: 10, color: df.textSecondary)),
     );
   }
 }
 ```
 
-实现前核对：`DFTheme.of(context)` 的真实字段名（`stroke`/`surfaceMuted`/`textSecondary`/`textTertiary`）以 `app/lib/src/theme.dart` 为准，不存在的字段换成最接近的既有 token；`l10n_ext.dart`（`context.l10n` 扩展）的真实路径以 settings_screen.dart 的 import 为准。
+（`DFColors` 的 `stroke`/`textSecondary`/`textTertiary` 已在"已核实事实"确认存在。）
 
 - [ ] **Step 5: 跑测试确认通过**
 
@@ -1072,28 +1302,29 @@ Expected: PASS（3 tests）
 ```bash
 flutter analyze lib/src/screens/provider_preset_gallery.dart test/widgets/provider_preset_gallery_test.dart
 git add lib/l10n/app_zh.arb lib/l10n/app_en.arb lib/l10n/app_ja.arb lib/src/screens/provider_preset_gallery.dart test/widgets/provider_preset_gallery_test.dart
-git commit -m "feat(ui): 供应商预设画廊（12+自定义，兼容模式/已添加角标，三语）"
+git commit -m "feat(ui): 供应商预设画廊（未验证/兼容模式/已添加角标，三语）"
 ```
 
-（若 `flutter gen-l10n` 产物文件在 git 内也被改动，一并 `git add` 生成的 `app_localizations*.dart`。）
+（`flutter gen-l10n` 产物若被 git 跟踪则一并 add。）
 
 ---
 
-### Task 5: 预填表单 + 设置页接线
+### Task 5: 预填表单（name/baseUrl 覆盖真实生效）+ 设置页接线
 
 **Files:**
 - Create: `app/lib/src/screens/provider_preset_form.dart`
-- Modify: `app/lib/src/screens/settings_screen.dart`（`_openCreateProviderDialog`，约 :462）
-- Test: `app/test/widgets/provider_preset_form_test.dart`
+- Modify: `app/lib/src/screens/settings_screen.dart`（`_openCreateProviderDialog`）
+- Test: `app/test/widgets/provider_preset_form_test.dart`；更新 `app/test/widgets/settings_screen_test.dart` 现有添加供应商用例
 
 **Interfaces:**
-- Consumes: Task 1 `providerPresetById`；Task 2 `createProviderFromPreset`；Task 4 `showProviderPresetGallery`。
-- Produces: `Future<bool> showProviderPresetForm(BuildContext context, WidgetRef ref, {required String presetId})`——true 表示已创建成功。settings 的添加流程变为：画廊 → presetId 进预填表单 / 'custom' 进现有 `_ProviderFormDialog` / 已添加的 presetId 进现有编辑弹窗。
+- Consumes: Task 1 `providerPresetById`；Task 2 `createProviderFromPreset`（含 `name`/`baseUrl` 覆盖）；Task 4 `showProviderPresetGallery`。
+- Produces: `Future<bool> showProviderPresetForm(BuildContext context, WidgetRef ref, {required String presetId})`。settings 添加流程：画廊 → presetId 进预填表单 / 'custom' 进现有 `_ProviderFormDialog` / 已存在 presetId 进现有编辑弹窗。
 
 - [ ] **Step 1: 写失败 widget 测试**
 
 ```dart
 // app/test/widgets/provider_preset_form_test.dart
+import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -1101,8 +1332,8 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/screens/provider_preset_form.dart';
 import 'package:dramaflow/src/state/providers.dart';
+import 'package:dramaflow/src/theme/theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -1130,14 +1361,15 @@ void main() {
         overrides: [engineProvider.overrideWithValue(engine)],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
+          supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
           locale: const Locale('zh'),
+          theme: buildTheme(Brightness.light),
           home: Consumer(
             builder: (context, ref, _) => Scaffold(
               body: ElevatedButton(
                 key: const Key('open-form'),
-                onPressed: () => showProviderPresetForm(context, ref,
-                    presetId: 'deepseek'),
+                onPressed: () =>
+                    showProviderPresetForm(context, ref, presetId: 'deepseek'),
                 child: const Text('open'),
               ),
             ),
@@ -1153,13 +1385,20 @@ void main() {
     await tester.tap(find.byKey(const Key('open-form')));
     await tester.pumpAndSettle();
 
-    expect(find.text('https://api.deepseek.com/v1'), findsOneWidget);
+    expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('preset-form-baseurl')))
+            .controller!
+            .text,
+        'https://api.deepseek.com/v1');
     expect(find.text('deepseek-chat'), findsOneWidget);
     expect(find.text('deepseek-reasoner'), findsOneWidget);
 
-    final keyField = tester.widget<TextField>(
-        find.byKey(const Key('preset-form-apikey')));
-    expect(keyField.obscureText, isTrue);
+    expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('preset-form-apikey')))
+            .obscureText,
+        isTrue);
     await tester.tap(find.byKey(const Key('preset-form-apikey-toggle')));
     await tester.pump();
     expect(
@@ -1169,7 +1408,7 @@ void main() {
         isFalse);
   });
 
-  testWidgets('保存：取消勾选一个模型后创建，引擎真实落库', (tester) async {
+  testWidgets('保存：改名+改 BaseURL+取消一个模型，全部真实落库', (tester) async {
     tester.view.physicalSize = const Size(390, 760);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -1178,12 +1417,19 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
+        find.byKey(const Key('preset-form-name')), '我的 DeepSeek');
+    await tester.enterText(find.byKey(const Key('preset-form-baseurl')),
+        'https://proxy.example.com/v1');
+    await tester.enterText(
         find.byKey(const Key('preset-form-apikey')), 'sk-test');
     await tester.tap(find.byKey(const Key('preset-model-deepseek-reasoner')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('preset-form-save')));
     await tester.pumpAndSettle();
 
+    final provider = (await engine.listProviders()).single;
+    expect(provider.name, '我的 DeepSeek', reason: '可编辑名称必须真实生效（评审 P1-3）');
+    expect(provider.baseUrl, 'https://proxy.example.com/v1');
     final models = await engine.listProviderModels('deepseek');
     expect(models.map((m) => m.modelId).toList(), ['deepseek-chat']);
   });
@@ -1205,8 +1451,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../engine/provider_presets.dart';
 import '../state/providers.dart';
+import '../util/l10n_ext.dart';
 import '../widgets/df_adaptive_dialog.dart';
-import 'l10n_ext.dart';
 
 /// 预设预填表单（spec §5 第 2 条）。返回 true = 创建成功。
 Future<bool> showProviderPresetForm(
@@ -1264,6 +1510,8 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
             presetId: widget.preset.id,
             apiKey: _apiKey.text,
             selectedModelIds: _selected.toList(),
+            name: _name.text,
+            baseUrl: _baseUrl.text,
           );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -1283,11 +1531,13 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
+            key: const Key('preset-form-name'),
             controller: _name,
-            decoration: InputDecoration(labelText: l10n.settingsProviderName),
+            decoration: const InputDecoration(labelText: '名称'),
           ),
           const SizedBox(height: 12),
           TextField(
+            key: const Key('preset-form-baseurl'),
             controller: _baseUrl,
             decoration: const InputDecoration(labelText: 'Base URL'),
           ),
@@ -1301,8 +1551,8 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
               labelText: 'API Key',
               suffixIcon: IconButton(
                 key: const Key('preset-form-apikey-toggle'),
-                icon: Icon(
-                    _obscure ? Icons.visibility_off : Icons.visibility),
+                icon:
+                    Icon(_obscure ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
@@ -1312,8 +1562,7 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
             child: TextButton.icon(
               icon: const Icon(Icons.open_in_new, size: 16),
               label: Text(l10n.presetOpenPlatform),
-              onPressed: () =>
-                  launchUrl(Uri.parse(widget.preset.keyUrl)),
+              onPressed: () => launchUrl(Uri.parse(widget.preset.keyUrl)),
             ),
           ),
           const Divider(height: 24),
@@ -1337,14 +1586,14 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(_error!,
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.error)),
+                  style:
+                      TextStyle(color: Theme.of(context).colorScheme.error)),
             ),
           const SizedBox(height: 16),
           FilledButton(
             key: const Key('preset-form-save'),
             onPressed: _saving || _selected.isEmpty ? null : _save,
-            child: Text(l10n.commonSave),
+            child: const Text('保存'),
           ),
         ],
       ),
@@ -1353,11 +1602,11 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
 }
 ```
 
-实现前核对：`l10n.settingsProviderName`/`l10n.commonSave` 的真实键名以现有 `_ProviderFormDialog` 用的键为准（grep settings_screen.dart），不存在就换成它实际用的键。
+（"名称"/"保存"两处文案：先 grep settings_screen.dart 现有 `_ProviderFormDialog` 用的 l10n 键（如 `l10n.settingsProviderName`/`l10n.commonSave` 之类的真实键名），有键用键，确无键才允许沿用它的硬编码写法——与现有表单保持同一来源。）
 
 - [ ] **Step 4: 接线 settings_screen.dart**
 
-`_openCreateProviderDialog`（约 :462）改为：
+`_openCreateProviderDialog` 改为（顶部加 `import 'provider_preset_gallery.dart';`、`import 'provider_preset_form.dart';`）：
 
 ```dart
   Future<void> _openCreateProviderDialog() async {
@@ -1387,8 +1636,7 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
       return;
     }
 
-    final existing =
-        providers.where((p) => p.id == picked).toList();
+    final existing = providers.where((p) => p.id == picked).toList();
     if (existing.isNotEmpty) {
       await _openEditProviderDialog(existing.first);
       return;
@@ -1400,94 +1648,128 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
   }
 ```
 
-顶部加 import：`import 'provider_preset_gallery.dart';`、`import 'provider_preset_form.dart';`。
-实现前核对引擎取供应商列表的真实方法名（grep settings_screen.dart 现在怎么拿 `List<ProviderInfo>`——若走 riverpod provider 而非 `listProviders()`，改用同款读法）。
+- [ ] **Step 5: 更新既有用例 + 跑测试**
 
-- [ ] **Step 5: 跑测试确认通过 + 设置页回归**
+`settings_screen_test.dart` 的 `移动端设置页：外观语言、供应商与提示词入口可用` 用例：在 `tap(find.text('添加供应商'))` 与 3 个 TextField 输入之间插入：
+
+```dart
+    await tester.scrollUntilVisible(
+        find.byKey(const Key('preset-card-custom')), 300);
+    await tester.tap(find.byKey(const Key('preset-card-custom')));
+    await tester.pumpAndSettle();
+```
+
+其余断言不变（自定义表单本身零改动）。
 
 Run: `flutter test test/widgets/provider_preset_form_test.dart test/widgets/settings_screen_test.dart`
-Expected: 全 PASS——settings_screen_test 里现有"添加供应商"用例走的是 `_ProviderFormDialog` 直开路径；若其点击"添加供应商"按钮后因画廊插入而断言失败，修改该用例为：点按钮 → 画廊出现 → 点 `preset-card-custom` → 后续断言不变（这是 spec 规定的新流程，自定义表单本身零改动）。
+Expected: 全 PASS。
 
 - [ ] **Step 6: analyze + commit**
 
 ```bash
 flutter analyze lib/src/screens/provider_preset_form.dart lib/src/screens/settings_screen.dart test/widgets/provider_preset_form_test.dart
 git add lib/src/screens/provider_preset_form.dart lib/src/screens/settings_screen.dart test/widgets/provider_preset_form_test.dart test/widgets/settings_screen_test.dart
-git commit -m "feat(ui): 预设预填表单+设置页画廊接线（原子创建，已添加进编辑）"
+git commit -m "feat(ui): 预设预填表单（name/baseUrl 覆盖生效）+ 设置页画廊接线"
 ```
 
 ---
 
-### Task 6: 模型管理"从 API 拉取"候选合并
+### Task 6: 模型管理"从 API 拉取"候选合并（全量代码）
 
 **Files:**
-- Modify: `app/lib/src/screens/settings_screen.dart`（`_ProviderModelsEditorState`，约 :2145）
+- Modify: `app/lib/src/screens/settings_screen.dart`（`_ProviderModelsEditorState` + 新私有 `_CandidateSheet`）
 - Test: 追加用例到 `app/test/widgets/settings_screen_test.dart`
 
 **Interfaces:**
-- Consumes: Task 3 `Engine.fetchProviderModelCandidates`；Task 1 `presetModelKinds`。
-- Produces: 模型管理弹窗新增 `presetFetchModels` 按钮 → 候选底部弹层：每个候选一行（勾选框 + ID + kind 下拉，目录内 ID 预填 kind，未知 ID 显示"未分类"占位）；"加入清单"仅将**已勾选且已定 kind** 的候选加为 `_ModelDraft`（enabled=false）；已存在于草稿的 ID 不出现在候选里。
+- Consumes: Task 3 `Engine.fetchProviderModelCandidates`；Task 1 `presetModelKinds`；Task 2 `createProviderFromPreset`（测试造数据用）。
+- Produces: 模型管理弹窗"从 API 拉取模型"按钮 → `_CandidateSheet` 底部弹层 → 选中且已定 kind 的候选加为 `_ModelDraft(enabled: false)`。
 
-- [ ] **Step 1: 写失败测试（追加到 settings_screen_test.dart 末尾）**
+- [ ] **Step 1: 写失败测试（settings_screen_test.dart 末尾追加；文件顶部追加 fake gateway 类）**
+
+文件顶部（`_NoopGateway` 类之后）加：
 
 ```dart
-  testWidgets('模型管理：从 API 拉取候选，未分类必须定 kind 才能加入', (tester) async {
+class _CandidatesGateway implements ProviderGateway {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  Future<List<String>> listRemoteModelIds(String providerId) async =>
+      ['deepseek-chat', 'brand-new-model'];
+}
+```
+
+末尾追加用例：
+
+```dart
+  testWidgets('模型管理：从 API 拉取候选，未分类必须定 kind 才能加入，且默认禁用', (tester) async {
+    // 换成能应答 /models 的 fake gateway（沿用本文件 setUp 的 db/media 构造方式）
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'media')),
+      gateway: _CandidatesGateway(),
+      config: EngineConfig(db, isMobile: true),
+    );
+    await engine.createProviderFromPreset(
+        presetId: 'deepseek', apiKey: 'k', selectedModelIds: ['deepseek-chat']);
+
     tester.view.physicalSize = const Size(390, 760);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    // harness：沿用本文件既有 setUp 的 engine；把 gateway 换成能答 /models 的 fake
-    // （在本文件顶部加：）
-    // class _ModelsGateway extends _NoopGateway {
-    //   @override
-    //   Future<List<String>> listRemoteModelIds(String providerId) async =>
-    //       ['deepseek-chat', 'brand-new-model'];
-    // }
-    // 并在本用例里用 _ModelsGateway 构造 engine（复制本文件既有 engine 构造行，仅换 gateway）。
-    final provider = await engine.createProviderFromPreset(
-        presetId: 'deepseek', apiKey: 'k', selectedModelIds: ['deepseek-chat']);
-    await pumpSettings(tester); // 本文件既有的泵设置页 helper，名字以文件内为准
-    // 打开该供应商的模型管理（沿用本文件既有"模型管理"用例的打开手法）
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
     await tester.tap(find.byTooltip('模型管理').first);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('从 API 拉取模型'));
     await tester.pumpAndSettle();
 
-    // deepseek-chat 已在清单 → 候选只剩 brand-new-model，且是未分类
-    expect(find.text('brand-new-model'), findsOneWidget);
-    expect(find.text('deepseek-chat'), findsAtLeastNWidgets(1)); // 草稿区原有
+    // deepseek-chat 已在清单 → 候选只剩 brand-new-model（未分类）
+    expect(find.byKey(const Key('candidate-row-brand-new-model')),
+        findsOneWidget);
+    expect(find.byKey(const Key('candidate-row-deepseek-chat')), findsNothing);
     expect(find.text('未分类'), findsOneWidget);
 
-    // 不定 kind 直接勾选加入 → 报错提示
+    // 不定 kind 勾选加入 → 行内报错，不关弹层
     await tester.tap(find.byKey(const Key('candidate-check-brand-new-model')));
     await tester.pump();
     await tester.tap(find.text('加入清单'));
     await tester.pump();
     expect(find.text('请先为勾选的模型选择类型'), findsOneWidget);
 
-    // 定 kind 后加入成功，且新草稿默认禁用
+    // 定 kind = 图片 → 加入成功
     await tester.tap(find.byKey(const Key('candidate-kind-brand-new-model')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('图片').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('加入清单'));
     await tester.pumpAndSettle();
-    expect(find.text('brand-new-model'), findsAtLeastNWidgets(1));
-    // 新草稿 enabled=false 的断言：保存后查引擎
-    // （保存按钮名与既有模型管理用例一致）
+    expect(find.text('brand-new-model'), findsOneWidget); // 已入草稿区
+
+    // 保存后落库：新模型 kind=image 且默认禁用；原模型不受影响
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final models = await engine.listProviderModels('deepseek');
+    final byId = {for (final m in models) m.modelId: m};
+    expect(byId['brand-new-model']!.kind, 'image');
+    expect(byId['brand-new-model']!.enabled, isFalse,
+        reason: '拉取候选默认禁用（spec §5 第 5 条）');
+    expect(byId['deepseek-chat']!.enabled, isTrue, reason: '已有条目不受影响');
   });
 ```
-
-以上代码块中两处"以文件内为准"的 helper/按钮名，动手前先读 `settings_screen_test.dart` 既有"模型管理"用例（:225 附近）拿到真实写法后落实——断言语义不得削弱。
 
 - [ ] **Step 2: 跑测试确认失败**
 
 Run: `flutter test test/widgets/settings_screen_test.dart --plain-name 从 API 拉取`
 Expected: FAIL（按钮不存在）
 
-- [ ] **Step 3: 实现候选弹层**
+- [ ] **Step 3: 实现**
 
-`_ProviderModelsEditorState` 里加（完整逻辑，UI 结构随现有编辑器风格微调）：
+`_ProviderModelsEditorState` 内加方法（`_ModelDraft` 真实字段：`modelId`/`label` 是 `TextEditingController`，`kind` String，`enabled` bool，`capabilities` Map——已核实 :2283）：
 
 ```dart
   Future<void> _fetchCandidates() async {
@@ -1504,7 +1786,7 @@ Expected: FAIL（按钮不存在）
       return;
     }
     if (!mounted) return;
-    final known = {for (final d in _drafts) d.modelIdController.text.trim()};
+    final known = {for (final d in _drafts) d.modelId.text.trim()};
     final candidates = [
       for (final id in ids)
         if (!known.contains(id)) id,
@@ -1514,30 +1796,152 @@ Expected: FAIL（按钮不存在）
           .showSnackBar(SnackBar(content: Text(l10n.presetFetchEmpty)));
       return;
     }
-    final kinds = presetModelKinds(widget.provider.id);
     final picked = await showModalBottomSheet<List<(String, String)>>(
       context: context,
       isScrollControlled: true,
-      builder: (context) =>
-          _CandidateSheet(candidates: candidates, knownKinds: kinds),
+      builder: (context) => _CandidateSheet(
+        candidates: candidates,
+        knownKinds: presetModelKinds(widget.provider.id),
+      ),
     );
     if (picked == null || picked.isEmpty || !mounted) return;
     setState(() {
       for (final (id, kind) in picked) {
-        final draft = _ModelDraft.empty();
-        draft.modelIdController.text = id;
-        draft.labelController.text = id;
-        draft.kind = kind;
-        draft.enabled = false; // spec：候选默认禁用，用户手动启用
-        _drafts.add(draft);
+        _drafts.add(_ModelDraft(
+          id: '',
+          modelId: TextEditingController(text: id),
+          label: TextEditingController(text: id),
+          kind: kind,
+          capabilities: <String, dynamic>{},
+          enabled: false, // spec：候选默认禁用，用户手动启用
+        ));
       }
     });
   }
 ```
 
-`_ModelDraft` 的字段名（`modelIdController`/`labelController`/`kind`/`enabled`）以 :2283 的真实定义为准替换。`_CandidateSheet` 新私有 widget：`ListView` 每行 `Checkbox + Text(id, ellipsis) + DropdownButton<String>(kind, hint: 未分类)`（key 分别为 `candidate-check-<id>`/`candidate-kind-<id>`，目录内 ID 用 `knownKinds[id]` 预填），底部 `FilledButton(加入清单)`——点击时若有勾选项未定 kind，行内显示 `presetKindRequired` 错误文本不关闭；全部合法则 `Navigator.pop` 已勾选的 `(id, kind)` 列表。按钮放在编辑器工具行 `_addModel` 按钮旁：`TextButton.icon(icon: Icons.cloud_download_outlined, label: Text(l10n.presetFetchModels), onPressed: _fetchCandidates)`。
+按钮放在"添加模型"按钮同一工具行旁：
 
-- [ ] **Step 4: 跑测试确认通过 + 全文件回归**
+```dart
+            TextButton.icon(
+              icon: const Icon(Icons.cloud_download_outlined, size: 18),
+              label: Text(context.l10n.presetFetchModels),
+              onPressed: _fetchCandidates,
+            ),
+```
+
+新私有 widget（放在 `_ModelDraft` 类附近）：
+
+```dart
+class _CandidateSheet extends StatefulWidget {
+  final List<String> candidates;
+  final Map<String, String> knownKinds;
+  const _CandidateSheet({required this.candidates, required this.knownKinds});
+
+  @override
+  State<_CandidateSheet> createState() => _CandidateSheetState();
+}
+
+class _CandidateSheetState extends State<_CandidateSheet> {
+  late final Map<String, String?> _kinds = {
+    for (final id in widget.candidates) id: widget.knownKinds[id],
+  };
+  final Set<String> _checked = {};
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    String kindLabel(String k) => switch (k) {
+          'image' => l10n.presetKindImage,
+          'video' => l10n.presetKindVideo,
+          'tts' => l10n.presetKindTts,
+          _ => l10n.presetKindText,
+        };
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final id in widget.candidates)
+                    Row(
+                      key: Key('candidate-row-$id'),
+                      children: [
+                        Checkbox(
+                          key: Key('candidate-check-$id'),
+                          value: _checked.contains(id),
+                          onChanged: (v) => setState(() {
+                            if (v == true) {
+                              _checked.add(id);
+                            } else {
+                              _checked.remove(id);
+                            }
+                          }),
+                        ),
+                        Expanded(
+                          child: Text(id,
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                        DropdownButton<String>(
+                          key: Key('candidate-kind-$id'),
+                          value: _kinds[id],
+                          hint: Text(l10n.presetUncategorized),
+                          items: [
+                            for (final k in const [
+                              'text',
+                              'image',
+                              'video',
+                              'tts'
+                            ])
+                              DropdownMenuItem(
+                                  value: k, child: Text(kindLabel(k))),
+                          ],
+                          onChanged: (v) => setState(() => _kinds[id] = v),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!,
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error)),
+              ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () {
+                final missing =
+                    _checked.where((id) => _kinds[id] == null).toList();
+                if (missing.isNotEmpty) {
+                  setState(() => _error = l10n.presetKindRequired);
+                  return;
+                }
+                Navigator.of(context).pop([
+                  for (final id in _checked) (id, _kinds[id]!),
+                ]);
+              },
+              child: Text(l10n.presetAddCandidates),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+（"保存"按钮与草稿持久化沿用编辑器现有逻辑——`enabled: false` 的 draft 由既有保存路径原样写库，无需改动。）
+
+- [ ] **Step 4: 跑全文件回归**
 
 Run: `flutter test test/widgets/settings_screen_test.dart`
 Expected: 全 PASS（新用例 + 既有全部）
@@ -1552,11 +1956,11 @@ git commit -m "feat(ui): 模型管理从 API 拉取候选（未分类需定 kind
 
 ---
 
-### Task 7: 全量收尾 + 人工验收清单
+### Task 7: 全量收尾 + 人工验收清单（含 azt 证据）
 
 **Files:**
 - Create: `docs/parity/provider-presets-acceptance.md`
-- Modify: `.superpowers/sdd/progress.md`（追加台账条目）
+- Modify: `.superpowers/sdd/progress.md`
 
 - [ ] **Step 1: 全量回归**
 
@@ -1564,21 +1968,25 @@ git commit -m "feat(ui): 模型管理从 API 拉取候选（未分类需定 kind
 flutter analyze
 flutter test
 ```
-Expected: analyze 0 issues；全套件 PASS（此前基线 613 + 本计划新增用例）。任何失败先修再进 Step 2。
+Expected: 0 issues；全套件 PASS。失败先修再继续。
 
-- [ ] **Step 2: 写人工验收清单**
+- [ ] **Step 2: 写人工验收清单（含证据规则）**
 
-`docs/parity/provider-presets-acceptance.md`，内容为 spec §4 验收标准的逐家执行表：
+`docs/parity/provider-presets-acceptance.md`：
 
 ```markdown
 # 供应商预设人工验收清单（需真实 Key，不进默认 CI）
 
-按 spec 2026-07-18-provider-presets-design.md §4：每家过 4 项——
-①普通文本生成；②强制工具调用/结构化 JSON；③图片生成与编辑（仅声称有图片角标的家）；④GET /models。
-记录格式：日期 + 通过/失败 + 失败摘要。①②任一失败 = 该家不可标"可用"；③失败 = 去掉该家图片角标；④失败 = 在 preset 备注"该家不支持 /models"。
+规则（spec §4 + 评审 P2）：
+- 每家 4 项——①普通文本生成；②强制工具调用/结构化 JSON；③图片生成与编辑（仅声称图片角标的家）；④GET /models。
+- ①②任一失败 = 该家不可置 `acceptanceVerified: true`；③失败 = 移除该家图片模型；④失败 = preset 备注"不支持 /models"。
+- **`provider_presets.dart` 里把某家 `acceptanceVerified` 翻 true 的唯一合法途径：本表该行填入日期+模型+证据路径。**画廊"未验证"角标随字段自动消失。
+- 记录格式：日期 / 所测模型 / 证据（日志路径、测试名或截图路径）。
 
-| preset | ①文本 | ②工具/JSON | ③图片 | ④/models | 记录 |
+| preset | ①文本 | ②工具/JSON | ③图片 | ④/models | 证据 |
 |---|---|---|---|---|---|
+| azt | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | gpt-5.6-luna 文本+工具链路：macOS/iOS golden-path e2e 全流程（建项目→剧本→分镜表均真实调用，`.superpowers/sdd/progress.md` P0 Task 4 与"早晨总结"条目）；gpt-image-2 1024 图片 26.7s：`/tmp/p0-azt-smoke.txt`；/v1/models 当日实测返回 gpt-5.6 系列 |
+| volcengine | 待验 | 待验 | 待验 | 待验 | 今晚视频生成被明确搁置，无真实调用证据 → acceptanceVerified=false，画廊显示"未验证" |
 | openai | 待验 | 待验 | 待验(gpt-image-2) | 待验 | |
 | anthropic（兼容模式） | 待验 | 待验 | 无图片 | 待验 | |
 | gemini（兼容模式） | 待验 | 待验 | 无图片(协议后补) | 待验 | |
@@ -1589,25 +1997,24 @@ Expected: analyze 0 issues；全套件 PASS（此前基线 613 + 本计划新增
 | moonshot | 待验 | 待验 | 无图片 | 待验 | |
 | zhipu | 待验 | 待验 | 待验(cogview-4) | 待验 | |
 | dashscope | 待验 | 待验 | 图片过兼容层待验证，不通则不预置 | 待验 | |
-| volcengine | 已有链路（今晚 e2e 已验） | 已有链路 | 已有链路 | 待验 | |
-| azt | 已有链路（今晚 e2e 已验） | 已有链路 | 已有链路 | 已验(今晚) | |
 ```
 
-"待验"是这份验收文档的合法状态标记（验收由用户持真实 Key 执行），不属于计划禁止的占位符。
+"待验"是验收文档的合法状态：**未验的家在产品里持续显示"未验证"角标**，两者一致，不存在"全待验却宣告可用"。
 
 - [ ] **Step 3: 更新台账 + commit**
 
-`.superpowers/sdd/progress.md` 末尾追加一段：本计划 7 个任务的完成记录（commit 号 + 一句话 + 测试计数），格式沿用文件既有条目。
+`.superpowers/sdd/progress.md` 末尾追加本计划 7 任务完成记录（commit 号+一句话+测试计数），沿用既有格式。
 
 ```bash
 git add docs/parity/provider-presets-acceptance.md .superpowers/sdd/progress.md
-git commit -m "docs: 供应商预设人工验收清单 + 台账"
+git commit -m "docs: 供应商预设人工验收清单（azt 附证据，未验持续标未验证）+ 台账"
 ```
 
 ---
 
-## Self-Review 记录（计划作者已执行）
+## Self-Review 记录（v2）
 
-1. **Spec 覆盖**：§3 数据模型+硬门→Task 1；§5.1 画廊→Task 4；§5.2 预填表单/obscure/前往平台→Task 5；§5.3 重复防护/已添加进编辑→Task 2（引擎）+ Task 5 Step 4（UI）；§5.4 自定义回归→Task 5 Step 5；§5.5 拉取候选/未分类→Task 3+6；§6 三个引擎改动→Task 2/3；§7 测试计划全部落到各任务 + Task 7；§4 验收标准→Task 7 人工清单。兼容模式标注→Task 1 字段 + Task 4 角标。三语→Task 4 Step 1。无遗漏。
-2. **占位符扫描**：代码块均为完整实现；"以文件内为准核对后替换"的点（DFTheme 字段名、l10n 键名、_ModelDraft 字段名、providers 列表读法、AppLocalizations import 路径）是对既有私有代码的核对指令并给出了核对位置，非空白占位。验收清单的"待验"为文档语义状态。
-3. **类型一致性**：`createProviderFromPreset({presetId, apiKey, selectedModelIds})` 在 Task 2 定义、Task 5/6 测试同签名调用；`fetchProviderModelCandidates(String)` Task 3 定义、Task 6 调用；`showProviderPresetGallery(context, {existingProviderIds})` Task 4 定义、Task 5 调用；`presetModelKinds` Task 1 定义、Task 6 调用。一致。
+1. **Spec 覆盖**：§3 数据模型+硬门→Task 1（含 `acceptanceVerified` 扩展，源自评审 P2）；§4 目录+验收标准→Task 1/7；§5.1 画廊→Task 4；§5.2 预填/obscure/前往平台/**可编辑生效**→Task 5+Task 2 覆盖参数；§5.3 重复防护→Task 2（结构性）+Task 5 已添加进编辑；§5.4 自定义回归→Task 5 Step 5；§5.5 拉取候选→Task 3+6；§6 引擎三改动→Task 1/2/3；§7 测试→各任务+Task 7。
+2. **评审 5+1 条逐一回应**：P1-1 并发删 Key→INSERT 先行+同步抢占段+并发测试（Task 2）；P1-2 假回滚测试→触发器+注入失败凭证仓两条真路径测试（Task 2）；P1-3 name/baseUrl 静默忽略→API 覆盖参数+落库断言（Task 2/5）；P1-4 volcengine 漂移→真值对齐+种子单一来源+Engine.boot 防漂移锁（Task 1）；P1-5 Task 6 半成品→全代码化+真实字段名+完整 _CandidateSheet（Task 6）；P2 验收门→acceptanceVerified 字段+未验证角标+证据规则+azt 证据行（Task 1/4/7）。
+3. **占位符扫描**：全部代码块完整；仅存的"以真实键名为准"点（Task 5 表单两处文案）给出了 grep 位置与回退规则。验收表"待验"为文档状态语义且与产品"未验证"角标一致。
+4. **类型一致性**：`createProviderFromPreset({presetId, apiKey, selectedModelIds, name, baseUrl})` Task 2 定义=Task 5/6 调用；`fetchProviderModelCandidates` Task 3=Task 6；`showProviderPresetGallery({existingProviderIds})` Task 4=Task 5；`presetModelKinds`/`seedanceMiniCapabilities` Task 1=Task 6/engine。`_ModelDraft` 构造与 :2283 真实签名一致（id/modelId/label/kind/capabilities/enabled）。
