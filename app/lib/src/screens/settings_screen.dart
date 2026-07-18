@@ -16,6 +16,8 @@ import '../theme/theme.dart';
 import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
+import 'provider_preset_form.dart';
+import 'provider_preset_gallery.dart';
 
 Color? _lightAppBarBackground(BuildContext context) =>
     Theme.of(context).brightness == Brightness.light
@@ -460,23 +462,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _openCreateProviderDialog() async {
-    final result = await showDialog<_ProviderFormResult>(
-      context: context,
-      builder: (_) => const _ProviderFormDialog(),
-    );
-    if (result == null || !mounted) return;
-    final l10n = context.l10n;
-
-    await runAction(context, ref, () async {
-      await ref.read(engineProvider).createProvider(
-            name: result.name,
-            protocol: result.protocol,
-            baseUrl: result.baseUrl,
-            apiKey: result.apiKey,
-          );
-    }, successMessage: l10n.settingsProviderAdded);
+    final providers = await ref.read(engineProvider).listProviders();
     if (!mounted) return;
-    _invalidateProvidersAndBindings();
+    final picked = await showProviderPresetGallery(context,
+        existingProviderIds: {for (final p in providers) p.id});
+    if (picked == null || !mounted) return;
+
+    if (picked == 'custom') {
+      final result = await showDialog<_ProviderFormResult>(
+        context: context,
+        builder: (_) => const _ProviderFormDialog(),
+      );
+      if (result == null || !mounted) return;
+      final l10n = context.l10n;
+      await runAction(context, ref, () async {
+        await ref.read(engineProvider).createProvider(
+              name: result.name,
+              protocol: result.protocol,
+              baseUrl: result.baseUrl,
+              apiKey: result.apiKey,
+            );
+      }, successMessage: l10n.settingsProviderAdded);
+      if (!mounted) return;
+      _invalidateProvidersAndBindings();
+      return;
+    }
+
+    final existing = providers.where((p) => p.id == picked).toList();
+    if (existing.isNotEmpty) {
+      await _openEditProviderDialog(existing.first);
+      return;
+    }
+
+    final created =
+        await showProviderPresetForm(context, ref, presetId: picked);
+    if (created && mounted) _invalidateProvidersAndBindings();
   }
 
   Future<void> _openEditProviderDialog(ProviderInfo provider) async {

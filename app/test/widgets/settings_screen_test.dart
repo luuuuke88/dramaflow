@@ -124,6 +124,11 @@ void main() {
     await _selectSection(tester, '供应商');
     await tester.tap(find.text('添加供应商').first);
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+        find.byKey(const Key('preset-card-custom')), 300);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('preset-card-custom')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Local Gateway');
     await tester.enterText(
       find.byType(TextField).at(1),
