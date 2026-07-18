@@ -101,3 +101,12 @@ Review 范围 dca83dd..HEAD 代码面（产品修复+5测试文件+8工具脚本
 9. **proxy_selftest加固**：新增3条真实断言（控制端点带query本地应答/query原样到达上游/日志行键集合结构性白名单校验——替代原三条恒真的字符串grep）；req()补5s超时；killAndWait等exit事件替代sleep(200)防EADDRINUSE；全程children登记+finally收尸防泄漏子进程掩盖根因。16/16自测通过，SENTINEL已按新代理哈希重签。
 10. **check_no_orphans改未转义竖线切分**（(?<!\\)\|）——标准markdown \|转义不再静默错位覆盖库存列（纯增强，现有数据零\|占用，复跑仍OK all 538）。gen_license_trace unzip包try/finally防临时目录泄漏（复跑输出仅时间戳差异，产物未变已还原）。
 未修（记录在案待裁决/后续）：AGENTS.md line21"测试禁真实API"与P0/QA两个env-gated真实测试的规则冲突（属用户裁决：补豁免注记或挪目录）；gen_inventory正则不剥注释（一次性脚本、产物已冻结且/detail案例已被6f妥善处理）；gen_runtime_capabilities恒真assert（一次性已跑脚本、产物已独立防泄漏核验）；测试助手三处重复（W0/P0证据文件已冻结，重构反而扰动已审代码）；测试硬编码中文串（全仓~20文件既有约定）。
+
+# 屏幕解锁后补做的 macOS 真实端到端走查（stop hook 反馈项）
+早前 4am 锁屏挡住的只有 macOS 窗口前台化这一件事，解锁后已补齐：
+- 新写 `app/integration_test/golden_path_desktop_test.dart`（commit fa93e55）：宽视口固定→AppShell 走桌面壳 _DesktopShell（左图标栏+顶部项目菜单栏），真实 macOS 进程上端到端驱动——空态→完整建项目向导→顶部菜单栏点全部6个项目标签→侧栏图标点任务中心+设置→folder 回项目列表。处理了桌面态'小说原文'标签撞名（顶部菜单 vs 小说页内层 TabBar）：先导航离开小说路由再进循环，保证每个标签点击时唯一。macOS(darwin-arm64) 隔离复跑 All tests passed。
+- **真实 macOS 应用窗口截图已取到**（screen 解锁后 flutter run -d macos 真正前台化，此前锁屏时的'Failed to foreground app'纯属 WindowServer 需可交互态）：桌面壳渲染干净——左图标栏、顶部项目菜单栏(小说原文/剧本Agent/剧本管理/塑角造景/视频生产/资产中心)、我的项目 header+暂无项目空态、原生 macOS 窗口 chrome，无视觉异常。
+- iOS 侧此前已有真机模拟器 golden_path 集成测试通过 + 真实启动截图。两端 UI 走查现均有真实证据。
+- flutter analyze 干净；单元/widget 全量套件仍 599 绿（集成测试不进默认 flutter test，需设备单独跑，mobile+desktop 两个 golden_path 均已在各自设备上单独验证通过）。
+- 用户在此机器活跃使用中，未持续抢占窗口焦点；跑完即清理 flutter run 进程。
+- 仍未做/受限：物理 iPhone 真机（只有模拟器，未连真机）；视频最终生成（用户明确指示搁置）。
