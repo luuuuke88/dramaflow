@@ -162,7 +162,7 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://api.deepseek.com/v1',
     keyUrl: 'https://platform.deepseek.com/api_keys',
     sourceUrl: 'https://api-docs.deepseek.com',
-    verifiedAt: '2026-07-18', // WebFetch 核实：deepseek-chat/deepseek-reasoner 将于 2026-07-24 15:59 UTC 停用（仅剩6天），改用替代型号 deepseek-v4-flash/deepseek-v4-pro
+    verifiedAt: '2026-07-19', // 独立复核（任务评审要求：不参考 ToonFlow 任何文件，仅从 api-docs.deepseek.com 官方域名重新 WebFetch 正文+定价页+WebSearch 交叉核实）：deepseek-chat/deepseek-reasoner 仍将于 2026-07-24 15:59 UTC 停用（原样确认，剩5天）；deepseek-v4-flash/deepseek-v4-pro 经官方定价页确认为两个独立在架型号、非同一模型别名（v4-pro 1.6T/49B 激活参数强推理档，定价约为 v4-flash 284B/13B 激活参数档的3倍），原样保留
     models: [
       PresetModel('deepseek-v4-flash', 'text'),
       PresetModel('deepseek-v4-pro', 'text'),
@@ -174,7 +174,7 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://api.moonshot.cn/v1',
     keyUrl: 'https://platform.moonshot.cn/console/api-keys',
     sourceUrl: 'https://platform.moonshot.cn/docs',
-    verifiedAt: '2026-07-18', // WebFetch 核实（跳转至新域名 platform.kimi.com/docs）：kimi-latest 已于 2026-01-28 停用、kimi-thinking-preview 属已下线的旧代际，改用现役 kimi-k3（旗舰）/kimi-k2.6（次档）
+    verifiedAt: '2026-07-19', // 独立复核（任务评审要求：不参考 ToonFlow 任何文件，仅从 platform.moonshot.cn/docs 重新 WebFetch，再次确认跳转至新域名 platform.kimi.com/docs+WebSearch 交叉核实）：kimi-k3（2.8万亿参数旗舰，2026-07-16 刚发布，官方文档原样在列）与 kimi-k2.6（通用次档，256K上下文，官方文档原样在列）均确认现役；kimi-latest（2026-01-28停用）、kimi-k2 系列（2026-05-25停用）交叉核实确认已下线，原样保留
     models: [
       PresetModel('kimi-k3', 'text'),
       PresetModel('kimi-k2.6', 'text'),
@@ -225,7 +225,7 @@ final kProviderPresets = <ProviderPreset>[
     name: 'azt (本地 Codex OAuth)',
     baseUrl: 'http://127.0.0.1:8787/v1',
     keyUrl: 'http://127.0.0.1:8787',
-    acceptanceVerified: true, // 证据：Task 7 验收表 azt 行（2026-07-18 e2e/smoke）
+    acceptanceVerified: true, // 证据：本会话早前真实 e2e/smoke，非 Task 7 新验证——文本/图片服务冒烟见 .superpowers/sdd/progress.md「P0 Task 4」与 docs/parity/p0-provider-preflight.md「## azt 服务冒烟」（gpt-5.5 文本2.2s、gpt-image-2 1024x1024 图片26.7s，摘录 /tmp/p0-azt-smoke.txt）；gpt-5.6-luna 真实文本生成见 progress.md「QA真实全链路修复(storyboard boolean parser)」「QA全链路最终结果」全链路验证；Task 7 仅将此既有证据转录为正式验收记录
     sourceUrl: 'http://127.0.0.1:8787/v1/models',
     verifiedAt: '2026-07-18', // 以仓库 engine.dart 既有种子为真值（本地 loopback 代理，非公网可核实来源）
     models: [
