@@ -2237,9 +2237,18 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
       ids = await ref
           .read(engineProvider)
           .fetchProviderModelCandidates(widget.provider.id);
-    } catch (e) {
+    } on EngineException catch (e) {
+      // 与 provider_preset_form.dart 的 _save() 同源的本地化映射（common.dart
+      // 的 engineErrorText），不把 errKey/参数 Map 原样 toString() 展示给用户。
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(engineErrorText(context, e))));
+      return;
+    } catch (e) {
+      // 非 EngineException 的意外失败：退到已有的通用“操作失败”本地化文案。
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.projectMsgOperationFailed)));
       return;
     }
     if (!mounted) return;
@@ -2648,12 +2657,13 @@ class _CandidateSheetState extends State<_CandidateSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    String kindLabel(String k) => switch (k) {
-          'image' => l10n.presetKindImage,
-          'video' => l10n.presetKindVideo,
-          'tts' => l10n.presetKindTts,
-          _ => l10n.presetKindText,
-        };
+    // 复用与既有模型编辑器每行 kind 下拉框相同的规范映射（_modelKinds /
+    // _KindMeta.label，见 _chooseTestModel 的同款用法），不再自建一套平行的
+    // presetKind* 文案——否则同一屏两处控件会把同一个 kind 翻成不同文字。
+    String kindLabel(String k) => _modelKinds
+        .firstWhere((item) => item.value == k,
+            orElse: () => const _KindMeta('text'))
+        .label(l10n);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
