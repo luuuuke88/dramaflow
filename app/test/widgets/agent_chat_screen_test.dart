@@ -15,9 +15,11 @@ import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/screens/agent/agent_chat_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:dramaflow/src/widgets/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 
 class _Gateway implements ProviderGateway {
@@ -298,5 +300,61 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('监督模式'), findsNothing);
     expect(find.textContaining('RAG'), findsNothing);
+  });
+
+  testWidgets(
+      '手机宽度下经由 /p/:pid/scriptAgent 真实 ShellRoute 进入时只有一层 AppBar（回归：曾经壳自身 '
+      'AppBar+Tab 条与本页 Scaffold+AppBar 叠加成两层工具栏）', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final router = GoRouter(
+      initialLocation: '/p/$projectId/scriptAgent',
+      routes: [
+        ShellRoute(
+          builder: (c, s, child) => AppShell(child: child),
+          routes: [
+            GoRoute(path: '/', builder: (c, s) => const Text('home')),
+            GoRoute(path: '/tasks', builder: (c, s) => const Text('tasks')),
+            GoRoute(
+                path: '/settings', builder: (c, s) => const Text('settings')),
+            GoRoute(
+              path: '/p/:pid/scriptAgent',
+              builder: (c, s) => AgentChatScreen(
+                  projectId: int.parse(s.pathParameters['pid']!)),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [engineProvider.overrideWithValue(engine)],
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+        locale: const Locale('zh'),
+        theme: buildTheme(Brightness.light),
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 手机宽度下必须是 _MobileShell（有底部 NavigationBar），且被壳承载的
+    // scriptAgent 页不能再套自己的 Scaffold+AppBar：应当只有壳自身那一层
+    // AppBar，而不是壳 AppBar + 本页 AppBar 叠成两层。
+    expect(find.byType(NavigationBar), findsOneWidget,
+        reason: '手机宽度应命中 _MobileShell');
+    expect(find.byType(AppBar), findsOneWidget,
+        reason: '壳的 AppBar 与本页自己的 AppBar 曾经会叠成两层，这里必须只剩一层');
+
+    // 原 AppBar actions（tune/info/清空 + 模式开关）仍可达：内嵌操作条里的
+    // 高级面板按钮应当还能点开。
+    expect(find.byKey(const ValueKey('assistant-advanced-button')),
+        findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('assistant-advanced-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('部署'), findsOneWidget);
   });
 }

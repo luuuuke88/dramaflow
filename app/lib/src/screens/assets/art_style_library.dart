@@ -160,6 +160,10 @@ class _ArtStyleCardState extends State<_ArtStyleCard> {
   Widget build(BuildContext context) {
     final df = context.df;
     final rel = widget.style.fileUrl;
+    // 与 AppShell 的移动断点保持一致：700-839dp 的平板仍走移动壳，
+    // 触控没有 hover，操作必须常显。
+    final compact = MediaQuery.sizeOf(context).width < 840;
+    final showActions = _hover || compact;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
@@ -186,7 +190,7 @@ class _ArtStyleCardState extends State<_ArtStyleCard> {
                           color: df.textTertiary),
                     ),
             ),
-            if (_hover) ...[
+            if (showActions) ...[
               Positioned(
                 top: 4,
                 left: 4,
@@ -225,15 +229,24 @@ class _MiniIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(4),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(icon, size: 14, color: Colors.white),
+          ),
         ),
-        child: Icon(icon, size: 14, color: Colors.white),
       ),
     );
   }

@@ -157,6 +157,12 @@ void main() {
   });
 
   testWidgets('移动端新建向导：完整项目设置保存到本地库', (tester) async {
+    final previousHitTestWarningPolicy =
+        WidgetController.hitTestWarningShouldBeFatal;
+    WidgetController.hitTestWarningShouldBeFatal = true;
+    addTearDown(
+        () => WidgetController.hitTestWarningShouldBeFatal = previousHitTestWarningPolicy);
+
     final provider = await engine.createProvider(
       name: 'Demo Provider',
       protocol: 'openai_compatible',
@@ -215,14 +221,14 @@ void main() {
       260,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('国风视觉'));
+    await tester.tap(_manualCard('国风视觉'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('悬疑导演'),
       260,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('悬疑导演'));
+    await tester.tap(_manualCard('悬疑导演'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
@@ -294,6 +300,24 @@ void main() {
 
     expect(engine.projects(), isEmpty);
     expect(find.text('暂无项目'), findsOneWidget);
+  });
+
+  testWidgets('移动壳平板宽度下项目卡片仍显示编辑和删除', (tester) async {
+    engine.addProject(
+      projectType: 'novel',
+      name: '平板项目',
+      intro: '平板触控操作',
+      artStyle: '国风水墨',
+    );
+    tester.view.physicalSize = const Size(800, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('编辑'), findsOneWidget);
+    expect(find.byTooltip('删除'), findsOneWidget);
   });
 
   testWidgets('项目卡片展示本地统计数量', (tester) async {
@@ -372,3 +396,8 @@ Future<void> _chooseDropdown(
   await tester.tap(find.text(optionLabel).last);
   await tester.pumpAndSettle();
 }
+
+Finder _manualCard(String name) => find.ancestor(
+      of: find.text(name),
+      matching: find.byType(GestureDetector),
+    );

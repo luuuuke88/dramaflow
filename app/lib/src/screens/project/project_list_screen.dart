@@ -178,7 +178,9 @@ class _ProjectCardState extends State<_ProjectCard> {
     final df = context.df;
     final l10n = context.l10n;
     final p = widget.project;
-    final compact = MediaQuery.sizeOf(context).width < 700;
+    // 与 AppShell 的移动断点保持一致：700-839dp 的平板仍走移动壳，
+    // 触控没有 hover，编辑/删除操作必须常显。
+    final compact = MediaQuery.sizeOf(context).width < 840;
     final showActions = _hover || compact;
     final typeLabel = p.projectType == 'script'
         ? l10n.projectDialogBasedOnScript

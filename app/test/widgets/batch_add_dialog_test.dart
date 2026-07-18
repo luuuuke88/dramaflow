@@ -113,4 +113,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(engine.scripts(projectId).length, 2);
   });
+
+  testWidgets('移动端卡片标题超长时单行省略（对齐桌面单元格）', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    const longTitle = '这是一个用于回归测试的超长章节标题文本';
+    await tester.pumpWidget(app());
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.byType(TextField).last, '第1章 $longTitle\n正文内容');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('下一步'));
+    await tester.pumpAndSettle();
+
+    final title = tester.widget<Text>(find.text(longTitle));
+    expect(title.maxLines, 1, reason: '移动卡片标题应与桌面单元格一样单行截断');
+    expect(title.overflow, TextOverflow.ellipsis,
+        reason: '移动卡片标题应与桌面单元格一样单行截断');
+  });
 }

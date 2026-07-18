@@ -264,6 +264,37 @@ void main() {
     expect(tasks.any((t) => t.taskClass == 'audio_bind'), isTrue);
   });
 
+  testWidgets('移动端配音页：超长角色名不会把列表行撑成畸形高度（回归：窄屏固定宽度下拉挤压名字导致逐字换行）',
+      (tester) async {
+    const longName = '云梦泽畔听雪楼二当家';
+    engine.addAsset(
+        projectId: projectId, type: 'role', name: longName, describe: 'x');
+    engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(width: 390));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // 名字整体仍以一个 Text 渲染（未被逐字拆行打断），且该 Text 的渲染高度
+    // 接近单行文字高度，而不是被压缩成每行一两个字、行数暴增的畸形布局。
+    final nameFinder = find.text(longName);
+    expect(nameFinder, findsOneWidget);
+    final nameSize = tester.getSize(nameFinder);
+    expect(nameSize.height, lessThan(40));
+
+    // 列表行整体高度保持在合理范围内：修复后是"名字行 + 独立下拉行"两行堆叠
+    // （约 120~140px），而不是修复前逐字换行导致的 ~200px+ 畸形高度。
+    final rowFinder = find
+        .ancestor(of: nameFinder, matching: find.byType(Container))
+        .first;
+    final rowSize = tester.getSize(rowFinder);
+    expect(rowSize.height, lessThan(160));
+  });
+
   testWidgets('移动端配音页：试听已绑定但缺失的音频时显示错误', (tester) async {
     final role = engine.addAsset(
         projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');

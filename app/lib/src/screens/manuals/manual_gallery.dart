@@ -47,7 +47,7 @@ class ManualGallery extends StatelessWidget {
           label: Text(addLabel, style: const TextStyle(fontSize: 12)),
           style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              visualDensity: VisualDensity.compact),
+              minimumSize: const Size(0, 44)),
         ),
       ]),
       const SizedBox(height: 8),
@@ -103,6 +103,10 @@ class _ManualCellState extends State<_ManualCell> {
     final df = context.df;
     final cover =
         widget.pack.images.isEmpty ? null : File(widget.pack.images.first);
+    // 与 AppShell 的移动断点保持一致：700-839dp 的平板仍走移动壳，
+    // 触控没有 hover，操作必须常显。
+    final compact = MediaQuery.sizeOf(context).width < 840;
+    final showActions = _hover || compact;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
@@ -140,7 +144,7 @@ class _ManualCellState extends State<_ManualCell> {
                 ),
               ),
             ),
-            if (_hover) ...[
+            if (showActions) ...[
               Container(color: Colors.black.withValues(alpha: 0.35)),
               Positioned(
                 top: 2,
@@ -148,6 +152,7 @@ class _ManualCellState extends State<_ManualCell> {
                 child: _MiniIcon(
                     icon: Icons.edit_outlined,
                     tooltip: context.l10n.commonEdit,
+                    alignment: Alignment.topLeft,
                     onTap: widget.onEdit),
               ),
               Positioned(
@@ -156,6 +161,7 @@ class _ManualCellState extends State<_ManualCell> {
                 child: _MiniIcon(
                     icon: Icons.delete_outline,
                     tooltip: context.l10n.commonDelete,
+                    alignment: Alignment.topRight,
                     onTap: widget.onDelete),
               ),
             ],
@@ -170,22 +176,38 @@ class _MiniIcon extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
+  // 视觉小图标贴在缩略图角落，但点击热区扩到 44x44dp（触屏最小点击面积指引）；
+  // alignment 决定小图标在热区里贴哪个角，保持贴角视觉不变。
+  final Alignment alignment;
   const _MiniIcon(
-      {required this.icon, required this.tooltip, required this.onTap});
+      {required this.icon,
+      required this.tooltip,
+      required this.onTap,
+      this.alignment = Alignment.topLeft});
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            child: Align(
+              alignment: alignment,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(icon, size: 14, color: Colors.white),
+              ),
+            ),
           ),
-          child: Icon(icon, size: 14, color: Colors.white),
         ),
       ),
     );

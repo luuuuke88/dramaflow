@@ -1,6 +1,7 @@
 // 剧本管理页（照抄 views/script/index.vue）：
 // 工具栏【搜索+搜索钮｜新增剧本｜批量添加 ‖ 全选↔取消全选｜导出+数｜提取资产+数｜删除+数】
-// + 400px 卡片流（名称+复选/内容一行/资产 tag/提取四态/悬停删除），点卡开编辑。
+// + 卡片流（≤400px 自适应宽度，名称+复选/内容一行/资产 tag/提取四态/删除按钮：
+//   窄屏常显、宽屏悬停显），点卡开编辑。
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart' as fs;
@@ -185,7 +186,10 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
         child: LayoutBuilder(builder: (context, constraints) {
-          final compact = constraints.maxWidth < 720;
+          // 这条工具栏最多同时容纳搜索、三项主操作和四项批量操作；
+          // 720dp 只覆盖手机，760-1039dp 的平板仍会横向溢出。按实际
+          // 一行所需宽度切换为纵向搜索 + Wrap，而不是按设备类别猜测。
+          final compact = constraints.maxWidth < 1040;
           Future<void> openAdd() async {
             final saved = await showAddScriptDialog(context, ref,
                 projectId: widget.projectId);
@@ -306,53 +310,61 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
                   ),
                 ),
               )
-            : SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                child: Wrap(spacing: 16, runSpacing: 16, children: [
-                  for (final row in scripts)
-                    _ScriptCard(
-                      row: row,
-                      selected: _selected.contains(row.id),
-                      onToggleSelect: (v) => setState(() {
-                        if (v == true) {
-                          _selected.add(row.id);
-                        } else {
-                          _selected.remove(row.id);
-                        }
-                      }),
-                      onOpen: () async {
-                        final saved = await showEditScriptDialog(context, ref,
-                            projectId: widget.projectId, row: row);
-                        if (saved == true) setState(() {});
-                      },
-                      onDelete: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (c) => AlertDialog(
-                            title: Text(l10n.scriptMsgDeleteHeader),
-                            content: Text(l10n.scriptMsgDeleteBody),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.pop(c, false),
-                                  child: Text(l10n.scriptMsgCancel)),
-                              FilledButton(
-                                  style: FilledButton.styleFrom(
-                                      backgroundColor: df.danger),
-                                  onPressed: () => Navigator.pop(c, true),
-                                  child: Text(l10n.scriptMsgDeleteConfirm)),
-                            ],
-                          ),
-                        );
-                        if (confirmed == true) {
-                          ref.read(engineProvider).deleteScripts([row.id]);
-                          setState(() => _selected.remove(row.id));
-                          _toast(l10n.scriptMsgDeleteSuccess);
-                        }
-                      },
-                      stateArea: _stateArea(row),
-                    ),
-                ]),
-              ),
+            : LayoutBuilder(builder: (context, constraints) {
+                // 卡片宽度随可用宽度自适应，避免 400px 定宽在手机上溢出
+                // （20px 左右内边距 * 2，见下方 SingleChildScrollView padding）。
+                final cardWidth =
+                    (constraints.maxWidth - 40).clamp(0.0, 400.0);
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                  child: Wrap(spacing: 16, runSpacing: 16, children: [
+                    for (final row in scripts)
+                      _ScriptCard(
+                        row: row,
+                        width: cardWidth,
+                        selected: _selected.contains(row.id),
+                        onToggleSelect: (v) => setState(() {
+                          if (v == true) {
+                            _selected.add(row.id);
+                          } else {
+                            _selected.remove(row.id);
+                          }
+                        }),
+                        onOpen: () async {
+                          final saved = await showEditScriptDialog(
+                              context, ref,
+                              projectId: widget.projectId, row: row);
+                          if (saved == true) setState(() {});
+                        },
+                        onDelete: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              title: Text(l10n.scriptMsgDeleteHeader),
+                              content: Text(l10n.scriptMsgDeleteBody),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(c, false),
+                                    child: Text(l10n.scriptMsgCancel)),
+                                FilledButton(
+                                    style: FilledButton.styleFrom(
+                                        backgroundColor: df.danger),
+                                    onPressed: () => Navigator.pop(c, true),
+                                    child: Text(l10n.scriptMsgDeleteConfirm)),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true) {
+                            ref.read(engineProvider).deleteScripts([row.id]);
+                            setState(() => _selected.remove(row.id));
+                            _toast(l10n.scriptMsgDeleteSuccess);
+                          }
+                        },
+                        stateArea: _stateArea(row),
+                      ),
+                  ]),
+                );
+              }),
       ),
     ]);
   }
@@ -433,6 +445,7 @@ class _EventScriptPickerState extends State<_EventScriptPicker> {
 
 class _ScriptCard extends StatefulWidget {
   final ScriptRow row;
+  final double width;
   final bool selected;
   final ValueChanged<bool?> onToggleSelect;
   final VoidCallback onOpen;
@@ -440,6 +453,7 @@ class _ScriptCard extends StatefulWidget {
   final Widget stateArea;
   const _ScriptCard(
       {required this.row,
+      required this.width,
       required this.selected,
       required this.onToggleSelect,
       required this.onOpen,
@@ -457,6 +471,11 @@ class _ScriptCardState extends State<_ScriptCard> {
   Widget build(BuildContext context) {
     final df = context.df;
     final row = widget.row;
+    // 窄屏/触屏没有 hover，删除按钮必须常显，否则无法通过卡片本身删除。
+    // 与 AppShell 的移动断点保持一致：700-839dp 的平板仍走移动壳，
+    // 触控没有 hover，删除操作必须常显。
+    final compact = MediaQuery.sizeOf(context).width < 840;
+    final showDelete = _hover || compact;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
@@ -464,7 +483,7 @@ class _ScriptCardState extends State<_ScriptCard> {
         onTap: widget.onOpen,
         child: AnimatedContainer(
           duration: DFTokens.fast120,
-          width: 400,
+          width: widget.width,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: df.surface,
@@ -499,7 +518,7 @@ class _ScriptCardState extends State<_ScriptCard> {
               Expanded(child: widget.stateArea),
               AnimatedOpacity(
                 duration: DFTokens.fast120,
-                opacity: _hover ? 1 : 0,
+                opacity: showDelete ? 1 : 0,
                 child: IconButton(
                   visualDensity: VisualDensity.compact,
                   tooltip: context.l10n.commonDelete,

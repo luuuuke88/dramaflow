@@ -257,4 +257,49 @@ void main() {
     final row = engine.scripts(projectId).single;
     expect(row.content, contains('> 角色：台词'));
   });
+
+  testWidgets('移动端剧本页：卡片宽度不超出视口，删除按钮无需悬停即可点击',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    engine.addScript(projectId: projectId, name: '待删本', content: '内容');
+
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // Bug 1：卡片曾经硬编码 width:400，在 <400px 的手机视口上必然溢出。
+    final cardSize = tester.getSize(find.byType(AnimatedContainer).first);
+    expect(cardSize.width, lessThanOrEqualTo(390),
+        reason: '卡片宽度不应超过 390pt 视口');
+
+    // Bug 2：删除按钮曾经只在 MouseRegion hover 时显示，触屏端不可达。
+    // 手机宽度下不做任何 hover 动作，直接确认其常显且可点。
+    final deleteOpacity =
+        tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity).first);
+    expect(deleteOpacity.opacity, 1.0, reason: '窄屏下删除按钮应无需悬停即可见');
+
+    await tester.tap(find.byTooltip('删除'));
+    await tester.pumpAndSettle();
+    expect(find.text('确认删除'), findsOneWidget);
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(engine.scripts(projectId).map((s) => s.name), ['待删本']);
+  });
+
+  testWidgets('移动壳平板宽度下剧本删除按钮仍无需 hover', (tester) async {
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    engine.addScript(projectId: projectId, name: '平板待删本', content: '内容');
+
+    await tester.pumpWidget(app(800));
+    await tester.pumpAndSettle();
+
+    final deleteOpacity =
+        tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity).first);
+    expect(deleteOpacity.opacity, 1.0);
+  });
 }

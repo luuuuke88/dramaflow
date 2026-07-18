@@ -234,6 +234,55 @@ void main() {
     expect(find.text('视觉信息明确，可衔接主角入门'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('移动端小说页：卡片展示章节内容预览，点击「查看详情」走全屏弹窗而非小弹窗',
+      (tester) async {
+    final ids = seed(1);
+    final longContent = '风雪压境，' * 30; // 超过 80 字截断阈值
+    db.execute('UPDATE o_novel SET chapterData=? WHERE id=?',
+        [longContent, ids[0]]);
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(390));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.takeException(), isNull);
+
+    // (a) 手机卡片展示章节内容预览片段（截断后的前缀），而不是完全没有该字段。
+    expect(find.textContaining(longContent.substring(0, 20)), findsOneWidget);
+    expect(find.text(longContent), findsNothing);
+
+    // (b) 点击「查看详情」应走 showDFAdaptiveDialog 的全屏路径（AppBar+关闭按钮），
+    // 而不是旧的小号 AlertDialog。
+    expect(find.byType(AppBar), findsNothing);
+    await tester.tap(find.text('查看详情').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byType(AppBar), findsOneWidget);
+    expect(find.text(longContent), findsOneWidget);
+  });
+
+  testWidgets('移动壳平板宽度下小说工具栏不溢出', (tester) async {
+    seed(1);
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(800));
+    // 此用例只验证初始布局。不要等待所有持续动画结束，否则会把与
+    // RenderFlex 无关的动画计时器误报成失败。
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.widgetWithText(FilledButton, '导入原文'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _seedPrompts(Database db) {

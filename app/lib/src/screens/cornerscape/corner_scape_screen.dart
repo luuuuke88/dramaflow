@@ -169,44 +169,49 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
           ]);
         }),
       ),
-      // 列表管理工具栏：状态筛选 + 搜索 + 全选未绑定。用 Wrap 保证窄屏（移动端）换行。
+      // 列表管理工具栏：状态筛选 + 搜索 + 全选未绑定。用 Wrap 保证窄屏（移动端）换行；
+      // 搜索框宽度随可用宽度收缩，避免窄屏下固定 220px 顶到溢出边缘。
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 10,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SegmentedButton<_BindFilter>(
-              showSelectedIcon: false,
-              segments: [
-                ButtonSegment(
-                    value: _BindFilter.all,
-                    label: Text(l10n.cornerScapeFilterAll)),
-                ButtonSegment(
-                    value: _BindFilter.bound,
-                    label: Text(l10n.cornerScapeFilterBound)),
-                ButtonSegment(
-                    value: _BindFilter.unbound,
-                    label: Text(l10n.cornerScapeFilterUnbound)),
-              ],
-              selected: {_filter},
-              onSelectionChanged: (s) => setState(() => _filter = s.first),
-            ),
-            DFSearchField(
-              width: 220,
-              hint: l10n.cornerScapeSearchHint,
-              onSearch: (v) => setState(() => _query = v.trim()),
-            ),
-            OutlinedButton.icon(
-              onPressed: visibleUnboundCount == 0
-                  ? null
-                  : () => _selectAllUnbound(visible),
-              icon: const Icon(Icons.done_all_rounded, size: 16),
-              label: Text(l10n.cornerScapeSelectAllUnbound),
-            ),
-          ],
-        ),
+        child: LayoutBuilder(builder: (context, constraints) {
+          final searchWidth =
+              constraints.maxWidth < 260 ? constraints.maxWidth : 220.0;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SegmentedButton<_BindFilter>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                      value: _BindFilter.all,
+                      label: Text(l10n.cornerScapeFilterAll)),
+                  ButtonSegment(
+                      value: _BindFilter.bound,
+                      label: Text(l10n.cornerScapeFilterBound)),
+                  ButtonSegment(
+                      value: _BindFilter.unbound,
+                      label: Text(l10n.cornerScapeFilterUnbound)),
+                ],
+                selected: {_filter},
+                onSelectionChanged: (s) => setState(() => _filter = s.first),
+              ),
+              DFSearchField(
+                width: searchWidth,
+                hint: l10n.cornerScapeSearchHint,
+                onSearch: (v) => setState(() => _query = v.trim()),
+              ),
+              OutlinedButton.icon(
+                onPressed: visibleUnboundCount == 0
+                    ? null
+                    : () => _selectAllUnbound(visible),
+                icon: const Icon(Icons.done_all_rounded, size: 16),
+                label: Text(l10n.cornerScapeSelectAllUnbound),
+              ),
+            ],
+          );
+        }),
       ),
       if (pool.isEmpty)
         Padding(
@@ -224,6 +229,50 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
                 itemBuilder: (c, i) {
                   final role = visible[i];
                   final selected = _selected.contains(role.roleId);
+                  final checkbox = Checkbox(
+                    value: selected,
+                    onChanged: (v) => setState(() {
+                      if (v == true) {
+                        _selected.add(role.roleId);
+                      } else {
+                        _selected.remove(role.roleId);
+                      }
+                    }),
+                  );
+                  final nameText = Expanded(
+                    child: Text(role.roleName ?? '',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                  );
+                  // 试听已绑定音频（media_kit）。未绑定时禁用。
+                  final auditionButton =
+                      _AuditionButton(audioAssetId: role.audioAssetId);
+                  final dropdown = DropdownButtonFormField<int?>(
+                    initialValue: role.audioAssetId,
+                    isExpanded: true,
+                    hint: Text(l10n.cornerScapeNoAudio,
+                        style:
+                            TextStyle(fontSize: 12, color: df.textTertiary)),
+                    items: [
+                      DropdownMenuItem(
+                          value: null,
+                          child: Text(l10n.cornerScapeUnbind,
+                              style: const TextStyle(fontSize: 12))),
+                      for (final a in pool)
+                        DropdownMenuItem(
+                            value: a.id,
+                            child: Text(a.name,
+                                style: const TextStyle(fontSize: 12))),
+                    ],
+                    onChanged: (v) {
+                      try {
+                        ref.read(engineProvider).bindRoleAudio(role.roleId, v);
+                      } catch (e) {
+                        _toast(localizeError(context, e));
+                      }
+                    },
+                  );
                   return Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
@@ -233,56 +282,32 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
                       border:
                           Border.all(color: selected ? df.primary : df.stroke),
                     ),
-                    child: Row(children: [
-                      Checkbox(
-                        value: selected,
-                        onChanged: (v) => setState(() {
-                          if (v == true) {
-                            _selected.add(role.roleId);
-                          } else {
-                            _selected.remove(role.roleId);
-                          }
-                        }),
-                      ),
-                      Expanded(
-                        child: Text(role.roleName ?? '',
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w600)),
-                      ),
-                      // 试听已绑定音频（media_kit）。未绑定时禁用。
-                      _AuditionButton(audioAssetId: role.audioAssetId),
-                      const SizedBox(width: 4),
-                      SizedBox(
-                        width: 220,
-                        child: DropdownButtonFormField<int?>(
-                          initialValue: role.audioAssetId,
-                          isExpanded: true,
-                          hint: Text(l10n.cornerScapeNoAudio,
-                              style: TextStyle(
-                                  fontSize: 12, color: df.textTertiary)),
-                          items: [
-                            DropdownMenuItem(
-                                value: null,
-                                child: Text(l10n.cornerScapeUnbind,
-                                    style: const TextStyle(fontSize: 12))),
-                            for (final a in pool)
-                              DropdownMenuItem(
-                                  value: a.id,
-                                  child: Text(a.name,
-                                      style: const TextStyle(fontSize: 12))),
+                    // 窄屏（如手机）下固定 220px 下拉框会把角色名挤到几乎没有宽度，
+                    // 导致长名字逐字换行、行高失控；与顶部标题栏同款断点，改为把
+                    // 下拉框换到独立一行、撑满宽度，角色名超长则用省略号。
+                    child: LayoutBuilder(builder: (context, constraints) {
+                      if (constraints.maxWidth < 420) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(children: [
+                              checkbox,
+                              nameText,
+                              auditionButton,
+                            ]),
+                            const SizedBox(height: 8),
+                            dropdown,
                           ],
-                          onChanged: (v) {
-                            try {
-                              ref
-                                  .read(engineProvider)
-                                  .bindRoleAudio(role.roleId, v);
-                            } catch (e) {
-                              _toast(localizeError(context, e));
-                            }
-                          },
-                        ),
-                      ),
-                    ]),
+                        );
+                      }
+                      return Row(children: [
+                        checkbox,
+                        nameText,
+                        auditionButton,
+                        const SizedBox(width: 4),
+                        SizedBox(width: 220, child: dropdown),
+                      ]);
+                    }),
                   );
                 },
               ),

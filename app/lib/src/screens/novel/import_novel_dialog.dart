@@ -231,7 +231,22 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
                 _parsed.firstWhere((x) => '${x.index}_${x.chapter}' == row.id);
             return ListTile(
               title: Text('${item.index} · ${item.chapter}'),
-              subtitle: Text(item.reel, style: const TextStyle(fontSize: 12)),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.reel, style: const TextStyle(fontSize: 12)),
+                  if (item.chapterData.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        item.chapterData,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: df.textTertiary),
+                      ),
+                    ),
+                ],
+              ),
             );
           },
         ),

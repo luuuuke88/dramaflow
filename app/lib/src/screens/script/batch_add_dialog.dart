@@ -307,7 +307,8 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
           mobileCardBuilder: (c, row) {
             final s = _parsed.firstWhere((x) => x.scriptName == row.id);
             return ListTile(
-              title: Text(s.scriptName),
+              title: Text(s.scriptName,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(
                 s.scriptData.length > 40
                     ? s.scriptData.substring(0, 40)
@@ -344,8 +345,8 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
       Flexible(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: SizedBox(
-            height: 430,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 430),
             child: _step == 0
                 ? SingleChildScrollView(child: _step1())
                 : _step2(),

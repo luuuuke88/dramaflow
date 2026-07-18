@@ -54,6 +54,29 @@ class _EventTabState extends ConsumerState<EventTab> {
     _toast(context.l10n.novelEventGeneratingHint);
   }
 
+  Future<void> _deleteOne(EventRow e) async {
+    final l10n = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l10n.novelEventMsgDeleteHeader),
+        content: Text(l10n.novelEventMsgDeleteBody),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(l10n.commonCancel)),
+          FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(l10n.commonDelete)),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    ref.read(engineProvider).deleteEvents([e.id]);
+    setState(() {});
+    _toast(l10n.novelEventMsgDeleteSuccess);
+  }
+
   Future<void> _batchDelete() async {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
@@ -89,32 +112,52 @@ class _EventTabState extends ConsumerState<EventTab> {
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
-        child: Row(children: [
-          FilledButton.icon(
-            onPressed: _regenerate,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: Text(l10n.novelEventRegenerate),
-          ),
-          const SizedBox(width: 10),
-          FilledButton.icon(
-            onPressed: _selected.isEmpty ? null : _batchDelete,
-            style: FilledButton.styleFrom(
-                backgroundColor: df.danger,
-                disabledBackgroundColor: df.danger.withValues(alpha: 0.35)),
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: Text(_selected.isEmpty
-                ? l10n.novelEventBatchDelete
-                : '${l10n.novelEventBatchDelete} (${_selected.length})'),
-          ),
-          const Spacer(),
-          DFSearchField(
+        child: LayoutBuilder(builder: (context, constraints) {
+          final compact = constraints.maxWidth < 720;
+
+          final search = DFSearchField(
             hint: l10n.novelEventColEventName,
+            width: compact ? constraints.maxWidth : 260,
             onSearch: (q) => setState(() {
               _search = q;
               _page = 1;
             }),
-          ),
-        ]),
+          );
+          final actions = <Widget>[
+            FilledButton.icon(
+              onPressed: _regenerate,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(l10n.novelEventRegenerate),
+            ),
+            FilledButton.icon(
+              onPressed: _selected.isEmpty ? null : _batchDelete,
+              style: FilledButton.styleFrom(
+                  backgroundColor: df.danger,
+                  disabledBackgroundColor: df.danger.withValues(alpha: 0.35)),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: Text(_selected.isEmpty
+                  ? l10n.novelEventBatchDelete
+                  : '${l10n.novelEventBatchDelete} (${_selected.length})'),
+            ),
+          ];
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 10),
+                Wrap(spacing: 8, runSpacing: 8, children: actions),
+              ],
+            );
+          }
+
+          return Row(children: [
+            ...actions.expand((button) => [button, const SizedBox(width: 10)]),
+            const Spacer(),
+            search,
+          ]);
+        }),
       ),
       Expanded(
         child: result.total == 0 && _search.isEmpty
@@ -169,29 +212,7 @@ class _EventTabState extends ConsumerState<EventTab> {
                             style: const TextStyle(fontSize: 12),
                           ),
                           TextButton(
-                            onPressed: () async {
-                              final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (c) => AlertDialog(
-                                  title: Text(l10n.novelEventMsgDeleteHeader),
-                                  content: Text(l10n.novelEventMsgDeleteBody),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(c, false),
-                                        child: Text(l10n.commonCancel)),
-                                    FilledButton(
-                                        onPressed: () => Navigator.pop(c, true),
-                                        child: Text(l10n.commonDelete)),
-                                  ],
-                                ),
-                              );
-                              if (confirmed == true) {
-                                ref.read(engineProvider).deleteEvents([e.id]);
-                                setState(() {});
-                                _toast(l10n.novelEventMsgDeleteSuccess);
-                              }
-                            },
+                            onPressed: () => _deleteOne(e),
                             child: Text(l10n.novelEventDelete,
                                 style:
                                     TextStyle(fontSize: 13, color: df.danger)),
@@ -203,11 +224,31 @@ class _EventTabState extends ConsumerState<EventTab> {
                     final e =
                         result.list.firstWhere((x) => '${x.id}' == dfRow.id);
                     return ListTile(
+                      contentPadding: EdgeInsets.zero,
                       title: Text(e.name ?? '',
                           maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(
-                          '${l10n.novelEventColChapters}: ${e.chapters.join(',')}',
-                          style: const TextStyle(fontSize: 12)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                              '${l10n.novelEventColChapters}: ${e.chapters.join(',')}',
+                              style: const TextStyle(fontSize: 12)),
+                          if ((e.detail ?? '').isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(e.detail!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 12, color: df.textTertiary)),
+                            ),
+                        ],
+                      ),
+                      trailing: IconButton(
+                        tooltip: l10n.novelEventDelete,
+                        onPressed: () => _deleteOne(e),
+                        icon: Icon(Icons.delete_outline, color: df.danger),
+                      ),
                     );
                   },
                 ),

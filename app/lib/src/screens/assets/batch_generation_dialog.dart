@@ -392,11 +392,11 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
           ]);
         }),
       ),
-      Flexible(
-        child: SizedBox(
-          height: 430,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: SingleChildScrollView(
+            key: const Key('batch-table-scroll'),
             child: DFDataTable(
               columns: [
                 DFDataColumn(label: l10n.assetsBatchColPreviewImg),
@@ -428,7 +428,8 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
                     result.data.firstWhere((a) => '${a.id}' == dfRow.id);
                 return ListTile(
                   leading: preview(row),
-                  title: Text(row.name ?? ''),
+                  title: Text(row.name ?? '',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   subtitle: promptCell(row),
                 );
               },

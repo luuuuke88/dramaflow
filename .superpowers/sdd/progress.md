@@ -110,3 +110,50 @@ Review 范围 dca83dd..HEAD 代码面（产品修复+5测试文件+8工具脚本
 - flutter analyze 干净；单元/widget 全量套件仍 599 绿（集成测试不进默认 flutter test，需设备单独跑，mobile+desktop 两个 golden_path 均已在各自设备上单独验证通过）。
 - 用户在此机器活跃使用中，未持续抢占窗口焦点；跑完即清理 flutter run 进程。
 - 仍未做/受限：物理 iPhone 真机（只有模拟器，未连真机）；视频最终生成（用户明确指示搁置）。
+
+# 移动端适配审计 + W1/W2/W3 后续里程碑参考文档（新调查，与 W0 538 项清单完全独立）
+用户指令：继续对比 ToonFlow 与 DramaFlow 的功能对齐度，同时审计 DramaFlow 自身移动端适配质量；遇到卡住的地方先记录不修，之后由用户处理；合理用 subagent 并行加速。本阶段为纯只读审计+文档产出，未修改任何生产代码或 `docs/parity/master-checklist.md`。
+
+**移动端适配审计**（7 组 subagent 并行，覆盖 `app/lib/src/screens/**` 全部 31 个屏幕文件 + shell/canvas/table/dialog 共享组件）：
+产物 `docs/parity/mobile-adaptation-findings.md`。核心发现：
+- 积极架构发现：`DFCanvas` 在 <840dp 时被有意禁用改用 Tab 布局，直接解决了本次调查最初动机"无限画布体验不好"；`storyboard_canvas_node.dart` 的长按菜单是对 ToonFlow 悬停交互的真实改进（文件头注释自证）。
+- 类别 A（严重）：悬停专属编辑/删除控件在触屏上完全不可达，同一错误独立重复 3 次——`manual_gallery.dart:143-161`、`art_style_library.dart:156-219`、`script_screen.dart:453-462/500-510`。
+- 类别 B：`script_screen.dart:467` 固定 width:400 卡片在所有手机宽度下数学上必然溢出；`event_tab.dart:89-118` 工具栏无响应式处理近乎必然溢出；`corner_scape_screen.dart:236-286` 行挤压已通过真实探针测试实测确认（非推测）。
+- 类别 F（本轮新发现）：`agent_chat_screen.dart` 在手机 `_MobileShell` 内叠加自身 AppBar 与 shell 的 AppBar+Tab 条，约 220dp chrome 吃掉小屏三分之一高度，`agent_chat_screen_test.dart` 从未挂载在 `AppShell` 内因而测试网完全捕获不到。
+- 另有 D 类（移动卡片相对桌面表格丢数据/丢操作，`event_tab.dart` 移动卡片甚至丢失了单条删除能力）、E 类（非滚动容器+真实数据量导致内容不可达，`assets_screen.dart`/`batch_generation_dialog.dart`）、C 类（触控目标<44px，`workbench_screen.dart` 裁剪手柄仅 14px 最极端）详见产物文档。
+- 系统性测试方法论缺口：多个"已测手机视口"用例统一用 390×900（高度超过 iPhone SE/13 mini 实际可用高度）+ 种子数据仅 0-3 条，掩盖了 E 类问题。
+分组原始笔记（含 Minor 级发现全文）：`/private/tmp/claude-501/-Users-luke-Documents-aivideo/32c05c60-7be8-4f4d-8fec-9ff46fd45e55/scratchpad/mobile-audit/01~07-*.md`（会话临时文件，未迁移进仓库）。
+
+**W1/W2/W3 后续里程碑参考文档**（read-only 综合已完成的 W0 审计发现 + 针对性补充调查，非实施，供未来 spec 起草用）：
+- `docs/parity/w1-canvas-reference.md`：canvas 性能与手势体验指标参考。源码举证 ToonFlow 画布卡顿的 7 个具体成因（关闭虚拟化/storyboard 节点无窗口化/interaction-mode 剥离交互元素/常驻 FPS 计数器/空间拖拽无 rAF 节流/深度 watcher/逐格 hover 反应性），并区分 DramaFlow 两个画布场景（主生产画布固定 6 节点 vs editImage 节点编辑器可变节点数+storyboard 内部图格）供未来性能指标制定参考。
+- `docs/parity/w2-agent-reference.md`：Agent 体系移植范围参考。综合 W0 已确认的 scriptAgent/productionAgent 双家族架构、决策层编排、子 Agent 生成、3 层记忆子系统、Markdown 技能懒加载等发现，含 `vm.ts:1,47-55` 的 vm2 解释器实证引用，供未来 W2 spec 精确圈定范围（明确排除恢复 JS 解释器/ES-DSL 等已废弃方案）。
+- `docs/parity/w3-nle-reference.md`：NLE 工作台缺口参考。W3 gap-reference subagent 派发因基础设施瞬时故障（"Connection closed mid-response"）连续失败 3 次（均在长任务接近尾声时中断），第 3 次失败后改为控制器直接调查（grep checklist + 读 ToonFlow `mediaData.ts` 源码 + 读 DramaFlow `compose.dart`/`ComposerPlugin.swift`(macOS+iOS，除插件注册样板代码外逐字节相同)/`MainActivity.kt`(Android) + workbench UI 下拉框）完成。核心结论：**spec"解冻现有被隐藏能力"的措辞未获证实**——转场(3 vs 6)/滤镜(4 vs 10，且同名项算法也不同)/特效(0 vs 8+2贴纸) 在 Dart 校验层、macOS/iOS/Android 三端原生合成器、UI 下拉框四处完全对齐，没有"引擎已实现、UI 未暴露"的低成本解冻机会，真正缺口需要三端合成器新增实现。另有自由剪辑对比（DramaFlow 叠加层模型 vs ToonFlow 自由多轨；DramaFlow 独有波纹/分组/吸附能力 ToonFlow 没有；DramaFlow 缺编辑器内撤销重做+实时预览；Web/Windows/Linux 无合成器）与按成本分组（A 组可能是纯 UI 工作待核实 schema、B 组需三端合成器新实现）的具体缺口清单。
+
+未修/未做（本阶段不实施，记录待裁决）：W1/W2/W3 对应的任何实际实现——spec 明确"未过 L0b：W1–W4 不开工"，本阶段仅产出参考文档不构成开工。移动端适配缺陷本身已在下一阶段全部修复，见下条。
+
+# 移动端适配缺陷修复（用户 /goal 明确要求"你说的所有功能都处理好"，追加于审计之后）
+用户明确指示把审计发现的移动端缺陷实际修掉（区别于此前"先记录不修"的指令，本条为新的、更明确的指示）。11 个独立文件并行派发 11 个 implementer subagent（文件互不重叠，安全并行），每个都：实现修复→跑对应/新增回归测试→`flutter analyze`。完成后控制器跑了全仓 `flutter analyze`（0 issues）+ 全量 `flutter test`（613/613 全绿，无回归）。范围明确不含 W1-W4（画布重写/Agent 移植/NLE 转场滤镜特效新增实现），L0b 门槛不变。
+
+修复清单（文件:关键改动）：
+1. **manual_gallery.dart**：悬停陷阱→`showActions = _hover || compact(<700dp)`（复用 `project_list_screen.dart` 既有正确范式）；`_MiniIcon`/新建按钮触控目标补到 44dp。新增 `manual_gallery_test.dart`（此前零覆盖）。
+2. **art_style_library.dart**：同一 bug class 同一修法；`_MiniIcon` 包 44x44 命中区保留视觉小巧。新增 `art_style_library_test.dart`（此前零覆盖），同时验证桌面 hover 行为未回归。
+3. **script_screen.dart**：①400px 固定宽度卡片改 `LayoutBuilder` 响应式 `clamp(0,400)`——数学上保证溢出的 bug 修复；②删除图标同 `showActions` 范式脱离纯 hover。
+4. **event_tab.dart**（本次审计最严重的功能性倒退）：①工具栏复用 `novel_screen.dart` 的 `compact<720` Row→Wrap 模式修溢出；②移动卡片补回单条删除（含二次确认），不再强制走批量选择。新增 `event_tab_test.dart`（此前零覆盖）。
+5. **corner_scape_screen.dart**：复用文件自身已有的 `<420` Row→Column 断点范式，长角色名不再逐字换行挤压成畸形高行。回归测试用 10 字符真实案例（云梦泽畔听雪楼二当家），且用"临时回退验证测试真能抓住 bug"的方法核实过。
+6. **agent_chat_screen.dart**（本轮新发现的 bug）：`MediaQuery.sizeOf(context).width<840` 判定是否在 `_MobileShell` 内，是则不再渲染自身 `Scaffold`/`AppBar`（actions 移入新增的 `_InlineActionsBar`），桌面 `_TopBar` 路径逐字节不变。修复过程中发现并顺带修了移除 Scaffold 后 Switch 缺 Material 祖先的连带问题。新增测试通过真实 `GoRouter`+`ShellRoute`+`AppShell` 挂载验证只有一个 AppBar，并用 git stash 回退验证测试真实有效。
+7. **novel_screen.dart**：移动卡片补章节内容预览（`contentCell(maxLines:2)`）；`_showDetail` 从裸 `AlertDialog` 改用全仓统一的 `showDFAdaptiveDialog`。
+8. **import_novel_dialog.dart**：同款章节预览补齐（step2 选章界面，此对话框核心用途就是选章，此前是盲选）。新增 `import_novel_dialog_test.dart`（此前零覆盖）。
+9. **batch_add_dialog.dart**：移动卡片标题补 `maxLines:1/ellipsis`（对齐桌面同字段已有处理）；顺带把固定 430 高度改 `ConstrainedBox(maxHeight)` 允许收缩。
+10. **batch_generation_dialog.dart**：①移动卡片标题截断对齐 `assets_screen.dart`；②固定 430px 不可滚动表格区改 `Expanded`+`SingleChildScrollView`，图片模式下真实数据量不再溢出/不可达。
+11. **assets_screen.dart**（审计中影响面最大的单一 bug："任何资产数超过几个的项目的默认状态"都会触发）：call-site 级修复（未动共享的 `DFDataTable`，因为还有 5 个其他调用方），840dp 以下包 `SingleChildScrollView` 给移动列表补上缺失的可滚动祖先。回归测试用真实 iPhone SE 尺寸(390×667，而非全仓此前普遍误用的 390×900)+满页10条数据验证可滚动触达。
+
+系统性方法论副产品：多个 implementer 在修复中沿用"临时回退修复→确认新测试真的会红→再恢复→确认变绿"的验证法，不是单纯写一个总为真的断言。`agent_chat_screen.dart` 的修复还意外发现 flutter_test 默认视口（800×600）本身就低于 840dp 断点，意味着此前"未设置手机视口"的测试其实也一直在（意外地）跑桌面分支之外的路径——该发现未引出新增修复，但供后续测试方法论参考。
+
+# 供应商预设体系 subagent-driven-development 执行（plan: docs/superpowers/plans/2026-07-18-provider-presets.md v2）
+Task 1: complete (63c84dc + 修复 06dd98c; provider_presets.dart 12 家目录+种子单一化, engine.dart 种子改从目录构建; 一审 Important×2——① deepseek-v4-flash/pro 与 kimi-k2.6 疑似撞了 Toonflow-app/data/vendor/{deepseek,atlascloud}.ts 的既有字符串(早于本 commit 5 周)，需独立复核排除巧合以外的可能；②azt acceptanceVerified 注释误指向尚未跑的 Task 7。修复：①次日(2026-07-19)不接触 Toonflow-app 任何文件、重新 WebFetch+WebSearch 独立复核，deepseek 官方文档确认 deepseek-chat/reasoner 将于 2026-07-24 15:59 UTC 弃用转 deepseek-v4-flash(非思考)/思考模式，v4-pro 经独立定价页+多源交叉确认为真实独立旗舰档；moonshot 官方文档确认域名迁移 platform.moonshot.cn→platform.kimi.com 属实，kimi-k3(2026-07-16 发布)/kimi-k2.6 均为当前真实型号——两家结论均与原实现一致但改为真正独立佐证(非同一巧合);②注释改指向本 session 早前已存在的真实证据(progress.md「P0 Task 4」「QA全链路最终结果」+ docs/parity/p0-provider-preflight.md「azt服务冒烟」+ /tmp/p0-azt-smoke.txt)，Task 7 定位改为"转录"而非"新验证"。二审逐条对照 progress.md/p0-provider-preflight.md 原文核实引用真实存在，approved。4/4 目录测试 + 354/354 engine 套件 + 617/617 全量套件绿，flutter analyze 0 issues。Minor(未修，不影响): commit body 一处英文残留措辞；deepseek 定价倍数 report 内 3.1× vs 聚合搜索"12.4×"未互相协调(不影响代码，代码采用官方定价页更权威的 3倍数值)。)
+Task 2: complete (2d18c37; createProviderFromPreset INSERT 先行抢占——SELECT+INSERT 连续同步无 await 段抢占供应商行、凭证只在抢占成功后才写、凭证失败删行；errProviderExists 新增。实现者用探针脚本实测 SqliteException.extendedResultCode(1555 PK冲突/2067 UNIQUE/1811 RAISE(ABORT)触发器)排除了误判可能，并做了变异测试(临时改回原始有 bug 的顺序→确认新测试真的会红→改回→确认与最终提交字节一致)。修复了 brief 原文里两个编译错误(EngineException.code 不存在应为 .errKey；ProviderInfo 缺 import)与一个过期测试夹具(brief 假设的 deepseek-chat 已被 Task1 真实核实替换为 deepseek-v4-flash)。审查逐行独立核对抢占段真无 await、约束码分类正确排除触发器误判、并发测试单独重跑通过；approved，零 Critical/Important。Minor(未修，超出本任务范围，供后续参考): 现有 createProvider(非本任务新增路径)仍是"先写凭证后 INSERT"的旧顺序，与新路径原子性不一致；回滚 DELETE 本身无进一步保护(极端情况下若 DELETE 失败会掩盖原始错误)；凭证失败测试无法从外部区分"插入后回滚"与"插入前失败"，已有独立验证补足，非阻塞。6/6 新测试逐个通过+360/360 engine 套件绿，flutter analyze/format 干净。)
+Task 3: complete (7d4c31e + 修复 7ffc380; ProviderGateway.listRemoteModelIds(抽象默认 Future.error(UnsupportedError) 同 submitVideo 范式)+HttpProviderGateway 真实现(GET {baseUrl}/models 解析 data[].id)+Engine.fetchProviderModelCandidates 薄转发；只出候选不写库(grep 确认零 db.execute/credentials.write)。实现者主动做变异测试(忽略响应体/丢弃DioException映射/去掉格式守卫，确认3处均被测试捕获)。一审 Important×2(均溯源到 brief 原文代码片段而非实现者偏离)——①凭证读取失败被无条件吞掉、非loopback供应商无Key时仍发出未认证请求，导致401/403被归入笼统errNetwork而非其他真实调用路径统一使用的errProviderMissing清晰错误；②/models 请求无 receiveTimeout，是 providers/ 目录下唯一没设超时的 dio 调用点，而这个方法恰是用来探测可能配错的新 baseUrl。修复：①resolve.dart 的 _isLoopbackBaseUrl 改公开(纯改名，numstat确认仅2行)供 gateway.dart 复用，完整复刻 _resolvedModel 的 loopback 判定逻辑(非loopback缺Key→errProviderMissing，请求前拦截)+新增两个测试(假adapter在被调用时会throw以证明guard确实在网络请求前拦截；真实捕获Authorization header值断言)；②加 receiveTimeout: 20s 对齐同目录其他5个 dio 调用点惯例。二审逐项独立核对：改名后 grep 确认零遗留旧引用，两处guard逻辑与参照实现并排比对确认等价，重跑7/7测试真实通过，analyze 干净；approved。(注：本任务的二审因会话中途一次进程意外退出而重新派发一次，读取被中断agent的transcript确认它只进行到调查阶段、无可复用产出、且审查本身只读不改工作区，重新派发无副作用。)
+Task 4: complete (e543c9b; 17 个 l10n 键(zh/en/ja 三语，逐一 JSON 解析确认各语言值互不相同非复制占位)+provider_preset_gallery.dart(showProviderPresetGallery 画廊，12 预设卡+自定义卡共13格，角标逻辑：已添加优先(只显示"已添加")，否则未过验收显示"未验证"+兼容模式(anthropic/gemini/xai)可与未验证共存)。实现者未发现任何 brief 假设的 API 形状(DFColors字段/context.l10n/import路径/showDFAdaptiveDialog签名)有误，零修正直接落地。审查逐案例(openai只未验证/anthropic未验证+兼容双徽章/azt零徽章/已添加只显示已添加)手工推演代码分支并对照 Task1 真实数据核实，全部吻合；approved，零Critical/Important。Minor(未修，均溯源到 brief 原文而非实现者偏离，供后续参考): 徽章视觉样式(扁平边框)与全仓其他徽章惯例(药丸形+语义色底)不一致，未过验收和兼容模式视觉上无区分度；测试覆盖窄于设计稿测试清单(未断言总格数=13、兼容模式角标只测了 anthropic 阳性+openai 阴性两例非全部12家)，经代码走查确认底层逻辑是无特化的统一字段读取，风险低。3/3 新测试绿，analyze 干净。(注：实现者发现全量 flutter test 默认并发下会静默丢失约12/78测试文件仍报"全绿"的既有工具缺陷，与本任务代码无关，已用 --concurrency=1 隔离确认非本任务引入；Task 7 收尾全量回归需注意此坑，不能只看 exit code。))
+
+# 移动端适配平板回归（2026-07-19）
+对前一批 390px 手机修复追加 760–800dp 移动壳验证：发现并修复项目/画风/手册/剧本卡片的 `<700dp` hover 误判（700–839dp 触控平板无法编辑删除），统一按 AppShell `<840dp` 移动边界常显操作；剧本工具栏在 760dp 实测溢出 327px，按实际内容宽度 `<1040dp` 换为搜索+Wrap；小说工具栏在同宽度实测 0.4px RenderFlex 溢出，`<840dp` 换行。资产与事件工具栏同宽度实测无异常。项目向导测试改为点击实际 GestureDetector，并把点击命中警告设为失败，避免测试假绿。完整证据见 `docs/parity/mobile-adaptation-findings.md` 第五节。`flutter analyze` 0 issues，`flutter test` 642/642 绿，`node tool/parity/check_no_orphans.js` 538/538。真实视频生成未调用；QA 真实链路需 `QA_FULL=1` 才会执行且源码明确排除视频。

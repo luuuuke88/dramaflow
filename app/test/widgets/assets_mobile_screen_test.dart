@@ -96,6 +96,62 @@ void main() {
     expect(engine.getAssets(projectId, type: 'scene').total, 0);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('移动端素材库：整页 10 条素材可通过滚动全部触达，无 RenderFlex 溢出', (tester) async {
+    // A real phone viewport (iPhone SE-class), shorter than the 390x900 used
+    // by the other test above — the taller size leaves enough room that a
+    // full page of 10 cards can fit without ever needing to scroll, which is
+    // exactly why this bug slipped through before.
+    tester.view.physicalSize = const Size(390, 667);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    for (var i = 1; i <= 10; i++) {
+      engine.addAsset(
+        projectId: projectId,
+        type: 'role',
+        name: 'Asset${i.toString().padLeft(2, '0')}',
+        describe: 'd$i',
+      );
+    }
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // The first row is reachable without scrolling.
+    expect(find.text('Asset01').hitTestable(), findsOneWidget);
+
+    // The last row of the full default page (limit = 10) is not yet
+    // reachable: it's below the fold of the phone-sized viewport.
+    expect(find.text('Asset10').hitTestable(), findsNothing);
+
+    // Scrolling must reveal it — with no RenderFlex overflow or other
+    // exceptions along the way.
+    await tester.dragUntilVisible(
+      find.text('Asset10'),
+      find.byType(SingleChildScrollView),
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Asset10').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('移动壳平板宽度下素材工具栏不溢出', (tester) async {
+    tester.view.physicalSize = const Size(800, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    // 空态和工具栏都会提供“新增角色”，本用例关心的是平板宽度下
+    // 页面正常渲染且无溢出，而非这两个入口的数量。
+    expect(find.text('新增角色'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _selectTab(WidgetTester tester, String label) async {

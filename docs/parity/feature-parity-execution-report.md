@@ -134,3 +134,7 @@ cd app && flutter analyze && flutter test
 ## 8. 现在的真实结论
 
 DramaFlow 已拥有短剧生产主链路的一部分可靠底座，但还不是 ToonFlow 的 1:1 Flutter 复刻。下一步的正确做法不是继续添加零散页面，而是以主清单为唯一账本，优先完成画布、Agent、工作台和跨端可用性四条主线；每完成一项就用证据把“部分实现/缺失”变为绿态。
+
+### 最近核验：中等宽度移动壳
+
+2026-07-19 已补充 760–800dp 回归：项目、画风、手册与剧本的编辑/删除操作在无 hover 的平板触控界面仍可达；剧本与小说工具栏的真实 `RenderFlex` 溢出已修正；素材和事件页同宽度通过渲染验证。详细证据与用例名称见 [`mobile-adaptation-findings.md`](mobile-adaptation-findings.md)。

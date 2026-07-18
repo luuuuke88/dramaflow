@@ -229,6 +229,81 @@ void main() {
     expect((related['items'] as List), hasLength(2));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('移动端卡片：资产名过长时标题省略号截断而非溢出', (tester) async {
+    const longName = '林逸的超长测试角色名称用于验证省略号截断效果不会溢出布局';
+    expect(longName.length, greaterThanOrEqualTo(15));
+    engine.addAsset(
+        projectId: projectId,
+        type: 'role',
+        name: longName,
+        describe: 'x',
+        prompt: 'long');
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final titleFinder = find.descendant(
+      of: find.byType(ListTile),
+      matching: find.text(longName),
+    );
+    expect(titleFinder, findsOneWidget);
+    final titleText = tester.widget<Text>(titleFinder);
+    expect(titleText.maxLines, 1);
+    expect(titleText.overflow, TextOverflow.ellipsis);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('移动端真实机型高度：表格区域可滚动，不再因固定 430 高度而溢出', (tester) async {
+    // setUp 已有 2 个资产（林逸/白容），再补 8 个凑满一页 10 条，
+    // 复现"控件+选择栏+操作栏+表格"总内容远超 iPhone SE 可用高度的场景。
+    for (var i = 0; i < 8; i++) {
+      engine.addAsset(
+          projectId: projectId,
+          type: 'role',
+          name: '批量角色$i',
+          describe: 'x',
+          prompt: 'p$i');
+    }
+    const lastRowName = '批量角色7';
+
+    // iPhone SE 可用 body 高度（约 480-500px），远小于其余用例使用的 900。
+    tester.view.physicalSize = const Size(390, 667);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    // 关键回归点：修复前，430px 固定高度 + 不可滚动内层列表会在此处抛出
+    // RenderFlex/overflow 异常。
+    expect(tester.takeException(), isNull);
+
+    // 末行在树中已构建（shrinkWrap 撑满内容），但初始处于可视区域之外。
+    final lastRow = find.text(lastRowName);
+    expect(lastRow, findsOneWidget);
+    final offscreenCenter = tester.getCenter(lastRow);
+    expect(offscreenCenter.dy, greaterThan(tester.view.physicalSize.height));
+
+    // 表格区域可真正滚动到该行。
+    await tester.dragUntilVisible(
+      lastRow,
+      find.byKey(const Key('batch-table-scroll')),
+      const Offset(0, -80),
+    );
+    expect(find.text(lastRowName), findsOneWidget);
+    final visibleCenter = tester.getCenter(find.text(lastRowName));
+    expect(visibleCenter.dy, lessThan(tester.view.physicalSize.height));
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _chooseDropdown(

@@ -11,6 +11,7 @@ import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_data_table.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/df_search_field.dart';
@@ -139,19 +140,13 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
   }
 
   void _showDetail(String title, String content) {
-    showDialog<void>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        content: SizedBox(
-          width: 560,
-          child: SingleChildScrollView(child: SelectableText(content)),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: Text(context.l10n.commonConfirm)),
-        ],
+    showDFAdaptiveDialog<void>(
+      context,
+      title: title,
+      desktopWidthFactor: 0.5,
+      builder: (c) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: SelectableText(content),
       ),
     );
   }
@@ -205,14 +200,14 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
     final result = engine.novels(widget.projectId,
         page: _page, limit: _limit, search: _search.isEmpty ? null : _search);
 
-    Widget contentCell(NovelRow row) {
+    Widget contentCell(NovelRow row, {int maxLines = 1}) {
       final content = row.chapterData ?? '';
       final truncated = content.length > _previewMaxLength;
       return Row(children: [
         Expanded(
           child: Text(
             truncated ? content.substring(0, _previewMaxLength) : content,
-            maxLines: 1,
+            maxLines: maxLines,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 13),
           ),
@@ -247,7 +242,10 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
         child: LayoutBuilder(builder: (context, constraints) {
-          final compact = constraints.maxWidth < 720;
+          // 可用宽度 720-839dp 时仍处在 AppShell 的移动布局；这里的
+          // 搜索框加三项操作在 760dp（800dp 设备扣掉两侧 padding）已发生
+          // RenderFlex 溢出，故与移动壳边界一致地改用纵向搜索 + Wrap。
+          final compact = constraints.maxWidth < 840;
 
           Future<void> openImport() async {
             final saved = await showImportNovelDialog(context, ref,
@@ -375,6 +373,8 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
                           children: [
                             Text(row.reel ?? '',
                                 style: const TextStyle(fontSize: 12)),
+                            const SizedBox(height: 4),
+                            contentCell(row, maxLines: 2),
                             const SizedBox(height: 4),
                             _eventCell(row),
                           ]),

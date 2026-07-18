@@ -441,114 +441,131 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
               )
             : Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: DFDataTable(
-                  columns: [
-                    DFDataColumn(label: l10n.assetsColPreview),
-                    DFDataColumn(
-                        label: isAudio
-                            ? l10n.assetsAudioName
-                            : l10n.assetsColName),
-                    DFDataColumn(
-                        label: isAudio ? l10n.assetsSex : l10n.assetsColPrompt),
-                    DFDataColumn(label: l10n.assetsColDescribe),
-                    if (!isAudio) DFDataColumn(label: l10n.assetsColRemark),
-                    DFDataColumn(label: l10n.assetsColCreateTime),
-                    DFDataColumn(label: l10n.assetsColOperation),
-                  ],
-                  selectable: true,
-                  selectedIds: _selected,
-                  onSelectionChanged: (ids) => setState(() => _selected
-                    ..clear()
-                    ..addAll(ids)),
-                  pagination: DFPagination(
-                      page: _page, pageSize: _limit, total: result.total),
-                  onPageChange: (p) => setState(() => _page = p),
-                  rows: _rowsFor(result.data, isAudio: isAudio),
-                  mobileCardBuilder: (c, dfRow) {
-                    AssetRow? found;
-                    for (final parent in result.data) {
-                      if ('${parent.id}' == dfRow.id) found = parent;
-                      for (final son in parent.sonAssets) {
-                        if ('${son.id}' == dfRow.id) found = son;
+                child: LayoutBuilder(builder: (context, tableConstraints) {
+                  final table = DFDataTable(
+                    columns: [
+                      DFDataColumn(label: l10n.assetsColPreview),
+                      DFDataColumn(
+                          label: isAudio
+                              ? l10n.assetsAudioName
+                              : l10n.assetsColName),
+                      DFDataColumn(
+                          label:
+                              isAudio ? l10n.assetsSex : l10n.assetsColPrompt),
+                      DFDataColumn(label: l10n.assetsColDescribe),
+                      if (!isAudio) DFDataColumn(label: l10n.assetsColRemark),
+                      DFDataColumn(label: l10n.assetsColCreateTime),
+                      DFDataColumn(label: l10n.assetsColOperation),
+                    ],
+                    selectable: true,
+                    selectedIds: _selected,
+                    onSelectionChanged: (ids) => setState(() => _selected
+                      ..clear()
+                      ..addAll(ids)),
+                    pagination: DFPagination(
+                        page: _page, pageSize: _limit, total: result.total),
+                    onPageChange: (p) => setState(() => _page = p),
+                    rows: _rowsFor(result.data, isAudio: isAudio),
+                    mobileCardBuilder: (c, dfRow) {
+                      AssetRow? found;
+                      for (final parent in result.data) {
+                        if ('${parent.id}' == dfRow.id) found = parent;
+                        for (final son in parent.sonAssets) {
+                          if ('${son.id}' == dfRow.id) found = son;
+                        }
                       }
-                    }
-                    final row = found!;
-                    final hasChildren = row.sonAssets.isNotEmpty;
-                    final expanded = _expanded.contains(row.id);
-                    return ListTile(
-                      leading: _preview(row),
-                      title: Row(children: [
-                        if (hasChildren)
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                                width: 32, height: 32),
-                            icon: Icon(
-                              expanded
-                                  ? Icons.expand_more
-                                  : Icons.chevron_right,
-                              size: 20,
-                            ),
-                            onPressed: () => setState(() {
-                              if (!_expanded.remove(row.id)) {
-                                _expanded.add(row.id);
-                                while (_expanded.length > 3) {
-                                  _expanded.remove(_expanded.first);
+                      final row = found!;
+                      final hasChildren = row.sonAssets.isNotEmpty;
+                      final expanded = _expanded.contains(row.id);
+                      return ListTile(
+                        leading: _preview(row),
+                        title: Row(children: [
+                          if (hasChildren)
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                  width: 32, height: 32),
+                              icon: Icon(
+                                expanded
+                                    ? Icons.expand_more
+                                    : Icons.chevron_right,
+                                size: 20,
+                              ),
+                              onPressed: () => setState(() {
+                                if (!_expanded.remove(row.id)) {
+                                  _expanded.add(row.id);
+                                  while (_expanded.length > 3) {
+                                    _expanded.remove(_expanded.first);
+                                  }
                                 }
-                              }
-                            }),
+                              }),
+                            ),
+                          Expanded(
+                            child: Text(row.name ?? '',
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
-                        Expanded(
-                          child: Text(row.name ?? '',
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
-                      ]),
-                      subtitle: _promptCell(row),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.more_horiz),
-                        onPressed: () => showModalBottomSheet<void>(
-                          context: context,
-                          builder: (c) => SafeArea(
-                            child: Wrap(children: [
-                              if (row.type != 'clip' && row.type != 'audio')
+                        ]),
+                        subtitle: _promptCell(row),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.more_horiz),
+                          onPressed: () => showModalBottomSheet<void>(
+                            context: context,
+                            builder: (c) => SafeArea(
+                              child: Wrap(children: [
+                                if (row.type != 'clip' && row.type != 'audio')
+                                  ListTile(
+                                    leading: const Icon(Icons.image_outlined),
+                                    title: Text(l10n.assetsGenerate),
+                                    onTap: () async {
+                                      Navigator.pop(c);
+                                      final saved =
+                                          await showGenerateImageDialog(
+                                              context, ref,
+                                              projectId: widget.projectId,
+                                              asset: row);
+                                      if (saved == true) setState(() {});
+                                    },
+                                  ),
                                 ListTile(
-                                  leading: const Icon(Icons.image_outlined),
-                                  title: Text(l10n.assetsGenerate),
-                                  onTap: () async {
+                                  leading: const Icon(Icons.edit_outlined),
+                                  title: Text(l10n.assetsEdit),
+                                  onTap: () {
                                     Navigator.pop(c);
-                                    final saved = await showGenerateImageDialog(
-                                        context, ref,
-                                        projectId: widget.projectId,
-                                        asset: row);
-                                    if (saved == true) setState(() {});
+                                    _openAdd(existing: row);
                                   },
                                 ),
-                              ListTile(
-                                leading: const Icon(Icons.edit_outlined),
-                                title: Text(l10n.assetsEdit),
-                                onTap: () {
-                                  Navigator.pop(c);
-                                  _openAdd(existing: row);
-                                },
-                              ),
-                              ListTile(
-                                leading: Icon(Icons.delete_outline,
-                                    color: df.danger),
-                                title: Text(l10n.assetsDelete,
-                                    style: TextStyle(color: df.danger)),
-                                onTap: () {
-                                  Navigator.pop(c);
-                                  _deleteOne(row);
-                                },
-                              ),
-                            ]),
+                                ListTile(
+                                  leading: Icon(Icons.delete_outline,
+                                      color: df.danger),
+                                  title: Text(l10n.assetsDelete,
+                                      style: TextStyle(color: df.danger)),
+                                  onTap: () {
+                                    Navigator.pop(c);
+                                    _deleteOne(row);
+                                  },
+                                ),
+                              ]),
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  );
+                  // Below DFDataTable's mobile breakpoint, `_MobileRows`
+                  // renders a shrink-wrapped ListView with
+                  // NeverScrollableScrollPhysics, which assumes a genuinely
+                  // scrollable ancestor with unbounded height sits above it.
+                  // The `Expanded` below only gives bounded height, so
+                  // without this a full page of mobile cards silently
+                  // clips/overflows instead of scrolling into view. Give it
+                  // that scrollable ancestor on the mobile layout only; the
+                  // desktop table already manages its own bounded layout.
+                  if (tableConstraints.maxWidth < DFDataTable.breakpoint) {
+                    return SingleChildScrollView(child: table);
+                  }
+                  return table;
+                }),
               ),
       ),
     ]);
