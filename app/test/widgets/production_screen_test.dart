@@ -151,6 +151,32 @@ void main() {
     expect(find.text('发送'), findsOneWidget);
   });
 
+  testWidgets('桌面画布：节点可从标题栏拖动并能自动布局复位', (tester) async {
+    engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    engine.addScript(projectId: projectId, name: '第二集', content: 'y');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    final dragHandle = find.byKey(const ValueKey('df-canvas-drag-script'));
+    final before = tester.getTopLeft(dragHandle);
+    await tester.drag(dragHandle, const Offset(120, 0));
+    await tester.pump();
+    final moved = tester.getTopLeft(dragHandle);
+    expect(moved.dx, greaterThan(before.dx + 40));
+
+    await tester.tap(find.text('第二集'));
+    await tester.pump();
+    expect(tester.getTopLeft(dragHandle).dx, closeTo(moved.dx, 0.1));
+
+    await tester.tap(find.byKey(const ValueKey('production-auto-layout')));
+    await tester.pump();
+    final reset = tester.getTopLeft(dragHandle);
+    expect(reset.dx, closeTo(before.dx, 0.1));
+  });
+
   testWidgets('点击资产节点卡片打开节点式图片编辑器', (tester) async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: 'x');

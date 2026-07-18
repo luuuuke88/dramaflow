@@ -1427,6 +1427,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get productionSelectEpisode => '选择剧集';
 
   @override
+  String get productionAutoLayout => '自动布局';
+
+  @override
+  String canvasDragNode(String node) {
+    return '拖动节点 $node';
+  }
+
+  @override
   String get productionNoScripts => '暂无剧本，请先在「剧本管理」创建';
 
   @override

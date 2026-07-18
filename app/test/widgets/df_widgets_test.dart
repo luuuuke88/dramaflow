@@ -170,4 +170,39 @@ void main() {
     expect(find.text('N999'), findsOneWidget);
     expect(find.text('N0'), findsNothing);
   });
+
+  testWidgets('DFCanvas title handle moves a node in scene coordinates',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    final controller = TransformationController()
+      ..value = Matrix4.diagonal3Values(2, 2, 1);
+    final deltas = <Offset>[];
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        nodes: [
+          DFCanvasNode(
+            id: 'movable',
+            position: const Offset(80, 80),
+            size: const Size(220, 120),
+            onDragUpdate: deltas.add,
+            child: const ColoredBox(color: Colors.blue),
+          ),
+        ],
+      ),
+    )));
+
+    await tester.drag(
+      find.byKey(const ValueKey('df-canvas-drag-movable')),
+      const Offset(40, 20),
+    );
+
+    final total = deltas.fold(Offset.zero, (sum, delta) => sum + delta);
+    expect(total.dx, closeTo(20, 0.1));
+    expect(total.dy, closeTo(10, 0.1));
+  });
 }

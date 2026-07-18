@@ -505,6 +505,15 @@
   "productionMobileNodeInspector": "ノードインスペクター",
   "productionMobileCurrentNode": "現在のノード",
   "productionSelectEpisode": "話数を選択",
+  "productionAutoLayout": "自動レイアウト",
+  "canvasDragNode": "{node} ノードをドラッグ",
+  "@canvasDragNode": {
+    "placeholders": {
+      "node": {
+        "type": "String"
+      }
+    }
+  },
   "productionNoScripts": "脚本がありません。脚本管理で作成してください",
   "productionGoToScripts": "脚本を作成",
   "productionStoryboardGenerate": "絵コンテ生成",

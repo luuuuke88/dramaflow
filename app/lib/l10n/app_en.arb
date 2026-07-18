@@ -505,6 +505,15 @@
   "productionMobileNodeInspector": "Node Inspector",
   "productionMobileCurrentNode": "Current node",
   "productionSelectEpisode": "Select episode",
+  "productionAutoLayout": "Auto layout",
+  "canvasDragNode": "Drag {node} node",
+  "@canvasDragNode": {
+    "placeholders": {
+      "node": {
+        "type": "String"
+      }
+    }
+  },
   "productionNoScripts": "No scripts yet — create one in Scripts",
   "productionGoToScripts": "Go create a script",
   "productionStoryboardGenerate": "Generate Storyboard",

@@ -8,17 +8,22 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../theme/theme.dart';
+import '../util/l10n_ext.dart';
 
 class DFCanvasNode {
   final String id;
   final Offset position;
   final Size size;
   final Widget child;
+  final ValueChanged<Offset>? onDragUpdate;
+  final double dragHandleHeight;
   const DFCanvasNode({
     required this.id,
     required this.position,
     required this.size,
     required this.child,
+    this.onDragUpdate,
+    this.dragHandleHeight = 36,
   });
 }
 
@@ -52,6 +57,9 @@ class _DFCanvasState extends State<DFCanvas> {
   late final TransformationController _controller;
   late final bool _ownsController;
   bool _fitted = false;
+  int? _dragPointer;
+  Offset? _lastDragPosition;
+  Matrix4? _transformBeforeDrag;
 
   @override
   void initState() {
@@ -75,6 +83,40 @@ class _DFCanvasState extends State<DFCanvas> {
 
   void _handleTransformChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _startNodeDrag(PointerDownEvent event) {
+    setState(() {
+      _dragPointer = event.pointer;
+      _lastDragPosition = event.position;
+      _transformBeforeDrag = Matrix4.copy(_controller.value);
+    });
+  }
+
+  void _updateNodeDrag(DFCanvasNode node, PointerMoveEvent event) {
+    if (_dragPointer != event.pointer || _lastDragPosition == null) return;
+    final delta = event.position - _lastDragPosition!;
+    _lastDragPosition = event.position;
+    // InteractiveViewer may have accepted the first pan update before the
+    // title handle disables its gestures. Keep the viewport anchored so a
+    // node drag never turns into a simultaneous canvas pan.
+    if (_transformBeforeDrag != null) {
+      _controller.value = Matrix4.copy(_transformBeforeDrag!);
+    }
+    final scale = _controller.value.getMaxScaleOnAxis();
+    if (scale > 0) node.onDragUpdate!(delta / scale);
+  }
+
+  void _endNodeDrag(PointerEvent event) {
+    if (_dragPointer != event.pointer) return;
+    if (_transformBeforeDrag != null) {
+      _controller.value = Matrix4.copy(_transformBeforeDrag!);
+    }
+    setState(() {
+      _dragPointer = null;
+      _lastDragPosition = null;
+      _transformBeforeDrag = null;
+    });
   }
 
   @override
@@ -180,6 +222,8 @@ class _DFCanvasState extends State<DFCanvas> {
             transformationController: _controller,
             minScale: 0.1,
             maxScale: 10,
+            panEnabled: _dragPointer == null,
+            scaleEnabled: _dragPointer == null,
             constrained: false,
             boundaryMargin: const EdgeInsets.all(4000),
             child: SizedBox(
@@ -209,7 +253,33 @@ class _DFCanvasState extends State<DFCanvas> {
                     top: node.position.dy,
                     width: node.size.width,
                     height: node.size.height,
-                    child: RepaintBoundary(child: node.child),
+                    child: RepaintBoundary(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          node.child,
+                          if (node.onDragUpdate != null)
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: node.dragHandleHeight,
+                              child: Semantics(
+                                label: context.l10n.canvasDragNode(node.id),
+                                child: Listener(
+                                  key: ValueKey('df-canvas-drag-${node.id}'),
+                                  behavior: HitTestBehavior.translucent,
+                                  onPointerDown: _startNodeDrag,
+                                  onPointerMove: (event) =>
+                                      _updateNodeDrag(node, event),
+                                  onPointerUp: _endNodeDrag,
+                                  onPointerCancel: _endNodeDrag,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
               ]),
             ),

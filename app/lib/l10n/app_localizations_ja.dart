@@ -1438,6 +1438,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productionSelectEpisode => '話数を選択';
 
   @override
+  String get productionAutoLayout => '自動レイアウト';
+
+  @override
+  String canvasDragNode(String node) {
+    return '$node ノードをドラッグ';
+  }
+
+  @override
   String get productionNoScripts => '脚本がありません。脚本管理で作成してください';
 
   @override

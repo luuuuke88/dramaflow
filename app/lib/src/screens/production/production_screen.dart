@@ -122,7 +122,9 @@ class _EpisodeBar extends StatelessWidget {
   }
 }
 
-/// 桌面画布布局：链式节点 + 贝塞尔边（位置每次构建重算，不落库，与 ToonFlow 主画布行为一致）。
+/// 桌面画布布局：链式节点 + 贝塞尔边。节点拖动位置只保留在当前会话，并在
+/// 剧集之间共用同一张 `nodePositions` 表，和 ToonFlow 的内存状态一致；
+/// “自动布局”可随时恢复默认链路。
 /// 右上角工具栏含 Agent 对话入口，点击滑出右侧对话面板（照抄 ToonFlow rightChatBox）。
 class _CanvasLayout extends StatefulWidget {
   final int projectId;
@@ -136,25 +138,40 @@ class _CanvasLayout extends StatefulWidget {
 class _CanvasLayoutState extends State<_CanvasLayout> {
   static const _chatPanelWidth = 380.0;
   bool _chatOpen = false;
+  late Map<String, Offset> _positions = _defaultPositions();
+
+  Map<String, Offset> _defaultPositions() => {
+        'script': Offset(0, 0),
+        'scriptPlan': Offset(380, 0),
+        'assets': Offset(0, 460),
+        'storyboardTable': Offset(760, 0),
+        'storyboard': Offset(1140, 0),
+        'workbench': Offset(1920, 0),
+      };
+
+  void _moveNode(String nodeId, Offset delta) {
+    setState(() {
+      _positions[nodeId] = _positions[nodeId]! + delta;
+    });
+  }
+
+  void _resetLayout() {
+    setState(() => _positions = _defaultPositions());
+  }
 
   @override
   Widget build(BuildContext context) {
     final projectId = widget.projectId;
     final script = widget.script;
-    const gap = 60.0;
     const nodeW = 320.0;
-    var x = 0.0;
-    final scriptPos = Offset(x, 0);
-    x += nodeW + gap;
-    final planPos = Offset(x, 0);
-    x += nodeW + gap;
-    final tablePos = Offset(x, 0);
-    x += nodeW + gap;
-    final storyboardPos = Offset(x, 0);
+    final positions = _positions;
+    final scriptPos = positions['script']!;
+    final planPos = positions['scriptPlan']!;
+    final tablePos = positions['storyboardTable']!;
+    final storyboardPos = positions['storyboard']!;
     const storyboardW = 720.0;
-    x += storyboardW + gap;
-    final workbenchPos = Offset(x, 0);
-    final assetsPos = Offset(scriptPos.dx, 460.0);
+    final workbenchPos = positions['workbench']!;
+    final assetsPos = positions['assets']!;
 
     final canvas = DFCanvas(
       fitOnInit: true,
@@ -163,24 +180,28 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
           id: 'script',
           position: scriptPos,
           size: const Size(nodeW, 400),
+          onDragUpdate: (delta) => _moveNode('script', delta),
           child: _ScriptNode(script: script),
         ),
         DFCanvasNode(
           id: 'scriptPlan',
           position: planPos,
           size: const Size(nodeW, 260),
+          onDragUpdate: (delta) => _moveNode('scriptPlan', delta),
           child: ScriptPlanNode(projectId: projectId),
         ),
         DFCanvasNode(
           id: 'assets',
           position: assetsPos,
           size: const Size(nodeW, 320),
+          onDragUpdate: (delta) => _moveNode('assets', delta),
           child: _AssetsNode(projectId: projectId, script: script),
         ),
         DFCanvasNode(
           id: 'storyboardTable',
           position: tablePos,
           size: const Size(nodeW, 400),
+          onDragUpdate: (delta) => _moveNode('storyboardTable', delta),
           child:
               _StoryboardTableNode(projectId: projectId, scriptId: script.id),
         ),
@@ -188,6 +209,7 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
           id: 'storyboard',
           position: storyboardPos,
           size: const Size(storyboardW, 620),
+          onDragUpdate: (delta) => _moveNode('storyboard', delta),
           child: _NodeFrame(
             title: context.l10n.productionNodeStoryboardTitle,
             child:
@@ -198,6 +220,7 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
           id: 'workbench',
           position: workbenchPos,
           size: const Size(nodeW, 220),
+          onDragUpdate: (delta) => _moveNode('workbench', delta),
           child: _WorkbenchNode(projectId: projectId, scriptId: script.id),
         ),
       ],
@@ -218,12 +241,22 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
         Positioned(
           top: 12,
           right: 12,
-          child: FloatingActionButton.extended(
-            heroTag: 'canvasChatToggle',
-            onPressed: () => setState(() => _chatOpen = true),
-            icon: const Icon(Icons.smart_toy_outlined),
-            label: Text(context.l10n.canvasChatOpen),
-          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            FloatingActionButton.small(
+              key: const ValueKey('production-auto-layout'),
+              heroTag: 'canvasAutoLayout',
+              tooltip: context.l10n.productionAutoLayout,
+              onPressed: _resetLayout,
+              child: const Icon(Icons.account_tree_outlined),
+            ),
+            const SizedBox(width: 8),
+            FloatingActionButton.extended(
+              heroTag: 'canvasChatToggle',
+              onPressed: () => setState(() => _chatOpen = true),
+              icon: const Icon(Icons.smart_toy_outlined),
+              label: Text(context.l10n.canvasChatOpen),
+            ),
+          ]),
         ),
       // 右侧滑出对话面板。
       AnimatedPositioned(

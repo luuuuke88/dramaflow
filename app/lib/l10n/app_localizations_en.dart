@@ -1469,6 +1469,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get productionSelectEpisode => 'Select episode';
 
   @override
+  String get productionAutoLayout => 'Auto layout';
+
+  @override
+  String canvasDragNode(String node) {
+    return 'Drag $node node';
+  }
+
+  @override
   String get productionNoScripts => 'No scripts yet — create one in Scripts';
 
   @override

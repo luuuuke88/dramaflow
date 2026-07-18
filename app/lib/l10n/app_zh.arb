@@ -611,6 +611,15 @@
   "productionMobileNodeInspector": "节点检查器",
   "productionMobileCurrentNode": "当前节点",
   "productionSelectEpisode": "选择剧集",
+  "productionAutoLayout": "自动布局",
+  "canvasDragNode": "拖动节点 {node}",
+  "@canvasDragNode": {
+    "placeholders": {
+      "node": {
+        "type": "String"
+      }
+    }
+  },
   "productionNoScripts": "暂无剧本，请先在「剧本管理」创建",
   "productionGoToScripts": "去创建剧本",
   "productionStoryboardGenerate": "生成分镜",

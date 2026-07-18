@@ -2848,6 +2848,18 @@ abstract class AppLocalizations {
   /// **'选择剧集'**
   String get productionSelectEpisode;
 
+  /// No description provided for @productionAutoLayout.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动布局'**
+  String get productionAutoLayout;
+
+  /// No description provided for @canvasDragNode.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖动节点 {node}'**
+  String canvasDragNode(String node);
+
   /// No description provided for @productionNoScripts.
   ///
   /// In zh, this message translates to:
