@@ -1,0 +1,2157 @@
+{
+  "generatedAt": "2026-07-17T17:59:28.603Z",
+  "items": [
+    {
+      "id": "web.route:/:catchAll(.*)",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/workbench",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/project",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/task",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/detail",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/novel",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/script",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/scriptAgent",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/cornerScape",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/production",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/assets",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/test",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.route:/login",
+      "source": "src/router/index.ts"
+    },
+    {
+      "id": "web.page:pages/error/404.vue",
+      "source": "src/pages/error/404.vue"
+    },
+    {
+      "id": "web.page:pages/login/index.vue",
+      "source": "src/pages/login/index.vue"
+    },
+    {
+      "id": "web.page:pages/workbench/index.vue",
+      "source": "src/pages/workbench/index.vue"
+    },
+    {
+      "id": "web.page:views/assets/components/addAssets.vue",
+      "source": "src/views/assets/components/addAssets.vue"
+    },
+    {
+      "id": "web.page:views/assets/components/addAudioAssets.vue",
+      "source": "src/views/assets/components/addAudioAssets.vue"
+    },
+    {
+      "id": "web.page:views/assets/components/batchGeneration.vue",
+      "source": "src/views/assets/components/batchGeneration.vue"
+    },
+    {
+      "id": "web.page:views/assets/components/generateImage.vue",
+      "source": "src/views/assets/components/generateImage.vue"
+    },
+    {
+      "id": "web.page:views/assets/index.vue",
+      "source": "src/views/assets/index.vue"
+    },
+    {
+      "id": "web.page:views/cornerScape/index.vue",
+      "source": "src/views/cornerScape/index.vue"
+    },
+    {
+      "id": "web.page:views/novel/components/editNodel.vue",
+      "source": "src/views/novel/components/editNodel.vue"
+    },
+    {
+      "id": "web.page:views/novel/components/event.vue",
+      "source": "src/views/novel/components/event.vue"
+    },
+    {
+      "id": "web.page:views/novel/components/eventAnalysis.vue",
+      "source": "src/views/novel/components/eventAnalysis.vue"
+    },
+    {
+      "id": "web.page:views/novel/components/importNovel.vue",
+      "source": "src/views/novel/components/importNovel.vue"
+    },
+    {
+      "id": "web.page:views/novel/index.vue",
+      "source": "src/views/novel/index.vue"
+    },
+    {
+      "id": "web.page:views/production/components/editImage/generatedNode.vue",
+      "source": "src/views/production/components/editImage/generatedNode.vue"
+    },
+    {
+      "id": "web.page:views/production/components/editImage/index.vue",
+      "source": "src/views/production/components/editImage/index.vue"
+    },
+    {
+      "id": "web.page:views/production/components/editImage/removeLine.vue",
+      "source": "src/views/production/components/editImage/removeLine.vue"
+    },
+    {
+      "id": "web.page:views/production/components/editImage/results.vue",
+      "source": "src/views/production/components/editImage/results.vue"
+    },
+    {
+      "id": "web.page:views/production/components/editImage/uploadNode.vue",
+      "source": "src/views/production/components/editImage/uploadNode.vue"
+    },
+    {
+      "id": "web.page:views/production/components/rightChatBox/index.vue",
+      "source": "src/views/production/components/rightChatBox/index.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/editVideo/index.vue",
+      "source": "src/views/production/components/workbench/editVideo/index.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/editVideo/mediaLibrary.vue",
+      "source": "src/views/production/components/workbench/editVideo/mediaLibrary.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/editVideo/propertyPanel.vue",
+      "source": "src/views/production/components/workbench/editVideo/propertyPanel.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/editVideo/videoPreview.vue",
+      "source": "src/views/production/components/workbench/editVideo/videoPreview.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/generate copy.vue",
+      "source": "src/views/production/components/workbench/generate copy.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/generate copy/components/trackList.vue",
+      "source": "src/views/production/components/workbench/generate copy/components/trackList.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/generate copy/components/videogenerate.vue",
+      "source": "src/views/production/components/workbench/generate copy/components/videogenerate.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/generate copy/index.vue",
+      "source": "src/views/production/components/workbench/generate copy/index.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/generate/components/imageSelect.vue",
+      "source": "src/views/production/components/workbench/generate/components/imageSelect.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/generate/components/modeMenu.vue",
+      "source": "src/views/production/components/workbench/generate/components/modeMenu.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/generate/components/track.vue",
+      "source": "src/views/production/components/workbench/generate/components/track.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/generate/components/video.vue",
+      "source": "src/views/production/components/workbench/generate/components/video.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/generate/index.vue",
+      "source": "src/views/production/components/workbench/generate/index.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/index.vue",
+      "source": "src/views/production/components/workbench/index.vue"
+    },
+    {
+      "id": "web.page:views/production/components/workbench/preview.vue",
+      "source": "src/views/production/components/workbench/preview.vue"
+    },
+    {
+      "id": "web.page:views/production/index.vue",
+      "source": "src/views/production/index.vue"
+    },
+    {
+      "id": "web.page:views/production/node/assets.vue",
+      "source": "src/views/production/node/assets.vue"
+    },
+    {
+      "id": "web.page:views/production/node/poster.vue",
+      "source": "src/views/production/node/poster.vue"
+    },
+    {
+      "id": "web.page:views/production/node/script.vue",
+      "source": "src/views/production/node/script.vue"
+    },
+    {
+      "id": "web.page:views/production/node/scriptPlan.vue",
+      "source": "src/views/production/node/scriptPlan.vue"
+    },
+    {
+      "id": "web.page:views/production/node/storyboard.vue",
+      "source": "src/views/production/node/storyboard.vue"
+    },
+    {
+      "id": "web.page:views/production/node/storyboardTable.vue",
+      "source": "src/views/production/node/storyboardTable.vue"
+    },
+    {
+      "id": "web.page:views/production/node/workbench.vue",
+      "source": "src/views/production/node/workbench.vue"
+    },
+    {
+      "id": "web.page:views/project/components/addProject.vue",
+      "source": "src/views/project/components/addProject.vue"
+    },
+    {
+      "id": "web.page:views/project/components/projectDialog.vue",
+      "source": "src/views/project/components/projectDialog.vue"
+    },
+    {
+      "id": "web.page:views/project/index.vue",
+      "source": "src/views/project/index.vue"
+    },
+    {
+      "id": "web.page:views/script/components/addScript.vue",
+      "source": "src/views/script/components/addScript.vue"
+    },
+    {
+      "id": "web.page:views/script/components/batchAddScript.vue",
+      "source": "src/views/script/components/batchAddScript.vue"
+    },
+    {
+      "id": "web.page:views/script/components/editScript.vue",
+      "source": "src/views/script/components/editScript.vue"
+    },
+    {
+      "id": "web.page:views/script/index.vue",
+      "source": "src/views/script/index.vue"
+    },
+    {
+      "id": "web.page:views/scriptAgent/index copy.vue",
+      "source": "src/views/scriptAgent/index copy.vue"
+    },
+    {
+      "id": "web.page:views/scriptAgent/index.vue",
+      "source": "src/views/scriptAgent/index.vue"
+    },
+    {
+      "id": "web.page:views/task/index.vue",
+      "source": "src/views/task/index.vue"
+    },
+    {
+      "id": "web.page:views/taskList/index.vue",
+      "source": "src/views/taskList/index.vue"
+    },
+    {
+      "id": "web.page:views/test/index.vue",
+      "source": "src/views/test/index.vue"
+    },
+    {
+      "id": "web.component:editMdPreivew.vue",
+      "source": "src/components/editMdPreivew.vue"
+    },
+    {
+      "id": "web.component:hello.vue",
+      "source": "src/components/hello.vue"
+    },
+    {
+      "id": "web.component:imageTools.vue",
+      "source": "src/components/imageTools.vue"
+    },
+    {
+      "id": "web.component:modelSelect.vue",
+      "source": "src/components/modelSelect.vue"
+    },
+    {
+      "id": "web.component:promptEditor.vue",
+      "source": "src/components/promptEditor.vue"
+    },
+    {
+      "id": "web.component:setting/components/about.vue",
+      "source": "src/components/setting/components/about.vue"
+    },
+    {
+      "id": "web.component:setting/components/agentConfog.vue",
+      "source": "src/components/setting/components/agentConfog.vue"
+    },
+    {
+      "id": "web.component:setting/components/dbConfig.vue",
+      "source": "src/components/setting/components/dbConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/devConfig.vue",
+      "source": "src/components/setting/components/devConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/fileManagement.vue",
+      "source": "src/components/setting/components/fileManagement.vue"
+    },
+    {
+      "id": "web.component:setting/components/languageConfig.vue",
+      "source": "src/components/setting/components/languageConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/loginConfig.vue",
+      "source": "src/components/setting/components/loginConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/logoutConfig.vue",
+      "source": "src/components/setting/components/logoutConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/memoryConfig.vue",
+      "source": "src/components/setting/components/memoryConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/modelMap.vue",
+      "source": "src/components/setting/components/modelMap.vue"
+    },
+    {
+      "id": "web.component:setting/components/otherConfig.vue",
+      "source": "src/components/setting/components/otherConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/promptManage.vue",
+      "source": "src/components/setting/components/promptManage.vue"
+    },
+    {
+      "id": "web.component:setting/components/requestConfig.vue",
+      "source": "src/components/setting/components/requestConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/skillManagement.vue",
+      "source": "src/components/setting/components/skillManagement.vue"
+    },
+    {
+      "id": "web.component:setting/components/uiConfig.vue",
+      "source": "src/components/setting/components/uiConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/vendorConfig.vue",
+      "source": "src/components/setting/components/vendorConfig.vue"
+    },
+    {
+      "id": "web.component:setting/components/vendorTest/AudioUploadBox.vue",
+      "source": "src/components/setting/components/vendorTest/AudioUploadBox.vue"
+    },
+    {
+      "id": "web.component:setting/components/vendorTest/ImageModelTest.vue",
+      "source": "src/components/setting/components/vendorTest/ImageModelTest.vue"
+    },
+    {
+      "id": "web.component:setting/components/vendorTest/ImageUploadBox.vue",
+      "source": "src/components/setting/components/vendorTest/ImageUploadBox.vue"
+    },
+    {
+      "id": "web.component:setting/components/vendorTest/TextModelTest.vue",
+      "source": "src/components/setting/components/vendorTest/TextModelTest.vue"
+    },
+    {
+      "id": "web.component:setting/components/vendorTest/VideoModelTest.vue",
+      "source": "src/components/setting/components/vendorTest/VideoModelTest.vue"
+    },
+    {
+      "id": "web.component:setting/components/vendorTest/VideoUploadBox.vue",
+      "source": "src/components/setting/components/vendorTest/VideoUploadBox.vue"
+    },
+    {
+      "id": "web.component:setting/index.vue",
+      "source": "src/components/setting/index.vue"
+    },
+    {
+      "id": "web.component:storyboardImageCheck.vue",
+      "source": "src/components/storyboardImageCheck.vue"
+    },
+    {
+      "id": "web.component:titleBar.vue",
+      "source": "src/components/titleBar.vue"
+    },
+    {
+      "id": "web.store:imageListCache.ts",
+      "source": "src/stores/imageListCache.ts"
+    },
+    {
+      "id": "web.store:index.ts",
+      "source": "src/stores/index.ts"
+    },
+    {
+      "id": "web.store:loadingStore.ts",
+      "source": "src/stores/loadingStore.ts"
+    },
+    {
+      "id": "web.store:productionAgent.ts",
+      "source": "src/stores/productionAgent.ts"
+    },
+    {
+      "id": "web.store:project.ts",
+      "source": "src/stores/project.ts"
+    },
+    {
+      "id": "web.store:scriptAgent.ts",
+      "source": "src/stores/scriptAgent.ts"
+    },
+    {
+      "id": "web.store:setting.ts",
+      "source": "src/stores/setting.ts"
+    },
+    {
+      "id": "web.store:user.ts",
+      "source": "src/stores/user.ts"
+    },
+    {
+      "id": "web.store:video.ts",
+      "source": "src/stores/video.ts"
+    },
+    {
+      "id": "web.featureLib:lib/vendorTemplate.ts",
+      "source": "src/lib/vendorTemplate.ts"
+    },
+    {
+      "id": "web.featureLib:utils/assetsCheck.ts",
+      "source": "src/utils/assetsCheck.ts"
+    },
+    {
+      "id": "web.featureLib:utils/axios.ts",
+      "source": "src/utils/axios.ts"
+    },
+    {
+      "id": "web.featureLib:utils/global.ts",
+      "source": "src/utils/global.ts"
+    },
+    {
+      "id": "web.featureLib:utils/imageOptimizer.ts",
+      "source": "src/utils/imageOptimizer.ts"
+    },
+    {
+      "id": "web.featureLib:utils/parseNovel.ts",
+      "source": "src/utils/parseNovel.ts"
+    },
+    {
+      "id": "web.featureLib:utils/parseScript.ts",
+      "source": "src/utils/parseScript.ts"
+    },
+    {
+      "id": "web.featureLib:utils/providersLogo.ts",
+      "source": "src/utils/providersLogo.ts"
+    },
+    {
+      "id": "web.featureLib:utils/scanSkills.ts",
+      "source": "src/utils/scanSkills.ts"
+    },
+    {
+      "id": "web.featureLib:utils/theme.ts",
+      "source": "src/utils/theme.ts"
+    },
+    {
+      "id": "web.featureLib:utils/useChat copy.ts",
+      "source": "src/utils/useChat copy.ts"
+    },
+    {
+      "id": "web.featureLib:utils/useChat.ts",
+      "source": "src/utils/useChat.ts"
+    },
+    {
+      "id": "web.featureLib:utils/useSocket.ts",
+      "source": "src/utils/useSocket.ts"
+    },
+    {
+      "id": "web.featureLib:utils/videoPolling.ts",
+      "source": "src/utils/videoPolling.ts"
+    },
+    {
+      "id": "app.route:agents/clearMemory.ts",
+      "source": "src/routes/agents/clearMemory.ts"
+    },
+    {
+      "id": "app.route:agents/getMemory.ts",
+      "source": "src/routes/agents/getMemory.ts"
+    },
+    {
+      "id": "app.route:artStyle/addArtStyle.ts",
+      "source": "src/routes/artStyle/addArtStyle.ts"
+    },
+    {
+      "id": "app.route:artStyle/editArtStyle.ts",
+      "source": "src/routes/artStyle/editArtStyle.ts"
+    },
+    {
+      "id": "app.route:artStyle/extractStylePrompt.ts",
+      "source": "src/routes/artStyle/extractStylePrompt.ts"
+    },
+    {
+      "id": "app.route:artStyle/getArtStyle.ts",
+      "source": "src/routes/artStyle/getArtStyle.ts"
+    },
+    {
+      "id": "app.route:assets/addAssets.ts",
+      "source": "src/routes/assets/addAssets.ts"
+    },
+    {
+      "id": "app.route:assets/addAudioAssets.ts",
+      "source": "src/routes/assets/addAudioAssets.ts"
+    },
+    {
+      "id": "app.route:assets/batchDelete.ts",
+      "source": "src/routes/assets/batchDelete.ts"
+    },
+    {
+      "id": "app.route:assets/batchGenerationData.ts",
+      "source": "src/routes/assets/batchGenerationData.ts"
+    },
+    {
+      "id": "app.route:assets/delAssets.ts",
+      "source": "src/routes/assets/delAssets.ts"
+    },
+    {
+      "id": "app.route:assets/delImage.ts",
+      "source": "src/routes/assets/delImage.ts"
+    },
+    {
+      "id": "app.route:assets/getAssetsApi.ts",
+      "source": "src/routes/assets/getAssetsApi.ts"
+    },
+    {
+      "id": "app.route:assets/getImage.ts",
+      "source": "src/routes/assets/getImage.ts"
+    },
+    {
+      "id": "app.route:assets/getMaterialData.ts",
+      "source": "src/routes/assets/getMaterialData.ts"
+    },
+    {
+      "id": "app.route:assets/pollingImageAssets.ts",
+      "source": "src/routes/assets/pollingImageAssets.ts"
+    },
+    {
+      "id": "app.route:assets/pollingPromptAssets.ts",
+      "source": "src/routes/assets/pollingPromptAssets.ts"
+    },
+    {
+      "id": "app.route:assets/saveAssets.ts",
+      "source": "src/routes/assets/saveAssets.ts"
+    },
+    {
+      "id": "app.route:assets/updateAssets.ts",
+      "source": "src/routes/assets/updateAssets.ts"
+    },
+    {
+      "id": "app.route:assets/updateAudioAssets.ts",
+      "source": "src/routes/assets/updateAudioAssets.ts"
+    },
+    {
+      "id": "app.route:assets/uploadClip.ts",
+      "source": "src/routes/assets/uploadClip.ts"
+    },
+    {
+      "id": "app.route:assetsGenerate/batchGenerateImageAssets.ts",
+      "source": "src/routes/assetsGenerate/batchGenerateImageAssets.ts"
+    },
+    {
+      "id": "app.route:assetsGenerate/batchPolishAssetsPrompt.ts",
+      "source": "src/routes/assetsGenerate/batchPolishAssetsPrompt.ts"
+    },
+    {
+      "id": "app.route:assetsGenerate/cancelGenerate.ts",
+      "source": "src/routes/assetsGenerate/cancelGenerate.ts"
+    },
+    {
+      "id": "app.route:assetsGenerate/generateAssets.ts",
+      "source": "src/routes/assetsGenerate/generateAssets.ts"
+    },
+    {
+      "id": "app.route:assetsGenerate/polishAssetsPrompt.ts",
+      "source": "src/routes/assetsGenerate/polishAssetsPrompt.ts"
+    },
+    {
+      "id": "app.route:common/getBigImage.ts",
+      "source": "src/routes/common/getBigImage.ts"
+    },
+    {
+      "id": "app.route:cornerScape/batchBindAudio.ts",
+      "source": "src/routes/cornerScape/batchBindAudio.ts"
+    },
+    {
+      "id": "app.route:cornerScape/getAllAssets.ts",
+      "source": "src/routes/cornerScape/getAllAssets.ts"
+    },
+    {
+      "id": "app.route:cornerScape/pollingAudio.ts",
+      "source": "src/routes/cornerScape/pollingAudio.ts"
+    },
+    {
+      "id": "app.route:cornerScape/updateAssetsAudio.ts",
+      "source": "src/routes/cornerScape/updateAssetsAudio.ts"
+    },
+    {
+      "id": "app.route:general/generalStatistics.ts",
+      "source": "src/routes/general/generalStatistics.ts"
+    },
+    {
+      "id": "app.route:general/getSingleProject.ts",
+      "source": "src/routes/general/getSingleProject.ts"
+    },
+    {
+      "id": "app.route:general/updateProject.ts",
+      "source": "src/routes/general/updateProject.ts"
+    },
+    {
+      "id": "app.route:login/login.ts",
+      "source": "src/routes/login/login.ts"
+    },
+    {
+      "id": "app.route:modelSelect/getModelDetail.ts",
+      "source": "src/routes/modelSelect/getModelDetail.ts"
+    },
+    {
+      "id": "app.route:modelSelect/getModelList.ts",
+      "source": "src/routes/modelSelect/getModelList.ts"
+    },
+    {
+      "id": "app.route:novel/addNovel.ts",
+      "source": "src/routes/novel/addNovel.ts"
+    },
+    {
+      "id": "app.route:novel/batchDeleteNovel.ts",
+      "source": "src/routes/novel/batchDeleteNovel.ts"
+    },
+    {
+      "id": "app.route:novel/delNovel.ts",
+      "source": "src/routes/novel/delNovel.ts"
+    },
+    {
+      "id": "app.route:novel/event/batchDeleteEvent.ts",
+      "source": "src/routes/novel/event/batchDeleteEvent.ts"
+    },
+    {
+      "id": "app.route:novel/event/deletEvent.ts",
+      "source": "src/routes/novel/event/deletEvent.ts"
+    },
+    {
+      "id": "app.route:novel/event/generateEvents.ts",
+      "source": "src/routes/novel/event/generateEvents.ts"
+    },
+    {
+      "id": "app.route:novel/event/getEvent.ts",
+      "source": "src/routes/novel/event/getEvent.ts"
+    },
+    {
+      "id": "app.route:novel/getNovel.ts",
+      "source": "src/routes/novel/getNovel.ts"
+    },
+    {
+      "id": "app.route:novel/getNovelData.ts",
+      "source": "src/routes/novel/getNovelData.ts"
+    },
+    {
+      "id": "app.route:novel/getNovelEventState.ts",
+      "source": "src/routes/novel/getNovelEventState.ts"
+    },
+    {
+      "id": "app.route:novel/getNovelIndex.ts",
+      "source": "src/routes/novel/getNovelIndex.ts"
+    },
+    {
+      "id": "app.route:novel/updateNovel.ts",
+      "source": "src/routes/novel/updateNovel.ts"
+    },
+    {
+      "id": "app.route:other/deleteAllData.ts",
+      "source": "src/routes/other/deleteAllData.ts"
+    },
+    {
+      "id": "app.route:other/getVersion.ts",
+      "source": "src/routes/other/getVersion.ts"
+    },
+    {
+      "id": "app.route:production/assets/batchGenerateAssetsImage.ts",
+      "source": "src/routes/production/assets/batchGenerateAssetsImage.ts"
+    },
+    {
+      "id": "app.route:production/assets/deleteAssetsDireve.ts",
+      "source": "src/routes/production/assets/deleteAssetsDireve.ts"
+    },
+    {
+      "id": "app.route:production/assets/pollingImage.ts",
+      "source": "src/routes/production/assets/pollingImage.ts"
+    },
+    {
+      "id": "app.route:production/assets/updateAssetsUrl.ts",
+      "source": "src/routes/production/assets/updateAssetsUrl.ts"
+    },
+    {
+      "id": "app.route:production/editImage/generateFlowImage.ts",
+      "source": "src/routes/production/editImage/generateFlowImage.ts"
+    },
+    {
+      "id": "app.route:production/editImage/getImageDefaultModle.ts",
+      "source": "src/routes/production/editImage/getImageDefaultModle.ts"
+    },
+    {
+      "id": "app.route:production/editImage/getImageFlow.ts",
+      "source": "src/routes/production/editImage/getImageFlow.ts"
+    },
+    {
+      "id": "app.route:production/editImage/saveImageFlow.ts",
+      "source": "src/routes/production/editImage/saveImageFlow.ts"
+    },
+    {
+      "id": "app.route:production/editImage/updateImageFlow.ts",
+      "source": "src/routes/production/editImage/updateImageFlow.ts"
+    },
+    {
+      "id": "app.route:production/editImage/uploadImage.ts",
+      "source": "src/routes/production/editImage/uploadImage.ts"
+    },
+    {
+      "id": "app.route:production/getFlowData.ts",
+      "source": "src/routes/production/getFlowData.ts"
+    },
+    {
+      "id": "app.route:production/getStoryboardData.ts",
+      "source": "src/routes/production/getStoryboardData.ts"
+    },
+    {
+      "id": "app.route:production/saveFlowData.ts",
+      "source": "src/routes/production/saveFlowData.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/addStoryboard.ts",
+      "source": "src/routes/production/storyboard/addStoryboard.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/batchAddStoryboardInfo.ts",
+      "source": "src/routes/production/storyboard/batchAddStoryboardInfo.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/batchDelete.ts",
+      "source": "src/routes/production/storyboard/batchDelete.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/batchGenerateImage.ts",
+      "source": "src/routes/production/storyboard/batchGenerateImage.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/downPreviewImage.ts",
+      "source": "src/routes/production/storyboard/downPreviewImage.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/editStoryboardInfo.ts",
+      "source": "src/routes/production/storyboard/editStoryboardInfo.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/getStoryboardData.ts",
+      "source": "src/routes/production/storyboard/getStoryboardData.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/pollingImage.ts",
+      "source": "src/routes/production/storyboard/pollingImage.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/previewImage.ts",
+      "source": "src/routes/production/storyboard/previewImage.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/removeFrame.ts",
+      "source": "src/routes/production/storyboard/removeFrame.ts"
+    },
+    {
+      "id": "app.route:production/storyboard/updateStoryboardUrl.ts",
+      "source": "src/routes/production/storyboard/updateStoryboardUrl.ts"
+    },
+    {
+      "id": "app.route:production/workbench/addTrack.ts",
+      "source": "src/routes/production/workbench/addTrack.ts"
+    },
+    {
+      "id": "app.route:production/workbench/batchGeneratePrompt.ts",
+      "source": "src/routes/production/workbench/batchGeneratePrompt.ts"
+    },
+    {
+      "id": "app.route:production/workbench/batchGenerateVideo.ts",
+      "source": "src/routes/production/workbench/batchGenerateVideo.ts"
+    },
+    {
+      "id": "app.route:production/workbench/checkVideoPrompt.ts",
+      "source": "src/routes/production/workbench/checkVideoPrompt.ts"
+    },
+    {
+      "id": "app.route:production/workbench/checkVideoStateList.ts",
+      "source": "src/routes/production/workbench/checkVideoStateList.ts"
+    },
+    {
+      "id": "app.route:production/workbench/delVideo.ts",
+      "source": "src/routes/production/workbench/delVideo.ts"
+    },
+    {
+      "id": "app.route:production/workbench/deleteTrack.ts",
+      "source": "src/routes/production/workbench/deleteTrack.ts"
+    },
+    {
+      "id": "app.route:production/workbench/generateVideo.ts",
+      "source": "src/routes/production/workbench/generateVideo.ts"
+    },
+    {
+      "id": "app.route:production/workbench/generateVideoPrompt.ts",
+      "source": "src/routes/production/workbench/generateVideoPrompt.ts"
+    },
+    {
+      "id": "app.route:production/workbench/getAudioBindAssetsList.ts",
+      "source": "src/routes/production/workbench/getAudioBindAssetsList.ts"
+    },
+    {
+      "id": "app.route:production/workbench/getFileUrl.ts",
+      "source": "src/routes/production/workbench/getFileUrl.ts"
+    },
+    {
+      "id": "app.route:production/workbench/getGenerateData.ts",
+      "source": "src/routes/production/workbench/getGenerateData.ts"
+    },
+    {
+      "id": "app.route:production/workbench/getVideoList.ts",
+      "source": "src/routes/production/workbench/getVideoList.ts"
+    },
+    {
+      "id": "app.route:production/workbench/selectVideo.ts",
+      "source": "src/routes/production/workbench/selectVideo.ts"
+    },
+    {
+      "id": "app.route:production/workbench/updateVideoDuration.ts",
+      "source": "src/routes/production/workbench/updateVideoDuration.ts"
+    },
+    {
+      "id": "app.route:production/workbench/updateVideoPrompt.ts",
+      "source": "src/routes/production/workbench/updateVideoPrompt.ts"
+    },
+    {
+      "id": "app.route:project/addDirectorManual.ts",
+      "source": "src/routes/project/addDirectorManual.ts"
+    },
+    {
+      "id": "app.route:project/addProject.ts",
+      "source": "src/routes/project/addProject.ts"
+    },
+    {
+      "id": "app.route:project/addVisualManual.ts",
+      "source": "src/routes/project/addVisualManual.ts"
+    },
+    {
+      "id": "app.route:project/delProject.ts",
+      "source": "src/routes/project/delProject.ts"
+    },
+    {
+      "id": "app.route:project/deleteDirectorManual.ts",
+      "source": "src/routes/project/deleteDirectorManual.ts"
+    },
+    {
+      "id": "app.route:project/deleteVisualManual.ts",
+      "source": "src/routes/project/deleteVisualManual.ts"
+    },
+    {
+      "id": "app.route:project/editDirectorlManual.ts",
+      "source": "src/routes/project/editDirectorlManual.ts"
+    },
+    {
+      "id": "app.route:project/editProject.ts",
+      "source": "src/routes/project/editProject.ts"
+    },
+    {
+      "id": "app.route:project/editVisualManual.ts",
+      "source": "src/routes/project/editVisualManual.ts"
+    },
+    {
+      "id": "app.route:project/getModelDetails.ts",
+      "source": "src/routes/project/getModelDetails.ts"
+    },
+    {
+      "id": "app.route:project/getProject.ts",
+      "source": "src/routes/project/getProject.ts"
+    },
+    {
+      "id": "app.route:project/getVisualManual.ts",
+      "source": "src/routes/project/getVisualManual.ts"
+    },
+    {
+      "id": "app.route:project/queryDirectorManual.ts",
+      "source": "src/routes/project/queryDirectorManual.ts"
+    },
+    {
+      "id": "app.route:project/visualManual.ts",
+      "source": "src/routes/project/visualManual.ts"
+    },
+    {
+      "id": "app.route:script/addScript.ts",
+      "source": "src/routes/script/addScript.ts"
+    },
+    {
+      "id": "app.route:script/batchAddScript.ts",
+      "source": "src/routes/script/batchAddScript.ts"
+    },
+    {
+      "id": "app.route:script/delScript.ts",
+      "source": "src/routes/script/delScript.ts"
+    },
+    {
+      "id": "app.route:script/exportScript.ts",
+      "source": "src/routes/script/exportScript.ts"
+    },
+    {
+      "id": "app.route:script/extractAssets.ts",
+      "source": "src/routes/script/extractAssets.ts"
+    },
+    {
+      "id": "app.route:script/getAiRegex.ts",
+      "source": "src/routes/script/getAiRegex.ts"
+    },
+    {
+      "id": "app.route:script/getScrptApi.ts",
+      "source": "src/routes/script/getScrptApi.ts"
+    },
+    {
+      "id": "app.route:script/pollScriptAssets.ts",
+      "source": "src/routes/script/pollScriptAssets.ts"
+    },
+    {
+      "id": "app.route:script/updateScript.ts",
+      "source": "src/routes/script/updateScript.ts"
+    },
+    {
+      "id": "app.route:scriptAgent/getPlanData.ts",
+      "source": "src/routes/scriptAgent/getPlanData.ts"
+    },
+    {
+      "id": "app.route:scriptAgent/setPlanData.ts",
+      "source": "src/routes/scriptAgent/setPlanData.ts"
+    },
+    {
+      "id": "app.route:scriptAgent/updateData.ts",
+      "source": "src/routes/scriptAgent/updateData.ts"
+    },
+    {
+      "id": "app.route:setting/about/checkUpdate.ts",
+      "source": "src/routes/setting/about/checkUpdate.ts"
+    },
+    {
+      "id": "app.route:setting/about/downloadApp.ts",
+      "source": "src/routes/setting/about/downloadApp.ts"
+    },
+    {
+      "id": "app.route:setting/agentDeploy/agentSetKey.ts",
+      "source": "src/routes/setting/agentDeploy/agentSetKey.ts"
+    },
+    {
+      "id": "app.route:setting/agentDeploy/deployAgentModel.ts",
+      "source": "src/routes/setting/agentDeploy/deployAgentModel.ts"
+    },
+    {
+      "id": "app.route:setting/agentDeploy/getAgentDeploy.ts",
+      "source": "src/routes/setting/agentDeploy/getAgentDeploy.ts"
+    },
+    {
+      "id": "app.route:setting/agentDeploy/getAgentUseMode.ts",
+      "source": "src/routes/setting/agentDeploy/getAgentUseMode.ts"
+    },
+    {
+      "id": "app.route:setting/agentDeploy/updateAgentModel.ts",
+      "source": "src/routes/setting/agentDeploy/updateAgentModel.ts"
+    },
+    {
+      "id": "app.route:setting/agentDeploy/updateUseMode.ts",
+      "source": "src/routes/setting/agentDeploy/updateUseMode.ts"
+    },
+    {
+      "id": "app.route:setting/dbConfig/clearData.ts",
+      "source": "src/routes/setting/dbConfig/clearData.ts"
+    },
+    {
+      "id": "app.route:setting/dbConfig/clearTable.ts",
+      "source": "src/routes/setting/dbConfig/clearTable.ts"
+    },
+    {
+      "id": "app.route:setting/dbConfig/dbInfo.ts",
+      "source": "src/routes/setting/dbConfig/dbInfo.ts"
+    },
+    {
+      "id": "app.route:setting/dbConfig/exportData.ts",
+      "source": "src/routes/setting/dbConfig/exportData.ts"
+    },
+    {
+      "id": "app.route:setting/dbConfig/importData.ts",
+      "source": "src/routes/setting/dbConfig/importData.ts"
+    },
+    {
+      "id": "app.route:setting/dev/getSwitchAiDevTool.ts",
+      "source": "src/routes/setting/dev/getSwitchAiDevTool.ts"
+    },
+    {
+      "id": "app.route:setting/dev/updateSwitchAiDevTool.ts",
+      "source": "src/routes/setting/dev/updateSwitchAiDevTool.ts"
+    },
+    {
+      "id": "app.route:setting/fileManagement/openFolder.ts",
+      "source": "src/routes/setting/fileManagement/openFolder.ts"
+    },
+    {
+      "id": "app.route:setting/getTextModel.ts",
+      "source": "src/routes/setting/getTextModel.ts"
+    },
+    {
+      "id": "app.route:setting/loginConfig/getUser.ts",
+      "source": "src/routes/setting/loginConfig/getUser.ts"
+    },
+    {
+      "id": "app.route:setting/loginConfig/updateUserPwd.ts",
+      "source": "src/routes/setting/loginConfig/updateUserPwd.ts"
+    },
+    {
+      "id": "app.route:setting/memoryConfig/delAllMemory.ts",
+      "source": "src/routes/setting/memoryConfig/delAllMemory.ts"
+    },
+    {
+      "id": "app.route:setting/memoryConfig/getMemory.ts",
+      "source": "src/routes/setting/memoryConfig/getMemory.ts"
+    },
+    {
+      "id": "app.route:setting/memoryConfig/sureMemory.ts",
+      "source": "src/routes/setting/memoryConfig/sureMemory.ts"
+    },
+    {
+      "id": "app.route:setting/modelMap/bindingPrompt.ts",
+      "source": "src/routes/setting/modelMap/bindingPrompt.ts"
+    },
+    {
+      "id": "app.route:setting/modelMap/deletePrompt.ts",
+      "source": "src/routes/setting/modelMap/deletePrompt.ts"
+    },
+    {
+      "id": "app.route:setting/modelMap/getImageAndVideoModel.ts",
+      "source": "src/routes/setting/modelMap/getImageAndVideoModel.ts"
+    },
+    {
+      "id": "app.route:setting/modelMap/getPromptList.ts",
+      "source": "src/routes/setting/modelMap/getPromptList.ts"
+    },
+    {
+      "id": "app.route:setting/modelMap/savePrompt.ts",
+      "source": "src/routes/setting/modelMap/savePrompt.ts"
+    },
+    {
+      "id": "app.route:setting/modelMap/updatePrompt.ts",
+      "source": "src/routes/setting/modelMap/updatePrompt.ts"
+    },
+    {
+      "id": "app.route:setting/promptManage/getPrompt.ts",
+      "source": "src/routes/setting/promptManage/getPrompt.ts"
+    },
+    {
+      "id": "app.route:setting/promptManage/updatePrompt.ts",
+      "source": "src/routes/setting/promptManage/updatePrompt.ts"
+    },
+    {
+      "id": "app.route:setting/skillManagement/getSkillContent.ts",
+      "source": "src/routes/setting/skillManagement/getSkillContent.ts"
+    },
+    {
+      "id": "app.route:setting/skillManagement/getSkillList.ts",
+      "source": "src/routes/setting/skillManagement/getSkillList.ts"
+    },
+    {
+      "id": "app.route:setting/skillManagement/saveSkillContent.ts",
+      "source": "src/routes/setting/skillManagement/saveSkillContent.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/addVendor.ts",
+      "source": "src/routes/setting/vendorConfig/addVendor.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/addVendorModel.ts",
+      "source": "src/routes/setting/vendorConfig/addVendorModel.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/delVendorModel.ts",
+      "source": "src/routes/setting/vendorConfig/delVendorModel.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/deleteVendor.ts",
+      "source": "src/routes/setting/vendorConfig/deleteVendor.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/enableVendor.ts",
+      "source": "src/routes/setting/vendorConfig/enableVendor.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/getCodeByLink.ts",
+      "source": "src/routes/setting/vendorConfig/getCodeByLink.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/getVendorList.ts",
+      "source": "src/routes/setting/vendorConfig/getVendorList.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/modelTest.ts",
+      "source": "src/routes/setting/vendorConfig/modelTest.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/modelTest/imageTest.ts",
+      "source": "src/routes/setting/vendorConfig/modelTest/imageTest.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/modelTest/textTest.ts",
+      "source": "src/routes/setting/vendorConfig/modelTest/textTest.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/modelTest/videoTest.ts",
+      "source": "src/routes/setting/vendorConfig/modelTest/videoTest.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/upVendorModel.ts",
+      "source": "src/routes/setting/vendorConfig/upVendorModel.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/updateCode.ts",
+      "source": "src/routes/setting/vendorConfig/updateCode.ts"
+    },
+    {
+      "id": "app.route:setting/vendorConfig/updateVendorInputs.ts",
+      "source": "src/routes/setting/vendorConfig/updateVendorInputs.ts"
+    },
+    {
+      "id": "app.route:task/getProject.ts",
+      "source": "src/routes/task/getProject.ts"
+    },
+    {
+      "id": "app.route:task/getTaskApi.ts",
+      "source": "src/routes/task/getTaskApi.ts"
+    },
+    {
+      "id": "app.route:task/getTaskCategories.ts",
+      "source": "src/routes/task/getTaskCategories.ts"
+    },
+    {
+      "id": "app.route:task/taskDetails.ts",
+      "source": "src/routes/task/taskDetails.ts"
+    },
+    {
+      "id": "app.route:test/test.ts",
+      "source": "src/routes/test/test.ts"
+    },
+    {
+      "id": "app.socket:productionAgent.ts",
+      "source": "src/socket/routes/productionAgent.ts"
+    },
+    {
+      "id": "app.socket:scriptAgent.ts",
+      "source": "src/socket/routes/scriptAgent.ts"
+    },
+    {
+      "id": "app.agentTool:productionAgent/index.ts",
+      "source": "src/agents/productionAgent/index.ts"
+    },
+    {
+      "id": "app.agentTool:productionAgent/tools.ts",
+      "source": "src/agents/productionAgent/tools.ts"
+    },
+    {
+      "id": "app.agentTool:scriptAgent/index.ts",
+      "source": "src/agents/scriptAgent/index.ts"
+    },
+    {
+      "id": "app.agentTool:scriptAgent/tools.ts",
+      "source": "src/agents/scriptAgent/tools.ts"
+    },
+    {
+      "id": "app.agentUtil:embedding.ts",
+      "source": "src/utils/agent/embedding.ts"
+    },
+    {
+      "id": "app.agentUtil:memory.ts",
+      "source": "src/utils/agent/memory.ts"
+    },
+    {
+      "id": "app.agentUtil:skillsTools.ts",
+      "source": "src/utils/agent/skillsTools.ts"
+    },
+    {
+      "id": "db.table:memories",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_agentDeploy",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_agentWorkData",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_artStyle",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_assets",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_assets2Storyboard",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_assetsRole2Audio",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_event",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_eventChapter",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_image",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_imageFlow",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_modelPrompt",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_novel",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_project",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_prompt",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_script",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_scriptAssets",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_setting",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_skillAttribution",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_skillList",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_storyboard",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_tasks",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_user",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_vendorConfig",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_video",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "db.table:o_videoTrack",
+      "source": "db2.sqlite"
+    },
+    {
+      "id": "asset.vendor:atlascloud.ts",
+      "source": "data/vendor/atlascloud.ts"
+    },
+    {
+      "id": "asset.vendor:azt.ts",
+      "source": "data/vendor/azt.ts"
+    },
+    {
+      "id": "asset.vendor:deepseek.ts",
+      "source": "data/vendor/deepseek.ts"
+    },
+    {
+      "id": "asset.vendor:grsai.ts",
+      "source": "data/vendor/grsai.ts"
+    },
+    {
+      "id": "asset.vendor:ima2.ts",
+      "source": "data/vendor/ima2.ts"
+    },
+    {
+      "id": "asset.vendor:klingai.ts",
+      "source": "data/vendor/klingai.ts"
+    },
+    {
+      "id": "asset.vendor:minimax.ts",
+      "source": "data/vendor/minimax.ts"
+    },
+    {
+      "id": "asset.vendor:null.ts",
+      "source": "data/vendor/null.ts"
+    },
+    {
+      "id": "asset.vendor:openai.ts",
+      "source": "data/vendor/openai.ts"
+    },
+    {
+      "id": "asset.vendor:toonflow.ts",
+      "source": "data/vendor/toonflow.ts"
+    },
+    {
+      "id": "asset.vendor:vidu.ts",
+      "source": "data/vendor/vidu.ts"
+    },
+    {
+      "id": "asset.vendor:volcengine.ts",
+      "source": "data/vendor/volcengine.ts"
+    },
+    {
+      "id": "asset.vendor:volcengineSd2.ts",
+      "source": "data/vendor/volcengineSd2.ts"
+    },
+    {
+      "id": "asset.modelPrompt:video/seedance2Multi-parameterMode.md",
+      "source": "data/modelPrompt/video/seedance2Multi-parameterMode.md"
+    },
+    {
+      "id": "asset.modelPrompt:video/universalFirstAndLastFrameMode.md",
+      "source": "data/modelPrompt/video/universalFirstAndLastFrameMode.md"
+    },
+    {
+      "id": "asset.modelPrompt:video/universalMulti-parameterMode.md",
+      "source": "data/modelPrompt/video/universalMulti-parameterMode.md"
+    },
+    {
+      "id": "asset.modelPrompt:video/wan2.6Single-imageFirstFrameMode.md",
+      "source": "data/modelPrompt/video/wan2.6Single-imageFirstFrameMode.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/README.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_90s_japanese_anime/prefix.md",
+      "source": "data/skills/art_skills/2D_90s_japanese_anime/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/README.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_chinese_guofeng/prefix.md",
+      "source": "data/skills/art_skills/2D_chinese_guofeng/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/README.md",
+      "source": "data/skills/art_skills/2D_flat_design/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/2D_flat_design/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/2D_flat_design/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/2D_flat_design/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/2D_flat_design/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/2D_flat_design/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/2D_flat_design/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/2D_flat_design/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/2D_flat_design/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/2D_flat_design/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/2D_flat_design/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_flat_design/prefix.md",
+      "source": "data/skills/art_skills/2D_flat_design/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/README.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/2D_mature_urban_romance/prefix.md",
+      "source": "data/skills/art_skills/2D_mature_urban_romance/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/README.md",
+      "source": "data/skills/art_skills/3D_anime_render/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/3D_anime_render/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/3D_anime_render/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/3D_anime_render/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/3D_anime_render/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/3D_anime_render/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/3D_anime_render/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/3D_anime_render/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/3D_anime_render/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/3D_anime_render/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/3D_anime_render/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_anime_render/prefix.md",
+      "source": "data/skills/art_skills/3D_anime_render/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/README.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_chinese_traditional/prefix.md",
+      "source": "data/skills/art_skills/3D_chinese_traditional/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/README.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_clay_stopmotion/prefix.md",
+      "source": "data/skills/art_skills/3D_clay_stopmotion/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/README.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/3D_guofeng_cyber/prefix.md",
+      "source": "data/skills/art_skills/3D_guofeng_cyber/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/README.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_ancient_chinese/prefix.md",
+      "source": "data/skills/art_skills/realpeople_ancient_chinese/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/README.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_modern_city/prefix.md",
+      "source": "data/skills/art_skills/realpeople_modern_city/prefix.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/README.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/README.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/art_prompt/art_character.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/art_prompt/art_character.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/art_prompt/art_character_derivative.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/art_prompt/art_character_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/art_prompt/art_prop.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/art_prompt/art_prop.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/art_prompt/art_prop_derivative.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/art_prompt/art_prop_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/art_prompt/art_scene.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/art_prompt/art_scene.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/art_prompt/art_scene_derivative.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/art_prompt/art_scene_derivative.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/art_prompt/art_storyboard_video.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/art_prompt/art_storyboard_video.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/driector_skills/director_planning_style.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/driector_skills/director_planning_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/driector_skills/director_storyboard.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/driector_skills/director_storyboard.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/driector_skills/director_storyboard_table_style.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/driector_skills/director_storyboard_table_style.md"
+    },
+    {
+      "id": "asset.skill:art_skills/realpeople_urban_modern/prefix.md",
+      "source": "data/skills/art_skills/realpeople_urban_modern/prefix.md"
+    },
+    {
+      "id": "asset.skill:production_agent_decision.md",
+      "source": "data/skills/production_agent_decision.md"
+    },
+    {
+      "id": "asset.skill:production_agent_supervision.md",
+      "source": "data/skills/production_agent_supervision.md"
+    },
+    {
+      "id": "asset.skill:production_execution_derive_assets.md",
+      "source": "data/skills/production_execution_derive_assets.md"
+    },
+    {
+      "id": "asset.skill:production_execution_director_plan.md",
+      "source": "data/skills/production_execution_director_plan.md"
+    },
+    {
+      "id": "asset.skill:production_execution_generate_assets.md",
+      "source": "data/skills/production_execution_generate_assets.md"
+    },
+    {
+      "id": "asset.skill:production_execution_storyboard_gen.md",
+      "source": "data/skills/production_execution_storyboard_gen.md"
+    },
+    {
+      "id": "asset.skill:production_execution_storyboard_panel.md",
+      "source": "data/skills/production_execution_storyboard_panel.md"
+    },
+    {
+      "id": "asset.skill:production_execution_storyboard_table.md",
+      "source": "data/skills/production_execution_storyboard_table.md"
+    },
+    {
+      "id": "asset.skill:production_skills/storyboard_prompt_techniques.md",
+      "source": "data/skills/production_skills/storyboard_prompt_techniques.md"
+    },
+    {
+      "id": "asset.skill:production_skills/storyboard_table_techniques.md",
+      "source": "data/skills/production_skills/storyboard_table_techniques.md"
+    },
+    {
+      "id": "asset.skill:script_agent_decision.md",
+      "source": "data/skills/script_agent_decision.md"
+    },
+    {
+      "id": "asset.skill:script_agent_supervision.md",
+      "source": "data/skills/script_agent_supervision.md"
+    },
+    {
+      "id": "asset.skill:script_execution_adaptation.md",
+      "source": "data/skills/script_execution_adaptation.md"
+    },
+    {
+      "id": "asset.skill:script_execution_script.md",
+      "source": "data/skills/script_execution_script.md"
+    },
+    {
+      "id": "asset.skill:script_execution_skeleton.md",
+      "source": "data/skills/script_execution_skeleton.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Comedy_humor/README.md",
+      "source": "data/skills/story_skills/Comedy_humor/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Comedy_humor/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Comedy_humor/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Comedy_humor/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Comedy_humor/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Coming_of_age/README.md",
+      "source": "data/skills/story_skills/Coming_of_age/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Coming_of_age/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Coming_of_age/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Coming_of_age/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Coming_of_age/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Family_warmth/README.md",
+      "source": "data/skills/story_skills/Family_warmth/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Family_warmth/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Family_warmth/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Family_warmth/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Family_warmth/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Historical_epic/README.md",
+      "source": "data/skills/story_skills/Historical_epic/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Historical_epic/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Historical_epic/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Historical_epic/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Historical_epic/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Horror_supernatural/README.md",
+      "source": "data/skills/story_skills/Horror_supernatural/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Horror_supernatural/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Horror_supernatural/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Horror_supernatural/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Horror_supernatural/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Hot_blooded_action/README.md",
+      "source": "data/skills/story_skills/Hot_blooded_action/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Hot_blooded_action/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Hot_blooded_action/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Hot_blooded_action/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Hot_blooded_action/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Mystery_thriller/README.md",
+      "source": "data/skills/story_skills/Mystery_thriller/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Mystery_thriller/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Mystery_thriller/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Mystery_thriller/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Mystery_thriller/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Psychological_drama/README.md",
+      "source": "data/skills/story_skills/Psychological_drama/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Psychological_drama/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Psychological_drama/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Psychological_drama/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Psychological_drama/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Scifi_post_apocalypse/README.md",
+      "source": "data/skills/story_skills/Scifi_post_apocalypse/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Scifi_post_apocalypse/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Scifi_post_apocalypse/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Scifi_post_apocalypse/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Scifi_post_apocalypse/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Sweet_romance_novel/README.md",
+      "source": "data/skills/story_skills/Sweet_romance_novel/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Sweet_romance_novel/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Sweet_romance_novel/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Sweet_romance_novel/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Sweet_romance_novel/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Urban_workplace_drama/README.md",
+      "source": "data/skills/story_skills/Urban_workplace_drama/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Urban_workplace_drama/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Urban_workplace_drama/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Urban_workplace_drama/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Urban_workplace_drama/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Xianxia_fantasy/README.md",
+      "source": "data/skills/story_skills/Xianxia_fantasy/README.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Xianxia_fantasy/driector_skills/director_planning_narrative.md",
+      "source": "data/skills/story_skills/Xianxia_fantasy/driector_skills/director_planning_narrative.md"
+    },
+    {
+      "id": "asset.skill:story_skills/Xianxia_fantasy/driector_skills/director_storyboard_table_narrative.md",
+      "source": "data/skills/story_skills/Xianxia_fantasy/driector_skills/director_storyboard_table_narrative.md"
+    },
+    {
+      "id": "config.setting:agentUseMode",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:deepRetrieveSummaryLimit",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:messagesPerSummary",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:modelDtype",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:modelOnnxFile",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:ragLimit",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:shortTermLimit",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:summaryLimit",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:summaryMaxLength",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:switchAiDevTool",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "config.setting:tokenKey",
+      "source": "db2.sqlite:o_setting"
+    },
+    {
+      "id": "platform.electron:main.js",
+      "source": "build/main.js"
+    }
+  ]
+}

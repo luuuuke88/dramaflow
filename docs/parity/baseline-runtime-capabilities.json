@@ -1,0 +1,213 @@
+{
+  "generatedAt": "2026-07-17T17:49:41.314Z",
+  "vendors": [
+    {
+      "id": "atlascloud",
+      "enable": 0,
+      "inputValues": {
+        "keys": []
+      },
+      "models": []
+    },
+    {
+      "id": "azt",
+      "enable": 1,
+      "inputValues": {
+        "keys": [
+          "apiKey",
+          "baseUrl",
+          "imageQuality",
+          "imageSize",
+          "imageTimeoutMs"
+        ],
+        "baseUrl": "http://127.0.0.1:8787/v1",
+        "imageQuality": "medium",
+        "imageSize": "auto",
+        "imageTimeoutMs": "960000"
+      },
+      "models": [
+        {
+          "name": "GPT-5.6 Sol (AZT OAuth)",
+          "modelName": "gpt-5.6-sol",
+          "type": "text",
+          "think": false
+        },
+        {
+          "name": "GPT-5.6 Terra (AZT OAuth)",
+          "modelName": "gpt-5.6-terra",
+          "type": "text",
+          "think": false
+        },
+        {
+          "name": "GPT-5.6 Luna (AZT OAuth)",
+          "modelName": "gpt-5.6-luna",
+          "type": "text",
+          "think": false
+        }
+      ]
+    },
+    {
+      "id": "deepseek",
+      "enable": 0,
+      "inputValues": {
+        "keys": []
+      },
+      "models": []
+    },
+    {
+      "id": "grsai",
+      "enable": 0,
+      "inputValues": {
+        "keys": [
+          "apiKey",
+          "baseUrl"
+        ],
+        "baseUrl": "https://grsai.dakka.com.cn/"
+      },
+      "models": []
+    },
+    {
+      "id": "ima2",
+      "enable": 0,
+      "inputValues": {
+        "keys": [
+          "apiKey",
+          "chatBaseUrl",
+          "imageBaseUrl",
+          "imageQuality",
+          "imageSize",
+          "imageTimeoutMs"
+        ],
+        "chatBaseUrl": "http://127.0.0.1:10531/v1",
+        "imageBaseUrl": "http://127.0.0.1:3333/",
+        "imageQuality": "low",
+        "imageSize": "1024x1024",
+        "imageTimeoutMs": "960000"
+      },
+      "models": []
+    },
+    {
+      "id": "klingai",
+      "enable": 0,
+      "inputValues": {
+        "keys": []
+      },
+      "models": []
+    },
+    {
+      "id": "minimax",
+      "enable": 0,
+      "inputValues": {
+        "keys": []
+      },
+      "models": []
+    },
+    {
+      "id": "null",
+      "enable": 0,
+      "inputValues": {
+        "keys": [
+          "apiKey",
+          "baseUrl"
+        ],
+        "baseUrl": "https://api.openai.com/v1"
+      },
+      "models": []
+    },
+    {
+      "id": "openai",
+      "enable": 0,
+      "inputValues": {
+        "keys": []
+      },
+      "models": []
+    },
+    {
+      "id": "toonflow",
+      "enable": 0,
+      "inputValues": {
+        "keys": []
+      },
+      "models": []
+    },
+    {
+      "id": "vidu",
+      "enable": 0,
+      "inputValues": {
+        "keys": []
+      },
+      "models": []
+    },
+    {
+      "id": "volcengine",
+      "enable": 1,
+      "inputValues": {
+        "keys": [
+          "apiKey",
+          "baseUrl"
+        ],
+        "baseUrl": "https://ark.cn-beijing.volces.com/api/v3"
+      },
+      "models": [
+        {
+          "name": "Seedance-2.0-Mini",
+          "modelName": "doubao-seedance-2-0-mini-260615",
+          "type": "video",
+          "mode": [
+            "text",
+            "startFrameOptional",
+            [
+              "imageReference:9",
+              "videoReference:3",
+              "audioReference:3"
+            ]
+          ],
+          "audio": "optional",
+          "durationResolutionMap": [
+            {
+              "duration": [
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
+              ],
+              "resolution": [
+                "480p",
+                "720p"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "volcengineSd2",
+      "enable": 0,
+      "inputValues": {
+        "keys": [
+          "ak",
+          "apiKey",
+          "baseUrl",
+          "groupId",
+          "sk",
+          "tosBucket",
+          "tosEndpoint"
+        ],
+        "baseUrl": "https://ark.cn-beijing.volces.com/api/v3"
+      },
+      "models": []
+    }
+  ],
+  "modelPrompts": [],
+  "promptFiles": [
+    "video/seedance2Multi-parameterMode.md"
+  ]
+}

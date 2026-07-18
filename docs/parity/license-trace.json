@@ -1,0 +1,900 @@
+{
+  "generatedAt": "2026-07-18T04:03:06.968Z",
+  "comparisons": [
+    {
+      "name": "default_skills",
+      "toonflowRoot": "/Users/luke/Documents/aivideo/Toonflow-app/data/skills",
+      "stats": {
+        "identical": 200,
+        "onlyInToonflow": 15
+      },
+      "rows": [
+        {
+          "file": "art_skills/2D_90s_japanese_anime/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/images/1.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_90s_japanese_anime/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/images/1.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_chinese_guofeng/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/images/1.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_flat_design/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/images/1.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/images/2.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/2D_mature_urban_romance/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/images/1.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_anime_render/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/images/1.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_chinese_traditional/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/images/1.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_clay_stopmotion/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/images/0d631a31-eb61-49ad-855f-396afb5fb48a.jpg",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/3D_guofeng_cyber/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/images/1.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/images/场景原始.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/images/场景衍生.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/images/女生原始.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/images/女生衍生.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_ancient_chinese/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/images/120acd4a-e368-4e70-8060-dc4136a292f7.jpg",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/images/67be161b-3b32-42e0-9b7e-1a4f8e885042.jpg",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/images/748b3dec-9419-464f-a3cc-62d7f9c3a25a.jpg",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/images/b52881f9-568b-4574-8fa2-bac540935eec.jpg",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/images/bf3df34a-8b85-4eed-89f4-6ff33f5729ce.jpg",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_modern_city/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/art_prompt/art_character.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/art_prompt/art_character_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/art_prompt/art_prop.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/art_prompt/art_prop_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/art_prompt/art_scene.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/art_prompt/art_scene_derivative.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/art_prompt/art_storyboard_video.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/driector_skills/director_planning_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/driector_skills/director_storyboard.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/driector_skills/director_storyboard_table_style.md",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/images/1.png",
+          "status": "identical"
+        },
+        {
+          "file": "art_skills/realpeople_urban_modern/prefix.md",
+          "status": "identical"
+        },
+        {
+          "file": "production_agent_decision.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "production_agent_supervision.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "production_execution_derive_assets.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "production_execution_director_plan.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "production_execution_generate_assets.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "production_execution_storyboard_gen.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "production_execution_storyboard_panel.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "production_execution_storyboard_table.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "production_skills/storyboard_prompt_techniques.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "production_skills/storyboard_table_techniques.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "script_agent_decision.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "script_agent_supervision.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "script_execution_adaptation.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "script_execution_script.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "script_execution_skeleton.md",
+          "status": "onlyInToonflow"
+        },
+        {
+          "file": "story_skills/Comedy_humor/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Comedy_humor/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Comedy_humor/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Comedy_humor/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Coming_of_age/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Coming_of_age/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Coming_of_age/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Coming_of_age/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Family_warmth/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Family_warmth/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Family_warmth/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Family_warmth/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Historical_epic/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Historical_epic/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Historical_epic/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Historical_epic/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Horror_supernatural/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Horror_supernatural/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Horror_supernatural/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Horror_supernatural/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Hot_blooded_action/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Hot_blooded_action/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Hot_blooded_action/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Hot_blooded_action/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Mystery_thriller/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Mystery_thriller/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Mystery_thriller/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Mystery_thriller/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Psychological_drama/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Psychological_drama/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Psychological_drama/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Psychological_drama/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Scifi_post_apocalypse/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Scifi_post_apocalypse/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Scifi_post_apocalypse/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Scifi_post_apocalypse/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Sweet_romance_novel/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Sweet_romance_novel/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Sweet_romance_novel/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Sweet_romance_novel/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Urban_workplace_drama/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Urban_workplace_drama/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Urban_workplace_drama/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Urban_workplace_drama/images/title.png",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Xianxia_fantasy/README.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Xianxia_fantasy/driector_skills/director_planning_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Xianxia_fantasy/driector_skills/director_storyboard_table_narrative.md",
+          "status": "identical"
+        },
+        {
+          "file": "story_skills/Xianxia_fantasy/images/title.png",
+          "status": "identical"
+        }
+      ]
+    },
+    {
+      "name": "model_prompts",
+      "toonflowRoot": "/Users/luke/Documents/aivideo/Toonflow-app/data/modelPrompt",
+      "stats": {
+        "identical": 4
+      },
+      "rows": [
+        {
+          "file": "video/seedance2Multi-parameterMode.md",
+          "status": "identical"
+        },
+        {
+          "file": "video/universalFirstAndLastFrameMode.md",
+          "status": "identical"
+        },
+        {
+          "file": "video/universalMulti-parameterMode.md",
+          "status": "identical"
+        },
+        {
+          "file": "video/wan2.6Single-imageFirstFrameMode.md",
+          "status": "identical"
+        }
+      ]
+    }
+  ]
+}

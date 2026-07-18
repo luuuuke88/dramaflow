@@ -580,7 +580,7 @@ git commit -m "docs(parity): add black-box isolation protocol tooling"
 - Modify: `docs/parity/inventory-na.md`（如有 N/A）
 
 **Interfaces:**
-- Consumes: `inventory.json` 中 `web.route:*`、`web.page:*`；`Toonflow-web/src`（只读）；黑盒协议（Task 5）。
+- Consumes: `inventory.json` 中全部 `web.*` 前缀（`web.route:*`、`web.page:*`、`web.component:*`、`web.store:*`、`web.featureLib:*`——本行 2026-07-18 修订，与本任务 Step 1/3 的 `grep -E '^web\.'` 校验命令对齐；该正则本就覆盖全部五类，此前 Interfaces 描述滞后于 Task 3 追加的库存维度）；`Toonflow-web/src`（只读）；黑盒协议（Task 5）。
 - Produces: 覆盖全部 `web.*` 库存 id 的清单行。
 
 审计程序（Task 7–10 同构，均按此四步；后续任务不再重复展开）：
