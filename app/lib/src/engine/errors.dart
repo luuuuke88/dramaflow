@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 const errProviderMissing = 'errProviderMissing';
+const errProviderExists = 'errProviderExists';
 const errModelMissing = 'errModelMissing';
 const errPromptMissing = 'errPromptMissing';
 const errConfigVersion = 'errConfigVersion';

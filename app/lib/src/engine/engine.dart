@@ -1166,6 +1166,100 @@ WHERE id=?
     );
   }
 
+  /// 预设一键创建（spec §6，v2 语义）：
+  /// 先校验与查重、再 INSERT（SELECT+INSERT 连续同步执行，单 isolate 下无
+  /// 交错窗口；即便未来出现多写入方，PK 冲突兜底映射为 errProviderExists）、
+  /// 凭证写在 INSERT 成功之后——重复/冲突路径在结构上不可能触碰既有凭证；
+  /// 凭证写失败则删除刚插入的行，不留半成品。
+  Future<ProviderInfo> createProviderFromPreset({
+    required String presetId,
+    required String apiKey,
+    List<String>? selectedModelIds,
+    String? name,
+    String? baseUrl,
+  }) async {
+    final preset = providerPresetById(presetId);
+    if (preset == null) {
+      throw EngineException(errProviderMissing, {'presetId': presetId});
+    }
+    final models = [
+      for (final m in preset.models)
+        if (selectedModelIds == null || selectedModelIds.contains(m.modelId))
+          {
+            'id': '${preset.id}:${m.modelId}',
+            'providerId': preset.id,
+            'modelId': m.modelId,
+            'label': m.label,
+            'kind': m.kind,
+            'capabilities': m.capabilities,
+            'enabled': true,
+          },
+    ];
+    if (models.isEmpty) {
+      throw const EngineException(errModelMissing, {'reason': '至少选择一个模型'});
+    }
+    final effectiveName =
+        (name?.trim().isNotEmpty ?? false) ? name!.trim() : preset.name;
+    final effectiveBaseUrl = (baseUrl?.trim().isNotEmpty ?? false)
+        ? baseUrl!.trim()
+        : preset.baseUrl;
+    final credentialRef = providerCredentialRef(preset.id);
+    final createdAt = nowIso();
+
+    // —— 抢占段（连续同步，无 await）——
+    final existing =
+        db.select('SELECT id FROM o_vendorConfig WHERE id=?', [preset.id]);
+    if (existing.isNotEmpty) {
+      throw EngineException(errProviderExists, {'providerId': preset.id});
+    }
+    try {
+      db.execute(
+        'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+        [
+          preset.id,
+          1,
+          jsonEncode({
+            'name': effectiveName,
+            'protocol': preset.protocol,
+            'baseUrl': effectiveBaseUrl,
+            'credentialRef': credentialRef,
+            'presetId': preset.id,
+            'createdAt': createdAt,
+          }),
+          jsonEncode(models),
+        ],
+      );
+    } on SqliteException catch (e) {
+      // 仅主键/唯一约束冲突（扩展码 1555/2067）映射为"已存在"；
+      // 不可按 primary code 19 一刀切——RAISE(ABORT) 触发器等其它约束错误也报 19，
+      // 那些必须原样上抛（Task 2 触发器测试依赖此语义）。
+      if (e.extendedResultCode == 1555 || e.extendedResultCode == 2067) {
+        throw EngineException(errProviderExists, {'providerId': preset.id});
+      }
+      rethrow;
+    }
+    // —— 抢占成功后才允许触碰凭证 ——
+    final key = apiKey.trim();
+    final wroteCredential = key.isNotEmpty;
+    if (wroteCredential) {
+      try {
+        await credentials.write(credentialRef, key);
+      } catch (_) {
+        db.execute('DELETE FROM o_vendorConfig WHERE id=?', [preset.id]);
+        rethrow;
+      }
+    }
+    return ProviderInfo(
+      id: preset.id,
+      name: effectiveName,
+      protocol: preset.protocol,
+      baseUrl: effectiveBaseUrl,
+      hasCredential: wroteCredential,
+      enabled: true,
+      createdAt: createdAt,
+    );
+  }
+
   Future<ProviderInfo> updateProvider(
     String id, {
     String? name,
