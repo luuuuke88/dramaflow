@@ -1,6 +1,8 @@
 // 新增剧本对话框（照抄 addScript.vue）：名称/上传文件/内容+字数计数/关联资产。
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +17,7 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_tag_chip.dart';
+import '../../widgets/desktop_drop_file.dart';
 import '../../widgets/script_markdown_editor.dart';
 import 'asset_picker.dart';
 
@@ -45,6 +48,7 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
   List<int> _assets = [];
   List<({int id, String name, String type})> _assetOptions = const [];
   bool _saving = false;
+  bool _draggingFile = false;
 
   @override
   void initState() {
@@ -65,25 +69,46 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
   }
 
   Future<void> _pickFile() async {
+    try {
+      final file = await openFile();
+      if (file == null || !mounted) return;
+      await _loadScriptFile(name: file.name, bytes: await file.readAsBytes());
+    } catch (_) {
+      if (mounted) _toast(context.l10n.scriptAddMsgFileReadFailed);
+    }
+  }
+
+  Future<void> _loadScriptFile({
+    required String name,
+    String? mimeType,
+    required List<int> bytes,
+  }) async {
     final l10n = context.l10n;
-    final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(label: 'script', extensions: ['txt', 'docx'])
-    ]);
-    if (file == null || !mounted) return;
-    final bytes = await file.readAsBytes();
+    final lowerName = name.toLowerCase();
+    final isLegacyDoc =
+        mimeType == 'application/msword' || lowerName.endsWith('.doc');
+    final isPlainText = mimeType == 'text/plain' || lowerName.endsWith('.txt');
+    final isDocx = mimeType ==
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        lowerName.endsWith('.docx');
+
+    if (isLegacyDoc) {
+      if (mounted) _toast(l10n.scriptAddMsgDocNotSupported);
+      return;
+    }
+    if (!isPlainText && !isDocx) {
+      if (mounted) _toast(l10n.scriptAddMsgUnsupportedType);
+      return;
+    }
     if (bytes.length > _maxFileBytes) {
       if (mounted) _toast(l10n.scriptAddMsgFileTooLarge);
       return;
     }
     try {
-      final name = file.name.toLowerCase();
-      if (name.endsWith('.docx')) {
+      if (isDocx) {
         _content.text = extractDocxText(bytes);
-      } else if (name.endsWith('.txt')) {
-        _content.text = utf8.decode(bytes, allowMalformed: true);
       } else {
-        if (mounted) _toast(l10n.scriptAddMsgUnsupportedType);
-        return;
+        _content.text = utf8.decode(bytes, allowMalformed: true);
       }
       setState(() {});
     } on EngineException catch (e) {
@@ -93,14 +118,72 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
     }
   }
 
-  Future<void> _save() async {
-    final l10n = context.l10n;
-    if (_name.text.trim().isEmpty) {
-      _toast(l10n.scriptAddMsgEnterName);
+  Future<void> _dropScriptFile(DropDoneDetails details) async {
+    final file = details.files.firstOrNull;
+    if (file == null) {
+      _toast(context.l10n.scriptAddMsgUnsupportedType);
       return;
     }
+    try {
+      await _loadScriptFile(
+        name: droppedFileName(file),
+        mimeType: file.mimeType,
+        bytes: await readDroppedFileBytes(file),
+      );
+    } catch (_) {
+      if (mounted) _toast(context.l10n.scriptAddMsgParseFailed);
+    }
+  }
+
+  bool get _desktopDropEnabled =>
+      Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+
+  Widget _filePicker() {
+    final df = context.df;
+    final l10n = context.l10n;
+    final picker = InkWell(
+      onTap: _pickFile,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        height: 84,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          border: Border.all(
+              color: _draggingFile ? df.primary : df.stroke,
+              width: _draggingFile ? 2 : 1.4),
+          borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+          color: df.surfaceMuted,
+        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.upload_file_outlined, size: 26, color: df.primary),
+          const SizedBox(height: 4),
+          Text(l10n.scriptAddDragUpload, style: const TextStyle(fontSize: 12)),
+          Text(l10n.scriptAddUploadHint,
+              style: TextStyle(fontSize: 10, color: df.textTertiary)),
+        ]),
+      ),
+    );
+    if (!_desktopDropEnabled) return picker;
+    return DropTarget(
+      key: const Key('script-file-drop'),
+      onDragEntered: (_) => setState(() => _draggingFile = true),
+      onDragExited: (_) => setState(() => _draggingFile = false),
+      onDragDone: (details) async {
+        if (mounted) setState(() => _draggingFile = false);
+        await _dropScriptFile(details);
+      },
+      child: picker,
+    );
+  }
+
+  Future<void> _save() async {
+    final l10n = context.l10n;
     if (_content.text.trim().isEmpty) {
       _toast(l10n.scriptAddMsgEnterContent);
+      return;
+    }
+    if (_name.text.trim().isEmpty) {
+      _toast(l10n.scriptAddMsgEnterName);
       return;
     }
     setState(() => _saving = true);
@@ -141,30 +224,7 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
               ),
             ),
             const SizedBox(height: 14),
-            InkWell(
-              onTap: _pickFile,
-              child: Container(
-                height: 84,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  border: Border.all(color: df.stroke, width: 1.4),
-                  borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-                  color: df.surfaceMuted,
-                ),
-                child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.upload_file_outlined,
-                          size: 26, color: df.primary),
-                      const SizedBox(height: 4),
-                      Text(l10n.scriptAddDragUpload,
-                          style: const TextStyle(fontSize: 12)),
-                      Text(l10n.scriptAddUploadHint,
-                          style:
-                              TextStyle(fontSize: 10, color: df.textTertiary)),
-                    ]),
-              ),
-            ),
+            _filePicker(),
             const SizedBox(height: 14),
             ScriptMarkdownEditor(
               controller: _content,

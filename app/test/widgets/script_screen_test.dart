@@ -1,16 +1,21 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/screens/script/script_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +39,50 @@ class _NoopGateway implements ProviderGateway {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ScriptFileSelector extends FileSelectorPlatform {
+  final XFile file;
+  int openFileCalls = 0;
+  List<XTypeGroup>? acceptedTypeGroups;
+
+  _ScriptFileSelector(this.file);
+
+  @override
+  Future<FileSaveLocation?> getSaveLocation({
+    List<XTypeGroup>? acceptedTypeGroups,
+    SaveDialogOptions options = const SaveDialogOptions(),
+  }) async =>
+      null;
+
+  @override
+  Future<XFile?> openFile({
+    List<XTypeGroup>? acceptedTypeGroups,
+    String? initialDirectory,
+    String? confirmButtonText,
+  }) async {
+    openFileCalls++;
+    this.acceptedTypeGroups = acceptedTypeGroups;
+    return file;
+  }
+}
+
+class _FailingScriptFileSelector extends FileSelectorPlatform {
+  @override
+  Future<FileSaveLocation?> getSaveLocation({
+    List<XTypeGroup>? acceptedTypeGroups,
+    SaveDialogOptions options = const SaveDialogOptions(),
+  }) async =>
+      null;
+
+  @override
+  Future<XFile?> openFile({
+    List<XTypeGroup>? acceptedTypeGroups,
+    String? initialDirectory,
+    String? confirmButtonText,
+  }) async {
+    throw StateError('the selected file is no longer readable');
+  }
 }
 
 void main() {
@@ -113,6 +162,297 @@ void main() {
     expect(scripts.map((s) => s.name), ['雪夜', '焦玉']);
     expect(find.text('雪夜'), findsOneWidget);
     expect(find.text('焦玉'), findsOneWidget);
+  });
+
+  testWidgets('桌面端新增剧本可拖入 txt 正文并保存', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+
+    final dropTarget = find.byKey(const Key('script-file-drop'));
+    expect(dropTarget, findsOneWidget,
+        reason: 'ToonFlow 的单剧本上传区支持 Finder 拖入，桌面 Flutter 也必须有投放目标');
+    final target = tester.widget<DropTarget>(dropTarget);
+    target.onDragDone!(
+      DropDoneDetails(
+        files: [
+          DropItemFile.fromData(
+            Uint8List.fromList(utf8.encode('拖入正文第一场')),
+            name: 'finder-script.txt',
+            mimeType: 'text/plain',
+            path: '/tmp/finder-script.txt',
+          ),
+        ],
+        localPosition: Offset.zero,
+        globalPosition: Offset.zero,
+      ),
+    );
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+    await tester.pumpAndSettle();
+
+    final fields =
+        tester.widgetList<TextField>(find.byType(TextField)).toList();
+    expect(fields.last.controller!.text, '拖入正文第一场');
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == '剧本名称',
+      ),
+      'Finder 导入剧本',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '确认'));
+    await tester.pumpAndSettle();
+
+    final saved = engine.scripts(projectId).single;
+    expect(saved.name, 'Finder 导入剧本');
+    expect(saved.content, '拖入正文第一场');
+  });
+
+  testWidgets('桌面端新增剧本点击上传 txt 后填入正文', (tester) async {
+    final originalSelector = FileSelectorPlatform.instance;
+    final selector = _ScriptFileSelector(
+      XFile.fromData(utf8.encode('点击上传的正文'), path: 'picked-script.txt'),
+    );
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.upload_file_outlined));
+    await tester.pumpAndSettle();
+
+    expect(selector.openFileCalls, 1);
+    expect(selector.acceptedTypeGroups, isEmpty,
+        reason: 'ToonFlow 没有 accept 限制，需让应用统一给出 doc/未知格式提示');
+    final fields =
+        tester.widgetList<TextField>(find.byType(TextField)).toList();
+    expect(fields.last.controller!.text, '点击上传的正文');
+  });
+
+  testWidgets('桌面端新增剧本点击选择旧 doc 时提示转换格式', (tester) async {
+    final originalSelector = FileSelectorPlatform.instance;
+    FileSelectorPlatform.instance = _ScriptFileSelector(
+      XFile.fromData(Uint8List.fromList(<int>[0, 1, 2]),
+          path: 'legacy-script.doc'),
+    );
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.upload_file_outlined));
+    await tester.pump();
+
+    expect(
+      find.widgetWithText(SnackBar, '.doc文件不支持解析,请转换为.txt或.docx文件'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('桌面端新增剧本点击上传读取失败时显示错误提示', (tester) async {
+    final originalSelector = FileSelectorPlatform.instance;
+    FileSelectorPlatform.instance = _FailingScriptFileSelector();
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.upload_file_outlined));
+    await tester.pump();
+
+    expect(find.widgetWithText(SnackBar, '文件读取失败'), findsOneWidget);
+  });
+
+  testWidgets('桌面端新增剧本点击上传超过 10MB 时拒绝文件', (tester) async {
+    final originalSelector = FileSelectorPlatform.instance;
+    FileSelectorPlatform.instance = _ScriptFileSelector(
+      XFile.fromData(Uint8List(10 * 1024 * 1024 + 1),
+          path: 'oversized-script.txt'),
+    );
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.upload_file_outlined));
+    await tester.pump();
+
+    expect(
+        find.widgetWithText(SnackBar, '文件大小超过10MB，请上传更小的文件'), findsOneWidget);
+  });
+
+  testWidgets('桌面端新增剧本拖入旧 doc 时提示转换格式', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+
+    final target =
+        tester.widget<DropTarget>(find.byKey(const Key('script-file-drop')));
+    target.onDragDone!(
+      DropDoneDetails(
+        files: [
+          DropItemFile.fromData(
+            Uint8List.fromList(<int>[0, 1, 2]),
+            name: 'legacy-script.doc',
+            mimeType: 'application/msword',
+            path: '/tmp/legacy-script.doc',
+          ),
+        ],
+        localPosition: Offset.zero,
+        globalPosition: Offset.zero,
+      ),
+    );
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+    await tester.pump();
+
+    expect(
+      find.widgetWithText(SnackBar, '.doc文件不支持解析,请转换为.txt或.docx文件'),
+      findsOneWidget,
+      reason: 'ToonFlow addScript.vue 对 application/msword 给出转换格式的专门提示',
+    );
+  });
+
+  testWidgets('新增剧本可多选角色和场景资产并保存关联', (tester) async {
+    final roleId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: '剑客');
+    final sceneId = engine.addAsset(
+        projectId: projectId, type: 'scene', name: '山门雪夜', describe: '场景');
+    engine.addAsset(
+        projectId: projectId, type: 'audio', name: '不应出现的音频', describe: '音频');
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '选择资产'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('林朝雪'), findsOneWidget);
+    expect(find.text('山门雪夜'), findsOneWidget);
+    expect(find.text('不应出现的音频'), findsNothing, reason: '原版选择器只提供角色、道具和场景资产');
+    await tester.tap(find.text('林朝雪'));
+    await tester.tap(find.text('山门雪夜'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('林朝雪'), findsOneWidget);
+    expect(find.text('山门雪夜'), findsOneWidget);
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == '剧本名称',
+      ),
+      '关联素材剧本',
+    );
+    await tester.enterText(find.byType(TextField).last, '正文');
+    await tester.tap(find.widgetWithText(FilledButton, '确认'));
+    await tester.pumpAndSettle();
+
+    final saved = engine.scripts(projectId).single;
+    expect(saved.relatedAssets.map((asset) => asset.id).toSet(),
+        {roleId, sceneId});
+  });
+
+  testWidgets('新增剧本在名称和正文都为空时先提示填写正文', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确认'));
+    await tester.pump();
+
+    expect(find.widgetWithText(SnackBar, '请上传或输入剧本内容'), findsOneWidget,
+        reason: 'ToonFlow addScript.vue 先校验正文，再校验名称');
+    expect(engine.scripts(projectId), isEmpty);
+  });
+
+  testWidgets('移动端新增单剧本使用全屏表单且可保存', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dialog), findsNothing,
+        reason: '390dp 不应压缩桌面对话框，而要使用全屏编辑器');
+    expect(find.text('新增剧本'), findsOneWidget);
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == '剧本名称',
+      ),
+      '移动单剧本',
+    );
+    await tester.enterText(find.byType(TextField).last, '移动端粘贴正文');
+    final confirm = find.widgetWithText(FilledButton, '确认');
+    expect(confirm.hitTestable(), findsOneWidget,
+        reason: '移动端表单的确认操作必须无需滚动到页面末尾即可点击');
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+
+    expect(engine.scripts(projectId).single.name, '移动单剧本');
+    expect(engine.scripts(projectId).single.content, '移动端粘贴正文');
+  });
+
+  testWidgets('新增剧本超过项目单集字数上限时禁用确认', (tester) async {
+    engine.config.update({'scriptEpisodeLength': '4'});
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '超过四字的正文');
+    await tester.pumpAndSettle();
+
+    expect(find.text('7/4'), findsOneWidget);
+    expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '确认'))
+            .onPressed,
+        isNull);
   });
 
   testWidgets('移动端剧本页：从事件选择并生成剧本', (tester) async {
@@ -258,8 +598,7 @@ void main() {
     expect(row.content, contains('> 角色：台词'));
   });
 
-  testWidgets('移动端剧本页：卡片宽度不超出视口，删除按钮无需悬停即可点击',
-      (tester) async {
+  testWidgets('移动端剧本页：卡片宽度不超出视口，删除按钮无需悬停即可点击', (tester) async {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -271,8 +610,7 @@ void main() {
 
     // Bug 1：卡片曾经硬编码 width:400，在 <400px 的手机视口上必然溢出。
     final cardSize = tester.getSize(find.byType(AnimatedContainer).first);
-    expect(cardSize.width, lessThanOrEqualTo(390),
-        reason: '卡片宽度不应超过 390pt 视口');
+    expect(cardSize.width, lessThanOrEqualTo(390), reason: '卡片宽度不应超过 390pt 视口');
 
     // Bug 2：删除按钮曾经只在 MouseRegion hover 时显示，触屏端不可达。
     // 手机宽度下不做任何 hover 动作，直接确认其常显且可点。

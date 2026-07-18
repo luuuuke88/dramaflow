@@ -74,37 +74,40 @@ Future<T?> showDFAdaptiveDialog<T>(
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        DFTokens.s20,
-                        DFTokens.s16,
-                        DFTokens.s12,
-                        DFTokens.s12,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: DFTokens.title20w700
-                                  .copyWith(color: colors.textPrimary),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          DFTokens.s20,
+                          DFTokens.s16,
+                          DFTokens.s12,
+                          DFTokens.s12,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: DFTokens.title20w700
+                                    .copyWith(color: colors.textPrimary),
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            tooltip: context.l10n.commonClose,
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                        ],
+                            IconButton(
+                              tooltip: context.l10n.commonClose,
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Divider(height: 1, color: colors.stroke),
-                    Flexible(child: builder(context)),
-                  ],
+                      Divider(height: 1, color: colors.stroke),
+                      Flexible(child: builder(context)),
+                    ],
+                  ),
                 ),
               ),
             ),
