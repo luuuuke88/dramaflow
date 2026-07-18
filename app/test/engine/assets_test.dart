@@ -94,7 +94,7 @@ void main() {
     expect(engine.assetImages(parent).single.selected, isTrue);
   });
 
-  test('cornerScapeAssets 按角色/场景/道具筛选并附带历史图与当前状态', () {
+  test('cornerScapeAssets 默认返回三类父资产、排除音频子资产并保留全部历史图', () {
     final role = engine.addAsset(
       projectId: projectId,
       type: 'role',
@@ -107,51 +107,107 @@ void main() {
       name: '山门',
       describe: '',
     );
+    final tool = engine.addAsset(
+      projectId: projectId,
+      type: 'tool',
+      name: '灵剑',
+      describe: '',
+    );
+    final audio = engine.addAsset(
+      projectId: projectId,
+      type: 'audio',
+      name: '旁白',
+      describe: '',
+    );
+    final child = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '甲-侧脸',
+      describe: '',
+      parentAssetsId: role,
+    );
     engine.saveAssetImage(
       assetsId: role,
       projectId: projectId,
       type: 'role',
       base64Image: base64Encode([1, 2, 3]),
     );
+    engine.saveAssetImage(
+      assetsId: role,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([4, 5, 6]),
+    );
 
-    final result = engine.cornerScapeAssets(projectId, types: {'role'});
+    final result = engine.cornerScapeAssets(projectId);
+    final byId = {for (final item in result) item.asset.id: item};
 
-    expect(result.single.asset.id, role);
-    expect(result.single.images, hasLength(1));
-    expect(result.single.asset.imageState, stateDone);
-    expect(result.map((item) => item.asset.id), isNot(contains(scene)));
+    expect(byId.keys, unorderedEquals([role, scene, tool]));
+    expect(byId.keys, isNot(contains(audio)));
+    expect(byId.keys, isNot(contains(child)));
+    expect(byId[role]!.images.map((image) => image.id),
+        orderedEquals(engine.assetImages(role).map((image) => image.id)));
+    expect(byId[role]!.images, hasLength(2));
+    expect(byId[role]!.asset.imageState, stateDone);
   });
 
-  test('cornerScapeImageTaskId 只定位活动生图任务 payload 中明确列出的资产', () {
-    final target = engine.addAsset(
+  test('cornerScapeAssets 显式类型集合只返回对应父资产', () {
+    final role = engine.addAsset(
       projectId: projectId,
       type: 'role',
       name: '甲',
       describe: '',
     );
-    final other = engine.addAsset(
+    final scene = engine.addAsset(
       projectId: projectId,
       type: 'scene',
       name: '山门',
       describe: '',
     );
-    final imageOnly = engine.addAsset(
+    final tool = engine.addAsset(
       projectId: projectId,
       type: 'tool',
       name: '灵剑',
       describe: '',
     );
-    engine.saveAssetImage(
-      assetsId: target,
+    engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山门-远景',
+      describe: '',
+      parentAssetsId: scene,
+    );
+
+    final result = engine.cornerScapeAssets(projectId, types: {'role', 'tool'});
+
+    expect(result.map((item) => item.asset.id), unorderedEquals([role, tool]));
+    expect(result.map((item) => item.asset.id), isNot(contains(scene)));
+  });
+
+  test('cornerScapeImageTaskId 忽略 ids、错误 taskClass 和非活动最新任务', () {
+    final idsOnlyAsset = engine.addAsset(
       projectId: projectId,
       type: 'role',
-      base64Image: base64Encode([1, 2, 3]),
+      name: 'ids-only',
+      describe: '',
     );
-    engine.saveAssetImage(
-      assetsId: imageOnly,
+    final wrongClassAsset = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: 'wrong-class',
+      describe: '',
+    );
+    final completedAsset = engine.addAsset(
       projectId: projectId,
       type: 'tool',
-      base64Image: base64Encode([4, 5, 6]),
+      name: 'completed',
+      describe: '',
+    );
+    final failedAsset = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: 'failed',
+      describe: '',
     );
 
     int addTask({
@@ -176,28 +232,10 @@ void main() {
     }
 
     addTask(
-      state: 'success',
-      taskClass: 'asset_image_generation',
-      relatedObjects: {
-        'items': [
-          {'assetsId': target},
-        ],
-      },
-    );
-    addTask(
       state: 'pending',
       taskClass: 'asset_image_generation',
       relatedObjects: {
-        'ids': [target]
-      },
-    );
-    final otherTask = addTask(
-      state: 'processing',
-      taskClass: 'asset_image_generation',
-      relatedObjects: {
-        'items': [
-          {'assetsId': other},
-        ],
+        'ids': [idsOnlyAsset]
       },
     );
     addTask(
@@ -205,23 +243,69 @@ void main() {
       taskClass: 'storyboard_image_generation',
       relatedObjects: {
         'items': [
-          {'assetsId': target},
+          {'assetsId': wrongClassAsset},
         ],
       },
     );
-    final matchingTask = addTask(
-      state: 'pending',
+    addTask(
+      state: 'success',
       taskClass: 'asset_image_generation',
       relatedObjects: {
         'items': [
-          {'assetsId': target},
+          {'assetsId': completedAsset},
+        ],
+      },
+    );
+    addTask(
+      state: 'failed',
+      taskClass: 'asset_image_generation',
+      relatedObjects: {
+        'items': [
+          {'assetsId': failedAsset},
         ],
       },
     );
 
-    expect(engine.cornerScapeImageTaskId(target), matchingTask);
-    expect(engine.cornerScapeImageTaskId(other), otherTask);
-    expect(engine.cornerScapeImageTaskId(imageOnly), isNull);
+    expect(engine.cornerScapeImageTaskId(idsOnlyAsset), isNull);
+    expect(engine.cornerScapeImageTaskId(wrongClassAsset), isNull);
+    expect(engine.cornerScapeImageTaskId(completedAsset), isNull);
+    expect(engine.cornerScapeImageTaskId(failedAsset), isNull);
+  });
+
+  test('cornerScapeImageTaskId 取同一资产多个活动生图任务中最新的任务', () {
+    final target = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '甲',
+      describe: '',
+    );
+
+    int addTask() {
+      db.execute(
+        'INSERT INTO o_tasks '
+        '(projectId,state,taskClass,describe,relatedObjects,startTime) '
+        'VALUES (?,?,?,?,?,?)',
+        [
+          projectId,
+          'pending',
+          'asset_image_generation',
+          '测试任务',
+          jsonEncode({
+            'items': [
+              {'assetsId': target},
+            ],
+          }),
+          DateTime.now().millisecondsSinceEpoch,
+        ],
+      );
+      return db.lastInsertRowId;
+    }
+
+    final firstTask = addTask();
+    final latestTask = addTask();
+
+    expect(engine.cornerScapeImageTaskId(target), latestTask);
+    expect(latestTask, greaterThan(firstTask));
   });
 
   test('deleteAssets 级联子资产+图片文件；deleteAssetImage 置空选中', () {
