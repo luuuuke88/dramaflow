@@ -94,6 +94,136 @@ void main() {
     expect(engine.assetImages(parent).single.selected, isTrue);
   });
 
+  test('cornerScapeAssets 按角色/场景/道具筛选并附带历史图与当前状态', () {
+    final role = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '甲',
+      describe: '',
+    );
+    final scene = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山门',
+      describe: '',
+    );
+    engine.saveAssetImage(
+      assetsId: role,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([1, 2, 3]),
+    );
+
+    final result = engine.cornerScapeAssets(projectId, types: {'role'});
+
+    expect(result.single.asset.id, role);
+    expect(result.single.images, hasLength(1));
+    expect(result.single.asset.imageState, stateDone);
+    expect(result.map((item) => item.asset.id), isNot(contains(scene)));
+  });
+
+  test('cornerScapeImageTaskId 只定位活动生图任务 payload 中明确列出的资产', () {
+    final target = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '甲',
+      describe: '',
+    );
+    final other = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山门',
+      describe: '',
+    );
+    final imageOnly = engine.addAsset(
+      projectId: projectId,
+      type: 'tool',
+      name: '灵剑',
+      describe: '',
+    );
+    engine.saveAssetImage(
+      assetsId: target,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([1, 2, 3]),
+    );
+    engine.saveAssetImage(
+      assetsId: imageOnly,
+      projectId: projectId,
+      type: 'tool',
+      base64Image: base64Encode([4, 5, 6]),
+    );
+
+    int addTask({
+      required String state,
+      required String taskClass,
+      required Map<String, Object?> relatedObjects,
+    }) {
+      db.execute(
+        'INSERT INTO o_tasks '
+        '(projectId,state,taskClass,describe,relatedObjects,startTime) '
+        'VALUES (?,?,?,?,?,?)',
+        [
+          projectId,
+          state,
+          taskClass,
+          '测试任务',
+          jsonEncode(relatedObjects),
+          DateTime.now().millisecondsSinceEpoch,
+        ],
+      );
+      return db.lastInsertRowId;
+    }
+
+    addTask(
+      state: 'success',
+      taskClass: 'asset_image_generation',
+      relatedObjects: {
+        'items': [
+          {'assetsId': target},
+        ],
+      },
+    );
+    addTask(
+      state: 'pending',
+      taskClass: 'asset_image_generation',
+      relatedObjects: {
+        'ids': [target]
+      },
+    );
+    final otherTask = addTask(
+      state: 'processing',
+      taskClass: 'asset_image_generation',
+      relatedObjects: {
+        'items': [
+          {'assetsId': other},
+        ],
+      },
+    );
+    addTask(
+      state: 'pending',
+      taskClass: 'storyboard_image_generation',
+      relatedObjects: {
+        'items': [
+          {'assetsId': target},
+        ],
+      },
+    );
+    final matchingTask = addTask(
+      state: 'pending',
+      taskClass: 'asset_image_generation',
+      relatedObjects: {
+        'items': [
+          {'assetsId': target},
+        ],
+      },
+    );
+
+    expect(engine.cornerScapeImageTaskId(target), matchingTask);
+    expect(engine.cornerScapeImageTaskId(other), otherTask);
+    expect(engine.cornerScapeImageTaskId(imageOnly), isNull);
+  });
+
   test('deleteAssets 级联子资产+图片文件；deleteAssetImage 置空选中', () {
     final parent = engine.addAsset(
         projectId: projectId, type: 'scene', name: '寒山', describe: 'x');

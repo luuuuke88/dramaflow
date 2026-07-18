@@ -84,6 +84,14 @@ class AssetRow {
   }
 }
 
+/// 塑角造景卡片的只读数据，聚合父资产及其全部历史图片。
+class CornerScapeAsset {
+  final AssetRow asset;
+  final List<AssetImageRow> images;
+
+  const CornerScapeAsset({required this.asset, required this.images});
+}
+
 class _TypeConfig {
   final String label;
   final String nameLabel;
@@ -225,6 +233,51 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
               selected: r['id'] == selectedId,
             ))
         .toList();
+  }
+
+  /// 塑角造景工作台的角色、场景和道具卡片数据。
+  ///
+  /// 仅复用资产和图片历史查询，不改变选中图片或任何生成状态。
+  List<CornerScapeAsset> cornerScapeAssets(
+    int projectId, {
+    Set<String> types = const {'role', 'scene', 'tool'},
+  }) {
+    final values = <CornerScapeAsset>[];
+    for (final type in types) {
+      final assets =
+          getAssets(projectId, type: type, page: 1, limit: 10000).data;
+      values.addAll(
+        assets.map(
+          (asset) => CornerScapeAsset(
+            asset: asset,
+            images: assetImages(asset.id),
+          ),
+        ),
+      );
+    }
+    return values;
+  }
+
+  /// 当前仍可取消的资产生图任务。
+  ///
+  /// 任务归属以队列 payload 的 `items[].assetsId` 为唯一依据；图片行即使仍处于
+  /// “生成中”也不能反推到某个任务，避免误取消已经结束或不相关的任务。
+  int? cornerScapeImageTaskId(int assetsId) {
+    final tasks = db
+        .select(
+          "SELECT * FROM o_tasks WHERE taskClass='asset_image_generation' "
+          "AND state IN ('pending','processing') ORDER BY id DESC",
+        )
+        .map(TasksRow.fromRow);
+    for (final task in tasks) {
+      final items = task.relatedObjectsJson['items'];
+      if (items is! List) continue;
+      final matches = items.whereType<Map>().any((item) {
+        return (item['assetsId'] as num?)?.toInt() == assetsId;
+      });
+      if (matches) return task.id;
+    }
+    return null;
   }
 
   // ───────── CRUD ─────────
