@@ -151,7 +151,7 @@ void main() {
     expect(byId[role]!.asset.imageState, stateDone);
   });
 
-  test('cornerScapeAssets 显式类型集合只返回对应父资产', () {
+  test('cornerScapeAssets 显式集合白名单忽略 audio、clip 和未知类型', () {
     final role = engine.addAsset(
       projectId: projectId,
       type: 'role',
@@ -170,6 +170,24 @@ void main() {
       name: '灵剑',
       describe: '',
     );
+    final audio = engine.addAsset(
+      projectId: projectId,
+      type: 'audio',
+      name: '旁白',
+      describe: '',
+    );
+    final clip = engine.addAsset(
+      projectId: projectId,
+      type: 'clip',
+      name: '片头',
+      describe: '',
+    );
+    final unknown = engine.addAsset(
+      projectId: projectId,
+      type: 'unknown',
+      name: '未知',
+      describe: '',
+    );
     engine.addAsset(
       projectId: projectId,
       type: 'scene',
@@ -178,10 +196,17 @@ void main() {
       parentAssetsId: scene,
     );
 
-    final result = engine.cornerScapeAssets(projectId, types: {'role', 'tool'});
+    final result = engine.cornerScapeAssets(
+      projectId,
+      types: {'role', 'audio', 'clip', 'unknown'},
+    );
 
-    expect(result.map((item) => item.asset.id), unorderedEquals([role, tool]));
+    expect(result.map((item) => item.asset.id), unorderedEquals([role]));
     expect(result.map((item) => item.asset.id), isNot(contains(scene)));
+    expect(result.map((item) => item.asset.id), isNot(contains(tool)));
+    expect(result.map((item) => item.asset.id), isNot(contains(audio)));
+    expect(result.map((item) => item.asset.id), isNot(contains(clip)));
+    expect(result.map((item) => item.asset.id), isNot(contains(unknown)));
   });
 
   test('cornerScapeImageTaskId 忽略 ids、错误 taskClass 和非活动最新任务', () {
@@ -208,6 +233,18 @@ void main() {
       type: 'role',
       name: 'failed',
       describe: '',
+    );
+    final imageOnlyAsset = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: 'image-only',
+      describe: '',
+    );
+    engine.saveAssetImage(
+      assetsId: imageOnlyAsset,
+      projectId: projectId,
+      type: 'scene',
+      base64Image: base64Encode([7, 8, 9]),
     );
 
     int addTask({
@@ -270,9 +307,10 @@ void main() {
     expect(engine.cornerScapeImageTaskId(wrongClassAsset), isNull);
     expect(engine.cornerScapeImageTaskId(completedAsset), isNull);
     expect(engine.cornerScapeImageTaskId(failedAsset), isNull);
+    expect(engine.cornerScapeImageTaskId(imageOnlyAsset), isNull);
   });
 
-  test('cornerScapeImageTaskId 取同一资产多个活动生图任务中最新的任务', () {
+  test('cornerScapeImageTaskId 返回同一资产最新的 processing 生图任务', () {
     final target = engine.addAsset(
       projectId: projectId,
       type: 'role',
@@ -280,14 +318,14 @@ void main() {
       describe: '',
     );
 
-    int addTask() {
+    int addTask(String state) {
       db.execute(
         'INSERT INTO o_tasks '
         '(projectId,state,taskClass,describe,relatedObjects,startTime) '
         'VALUES (?,?,?,?,?,?)',
         [
           projectId,
-          'pending',
+          state,
           'asset_image_generation',
           '测试任务',
           jsonEncode({
@@ -301,8 +339,8 @@ void main() {
       return db.lastInsertRowId;
     }
 
-    final firstTask = addTask();
-    final latestTask = addTask();
+    final firstTask = addTask('pending');
+    final latestTask = addTask('processing');
 
     expect(engine.cornerScapeImageTaskId(target), latestTask);
     expect(latestTask, greaterThan(firstTask));

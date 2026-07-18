@@ -92,6 +92,8 @@ class CornerScapeAsset {
   const CornerScapeAsset({required this.asset, required this.images});
 }
 
+const _cornerScapeAssetTypes = {'role', 'scene', 'tool'};
+
 class _TypeConfig {
   final String label;
   final String nameLabel;
@@ -244,6 +246,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
   }) {
     final values = <CornerScapeAsset>[];
     for (final type in types) {
+      if (!_cornerScapeAssetTypes.contains(type)) continue;
       final assets =
           getAssets(projectId, type: type, page: 1, limit: 10000).data;
       values.addAll(
