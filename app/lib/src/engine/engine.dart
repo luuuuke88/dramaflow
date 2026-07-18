@@ -19,6 +19,7 @@ import 'media.dart';
 import 'providers/gateway.dart';
 import 'providers/resolve.dart';
 import 'prompts.dart' as prompt_defaults;
+import 'provider_presets.dart';
 import 'queue.dart';
 import 'script_plan.dart' show ScriptPlanApi;
 import 'scripts.dart';
@@ -91,20 +92,6 @@ class ProjectStats {
   });
 }
 
-Map<String, Object?> _legacySeedanceMiniCapabilities() => {
-      'durations': [for (var i = 4; i <= 15; i++) i],
-      'resolutions': ['480p', '720p'],
-      'video': {
-        'modes': [VideoMode.firstFrame.wireValue],
-        'references': const {},
-        'durations': [for (var i = 4; i <= 15; i++) i],
-        'resolutions': ['480p', '720p'],
-        'ratios': ['16:9', '9:16'],
-        'audio': 'none',
-        'promptTemplates': const {},
-      },
-    };
-
 Map<String, Object?> _seedanceTwoCapabilities() => {
       'video': {
         'modes': [for (final mode in VideoMode.values) mode.wireValue],
@@ -160,7 +147,7 @@ void _seedSeedanceVideoProfiles(Database db) {
   final miniId = 'doubao-seedance-2-0-mini-260615';
   final mini = find(miniId);
   if (mini == null) {
-    models.add(_seedanceModel(miniId, _legacySeedanceMiniCapabilities()));
+    models.add(_seedanceModel(miniId, seedanceMiniCapabilities()));
     changed = true;
   } else {
     final rawCapabilities = mini['capabilities'];
@@ -168,7 +155,7 @@ void _seedSeedanceVideoProfiles(Database db) {
         ? Map<String, dynamic>.from(rawCapabilities)
         : <String, dynamic>{};
     if (capabilities['video'] is! Map) {
-      final legacy = _legacySeedanceMiniCapabilities();
+      final legacy = seedanceMiniCapabilities();
       final video = Map<String, Object?>.from(legacy['video'] as Map);
       final durations = capabilities['durations'];
       final resolutions = capabilities['resolutions'];
@@ -472,38 +459,32 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
             'enabled': true,
           };
 
+      List<Map<String, Object?>> presetModels(String presetId) {
+        final preset = providerPresetById(presetId)!;
+        return [
+          for (final m in preset.models)
+            model(presetId, m.modelId, m.label, m.kind, m.capabilities),
+        ];
+      }
+
       if (!isMobile) {
+        final azt = providerPresetById('azt')!;
         provider(
-          id: 'azt',
-          name: 'azt',
-          protocol: 'openai_compatible',
-          baseUrl: 'http://127.0.0.1:8787/v1',
-          models: [
-            for (final modelId in ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'])
-              model('azt', modelId, modelId, 'text'),
-            model('azt', 'gpt-image-2', 'gpt-image-2', 'image'),
-          ],
+          id: azt.id,
+          name: azt.id, // 种子历史名就是 'azt'，保持不变
+          protocol: azt.protocol,
+          baseUrl: azt.baseUrl,
+          models: presetModels('azt'),
         );
       }
 
+      final volc = providerPresetById('volcengine')!;
       provider(
-        id: 'volcengine',
-        name: 'volcengine',
-        protocol: 'volcengine',
-        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
-        models: [
-          model('volcengine', 'doubao-seed-1-6-250615',
-              'doubao-seed-1-6-250615', 'text'),
-          model('volcengine', 'doubao-seedream-4-0-250828',
-              'doubao-seedream-4-0-250828', 'image'),
-          model(
-            'volcengine',
-            'doubao-seedance-2-0-mini-260615',
-            'doubao-seedance-2-0-mini-260615',
-            'video',
-            _legacySeedanceMiniCapabilities(),
-          ),
-        ],
+        id: volc.id,
+        name: volc.id, // 种子历史名 'volcengine'，保持不变
+        protocol: volc.protocol,
+        baseUrl: volc.baseUrl,
+        models: presetModels('volcengine'),
       );
     }
 
