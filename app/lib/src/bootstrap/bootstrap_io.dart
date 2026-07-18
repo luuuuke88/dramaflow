@@ -37,7 +37,7 @@ Future<void> bootstrap() async {
   );
   runApp(ProviderScope(
     overrides: [engineProvider.overrideWithValue(engine)],
-    child: const DramaFlowApp(),
+    child: DramaFlowApp(initialOnboardingComplete: engine.onboardingCompleted),
   ));
 }
 

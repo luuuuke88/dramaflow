@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'screens/agent/agent_chat_screen.dart';
 import 'screens/assets/assets_screen.dart';
 import 'screens/cornerscape/corner_scape_screen.dart';
+import 'screens/first_run_guide.dart';
 import 'screens/novel/novel_screen.dart';
 import 'screens/production/production_screen.dart';
 import 'screens/project/project_list_screen.dart';
@@ -25,50 +28,98 @@ String _initialLocation() {
   return '/';
 }
 
-final _router = GoRouter(
-  initialLocation: _initialLocation(),
-  routes: [
-    ShellRoute(
-      builder: (context, state, child) => AppShell(child: child),
+GoRouter _createRouter({required bool initialOnboardingComplete}) => GoRouter(
+      initialLocation:
+          initialOnboardingComplete ? _initialLocation() : '/onboarding',
       routes: [
-        GoRoute(path: '/', builder: (c, s) => const ProjectListScreen()),
-        GoRoute(path: '/tasks', builder: (c, s) => const TasksScreen()),
-        GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
-        // 项目内分区（对应 ToonFlow /novel /scriptAgent /script /cornerScape /production /assets）
         GoRoute(
-            path: '/p/:pid/novel',
-            builder: (c, s) =>
-                NovelScreen(projectId: int.parse(s.pathParameters['pid']!))),
-        GoRoute(
-            path: '/p/:pid/script',
-            builder: (c, s) =>
-                ScriptScreen(projectId: int.parse(s.pathParameters['pid']!))),
-        GoRoute(
-            path: '/p/:pid/scriptAgent',
-            builder: (c, s) => AgentChatScreen(
-                projectId: int.parse(s.pathParameters['pid']!))),
-        GoRoute(
-            path: '/p/:pid/cornerScape',
-            builder: (c, s) => CornerScapeScreen(
-                projectId: int.parse(s.pathParameters['pid']!))),
-        GoRoute(
-            path: '/p/:pid/production',
-            builder: (c, s) => ProductionScreen(
-                projectId: int.parse(s.pathParameters['pid']!))),
-        GoRoute(
-            path: '/p/:pid/assets',
-            builder: (c, s) =>
-                AssetsScreen(projectId: int.parse(s.pathParameters['pid']!))),
+          path: '/onboarding',
+          builder: (context, state) => Consumer(
+            builder: (context, ref, _) => FirstRunGuide(
+              onComplete: () {
+                ref.read(engineProvider).completeOnboarding();
+                context.go('/');
+              },
+              onOpenSettings: (section) => context.push(
+                '/settings?section=$section&from=onboarding',
+              ),
+              onLocaleChanged: (languageCode) => unawaited(
+                ref
+                    .read(localeProvider.notifier)
+                    .setLocale(Locale(languageCode)),
+              ),
+            ),
+          ),
+        ),
+        ShellRoute(
+          builder: (context, state, child) => AppShell(child: child),
+          routes: [
+            GoRoute(path: '/', builder: (c, s) => const ProjectListScreen()),
+            GoRoute(path: '/tasks', builder: (c, s) => const TasksScreen()),
+            GoRoute(
+              path: '/settings',
+              builder: (c, s) => SettingsScreen(
+                initialSection: s.uri.queryParameters['section'],
+                showOnboardingReturn:
+                    s.uri.queryParameters['from'] == 'onboarding',
+              ),
+            ),
+            // 项目内分区（对应 ToonFlow /novel /scriptAgent /script /cornerScape /production /assets）
+            GoRoute(
+                path: '/p/:pid/novel',
+                builder: (c, s) => NovelScreen(
+                    projectId: int.parse(s.pathParameters['pid']!))),
+            GoRoute(
+                path: '/p/:pid/script',
+                builder: (c, s) => ScriptScreen(
+                    projectId: int.parse(s.pathParameters['pid']!))),
+            GoRoute(
+                path: '/p/:pid/scriptAgent',
+                builder: (c, s) => AgentChatScreen(
+                    projectId: int.parse(s.pathParameters['pid']!))),
+            GoRoute(
+                path: '/p/:pid/cornerScape',
+                builder: (c, s) => CornerScapeScreen(
+                    projectId: int.parse(s.pathParameters['pid']!))),
+            GoRoute(
+                path: '/p/:pid/production',
+                builder: (c, s) => ProductionScreen(
+                    projectId: int.parse(s.pathParameters['pid']!))),
+            GoRoute(
+                path: '/p/:pid/assets',
+                builder: (c, s) => AssetsScreen(
+                    projectId: int.parse(s.pathParameters['pid']!))),
+          ],
+        ),
       ],
-    ),
-  ],
-);
+    );
 
-class DramaFlowApp extends ConsumerWidget {
-  const DramaFlowApp({super.key});
+class DramaFlowApp extends ConsumerStatefulWidget {
+  /// 测试和嵌入调用默认走主工作台，真实启动由 bootstrap 传入本机持久化结果。
+  final bool initialOnboardingComplete;
+
+  const DramaFlowApp({
+    super.key,
+    this.initialOnboardingComplete = true,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DramaFlowApp> createState() => _DramaFlowAppState();
+}
+
+class _DramaFlowAppState extends ConsumerState<DramaFlowApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = _createRouter(
+      initialOnboardingComplete: widget.initialOnboardingComplete,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
     return MaterialApp.router(

@@ -3399,4 +3399,61 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get presetProviderExists => '该供应商已添加，请直接编辑';
+
+  @override
+  String get onboardingWelcomeTitle => '欢迎使用 DramaFlow';
+
+  @override
+  String get onboardingWelcomeBody => '用几步完成本机创作环境准备。所有设置都可以稍后修改。';
+
+  @override
+  String get onboardingStart => '开始设置';
+
+  @override
+  String get onboardingSkip => '跳过设置';
+
+  @override
+  String get onboardingModelsTitle => '配置模型服务';
+
+  @override
+  String get onboardingModelsBody => '添加并启用用于文本、图片、视频或配音的供应商与模型。';
+
+  @override
+  String get onboardingOpenProviders => '打开模型设置';
+
+  @override
+  String get onboardingBindingsTitle => '配置创作模型';
+
+  @override
+  String get onboardingBindingsBody => '把已启用的模型绑定到剧本、分镜、图片和视频等创作环节。';
+
+  @override
+  String get onboardingOpenBindings => '打开模型绑定';
+
+  @override
+  String get onboardingCompleteTitle => '开始创作';
+
+  @override
+  String get onboardingCompleteBody => '环境准备完成。新建项目后，就可以从小说、剧本或制作画布开始。';
+
+  @override
+  String get onboardingPrevious => '上一步';
+
+  @override
+  String get onboardingNext => '下一步';
+
+  @override
+  String get onboardingFinish => '完成';
+
+  @override
+  String get onboardingLanguage => '切换语言';
+
+  @override
+  String get onboardingLanguageZh => '简体中文';
+
+  @override
+  String get onboardingLanguageEn => '英语';
+
+  @override
+  String get onboardingLanguageJa => '日语';
 }

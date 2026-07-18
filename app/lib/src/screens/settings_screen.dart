@@ -6,6 +6,7 @@ import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/models.dart';
@@ -183,7 +184,17 @@ class _KindMeta {
 
 /// 设置页：M2 配置后台（供应商 / 模型绑定 / 提示词）+ 外观与本机存储。
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  /// 可由首次引导等上下文直接定位到既有分区；未知值安全回落到外观。
+  final String? initialSection;
+
+  /// 首次引导中的设置入口提供明确返回，不影响普通设置页导航。
+  final bool showOnboardingReturn;
+
+  const SettingsScreen({
+    super.key,
+    this.initialSection,
+    this.showOnboardingReturn = false,
+  });
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -197,6 +208,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   TextEditingController? _chapterRegCtrl;
   TextEditingController? _episodeLengthCtrl;
   TextEditingController? _batchSizeCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _section = switch (widget.initialSection) {
+      'providers' => _SettingsSection.providers,
+      'bindings' => _SettingsSection.bindings,
+      'prompts' => _SettingsSection.prompts,
+      'other' => _SettingsSection.other,
+      'storage' => _SettingsSection.storage,
+      'about' => _SettingsSection.about,
+      _ => _SettingsSection.appearance,
+    };
+  }
 
   void _ensureOtherControllers() {
     if (_chapterRegCtrl != null) return;
@@ -248,6 +273,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppBar(
         backgroundColor: _lightAppBarBackground(context),
         bottom: _lightAppBarBottom(context),
+        leading: widget.showOnboardingReturn
+            ? IconButton(
+                key: const Key('onboarding-return'),
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => context.go('/onboarding'),
+              )
+            : null,
         title: Text(l10n.settingsTitle),
         actions: [
           IconButton(
@@ -300,8 +333,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 12),
               _languageCard(),
             ]),
-          _SettingsSection.providers => _providersPanel(),
-          _SettingsSection.bindings => _bindingsPanel(),
+          _SettingsSection.providers => KeyedSubtree(
+              key: const Key('settings-section-providers'),
+              child: _providersPanel(),
+            ),
+          _SettingsSection.bindings => KeyedSubtree(
+              key: const Key('settings-section-bindings'),
+              child: _bindingsPanel(),
+            ),
           _SettingsSection.prompts => _promptsPanel(),
           _SettingsSection.other => _otherPanel(),
           _SettingsSection.storage => _storageCard(),

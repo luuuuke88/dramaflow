@@ -34,6 +34,7 @@ class EngineConfig {
     'assetsBatchGenereateSize': '5',
     'themeMode': 'light',
     'app.locale': '',
+    'onboarding.completed': '0',
     'policy.confirmMoney': '1',
     'policy.confirmDestructive': '1',
   };

@@ -6609,6 +6609,120 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'该供应商已添加，请直接编辑'**
   String get presetProviderExists;
+
+  /// No description provided for @onboardingWelcomeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'欢迎使用 DramaFlow'**
+  String get onboardingWelcomeTitle;
+
+  /// No description provided for @onboardingWelcomeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'用几步完成本机创作环境准备。所有设置都可以稍后修改。'**
+  String get onboardingWelcomeBody;
+
+  /// No description provided for @onboardingStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始设置'**
+  String get onboardingStart;
+
+  /// No description provided for @onboardingSkip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过设置'**
+  String get onboardingSkip;
+
+  /// No description provided for @onboardingModelsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置模型服务'**
+  String get onboardingModelsTitle;
+
+  /// No description provided for @onboardingModelsBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加并启用用于文本、图片、视频或配音的供应商与模型。'**
+  String get onboardingModelsBody;
+
+  /// No description provided for @onboardingOpenProviders.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开模型设置'**
+  String get onboardingOpenProviders;
+
+  /// No description provided for @onboardingBindingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置创作模型'**
+  String get onboardingBindingsTitle;
+
+  /// No description provided for @onboardingBindingsBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'把已启用的模型绑定到剧本、分镜、图片和视频等创作环节。'**
+  String get onboardingBindingsBody;
+
+  /// No description provided for @onboardingOpenBindings.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开模型绑定'**
+  String get onboardingOpenBindings;
+
+  /// No description provided for @onboardingCompleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始创作'**
+  String get onboardingCompleteTitle;
+
+  /// No description provided for @onboardingCompleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'环境准备完成。新建项目后，就可以从小说、剧本或制作画布开始。'**
+  String get onboardingCompleteBody;
+
+  /// No description provided for @onboardingPrevious.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一步'**
+  String get onboardingPrevious;
+
+  /// No description provided for @onboardingNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get onboardingNext;
+
+  /// No description provided for @onboardingFinish.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get onboardingFinish;
+
+  /// No description provided for @onboardingLanguage.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换语言'**
+  String get onboardingLanguage;
+
+  /// No description provided for @onboardingLanguageZh.
+  ///
+  /// In zh, this message translates to:
+  /// **'简体中文'**
+  String get onboardingLanguageZh;
+
+  /// No description provided for @onboardingLanguageEn.
+  ///
+  /// In zh, this message translates to:
+  /// **'英语'**
+  String get onboardingLanguageEn;
+
+  /// No description provided for @onboardingLanguageJa.
+  ///
+  /// In zh, this message translates to:
+  /// **'日语'**
+  String get onboardingLanguageJa;
 }
 
 class _AppLocalizationsDelegate

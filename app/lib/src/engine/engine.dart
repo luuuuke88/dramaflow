@@ -1104,6 +1104,11 @@ WHERE id=?
     config.update({'app.locale': locale});
   }
 
+  /// 首次启动引导只在当前本机数据目录完成一次；清空项目数据不会重置它。
+  bool get onboardingCompleted => config.str('onboarding.completed') == '1';
+
+  void completeOnboarding() => config.update({'onboarding.completed': '1'});
+
   Future<List<ProviderInfo>> listProviders() => Future.wait(
         db
             .select('SELECT * FROM o_vendorConfig ORDER BY id')
