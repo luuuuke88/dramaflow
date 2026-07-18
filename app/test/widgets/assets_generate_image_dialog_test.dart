@@ -159,10 +159,10 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
-  Widget app() => ProviderScope(
+  Widget app({double width = 1400, double height = 900}) => ProviderScope(
         overrides: [engineProvider.overrideWithValue(engine)],
         child: MediaQuery(
-          data: const MediaQueryData(size: Size(1400, 900)),
+          data: MediaQueryData(size: Size(width, height)),
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
@@ -298,6 +298,55 @@ void main() {
     final asset = engine.getAssets(projectId, type: 'role').data.single;
     expect(asset.prompt, '月下白衣剑修，冷色国风插画');
     expect(asset.imageId, generated.last.id);
+  });
+
+  testWidgets('移动端资产生图以全屏表单呈现，模型、候选和确认操作均可达',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final provider = await engine.createProvider(
+      name: '移动图像供应商',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'mobile-image-test',
+        'label': '移动图像测试',
+        'kind': 'image',
+        'enabled': true,
+      },
+    ]);
+
+    await tester.pumpWidget(app(width: 390, height: 780));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, '生成'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dialog), findsNothing,
+        reason: '窄屏必须打开可返回的全屏表单，而非挤压桌面对话框');
+    expect(find.text('生成图片 · 林逸'), findsOneWidget);
+    expect(find.byTooltip('关闭'), findsOneWidget);
+
+    await _chooseDropdown(tester, '请选择模型', '移动图像供应商 · 移动图像测试');
+    await tester.dragUntilVisible(
+      find.text('生成结果'),
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -240),
+    );
+    expect(find.text('生成结果').hitTestable(), findsOneWidget,
+        reason: '移动端不能因左侧表单变成长列而让候选网格不可达');
+    expect(
+      find.widgetWithText(FilledButton, '确定').hitTestable(),
+      findsOneWidget,
+      reason: '确认动作应固定在全屏表单底部，滚动后仍可操作',
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('未选择图片模型时，生成按钮不会创建任务', (tester) async {
