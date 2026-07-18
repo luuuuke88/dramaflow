@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
 import '../config.dart';
 import '../credentials.dart';
+import '../errors.dart';
 import '../media.dart';
 import '../util.dart';
 import 'openai_text.dart';
@@ -262,6 +263,7 @@ class HttpProviderGateway
     CancelToken? cancelToken,
   }) async {
     final model = await _resolveVideoModel(request.modelBinding, stage);
+    _requireVolcengineVideo(model);
     return volcengineSubmitVideo(dio, media, model, request,
         cancelToken: cancelToken);
   }
@@ -275,6 +277,7 @@ class HttpProviderGateway
     CancelToken? cancelToken,
   }) async {
     final model = await _resolveVideoModel(modelOverride, stage);
+    _requireVolcengineVideo(model);
     return volcenginePollVideo(dio, media, model, upstreamTaskId, projectId,
         cancelToken: cancelToken);
   }
@@ -286,7 +289,17 @@ class HttpProviderGateway
     required String? modelOverride,
   }) async {
     final model = await _resolveVideoModel(modelOverride, stage);
+    _requireVolcengineVideo(model);
     await volcengineCancelVideo(dio, model, upstreamTaskId);
+  }
+
+  void _requireVolcengineVideo(ResolvedModel model) {
+    if (model.protocol != 'volcengine') {
+      throw EngineException(errModelMissing, {
+        'providerId': model.providerId,
+        'reason': 'unsupportedVideoProtocol',
+      });
+    }
   }
 
   Future<ResolvedModel> _resolveVideoModel(String? modelBinding, String stage) {
@@ -405,6 +418,7 @@ class HttpProviderGateway
   /// （渲染耗时且计费）。用 1×1 占位首帧提交。
   Future<int> testVideoModel(ResolvedModel model,
       {CancelToken? cancelToken}) async {
+    _requireVolcengineVideo(model);
     final sw = Stopwatch()..start();
     final tmp = File(media.absPath('__conn_test__/vtest_frame.png'))
       ..parent.createSync(recursive: true)

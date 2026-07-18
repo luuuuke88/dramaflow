@@ -94,7 +94,9 @@
 
 ### D. 设置、预设与移动适配（横切）
 
-供应商预设、模型选择、画风库、导入导出、设置高级项和移动版对话框仍按主清单持续补齐。供应商预设已完成目录、原子创建、预填表单、画廊与 `/models` 候选导入的代码/离线测试；2026-07-19 额外修复了 390px 模型编辑器工具栏溢出，并将桌面本地 OAuth 预设 azt 从 iOS/Android 画廊隐藏。它改善的是通用供应商配置体验，**不改变**主清单 `W6D-VENDOR-001` 的“部分实现”结论：原版可编辑 vendor 插件、私有协议适配和动态字段仍未复刻；`protocol` 目前仅是配置元数据，Task 7 的正式验收记录与原生协议实现都尚未完成。移动发现记录位于 [`mobile-adaptation-findings.md`](mobile-adaptation-findings.md)。这些改动不得因“桌面能用”而标绿。
+供应商预设、模型选择、画风库、导入导出、设置高级项和移动版对话框仍按主清单持续补齐。供应商预设已完成目录、预填表单、画廊、`/models` 候选导入和离线回归；2026-07-19 额外修复了 390px 模型编辑器工具栏溢出，并将桌面本地 OAuth 预设 azt 从 iOS/Android 画廊隐藏。预设创建现以“禁用 provisioning 记录 → 写入 Keychain → 启用”为顺序执行；冷启动会恢复已写入凭证的中断创建，并清除未写入凭证的远程残留。模型保存和视频网关也共同限制为：只有 `volcengine` 协议可声明或提交 video 模型，其他供应商不会被误送到 Seedance 接口。
+
+它改善的是通用供应商配置体验，**不改变**主清单 `W6D-VENDOR-001` 的“部分实现”结论：原版可编辑 vendor 插件、私有协议适配和动态字段仍未复刻。正式人工验收表已存在于 [`provider-presets-acceptance.md`](provider-presets-acceptance.md)，但除 azt 外均保持“未验证”标识；原生私有协议也尚未实现。移动发现记录位于 [`mobile-adaptation-findings.md`](mobile-adaptation-findings.md)。这些改动不得因“桌面能用”而标绿。
 
 完成定义：设置与供应商配置不泄露凭证；模型列表拉取、失败提示、编辑回填、删除与导入导出均可离线 mock 验证；窄屏没有被截断的关键按钮或不可滚动的表单。
 
@@ -139,6 +141,12 @@ DramaFlow 已拥有短剧生产主链路的一部分可靠底座，但还不是 
 ### 最近核验：中等宽度移动壳
 
 2026-07-19 已补充 760–800dp 回归：项目、画风、手册与剧本的编辑/删除操作在无 hover 的平板触控界面仍可达；剧本与小说工具栏的真实 `RenderFlex` 溢出已修正；素材和事件页同宽度通过渲染验证。详细证据与用例名称见 [`mobile-adaptation-findings.md`](mobile-adaptation-findings.md)。
+
+### 最近核验：供应商预设的可恢复创建与协议边界
+
+2026-07-19 对供应商预设做了针对性复核。远程预设或自定义供应商若没有 API Key，现在会在创建前拒绝并保持零落库；本机 loopback 代理仍允许无 Key 配置。由于 SQLite 与系统 Keychain 不能组成单一事务，两条创建路径都会先保存为禁用的 `provisioning` 状态，只有凭证写入完成后才启用；同名创建会在写 Key 前被拒绝，绝不覆盖已有凭证。应用重启时，已持久化凭证的中断创建会收敛为可用配置；没有凭证的远程残留会被清理，避免出现“列表中显示已添加、实际永远无法调用”的假成功。
+
+视频协议当前只实现火山 Seedance。模型编辑层、正式 HTTP 网关和设置页的 `testVideoModel` 连通测试均拒绝非 `volcengine` 的 video 模型，且拒绝发生在任何 HTTP 请求之前；这不是减少视频能力，而是防止将 OpenAI 兼容供应商误按 Seedance 任务格式调用。未来接入新的视频供应商时，必须先实现对应的提交、轮询、取消和连通测试适配器，以及 fake-gateway 回归，再开放该协议的 video 类型。自动化证据：`app/test/engine/provider_preset_create_test.dart`、`app/test/engine/engine_facade_test.dart`、`app/test/engine/providers_test.dart` 与 `app/test/widgets/settings_screen_test.dart`；没有发起真实视频、图像或文本生成。
 
 ### 最近核验：首次启动引导
 

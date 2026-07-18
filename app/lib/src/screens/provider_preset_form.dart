@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../engine/provider_presets.dart';
+import '../engine/providers/resolve.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
 import '../util/l10n_ext.dart';
@@ -46,6 +47,11 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
   bool _obscure = true;
   bool _saving = false;
   String? _error;
+
+  bool get _canSave =>
+      !_saving &&
+      _selected.isNotEmpty &&
+      (isLoopbackBaseUrl(_baseUrl.text) || _apiKey.text.trim().isNotEmpty);
 
   @override
   void dispose() {
@@ -111,8 +117,9 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
           TextField(
             key: const Key('preset-form-baseurl'),
             controller: _baseUrl,
-            decoration: InputDecoration(
-                labelText: l10n.settingsProviderColumnBaseUrl),
+            onChanged: (_) => setState(() {}),
+            decoration:
+                InputDecoration(labelText: l10n.settingsProviderColumnBaseUrl),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -120,12 +127,12 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
             controller: _apiKey,
             autofocus: true,
             obscureText: _obscure,
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               labelText: 'API Key',
               suffixIcon: IconButton(
                 key: const Key('preset-form-apikey-toggle'),
-                icon:
-                    Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
@@ -145,8 +152,8 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
               dense: true,
               controlAffinity: ListTileControlAffinity.leading,
               value: _selected.contains(m.modelId),
-              title: Text(m.modelId,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              title:
+                  Text(m.modelId, maxLines: 1, overflow: TextOverflow.ellipsis),
               onChanged: (v) => setState(() {
                 if (v == true) {
                   _selected.add(m.modelId);
@@ -159,13 +166,12 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(_error!,
-                  style:
-                      TextStyle(color: Theme.of(context).colorScheme.error)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ),
           const SizedBox(height: 16),
           FilledButton(
             key: const Key('preset-form-save'),
-            onPressed: _saving || _selected.isEmpty ? null : _save,
+            onPressed: _canSave ? _save : null,
             child: Text(l10n.commonSave),
           ),
         ],

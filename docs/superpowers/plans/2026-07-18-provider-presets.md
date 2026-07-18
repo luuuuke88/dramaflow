@@ -14,7 +14,9 @@
 
 **v3 执行勘误（2026-07-19）**：①azt 是桌面机本地 loopback OAuth 代理，移动端展示会导致用户调用手机自身的 `127.0.0.1`；目录新增 `desktopOnly`，iOS/Android 画廊隐藏 azt，并用 iOS/桌面 widget 测试锁住。②Task 6 新增的"从 API 拉取模型"文字按钮使 390px 手机模型编辑页 AppBar 右溢出 41px；宽屏保留文字命令，窄屏改为带 tooltip 的加号/下载/保存图标，设置页全组回归通过。③本项目视频边界优先于本计划 Task 7：所有视频供应商只验证本地协议、状态机与 fake gateway，**不发起真实视频生成**，由用户后续单独验收。
 
-**已核实执行状态（2026-07-19）**：Task 1–6 的代码已分别落在 `63c84dc`、`2d18c37`、`7d4c31e`/`7ffc380`、`e543c9b`、`05b0ab5`/`8f805c5`、`29b90f4`；它们实现的是预设目录、通用 OpenAI 兼容配置与模型管理体验。Task 7 仍**未完成**：正式验收记录尚未建立，且 `protocol` 目前是配置元数据，尚未驱动 Claude/Gemini/Volcengine 等供应商的原生私有协议适配。不能据此把主清单的 `W6D-VENDOR-001` 标为完成。
+**v4 复审收口（2026-07-19）**：①原子创建不能只覆盖预设路径——自定义供应商也改为 `provisioning` 禁用行 → Keychain → 启用，重名在触碰 Key 前拒绝；新增重复、缺 Key、凭证写失败三条回归。②非火山 video 既不能经模型编辑保存，也不能从历史/导入配置绕到设置页的 `testVideoModel`；正式提交、轮询、取消与连通测试均在零 HTTP 前拒绝。③Task 7 的人工验收文档已存在（`docs/parity/provider-presets-acceptance.md`），不是“尚未建立”；其中只有 azt 有证据并被标 `acceptanceVerified=true`，其他预设和私有协议继续保持未验证。
+
+**已核实执行状态（2026-07-19）**：Task 1–6 的代码已分别落在 `63c84dc`、`2d18c37`、`7d4c31e`/`7ffc380`、`e543c9b`、`05b0ab5`/`8f805c5`、`29b90f4`；它们实现的是预设目录、通用 OpenAI 兼容配置与模型管理体验。Task 7 的正式验收记录已经建立，但除 azt 外均为“待验”；`protocol` 目前仍主要是配置元数据，尚未驱动 Claude/Gemini 等供应商的原生私有协议适配。不能据此把主清单的 `W6D-VENDOR-001` 标为完成。
 
 ## Global Constraints
 

@@ -85,6 +85,32 @@ void main() {
         isFalse);
   });
 
+  testWidgets('远程预设未填 Key 时不能保存，填入 Key 后才可保存', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await tester.tap(find.byKey(const Key('open-form')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('preset-form-save')))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.enterText(
+        find.byKey(const Key('preset-form-apikey')), 'sk-test');
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('preset-form-save')))
+          .onPressed,
+      isNotNull,
+    );
+  });
+
   testWidgets('保存：改名+改 BaseURL+取消一个模型，全部真实落库', (tester) async {
     tester.view.physicalSize = const Size(390, 760);
     tester.view.devicePixelRatio = 1;
@@ -111,8 +137,7 @@ void main() {
     expect(models.map((m) => m.modelId).toList(), ['deepseek-v4-flash']);
   });
 
-  testWidgets('保存失败（供应商已存在）：展示本地化文案，不泄漏原始异常（评审 round 2）',
-      (tester) async {
+  testWidgets('保存失败（供应商已存在）：展示本地化文案，不泄漏原始异常（评审 round 2）', (tester) async {
     tester.view.physicalSize = const Size(390, 760);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -122,7 +147,7 @@ void main() {
     // （不是伪造/mock 出来的），再让表单对同一 presetId 保存去触发它。
     await engine.createProviderFromPreset(
       presetId: 'deepseek',
-      apiKey: '',
+      apiKey: 'existing-key',
       selectedModelIds: const ['deepseek-v4-flash'],
     );
 
@@ -130,6 +155,9 @@ void main() {
     await tester.tap(find.byKey(const Key('open-form')));
     await tester.pumpAndSettle();
 
+    await tester.enterText(
+        find.byKey(const Key('preset-form-apikey')), 'sk-test');
+    await tester.pump();
     await tester.tap(find.byKey(const Key('preset-form-save')));
     await tester.pumpAndSettle();
 

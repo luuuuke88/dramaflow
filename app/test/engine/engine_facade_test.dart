@@ -185,6 +185,77 @@ void main() {
     expect(exported, isNot(contains(secret)));
   });
 
+  test('自定义供应商重名时不覆盖既有 API Key', () async {
+    final credentials = InMemoryCredentialStore();
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+      credentials: credentials,
+    );
+
+    final provider = await engine.createProvider(
+      name: 'Same Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'https://api.example.test/v1',
+      apiKey: 'old-secret',
+    );
+
+    await expectLater(
+      engine.createProvider(
+        name: 'Same Gateway',
+        protocol: 'openai_compatible',
+        baseUrl: 'https://api.example.test/v1',
+        apiKey: 'new-secret',
+      ),
+      throwsA(isA<EngineException>()
+          .having((error) => error.errKey, 'errKey', errProviderExists)),
+    );
+    expect(
+      await credentials.read(providerCredentialRef(provider.id)),
+      'old-secret',
+    );
+  });
+
+  test('自定义远程供应商缺少 Key 时拒绝且零落库', () async {
+    await expectLater(
+      engine.createProvider(
+        name: 'Remote Without Key',
+        protocol: 'openai_compatible',
+        baseUrl: 'https://api.example.test/v1',
+        apiKey: '',
+      ),
+      throwsA(isA<EngineException>()
+          .having((error) => error.errKey, 'errKey', errProviderMissing)),
+    );
+    expect(await engine.listProviders(), isEmpty);
+  });
+
+  test('自定义供应商凭证写入失败时清理 provisioning 行', () async {
+    final credentials = _UnavailableCredentialStore();
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+      credentials: credentials,
+    );
+
+    await expectLater(
+      engine.createProvider(
+        name: 'Failing Gateway',
+        protocol: 'openai_compatible',
+        baseUrl: 'https://api.example.test/v1',
+        apiKey: 'secret',
+      ),
+      throwsA(isA<StateError>()),
+    );
+    expect(await engine.listProviders(), isEmpty);
+  });
+
   test('导入旧配置时迁移 API Key 到凭据存储', () async {
     const secret = 'sk-imported-secret';
     await engine.importConfig({
@@ -699,8 +770,8 @@ description: 分镜表构建 Agent
   test('exportConfig/importConfig 往返供应商、绑定、提示词', () async {
     final provider = await engine.createProvider(
       name: '导出供应商',
-      protocol: 'openai_compatible',
-      baseUrl: 'https://api.test/v1',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
       apiKey: 'sk',
     );
     await engine.saveProviderModels(provider.id, [

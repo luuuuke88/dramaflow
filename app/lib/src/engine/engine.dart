@@ -392,6 +392,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     _seedBundledModelPromptRows(db, dataDir);
     final credentials = credentialStore ?? SecureCredentialStore();
     await _migrateLegacyProviderCredentials(db, credentials);
+    await _recoverProvisioningProviders(db, credentials);
     final media = MediaStore(path.join(dataDir, 'media'));
     final engine = Engine(
       db: db,
@@ -700,6 +701,42 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
         );
       }
       db.execute('DELETE FROM o_setting WHERE key=?', [entry.key]);
+    }
+  }
+
+  /// SQLite 与系统凭证仓无法做跨存储事务。预设创建会先落一个禁用的
+  /// provisioning 记录；启动时将“凭证已写入但进程来不及启用”的记录收敛为
+  /// ready，未写入凭证的远程记录则清掉，避免永久留下假可用供应商。
+  static Future<void> _recoverProvisioningProviders(
+    Database db,
+    CredentialStore credentials,
+  ) async {
+    for (final row in db.select('SELECT id,inputValues FROM o_vendorConfig')) {
+      final raw = row['inputValues'] as String? ?? '{}';
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map || decoded['provisioning'] != true) continue;
+      final input = Map<String, dynamic>.from(decoded);
+      final providerId = row['id'] as String;
+      final credentialRef =
+          (input['credentialRef'] ?? providerCredentialRef(providerId))
+              .toString();
+      final baseUrl = (input['baseUrl'] ?? '').toString();
+      String? key;
+      try {
+        key = await credentials.read(credentialRef);
+      } catch (_) {
+        // 系统凭证仓可能暂时锁定；保持禁用，留待下次启动安全收敛。
+        continue;
+      }
+      if (!isLoopbackBaseUrl(baseUrl) && (key == null || key.trim().isEmpty)) {
+        db.execute('DELETE FROM o_vendorConfig WHERE id=?', [providerId]);
+        continue;
+      }
+      input.remove('provisioning');
+      db.execute(
+        'UPDATE o_vendorConfig SET enable=1,inputValues=? WHERE id=?',
+        [jsonEncode(input), providerId],
+      );
     }
   }
 
@@ -1148,23 +1185,58 @@ WHERE id=?
   }) async {
     final id = _providerId(name);
     final credentialRef = providerCredentialRef(id);
-    if (apiKey.trim().isNotEmpty) {
-      await credentials.write(credentialRef, apiKey.trim());
+    final key = apiKey.trim();
+    if (!isLoopbackBaseUrl(baseUrl) && key.isEmpty) {
+      throw const EngineException(
+          errProviderMissing, {'reason': 'apiKeyRequired'});
     }
+    final createdAt = nowIso();
+    final inputValues = <String, dynamic>{
+      'name': name.trim(),
+      'protocol': protocol,
+      'baseUrl': baseUrl.trim(),
+      'credentialRef': credentialRef,
+      'createdAt': createdAt,
+      'provisioning': true,
+    };
+
+    // 先抢占禁用行，再写系统凭证仓。这样同名冲突无法覆盖既有 Key，
+    // 且进程在凭证写完前中断时，启动恢复能识别这条未完成记录。
+    final existing =
+        db.select('SELECT id FROM o_vendorConfig WHERE id=?', [id]);
+    if (existing.isNotEmpty) {
+      throw EngineException(errProviderExists, {'providerId': id});
+    }
+    try {
+      db.execute(
+        'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+        [id, 0, jsonEncode(inputValues), '[]'],
+      );
+    } on SqliteException catch (e) {
+      if (e.extendedResultCode == 1555 || e.extendedResultCode == 2067) {
+        throw EngineException(errProviderExists, {'providerId': id});
+      }
+      rethrow;
+    }
+
+    final wroteCredential = key.isNotEmpty;
+    if (wroteCredential) {
+      try {
+        await credentials.write(credentialRef, key);
+      } catch (_) {
+        try {
+          await credentials.delete(credentialRef);
+        } catch (_) {
+          // 删除行仍会执行；启动时不会留下可用的半成品配置。
+        }
+        db.execute('DELETE FROM o_vendorConfig WHERE id=?', [id]);
+        rethrow;
+      }
+    }
+    inputValues.remove('provisioning');
     db.execute(
-      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
-      [
-        id,
-        1,
-        jsonEncode({
-          'name': name.trim(),
-          'protocol': protocol,
-          'baseUrl': baseUrl.trim(),
-          'credentialRef': credentialRef,
-          'createdAt': nowIso(),
-        }),
-        '[]',
-      ],
+      'UPDATE o_vendorConfig SET enable=1,inputValues=? WHERE id=?',
+      [jsonEncode(inputValues), id],
     );
     return _providerInfo(
       db.select('SELECT * FROM o_vendorConfig WHERE id=?', [id]).first,
@@ -1208,8 +1280,22 @@ WHERE id=?
     final effectiveBaseUrl = (baseUrl?.trim().isNotEmpty ?? false)
         ? baseUrl!.trim()
         : preset.baseUrl;
+    final key = apiKey.trim();
+    if (!isLoopbackBaseUrl(effectiveBaseUrl) && key.isEmpty) {
+      throw const EngineException(
+          errProviderMissing, {'reason': 'apiKeyRequired'});
+    }
     final credentialRef = providerCredentialRef(preset.id);
     final createdAt = nowIso();
+    final inputValues = <String, dynamic>{
+      'name': effectiveName,
+      'protocol': preset.protocol,
+      'baseUrl': effectiveBaseUrl,
+      'credentialRef': credentialRef,
+      'presetId': preset.id,
+      'createdAt': createdAt,
+      'provisioning': true,
+    };
 
     // —— 抢占段（连续同步，无 await）——
     final existing =
@@ -1222,15 +1308,8 @@ WHERE id=?
         'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
         [
           preset.id,
-          1,
-          jsonEncode({
-            'name': effectiveName,
-            'protocol': preset.protocol,
-            'baseUrl': effectiveBaseUrl,
-            'credentialRef': credentialRef,
-            'presetId': preset.id,
-            'createdAt': createdAt,
-          }),
+          0,
+          jsonEncode(inputValues),
           jsonEncode(models),
         ],
       );
@@ -1244,16 +1323,25 @@ WHERE id=?
       rethrow;
     }
     // —— 抢占成功后才允许触碰凭证 ——
-    final key = apiKey.trim();
     final wroteCredential = key.isNotEmpty;
     if (wroteCredential) {
       try {
         await credentials.write(credentialRef, key);
       } catch (_) {
+        try {
+          await credentials.delete(credentialRef);
+        } catch (_) {
+          // 下方仍会删除配置行。
+        }
         db.execute('DELETE FROM o_vendorConfig WHERE id=?', [preset.id]);
         rethrow;
       }
     }
+    inputValues.remove('provisioning');
+    db.execute(
+      'UPDATE o_vendorConfig SET enable=1,inputValues=? WHERE id=?',
+      [jsonEncode(inputValues), preset.id],
+    );
     return ProviderInfo(
       id: preset.id,
       name: effectiveName,
@@ -1310,7 +1398,15 @@ WHERE id=?
     String providerId,
     List<Map<String, dynamic>> models,
   ) async {
-    _mustProvider(providerId);
+    final provider = _mustProvider(providerId);
+    final inputValues = _jsonMap(provider['inputValues']);
+    final protocol =
+        (inputValues['protocol'] ?? 'openai_compatible').toString();
+    if (protocol != 'volcengine' &&
+        models.any((model) => model['kind']?.toString() == 'video')) {
+      throw const EngineException(
+          errModelMissing, {'reason': 'unsupportedVideoProtocol'});
+    }
     final normalized = [
       for (final model in models) _normalizeModel(providerId, model),
     ];

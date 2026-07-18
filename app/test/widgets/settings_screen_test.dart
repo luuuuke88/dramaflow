@@ -509,13 +509,13 @@ void main() {
       gateway: gateway,
       config: config,
     );
-    final provider = await engine.createProvider(
-      name: 'Local Gateway',
+    final imageProvider = await engine.createProvider(
+      name: 'A Image Gateway',
       protocol: 'openai_compatible',
       baseUrl: 'http://127.0.0.1:8787/v1',
       apiKey: 'local',
     );
-    await engine.saveProviderModels(provider.id, const [
+    await engine.saveProviderModels(imageProvider.id, const [
       {
         'modelId': 'local-text',
         'label': '本地文本',
@@ -528,6 +528,14 @@ void main() {
         'kind': 'image',
         'enabled': true,
       },
+    ]);
+    final videoProvider = await engine.createProvider(
+      name: 'B Volcengine',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
+      apiKey: 'sk-test',
+    );
+    await engine.saveProviderModels(videoProvider.id, const [
       {
         'modelId': 'local-video',
         'label': '本地视频',
@@ -543,18 +551,25 @@ void main() {
     await tester.pumpAndSettle();
 
     await _selectSection(tester, '供应商');
-    await tester.tap(find.byTooltip('测试连通').first);
+    final imageCard = find.byKey(const ValueKey('a-image-gateway:0'));
+    await tester.ensureVisible(imageCard);
+    await tester.tap(find.descendant(
+      of: imageCard,
+      matching: find.byTooltip('测试连通'),
+    ));
     await tester.pumpAndSettle();
-    expect(find.text('测试连通 · Local Gateway'), findsOneWidget);
+    expect(find.text('测试连通 · A Image Gateway'), findsOneWidget);
 
     await _chooseFirstDropdown(tester, '图片 · 本地图像');
     await tester.tap(find.text('测试').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('测试连通').first);
-    await tester.pumpAndSettle();
-    await _chooseFirstDropdown(tester, '视频 · 本地视频');
-    await tester.tap(find.text('测试').last);
+    final videoCard = find.byKey(const ValueKey('b-volcengine:0'));
+    await tester.ensureVisible(videoCard);
+    await tester.tap(find.descendant(
+      of: videoCard,
+      matching: find.byTooltip('测试连通'),
+    ));
     await tester.pumpAndSettle();
 
     expect(gateway.calls, [

@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dramaflow/src/api/models.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/credentials.dart';
@@ -26,6 +30,30 @@ class _FailingCredentialStore implements CredentialStore {
 
   @override
   Future<void> delete(String key) async {}
+}
+
+/// 可控的异步凭证仓：用于证明创建请求尚未结束时，供应商绝不可参与路由。
+class _DeferredCredentialStore implements CredentialStore {
+  final values = <String, String>{};
+  final writeStarted = Completer<void>();
+  final _writeCompleter = Completer<void>();
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    writeStarted.complete();
+    await _writeCompleter.future;
+    values[key] = value;
+  }
+
+  void finishWrite() => _writeCompleter.complete();
+
+  @override
+  Future<void> delete(String key) async {
+    values.remove(key);
+  }
 }
 
 Engine _engine(Database db, {CredentialStore? credentials}) => Engine(
@@ -76,6 +104,165 @@ void main() {
     expect(await engine.credentials.read(providerCredentialRef('deepseek')),
         isNull,
         reason: '校验失败不得写凭证');
+  });
+
+  test('远程预设缺少 Key 时拒绝创建且零落库，本地 loopback 例外', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
+
+    await expectLater(
+      engine.createProviderFromPreset(presetId: 'deepseek', apiKey: ''),
+      throwsA(isA<EngineException>()
+          .having((e) => e.errKey, 'errKey', 'errProviderMissing')),
+    );
+    expect(await engine.listProviders(), isEmpty);
+
+    await engine.createProviderFromPreset(
+      presetId: 'deepseek',
+      apiKey: '',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+    );
+    expect((await engine.listProviders()).single.hasCredential, isFalse);
+  });
+
+  test('凭证尚未写完时供应商保持禁用，成功后才启用', () async {
+    final db = openEngineDb(':memory:');
+    final credentials = _DeferredCredentialStore();
+    final engine = _engine(db, credentials: credentials);
+    addTearDown(engine.dispose);
+
+    final creating = engine.createProviderFromPreset(
+      presetId: 'deepseek',
+      apiKey: 'sk-test',
+    );
+    await credentials.writeStarted.future;
+
+    final pending = db.select(
+        'SELECT enable,inputValues FROM o_vendorConfig WHERE id=?',
+        ['deepseek']);
+    expect(pending.single['enable'], 0);
+    expect(
+        (jsonDecode(pending.single['inputValues'] as String)
+            as Map)['provisioning'],
+        true);
+
+    credentials.finishWrite();
+    await creating;
+    final ready = db.select(
+        'SELECT enable,inputValues FROM o_vendorConfig WHERE id=?',
+        ['deepseek']);
+    expect(ready.single['enable'], 1);
+    expect(
+        (jsonDecode(ready.single['inputValues'] as String) as Map)
+            .containsKey('provisioning'),
+        isFalse);
+  });
+
+  test('启动恢复已写凭证的 provisioning 供应商，不暴露半成品', () async {
+    final dir = Directory.systemTemp.createTempSync('df-provider-recovery-');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final dbPath = '${dir.path}/dramaflow.sqlite';
+    final db = openEngineDb(dbPath);
+    db.execute(
+      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+      [
+        'deepseek',
+        0,
+        jsonEncode({
+          'name': 'DeepSeek',
+          'protocol': 'openai_compatible',
+          'baseUrl': 'https://api.deepseek.com/v1',
+          'credentialRef': providerCredentialRef('deepseek'),
+          'provisioning': true,
+        }),
+        '[]',
+      ],
+    );
+    db.close();
+    final credentials = InMemoryCredentialStore()
+      ..seed(providerCredentialRef('deepseek'), 'sk-survived-crash');
+
+    final engine = await Engine.boot(
+      dataDir: dir.path,
+      isMobile: false,
+      credentialStore: credentials,
+    );
+    addTearDown(engine.dispose);
+
+    final row = engine.db.select(
+        'SELECT enable,inputValues FROM o_vendorConfig WHERE id=?',
+        ['deepseek']);
+    expect(row.single['enable'], 1);
+    expect(
+        (jsonDecode(row.single['inputValues'] as String) as Map)
+            .containsKey('provisioning'),
+        isFalse);
+  });
+
+  test('启动清理没有凭证的远程 provisioning 供应商', () async {
+    final dir = Directory.systemTemp.createTempSync('df-provider-recovery-');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final db = openEngineDb('${dir.path}/dramaflow.sqlite');
+    db.execute(
+      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+      [
+        'deepseek',
+        0,
+        jsonEncode({
+          'name': 'DeepSeek',
+          'protocol': 'openai_compatible',
+          'baseUrl': 'https://api.deepseek.com/v1',
+          'credentialRef': providerCredentialRef('deepseek'),
+          'provisioning': true,
+        }),
+        '[]',
+      ],
+    );
+    db.close();
+
+    final engine = await Engine.boot(
+      dataDir: dir.path,
+      isMobile: false,
+      credentialStore: InMemoryCredentialStore(),
+    );
+    addTearDown(engine.dispose);
+    expect(
+      engine.db
+          .select('SELECT id FROM o_vendorConfig WHERE id=?', ['deepseek']),
+      isEmpty,
+    );
+  });
+
+  test('非火山供应商不能保存 video 模型', () async {
+    final db = openEngineDb(':memory:');
+    final engine = _engine(db);
+    addTearDown(engine.dispose);
+    db.execute(
+      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+      [
+        'custom-openai',
+        1,
+        jsonEncode({
+          'name': 'Custom OpenAI',
+          'protocol': 'openai_compatible',
+          'baseUrl': 'https://proxy.example.com/v1',
+        }),
+        '[]',
+      ],
+    );
+
+    await expectLater(
+      engine.saveProviderModels('custom-openai', [
+        {'modelId': 'video-model', 'kind': 'video', 'enabled': true},
+      ]),
+      throwsA(isA<EngineException>()
+          .having((e) => e.errKey, 'errKey', 'errModelMissing')),
+    );
+    expect(
+      db.select('SELECT models FROM o_vendorConfig WHERE id=?',
+          ['custom-openai']).single['models'],
+      '[]',
+    );
   });
 
   test('P0 场景：重复创建抛 errProviderExists 且旧凭证一字节不动', () async {

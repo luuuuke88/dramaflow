@@ -12,6 +12,7 @@ import 'package:dramaflow/src/engine/credentials.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/util.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/engine/video_request.dart';
 
 class FakeAdapter implements HttpClientAdapter {
@@ -562,6 +563,49 @@ void main() {
           ),
           stage: 'shot_video',
         ),
+        throwsA(isA<EngineException>()
+            .having((e) => e.errKey, 'errKey', errModelMissing)),
+      );
+      expect(adapter.requests, isEmpty);
+    });
+
+    test('submitVideo rejects a non-Volcengine video model before HTTP',
+        () async {
+      bindModel(
+        'shot_video',
+        'video',
+        providerId: 'openai',
+        modelId: 'sora-like-model',
+        protocol: 'openai_compatible',
+      );
+      final adapter = FakeAdapter((_) => fail('不支持的视频协议不得发起 HTTP'));
+
+      await expectLater(
+        gw(adapter).submitVideo(
+          videoRequest(
+            modelBinding: 'openai:sora-like-model',
+            mode: VideoMode.text,
+            references: const [],
+          ),
+          stage: 'shot_video',
+        ),
+        throwsA(isA<EngineException>()
+            .having((e) => e.errKey, 'errKey', errModelMissing)),
+      );
+      expect(adapter.requests, isEmpty);
+    });
+
+    test('testVideoModel rejects a non-Volcengine model before HTTP', () async {
+      final adapter = FakeAdapter((_) => fail('连通测试不得发起错误协议 HTTP'));
+
+      await expectLater(
+        gw(adapter).testVideoModel(const ResolvedModel(
+          providerId: 'openai',
+          protocol: 'openai_compatible',
+          baseUrl: 'https://api.example.test/v1',
+          apiKey: 'test-key',
+          modelId: 'sora-like-model',
+        )),
         throwsA(isA<EngineException>()
             .having((e) => e.errKey, 'errKey', errModelMissing)),
       );
