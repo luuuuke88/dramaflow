@@ -6495,6 +6495,108 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'破坏性操作需确认（含 auto 模式）'**
   String get settingsPolicyConfirmDestructive;
+
+  /// No description provided for @presetGalleryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择供应商'**
+  String get presetGalleryTitle;
+
+  /// No description provided for @presetGalleryCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get presetGalleryCustom;
+
+  /// No description provided for @presetGalleryCustomDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动填写名称、地址与密钥'**
+  String get presetGalleryCustomDesc;
+
+  /// No description provided for @presetCompatMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'兼容模式'**
+  String get presetCompatMode;
+
+  /// No description provided for @presetUnverified.
+  ///
+  /// In zh, this message translates to:
+  /// **'未验证'**
+  String get presetUnverified;
+
+  /// No description provided for @presetAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已添加'**
+  String get presetAdded;
+
+  /// No description provided for @presetOpenPlatform.
+  ///
+  /// In zh, this message translates to:
+  /// **'前往平台'**
+  String get presetOpenPlatform;
+
+  /// No description provided for @presetKindText.
+  ///
+  /// In zh, this message translates to:
+  /// **'文字'**
+  String get presetKindText;
+
+  /// No description provided for @presetKindImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片'**
+  String get presetKindImage;
+
+  /// No description provided for @presetKindVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频'**
+  String get presetKindVideo;
+
+  /// No description provided for @presetKindTts.
+  ///
+  /// In zh, this message translates to:
+  /// **'语音'**
+  String get presetKindTts;
+
+  /// No description provided for @presetFetchModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'从 API 拉取模型'**
+  String get presetFetchModels;
+
+  /// No description provided for @presetUncategorized.
+  ///
+  /// In zh, this message translates to:
+  /// **'未分类'**
+  String get presetUncategorized;
+
+  /// No description provided for @presetKindRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先为勾选的模型选择类型'**
+  String get presetKindRequired;
+
+  /// No description provided for @presetFetchEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'未拉取到新模型'**
+  String get presetFetchEmpty;
+
+  /// No description provided for @presetAddCandidates.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入清单'**
+  String get presetAddCandidates;
+
+  /// No description provided for @presetProviderExists.
+  ///
+  /// In zh, this message translates to:
+  /// **'该供应商已添加，请直接编辑'**
+  String get presetProviderExists;
 }
 
 class _AppLocalizationsDelegate

@@ -3340,4 +3340,55 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsPolicyConfirmDestructive => '破坏性操作需确认（含 auto 模式）';
+
+  @override
+  String get presetGalleryTitle => '选择供应商';
+
+  @override
+  String get presetGalleryCustom => '自定义';
+
+  @override
+  String get presetGalleryCustomDesc => '手动填写名称、地址与密钥';
+
+  @override
+  String get presetCompatMode => '兼容模式';
+
+  @override
+  String get presetUnverified => '未验证';
+
+  @override
+  String get presetAdded => '已添加';
+
+  @override
+  String get presetOpenPlatform => '前往平台';
+
+  @override
+  String get presetKindText => '文字';
+
+  @override
+  String get presetKindImage => '图片';
+
+  @override
+  String get presetKindVideo => '视频';
+
+  @override
+  String get presetKindTts => '语音';
+
+  @override
+  String get presetFetchModels => '从 API 拉取模型';
+
+  @override
+  String get presetUncategorized => '未分类';
+
+  @override
+  String get presetKindRequired => '请先为勾选的模型选择类型';
+
+  @override
+  String get presetFetchEmpty => '未拉取到新模型';
+
+  @override
+  String get presetAddCandidates => '加入清单';
+
+  @override
+  String get presetProviderExists => '该供应商已添加，请直接编辑';
 }

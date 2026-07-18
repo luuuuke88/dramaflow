@@ -1503,5 +1503,22 @@
     }
   },
   "settingsPolicyConfirmMoney": "花钱操作需确认",
-  "settingsPolicyConfirmDestructive": "破坏性操作需确认（含 auto 模式）"
+  "settingsPolicyConfirmDestructive": "破坏性操作需确认（含 auto 模式）",
+  "presetGalleryTitle": "选择供应商",
+  "presetGalleryCustom": "自定义",
+  "presetGalleryCustomDesc": "手动填写名称、地址与密钥",
+  "presetCompatMode": "兼容模式",
+  "presetUnverified": "未验证",
+  "presetAdded": "已添加",
+  "presetOpenPlatform": "前往平台",
+  "presetKindText": "文字",
+  "presetKindImage": "图片",
+  "presetKindVideo": "视频",
+  "presetKindTts": "语音",
+  "presetFetchModels": "从 API 拉取模型",
+  "presetUncategorized": "未分类",
+  "presetKindRequired": "请先为勾选的模型选择类型",
+  "presetFetchEmpty": "未拉取到新模型",
+  "presetAddCandidates": "加入清单",
+  "presetProviderExists": "该供应商已添加，请直接编辑"
 }

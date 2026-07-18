@@ -3447,4 +3447,56 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsPolicyConfirmDestructive =>
       'Confirm before destructive actions (incl. auto mode)';
+
+  @override
+  String get presetGalleryTitle => 'Choose a provider';
+
+  @override
+  String get presetGalleryCustom => 'Custom';
+
+  @override
+  String get presetGalleryCustomDesc => 'Enter name, base URL and key manually';
+
+  @override
+  String get presetCompatMode => 'Compat mode';
+
+  @override
+  String get presetUnverified => 'Unverified';
+
+  @override
+  String get presetAdded => 'Added';
+
+  @override
+  String get presetOpenPlatform => 'Open platform';
+
+  @override
+  String get presetKindText => 'Text';
+
+  @override
+  String get presetKindImage => 'Image';
+
+  @override
+  String get presetKindVideo => 'Video';
+
+  @override
+  String get presetKindTts => 'Speech';
+
+  @override
+  String get presetFetchModels => 'Fetch models from API';
+
+  @override
+  String get presetUncategorized => 'Uncategorized';
+
+  @override
+  String get presetKindRequired => 'Choose a type for each checked model first';
+
+  @override
+  String get presetFetchEmpty => 'No new models found';
+
+  @override
+  String get presetAddCandidates => 'Add to list';
+
+  @override
+  String get presetProviderExists =>
+      'This provider is already added — edit it instead';
 }

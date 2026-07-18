@@ -1272,5 +1272,22 @@
     }
   },
   "settingsPolicyConfirmMoney": "Confirm before paid actions",
-  "settingsPolicyConfirmDestructive": "Confirm before destructive actions (incl. auto mode)"
+  "settingsPolicyConfirmDestructive": "Confirm before destructive actions (incl. auto mode)",
+  "presetGalleryTitle": "Choose a provider",
+  "presetGalleryCustom": "Custom",
+  "presetGalleryCustomDesc": "Enter name, base URL and key manually",
+  "presetCompatMode": "Compat mode",
+  "presetUnverified": "Unverified",
+  "presetAdded": "Added",
+  "presetOpenPlatform": "Open platform",
+  "presetKindText": "Text",
+  "presetKindImage": "Image",
+  "presetKindVideo": "Video",
+  "presetKindTts": "Speech",
+  "presetFetchModels": "Fetch models from API",
+  "presetUncategorized": "Uncategorized",
+  "presetKindRequired": "Choose a type for each checked model first",
+  "presetFetchEmpty": "No new models found",
+  "presetAddCandidates": "Add to list",
+  "presetProviderExists": "This provider is already added — edit it instead"
 }

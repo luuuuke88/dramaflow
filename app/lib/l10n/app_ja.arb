@@ -1272,5 +1272,22 @@
     }
   },
   "settingsPolicyConfirmMoney": "費用が発生する操作は確認が必要",
-  "settingsPolicyConfirmDestructive": "破壊的操作は確認が必要（autoモードを含む）"
+  "settingsPolicyConfirmDestructive": "破壊的操作は確認が必要（autoモードを含む）",
+  "presetGalleryTitle": "プロバイダーを選択",
+  "presetGalleryCustom": "カスタム",
+  "presetGalleryCustomDesc": "名称・URL・キーを手動入力",
+  "presetCompatMode": "互換モード",
+  "presetUnverified": "未検証",
+  "presetAdded": "追加済み",
+  "presetOpenPlatform": "プラットフォームへ",
+  "presetKindText": "テキスト",
+  "presetKindImage": "画像",
+  "presetKindVideo": "動画",
+  "presetKindTts": "音声",
+  "presetFetchModels": "APIからモデルを取得",
+  "presetUncategorized": "未分類",
+  "presetKindRequired": "先にチェックしたモデルの種類を選択してください",
+  "presetFetchEmpty": "新しいモデルはありません",
+  "presetAddCandidates": "リストに追加",
+  "presetProviderExists": "このプロバイダーは追加済みです。編集してください"
 }

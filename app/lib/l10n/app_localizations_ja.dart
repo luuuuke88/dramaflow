@@ -3364,4 +3364,55 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsPolicyConfirmDestructive => '破壊的操作は確認が必要（autoモードを含む）';
+
+  @override
+  String get presetGalleryTitle => 'プロバイダーを選択';
+
+  @override
+  String get presetGalleryCustom => 'カスタム';
+
+  @override
+  String get presetGalleryCustomDesc => '名称・URL・キーを手動入力';
+
+  @override
+  String get presetCompatMode => '互換モード';
+
+  @override
+  String get presetUnverified => '未検証';
+
+  @override
+  String get presetAdded => '追加済み';
+
+  @override
+  String get presetOpenPlatform => 'プラットフォームへ';
+
+  @override
+  String get presetKindText => 'テキスト';
+
+  @override
+  String get presetKindImage => '画像';
+
+  @override
+  String get presetKindVideo => '動画';
+
+  @override
+  String get presetKindTts => '音声';
+
+  @override
+  String get presetFetchModels => 'APIからモデルを取得';
+
+  @override
+  String get presetUncategorized => '未分類';
+
+  @override
+  String get presetKindRequired => '先にチェックしたモデルの種類を選択してください';
+
+  @override
+  String get presetFetchEmpty => '新しいモデルはありません';
+
+  @override
+  String get presetAddCandidates => 'リストに追加';
+
+  @override
+  String get presetProviderExists => 'このプロバイダーは追加済みです。編集してください';
 }
