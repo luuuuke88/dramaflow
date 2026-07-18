@@ -235,12 +235,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('移动端小说页：卡片展示章节内容预览，点击「查看详情」走全屏弹窗而非小弹窗',
-      (tester) async {
+  testWidgets('移动端小说页：卡片展示章节内容预览，点击「查看详情」走全屏弹窗而非小弹窗', (tester) async {
     final ids = seed(1);
     final longContent = '风雪压境，' * 30; // 超过 80 字截断阈值
-    db.execute('UPDATE o_novel SET chapterData=? WHERE id=?',
-        [longContent, ids[0]]);
+    db.execute(
+        'UPDATE o_novel SET chapterData=? WHERE id=?', [longContent, ids[0]]);
 
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
@@ -268,6 +267,60 @@ void main() {
     expect(find.text(longContent), findsOneWidget);
   });
 
+  testWidgets('桌面端编辑章节会更新名称、事件和正文并刷新列表', (tester) async {
+    final id = seed(1).single;
+    db.execute('UPDATE o_novel SET event=? WHERE id=?', ['旧事件', id]);
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1400));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('编辑').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(Dialog), findsOneWidget);
+    await tester.enterText(_fieldWithLabel('章节名称'), '新章节名');
+    await tester.enterText(_fieldWithLabel('事件内容'), '新事件');
+    await tester.enterText(_fieldWithLabel('章节内容'), '新的章节正文');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final row = engine.novels(projectId).data.single;
+    expect(row.chapter, '新章节名');
+    expect(row.event, '新事件');
+    expect(row.chapterData, '新的章节正文');
+    expect(find.text('新章节名'), findsOneWidget);
+  });
+
+  testWidgets('移动端编辑章节以全屏表单呈现，取消不会写入修改', (tester) async {
+    final id = seed(1).single;
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(390));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('编辑').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byType(AppBar), findsOneWidget);
+    await tester.enterText(_fieldWithLabel('章节名称'), '不应保存的名称');
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(engine.novels(projectId).data.single.id, id);
+    expect(engine.novels(projectId).data.single.chapter, '章1');
+  });
+
   testWidgets('移动壳平板宽度下小说工具栏不溢出', (tester) async {
     seed(1);
     tester.view.physicalSize = const Size(800, 900);
@@ -284,6 +337,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+Finder _fieldWithLabel(String label) => find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == label,
+      description: 'TextField(label: $label)',
+    );
 
 void _seedPrompts(Database db) {
   for (final entry in {
