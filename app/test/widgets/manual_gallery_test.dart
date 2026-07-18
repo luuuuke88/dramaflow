@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/screens/manuals/manual_gallery.dart';
@@ -11,13 +14,48 @@ void main() {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
       theme: buildTheme(Brightness.light),
-      home: Scaffold(body: Padding(padding: const EdgeInsets.all(16), child: child)),
+      home: Scaffold(
+          body: Padding(padding: const EdgeInsets.all(16), child: child)),
     );
   }
 
   final packs = [
     const ManualPack(name: '风格手册', pack: 'style-a', images: [], data: {}),
   ];
+
+  testWidgets('有封面的手册卡片可打开封面大图预览', (tester) async {
+    final fixtureDir = Directory.systemTemp.createTempSync('manual-gallery-');
+    addTearDown(() => fixtureDir.deleteSync(recursive: true));
+    final cover = File('${fixtureDir.path}/cover.png');
+    cover.writeAsBytesSync(base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAF/gL+6fD6nwAAAABJRU5ErkJggg=='));
+
+    await tester.pumpWidget(themed(ManualGallery(
+      title: '视觉手册',
+      addLabel: '新建手册',
+      packs: [
+        ManualPack(
+            name: '国风画风',
+            pack: 'style-covered',
+            images: [cover.path],
+            data: const {}),
+      ],
+      selectedPackId: null,
+      onSelect: (_) {},
+      onCreate: () {},
+      onEdit: (_) {},
+      onDelete: (_) {},
+    )));
+    await tester.pump();
+
+    final preview = find.byIcon(Icons.zoom_in_outlined);
+    expect(preview, findsOneWidget);
+    await tester.tap(preview);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('asset-media-preview')), findsOneWidget);
+  });
 
   testWidgets('手机宽度下手册卡片的编辑/删除按钮无需悬停即可见并可点击', (tester) async {
     tester.view.physicalSize = const Size(390, 760);
@@ -61,7 +99,8 @@ void main() {
     expect(miniIconBoxes.length, 2);
 
     // “新建手册”按钮的可点击高度应达到 44dp（回归 L44-51 的最小点击面积问题）。
-    final addButtonSize = tester.getSize(find.widgetWithText(OutlinedButton, '新建手册'));
+    final addButtonSize =
+        tester.getSize(find.widgetWithText(OutlinedButton, '新建手册'));
     expect(addButtonSize.height, greaterThanOrEqualTo(44));
   });
 

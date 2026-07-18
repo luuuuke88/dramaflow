@@ -8,6 +8,7 @@ import '../../engine/manuals.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/asset_image_preview.dart';
 
 class ManualGallery extends StatelessWidget {
   final String title;
@@ -72,6 +73,10 @@ class ManualGallery extends StatelessWidget {
               onTap: () => onSelect(pack.pack == selectedPackId ? null : pack),
               onEdit: () => onEdit(pack),
               onDelete: () => onDelete(pack),
+              onPreview: pack.images.isEmpty
+                  ? null
+                  : () => showAssetImagePreview(context,
+                      absPath: pack.images.first),
             ),
         ]),
     ]);
@@ -84,12 +89,14 @@ class _ManualCell extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onPreview;
   const _ManualCell(
       {required this.pack,
       required this.selected,
       required this.onTap,
       required this.onEdit,
-      required this.onDelete});
+      required this.onDelete,
+      required this.onPreview});
 
   @override
   State<_ManualCell> createState() => _ManualCellState();
@@ -164,6 +171,16 @@ class _ManualCellState extends State<_ManualCell> {
                     alignment: Alignment.topRight,
                     onTap: widget.onDelete),
               ),
+              if (widget.onPreview != null)
+                Positioned(
+                  bottom: 2,
+                  left: 2,
+                  child: _MiniIcon(
+                      icon: Icons.zoom_in_outlined,
+                      tooltip: context.l10n.assetsColPreview,
+                      alignment: Alignment.bottomLeft,
+                      onTap: widget.onPreview!),
+                ),
             ],
           ]),
         ),

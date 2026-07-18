@@ -129,7 +129,7 @@ class _ManualEditorState extends State<_ManualEditor> {
           : l10n.projectDialogDirectorManualNamePh);
       return;
     }
-    if (_isVisual && _keepImages.isEmpty && _newImages.isEmpty) {
+    if (_keepImages.isEmpty && _newImages.isEmpty) {
       _toast(l10n.projectMsgEnterVisualManualImage);
       return;
     }

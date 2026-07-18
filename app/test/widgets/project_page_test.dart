@@ -156,26 +156,93 @@ void main() {
     expect(find.widgetWithText(SnackBar, '请输入项目名称'), findsOneWidget);
   });
 
+  testWidgets('项目对话框的手册画廊可打开视觉手册编辑器', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('新建项目').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '新建视觉手册'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新建视觉手册'), findsNWidgets(2), reason: '画廊按钮与全屏/对话框标题各显示一次');
+    expect(find.text('视觉手册封面'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '保存'), findsOneWidget,
+        reason: '画廊入口必须打开同一套可保存的手册编辑器');
+  });
+
+  testWidgets('移动端项目对话框可编辑并删除已有视觉手册', (tester) async {
+    engine.saveVisualManual(
+      name: '待维护视觉手册',
+      pack: 'maintenance_visual',
+      data: {for (final key in visualManualKeys) key: '$key 内容'},
+    );
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('新建项目').first);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('待维护视觉手册'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    await tester.tap(find.byTooltip('编辑'));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑视觉手册'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+      '待维护视觉手册',
+      reason: '画廊编辑必须把已有手册传给同一编辑器，而非打开空白新建表单',
+    );
+
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('删除'));
+    await tester.pumpAndSettle();
+    expect(find.text('删除视觉手册'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(engine.visualManuals(), isEmpty);
+    expect(find.text('待维护视觉手册'), findsNothing);
+  });
+
   testWidgets('移动端新建向导：完整项目设置保存到本地库', (tester) async {
     final previousHitTestWarningPolicy =
         WidgetController.hitTestWarningShouldBeFatal;
     WidgetController.hitTestWarningShouldBeFatal = true;
-    addTearDown(
-        () => WidgetController.hitTestWarningShouldBeFatal = previousHitTestWarningPolicy);
+    addTearDown(() => WidgetController.hitTestWarningShouldBeFatal =
+        previousHitTestWarningPolicy);
 
-    final provider = await engine.createProvider(
-      name: 'Demo Provider',
+    final imageProvider = await engine.createProvider(
+      name: 'Demo Image Provider',
       protocol: 'openai_compatible',
       baseUrl: 'http://127.0.0.1:8787/v1',
       apiKey: 'local',
     );
-    await engine.saveProviderModels(provider.id, [
+    await engine.saveProviderModels(imageProvider.id, [
       {
         'modelId': 'img-demo',
         'label': '图像模型',
         'kind': 'image',
         'enabled': true,
       },
+    ]);
+    final videoProvider = await engine.createProvider(
+      name: 'Demo Video Provider',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
+      apiKey: 'test-key',
+    );
+    await engine.saveProviderModels(videoProvider.id, [
       {
         'modelId': 'video-demo',
         'label': '视频模型',
@@ -210,9 +277,9 @@ void main() {
     await tester.enterText(find.byType(TextField).at(0), '移动端短剧');
     await tester.enterText(find.byType(TextField).at(1), '玄幻');
     await tester.enterText(find.byType(TextField).at(2), '少年入山修行');
-    await _chooseDropdown(tester, '请选择图片模型', 'Demo Provider · 图像模型');
+    await _chooseDropdown(tester, '请选择图片模型', 'Demo Image Provider · 图像模型');
     await _chooseDropdown(tester, '1K', '4K');
-    await _chooseDropdown(tester, '请选择视频模型', 'Demo Provider · 视频模型');
+    await _chooseDropdown(tester, '请选择视频模型', 'Demo Video Provider · 视频模型');
     await _chooseDropdown(tester, '请选择模式', 'fast');
     await _chooseDropdown(tester, '16:9', '9:16');
 
@@ -240,9 +307,9 @@ void main() {
     expect(project.intro, '少年入山修行');
     expect(project.artStyle, 'ink_pack');
     expect(project.directorManual, 'fast_cut');
-    expect(project.imageModel, 'demo-provider:img-demo');
+    expect(project.imageModel, 'demo-image-provider:img-demo');
     expect(project.imageQuality, '4K');
-    expect(project.videoModel, 'demo-provider:video-demo');
+    expect(project.videoModel, 'demo-video-provider:video-demo');
     expect(project.mode, 'fast');
     expect(project.videoRatio, '9:16');
   });
