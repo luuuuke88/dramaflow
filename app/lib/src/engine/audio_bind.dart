@@ -147,8 +147,24 @@ extension AudioBindApi on Engine {
     return rel != null ? media.absPath(rel) : null;
   }
 
-  /// 手动绑定/解绑（assetId 对应唯一一条记录，覆盖写入）。
+  /// 手动绑定/解绑（仅允许项目内父角色/场景/道具绑定父音频）。
   void bindAssetAudio(int assetId, int? audioAssetId) {
+    final target = db.select(
+      'SELECT projectId FROM o_assets WHERE id=? AND assetsId IS NULL '
+      'AND type IN (?,?,?)',
+      [assetId, ..._bindableAssetTypes],
+    ).firstOrNull;
+    if (target == null) return;
+
+    if (audioAssetId != null) {
+      final audio = db.select(
+        "SELECT id FROM o_assets WHERE id=? AND projectId=? "
+        "AND type='audio' AND assetsId IS NULL",
+        [audioAssetId, target['projectId']],
+      ).firstOrNull;
+      if (audio == null) return;
+    }
+
     db.execute(
         'DELETE FROM o_assetsRole2Audio WHERE assetsRoleId=?', [assetId]);
     if (audioAssetId != null) {

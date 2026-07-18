@@ -110,6 +110,115 @@ void main() {
     expect(engine.roleAudioBindings(projectId).single.audioAssetId, audio);
   });
 
+  test('通用绑定只接受项目内父角色/场景/道具和父音频', () {
+    final scene = engine.addAsset(
+        projectId: projectId, type: 'scene', name: '山门', describe: '雪夜');
+    final tool = engine.addAsset(
+        projectId: projectId, type: 'tool', name: '灵剑', describe: '长剑');
+    final sceneChild = engine.addAsset(
+        projectId: projectId,
+        type: 'scene',
+        name: '山门子项',
+        describe: '子项',
+        parentAssetsId: scene);
+    final audio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: '');
+    final audioChild = engine.addAsset(
+        projectId: projectId,
+        type: 'audio',
+        name: '低音男声子项',
+        describe: '',
+        parentAssetsId: audio);
+    final otherProject = engine.addProject(projectType: 'novel', name: '其他项目');
+    final foreignTarget = engine.addAsset(
+        projectId: otherProject, type: 'role', name: '越权角色', describe: '');
+    final foreignAudio = engine.addAsset(
+        projectId: otherProject, type: 'audio', name: '越权音频', describe: '');
+
+    engine.bindAssetAudio(scene, audio);
+    engine.bindAssetAudio(tool, audio);
+    engine.bindAssetAudio(foreignTarget, foreignAudio);
+    db.execute(
+        'INSERT INTO o_assetsRole2Audio (assetsAudioId,assetsRoleId) VALUES (?,?)',
+        [audio, sceneChild]);
+    db.execute(
+        'INSERT INTO o_assetsRole2Audio (assetsAudioId,assetsRoleId) VALUES (?,?)',
+        [audio, audio]);
+    expect(_linkedAudio(db, scene), audio);
+    expect(_linkedAudio(db, tool), audio);
+    expect(_linkedAudio(db, foreignTarget), foreignAudio);
+
+    engine.bindAssetAudio(scene, foreignAudio);
+    expect(_linkedAudio(db, scene), audio, reason: '跨项目 audio 不得清空已有绑定');
+    engine.bindAssetAudio(scene, audioChild);
+    expect(_linkedAudio(db, scene), audio, reason: 'audio 子资产不得覆盖已有绑定');
+
+    engine.bindAssetAudio(sceneChild, audio);
+    expect(_linkedAudio(db, sceneChild), audio,
+        reason: 'child target 不得创建或破坏绑定');
+    engine.bindAssetAudio(audio, audio);
+    expect(_linkedAudio(db, audio), audio, reason: 'audio target 不得创建或破坏绑定');
+    engine.bindAssetAudio(foreignTarget, audio);
+    expect(_linkedAudio(db, foreignTarget), foreignAudio,
+        reason: '跨项目 target 不得破坏既有绑定');
+
+    engine.bindAssetAudio(scene, null);
+    engine.bindAssetAudio(tool, null);
+    expect(_linkCount(db, scene), 0);
+    expect(_linkCount(db, tool), 0);
+  });
+
+  test('角色包装 API 继承通用绑定的 target 和 audio 校验', () {
+    final role = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: '剑客');
+    final roleChild = engine.addAsset(
+        projectId: projectId,
+        type: 'role',
+        name: '林朝雪子项',
+        describe: '',
+        parentAssetsId: role);
+    final audio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '清亮女声', describe: '');
+    final audioChild = engine.addAsset(
+        projectId: projectId,
+        type: 'audio',
+        name: '清亮女声子项',
+        describe: '',
+        parentAssetsId: audio);
+    final otherProject = engine.addProject(projectType: 'novel', name: '其他项目');
+    final foreignRole = engine.addAsset(
+        projectId: otherProject, type: 'role', name: '越权角色', describe: '');
+    final foreignAudio = engine.addAsset(
+        projectId: otherProject, type: 'audio', name: '越权音频', describe: '');
+
+    engine.bindRoleAudio(role, audio);
+    engine.bindRoleAudio(foreignRole, foreignAudio);
+    db.execute(
+        'INSERT INTO o_assetsRole2Audio (assetsAudioId,assetsRoleId) VALUES (?,?)',
+        [audio, roleChild]);
+    db.execute(
+        'INSERT INTO o_assetsRole2Audio (assetsAudioId,assetsRoleId) VALUES (?,?)',
+        [audio, audio]);
+    expect(_linkedAudio(db, role), audio);
+    expect(_linkedAudio(db, foreignRole), foreignAudio);
+
+    engine.bindRoleAudio(role, foreignAudio);
+    expect(_linkedAudio(db, role), audio, reason: '跨项目 audio 不得清空角色已有绑定');
+    engine.bindRoleAudio(role, audioChild);
+    expect(_linkedAudio(db, role), audio, reason: 'audio 子资产不得覆盖角色已有绑定');
+    engine.bindRoleAudio(roleChild, audio);
+    expect(_linkedAudio(db, roleChild), audio,
+        reason: 'child role target 不得创建或破坏绑定');
+    engine.bindRoleAudio(audio, audio);
+    expect(_linkedAudio(db, audio), audio, reason: 'audio target 不得创建或破坏角色绑定');
+    engine.bindRoleAudio(foreignRole, audio);
+    expect(_linkedAudio(db, foreignRole), foreignAudio,
+        reason: '跨项目 role target 不得破坏既有绑定');
+
+    engine.bindRoleAudio(role, null);
+    expect(_linkCount(db, role), 0);
+  });
+
   test('通用查询只列项目内 role/scene/tool 父资产', () {
     final role = engine.addAsset(
         projectId: projectId, type: 'role', name: '林朝雪', describe: '剑客');
@@ -328,3 +437,11 @@ class _Gateway implements ProviderGateway {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
+
+int _linkCount(Database db, int assetId) => db.select(
+    'SELECT COUNT(*) n FROM o_assetsRole2Audio WHERE assetsRoleId=?',
+    [assetId]).single['n'] as int;
+
+int? _linkedAudio(Database db, int assetId) => db.select(
+    'SELECT assetsAudioId FROM o_assetsRole2Audio WHERE assetsRoleId=?',
+    [assetId]).firstOrNull?['assetsAudioId'] as int?;
