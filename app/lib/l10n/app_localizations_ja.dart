@@ -1341,6 +1341,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get assetsGenConfirmSelect => '先に画像を選択してください';
 
   @override
+  String get assetsGenConfirmDeleteImage => 'この候補画像を削除しますか？';
+
+  @override
   String get assetsGenResultTitle => '生成結果';
 
   @override

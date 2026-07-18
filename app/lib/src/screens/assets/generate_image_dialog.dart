@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,8 +16,33 @@ import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/desktop_drop_file.dart';
+import '../../widgets/asset_image_preview.dart';
 import '../../widgets/policy_confirm.dart';
 import '../project/model_select.dart';
+
+const _imageFileExtensions = <String>[
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'gif',
+  'bmp',
+  'tif',
+  'tiff',
+  'heic',
+  'heif',
+  'avif',
+  'svg',
+];
+
+const _imageTypeGroup = XTypeGroup(
+  label: 'image',
+  extensions: _imageFileExtensions,
+  mimeTypes: <String>['image/*'],
+  uniformTypeIdentifiers: <String>['public.image'],
+  webWildCards: <String>['image/*'],
+);
 
 Future<bool?> showGenerateImageDialog(BuildContext context, WidgetRef ref,
     {required int projectId, required AssetRow asset}) {
@@ -47,8 +73,10 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
   String? _model;
   String _resolution = '1K';
   bool _polishing = false;
+  bool _draggingReference = false;
   int? _selectedImageId;
   String? _uploadBase64;
+  bool _customUploadSelected = false;
 
   @override
   void initState() {
@@ -67,13 +95,74 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
   }
 
   Future<void> _pickRef() async {
-    final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(
-          label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
-    ]);
+    final file = await openFile(acceptedTypeGroups: [_imageTypeGroup]);
     if (file == null) return;
-    final bytes = await file.readAsBytes();
-    setState(() => _refBase64 = base64Encode(bytes));
+    await _setReferenceBytes(await file.readAsBytes());
+  }
+
+  Future<void> _setReferenceBytes(List<int> bytes) async {
+    if (bytes.isEmpty) return;
+    if (mounted) setState(() => _refBase64 = base64Encode(bytes));
+  }
+
+  Future<void> _dropReference(DropDoneDetails detail) async {
+    final file = detail.files.where((file) {
+      if (file.mimeType?.startsWith('image/') ?? false) return true;
+      final extension = droppedFileName(file).split('.').last.toLowerCase();
+      return _imageFileExtensions.contains(extension);
+    }).firstOrNull;
+    if (file == null) {
+      _toast(context.l10n.assetsGenUploadRef);
+      return;
+    }
+    try {
+      await _setReferenceBytes(await readDroppedFileBytes(file));
+    } catch (_) {
+      if (mounted) _toast(context.l10n.assetsGenUploadRef);
+    }
+  }
+
+  bool get _desktopDropEnabled =>
+      Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+
+  Widget _referencePicker() {
+    final df = context.df;
+    final picker = InkWell(
+      onTap: _pickRef,
+      child: Container(
+        width: 96,
+        height: 96,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: _draggingReference ? df.primary : df.stroke,
+            width: _draggingReference ? 2 : 1.4,
+          ),
+          borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+          color: df.surfaceMuted,
+        ),
+        child: _refBase64 == null
+            ? Icon(Icons.add_photo_alternate_outlined, color: df.textTertiary)
+            : Image.memory(
+                base64Decode(_refBase64!),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Icon(
+                  Icons.broken_image_outlined,
+                  color: df.textTertiary,
+                ),
+              ),
+      ),
+    );
+    if (!_desktopDropEnabled) return picker;
+    return DropTarget(
+      onDragEntered: (_) => setState(() => _draggingReference = true),
+      onDragExited: (_) => setState(() => _draggingReference = false),
+      onDragDone: (detail) async {
+        if (mounted) setState(() => _draggingReference = false);
+        await _dropReference(detail);
+      },
+      child: picker,
+    );
   }
 
   Future<void> _polish() async {
@@ -94,6 +183,10 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
     final l10n = context.l10n;
     if (_prompt.text.trim().isEmpty) {
       _toast(l10n.assetsGenFillPrompt);
+      return;
+    }
+    if (_model == null) {
+      _toast(l10n.assetsGenPickModel);
       return;
     }
     final engine = ref.read(engineProvider);
@@ -118,28 +211,54 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
   }
 
   Future<void> _uploadCustom() async {
-    final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(
-          label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
-    ]);
+    final file = await openFile(acceptedTypeGroups: [_imageTypeGroup]);
     if (file == null) return;
     final bytes = await file.readAsBytes();
     setState(() {
       _uploadBase64 = base64Encode(bytes);
       _selectedImageId = null;
+      _customUploadSelected = false;
+    });
+  }
+
+  Future<void> _deleteCandidate(AssetImageRow image) async {
+    final l10n = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.assetsConfirmDeleteHeader),
+        content: Text(l10n.assetsGenConfirmDeleteImage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(l10n.assetsCancelBtn),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: context.df.danger),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(l10n.assetsDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    ref.read(engineProvider).deleteAssetImage(image.id);
+    setState(() {
+      if (_selectedImageId == image.id) _selectedImageId = null;
     });
   }
 
   void _confirm() {
     final l10n = context.l10n;
-    if (_selectedImageId == null && _uploadBase64 == null) {
+    final customImageSelected = _customUploadSelected && _uploadBase64 != null;
+    if (_selectedImageId == null && !customImageSelected) {
       _toast(l10n.assetsGenConfirmSelect);
       return;
     }
     ref.read(engineProvider).saveAssetImage(
           assetsId: widget.asset.id,
           projectId: widget.projectId,
-          base64Image: _uploadBase64,
+          base64Image: customImageSelected ? _uploadBase64 : null,
           imageId: _selectedImageId,
           prompt: _prompt.text,
           type: widget.asset.type,
@@ -167,22 +286,7 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
         ),
       ]),
       const SizedBox(height: 8),
-      InkWell(
-        onTap: _pickRef,
-        child: Container(
-          width: 96,
-          height: 96,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            border: Border.all(color: df.stroke, width: 1.4),
-            borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-            color: df.surfaceMuted,
-          ),
-          child: _refBase64 == null
-              ? Icon(Icons.add_photo_alternate_outlined, color: df.textTertiary)
-              : Image.memory(base64Decode(_refBase64!), fit: BoxFit.cover),
-        ),
-      ),
+      _referencePicker(),
       const SizedBox(height: 14),
       Row(children: [
         Expanded(
@@ -284,7 +388,7 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
       onTap: img.state == stateDone
           ? () => setState(() {
                 _selectedImageId = img.id;
-                _uploadBase64 = null;
+                _customUploadSelected = false;
               })
           : null,
       child: Stack(children: [
@@ -313,16 +417,31 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
               child: const Icon(Icons.check, size: 12, color: Colors.white),
             ),
           ),
+        if (img.state == stateDone && img.filePath != null)
+          Positioned(
+            top: 2,
+            left: 2,
+            child: IconButton(
+              key: const Key('asset-image-candidate-preview'),
+              tooltip: l10n.assetsColPreview,
+              visualDensity: VisualDensity.compact,
+              onPressed: () => showAssetImagePreview(
+                context,
+                absPath: ref.read(engineProvider).mediaAbsPath(img.filePath!),
+              ),
+              icon: const Icon(Icons.zoom_in_outlined,
+                  size: 18, color: Colors.white),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
         if (img.state != stateGenerating)
           Positioned(
             bottom: 6,
             right: 6,
             child: InkWell(
-              onTap: () {
-                ref.read(engineProvider).deleteAssetImage(img.id);
-                if (_selectedImageId == img.id) _selectedImageId = null;
-                setState(() {});
-              },
+              onTap: () => _deleteCandidate(img),
               child: Container(
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
@@ -367,18 +486,41 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
             for (final img in images) _imageCell(img),
             if (_uploadBase64 != null)
               GestureDetector(
-                onTap: () => setState(() {}),
-                child: Container(
-                  width: 148,
-                  height: 148,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(width: 2, color: df.textPrimary),
+                onTap: () => setState(() {
+                  _selectedImageId = null;
+                  _customUploadSelected = true;
+                }),
+                child: Stack(children: [
+                  Container(
+                    width: 148,
+                    height: 148,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        width: 2,
+                        color:
+                            _customUploadSelected ? df.textPrimary : df.stroke,
+                      ),
+                    ),
+                    child: Image.memory(base64Decode(_uploadBase64!),
+                        fit: BoxFit.cover),
                   ),
-                  child: Image.memory(base64Decode(_uploadBase64!),
-                      fit: BoxFit.cover),
-                ),
+                  if (_customUploadSelected)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: df.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check,
+                            size: 12, color: Colors.white),
+                      ),
+                    ),
+                ]),
               ),
             InkWell(
               onTap: _uploadCustom,
@@ -401,6 +543,8 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final canConfirm = _selectedImageId != null ||
+        (_customUploadSelected && _uploadBase64 != null);
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Flexible(
         child: Padding(
@@ -432,7 +576,7 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
           ),
           const SizedBox(width: 8),
           FilledButton(
-            onPressed: _confirm,
+            onPressed: canConfirm ? _confirm : null,
             child: Text(l10n.commonConfirm),
           ),
         ]),

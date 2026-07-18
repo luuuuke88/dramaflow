@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/audio_bind.dart';
@@ -13,6 +14,7 @@ import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/screens/assets/assets_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:dramaflow/src/widgets/desktop_drop_file.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -109,6 +111,17 @@ void main() {
           ),
         ),
       );
+
+  test('桌面拖入文件使用路径回退文件名并读取字节', () async {
+    final dropped = DropItemFile.fromData(
+      Uint8List.fromList(const [6, 7, 8]),
+      path: '/tmp/path-fallback.ogg',
+      mimeType: 'audio/ogg',
+    );
+
+    expect(droppedFileName(dropped), 'path-fallback.ogg');
+    expect(await readDroppedFileBytes(dropped), const [6, 7, 8]);
+  });
 
   testWidgets('音频 tab 可用文本配音创建可试听音频资产', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
@@ -305,6 +318,59 @@ void main() {
     expect(parent.audioDescribe, '移动描述');
     expect(parent.sonAssets, hasLength(1));
     expect(parent.sonAssets.single.filePath, endsWith('.wav'));
+  });
+
+  testWidgets('桌面端音频上传区可拖入 audio/* 文件并保存', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('音频'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '新增音频').first);
+    await tester.pumpAndSettle();
+
+    final dropTarget = find.byKey(const Key('audio-file-drop-0'));
+    expect(
+      dropTarget,
+      findsOneWidget,
+      reason: 'ToonFlow 的每条音频上传区都是 Finder 拖放目标',
+    );
+    final target = tester.widget<DropTarget>(dropTarget);
+    final dropped = DropItemFile.fromData(
+      Uint8List.fromList(const [6, 7, 8]),
+      name: 'dropped.ogg',
+      mimeType: 'audio/ogg',
+      path: '/tmp/dropped.ogg',
+    );
+    expect(dropped.name, 'dropped.ogg');
+    expect(await dropped.readAsBytes(), const [6, 7, 8]);
+    target.onDragDone!(
+      DropDoneDetails(
+        files: [dropped],
+        localPosition: Offset.zero,
+        globalPosition: Offset.zero,
+      ),
+    );
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+    await tester.pumpAndSettle();
+    expect(find.text('dropped.ogg'), findsOneWidget);
+
+    await tester.enterText(_fieldWithLabel('音色'), '拖入音色');
+    await tester.enterText(_fieldWithLabel('描述').at(0), '拖入描述');
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    final audio = engine.getAssets(projectId, type: 'audio').data.single;
+    expect(audio.sonAssets.single.filePath, endsWith('.ogg'));
+    expect(
+      File(engine.mediaAbsPath(audio.sonAssets.single.filePath!))
+          .readAsBytesSync(),
+      const [6, 7, 8],
+    );
   });
 }
 

@@ -1,7 +1,9 @@
 // 新增/编辑音频资产对话框（照抄 addAudioAssets.vue）：
 // 音色*/性别/描述 + 动态音频条目（文件上传/音频文本/描述，可增删）。
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +14,29 @@ import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/desktop_drop_file.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+
+const _audioFileExtensions = <String>[
+  'mp3',
+  'wav',
+  'm4a',
+  'flac',
+  'aiff',
+  'aac',
+  'ogg',
+  'opus',
+  'wma',
+  'amr',
+];
+
+const _audioTypeGroup = XTypeGroup(
+  label: 'audio',
+  extensions: _audioFileExtensions,
+  mimeTypes: <String>['audio/*'],
+  uniformTypeIdentifiers: <String>['public.audio'],
+  webWildCards: <String>['audio/*'],
+);
 
 Future<bool?> showAddAudioAssetDialog(BuildContext context, WidgetRef ref,
     {required int projectId, AssetRow? existing}) {
@@ -58,6 +82,7 @@ class _AddAudioBodyState extends State<_AddAudioBody> {
       TextEditingController(text: widget.existing?.audioDescribe ?? '');
   final List<_AudioItemDraft> _items = [];
   bool _saving = false;
+  int? _draggingItemIndex;
 
   @override
   void initState() {
@@ -91,20 +116,44 @@ class _AddAudioBodyState extends State<_AddAudioBody> {
   }
 
   Future<void> _pickAudio(_AudioItemDraft item) async {
-    final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(
-          label: 'audio', extensions: ['mp3', 'wav', 'm4a', 'flac', 'aiff'])
-    ]);
+    final file = await openFile(acceptedTypeGroups: [_audioTypeGroup]);
     if (file == null) return;
-    final bytes = await file.readAsBytes();
+    _setAudioFile(item, await file.readAsBytes(), file.name);
+  }
+
+  void _setAudioFile(_AudioItemDraft item, List<int> bytes, String fileName) {
     setState(() {
       item.base64 = base64Encode(bytes);
-      item.ext = file.name.split('.').last.toLowerCase();
-      item.fileName = file.name;
+      item.ext = fileName.split('.').last.toLowerCase();
+      item.fileName = fileName;
       item.existingImageId = null;
-      if (item.name.isEmpty) item.name = file.name;
+      if (item.name.isEmpty) item.name = fileName;
     });
   }
+
+  bool _acceptsAudioDrop(DropItem file) {
+    if (file.mimeType?.startsWith('audio/') ?? false) return true;
+    final extension = droppedFileName(file).split('.').last.toLowerCase();
+    return _audioFileExtensions.contains(extension);
+  }
+
+  Future<void> _dropAudio(DropDoneDetails details, _AudioItemDraft item) async {
+    final audioFiles = details.files.where(_acceptsAudioDrop).toList();
+    if (audioFiles.isEmpty) {
+      _toast(context.l10n.assetsAddPleaseUploadAudio);
+      return;
+    }
+    final file = audioFiles.first;
+    try {
+      _setAudioFile(
+          item, await readDroppedFileBytes(file), droppedFileName(file));
+    } catch (_) {
+      if (mounted) _toast(context.l10n.assetsAddPleaseUploadAudio);
+    }
+  }
+
+  bool get _desktopDropEnabled =>
+      Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
   Future<void> _save() async {
     final l10n = context.l10n;
@@ -178,22 +227,12 @@ class _AddAudioBodyState extends State<_AddAudioBody> {
       child: Column(children: [
         Row(children: [
           Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => _pickAudio(item),
-              icon: const Icon(Icons.audio_file_outlined, size: 16),
-              label: Text(
-                item.fileName ?? l10n.assetsAddAudioFile,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
+            child: _audioFilePicker(item, index),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
             tooltip: l10n.assetsDelete,
-            icon: Icon(Icons.remove_circle_outline,
-                size: 18, color: df.danger),
+            icon: Icon(Icons.remove_circle_outline, size: 18, color: df.danger),
             onPressed: _items.length <= 1
                 ? null
                 : () => setState(() => _items.removeAt(index)),
@@ -216,6 +255,47 @@ class _AddAudioBodyState extends State<_AddAudioBody> {
               isDense: true),
         ),
       ]),
+    );
+  }
+
+  Widget _audioFilePicker(_AudioItemDraft item, int index) {
+    final df = context.df;
+    final l10n = context.l10n;
+    final button = OutlinedButton.icon(
+      onPressed: () => _pickAudio(item),
+      icon: const Icon(Icons.audio_file_outlined, size: 16),
+      label: Text(
+        item.fileName ?? l10n.assetsAddAudioFile,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12),
+      ),
+    );
+    if (!_desktopDropEnabled) return button;
+    return DropTarget(
+      key: Key('audio-file-drop-$index'),
+      onDragEntered: (_) => setState(() => _draggingItemIndex = index),
+      onDragExited: (_) {
+        if (_draggingItemIndex == index) {
+          setState(() => _draggingItemIndex = null);
+        }
+      },
+      onDragDone: (details) async {
+        if (mounted) setState(() => _draggingItemIndex = null);
+        await _dropAudio(details, item);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+          border: Border.all(
+            color:
+                _draggingItemIndex == index ? df.primary : Colors.transparent,
+            width: _draggingItemIndex == index ? 2 : 1,
+          ),
+        ),
+        child: button,
+      ),
     );
   }
 

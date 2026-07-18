@@ -1369,6 +1369,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assetsGenConfirmSelect => 'Select an image first';
 
   @override
+  String get assetsGenConfirmDeleteImage => 'Delete this candidate image?';
+
+  @override
   String get assetsGenResultTitle => 'Results';
 
   @override

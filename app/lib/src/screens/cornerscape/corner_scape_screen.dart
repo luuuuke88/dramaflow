@@ -24,16 +24,8 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/df_search_field.dart';
+import '../../widgets/local_media_preview.dart';
 import '../../widgets/policy_confirm.dart';
-
-/// media_kit 一次性初始化（幂等；见 workbench_screen 同名说明）。配音页只用音频，
-/// 不引入视频纹理，直接用 Player 播放本地音频文件。
-bool _mediaKitReady = false;
-void _ensureMediaKit() {
-  if (_mediaKitReady) return;
-  MediaKit.ensureInitialized();
-  _mediaKitReady = true;
-}
 
 enum _BindFilter { all, bound, unbound }
 
@@ -252,8 +244,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
                     initialValue: role.audioAssetId,
                     isExpanded: true,
                     hint: Text(l10n.cornerScapeNoAudio,
-                        style:
-                            TextStyle(fontSize: 12, color: df.textTertiary)),
+                        style: TextStyle(fontSize: 12, color: df.textTertiary)),
                     items: [
                       DropdownMenuItem(
                           value: null,
@@ -361,7 +352,7 @@ class _AuditionButtonState extends ConsumerState<_AuditionButton> {
       return;
     }
     try {
-      _ensureMediaKit();
+      ensureLocalMediaKit();
       final player = _player ??= Player();
       // 播放结束自动复位按钮状态。
       player.stream.completed.listen((done) {

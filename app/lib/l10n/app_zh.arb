@@ -566,6 +566,7 @@
   "assetsGenAssetGenSuccess": "已提交生成",
   "assetsGenPromptSuccess": "提示词生成成功",
   "assetsGenConfirmSelect": "请先选择一张图片",
+  "assetsGenConfirmDeleteImage": "确定要删除这张候选图片吗？",
   "assetsGenResultTitle": "生成结果",
   "assetsBatchHeader": "批量生成",
   "assetsBatchSelected": "已选 {count} 项",

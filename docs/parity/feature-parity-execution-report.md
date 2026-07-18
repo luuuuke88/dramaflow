@@ -150,4 +150,16 @@ DramaFlow 已拥有短剧生产主链路的一部分可靠底座，但还不是 
 
 ### 最近核验：音频资产弹窗
 
-2026-07-19 已补齐音频 tab 的真实“新增音频”入口回归：桌面端覆盖三份不同的本地测试文件、删除中间条目后保存其余两份、再编辑且保留既有文件；390dp 端覆盖全屏表单与单条本地文件落库。该行**仍为部分实现**：ToonFlow 此上传区支持拖放，并以 `audio/*` 接受任意音频 MIME；Flutter 当前只有点击系统文件选择器，且限于 `mp3/wav/m4a/flac/aiff`。这两个都是用户可观察差异，未补齐前不能标绿。证据见 `app/test/widgets/assets_tts_screen_test.dart`。
+2026-07-19 已补齐音频 tab 的真实“新增音频”入口回归：桌面端覆盖三份不同的本地测试文件、删除中间条目后保存其余两份、再编辑且保留既有文件；390dp 端覆盖全屏表单与单条本地文件落库。随后按 ToonFlow `addAudioAssets.vue` 补上每条上传区的桌面 `DropTarget`：macOS 使用 `public.audio`、移动/Web 使用 `audio/*`、Windows/Linux 使用常见音频扩展名，点选和 Finder 拖入共用同一落库路径。新增回归直接调用 `DropTarget.onDragDone`，以路径型 OGG 夹具验证字节与扩展名正确保存。为覆盖打包 macOS 的安全作用域文件访问，图片与音频还共用 `desktop_drop_file.dart`：有 Apple bookmark 时读前申请权限、读后释放，文件名缺失时从路径回退。
+
+素材库现也按 ToonFlow 的媒体预览语义区分图片、视频和音频：图片可缩放预览，视频显示播放入口，音频预览显示当前音频名称并在播放器加载失败时保留该上下文。移动端用本地缺失夹具覆盖真实点击、预览层和失败态文案，不初始化任何原生播放器或供应商。
+
+该行暂仍保留“部分实现”：需要在解锁后的打包 macOS 应用里确认真实 Finder 拖入与本地音频试听，且需继续完成 iOS/Android 真机可用性检查。另发现桌面 `DataTable` 的整行多选与父子资产展开存在原生交互冲突；ToonFlow 使用“仅复选框选择、点击行不选择”的语义，Flutter 侧需在后续素材表重构中单独对齐，不能以移动端通过替代桌面验收。自动化不调用任何语音或视频供应商。证据见 `app/test/widgets/assets_tts_screen_test.dart` 与 `app/test/widgets/assets_mobile_screen_test.dart`。
+
+### 最近核验：资产单图生成候选
+
+2026-07-19 已为 `W6F-ASSETS-GENIMG-001` 补齐完整离线 widget/引擎回归：从角色行打开生成弹窗，覆盖智能提示词、模型和 1K/2K/4K 选择、任务入队、生成中到完成的候选刷新、版本选择与保存；另覆盖未选模型不入队、候选图删除二次确认、自定义上传后必须显式点选、以及参考图选择器在 macOS (`public.image`)、移动/Web (`image/*`) 与 Windows/Linux（常见扩展名）上的过滤语义。代码还将 Finder 拖放目标限制在桌面端，移动端保持系统文件选择器；实际读取经共享的 macOS security-scoped access 工具完成。
+
+自动化证据为 `app/test/widgets/assets_generate_image_dialog_test.dart`（6 项，无真实供应商请求）。这条能力暂仍保留“部分实现”状态：下一步需要在打包 macOS 应用中手工确认真实 Finder 拖入、候选预览和本地音视频播放器加载；该验收只使用本地夹具，不调用视频模型或任何付费生成服务。
+
+本批次已执行 `flutter analyze`、排除显式真实供应商 QA 与 P0 live preflight 的 81 个离线/模拟测试文件（665 项全绿），并以最新源码完成 `flutter build macos --debug`。`QA_FULL`、`P0_LIVE` 均未设置；没有发起 AZT、图片、语音或 Seedance 请求。macOS 应用的真实窗口与 Finder 拖放仍须在桌面解锁后手工验收，构建成功不替代该步骤。

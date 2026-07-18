@@ -474,6 +474,7 @@
   "assetsGenAssetGenSuccess": "生成を送信しました",
   "assetsGenPromptSuccess": "プロンプトを生成しました",
   "assetsGenConfirmSelect": "先に画像を選択してください",
+  "assetsGenConfirmDeleteImage": "この候補画像を削除しますか？",
   "assetsGenResultTitle": "生成結果",
   "assetsBatchHeader": "一括生成",
   "assetsBatchSelected": "{count} 件選択中",

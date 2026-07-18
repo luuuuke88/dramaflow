@@ -2662,6 +2662,12 @@ abstract class AppLocalizations {
   /// **'请先选择一张图片'**
   String get assetsGenConfirmSelect;
 
+  /// No description provided for @assetsGenConfirmDeleteImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除这张候选图片吗？'**
+  String get assetsGenConfirmDeleteImage;
+
   /// No description provided for @assetsGenResultTitle.
   ///
   /// In zh, this message translates to:

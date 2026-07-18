@@ -152,6 +152,101 @@ void main() {
     expect(find.text('新增角色'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('资产图片缩略图可打开独立预览层', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '可预览角色',
+      describe: '用于验证缩略图预览入口',
+    );
+    engine.saveAssetImage(
+      assetsId: assetId,
+      projectId: projectId,
+      type: 'role',
+      prompt: '测试图',
+      base64Image:
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAF/gL+6fD6nwAAAABJRU5ErkJggg==',
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(Image).first);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('asset-media-preview')), findsOneWidget);
+  });
+
+  testWidgets('素材视频以播放缩略图呈现，而非当作图片解码', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    engine.uploadClip(
+      projectId: projectId,
+      name: '片段.mp4',
+      bytes: const [0, 1, 2, 3],
+      ext: 'mp4',
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _selectTab(tester, '素材');
+
+    final play = find.byIcon(Icons.play_circle_outline);
+    expect(play, findsOneWidget);
+  });
+
+  testWidgets('音频预览显示当前音频名称', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    engine.addAudioAssets(
+      projectId: projectId,
+      name: '清冷女声',
+      sex: '女',
+      describe: '低沉',
+      items: const [
+        (
+          base64: 'AQID',
+          ext: 'mp3',
+          prompt: '试听台词',
+          name: '试听样例',
+          describe: '平静',
+          existingImageId: null,
+        ),
+      ],
+    );
+    final child =
+        engine.getAssets(projectId, type: 'audio').data.single.sonAssets.single;
+    final childId = child.id;
+    File(engine.mediaAbsPath(child.filePath!)).deleteSync();
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _selectTab(tester, '音频');
+    await tester.tap(find.byIcon(Icons.chevron_right).first);
+    await tester.pumpAndSettle();
+    expect(find.text('试听样例'), findsOneWidget);
+    final audioPreview = find.byKey(ValueKey('asset-media-trigger-$childId'));
+    expect(audioPreview, findsOneWidget);
+    await tester.tap(audioPreview);
+    await tester.pumpAndSettle();
+
+    final preview = find.byKey(const Key('asset-media-preview'));
+    expect(preview, findsOneWidget);
+    expect(
+      find.descendant(of: preview, matching: find.text('试听样例')),
+      findsOneWidget,
+      reason: 'ToonFlow 音频预览需明确当前正在试听的音频名称',
+    );
+  });
 }
 
 Future<void> _selectTab(WidgetTester tester, String label) async {

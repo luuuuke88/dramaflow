@@ -21,6 +21,8 @@ dependencies:
   wakelock_plus: ^1.6.1
   path: ^1.9.1
   file_selector: ^1.1.0
+  # ToonFlow 图片参考区支持从 Finder 直接拖入；仅桌面端启用，移动端仍走 file_selector。
+  desktop_drop: ^0.7.1
   archive: ^4.0.9
   crypto: ^3.0.7
   image: ^4.8.0

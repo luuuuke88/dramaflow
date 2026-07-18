@@ -12,6 +12,7 @@ import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/local_media_preview.dart';
 import '../../widgets/df_data_table.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/df_search_field.dart';
@@ -150,11 +151,12 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
         ),
       );
     }
-    if (row.type == 'audio') {
-      return Icon(Icons.music_note_outlined, size: 28, color: df.textSecondary);
-    }
     final rel = row.filePath;
     if (rel == null || rel.isEmpty) {
+      if (row.type == 'audio') {
+        return Icon(Icons.music_note_outlined,
+            size: 28, color: df.textSecondary);
+      }
       return Container(
         width: 56,
         height: 56,
@@ -167,18 +169,44 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
       );
     }
     final abs = ref.read(engineProvider).mediaAbsPath(rel);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: Image.file(File(abs),
+    final kind = localMediaKind(rel);
+    if (kind == LocalMediaKind.video || kind == LocalMediaKind.audio) {
+      final icon = kind == LocalMediaKind.video
+          ? Icons.play_circle_outline
+          : Icons.music_note_outlined;
+      return InkWell(
+        key: ValueKey('asset-media-trigger-${row.id}'),
+        onTap: () => showLocalMediaPreview(context,
+            absPath: abs, kind: kind, title: row.name),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
           width: 56,
           height: 56,
-          fit: BoxFit.cover,
-          errorBuilder: (c, e, s) => Container(
-              width: 56,
-              height: 56,
-              color: df.surfaceMuted,
-              child: Icon(Icons.broken_image_outlined,
-                  size: 20, color: df.textTertiary))),
+          decoration: BoxDecoration(
+            color: df.surfaceMuted,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 28, color: df.textSecondary),
+        ),
+      );
+    }
+    return InkWell(
+      onTap: () => showLocalMediaPreview(context,
+          absPath: abs, kind: LocalMediaKind.image),
+      borderRadius: BorderRadius.circular(6),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.file(File(abs),
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+            errorBuilder: (c, e, s) => Container(
+                width: 56,
+                height: 56,
+                color: df.surfaceMuted,
+                child: Icon(Icons.broken_image_outlined,
+                    size: 20, color: df.textTertiary))),
+      ),
     );
   }
 

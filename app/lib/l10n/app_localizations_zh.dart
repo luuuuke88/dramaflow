@@ -1330,6 +1330,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assetsGenConfirmSelect => '请先选择一张图片';
 
   @override
+  String get assetsGenConfirmDeleteImage => '确定要删除这张候选图片吗？';
+
+  @override
   String get assetsGenResultTitle => '生成结果';
 
   @override

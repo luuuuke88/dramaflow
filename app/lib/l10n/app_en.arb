@@ -474,6 +474,7 @@
   "assetsGenAssetGenSuccess": "Generation submitted",
   "assetsGenPromptSuccess": "Prompt generated",
   "assetsGenConfirmSelect": "Select an image first",
+  "assetsGenConfirmDeleteImage": "Delete this candidate image?",
   "assetsGenResultTitle": "Results",
   "assetsBatchHeader": "Batch Generation",
   "assetsBatchSelected": "{count} selected",
