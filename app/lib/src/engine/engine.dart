@@ -550,11 +550,20 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       required String type,
       required String data,
     }) {
-      final rows = db.select('SELECT id FROM o_prompt WHERE name=?', [name]);
+      final rows =
+          db.select('SELECT id, data FROM o_prompt WHERE name=?', [name]);
       if (rows.isEmpty) {
         db.execute(
           'INSERT INTO o_prompt (name,type,data,useData) VALUES (?,?,?,?)',
           [name, type, data, null],
+        );
+      } else if (rows.first['data'] != data) {
+        // data 列始终是“当前代码随附的种子文本”，用户定制只写 useData（见
+        // updatePrompt）；不同步 data 会让老库永远收不到提示词修正，
+        // 且“重置为默认”会回退到过时文本。
+        db.execute(
+          'UPDATE o_prompt SET data=? WHERE name=?',
+          [data, name],
         );
       }
     }

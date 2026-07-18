@@ -11,9 +11,12 @@ const CAPTURE = process.env.P0_FAKE_CAPTURE || '/tmp/p0-fake-capture.jsonl';
 let submits = 0;
 
 http.createServer((req, res) => {
-  let body = '';
-  req.on('data', (c) => (body += c));
+  // Buffer 攒块、end 时一次解码：逐块 += 字符串化会把跨块的多字节 UTF-8
+  // 序列各自解成 U+FFFD，静默腐蚀 capture 审计文件里的中文 body。
+  const chunks = [];
+  req.on('data', (c) => chunks.push(c));
   req.on('end', () => {
+    const body = Buffer.concat(chunks).toString('utf8');
     fs.appendFileSync(CAPTURE, JSON.stringify({
       method: req.method, url: req.url,
       auth: req.headers.authorization || null, bodyLen: body.length, body,

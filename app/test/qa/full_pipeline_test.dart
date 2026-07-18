@@ -143,9 +143,10 @@ void main() {
       stdout.writeln('[qa] 提取资产中…');
       engine.extractAssets([scriptId], projectId);
       await _waitUntil(
-          () =>
-              engine.scriptExtractState([scriptId]).length == 1 &&
-              engine.scriptExtractState([scriptId]).first.extractState != 0,
+          () {
+            final st = engine.scriptExtractState([scriptId]);
+            return st.length == 1 && st.first.extractState != 0;
+          },
           timeout: const Duration(minutes: 8),
           label: '资产提取');
       final extractState = engine.scriptExtractState([scriptId]).first;
@@ -169,9 +170,10 @@ void main() {
           projectId, [(assetsId: roleAsset.id, refImageBase64: null)],
           resolution: '1K');
       await _waitUntil(
-          () =>
-              engine.assetImages(roleAsset.id).isNotEmpty &&
-              engine.assetImages(roleAsset.id).last.state != stateGenerating,
+          () {
+            final imgs = engine.assetImages(roleAsset.id);
+            return imgs.isNotEmpty && imgs.last.state != stateGenerating;
+          },
           timeout: const Duration(minutes: 15),
           label: '资产生图');
       final img = engine.assetImages(roleAsset.id).last;
@@ -266,6 +268,12 @@ Future<void> _waitTask(Engine engine, int projectId, int taskId,
       fail('$label 失败: ${job.reason}');
     }
     await Future<void>.delayed(const Duration(seconds: 3));
+  }
+  // allowFail 语义必须同样覆盖超时：批量真实生成（如 23 张首帧图）超过
+  // 硬性等待上限时，标记了可失败的阶段不应拖垮整条通宵链路。
+  if (allowFail) {
+    stdout.writeln('[qa] ⚠️  $label 超时但继续（allowFail，state=$state）');
+    return;
   }
   fail('$label 超时（state=$state）');
 }

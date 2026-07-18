@@ -100,6 +100,14 @@ void main() {
       },
     ]);
 
+    // Pin a phone-portrait viewport so AppShell deterministically selects the
+    // mobile shell (breakpoint 840dp): the desktop shell has no BackButton and
+    // its nav labels exist only as Tooltip messages, so this test's finders
+    // would match nothing on an iPad / landscape / wide desktop window.
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(app());
     await tester.pumpAndSettle(const Duration(seconds: 2));
 
@@ -133,14 +141,22 @@ void main() {
     expect(find.byType(ErrorWidget), findsNothing);
 
     // 4. Visit every project tab and confirm it renders cleanly.
+    //
+    // Scope the finder to the AppBar's tab strip: the novel screen mounts an
+    // inner TabBar whose first tab carries the SAME l10n string as the outer
+    // nav chip ('小说原文'), and Scaffold's element tree visits body before
+    // appBar — an unscoped find.text().first would tap the inner (already
+    // selected) tab as a silent no-op instead of exercising navigation.
     const tabs = ['小说原文', '剧本管理', '塑角造景', '视频生产', '资产中心', '剧本Agent'];
     for (final tab in tabs) {
-      final finder = find.text(tab).first;
-      await tester.scrollUntilVisible(
-        finder,
-        320,
-        scrollable: find.byType(Scrollable).first,
-      );
+      final finder = find
+          .descendant(of: find.byType(AppBar), matching: find.text(tab))
+          .first;
+      final tabStrip = find
+          .descendant(
+              of: find.byType(AppBar), matching: find.byType(Scrollable))
+          .first;
+      await tester.scrollUntilVisible(finder, 320, scrollable: tabStrip);
       await tester.pump();
       expect(tester.getCenter(finder).dx, greaterThan(0),
           reason: 'tab "$tab" must be fully on-screen, not clipped at the edge, before tapping');

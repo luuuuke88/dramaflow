@@ -426,15 +426,11 @@ extension StoryboardApi on Engine {
       var shouldGenerateImage = true;
       if (imageColumn >= 0) {
         final raw = cells[imageColumn].trim().toLowerCase();
+        // 仅否定取值（及留空）判否；其余一律判需要生成——包括无法识别的
+        // 自然语言变体。已知限制：精确 token 匹配，含否定词的整句、全角
+        // 拉丁或零宽字符污染的取值会落入默认 true（测试有对应锁定用例）。
         const falseValues = {'否', 'false', '0', 'no', 'n', '不需要', '✗', '×'};
-        const trueValues = {'是', 'true', '1', 'yes', 'y', '需要', '✓', '√'};
-        if (raw.isEmpty || falseValues.contains(raw)) {
-          shouldGenerateImage = false;
-        } else if (trueValues.contains(raw)) {
-          shouldGenerateImage = true;
-        } else {
-          shouldGenerateImage = true;
-        }
+        shouldGenerateImage = raw.isNotEmpty && !falseValues.contains(raw);
       }
       final assetNames = assetsColumn < 0
           ? const <String>[]

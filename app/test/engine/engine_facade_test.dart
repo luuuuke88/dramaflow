@@ -831,6 +831,33 @@ description: 分镜表构建 Agent
     expect(health['version'], Engine.version);
     expect((health['providers'] as Map), contains('text'));
   });
+
+  test('再次 boot 时种子提示词 data 跟随新版默认文本，useData 用户定制保留', () async {
+    final dataDir = p.join(dir.path, 'prompt-reseed');
+    final first = await bootForTest(dataDir);
+
+    // 模拟旧版本安装：把种子行的 data 改回旧文本，并保留一份用户定制 useData。
+    first.db.execute(
+      "UPDATE o_prompt SET data='旧版分镜表提示词（缺少生成首帧取值约束）', useData='用户自定义分镜表提示词' "
+      "WHERE name='storyboard_table'",
+    );
+    first.dispose();
+    first.db.close();
+
+    final second = await bootForTest(dataDir);
+    addTearDown(() {
+      second.dispose();
+      second.db.close();
+    });
+
+    final row = second.db.select(
+        'SELECT data, useData FROM o_prompt WHERE name=?',
+        ['storyboard_table']).single;
+    expect(row['data'], contains('生成首帧列的取值必须是「是」或「否」'),
+        reason: '升级后 data 应被刷新为当前代码里的种子文本，否则老库永远拿不到收紧后的提示词');
+    expect(row['useData'], '用户自定义分镜表提示词',
+        reason: '用户在 useData 里的定制不允许被种子刷新覆盖');
+  });
 }
 
 class _UnavailableCredentialStore implements CredentialStore {

@@ -8,12 +8,16 @@ const checklist = fs.readFileSync(path.join(DOCS, 'master-checklist.md'), 'utf8'
 const na = fs.readFileSync(path.join(DOCS, 'inventory-na.md'), 'utf8');
 const covered = new Set();
 for (const line of checklist.split('\n')) {
-  const cells = line.split('|').map((c) => c.trim());
+  // 按未转义竖线切分：既有约定用全角｜写字面竖线，但标准 markdown 的 \| 转义
+  // 也必须安全——naive split 会让含 \| 的行多出一格、覆盖库存列静默错位。
+  const cells = line.split(/(?<!\\)\|/).map((c) => c.trim());
   if (cells.length < 12 || cells[1] === 'ID' || cells[1].startsWith('---')) continue;
   for (const id of cells[10].split(',').map((s) => s.trim()).filter(Boolean)) covered.add(id);
 }
 for (const line of na.split('\n')) {
-  const cells = line.split('|').map((c) => c.trim());
+  // 按未转义竖线切分：既有约定用全角｜写字面竖线，但标准 markdown 的 \| 转义
+  // 也必须安全——naive split 会让含 \| 的行多出一格、覆盖库存列静默错位。
+  const cells = line.split(/(?<!\\)\|/).map((c) => c.trim());
   if (cells.length >= 3 && cells[1] && !['库存 ID', ''].includes(cells[1]) && !cells[1].startsWith('---')) {
     if (!cells[2]) { console.error(`NA missing reason: ${cells[1]}`); process.exitCode = 1; }
     covered.add(cells[1]);

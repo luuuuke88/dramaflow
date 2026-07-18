@@ -284,6 +284,27 @@ notes
 | 提示A | 描述A | 3 | 待定 |
 ''');
     expect(unrecognized.single.shouldGenerateImage, isTrue);
+
+    // 空单元格是“否”：与无法识别取值的默认 true 是刻意的不对称，锁住这条边界。
+    final emptyCell = engine.parseStoryboardTable('''
+| 画面提示词 | 画面描述 | 时长 | 生成首帧 |
+| --- | --- | --- | --- |
+| 提示A | 描述A | 3 |  |
+''');
+    expect(emptyCell.single.shouldGenerateImage, isFalse,
+        reason: '生成首帧列留空表示不生成，不应落入无法识别的默认 true 分支');
+
+    // 记录当前行为：全角拉丁与零宽字符污染的取值不会被识别为否，
+    // 会走默认 true 分支（trim 不剥 U+200B、全角Ｎ小写后仍是全角ｎ）。
+    // 若未来改为归一化/子串匹配，这两条断言应当有意识地翻转。
+    final corrupted = engine.parseStoryboardTable('''
+| 画面提示词 | 画面描述 | 时长 | 生成首帧 |
+| --- | --- | --- | --- |
+| 提示A | 描述A | 3 | Ｎ |
+| 提示B | 描述B | 3 | 否​ |
+''');
+    expect(corrupted.map((s) => s.shouldGenerateImage), [true, true],
+        reason: '现状：全角/零宽污染的否定取值落入默认 true 分支（已知限制，见 storyboard.dart 注释）');
   });
 
   test('无规划/分镜表不入队，已有分镜且不替换也不入队', () {

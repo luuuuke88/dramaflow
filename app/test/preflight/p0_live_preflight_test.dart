@@ -12,12 +12,16 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart' as sq;
 
 const _model = 'doubao-seedance-2-0-mini-260615';
+const _refImagePath = '/Users/luke/Documents/aivideo/azt-gpt-image2-test.png';
 
 void main() {
   test('p0 live preflight', () async {
     final phase = Platform.environment['P0_PHASE'];
     if (Platform.environment['P0_LIVE'] != '1' || phase == null) {
       return; // 默认套件零副作用
+    }
+    if (phase != 'submit' && phase != 'resume') {
+      fail('P0_PHASE 只接受 submit/resume，收到 "$phase"——拒绝假绿通过');
     }
     final home = Platform.environment['HOME']!;
     final dataDir =
@@ -44,6 +48,10 @@ void main() {
       isMobile: false,
       credentialStore: credentials,
     );
+    // 任何 fail()/超时/异常路径都要释放引擎（队列定时器、sqlite 句柄），
+    // 否则挂着一次真实上游提交泄漏出去。submit 相位的 exit(9) 硬杀是唯一
+    // 有意绕过此清理的出口（模拟强制退出正是该相位的目的）。
+    addTearDown(engine.dispose);
     final db = engine.db;
 
     if (phase == 'submit') {
@@ -91,23 +99,34 @@ void main() {
           projectId: projectId,
           scriptId: scriptId,
           prompt: '一枚硬币在木桌上缓慢旋转，特写，柔和光线');
+      final refImage = File(_refImagePath);
+      if (!refImage.existsSync()) {
+        fail('参考图 fixture 不存在：$_refImagePath（本 harness 目前绑定单机路径，'
+            '换机器需先放置同名图片或改路径）');
+      }
       final frame = File(engine.mediaAbsPath('p0/frame.png'))
         ..parent.createSync(recursive: true);
-      File('/Users/luke/Documents/aivideo/azt-gpt-image2-test.png')
-          .copySync(frame.path);
+      refImage.copySync(frame.path);
       db.execute(
           "UPDATE o_storyboard SET filePath='p0/frame.png' WHERE id=?", [sbId]);
 
       final taskId = engine.batchGenerateVideos(projectId, [sbId]);
       stdout.writeln('P0_MARK submitted taskId=$taskId '
           'resolution=$resolution duration=${durations.first}');
+      // live-data 目录跨相位/跨次运行刻意持久：轮询必须限定在本次刚建的
+      // 分镜上，否则历史尝试遗留的 accepted 行会被 rows.first 先命中，
+      // 拿旧 upstreamTaskId 假装本次提交已持久化。
       final deadline = DateTime.now().add(const Duration(minutes: 3));
       while (DateTime.now().isBefore(deadline)) {
-        final rows = db.select("SELECT id, upstreamTaskId FROM o_video "
-            "WHERE submissionState='accepted' AND upstreamTaskId IS NOT NULL");
+        final rows = db.select(
+            "SELECT id, upstreamTaskId FROM o_video "
+            "WHERE storyboardId=? AND submissionState='accepted' "
+            "AND upstreamTaskId IS NOT NULL "
+            "ORDER BY id DESC",
+            [sbId]);
         if (rows.isNotEmpty) {
-          stdout.writeln(
-              'P0_MARK upstream_persisted upstreamTaskId=${rows.first['upstreamTaskId']}');
+          stdout.writeln('P0_MARK upstream_persisted '
+              'storyboardId=$sbId upstreamTaskId=${rows.first['upstreamTaskId']}');
           exit(9); // 硬杀：不给引擎任何收尾机会（模拟强制退出）
         }
         await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -117,16 +136,16 @@ void main() {
 
     if (phase == 'resume') {
       // Engine.boot 已执行 recoverOnColdStart + queue.start：只等终态。
+      // 同样只认最新的 accepted 行（id 最大者），避免历史行干扰判定。
       final deadline = DateTime.now().add(const Duration(minutes: 20));
       while (DateTime.now().isBefore(deadline)) {
         final rows = db.select('SELECT upstreamState, filePath FROM o_video '
-            'WHERE upstreamTaskId IS NOT NULL');
+            'WHERE upstreamTaskId IS NOT NULL ORDER BY id DESC LIMIT 1');
         if (rows.isNotEmpty) {
           final state = rows.first['upstreamState'] as String?;
           final filePath = rows.first['filePath'] as String?;
           if (state == 'succeeded' && filePath != null && filePath.isNotEmpty) {
             stdout.writeln('P0_MARK done filePath=$filePath');
-            engine.dispose();
             return;
           }
           if (state == 'failed' || state == 'canceled') {

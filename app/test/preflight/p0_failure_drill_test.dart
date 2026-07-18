@@ -51,10 +51,15 @@ Future<({Engine engine, int projectId, int sbId})> _bootDrill(
       engine.addScript(projectId: projectId, name: 'P0', content: '预检');
   final sbId = engine.addStoryboard(
       projectId: projectId, scriptId: scriptId, prompt: '硬币在桌面缓慢旋转');
+  const refImagePath = '/Users/luke/Documents/aivideo/azt-gpt-image2-test.png';
+  final refImage = File(refImagePath);
+  if (!refImage.existsSync()) {
+    fail('参考图 fixture 不存在：$refImagePath（本 harness 目前绑定单机路径，'
+        '换机器需先放置同名图片或改路径）');
+  }
   final frame = File(engine.mediaAbsPath('p0/frame.png'))
     ..parent.createSync(recursive: true);
-  File('/Users/luke/Documents/aivideo/azt-gpt-image2-test.png')
-      .copySync(frame.path);
+  refImage.copySync(frame.path);
   db.execute(
       "UPDATE o_storyboard SET filePath='p0/frame.png' WHERE id=?", [sbId]);
   return (engine: engine, projectId: projectId, sbId: sbId);
@@ -120,18 +125,40 @@ void main() {
     expect(await _waitTask(ctx.engine, taskId), 'failed',
         reason: '轮询终态 failed 必须以 failed 落库');
     final row = db
-        .select('SELECT submissionState, upstreamTaskId FROM o_video '
+        .select('SELECT id, submissionState, upstreamTaskId FROM o_video '
             'ORDER BY id DESC')
         .first;
     expect(row['submissionState'], 'accepted',
         reason: '假上游已返回任务 ID，提交态必须是 accepted');
-    expect((row['upstreamTaskId'] as String?) ?? '', isNotEmpty);
+    final firstUpstreamTaskId = (row['upstreamTaskId'] as String?) ?? '';
+    expect(firstUpstreamTaskId, isNotEmpty);
+    final firstVideoRowId = row['id'] as int;
+    final candidatesBefore =
+        db.select('SELECT count(*) c FROM o_video').first['c'] as int;
 
-    // 核心断言：accepted+终态失败允许 retryJob，产生第二次（假）提交。
+    // 核心断言：accepted+终态失败允许 retryJob，且必须产生第二次（假）提交
+    // ——新候选行、原行原样保留为历史。只断言任务终态会漏掉“复用原行假装
+    // 重试”的回归，这正是本演练要证明的性质。
     final retryTaskId = await ctx.engine.retryJob(taskId);
     expect(await _waitTask(ctx.engine, retryTaskId), 'failed',
         reason: '假上游仍确定性失败，但重试链路必须走通');
-    final candidates = db.select('SELECT count(*) c FROM o_video').first['c'];
-    stdout.writeln('P0_DRILL_ACCEPTED_FAIL_OK candidates=$candidates');
+    final candidatesAfter =
+        db.select('SELECT count(*) c FROM o_video').first['c'] as int;
+    expect(candidatesAfter, candidatesBefore + 1,
+        reason: '重试必须新增一条候选行，而不是原地复用旧行');
+    final retryRow = db
+        .select('SELECT id, upstreamTaskId FROM o_video ORDER BY id DESC')
+        .first;
+    expect(retryRow['id'], isNot(firstVideoRowId),
+        reason: '最新候选必须是新行');
+    final original = db.select(
+        'SELECT submissionState, upstreamTaskId FROM o_video WHERE id=?',
+        [firstVideoRowId]).first;
+    expect(original['submissionState'], 'accepted',
+        reason: '原候选行必须原样保留为不可变历史');
+    expect(original['upstreamTaskId'], firstUpstreamTaskId,
+        reason: '原候选的上游任务 ID 不得被重试改写');
+    stdout.writeln('P0_DRILL_ACCEPTED_FAIL_OK '
+        'candidates=$candidatesAfter newRow=${retryRow['id']}');
   }, timeout: const Timeout(Duration(minutes: 3)));
 }
