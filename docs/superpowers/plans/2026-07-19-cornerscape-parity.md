@@ -34,7 +34,7 @@
 test('cornerScapeAssets 按角色/场景/道具筛选并附带历史图与当前状态', () {
   final role = engine.addAsset(projectId: projectId, type: 'role', name: '甲', describe: '');
   final scene = engine.addAsset(projectId: projectId, type: 'scene', name: '山门', describe: '');
-  engine.saveAssetImage(assetsId: role, projectId: projectId, type: 'role', base64Image: png);
+  engine.saveAssetImage(assetsId: role, projectId: projectId, type: 'role', base64Image: base64Encode([1, 2, 3]));
   final result = engine.cornerScapeAssets(projectId, types: {'role'});
   expect(result.single.asset.id, role);
   expect(result.single.images, hasLength(1));
