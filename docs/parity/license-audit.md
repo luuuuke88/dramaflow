@@ -15,7 +15,7 @@
 `Toonflow-app/LICENSE` 共 258 行，由两部分组成：
 
 - 第 1–202 行：标准 Apache License 2.0 正文（Definitions、9 条 Terms and Conditions、Appendix 样板通知）。
-- 第 204–258 行：非标准的**补充协议**（Supplementary Agreement）及其附属条款，中英双语，以 `---` 分隔为四个小节：补充协议本身（206–220）、永久免费场景（224–233）、授权定价（237–249）、AGPL 用户保护条款（253–258）。
+- 第 204–259 行：非标准的**补充协议**（Supplementary Agreement）及其附属条款，中英双语，以 `---` 分隔为四个小节：补充协议本身（206–220）、永久免费场景（224–233）、授权定价（237–249）、AGPL 用户保护条款（253–259）。
 
 `Toonflow-app/NOTICES.txt` 是与 LICENSE 同目录的独立文件，332 行，列出 ToonFlow 后端 56 个第三方 npm 依赖包各自的名称、许可证类型与仓库地址（详见第 4 节）。
 
@@ -79,11 +79,11 @@
 | 🏢 规模期 Scale（第 248 行） | ¥150–500 万 / $150k–$500k | ¥80,000 / 年 |
 | 🌐 企业级 Enterprise（第 249 行） | > ¥500 万 / $500k | 面议 Negotiable |
 
-### 1.6 AGPL 用户保护条款（第 253–258 行）——逐条摘录
+### 1.6 AGPL 用户保护条款（第 253–259 行）——逐条摘录
 
-> 第 255 行（中）："本协议变更生效日期（v1.0.8 正式发布日）前，基于 AGPL-3.0 条款使用 Toonflow 的用户，其现有使用行为不受本协议变更的约束，继续按 AGPL-3.0 条款执行。"
+> 第 257 行（中）："本协议变更生效日期（v1.0.8 正式发布日）前，基于 AGPL-3.0 条款使用 Toonflow 的用户，其现有使用行为不受本协议变更的约束，继续按 AGPL-3.0 条款执行。"
 >
-> 第 257 行（英）："Users who used Toonflow under AGPL-3.0 prior to the effective date of this change (v1.0.8 official release date) are not affected by this license change. Their existing usage continues under AGPL-3.0."
+> 第 259 行（英）："Users who used Toonflow under AGPL-3.0 prior to the effective date of this change (v1.0.8 official release date) are not affected by this license change. Their existing usage continues under AGPL-3.0."
 
 本条款仅描述其存在与文本内容；该不追溯条款是否适用于 DramaFlow（例如 DramaFlow 的 ToonFlow 参照基线版本、其与 ToonFlow 各版本时间线的关系）本审计未做判断，留待第 6 节决策时一并考虑。
 
@@ -255,7 +255,7 @@ voice_880hz_1500ms.m4a  19626 字节
 | 条款 | 义务内容 |
 |---|---|
 | 第 210/212 行 | 以产品形式向 2 个及以上独立第三方主体分发/销售/提供本软件或衍生品（任何商业模式），须事先取得 HBAI-Ltd 书面商业授权 |
-| 第 214/216 行 | ≤5 个法人联合运营、仅供内部使用、不对外提供服务，视为内部使用，此义务不触发 |
+| 第 214/216 行 | 条款原文：≤5 个法人联合运营、仅供内部使用、不对外提供服务，视为内部使用，**（满足此条件时）**无需商业授权——是否满足由第 6 节各选项决策时核对 |
 | 第 218/220 行 | 不得删除或修改"Toonflow 控制台或应用程序中的标识或版权信息"（详见第 5 节） |
 | 第 226–233 行 | 4 类场景永久免费、无需授权（内容创作+平台分账、内部二次开发、≤5 法人联合、个人学习研究非商业） |
 | 第 243–249 行 | 若触发授权义务，费用按被授权方年销售额分五档（见 1.5 表格） |
@@ -266,7 +266,7 @@ voice_880hz_1500ms.m4a  19626 字节
 
 按许可证分组的完整包名列表（原文引用，不改写）：
 
-- **MIT**（36）：`@ai-sdk/devtools`(MIT*)、`@rmp135/sql-ts`、`@types/cors`、`@types/express-ws`、`@types/express`、`@types/graphlib`、`@types/jsonwebtoken`、`@types/license-checker`、`@types/lodash`、`@types/morgan`、`axios`、`better-sqlite3`、`compressing`、`cors`、`cross-env`、`electron-builder`、`electron-rebuild`、`electron`、`express`、`fast-glob`、`form-data`、`graphlib`、`is-path-inside`、`js-md5`、`jsonwebtoken`、`knex`、`lodash`、`morgan`、`nodemon`、`p-limit`、`serialize-error`、`socket.io`、`sucrase`、`tsx`、`uuid`、`vm2`、`zod`
+- **MIT**（36）：`@rmp135/sql-ts`、`@types/cors`、`@types/express-ws`、`@types/express`、`@types/graphlib`、`@types/jsonwebtoken`、`@types/license-checker`、`@types/lodash`、`@types/morgan`、`axios`、`better-sqlite3`、`compressing`、`cors`、`cross-env`、`electron-builder`、`electron-rebuild`、`electron`、`express`、`fast-glob`、`form-data`、`graphlib`、`is-path-inside`、`js-md5`、`jsonwebtoken`、`knex`、`lodash`、`morgan`、`nodemon`、`p-limit`、`serialize-error`、`socket.io`、`sucrase`、`tsx`、`uuid`、`vm2`、`zod`
 - **Apache-2.0**（14）：`@ai-sdk/anthropic`、`@ai-sdk/deepseek`、`@ai-sdk/google`、`@ai-sdk/openai-compatible`、`@ai-sdk/openai`、`@ai-sdk/xai`、`@huggingface/transformers`、`ai`、`axios-retry`、`qwen-ai-provider-v5`、`sharp`、`typescript`、`vercel-minimax-ai-provider`、`zhipu-ai-provider`
 - **BSD-3-Clause**（2）：`license-checker`、`sqlite3`
 - **BSD-2-Clause**（2）：`dotenv`、`express-ws`
