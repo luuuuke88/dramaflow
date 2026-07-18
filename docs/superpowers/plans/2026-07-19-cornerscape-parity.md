@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 `CornerScapeScreen` 恢复为 ToonFlow 的角色、场景、道具批量参考图工作台，并保留角色配音操作。
+**Goal:** 将 `CornerScapeScreen` 恢复为 ToonFlow 的角色、场景、道具批量参考图工作台，并保留通用资产音频关联操作。
 
-**Architecture:** 页面只派生 `Engine` 的资产、图片历史、队列和角色音频绑定数据。批量图片继续调用 `generateAssetImages`，单图选择继续调用 `saveAssetImage`，取消继续调用 `cancelJob`；UI 不直接访问数据库或供应商。桌面以设置栏和卡片网格组织，窄屏改为纵向设置与全屏详情页。
+**Architecture:** 页面只派生 `Engine` 的资产、图片历史、队列和通用资产音频绑定数据。批量图片继续调用 `generateAssetImages`，单图选择继续调用 `saveAssetImage`，取消继续调用 `cancelJob`；UI 不直接访问数据库或供应商。历史名为 `o_assetsRole2Audio` 的表由通用 API 复用，不做 schema 迁移。桌面以设置栏和卡片网格组织，窄屏改为纵向设置与全屏详情页。
 
 **Tech Stack:** Flutter、Riverpod、SQLite/Drift 兼容引擎、现有任务队列、Flutter widget tests、假 ProviderGateway。
 
@@ -28,7 +28,7 @@
 - Consumes: `AssetRow`, `AssetImageRow`, `Engine.projectJobs`, `Engine.cancelJob`。
 - Produces: `CornerScapeAsset` 只读记录和 `Engine.cornerScapeAssets(int projectId, {Set<String> types})`；`Engine.cornerScapeImageTaskId(int assetsId)` 返回生成中图片对应的 `asset_image_generation` 任务 id 或 `null`。
 
-- [ ] **Step 1: 写失败的引擎测试**
+- [x] **Step 1: 写失败的引擎测试**
 
 ```dart
 test('cornerScapeAssets 按角色/场景/道具筛选并附带历史图与当前状态', () {
@@ -43,13 +43,13 @@ test('cornerScapeAssets 按角色/场景/道具筛选并附带历史图与当前
 });
 ```
 
-- [ ] **Step 2: 运行失败测试**
+- [x] **Step 2: 运行失败测试**
 
 Run: `cd app && flutter test --concurrency=1 test/engine/assets_test.dart --name cornerScapeAssets`
 
 Expected: fail because `cornerScapeAssets` does not exist.
 
-- [ ] **Step 3: 实现最小只读适配**
+- [x] **Step 3: 实现最小只读适配**
 
 ```dart
 class CornerScapeAsset {
@@ -70,20 +70,85 @@ List<CornerScapeAsset> cornerScapeAssets(int projectId, {Set<String> types = con
 
 Implement task lookup by reading active `asset_image_generation` task payload `items[].assetsId`, never infer it from the image row alone.
 
-- [ ] **Step 4: 验证通过**
+- [x] **Step 4: 验证通过**
 
 Run: `cd app && flutter test --concurrency=1 test/engine/assets_test.dart --name cornerScapeAssets`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/lib/src/engine/assets.dart app/test/engine/assets_test.dart
 git commit -m "feat(cornerscape): expose asset generation state"
 ```
 
-### Task 2: 桌面批量生图工作台
+### Task 2: 通用资产音频关联
+
+**Files:**
+- Modify: `app/lib/src/engine/audio_bind.dart`
+- Modify: `app/test/engine/audio_bind_test.dart`
+
+**Interfaces:**
+- Consumes: `o_assetsRole2Audio`（历史列名 `assetsRoleId` 代表任意父资产）、`Engine.audioPool`、既有 `RoleAudioBinding` API。
+- Produces: `AssetAudioBinding`、`Engine.assetAudioBindings(int projectId, {Set<String> types})`、`Engine.bindAssetAudio(int assetId, int? audioAssetId)`；`roleAudioBindings`、`bindRoleAudio` 保持可用，内部委托通用 API。
+
+- [ ] **Step 1: 写失败的通用关联测试**
+
+```dart
+test('场景和道具可以复用原有关联表绑定音频，角色兼容 API 不回归', () {
+  final scene = engine.addAsset(projectId: projectId, type: 'scene', name: '山门', describe: '雪夜');
+  final tool = engine.addAsset(projectId: projectId, type: 'tool', name: '灵剑', describe: '长剑');
+  final role = engine.addAsset(projectId: projectId, type: 'role', name: '林朝雪', describe: '剑客');
+  final audio = engine.addAsset(projectId: projectId, type: 'audio', name: '低音男声', describe: '');
+  engine.bindAssetAudio(scene, audio);
+  engine.bindAssetAudio(tool, audio);
+  engine.bindRoleAudio(role, audio);
+  expect(engine.assetAudioBindings(projectId).map((row) => row.assetId), containsAll([scene, tool, role]));
+  expect(engine.roleAudioBindings(projectId).single.audioAssetId, audio);
+});
+```
+
+- [ ] **Step 2: 运行失败测试**
+
+Run: `cd app && flutter test --concurrency=1 test/engine/audio_bind_test.dart --name 场景和道具可以复用`
+
+Expected: fail because only role-specific query and binding APIs exist.
+
+- [ ] **Step 3: 实现泛化且兼容的关联 API**
+
+```dart
+class AssetAudioBinding {
+  final int assetId;
+  final String? assetName;
+  final String assetType;
+  final int? audioAssetId;
+  final String? audioName;
+  const AssetAudioBinding({required this.assetId, required this.assetName, required this.assetType, required this.audioAssetId, required this.audioName});
+}
+
+void bindAssetAudio(int assetId, int? audioAssetId) {
+  db.execute('DELETE FROM o_assetsRole2Audio WHERE assetsRoleId=?', [assetId]);
+  if (audioAssetId != null) db.execute('INSERT INTO o_assetsRole2Audio (assetsAudioId,assetsRoleId) VALUES (?,?)', [audioAssetId, assetId]);
+}
+```
+
+`batchBindAudio` 的 payload 改为 `assetIds`，工具结果读取 `assetId`；为已有队列记录和角色测试兼容，读取时也接受旧 `roleIds`/`roleId` 字段。提示词必须显示资产类型，且仅允许项目内角色、场景、道具和项目内音频 id。
+
+- [ ] **Step 4: 验证通过**
+
+Run: `cd app && flutter test --concurrency=1 test/engine/audio_bind_test.dart`
+
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/lib/src/engine/audio_bind.dart app/test/engine/audio_bind_test.dart
+git commit -m "feat(cornerscape): generalize asset audio bindings"
+```
+
+### Task 3: 桌面批量生图工作台
 
 **Files:**
 - Modify: `app/lib/src/screens/cornerscape/corner_scape_screen.dart`
@@ -93,7 +158,7 @@ git commit -m "feat(cornerscape): expose asset generation state"
 - Modify: `app/lib/l10n/app_ja.arb`
 
 **Interfaces:**
-- Consumes: `Engine.cornerScapeAssets`, `Engine.generateAssetImages`, `Engine.polishAssetPrompt`, `confirmPolicyAction`。
+- Consumes: `Engine.cornerScapeAssets`, `Engine.assetAudioBindings`, `Engine.generateAssetImages`, `Engine.polishAssetPrompt`, `confirmPolicyAction`。
 - Produces: card grid type filter and quick selection state; `Key('cornerscape-card-<assetId>')`; `Key('cornerscape-cancel-<assetId>')`.
 
 - [ ] **Step 1: 写失败的桌面入口测试**
@@ -130,7 +195,7 @@ return compact
   : Row(children: [SizedBox(width: 328, child: settingsPanel), Expanded(child: cardGrid)]);
 ```
 
-The settings panel must provide role/scene/tool `FilterChip`s, all original quick selections, model selection, 1K/2K/4K `SegmentedButton`, prompt textarea, count label, prompt-generation button, audio-match button, image-generation button and preview button. Selection is always intersected with currently visible asset ids after filters change. `startBatch` calls `confirmPolicyAction` with `taskClass: 'asset_image_generation'`, then `generateAssetImages(projectId, selected.map((id) => (assetsId: id, refImageBase64: null)).toList(), model: selectedModel, resolution: resolution)`.
+The settings panel must provide role/scene/tool `FilterChip`s, all original quick selections, model selection, 1K/2K/4K `SegmentedButton`, prompt textarea, count label, prompt-generation button, audio-match button, image-generation button and preview button. Selection is always intersected with currently visible asset ids after filters change. `startBatch` calls `confirmPolicyAction` with `taskClass: 'asset_image_generation'`, then `generateAssetImages(projectId, selected.map((id) => (assetsId: id, refImageBase64: null)).toList(), model: selectedModel, resolution: resolution)`. Audio matching passes all selected visible asset ids to the generalized `batchBindAudio` API.
 
 Cards must represent empty, generating, failed and completed image states with fixed-height previews; card taps open detail only when not generating.
 
@@ -147,14 +212,14 @@ git add app/lib/src/screens/cornerscape/corner_scape_screen.dart app/test/widget
 git commit -m "feat(cornerscape): restore batch image workspace"
 ```
 
-### Task 3: 详情、历史图、提示词和取消
+### Task 4: 详情、历史图、提示词和取消
 
 **Files:**
 - Modify: `app/lib/src/screens/cornerscape/corner_scape_screen.dart`
 - Modify: `app/test/widgets/corner_scape_screen_test.dart`
 
 **Interfaces:**
-- Consumes: `Engine.assetImages`, `Engine.saveAssetImage`, `Engine.updateAsset`, `Engine.polishAssetPrompt`, `Engine.cornerScapeImageTaskId`, `Engine.cancelJob`, role audio APIs.
+- Consumes: `Engine.assetImages`, `Engine.saveAssetImage`, `Engine.updateAsset`, `Engine.polishAssetPrompt`, `Engine.cornerScapeImageTaskId`, `Engine.cancelJob`, generic asset audio APIs.
 - Produces: desktop side sheet / mobile full-screen detail form, historical image selection and cancellation confirmation.
 
 - [ ] **Step 1: 写失败的详情测试**
@@ -191,7 +256,7 @@ Use `showDFAdaptiveDialog` for detail instead of a platform-specific drawer. Its
 - horizontal image history with deterministic `cornerscape-history-image-<id>` keys; selecting an image calls `saveAssetImage` with current prompt and type;
 - a prompt `TextField` persisting with `updateAsset` on blur;
 - image model and resolution controls; AI polish calls `polishAssetPrompt`; regenerate passes the one asset to `generateAssetImages` through the shared confirmation gate;
-- role-only audio selector, unbind and existing audition button; scene/tool omit the audio controls;
+- every role/scene/tool asset shows the audio selector, unbind and existing audition button through the generic asset audio API;
 - cancelled task confirmation calls `engine.cancelJob(taskId)` and refreshes through `jobsGenerationProvider`.
 
 - [ ] **Step 4: 验证通过**
@@ -207,7 +272,7 @@ git add app/lib/src/screens/cornerscape/corner_scape_screen.dart app/test/widget
 git commit -m "feat(cornerscape): add asset detail and task cancellation"
 ```
 
-### Task 4: 390dp 可用性与回归收口
+### Task 5: 390dp 可用性与回归收口
 
 **Files:**
 - Modify: `app/test/widgets/corner_scape_screen_test.dart`
@@ -264,7 +329,7 @@ Expected: all tests pass, analyzer reports no issues, debug application builds, 
 
 - [ ] **Step 5: 更新对照文档并提交**
 
-Set `W6-CORNERSCAPE-002` to “已验证等价” only when desktop and 390dp evidence covers filters, shortcuts, preview, cancel, history switch, prompt/regenerate and role audio behavior. Record that real provider image/video generation remains user-owned final acceptance.
+Set `W6-CORNERSCAPE-002` to “已验证等价” only when desktop and 390dp evidence covers filters, shortcuts, preview, cancel, history switch, prompt/regenerate and generic asset audio behavior. Record that real provider image/video generation remains user-owned final acceptance.
 
 ```bash
 git add app/test/widgets/corner_scape_screen_test.dart docs/parity/master-checklist.md docs/parity/feature-parity-execution-report.md
