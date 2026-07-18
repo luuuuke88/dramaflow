@@ -128,7 +128,7 @@ Future<ResolvedModel> _resolvedModel(
           ? inputValues['credentialRef'] as String
           : providerCredentialRef(providerId);
   final baseUrl = inputValues['baseUrl'] as String? ?? '';
-  final isLoopback = _isLoopbackBaseUrl(baseUrl);
+  final isLoopback = isLoopbackBaseUrl(baseUrl);
   var apiKey = '';
   try {
     apiKey = await credentials.read(credentialRef) ?? '';
@@ -150,7 +150,7 @@ Future<ResolvedModel> _resolvedModel(
   );
 }
 
-bool _isLoopbackBaseUrl(String value) {
+bool isLoopbackBaseUrl(String value) {
   final host = Uri.tryParse(value)?.host.toLowerCase();
   return host == '127.0.0.1' || host == 'localhost' || host == '::1';
 }

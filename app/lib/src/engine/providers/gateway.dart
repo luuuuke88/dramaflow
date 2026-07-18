@@ -315,16 +315,28 @@ class HttpProviderGateway
     final credentialRef =
         (inputValues['credentialRef'] ?? providerCredentialRef(providerId))
             .toString();
+    final isLoopback = isLoopbackBaseUrl(baseUrl);
     var apiKey = '';
     try {
       apiKey = await credentials.read(credentialRef) ?? '';
-    } catch (_) {}
+    } catch (_) {
+      if (!isLoopback) rethrow;
+    }
+    if (!isLoopback && apiKey.isEmpty) {
+      throw EngineException(errProviderMissing, {
+        'providerId': providerId,
+        'reason': '未配置 API Key',
+      });
+    }
     try {
       final resp = await dio.get<dynamic>(
         '$baseUrl/models',
-        options: Options(headers: {
-          if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey',
-        }),
+        options: Options(
+          headers: {
+            if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey',
+          },
+          receiveTimeout: const Duration(seconds: 20),
+        ),
       );
       final body = resp.data;
       final list = body is Map ? body['data'] : body;
