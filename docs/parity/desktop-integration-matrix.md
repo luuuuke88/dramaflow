@@ -53,3 +53,15 @@ DramaFlow 在 [`shell.dart`](../../app/lib/src/widgets/shell.dart) 中已经用 
 | 外部链接 | `Toonflow-app/build/main.js:216-226`、`Toonflow-web/src/App.vue:55-115` | `app/lib/src/widgets/shell.dart:151-166` | 现有壳回归：`flutter test test/widgets/shell_test.dart`；链接动作专项测试仍缺 |
 
 这份矩阵对应总清单 `W10-BACKEND-LIFECYCLE-001`、`W10-BRIDGE-EXTERNALLINK-001`、`W10-APPLIFECYCLE-DOCK-001` 与 `W10-WINDOW-CHROME-001`。它不把 Electron 的后端启动、无边框窗口或私有协议误算成 Flutter 的待办，同时不掩盖在原生端仍应补齐的用户保护。
+
+## 本机构建与启动复核（2026-07-19）
+
+本轮在 macOS 上执行 `flutter analyze`，结果为 `No issues found`；随后执行
+`flutter build macos --debug`，成功生成 `build/macos/Build/Products/Debug/dramaflow.app`。
+通过 macOS 可访问性树和窗口截图复核，应用实际启动至项目壳的“供应商”设置分区，
+`azt` 与 `volcengine` 卡片、启用开关和“添加供应商”按钮均可见，未复现黑屏。
+
+构建仍报告 `media_kit_libs_macos_video` 和 `media_kit_video` 尚未支持 Swift Package
+Manager；当前 Flutter 仅给出未来兼容性警告，未阻塞 CocoaPods Debug 构建。该烟雾验证
+只证明当前应用可编译和呈现首个真实界面，不替代本页尚未完成的不可写数据目录错误边界、
+Dock 生命周期、外部链接覆盖或视频供应商人工验收。
