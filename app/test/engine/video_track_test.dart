@@ -1223,6 +1223,407 @@ void main() {
     expect(seenUser, contains('9'), reason: '视频轨时长优先于分镜时长文本');
   });
 
+  test('批量运镜提示词立即入队并保持视频生成状态不变', () {
+    final first = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头一');
+    final second = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '镜头二');
+
+    final taskId = engine.batchGenerateVideoPrompts(projectId, [first, second]);
+
+    final tracks = engine.storyboards(scriptId);
+    final trackIds = [
+      tracks.singleWhere((shot) => shot.id == first).trackId!,
+      tracks.singleWhere((shot) => shot.id == second).trackId!,
+    ];
+    expect(taskId, greaterThan(0));
+    expect(
+      db.select('SELECT taskClass FROM o_tasks WHERE id=?', [taskId]).single[
+          'taskClass'],
+      'video_prompt_generation',
+    );
+    for (final trackId in trackIds) {
+      final row = db.select(
+          'SELECT state,promptState,promptErrorReason FROM o_videoTrack WHERE id=?',
+          [trackId]).single;
+      expect(row['state'], vtNotGenerated);
+      expect(row['promptState'], '生成中');
+      expect(row['promptErrorReason'], isNull);
+    }
+  });
+
+  test('批量运镜提示词逐轨落成功或失败而不覆盖视频状态', () async {
+    final good = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '成功镜头');
+    final bad = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '失败镜头');
+    gateway.textHandler = (_, user) {
+      if (user.contains('失败镜头')) throw const EngineException(errNetwork);
+      return 'dolly in';
+    };
+
+    final taskId = engine.batchGenerateVideoPrompts(projectId, [good, bad]);
+    await waitTask(taskId);
+
+    final goodTrackId = engine
+        .storyboards(scriptId)
+        .singleWhere((shot) => shot.id == good)
+        .trackId!;
+    final badTrackId = engine
+        .storyboards(scriptId)
+        .singleWhere((shot) => shot.id == bad)
+        .trackId!;
+    final goodTrack = engine.track(goodTrackId)!;
+    final badTrack = engine.track(badTrackId)!;
+    expect(goodTrack.prompt, 'dolly in');
+    expect(goodTrack.promptState, videoPromptDone);
+    expect(goodTrack.promptErrorReason, isNull);
+    expect(goodTrack.promptTaskId, isNull);
+    expect(goodTrack.state, vtNotGenerated);
+    expect(badTrack.promptState, videoPromptFailed);
+    expect(
+      EngineException.fromReasonJson(badTrack.promptErrorReason)?.errKey,
+      errNetwork,
+    );
+    expect(badTrack.promptTaskId, isNull);
+    expect(badTrack.state, vtNotGenerated);
+  });
+
+  test('取消批量运镜提示词会关闭仍在生成的提示词状态', () async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '待取消镜头');
+    final taskId = engine.batchGenerateVideoPrompts(projectId, [storyboardId]);
+
+    await engine.cancelJob(taskId);
+
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final track = engine.track(trackId)!;
+    expect(track.promptState, videoPromptFailed);
+    expect(
+      EngineException.fromReasonJson(track.promptErrorReason)?.errKey,
+      errCanceled,
+    );
+    expect(track.promptTaskId, isNull);
+    expect(track.state, vtNotGenerated);
+  });
+
+  test('已取消的运镜提示词不能被迟到回包覆写', () async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '迟到回包镜头');
+    final started = Completer<void>();
+    final response = Completer<String>();
+    gateway.textHandler = (_, __) {
+      started.complete();
+      return response.future;
+    };
+
+    final taskId = engine.batchGenerateVideoPrompts(projectId, [storyboardId]);
+    await started.future;
+    await engine.cancelJob(taskId);
+    response.complete('不应写入的提示词');
+    await waitTask(taskId, expectState: 'failed');
+
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final track = engine.track(trackId)!;
+    expect(track.prompt, isNull);
+    expect(track.promptState, videoPromptFailed);
+    expect(
+      EngineException.fromReasonJson(track.promptErrorReason)?.errKey,
+      errCanceled,
+    );
+  });
+
+  test('用户编辑提示词后批量任务的迟到回包不能覆盖编辑', () async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '手动编辑优先');
+    final started = Completer<void>();
+    final response = Completer<String>();
+    gateway.textHandler = (_, __) {
+      started.complete();
+      return response.future;
+    };
+
+    final taskId = engine.batchGenerateVideoPrompts(projectId, [storyboardId]);
+    await started.future;
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    engine.updateVideoPrompt(trackId, '用户手动编辑');
+    response.complete('不应覆盖用户编辑的旧回包');
+    await waitTask(taskId, expectState: 'failed');
+
+    final track = engine.track(trackId)!;
+    expect(track.prompt, '用户手动编辑');
+    expect(track.promptState, videoPromptDone);
+    expect(track.promptErrorReason, isNull);
+    expect(track.promptTaskId, isNull);
+  });
+
+  test('单镜提示词请求会取代正在运行的批量请求', () async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '单镜请求优先');
+    final started = Completer<void>();
+    final oldResponse = Completer<String>();
+    var calls = 0;
+    gateway.textHandler = (_, __) {
+      calls++;
+      if (calls == 1) {
+        started.complete();
+        return oldResponse.future;
+      }
+      return '单镜的新提示词';
+    };
+
+    final taskId = engine.batchGenerateVideoPrompts(projectId, [storyboardId]);
+    await started.future;
+    expect(await engine.generateVideoPrompt(storyboardId), '单镜的新提示词');
+    oldResponse.complete('旧批量回包');
+    await waitTask(taskId, expectState: 'failed');
+
+    final track = engine.track(engine.storyboards(scriptId).single.trackId!)!;
+    expect(track.prompt, '单镜的新提示词');
+    expect(track.promptState, videoPromptDone);
+    expect(track.promptTaskId, isNull);
+  });
+
+  test('单镜提示词正在生成时拒绝把同一轨道加入批量任务', () async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '单镜先开始');
+    final started = Completer<void>();
+    final response = Completer<String>();
+    gateway.textHandler = (_, __) {
+      started.complete();
+      return response.future;
+    };
+
+    final single = engine.generateVideoPrompt(storyboardId);
+    await started.future;
+    expect(
+      () => engine.batchGenerateVideoPrompts(projectId, [storyboardId]),
+      throwsA(
+        isA<EngineException>().having(
+          (error) => error.errKey,
+          'errKey',
+          errTaskActive,
+        ),
+      ),
+    );
+    response.complete('单镜完成');
+    expect(await single, '单镜完成');
+
+    final track = engine.track(engine.storyboards(scriptId).single.trackId!)!;
+    expect(track.prompt, '单镜完成');
+    expect(track.promptState, videoPromptDone);
+    expect(track.promptTaskId, isNull);
+    expect(
+      db
+          .select(
+              "SELECT id FROM o_tasks WHERE taskClass='video_prompt_generation'")
+          .length,
+      0,
+    );
+  });
+
+  test('同一轨道已有活跃提示词任务时拒绝重复入队', () {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '禁止重复收费');
+    engine.batchGenerateVideoPrompts(projectId, [storyboardId]);
+
+    expect(
+      () => engine.batchGenerateVideoPrompts(projectId, [storyboardId]),
+      throwsA(
+        isA<EngineException>().having(
+          (error) => error.errKey,
+          'errKey',
+          errTaskActive,
+        ),
+      ),
+    );
+    expect(
+      db
+          .select(
+              "SELECT id FROM o_tasks WHERE taskClass='video_prompt_generation'")
+          .length,
+      1,
+    );
+  });
+
+  test('重试失败的批量运镜提示词任务会重新取得轨道归属', () async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '重试运镜提示词');
+    final trackId = engine.ensureTrackForStoryboard(storyboardId);
+    db.execute(
+      "INSERT INTO o_tasks (projectId,state,taskClass,reason,relatedObjects) "
+      "VALUES (?,'failed','video_prompt_generation',?,?)",
+      [
+        projectId,
+        const EngineException(errNetwork).toReasonJson(),
+        jsonEncode({
+          'kind': 'videoTrack',
+          'storyboardIds': [storyboardId],
+          'trackIds': [trackId],
+          'concurrentCount': 1,
+        }),
+      ],
+    );
+    final failedTaskId = db.lastInsertRowId;
+    db.execute(
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=?,promptTaskId=NULL '
+      'WHERE id=?',
+      [
+        videoPromptFailed,
+        const EngineException(errNetwork).toReasonJson(),
+        trackId,
+      ],
+    );
+    gateway.textHandler = (_, __) => '重试后的提示词';
+
+    final retryId = await engine.retryJob(failedTaskId);
+
+    final queued = engine.track(trackId)!;
+    expect(queued.promptState, videoPromptGenerating);
+    expect(queued.promptTaskId, retryId);
+    await waitTask(retryId);
+    final completed = engine.track(trackId)!;
+    expect(completed.prompt, '重试后的提示词');
+    expect(completed.promptState, videoPromptDone);
+    expect(completed.promptTaskId, isNull);
+  });
+
+  test('冷启动恢复会清理单镜遗留的提示词所有权', () {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '单镜重启恢复');
+    final trackId = engine.ensureTrackForStoryboard(storyboardId);
+    db.execute(
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=NULL,promptTaskId=? '
+      'WHERE id=?',
+      [videoPromptGenerating, -1, trackId],
+    );
+
+    engine.recoverOrphanedManualVideoPrompts();
+
+    final track = engine.track(trackId)!;
+    expect(track.promptState, videoPromptFailed);
+    expect(
+      EngineException.fromReasonJson(track.promptErrorReason)?.errKey,
+      errAppRestart,
+    );
+    expect(track.promptTaskId, isNull);
+  });
+
+  test('单镜提示词失败会清理自身所有权', () async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '单镜失败解锁');
+    gateway.textHandler = (_, __) => throw const EngineException(errNetwork);
+
+    await expectLater(
+      engine.generateVideoPrompt(storyboardId),
+      throwsA(isA<EngineException>()),
+    );
+
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final track = engine.track(trackId)!;
+    expect(track.promptState, videoPromptFailed);
+    expect(
+      EngineException.fromReasonJson(track.promptErrorReason)?.errKey,
+      errNetwork,
+    );
+    expect(track.promptTaskId, isNull);
+    expect(engine.batchGenerateVideoPrompts(projectId, [storyboardId]),
+        greaterThan(0));
+  });
+
+  test('批量提示词的任务插入和轨道归属更新在同一事务内', () {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '事务原子性');
+    final trackId = engine.ensureTrackForStoryboard(storyboardId);
+    db.execute('''
+CREATE TRIGGER reject_prompt_task_owner
+BEFORE UPDATE OF promptTaskId ON o_videoTrack
+WHEN NEW.promptTaskId IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'test rollback');
+END;
+''');
+
+    expect(
+      () => engine.batchGenerateVideoPrompts(projectId, [storyboardId]),
+      throwsA(isA<SqliteException>()),
+    );
+
+    expect(
+      db
+          .select(
+              "SELECT id FROM o_tasks WHERE taskClass='video_prompt_generation'")
+          .length,
+      0,
+    );
+    expect(engine.track(trackId)!.promptTaskId, isNull);
+  });
+
+  test('清空轨道会使尚未执行的提示词任务失效且不重建轨道', () async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '清空中的镜头');
+    var calls = 0;
+    gateway.textHandler = (_, __) {
+      calls++;
+      return '不应请求';
+    };
+    final taskId = engine.batchGenerateVideoPrompts(projectId, [storyboardId]);
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+
+    engine.deleteVideoTrack(trackId);
+    await waitTask(taskId, expectState: 'failed');
+
+    expect(calls, 0);
+    expect(engine.storyboards(scriptId).single.trackId, isNull);
+    expect(engine.track(trackId), isNull);
+  });
+
+  test('清空正在等待回包的轨道不会被旧任务复活', () async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '回包途中清空');
+    final started = Completer<void>();
+    final response = Completer<String>();
+    gateway.textHandler = (_, __) {
+      started.complete();
+      return response.future;
+    };
+    final taskId = engine.batchGenerateVideoPrompts(projectId, [storyboardId]);
+    await started.future;
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+
+    engine.deleteVideoTrack(trackId);
+    response.complete('旧任务不能复活轨道');
+    await waitTask(taskId, expectState: 'failed');
+
+    expect(engine.storyboards(scriptId).single.trackId, isNull);
+    expect(engine.track(trackId), isNull);
+    expect(db.select('SELECT id FROM o_videoTrack'), isEmpty);
+  });
+
+  test('冷启动恢复会终结遗留的运镜提示词生成状态', () {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '重启恢复镜头');
+    final taskId = engine.batchGenerateVideoPrompts(projectId, [storyboardId]);
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    db.execute("UPDATE o_tasks SET state='processing' WHERE id=?", [taskId]);
+
+    engine.queue.recoverOnColdStart();
+
+    expect(
+      db.select(
+          'SELECT state FROM o_tasks WHERE id=?', [taskId]).single['state'],
+      'failed',
+    );
+    final track = engine.track(trackId)!;
+    expect(track.promptState, videoPromptFailed);
+    expect(
+      EngineException.fromReasonJson(track.promptErrorReason)?.errKey,
+      errAppRestart,
+    );
+    expect(track.promptTaskId, isNull);
+    expect(track.state, vtNotGenerated);
+  });
+
   test('批量生成：合法首帧成功且首个候选自动选中', () async {
     final withImage = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');
@@ -1478,7 +1879,7 @@ void main() {
 }
 
 class _Gateway implements ProviderGateway {
-  String Function(String system, String user)? textHandler;
+  FutureOr<String> Function(String system, String user)? textHandler;
   String Function(String prompt, String referencePath, String projectId)?
       videoHandler;
   VideoSubmission Function(VideoGenerationRequest request)? submitHandler;
@@ -1497,7 +1898,7 @@ class _Gateway implements ProviderGateway {
   Future<TextResult> generateText(String system, String user,
       {required String stage, CancelToken? cancelToken}) async {
     expect(stage, 'video_prompt_gen');
-    return TextResult(textHandler!(system, user));
+    return TextResult(await textHandler!(system, user));
   }
 
   @override

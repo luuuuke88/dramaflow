@@ -247,6 +247,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errTaskUnsupported => '不支持的任务类型';
 
   @override
+  String get errTaskActive => '所选镜头已有正在生成的任务';
+
+  @override
   String get shellSelectProject => '请选择项目';
 
   @override
@@ -1758,6 +1761,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get workbenchGenerateAllPrompts => '全部生成运镜提示词';
+
+  @override
+  String workbenchPromptBatchStarted(int count) {
+    return '已开始生成 $count 条运镜提示词';
+  }
 
   @override
   String get workbenchClearSelectedTracks => '清空已选轨道';
@@ -3655,6 +3663,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get taskClassStoryboardImageGeneration => '首帧图生成';
+
+  @override
+  String get taskClassVideoPromptGeneration => '视频提示词生成';
 
   @override
   String get taskClassVideoGeneration => '视频生成';

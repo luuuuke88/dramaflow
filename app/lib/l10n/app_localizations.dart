@@ -556,6 +556,12 @@ abstract class AppLocalizations {
   /// **'不支持的任务类型'**
   String get errTaskUnsupported;
 
+  /// No description provided for @errTaskActive.
+  ///
+  /// In zh, this message translates to:
+  /// **'所选镜头已有正在生成的任务'**
+  String get errTaskActive;
+
   /// No description provided for @shellSelectProject.
   ///
   /// In zh, this message translates to:
@@ -3477,6 +3483,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'全部生成运镜提示词'**
   String get workbenchGenerateAllPrompts;
+
+  /// No description provided for @workbenchPromptBatchStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已开始生成 {count} 条运镜提示词'**
+  String workbenchPromptBatchStarted(int count);
 
   /// No description provided for @workbenchClearSelectedTracks.
   ///
@@ -7101,6 +7113,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'首帧图生成'**
   String get taskClassStoryboardImageGeneration;
+
+  /// No description provided for @taskClassVideoPromptGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频提示词生成'**
+  String get taskClassVideoPromptGeneration;
 
   /// No description provided for @taskClassVideoGeneration.
   ///

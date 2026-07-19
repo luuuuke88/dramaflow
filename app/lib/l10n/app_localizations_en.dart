@@ -253,6 +253,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errTaskUnsupported => 'Unsupported task type';
 
   @override
+  String get errTaskActive =>
+      'A selected shot already has an active generation task';
+
+  @override
   String get shellSelectProject => 'Select a project';
 
   @override
@@ -1812,6 +1816,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workbenchGenerateAllPrompts => 'Generate All Motion Prompts';
+
+  @override
+  String workbenchPromptBatchStarted(int count) {
+    return 'Started generating $count motion prompts';
+  }
 
   @override
   String get workbenchClearSelectedTracks => 'Clear Selected Tracks';
@@ -3774,6 +3783,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get taskClassStoryboardImageGeneration => 'First-frame generation';
+
+  @override
+  String get taskClassVideoPromptGeneration => 'Video prompt generation';
 
   @override
   String get taskClassVideoGeneration => 'Video generation';

@@ -15,6 +15,7 @@ const errRegexInvalid = 'errRegexInvalid';
 const errNoChapters = 'errNoChapters';
 const errPlatformComposer = 'errPlatformComposer';
 const errTaskUnsupported = 'errTaskUnsupported';
+const errTaskActive = 'errTaskActive';
 const errManualInvalid = 'errManualInvalid';
 
 class EngineException implements Exception {

@@ -16,6 +16,64 @@ void main() {
     expect(db.select('PRAGMA user_version').first.values.first, schemaVersion);
   });
 
+  test('视频轨为后台运镜提示词保留独立状态和任务归属字段', () {
+    final db = openEngineDb(':memory:');
+    addTearDown(db.close);
+
+    final columns = db
+        .select('PRAGMA table_info(o_videoTrack)')
+        .map((row) => row['name'] as String)
+        .toSet();
+
+    expect(columns,
+        containsAll(['promptState', 'promptErrorReason', 'promptTaskId']));
+  });
+
+  test('v12 升级保留视频轨并补齐提示词生命周期字段', () {
+    final dir = Directory.systemTemp.createTempSync('dramaflow-db-v12-');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    final path = p.join(dir.path, 'dramaflow.sqlite');
+    final old = sqlite3.open(path);
+    old.execute('''
+CREATE TABLE o_videoTrack (
+  duration INTEGER,
+  filterPreset TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  promptProvenance TEXT,
+  projectId INTEGER,
+  prompt TEXT,
+  reason TEXT,
+  scriptId INTEGER,
+  selectVideoId INTEGER,
+  state TEXT,
+  transition TEXT,
+  videoId INTEGER,
+  videoRequest TEXT
+);
+''');
+    old.execute(
+      "INSERT INTO o_videoTrack (id,projectId,prompt,state) VALUES (8,7,'保留提示词','未生成')",
+    );
+    old.execute('PRAGMA user_version = 12');
+    old.close();
+
+    final db = openEngineDb(path);
+    addTearDown(db.close);
+
+    final track = db.select('SELECT * FROM o_videoTrack WHERE id=8').single;
+    expect(track['prompt'], '保留提示词');
+    expect(track['state'], '未生成');
+    expect(track['promptState'], isNull);
+    expect(track['promptErrorReason'], isNull);
+    expect(track['promptTaskId'], isNull);
+    expect(
+      db.select('PRAGMA user_version').single.values.single,
+      schemaVersion,
+    );
+  });
+
   test('nowIso 是 ISO8601 UTC', () {
     expect(nowIso(), matches(RegExp(r'^\d{4}-\d{2}-\d{2}T.*Z$')));
   });
@@ -111,7 +169,8 @@ CREATE TABLE o_video (
     final db = openEngineDb(path);
     addTearDown(db.close);
 
-    expect(db.select('PRAGMA user_version').single.values.single, schemaVersion);
+    expect(
+        db.select('PRAGMA user_version').single.values.single, schemaVersion);
     expect(db.select('SELECT * FROM o_project').single['name'], '保留项目');
     expect(db.select('SELECT * FROM o_project').single['videoModel'],
         'volcengine:seedance');

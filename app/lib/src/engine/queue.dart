@@ -170,6 +170,7 @@ class JobQueue {
     'asset_image_generation': 'image',
     'storyboard_generate': 'text',
     'storyboard_image_generation': 'image',
+    'video_prompt_generation': 'text',
     'video_generation': 'video',
     'audio_bind': 'text',
   };
@@ -243,6 +244,7 @@ class JobQueue {
     String? describe,
     String? model,
     Map<String, Object?> relatedObjects = const {},
+    bool notify = true,
   }) {
     db.execute(
       "INSERT INTO o_tasks (projectId,state,taskClass,describe,model,relatedObjects,startTime) VALUES (?,'pending',?,?,?,?,?)",
@@ -256,7 +258,7 @@ class JobQueue {
       ],
     );
     final id = db.lastInsertRowId;
-    _events.add(null);
+    if (notify) _events.add(null);
     return id;
   }
 

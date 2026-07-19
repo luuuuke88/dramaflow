@@ -19,8 +19,8 @@ void main() {
   });
 
   group('actionPolicyByTaskClass', () {
-    test('包含 11 个 taskClass', () {
-      expect(actionPolicyByTaskClass.length, 11);
+    test('包含 12 个 taskClass', () {
+      expect(actionPolicyByTaskClass.length, 12);
     });
 
     test('所有生成类任务都收费', () {
@@ -34,6 +34,7 @@ void main() {
         'asset_image_generation',
         'storyboard_generate',
         'storyboard_image_generation',
+        'video_prompt_generation',
         'video_generation',
         'audio_bind',
       ];
@@ -212,11 +213,12 @@ void main() {
       'asset_image_generation',
       'storyboard_generate',
       'storyboard_image_generation',
+      'video_prompt_generation',
       'video_generation',
       'audio_bind',
     ];
 
-    test('11 个 taskClass × confirmMoney 开/关 × autoMode 真/假', () {
+    test('12 个 taskClass × confirmMoney 开/关 × autoMode 真/假', () {
       for (final taskClass in taskClasses) {
         for (final confirmMoneyValue in ['0', '1']) {
           for (final autoMode in [true, false]) {

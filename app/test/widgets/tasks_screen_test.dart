@@ -162,6 +162,7 @@ void main() {
       'asset_image_generation': '素材生图',
       'storyboard_generate': '分镜生成',
       'storyboard_image_generation': '首帧图生成',
+      'video_prompt_generation': '视频提示词生成',
       'video_generation': '视频生成',
       'audio_bind': '配音匹配',
     };

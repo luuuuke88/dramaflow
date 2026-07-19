@@ -108,6 +108,7 @@
   "promptRestoreDefaultConfirm": "戻す",
   "promptRestored": "プロンプトをデフォルトに戻しました",
   "errTaskUnsupported": "未対応のタスク種別",
+  "errTaskActive": "選択したショットにはすでに生成中のタスクがあります",
   "shellSelectProject": "プロジェクトを選択",
   "shellComingSoon": "このエリアは {batch} バッチで提供予定",
   "projectTitle": "マイプロジェクト",
@@ -655,6 +656,14 @@
   "videoRequestReferenceAudio": "音声素材",
   "workbenchGenerateAll": "すべて動画生成",
   "workbenchGenerateAllPrompts": "すべてカメラワーク生成",
+  "workbenchPromptBatchStarted": "{count} 件のカメラワークプロンプト生成を開始しました",
+  "@workbenchPromptBatchStarted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchClearSelectedTracks": "選択トラックをクリア",
   "workbenchClearSelectedTracksConfirm": "チェックしたカットの動画トラックと候補動画をクリアします。絵コンテ行は残ります。",
   "workbenchClearTracksAction": "クリア",
@@ -1408,6 +1417,7 @@
   "taskClassAssetImageGeneration": "アセット画像生成",
   "taskClassStoryboardGenerate": "絵コンテ生成",
   "taskClassStoryboardImageGeneration": "初期フレーム生成",
+  "taskClassVideoPromptGeneration": "動画プロンプト生成",
   "taskClassVideoGeneration": "動画生成",
   "taskClassAudioBind": "音声マッチング",
   "taskClassGeneric": "タスク",

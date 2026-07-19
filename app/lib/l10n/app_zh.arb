@@ -108,6 +108,7 @@
   "promptRestoreDefaultConfirm": "恢复",
   "promptRestored": "提示词已恢复默认",
   "errTaskUnsupported": "不支持的任务类型",
+  "errTaskActive": "所选镜头已有正在生成的任务",
   "shellSelectProject": "请选择项目",
   "shellComingSoon": "本区域随 {batch} 批次交付",
   "@shellComingSoon": {
@@ -775,6 +776,14 @@
   "videoRequestReferenceAudio": "音频素材",
   "workbenchGenerateAll": "全部生成视频",
   "workbenchGenerateAllPrompts": "全部生成运镜提示词",
+  "workbenchPromptBatchStarted": "已开始生成 {count} 条运镜提示词",
+  "@workbenchPromptBatchStarted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchClearSelectedTracks": "清空已选轨道",
   "workbenchClearSelectedTracksConfirm": "将清空已勾选镜头的视频轨道与候选视频，分镜本身会保留。",
   "workbenchClearTracksAction": "清空",
@@ -1639,6 +1648,7 @@
   "taskClassAssetImageGeneration": "素材生图",
   "taskClassStoryboardGenerate": "分镜生成",
   "taskClassStoryboardImageGeneration": "首帧图生成",
+  "taskClassVideoPromptGeneration": "视频提示词生成",
   "taskClassVideoGeneration": "视频生成",
   "taskClassAudioBind": "配音匹配",
   "taskClassGeneric": "任务",

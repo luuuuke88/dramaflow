@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 12;
+const schemaVersion = 14;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
@@ -101,6 +101,17 @@ void migrateSchema(Database db, int fromVersion, int toVersion) {
         // v11 -> v12 adds the reusable image/video prompt-template library.
         // initSchema creates the table; migrateLegacyModelPromptTemplates
         // performs the data backfill inside the same outer transaction.
+        break;
+      case 12:
+        // Keep the background prompt lifecycle separate from the video
+        // generation lifecycle already stored in state/reason.
+        _addColumnIfMissing(db, 'o_videoTrack', 'promptState TEXT');
+        _addColumnIfMissing(db, 'o_videoTrack', 'promptErrorReason TEXT');
+        break;
+      case 13:
+        // The owner task guards against stale asynchronous prompt responses
+        // overwriting a user edit, replacement request, or deleted track.
+        _addColumnIfMissing(db, 'o_videoTrack', 'promptTaskId INTEGER');
         break;
       default:
         // Versions before v8 have no published Flutter-only schema delta.
@@ -391,6 +402,9 @@ CREATE TABLE IF NOT EXISTS o_videoTrack (
   duration INTEGER,
   filterPreset TEXT,
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  promptErrorReason TEXT,
+  promptState TEXT,
+  promptTaskId INTEGER,
   promptProvenance TEXT,
   projectId INTEGER,
   prompt TEXT,

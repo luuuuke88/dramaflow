@@ -7,7 +7,7 @@
 
 DramaFlow 已有一套比原版更重的本地时间线编辑能力：素材层可以添加、拖拽、
 裁剪、切分、复制、删除、波纹操作、分组、吸附和避免重叠。它也已经覆盖了按
-分镜批量生成提示词、选择视频候选、保存候选为素材、编辑时长和重排分镜。
+分镜后台批量生成运镜提示词、选择视频候选、保存候选为素材、编辑时长和重排分镜。
 
 其中原版的**快速预览**已经闭合：DramaFlow 从工作台顶栏进入全屏首帧预览，以 50ms
 唤醒加单调时钟实际间隔按分镜时长轮播，支持播放、暂停、逐镜跳转、总进度 seek、
@@ -29,6 +29,7 @@ DramaFlow 只会为某个分镜懒建轨道，无法先建独立轨。候选视�
 | 工作台外壳 | `Toonflow-web/src/views/production/components/workbench/index.vue:16-45` | `app/lib/src/screens/production/workbench_screen.dart:196-348` |
 | 快速预览 | `.../workbench/preview.vue:7-166, 211-445` | `workbench_preview.dart`（首帧预览/控制/信息/选择导出）、`workbench_preview_controller.dart`（纯时间轴）、`storyboard.dart`（本地 ZIP） |
 | 轨道增加与删除 | `.../generate/components/track.vue:161-209`；`Toonflow-app/src/routes/production/workbench/{addTrack,deleteTrack}.ts` | `app/lib/src/engine/video_track.dart:175-199,1222-1243` |
+| 批量运镜提示词 | `Toonflow-app/src/routes/production/workbench/batchGeneratePrompt.ts:92-207`；`checkVideoPrompt.ts:17-24` | `video_track.dart:639-739,1231-1244`、`workbench_screen.dart:134-159,200-205,3761-3774` |
 | 时间线与候选 | `.../editVideo/index.vue`、`.../generate/components/video.vue` | `workbench_screen.dart`、`timeline_clip.dart`、`video_track.dart` |
 
 ## 用户动作逐项对照
@@ -41,7 +42,7 @@ DramaFlow 只会为某个分镜懒建轨道，无法先建独立轨。候选视�
 | 重排分镜 | 拖动只改前端临时列表；原版“恢复排序”初始化有缺陷 | 拖动后持久化 `o_storyboard.index`，合成顺序随之变化 | 覆盖可用行为 |
 | 新建视频轨 | 从模型默认时长创建独立 `o_videoTrack`，不要求关联分镜 | 仅 `ensureTrackForStoryboard`，严格一镜一轨 | 缺失 |
 | 删除视频轨 | 删除轨道并清空关联分镜的 `trackId` | 删除轨道、清候选视频文件并清空关联 | 已验证等价 |
-| 勾选并批量生成 | 勾选轨道，批量生成提示词或视频 | 勾选分镜对应轨道，批量生成提示词或视频 | 已验证等价 |
+| 勾选并批量生成 | 勾选轨道后，提示词任务即时返回、逐轨显示生成中/完成/失败；视频另走批量任务 | 勾选分镜对应轨道后，提示词即时入文本车道任务、逐轨显示状态；视频另走批量任务 | 已验证等价 |
 | 候选管理 | 浏览、选中、播放、删除、单个下载和批量 ZIP 下载 | 浏览、选中、播放、删除、保存为 clip 素材 | 部分实现：缺直接下载与 ZIP |
 | 自由剪辑 | WebAV 时间线、媒体库、实时画布预览、浏览器导出 | 本地叠加层时间线和原生合成；无编辑器内实时预览 | 部分实现，详细见 [W3 NLE 参考](w3-nle-reference.md) |
 
@@ -78,24 +79,39 @@ Flutter 实现没有为了复制这个断链而隐藏已有的 `StoryboardRow.vi
 播放器扩展；本行判为“已验证等价”而非“已验证更优”，因为尚未取得打包版黑盒
 用例来量化这一改进。
 
-## 定向验证
+## 批量运镜提示词的状态边界
+
+原版在 `batchGeneratePrompt` 里先把每条轨道标为“生成中”，立即返回，再由后台并发
+任务逐轨写入“已完成”或“生成失败”；前端用 `checkVideoPrompt` 轮询这些轨道。
+DramaFlow 对应地创建 `video_prompt_generation` 任务，并由队列事件驱动界面刷新，不采用
+HTTP 轮询。每条轨道增加独立的 `promptState` / `promptErrorReason`，因此提示词工作流不会
+改写视频候选的 `state`、失败原因或已选视频。
+
+该任务沿文本车道执行，部分镜头失败不会抹掉已经成功的提示词。每条轨道持有当前
+`promptTaskId`：用户取消、应用冷启动恢复、手动编辑、单镜替代、单镜失败或清空轨道都会使旧任务
+失去写入权；晚到回包只能按自己的任务归属条件写入，不能覆盖新内容或复活被删轨道。
+失败的批量任务重试时会在同一 SQLite 保存点内重新认领新任务 ID。已有活跃任务的轨道会被引擎拒绝再次入队，避免重复收费。这与原版的可观察“后台、逐轨
+状态”行为等价，同时避免旧的同步循环阻塞工作台。
+
+## 验证
 
 本轮重新运行：
 
 ```sh
 cd app
-flutter test \
-  test/widgets/workbench_preview_controller_test.dart \
-  test/engine/storyboard_test.dart \
-  test/widgets/workbench_screen_test.dart \
-  test/widgets/production_screen_test.dart
+flutter test --concurrency=1 --reporter compact
 flutter analyze
+flutter build macos --debug
+cd .. && node tool/parity/check_no_orphans.js
+git diff --check
 ```
 
-结果：**119 项通过**，`flutter analyze` 为零 issue。新增证据覆盖纯时间轴跨镜/边界
-定位、选中且存在的本地首帧 ZIP 内容、绝对路径/`..`/符号链接拒绝、桌面入口及 390dp
-缩略图/选择/导出入口，并覆盖 1024dp 英文工具栏和缺失资产图降级。视频相关用例仅使用
-Dart fake gateway、本地假媒体和假合成器；没有提交、轮询、下载或渲染真实供应商的视频任务。
+全量 890 条离线回归通过，`flutter analyze` 为零 issue，macOS Debug 构建成功，库存检查为
+538/538。证据覆盖纯时间轴跨镜/边界定位、选中且存在的本地首帧 ZIP 内容、绝对路径/`..`/
+符号链接拒绝、桌面入口及 390dp 缩略图/选择/导出入口，并覆盖 1024dp 英文工具栏、缺失
+资产图降级和后台运镜提示词的逐轨成功/失败、取消竞态、手工编辑/单镜替代、重复收费拒绝、
+清轨竞态、冷启动恢复和失败 Tooltip。视频相关用例仅使用 Dart fake gateway、本地假媒体和
+假合成器；没有提交、轮询、下载或渲染真实供应商的视频任务。
 
 ## 后续实施边界
 

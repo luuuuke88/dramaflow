@@ -7,6 +7,7 @@ import 'package:dramaflow/src/engine/compose.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
@@ -19,6 +20,7 @@ import 'package:dramaflow/src/engine/video_track.dart';
 import 'package:dramaflow/src/screens/production/workbench_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:dramaflow/src/widgets/common.dart';
 import 'package:dio/dio.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
@@ -269,7 +271,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('workbench-batch-actions')));
     await tester.pumpAndSettle();
     await tester.tap(find.text(label));
-    await tester.pumpAndSettle();
+    // 批量生成会维持运行态动画，不能在触发后台动作后等待所有动画静止。
+    await tester.pump();
   }
 
   testWidgets('无分镜时显示空态', (tester) async {
@@ -5287,7 +5290,7 @@ void main() {
     ]);
   });
 
-  testWidgets('工作台批量运镜提示词只写入已勾选镜头轨道', (tester) async {
+  testWidgets('工作台批量运镜提示词立即入队并显示每轨生成状态', (tester) async {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头一');
     final s2 = engine.addStoryboard(
@@ -5305,13 +5308,83 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s1')));
     await tester.pumpAndSettle();
-    await tapWorkbenchBatchAction(tester, '全部生成运镜提示词');
+    await tester.tap(find.byKey(const ValueKey('workbench-batch-actions')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('全部生成运镜提示词'));
+    // 生成任务保持运行态时，状态芯片有意播放无限动画；这里只需推进一帧，
+    // 断言后台任务已入队而非等待它结束。
+    await tester.pump();
 
     final shot1 = engine.storyboards(scriptId).singleWhere((s) => s.id == s1);
     final shot2 = engine.storyboards(scriptId).singleWhere((s) => s.id == s2);
     expect(shot1.trackId, isNull);
-    expect(engine.track(shot2.trackId!)!.prompt, '批量运镜提示词 #1');
-    expect(gateway.textCalls, 1);
+    final track = engine.track(shot2.trackId!)!;
+    expect(
+      engine.db
+          .select(
+              "SELECT taskClass FROM o_tasks WHERE taskClass='video_prompt_generation'")
+          .single['taskClass'],
+      'video_prompt_generation',
+    );
+    expect(track.promptState, videoPromptGenerating);
+    expect(
+      find.byKey(ValueKey('workbench-prompt-status-${track.id}')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Checkbox>(
+            find.byKey(ValueKey('workbench-shot-check-$s2')),
+          )
+          .value,
+      isFalse,
+    );
+  });
+
+  testWidgets('工作台响应后台提示词的完成和失败终态', (tester) async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '状态刷新镜头');
+    final trackId = engine.ensureTrackForStoryboard(storyboardId);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    engine.db.execute(
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=NULL WHERE id=?',
+      [videoPromptDone, trackId],
+    );
+    engine.queue.notifyChanged();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<StatusChip>(
+              find.byKey(ValueKey('workbench-prompt-status-$trackId')))
+          .status,
+      'success',
+    );
+
+    engine.db.execute(
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=? WHERE id=?',
+      [
+        videoPromptFailed,
+        const EngineException(errNetwork).toReasonJson(),
+        trackId,
+      ],
+    );
+    engine.queue.notifyChanged();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<StatusChip>(
+              find.byKey(ValueKey('workbench-prompt-status-$trackId')))
+          .status,
+      'failed',
+    );
+    expect(find.byTooltip('网络请求失败'), findsOneWidget);
   });
 
   testWidgets('移动端工作台按模型能力保存单镜视频参数', (tester) async {
@@ -5953,6 +6026,7 @@ void main() {
     await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s2')));
     await tester.pumpAndSettle();
     await tapWorkbenchBatchAction(tester, '清空已选轨道');
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '清空'));
     await tester.pumpAndSettle();
 

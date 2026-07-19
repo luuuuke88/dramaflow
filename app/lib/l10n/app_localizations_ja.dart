@@ -250,6 +250,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errTaskUnsupported => '未対応のタスク種別';
 
   @override
+  String get errTaskActive => '選択したショットにはすでに生成中のタスクがあります';
+
+  @override
   String get shellSelectProject => 'プロジェクトを選択';
 
   @override
@@ -1774,6 +1777,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get workbenchGenerateAllPrompts => 'すべてカメラワーク生成';
+
+  @override
+  String workbenchPromptBatchStarted(int count) {
+    return '$count 件のカメラワークプロンプト生成を開始しました';
+  }
 
   @override
   String get workbenchClearSelectedTracks => '選択トラックをクリア';
@@ -3683,6 +3691,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get taskClassStoryboardImageGeneration => '初期フレーム生成';
+
+  @override
+  String get taskClassVideoPromptGeneration => '動画プロンプト生成';
 
   @override
   String get taskClassVideoGeneration => '動画生成';

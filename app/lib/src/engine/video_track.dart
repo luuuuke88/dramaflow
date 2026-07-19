@@ -23,6 +23,10 @@ const vtNotGenerated = '未生成';
 const vtGenerating = '生成中';
 const vtDone = '已完成';
 const vtFailed = '生成失败';
+const videoPromptGenerating = '生成中';
+const videoPromptDone = '已完成';
+const videoPromptFailed = '生成失败';
+const videoPromptGenerationTaskClass = 'video_prompt_generation';
 
 class VideoReferenceSource {
   final String sourceType;
@@ -140,6 +144,9 @@ class VideoTrackRow {
   final int projectId;
   final int scriptId;
   final String? prompt;
+  final String? promptState;
+  final String? promptErrorReason;
+  final int? promptTaskId;
   final String? reason;
   final String? state;
   final int? duration;
@@ -152,6 +159,9 @@ class VideoTrackRow {
     required this.projectId,
     required this.scriptId,
     required this.prompt,
+    required this.promptState,
+    required this.promptErrorReason,
+    required this.promptTaskId,
     required this.reason,
     required this.state,
     required this.duration,
@@ -162,12 +172,27 @@ class VideoTrackRow {
   });
 }
 
+/// A pending batch no longer owns this track. This is intentionally not an
+/// engine error: a manual edit, replacement batch, or deleted track wins.
+class _PromptGenerationSuperseded implements Exception {
+  const _PromptGenerationSuperseded();
+}
+
 String _ph(List<int> ids) => List.filled(ids.length, '?').join(',');
+
+// Queue task ids are positive SQLite row ids. Negative values identify an
+// in-memory single-shot prompt request so it can use the same conditional
+// write discipline as a background batch.
+var _nextManualVideoPromptOwner = 0;
+int _allocateManualVideoPromptOwner() => --_nextManualVideoPromptOwner;
 
 extension VideoTrackApi on Engine {
   void installVideoTrackPipeline() {
     taskRunners['video_generation'] = _runVideoGeneration;
+    taskRunners[videoPromptGenerationTaskClass] = _runVideoPromptGeneration;
     queue.registerRecover('video_generation', _recoverVideoGeneration);
+    queue.registerRecover(
+        videoPromptGenerationTaskClass, _recoverVideoPromptGeneration);
     queue.registerColdStartResumer(
         'video_generation', _resumeVideoGenerationOnColdStart);
   }
@@ -217,6 +242,9 @@ extension VideoTrackApi on Engine {
       projectId: (row['projectId'] as int?) ?? 0,
       scriptId: (row['scriptId'] as int?) ?? 0,
       prompt: row['prompt'] as String?,
+      promptState: row['promptState'] as String?,
+      promptErrorReason: row['promptErrorReason'] as String?,
+      promptTaskId: row['promptTaskId'] as int?,
       reason: row['reason'] as String?,
       state: row['state'] as String?,
       duration: row['duration'] as int?,
@@ -538,85 +566,375 @@ extension VideoTrackApi on Engine {
   /// 用户消息在画面描述/运镜说明之外，附带本分镜关联资产名称与时长做适度增强
   /// （o_assets2Storyboard→o_assets 取名字），让 LLM 知道镜头里有哪些角色/场景/道具、
   /// 该镜多长，产出更贴合的运镜词；不做过度堆料（只带名称，不带长描述与图片）。
-  Future<String> generateVideoPrompt(int storyboardId) async {
+  Future<String> generateVideoPrompt(
+    int storyboardId, {
+    CancelToken? cancelToken,
+    int? expectedTrackId,
+    int? expectedPromptTaskId,
+  }) async {
     final sb = db.select(
-        'SELECT projectId,prompt,videoDesc,duration '
+        'SELECT projectId,prompt,trackId,videoDesc,duration '
         'FROM o_storyboard WHERE id=?',
         [storyboardId]).firstOrNull;
     if (sb == null) {
       throw EngineException(errPromptMissing, {'type': 'storyboard'});
     }
-    final trackId = ensureTrackForStoryboard(storyboardId);
-    final request = videoRequestForTrack(trackId);
-    final assetNames = db
-        .select(
-          'SELECT a.name name FROM o_assets2Storyboard l '
-          'JOIN o_assets a ON a.id=l.assetId '
-          'WHERE l.storyboardId=? ORDER BY l.rowid',
-          [storyboardId],
-        )
-        .map((r) => (r['name'] as String?) ?? '')
-        .where((n) => n.isNotEmpty)
-        .toList();
-    final trackDuration = (db.select(
-        'SELECT duration FROM o_videoTrack WHERE id=?',
-        [trackId]).firstOrNull?['duration'] as int?);
-    // 时长优先取视频轨（用户手动编辑过的更权威），回退分镜时长文本。
-    final durationText = trackDuration != null
-        ? '$trackDuration'
-        : (sb['duration'] as String?) ?? '';
-    final project = db.select(
-      'SELECT videoModel,videoRatio FROM o_project WHERE id=?',
-      [sb['projectId']],
-    ).first;
-    final videoModelBinding = _videoModelBinding(project);
-    final explicitModelPromptPath = boundModelPromptTemplatePathForBinding(
-      videoModelBinding,
-      kind: 'video',
-    );
-    final resolution = resolvePrompt(
-      projectId: (sb['projectId'] as int?) ?? 0,
-      basePromptKey: 'video_prompt_gen',
-      visualSection: 'art_storyboard_video',
-      modelStage: 'shot_video',
-      modelBinding: videoModelBinding,
-      modelPromptPath: explicitModelPromptPath ??
-          _videoCapabilities(project)?.promptTemplates[request.mode],
-    );
-    final genericPrompt = await getPrompt('video_prompt_gen');
-    final legacyModelPrompt = await getPromptForStageModel(
-      'video_prompt_gen',
-      'shot_video',
-      modelBinding: videoModelBinding,
-    );
-    final hasExplicitModelTemplate =
-        resolution.sources.any((source) => source.kind == 'model');
-    final effectiveResolution =
-        hasExplicitModelTemplate || legacyModelPrompt == genericPrompt
-            ? resolution
-            : _legacyVideoPromptResolution(
-                resolution,
-                legacyModelPrompt,
-                videoModelBinding,
-              );
-    final system = effectiveResolution.system;
-    final user = StringBuffer()
-      ..writeln('画面描述：${sb['prompt'] ?? ''}')
-      ..writeln('运镜/动作说明：${sb['videoDesc'] ?? ''}');
-    if (assetNames.isNotEmpty) {
-      user.writeln('关联资产：${assetNames.join('、')}');
+    final isManualRequest = expectedPromptTaskId == null;
+    final promptOwner =
+        expectedPromptTaskId ?? _allocateManualVideoPromptOwner();
+    final trackId = expectedTrackId ?? ensureTrackForStoryboard(storyboardId);
+    if (expectedTrackId != null &&
+        (sb['trackId'] != expectedTrackId || track(trackId) == null)) {
+      throw const _PromptGenerationSuperseded();
     }
-    if (durationText.isNotEmpty) {
-      user.writeln('镜头时长（秒）：$durationText');
+    if (isManualRequest) {
+      // A direct/manual generation request supersedes any older request before
+      // it performs asynchronous work, and also owns its own late response.
+      db.execute(
+        'UPDATE o_videoTrack SET promptState=?,promptErrorReason=NULL,promptTaskId=? '
+        'WHERE id=?',
+        [videoPromptGenerating, promptOwner, trackId],
+      );
+    } else if (!_ownsPromptTask(trackId, promptOwner)) {
+      throw const _PromptGenerationSuperseded();
     }
-    final res = await gateway.generateText(system, user.toString().trimRight(),
-        stage: 'video_prompt_gen');
-    final text = stripThink(res.content);
+    try {
+      final request = videoRequestForTrack(trackId);
+      final assetNames = db
+          .select(
+            'SELECT a.name name FROM o_assets2Storyboard l '
+            'JOIN o_assets a ON a.id=l.assetId '
+            'WHERE l.storyboardId=? ORDER BY l.rowid',
+            [storyboardId],
+          )
+          .map((r) => (r['name'] as String?) ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList();
+      final trackDuration = (db.select(
+          'SELECT duration FROM o_videoTrack WHERE id=?',
+          [trackId]).firstOrNull?['duration'] as int?);
+      // 时长优先取视频轨（用户手动编辑过的更权威），回退分镜时长文本。
+      final durationText = trackDuration != null
+          ? '$trackDuration'
+          : (sb['duration'] as String?) ?? '';
+      final project = db.select(
+        'SELECT videoModel,videoRatio FROM o_project WHERE id=?',
+        [sb['projectId']],
+      ).first;
+      final videoModelBinding = _videoModelBinding(project);
+      final explicitModelPromptPath = boundModelPromptTemplatePathForBinding(
+        videoModelBinding,
+        kind: 'video',
+      );
+      final resolution = resolvePrompt(
+        projectId: (sb['projectId'] as int?) ?? 0,
+        basePromptKey: 'video_prompt_gen',
+        visualSection: 'art_storyboard_video',
+        modelStage: 'shot_video',
+        modelBinding: videoModelBinding,
+        modelPromptPath: explicitModelPromptPath ??
+            _videoCapabilities(project)?.promptTemplates[request.mode],
+      );
+      final genericPrompt = await getPrompt('video_prompt_gen');
+      final legacyModelPrompt = await getPromptForStageModel(
+        'video_prompt_gen',
+        'shot_video',
+        modelBinding: videoModelBinding,
+      );
+      final hasExplicitModelTemplate =
+          resolution.sources.any((source) => source.kind == 'model');
+      final effectiveResolution =
+          hasExplicitModelTemplate || legacyModelPrompt == genericPrompt
+              ? resolution
+              : _legacyVideoPromptResolution(
+                  resolution,
+                  legacyModelPrompt,
+                  videoModelBinding,
+                );
+      final system = effectiveResolution.system;
+      final user = StringBuffer()
+        ..writeln('画面描述：${sb['prompt'] ?? ''}')
+        ..writeln('运镜/动作说明：${sb['videoDesc'] ?? ''}');
+      if (assetNames.isNotEmpty) {
+        user.writeln('关联资产：${assetNames.join('、')}');
+      }
+      if (durationText.isNotEmpty) {
+        user.writeln('镜头时长（秒）：$durationText');
+      }
+      if (!_ownsPromptTask(trackId, promptOwner)) {
+        throw const _PromptGenerationSuperseded();
+      }
+      final res = await gateway.generateText(
+          system, user.toString().trimRight(),
+          stage: 'video_prompt_gen', cancelToken: cancelToken);
+      if (cancelToken?.isCancelled ?? false) {
+        throw const EngineException(errCanceled);
+      }
+      if (!_ownsPromptTask(trackId, promptOwner)) {
+        throw const _PromptGenerationSuperseded();
+      }
+      final text = stripThink(res.content);
+      db.execute(
+        'UPDATE o_videoTrack SET prompt=?,promptProvenance=? '
+        'WHERE id=? AND promptTaskId=?',
+        [
+          text,
+          jsonEncode(effectiveResolution.toTaskJson()),
+          trackId,
+          promptOwner
+        ],
+      );
+      if (isManualRequest) {
+        db.execute(
+          'UPDATE o_videoTrack SET promptState=?,promptErrorReason=NULL,promptTaskId=NULL '
+          'WHERE id=? AND promptTaskId=?',
+          [videoPromptDone, trackId, promptOwner],
+        );
+      }
+      return text;
+    } catch (error) {
+      if (isManualRequest) {
+        _failManualVideoPromptRequest(trackId, promptOwner, error);
+      }
+      rethrow;
+    }
+  }
+
+  /// 批量生成运镜提示词。入队前立即标记提示词状态，视频候选状态保持不变。
+  int batchGenerateVideoPrompts(
+    int projectId,
+    List<int> storyboardIds, {
+    int concurrentCount = 5,
+  }) {
+    final uniqueStoryboardIds = <int>{...storyboardIds}.toList();
+    if (uniqueStoryboardIds.isEmpty) return 0;
+
+    late final int taskId;
+    db.execute('BEGIN IMMEDIATE');
+    try {
+      for (final storyboardId in uniqueStoryboardIds) {
+        final row = db.select('SELECT projectId FROM o_storyboard WHERE id=?',
+            [storyboardId]).firstOrNull;
+        if (row == null || row['projectId'] != projectId) {
+          throw EngineException(errPromptMissing, {'type': 'storyboard'});
+        }
+      }
+
+      final trackIds = [
+        for (final storyboardId in uniqueStoryboardIds)
+          ensureTrackForStoryboard(storyboardId),
+      ];
+      taskId = queue.enqueue(
+        projectId: projectId,
+        taskClass: videoPromptGenerationTaskClass,
+        describe: '批量生成运镜提示词',
+        relatedObjects: {
+          'kind': 'videoTrack',
+          'storyboardIds': uniqueStoryboardIds,
+          'trackIds': trackIds,
+          'concurrentCount': concurrentCount.clamp(1, 16),
+        },
+        notify: false,
+      );
+      _claimVideoPromptTracks(taskId, trackIds);
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+    queue.notifyChanged();
+    return taskId;
+  }
+
+  Future<void> _runVideoPromptGeneration(
+    TasksRow task,
+    CancelToken token,
+  ) async {
+    final related = task.relatedObjectsJson;
+    final storyboardIds = _taskIds(related['storyboardIds']);
+    final trackIds = _taskIds(related['trackIds']);
+    final concurrent =
+        ((related['concurrentCount'] as num?)?.toInt() ?? 5).clamp(1, 16);
+    if (storyboardIds.isEmpty || storyboardIds.length != trackIds.length) {
+      throw const EngineException(
+          errPromptMissing, {'type': 'videoPromptTask'});
+    }
+
     db.execute(
-      'UPDATE o_videoTrack SET prompt=?,promptProvenance=? WHERE id=?',
-      [text, jsonEncode(effectiveResolution.toTaskJson()), trackId],
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=NULL '
+      'WHERE id IN (${_ph(trackIds)}) AND promptTaskId=?',
+      [videoPromptGenerating, ...trackIds, task.id],
     );
-    return text;
+    var success = 0;
+    var invalidated = 0;
+    EngineException? firstFailure;
+    var cursor = 0;
+
+    Future<void> worker() async {
+      while (!token.isCancelled) {
+        final index = cursor++;
+        if (index >= storyboardIds.length) return;
+        final storyboardId = storyboardIds[index];
+        final trackId = trackIds[index];
+        if (!_ownsPromptTask(trackId, task.id)) {
+          invalidated++;
+          continue;
+        }
+        try {
+          await generateVideoPrompt(
+            storyboardId,
+            cancelToken: token,
+            expectedTrackId: trackId,
+            expectedPromptTaskId: task.id,
+          );
+          if (!_ownsPromptTask(trackId, task.id)) {
+            invalidated++;
+            continue;
+          }
+          db.execute(
+            'UPDATE o_videoTrack SET promptState=?,promptErrorReason=NULL,promptTaskId=NULL '
+            'WHERE id=? AND promptTaskId=?',
+            [videoPromptDone, trackId, task.id],
+          );
+          success++;
+        } on _PromptGenerationSuperseded {
+          invalidated++;
+        } catch (error) {
+          if (token.isCancelled) return;
+          if (!_ownsPromptTask(trackId, task.id)) {
+            invalidated++;
+            continue;
+          }
+          final exception = error is EngineException
+              ? error
+              : (error is DioException
+                  ? EngineException(errNetwork, {'message': error.message})
+                  : EngineException(errLlmFormat, {'message': '$error'}));
+          firstFailure ??= exception;
+          db.execute(
+            'UPDATE o_videoTrack SET promptState=?,promptErrorReason=?,promptTaskId=NULL '
+            'WHERE id=? AND promptTaskId=?',
+            [videoPromptFailed, exception.toReasonJson(), trackId, task.id],
+          );
+        }
+      }
+    }
+
+    await Future.wait([
+      for (var workerIndex = 0;
+          workerIndex < min(concurrent, storyboardIds.length);
+          workerIndex++)
+        worker(),
+    ]);
+    if (token.isCancelled) throw const EngineException(errCanceled);
+    if (success == 0 && firstFailure != null) throw firstFailure!;
+    if (success == 0 && invalidated > 0) {
+      throw const EngineException(errCanceled, {'reason': 'superseded'});
+    }
+  }
+
+  bool _ownsPromptTask(int trackId, int taskId) => db.select(
+      'SELECT id FROM o_videoTrack WHERE id=? AND promptTaskId=? LIMIT 1',
+      [trackId, taskId]).isNotEmpty;
+
+  void _failManualVideoPromptRequest(
+    int trackId,
+    int promptOwner,
+    Object error,
+  ) {
+    final exception = error is EngineException
+        ? error
+        : (error is DioException
+            ? EngineException(errNetwork, {'message': error.message})
+            : EngineException(errLlmFormat, {'message': '$error'}));
+    db.execute(
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=?,promptTaskId=NULL '
+      'WHERE id=? AND promptTaskId=?',
+      [
+        videoPromptFailed,
+        exception.toReasonJson(),
+        trackId,
+        promptOwner,
+      ],
+    );
+  }
+
+  void _claimVideoPromptTracks(int taskId, List<int> trackIds) {
+    final activeTrackIds = db
+        .select(
+            'SELECT id FROM o_videoTrack WHERE id IN (${_ph(trackIds)}) '
+            'AND promptTaskId IS NOT NULL',
+            trackIds)
+        .map((row) => row['id'] as int)
+        .toList();
+    if (activeTrackIds.isNotEmpty) {
+      throw EngineException(errTaskActive, {'trackIds': activeTrackIds});
+    }
+    db.execute(
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=NULL,promptTaskId=? '
+      'WHERE id IN (${_ph(trackIds)})',
+      [videoPromptGenerating, taskId, ...trackIds],
+    );
+  }
+
+  /// Validates a failed prompt task against the current tracks before retry.
+  /// The caller owns the savepoint that inserts the replacement queue task.
+  Map<String, dynamic> prepareVideoPromptRetry(TasksRow task) {
+    final projectId = task.projectId;
+    if (projectId == null) {
+      throw const EngineException(
+          errPromptMissing, {'type': 'videoPromptProject'});
+    }
+    final related = Map<String, dynamic>.from(task.relatedObjectsJson);
+    final storyboardIds = _taskIds(related['storyboardIds']);
+    final trackIds = _taskIds(related['trackIds']);
+    if (storyboardIds.isEmpty || storyboardIds.length != trackIds.length) {
+      throw const EngineException(
+          errPromptMissing, {'type': 'videoPromptRetry'});
+    }
+    for (var index = 0; index < storyboardIds.length; index++) {
+      final owner = db.select(
+        'SELECT t.promptTaskId FROM o_storyboard s '
+        'JOIN o_videoTrack t ON t.id=s.trackId '
+        'WHERE s.id=? AND s.projectId=? AND t.id=? LIMIT 1',
+        [storyboardIds[index], projectId, trackIds[index]],
+      ).firstOrNull;
+      if (owner == null) {
+        throw EngineException(
+            errPromptMissing, {'type': 'videoPromptTrack:${trackIds[index]}'});
+      }
+      if (owner['promptTaskId'] != null) {
+        throw EngineException(errTaskActive, {
+          'trackIds': [trackIds[index]]
+        });
+      }
+    }
+    return related;
+  }
+
+  /// Assigns the new retry id only after the replacement task has been added
+  /// inside Engine.retryJob's savepoint.
+  void claimVideoPromptRetryTask(int taskId, Map<String, dynamic> related) {
+    final trackIds = _taskIds(related['trackIds']);
+    if (trackIds.isEmpty) {
+      throw const EngineException(
+          errPromptMissing, {'type': 'videoPromptRetry'});
+    }
+    _claimVideoPromptTracks(taskId, trackIds);
+  }
+
+  /// A direct prompt request has no persisted queue task. Its negative owner
+  /// cannot survive a process restart, so settle it as an interruptible local
+  /// failure instead of leaving the track permanently locked.
+  void recoverOrphanedManualVideoPrompts() {
+    db.execute(
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=?,promptTaskId=NULL '
+      'WHERE promptTaskId < 0',
+      [
+        videoPromptFailed,
+        const EngineException(errAppRestart).toReasonJson(),
+      ],
+    );
   }
 
   PromptResolution _legacyVideoPromptResolution(
@@ -644,7 +962,11 @@ extension VideoTrackApi on Engine {
 
   /// 手动编辑运镜提示词（覆盖写入 o_videoTrack.prompt）。
   void updateVideoPrompt(int trackId, String text) {
-    db.execute('UPDATE o_videoTrack SET prompt=? WHERE id=?', [text, trackId]);
+    db.execute(
+      'UPDATE o_videoTrack SET prompt=?,promptState=?,promptErrorReason=NULL,promptTaskId=NULL '
+      'WHERE id=?',
+      [text, videoPromptDone, trackId],
+    );
   }
 
   /// 编辑本镜时长（秒；写入 o_videoTrack.duration）。null 或非正值视为清空。
@@ -1082,6 +1404,43 @@ extension VideoTrackApi on Engine {
         for (final item in value is List ? value : const [])
           if (item is num) item.toInt(),
       ];
+
+  void cancelVideoPromptGenerationTask(int taskId) {
+    final task = db.select(
+        'SELECT relatedObjects FROM o_tasks WHERE id=?', [taskId]).firstOrNull;
+    if (task == null) return;
+    final raw = task['relatedObjects'] as String?;
+    final related = raw == null || raw.trim().isEmpty
+        ? const <String, dynamic>{}
+        : Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    final trackIds = _taskIds(related['trackIds']);
+    if (trackIds.isEmpty) return;
+    db.execute(
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=?,promptTaskId=NULL '
+      'WHERE id IN (${_ph(trackIds)}) AND promptTaskId=?',
+      [
+        videoPromptFailed,
+        const EngineException(errCanceled).toReasonJson(),
+        ...trackIds,
+        taskId,
+      ],
+    );
+  }
+
+  void _recoverVideoPromptGeneration(TasksRow task) {
+    final trackIds = _taskIds(task.relatedObjectsJson['trackIds']);
+    if (trackIds.isEmpty) return;
+    db.execute(
+      'UPDATE o_videoTrack SET promptState=?,promptErrorReason=?,promptTaskId=NULL '
+      'WHERE id IN (${_ph(trackIds)}) AND promptTaskId=?',
+      [
+        videoPromptFailed,
+        const EngineException(errAppRestart).toReasonJson(),
+        ...trackIds,
+        task.id,
+      ],
+    );
+  }
 
   void _recoverVideoGeneration(TasksRow task) {
     final trackIds = (task.relatedObjectsJson['trackIds'] as List? ?? const [])

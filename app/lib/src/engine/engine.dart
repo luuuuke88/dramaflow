@@ -617,6 +617,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     engine.installVideoTrackPipeline();
     engine.installAudioBindPipeline();
     engine.queue.recoverOnColdStart();
+    engine.recoverOrphanedManualVideoPrompts();
     engine.queue.start();
     return engine;
   }
@@ -1335,6 +1336,7 @@ WHERE id=?
       final retryRelated = switch (task.taskClass) {
         'video_generation' => prepareVideoRetry(task),
         'asset_image_generation' => prepareAssetImageRetry(task),
+        'video_prompt_generation' => prepareVideoPromptRetry(task),
         _ => oldRelated,
       };
       final newRelated = Map<String, dynamic>.from(retryRelated)
@@ -1357,6 +1359,9 @@ WHERE id=?
         ],
       );
       retryId = db.lastInsertRowId;
+      if (task.taskClass == 'video_prompt_generation') {
+        claimVideoPromptRetryTask(retryId, newRelated);
+      }
       final oldRetry = Map<String, dynamic>.from(task.retryJson)
         ..['attempt'] = task.attempt
         ..['supersededByTaskId'] = retryId;
@@ -1430,6 +1435,9 @@ WHERE id=?
     }
     if (task.taskClass == 'video_generation') {
       await cancelVideoGenerationTask(taskId);
+    }
+    if (task.taskClass == 'video_prompt_generation') {
+      cancelVideoPromptGenerationTask(taskId);
     }
   }
 

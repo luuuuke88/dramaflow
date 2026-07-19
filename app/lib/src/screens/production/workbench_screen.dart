@@ -60,7 +60,6 @@ class _WorkbenchPage extends ConsumerStatefulWidget {
 
 class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   bool _composing = false;
-  bool _batchPrompting = false;
   final Set<int> _checkedShotIds = {};
   final Set<int> _knownShotIds = {};
 
@@ -137,21 +136,29 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       for (final shot in shots)
         if (_checkedShotIds.contains(shot.id)) shot,
     ];
-    if (selected.isEmpty || _batchPrompting) return;
-    setState(() => _batchPrompting = true);
+    if (selected.isEmpty) return;
+    final engine = ref.read(engineProvider);
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: videoPromptGenerationTaskClass,
+      description: context.l10n.workbenchGenerateAllPrompts,
+      units: selected.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     try {
-      final engine = ref.read(engineProvider);
-      for (final shot in selected) {
-        await engine.generateVideoPrompt(shot.id);
-      }
-      if (mounted) {
-        setState(() {});
-        _showWorkbenchSnackBar(context, context.l10n.workbenchGeneratePrompt);
-      }
+      engine.batchGenerateVideoPrompts(
+          widget.projectId, selected.map((shot) => shot.id).toList());
+      // Keep the same post-submit behavior as ToonFlow: the submitted group
+      // is no longer selected, so a second click cannot immediately enqueue
+      // the same paid prompt generation work again.
+      setState(_checkedShotIds.clear);
+      _showWorkbenchSnackBar(
+          context, context.l10n.workbenchPromptBatchStarted(selected.length));
     } catch (e) {
       if (mounted) _showWorkbenchSnackBar(context, localizeError(context, e));
-    } finally {
-      if (mounted) setState(() => _batchPrompting = false);
     }
   }
 
@@ -197,6 +204,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final compactActions = MediaQuery.sizeOf(context).width < 1100;
+    ref.watch(activeJobsProvider);
     ref.watch(jobsGenerationProvider);
     final shots = ref.watch(engineProvider).storyboards(widget.scriptId);
     _syncCheckedShots(shots);
@@ -234,7 +242,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
           if (shots.isNotEmpty && compactActions)
             PopupMenuButton<_WorkbenchBatchAction>(
               key: const ValueKey('workbench-batch-actions'),
-              enabled: _checkedShotIds.isNotEmpty && !_batchPrompting,
+              enabled: _checkedShotIds.isNotEmpty,
               icon: const Icon(Icons.more_horiz_rounded),
               onSelected: (action) {
                 switch (action) {
@@ -267,15 +275,10 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
           if (shots.isNotEmpty && !compactActions)
             TextButton.icon(
               style: toolbarTextButtonStyle,
-              onPressed: _checkedShotIds.isEmpty || _batchPrompting
+              onPressed: _checkedShotIds.isEmpty
                   ? null
                   : () => _generateCheckedPrompts(shots),
-              icon: _batchPrompting
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.auto_awesome_outlined),
+              icon: const Icon(Icons.auto_awesome_outlined),
               label: Text(l10n.workbenchGenerateAllPrompts),
             ),
           if (shots.isNotEmpty && !compactActions)
@@ -3653,6 +3656,12 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
     final engine = ref.watch(engineProvider);
     final trackId = _effectiveTrackId;
     final track = trackId != null ? engine.track(trackId) : null;
+    final promptStatus = switch (track?.promptState) {
+      videoPromptGenerating => 'running',
+      videoPromptDone => 'success',
+      videoPromptFailed => 'failed',
+      _ => null,
+    };
     final audioPool = engine.audioPool(widget.projectId);
     final selectedAudioId = _effectiveAudioAssetId;
     final audioValue = audioPool.any((audio) => audio.id == selectedAudioId)
@@ -3757,6 +3766,17 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
                         style: TextStyle(fontSize: 12, color: df.textSecondary),
                       ),
                     ),
+                    if (promptStatus != null) ...[
+                      const SizedBox(width: 8),
+                      StatusChip(
+                        promptStatus,
+                        key: ValueKey('workbench-prompt-status-${track!.id}'),
+                        dense: true,
+                        errorTooltip: promptStatus == 'failed'
+                            ? localizeReason(l10n, track.promptErrorReason)
+                            : null,
+                      ),
+                    ],
                     const SizedBox(width: 4),
                     Icon(Icons.edit_outlined, size: 14, color: df.textTertiary),
                   ],
@@ -3794,7 +3814,10 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
             ],
             Wrap(spacing: 8, runSpacing: 8, children: [
               OutlinedButton.icon(
-                onPressed: _generatingPrompt ? null : _generatePrompt,
+                onPressed: _generatingPrompt ||
+                        track?.promptState == videoPromptGenerating
+                    ? null
+                    : _generatePrompt,
                 icon: _generatingPrompt
                     ? const SizedBox(
                         width: 12,

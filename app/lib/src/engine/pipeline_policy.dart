@@ -17,6 +17,7 @@ const actionPolicyByTaskClass = <String, ActionPolicyMeta>{
   'asset_image_generation': ActionPolicyMeta(costsMoney: true),
   'storyboard_generate': ActionPolicyMeta(costsMoney: true),
   'storyboard_image_generation': ActionPolicyMeta(costsMoney: true),
+  'video_prompt_generation': ActionPolicyMeta(costsMoney: true),
   'video_generation': ActionPolicyMeta(costsMoney: true),
   'audio_bind': ActionPolicyMeta(costsMoney: true),
 };

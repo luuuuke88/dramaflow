@@ -108,6 +108,7 @@
   "promptRestoreDefaultConfirm": "Restore",
   "promptRestored": "Prompt restored to default",
   "errTaskUnsupported": "Unsupported task type",
+  "errTaskActive": "A selected shot already has an active generation task",
   "shellSelectProject": "Select a project",
   "shellComingSoon": "This area ships with batch {batch}",
   "projectTitle": "My Projects",
@@ -655,6 +656,14 @@
   "videoRequestReferenceAudio": "Audio media",
   "workbenchGenerateAll": "Generate All Videos",
   "workbenchGenerateAllPrompts": "Generate All Motion Prompts",
+  "workbenchPromptBatchStarted": "Started generating {count} motion prompts",
+  "@workbenchPromptBatchStarted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchClearSelectedTracks": "Clear Selected Tracks",
   "workbenchClearSelectedTracksConfirm": "This clears video tracks and candidate videos for the checked shots. Storyboard rows are kept.",
   "workbenchClearTracksAction": "Clear",
@@ -1408,6 +1417,7 @@
   "taskClassAssetImageGeneration": "Asset image generation",
   "taskClassStoryboardGenerate": "Storyboard generation",
   "taskClassStoryboardImageGeneration": "First-frame generation",
+  "taskClassVideoPromptGeneration": "Video prompt generation",
   "taskClassVideoGeneration": "Video generation",
   "taskClassAudioBind": "Dubbing match",
   "taskClassGeneric": "Task",
