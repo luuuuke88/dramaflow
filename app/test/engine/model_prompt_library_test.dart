@@ -309,6 +309,51 @@ void main() {
     expect(remaining.single.path, video.path);
   });
 
+  test('禁用供应商下的模型不能换绑模板，旧绑定保持不变', () async {
+    await _installModels(engine);
+    final existing = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '旧绑定',
+      prompt: 'KEEP',
+    );
+    final replacement = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '新绑定',
+      prompt: 'REPLACE',
+    );
+    await engine.bindModelPromptTemplate(
+      'provider-a',
+      'video-1',
+      existing.path,
+    );
+    db.execute(
+      'UPDATE o_vendorConfig SET enable=0 WHERE id=?',
+      ['provider-a'],
+    );
+
+    await expectLater(
+      engine.bindModelPromptTemplate(
+        'provider-a',
+        'video-1',
+        replacement.path,
+      ),
+      throwsA(
+        isA<EngineException>()
+            .having((error) => error.errKey, 'errKey', errProviderMissing)
+            .having(
+              (error) => error.errParams['reason'],
+              'reason',
+              'disabled',
+            ),
+      ),
+    );
+
+    final remaining = await engine.listModelPromptBindings();
+    expect(remaining, hasLength(1));
+    expect(remaining.single.path, existing.path);
+    expect(remaining.single.prompt, 'KEEP');
+  });
+
   test('解绑仅删除 image/video 库映射，不删除 text 直连映射', () async {
     await _installModels(engine);
     final template = await engine.createModelPromptTemplate(
@@ -535,12 +580,152 @@ void main() {
     );
     expect((await engine.listModelPromptBindings()).single.path, template.path);
   });
+
+  test('导入后段模板类型校验失败时整份数据库配置回滚', () async {
+    await _installModels(engine);
+    await engine.updatePrompt('rollback-global', 'GLOBAL BEFORE');
+    db.execute(
+      "INSERT OR REPLACE INTO o_setting (key,value) VALUES "
+      "('binding.shot_video','provider-a:video-1')",
+    );
+    final existing = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '回滚保留',
+      prompt: 'TEMPLATE BEFORE',
+    );
+    await engine.bindModelPromptTemplate(
+      'provider-a',
+      'video-1',
+      existing.path,
+    );
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'provider-a',
+        'text-1',
+        'existing.md',
+        'text/existing.md',
+        'MAPPING BEFORE',
+      ],
+    );
+    final before = _databaseConfigSnapshot(db);
+
+    await expectLater(
+      engine.importConfig({
+        'configVersion': 3,
+        'providers': [
+          {
+            'id': 'provider-a',
+            'name': 'Imported Provider A',
+            'protocol': 'openai_compatible',
+            'baseUrl': 'https://import.invalid/v1',
+            'enabled': false,
+            'models': [
+              {
+                'modelId': 'image-1',
+                'label': 'Imported Image',
+                'kind': 'image',
+                'enabled': true,
+              },
+              {
+                'modelId': 'video-1',
+                'label': 'Imported Video',
+                'kind': 'video',
+                'enabled': true,
+              },
+              {
+                'modelId': 'text-1',
+                'label': 'Imported Text',
+                'kind': 'text',
+                'enabled': true,
+              },
+            ],
+          },
+          {
+            'id': 'provider-new',
+            'name': 'Imported New Provider',
+            'protocol': 'openai_compatible',
+            'baseUrl': 'https://new.invalid/v1',
+            'enabled': true,
+            'models': const [],
+          },
+        ],
+        'bindings': const {'shot_video': 'provider-a:image-1'},
+        'prompts': const [
+          {'key': 'rollback-global', 'content': 'GLOBAL IMPORTED'},
+        ],
+        'modelPromptTemplates': const [
+          {
+            'path': 'video/rollback-new.md',
+            'name': 'rollback-new',
+            'kind': 'video',
+            'prompt': 'TEMPLATE IMPORTED',
+          },
+        ],
+        'modelPrompts': const [
+          {
+            'vendorId': 'provider-a',
+            'model': 'text-1',
+            'fileName': 'imported.md',
+            'path': 'text/imported.md',
+            'prompt': 'MAPPING IMPORTED',
+          },
+          {
+            'vendorId': 'provider-a',
+            'model': 'image-1',
+            'fileName': 'rollback-new.md',
+            'path': 'video/rollback-new.md',
+            'prompt': 'TYPE MISMATCH',
+          },
+        ],
+      }),
+      throwsA(
+        isA<EngineException>().having(
+          (error) => error.errKey,
+          'errKey',
+          errModelMissing,
+        ),
+      ),
+    );
+
+    expect(_databaseConfigSnapshot(db), before);
+  });
 }
 
 Set<String> _tables(Database db) => db
     .select("SELECT name FROM sqlite_master WHERE type='table'")
     .map((row) => row['name'] as String)
     .toSet();
+
+Map<String, Object?> _databaseConfigSnapshot(Database db) => {
+      'providers': _rows(
+        db,
+        'SELECT id,enable,inputValues,models FROM o_vendorConfig ORDER BY id',
+      ),
+      'bindings': _rows(
+        db,
+        "SELECT key,value FROM o_setting WHERE key LIKE 'binding.%' ORDER BY key",
+      ),
+      'prompts': _rows(
+        db,
+        'SELECT name,type,data,useData FROM o_prompt ORDER BY id',
+      ),
+      'templates': _rows(
+        db,
+        'SELECT path,name,kind,prompt,createTime,updateTime '
+        'FROM o_modelPromptTemplate ORDER BY path',
+      ),
+      'mappings': _rows(
+        db,
+        'SELECT vendorId,model,fileName,path,prompt '
+        'FROM o_modelPrompt ORDER BY id',
+      ),
+    };
+
+List<Map<String, Object?>> _rows(Database db, String sql) => [
+      for (final row in db.select(sql)) Map<String, Object?>.from(row),
+    ];
 
 Future<void> _installModels(Engine engine) async {
   for (final providerId in ['provider-a', 'provider-b']) {

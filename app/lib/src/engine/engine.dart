@@ -1857,6 +1857,38 @@ VALUES (?,?,?,?,?,?)
     });
   }
 
+  String? boundModelPromptTemplatePath(
+    String modelStage, {
+    required String kind,
+  }) {
+    final binding = db.select(
+      'SELECT value FROM o_setting WHERE key=? LIMIT 1',
+      ['binding.$modelStage'],
+    ).firstOrNull?['value'] as String?;
+    final normalizedBinding = binding?.trim() ?? '';
+    final separator = normalizedBinding.indexOf(':');
+    if (separator <= 0 || separator == normalizedBinding.length - 1) {
+      return null;
+    }
+    final providerId = normalizedBinding.substring(0, separator);
+    final modelId = normalizedBinding.substring(separator + 1);
+    final paths = db
+        .select(
+          'SELECT DISTINCT p.path FROM o_modelPrompt p '
+          'JOIN o_modelPromptTemplate t ON t.path=p.path '
+          'WHERE p.vendorId=? AND p.model=? AND t.kind=? '
+          "AND p.prompt IS NOT NULL AND trim(p.prompt)<>'' "
+          'ORDER BY p.path',
+          [providerId, modelId, kind],
+        )
+        .map((row) => (row['path'] ?? '').toString())
+        .where((promptPath) => promptPath.isNotEmpty)
+        .toList(growable: false);
+    // Historical models may intentionally retain several mode-specific paths.
+    // bindModelPromptTemplate replaces those library rows with one explicit path.
+    return paths.length == 1 ? paths.single : null;
+  }
+
   Future<void> unbindModelPromptTemplate(
     String providerId,
     String modelId,
@@ -1985,54 +2017,8 @@ VALUES (?,?,?,?,?,?)
       throw EngineException(errConfigVersion, {'found': foundVersion});
     }
     final providers = data['providers'];
-    if (providers is List) {
-      for (final raw in providers.whereType<Map>()) {
-        final id =
-            (raw['id'] ?? _providerId('${raw['name'] ?? ''}')).toString();
-        final inputValues = {
-          'name': (raw['name'] ?? id).toString(),
-          'protocol': (raw['protocol'] ?? 'openai_compatible').toString(),
-          'baseUrl': (raw['baseUrl'] ?? '').toString(),
-          'credentialRef': providerCredentialRef(id),
-          'createdAt': nowIso(),
-        };
-        final apiKey = (raw['apiKey'] ?? '').toString().trim();
-        if (apiKey.isNotEmpty) {
-          await credentials.write(providerCredentialRef(id), apiKey);
-        }
-        final models = [
-          for (final model
-              in (raw['models'] as List? ?? const []).whereType<Map>())
-            _normalizeModel(id, Map<String, dynamic>.from(model)),
-        ];
-        db.execute(
-          '''
-INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)
-ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputValues,models=excluded.models
-''',
-          [
-            id,
-            _boolish(raw['enabled']) ? 1 : 0,
-            jsonEncode(inputValues),
-            jsonEncode(models),
-          ],
-        );
-      }
-    }
     final bindings = data['bindings'];
-    if (bindings is Map) {
-      for (final entry in bindings.entries) {
-        _writeSetting('binding.${entry.key}', entry.value.toString());
-      }
-    }
     final prompts = data['prompts'];
-    if (prompts is List) {
-      for (final prompt in prompts.whereType<Map>()) {
-        final key = (prompt['key'] ?? '').toString();
-        if (key.isEmpty) continue;
-        await updatePrompt(key, (prompt['content'] ?? '').toString());
-      }
-    }
     final modelPrompts = data['modelPrompts'];
     final modelPromptTemplates = data['modelPromptTemplates'];
     if (modelPromptTemplates != null && modelPromptTemplates is! List) {
@@ -2047,10 +2033,64 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
         {'type': 'modelPrompts'},
       );
     }
-    _importModelPromptLibrary(
-      templates: modelPromptTemplates as List?,
-      mappings: modelPrompts as List?,
-    );
+    db.execute('SAVEPOINT config_import');
+    try {
+      if (providers is List) {
+        for (final raw in providers.whereType<Map>()) {
+          final id =
+              (raw['id'] ?? _providerId('${raw['name'] ?? ''}')).toString();
+          final inputValues = {
+            'name': (raw['name'] ?? id).toString(),
+            'protocol': (raw['protocol'] ?? 'openai_compatible').toString(),
+            'baseUrl': (raw['baseUrl'] ?? '').toString(),
+            'credentialRef': providerCredentialRef(id),
+            'createdAt': nowIso(),
+          };
+          final apiKey = (raw['apiKey'] ?? '').toString().trim();
+          if (apiKey.isNotEmpty) {
+            await credentials.write(providerCredentialRef(id), apiKey);
+          }
+          final models = [
+            for (final model
+                in (raw['models'] as List? ?? const []).whereType<Map>())
+              _normalizeModel(id, Map<String, dynamic>.from(model)),
+          ];
+          db.execute(
+            '''
+INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)
+ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputValues,models=excluded.models
+''',
+            [
+              id,
+              _boolish(raw['enabled']) ? 1 : 0,
+              jsonEncode(inputValues),
+              jsonEncode(models),
+            ],
+          );
+        }
+      }
+      if (bindings is Map) {
+        for (final entry in bindings.entries) {
+          _writeSetting('binding.${entry.key}', entry.value.toString());
+        }
+      }
+      if (prompts is List) {
+        for (final prompt in prompts.whereType<Map>()) {
+          final key = (prompt['key'] ?? '').toString();
+          if (key.isEmpty) continue;
+          await updatePrompt(key, (prompt['content'] ?? '').toString());
+        }
+      }
+      _importModelPromptLibrary(
+        templates: modelPromptTemplates as List?,
+        mappings: modelPrompts as List?,
+      );
+      db.execute('RELEASE SAVEPOINT config_import');
+    } catch (_) {
+      db.execute('ROLLBACK TO SAVEPOINT config_import');
+      db.execute('RELEASE SAVEPOINT config_import');
+      rethrow;
+    }
   }
 
   void _importModelPromptLibrary({
@@ -2259,6 +2299,12 @@ ON CONFLICT(path) DO UPDATE SET
     bool requireEnabled = false,
   }) {
     final provider = _mustProvider(providerId);
+    if (requireEnabled && !_boolish(provider['enable'])) {
+      throw EngineException(
+        errProviderMissing,
+        {'providerId': providerId, 'reason': 'disabled'},
+      );
+    }
     for (final raw in _models(provider)) {
       final model = ProviderModelInfo.fromJson(raw);
       if (model.modelId != modelId) continue;

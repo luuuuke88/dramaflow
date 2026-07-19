@@ -837,6 +837,80 @@ void main() {
     expect(sources, everyElement(isNot(contains('content'))));
   });
 
+  test('generateVideoPrompt 模型库显式绑定优先于能力模式模板', () async {
+    db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'id': 'volcengine:test-video',
+            'providerId': 'volcengine',
+            'modelId': 'test-video',
+            'label': 'Test Video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['first_frame'],
+                'references': {'image': 1},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+                'promptTemplates': {
+                  'first_frame': 'video/fixed-mode.md',
+                },
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final explicit = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '用户显式绑定',
+      prompt: '模型库显式视频模板',
+    );
+    await engine.bindModelPromptTemplate(
+      'volcengine',
+      'test-video',
+      explicit.path,
+    );
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'volcengine',
+        'test-video',
+        'fixed-mode.md',
+        'video/fixed-mode.md',
+        '固定能力模式视频模板',
+      ],
+    );
+    final sbId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '用户模板优先级测试',
+    );
+
+    String? seenSystem;
+    gateway.textHandler = (system, user) {
+      seenSystem = system;
+      return 'local prompt only';
+    };
+
+    await engine.generateVideoPrompt(sbId);
+
+    expect(
+      seenSystem,
+      '运镜提示词系统词\n\n视频视觉手册\n\n模型库显式视频模板',
+    );
+    expect(seenSystem, isNot(contains('固定能力模式视频模板')));
+    expect(gateway.submitCount, 0);
+    expect(gateway.pollCount, 0);
+  });
+
   test('generateVideoPrompt 为旧版模型提示词保存实际来源', () async {
     db.execute(
       "INSERT OR REPLACE INTO o_setting (key,value) VALUES "

@@ -565,15 +565,21 @@ extension VideoTrackApi on Engine {
     final durationText = trackDuration != null
         ? '$trackDuration'
         : (sb['duration'] as String?) ?? '';
+    final project = db.select(
+      'SELECT videoModel,videoRatio FROM o_project WHERE id=?',
+      [sb['projectId']],
+    ).first;
+    final explicitModelPromptPath = boundModelPromptTemplatePath(
+      'shot_video',
+      kind: 'video',
+    );
     final resolution = resolvePrompt(
       projectId: (sb['projectId'] as int?) ?? 0,
       basePromptKey: 'video_prompt_gen',
       visualSection: 'art_storyboard_video',
       modelStage: 'shot_video',
-      modelPromptPath: _videoCapabilities(db.select(
-              'SELECT videoModel,videoRatio FROM o_project WHERE id=?',
-              [sb['projectId']]).first)
-          ?.promptTemplates[request.mode],
+      modelPromptPath: explicitModelPromptPath ??
+          _videoCapabilities(project)?.promptTemplates[request.mode],
     );
     final genericPrompt = await getPrompt('video_prompt_gen');
     final legacyModelPrompt =
