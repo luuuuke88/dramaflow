@@ -54,12 +54,13 @@
 
 这些结论的逐文件证据位于主清单中的 `W6-*`、`W7B-*` 与 `W7C-*` 行；“有基础代码”不意味着与其相关的画布、Agent、工作台或设置页面已经验收完毕。
 
-## 4. 明确缺失的 20 项
+## 4. 明确缺失的 21 项
 
 下面项目必须实现等价能力，或在完成行为与许可证审查后给出可接受的“不适用”理由；不能静默删掉。
 
 | 组别 | 主清单 ID | 缺口 |
 | --- | --- | --- |
+| 制作画布 | `W6E-CMP-PRODUCTION-GUIDE-001` | 项目内制作画布首次操作引导 |
 | 技能 | `W6E-LIB-SCANSKILLS-001` | 技能目录重扫 |
 | 设置与供应商 | `W7A-AGENT-USEMODE-001`、`W7A-AGENT-SETKEY-001`、`W7A-DB-CLEARTABLE-001`、`W7A-ABOUT-UPDATE-001`、`W7A-MEMORY-PARAMS-001`、`W7A-VENDOR-CODE-001` | Agent 模式、快速配置、数据清理、更新、记忆参数与供应商高级配置 |
 | 画风与 Agent | `W7E-ARTSTYLE-EXTRACT-001`、`W8-AGENTUTIL-MEMORY-001` | 画风提示词提取、三层 Agent 记忆/RAG |
