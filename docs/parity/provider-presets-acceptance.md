@@ -21,5 +21,6 @@
 | moonshot | 待验 | 待验 | 无图片 | 待验 | |
 | zhipu | 待验 | 待验 | 待验(cogview-4) | 待验 | |
 | dashscope | 待验 | 待验 | 图片过兼容层待验证，不通则不预置 | 待验 | |
+| ima2（双端点本地 OAuth） | 待验 | 待验 | 待验 | 文本端点待验；图片端点不走标准 `/models` | 协议、创建/编辑、图片请求与下载仅有 fake-gateway 回归：`app/test/engine/ima2_gateway_test.dart`、`app/test/engine/provider_preset_create_test.dart`、`app/test/widgets/provider_preset_form_test.dart`。未发起新的真实文本或图片请求，保持 `acceptanceVerified=false`。 |
 
 本表的 Anthropic 本地合同证据只证明 DramaFlow 对首轮 `POST /v1/messages` 的序列化、鉴权与响应解析路径存在；它不证明原生多轮工具往返、任一 Claude 型号、账户权限或供应商网络可用。真实验收前，画廊必须继续显示“未验证”。
