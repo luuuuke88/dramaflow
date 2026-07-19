@@ -4,6 +4,25 @@
 
 Baseline：`Toonflow-web` 前端源码（WebAV 剪辑器）与 DramaFlow `app/lib/src/**` + 原生合成器（`avfoundation_composer.dart`/`ComposerPlugin.swift`/`MainActivity.kt`）。
 
+## 当前验证基线（2026-07-19）
+
+以下现有能力已在当前工作区重新运行定向回归验证：时间线素材层的
+新增、移动、裁剪、切分、复制、删除、波纹、分组、吸附与避让；视频候选的
+幂等提交状态机、冷启动恢复、取消和删除；合成输入的排序、转场/滤镜白名单
+与额外素材层；以及桌面和移动工作台的关键交互。命令为：
+
+```sh
+flutter test --concurrency=1 \
+  test/engine/timeline_clip_test.dart \
+  test/engine/compose_episode_test.dart \
+  test/engine/video_track_test.dart \
+  test/widgets/workbench_screen_test.dart
+```
+
+结果为 **155 项通过**。视频相关用例只使用 Dart fake gateway 或本地假合成器，
+没有提交、轮询或下载任何真实视频任务。这个证据只证明下文已经列出的
+DramaFlow 现有能力，不缩小自由多轨、实时预览、特效与跨平台合成等缺口。
+
 ---
 
 ## 0. Spec 原文关键措辞的核验结论（先说结论）
