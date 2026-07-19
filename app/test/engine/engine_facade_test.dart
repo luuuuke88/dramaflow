@@ -256,6 +256,101 @@ void main() {
     expect(await engine.listProviders(), isEmpty);
   });
 
+  test('更新供应商的数据库暂存失败时不改写既有 API Key', () async {
+    final credentials = InMemoryCredentialStore();
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'provider-update-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+      credentials: credentials,
+    );
+    final provider = await engine.createProvider(
+      name: 'Mutable Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'https://old.example/v1',
+      apiKey: 'old-key',
+    );
+    db.execute(
+      '''
+CREATE TRIGGER reject_provider_staging
+BEFORE UPDATE ON o_vendorConfig
+WHEN NEW.id='${provider.id}'
+BEGIN
+  SELECT RAISE(ABORT, 'forced provider update failure');
+END
+''',
+    );
+
+    await expectLater(
+      engine.updateProvider(
+        provider.id,
+        baseUrl: 'https://new.example/v1',
+        apiKey: 'new-key',
+      ),
+      throwsA(isA<SqliteException>()),
+    );
+
+    expect(
+      await credentials.read(providerCredentialRef(provider.id)),
+      'old-key',
+    );
+    final input = jsonDecode(
+      db.select('SELECT inputValues FROM o_vendorConfig WHERE id=?', [
+        provider.id,
+      ]).single['inputValues'] as String,
+    ) as Map<String, dynamic>;
+    expect(input['baseUrl'], 'https://old.example/v1');
+    expect(
+      db.select('SELECT enable FROM o_vendorConfig WHERE id=?', [
+        provider.id,
+      ]).single['enable'],
+      1,
+    );
+  });
+
+  test('创建供应商最终启用失败时清理 provisioning 行与 API Key', () async {
+    final credentials = InMemoryCredentialStore();
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'provider-create-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+      credentials: credentials,
+    );
+    db.execute('''
+CREATE TRIGGER reject_provider_enable
+BEFORE UPDATE ON o_vendorConfig
+WHEN NEW.id='final-update-failure' AND NEW.enable=1
+BEGIN
+  SELECT RAISE(ABORT, 'forced provider enable failure');
+END
+''');
+
+    await expectLater(
+      engine.createProvider(
+        name: 'Final Update Failure',
+        protocol: 'openai_compatible',
+        baseUrl: 'https://final.example/v1',
+        apiKey: 'new-key',
+      ),
+      throwsA(isA<SqliteException>()),
+    );
+
+    expect(
+      db.select('SELECT id FROM o_vendorConfig WHERE id=?', [
+        'final-update-failure',
+      ]),
+      isEmpty,
+    );
+    expect(
+      await credentials.read(providerCredentialRef('final-update-failure')),
+      isNull,
+    );
+  });
+
   test('导入旧配置时迁移 API Key 到凭据存储', () async {
     const secret = 'sk-imported-secret';
     await engine.importConfig({
@@ -926,8 +1021,7 @@ description: 分镜表构建 Agent
         ['storyboard_table']).single;
     expect(row['data'], contains('生成首帧列的取值必须是「是」或「否」'),
         reason: '升级后 data 应被刷新为当前代码里的种子文本，否则老库永远拿不到收紧后的提示词');
-    expect(row['useData'], '用户自定义分镜表提示词',
-        reason: '用户在 useData 里的定制不允许被种子刷新覆盖');
+    expect(row['useData'], '用户自定义分镜表提示词', reason: '用户在 useData 里的定制不允许被种子刷新覆盖');
   });
 }
 

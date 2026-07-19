@@ -93,6 +93,7 @@ extension PromptResolverApi on Engine {
     String? visualSection,
     String? directorSection,
     String? modelStage,
+    String? modelBinding,
     String? modelPromptPath,
     bool requireModelPrompt = true,
   }) {
@@ -153,14 +154,17 @@ extension PromptResolverApi on Engine {
 
     if (modelPromptPath != null) {
       final stage = modelStage?.trim() ?? '';
-      final binding = stage.isEmpty
-          ? ''
-          : (db.select(
-                    'SELECT value FROM o_setting WHERE key=? LIMIT 1',
-                    ['binding.$stage'],
-                  ).firstOrNull?['value'] as String? ??
-                  '')
-              .trim();
+      final explicitBinding = modelBinding?.trim() ?? '';
+      final binding = explicitBinding.isNotEmpty
+          ? explicitBinding
+          : stage.isEmpty
+              ? ''
+              : (db.select(
+                        'SELECT value FROM o_setting WHERE key=? LIMIT 1',
+                        ['binding.$stage'],
+                      ).firstOrNull?['value'] as String? ??
+                      '')
+                  .trim();
       final separator = binding.indexOf(':');
       if (separator <= 0 || separator == binding.length - 1) {
         if (requireModelPrompt) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -459,6 +460,85 @@ void main() {
     );
   });
 
+  test('导出导入同一模型的两个安全模板路径时都保留且重复元组仅剩一条', () async {
+    await _installModels(engine);
+    final first = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '首帧模式',
+      prompt: 'FIRST FRAME',
+    );
+    final second = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '首尾帧模式',
+      prompt: 'FIRST LAST FRAME',
+    );
+    for (final template in [first, second]) {
+      db.execute(
+        'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+        'VALUES (?,?,?,?,?)',
+        [
+          'provider-a',
+          'video-1',
+          p.basename(template.path),
+          template.path,
+          template.prompt,
+        ],
+      );
+    }
+    final exported = await engine.exportConfig();
+
+    final targetDb = openEngineDb(':memory:');
+    final target = Engine(
+      db: targetDb,
+      media: MediaStore(p.join(dir.path, 'two-path-target-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(targetDb, isMobile: false),
+    );
+    addTearDown(() {
+      target.dispose();
+      targetDb.close();
+    });
+    targetDb.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?),(?,?,?,?,?)',
+      [
+        'provider-a',
+        'video-1',
+        p.basename(first.path),
+        first.path,
+        'STALE ONE',
+        'provider-a',
+        'video-1',
+        p.basename(first.path),
+        first.path,
+        'STALE TWO',
+      ],
+    );
+
+    await target.importConfig(exported);
+
+    final bindings = (await target.listModelPromptBindings())
+        .where((binding) =>
+            binding.providerId == 'provider-a' && binding.modelId == 'video-1')
+        .toList();
+    expect(bindings.map((binding) => binding.path).toSet(), {
+      first.path,
+      second.path,
+    });
+    expect(
+      bindings.map((binding) => binding.prompt).toSet(),
+      {'FIRST FRAME', 'FIRST LAST FRAME'},
+    );
+    expect(
+      targetDb.select(
+        'SELECT id FROM o_modelPrompt '
+        'WHERE vendorId=? AND model=? AND path=?',
+        ['provider-a', 'video-1', first.path],
+      ),
+      hasLength(1),
+    );
+  });
+
   test('旧备份没有模板字段时从安全映射回填，覆盖导入以模板正文为准', () async {
     await _installModels(engine);
     final existing = await engine.createModelPromptTemplate(
@@ -691,6 +771,326 @@ void main() {
 
     expect(_databaseConfigSnapshot(db), before);
   });
+
+  test('凭据写入等待期间不持有配置 savepoint，后续数据库失败不回滚无关写入', () async {
+    final credentials = _DeferredCredentialStore();
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'transaction-boundary-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+      credentials: credentials,
+    );
+    db.execute(
+      '''
+CREATE TRIGGER reject_imported_provider
+BEFORE UPDATE ON o_vendorConfig
+WHEN NEW.id='provider-trigger' AND NEW.enable=1
+BEGIN
+  SELECT RAISE(ABORT, 'forced config write failure');
+END
+''',
+    );
+    final before = _databaseConfigSnapshot(db);
+
+    final importFuture = engine.importConfig({
+      'configVersion': 3,
+      'providers': const [
+        {
+          'id': 'provider-trigger',
+          'name': 'Trigger Provider',
+          'protocol': 'openai_compatible',
+          'baseUrl': 'https://trigger.invalid/v1',
+          'apiKey': 'test-only-key',
+          'enabled': true,
+          'models': [],
+        },
+      ],
+      'bindings': const {},
+      'prompts': const [],
+      'modelPromptTemplates': const [],
+      'modelPrompts': const [],
+    });
+    await credentials.writeStarted.future;
+    db.execute(
+      'INSERT INTO o_setting (key,value) VALUES (?,?)',
+      ['unrelated.runtime.state', 'must-survive'],
+    );
+    credentials.resumeWrite.complete();
+
+    await expectLater(importFuture, throwsA(isA<SqliteException>()));
+
+    expect(
+      db.select(
+        'SELECT value FROM o_setting WHERE key=?',
+        ['unrelated.runtime.state'],
+      ).single['value'],
+      'must-survive',
+    );
+    expect(
+      _providerInput(db, 'provider-trigger'),
+      containsPair('provisioningFailed', true),
+    );
+    expect(
+      db.select('SELECT enable FROM o_vendorConfig WHERE id=?',
+          ['provider-trigger']).single['enable'],
+      0,
+    );
+    expect(
+        _databaseConfigSnapshot(db)['providers'], isNot(before['providers']));
+  });
+
+  test('模型映射校验失败时不触碰既有供应商凭据', () async {
+    final credentials = InMemoryCredentialStore()
+      ..seed(providerCredentialRef('provider-a'), 'old-key');
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'credential-rollback-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+      credentials: credentials,
+    );
+    await _installModels(engine);
+    final before = _databaseConfigSnapshot(db);
+
+    await expectLater(
+      engine.importConfig({
+        'configVersion': 3,
+        'providers': const [
+          {
+            'id': 'provider-a',
+            'name': 'Provider A',
+            'protocol': 'openai_compatible',
+            'baseUrl': 'https://provider-a.invalid/v1',
+            'apiKey': 'new-key',
+            'enabled': true,
+            'models': [],
+          },
+        ],
+        'bindings': const {},
+        'prompts': const [],
+        'modelPromptTemplates': const [
+          {
+            'path': 'video/imported.md',
+            'name': 'imported',
+            'kind': 'video',
+            'prompt': 'IMPORTED',
+            'createTime': 1,
+            'updateTime': 1,
+          },
+        ],
+        'modelPrompts': const [
+          {
+            'vendorId': 'provider-a',
+            'model': 'image-1',
+            'fileName': 'imported.md',
+            'path': 'video/imported.md',
+            'prompt': 'IMPORTED',
+          },
+        ],
+      }),
+      throwsA(isA<EngineException>()),
+    );
+
+    expect(
+      await credentials.read(providerCredentialRef('provider-a')),
+      'old-key',
+    );
+    expect(_databaseConfigSnapshot(db), before);
+  });
+
+  test('旧配置凭据迁移期间使全部受影响供应商保持禁用', () async {
+    final credentials = _BlockedImportCredentialStore();
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'credential-repair-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+      credentials: credentials,
+    );
+    final importFuture = engine.importConfig(_validLegacyCredentialImport());
+    await credentials.blockedWriteStarted.future;
+
+    for (final providerId in ['provider-a', 'provider-b']) {
+      expect(
+        db.select('SELECT enable FROM o_vendorConfig WHERE id=?',
+            [providerId]).single['enable'],
+        0,
+      );
+      expect(
+          _providerInput(db, providerId), containsPair('provisioning', true));
+    }
+
+    credentials.resumeBlockedWrite.complete();
+    await expectLater(importFuture, throwsA(isA<StateError>()));
+
+    for (final providerId in ['provider-a', 'provider-b']) {
+      expect(
+        db.select('SELECT enable FROM o_vendorConfig WHERE id=?',
+            [providerId]).single['enable'],
+        0,
+      );
+      expect(
+        _providerInput(db, providerId),
+        containsPair('provisioningFailed', true),
+      );
+    }
+  });
+
+  test('凭据迁移失败后重启仍保持半导入供应商禁用', () async {
+    final credentials = _BlockedImportCredentialStore();
+    engine.dispose();
+    db.close();
+    final dataDir = p.join(dir.path, 'failed-import-restart');
+    engine = await Engine.boot(
+      dataDir: dataDir,
+      isMobile: false,
+      credentialStore: credentials,
+    );
+    db = engine.db;
+
+    final importFuture = engine.importConfig(_validLegacyCredentialImport());
+    await credentials.blockedWriteStarted.future;
+    credentials.resumeBlockedWrite.complete();
+    await expectLater(importFuture, throwsA(isA<StateError>()));
+
+    engine.dispose();
+    db.close();
+    engine = await Engine.boot(
+      dataDir: dataDir,
+      isMobile: false,
+      credentialStore: credentials,
+    );
+    db = engine.db;
+
+    for (final providerId in ['provider-a', 'provider-b']) {
+      expect(
+        db.select('SELECT enable FROM o_vendorConfig WHERE id=?',
+            [providerId]).single['enable'],
+        0,
+      );
+      expect(
+        _providerInput(db, providerId),
+        containsPair('provisioningFailed', true),
+      );
+    }
+  });
+
+  test('凭据迁移失败后不能只切换启用状态绕过显式重试', () async {
+    final credentials = _BlockedImportCredentialStore();
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'failed-import-toggle-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+      credentials: credentials,
+    );
+
+    final importFuture = engine.importConfig(_validLegacyCredentialImport());
+    await credentials.blockedWriteStarted.future;
+    credentials.resumeBlockedWrite.complete();
+    await expectLater(importFuture, throwsA(isA<StateError>()));
+
+    await expectLater(
+      engine.updateProvider('provider-a', enabled: true),
+      throwsA(
+        isA<EngineException>().having(
+          (error) => error.errKey,
+          'errKey',
+          errProviderMissing,
+        ),
+      ),
+    );
+    expect(
+      db.select('SELECT enable FROM o_vendorConfig WHERE id=?',
+          ['provider-a']).single['enable'],
+      0,
+    );
+    expect(
+      _providerInput(db, 'provider-a'),
+      containsPair('provisioningFailed', true),
+    );
+  });
+
+  test('失败导入不会覆盖等待期间的同供应商凭据更新', () async {
+    final credentials = _BlockedImportCredentialStore()
+      ..seed(providerCredentialRef('provider-a'), 'old-key');
+    engine.dispose();
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'credential-gate-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+      credentials: credentials,
+    );
+    await _installModels(engine);
+    final importFuture = engine.importConfig(_validLegacyCredentialImport());
+    await credentials.blockedWriteStarted.future;
+    final updateFuture = engine.updateProvider(
+      'provider-a',
+      apiKey: 'newer',
+      enabled: true,
+    );
+    credentials.resumeBlockedWrite.complete();
+
+    await expectLater(importFuture, throwsA(isA<StateError>()));
+    await updateFuture;
+
+    expect(
+      await credentials.read(providerCredentialRef('provider-a')),
+      'newer',
+    );
+    expect(
+      db.select('SELECT enable FROM o_vendorConfig WHERE id=?',
+          ['provider-a']).single['enable'],
+      1,
+    );
+    expect(_providerInput(db, 'provider-a'), isNot(contains('provisioning')));
+    expect(
+      _providerInput(db, 'provider-a'),
+      isNot(contains('provisioningFailed')),
+    );
+  });
+}
+
+Map<String, dynamic> _validLegacyCredentialImport() => {
+      'configVersion': 3,
+      'providers': const [
+        {
+          'id': 'provider-a',
+          'name': 'Provider A',
+          'protocol': 'openai_compatible',
+          'baseUrl': 'https://provider-a.invalid/v1',
+          'apiKey': 'new-key',
+          'enabled': true,
+          'models': [],
+        },
+        {
+          'id': 'provider-b',
+          'name': 'Provider B',
+          'protocol': 'openai_compatible',
+          'baseUrl': 'https://provider-b.invalid/v1',
+          'apiKey': 'blocked-key',
+          'enabled': true,
+          'models': [],
+        },
+      ],
+      'bindings': const {},
+      'prompts': const [],
+      'modelPromptTemplates': const [],
+      'modelPrompts': const [],
+    };
+
+Map<String, dynamic> _providerInput(Database db, String providerId) {
+  final raw = db.select(
+    'SELECT inputValues FROM o_vendorConfig WHERE id=?',
+    [providerId],
+  ).single['inputValues'] as String;
+  return Map<String, dynamic>.from(jsonDecode(raw) as Map);
 }
 
 Set<String> _tables(Database db) => db
@@ -772,4 +1172,45 @@ Future<void> _installModels(Engine engine) async {
       ],
     );
   }
+}
+
+class _DeferredCredentialStore implements CredentialStore {
+  final writeStarted = Completer<void>();
+  final resumeWrite = Completer<void>();
+
+  @override
+  Future<void> write(String key, String value) async {
+    writeStarted.complete();
+    await resumeWrite.future;
+  }
+
+  @override
+  Future<String?> read(String key) async => null;
+
+  @override
+  Future<void> delete(String key) async {}
+}
+
+class _BlockedImportCredentialStore implements CredentialStore {
+  final values = <String, String>{};
+  final blockedWriteStarted = Completer<void>();
+  final resumeBlockedWrite = Completer<void>();
+
+  void seed(String key, String value) => values[key] = value;
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    if (value == 'blocked-key') {
+      blockedWriteStarted.complete();
+      await resumeBlockedWrite.future;
+      throw StateError('credential write unavailable');
+    }
+    values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
 }

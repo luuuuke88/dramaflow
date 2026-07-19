@@ -569,8 +569,9 @@ extension VideoTrackApi on Engine {
       'SELECT videoModel,videoRatio FROM o_project WHERE id=?',
       [sb['projectId']],
     ).first;
-    final explicitModelPromptPath = boundModelPromptTemplatePath(
-      'shot_video',
+    final videoModelBinding = _videoModelBinding(project);
+    final explicitModelPromptPath = boundModelPromptTemplatePathForBinding(
+      videoModelBinding,
       kind: 'video',
     );
     final resolution = resolvePrompt(
@@ -578,12 +579,16 @@ extension VideoTrackApi on Engine {
       basePromptKey: 'video_prompt_gen',
       visualSection: 'art_storyboard_video',
       modelStage: 'shot_video',
+      modelBinding: videoModelBinding,
       modelPromptPath: explicitModelPromptPath ??
           _videoCapabilities(project)?.promptTemplates[request.mode],
     );
     final genericPrompt = await getPrompt('video_prompt_gen');
-    final legacyModelPrompt =
-        await getPromptForStageModel('video_prompt_gen', 'shot_video');
+    final legacyModelPrompt = await getPromptForStageModel(
+      'video_prompt_gen',
+      'shot_video',
+      modelBinding: videoModelBinding,
+    );
     final hasExplicitModelTemplate =
         resolution.sources.any((source) => source.kind == 'model');
     final effectiveResolution =
@@ -592,6 +597,7 @@ extension VideoTrackApi on Engine {
             : _legacyVideoPromptResolution(
                 resolution,
                 legacyModelPrompt,
+                videoModelBinding,
               );
     final system = effectiveResolution.system;
     final user = StringBuffer()
@@ -616,13 +622,11 @@ extension VideoTrackApi on Engine {
   PromptResolution _legacyVideoPromptResolution(
     PromptResolution resolution,
     String modelPrompt,
+    String modelBinding,
   ) {
-    final binding = db.select('SELECT value FROM o_setting WHERE key=? LIMIT 1',
-            ['binding.shot_video']).firstOrNull?['value'] as String? ??
-        'legacy';
     final sources = <PromptSource>[
       PromptSource(
-        id: 'model:$binding:video_prompt_gen',
+        id: 'model:$modelBinding:video_prompt_gen',
         kind: 'model',
         version: promptContentHash(modelPrompt),
         content: modelPrompt,

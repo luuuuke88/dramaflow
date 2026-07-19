@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -90,6 +91,26 @@ class ProjectStats {
     this.assets = 0,
     this.storyboards = 0,
   });
+}
+
+/// 供应商凭据保存在平台安全仓，异步读写期间必须串行化同一引擎内的
+/// provider 配置变更，避免失败导入的补偿覆盖用户随后保存的新 Key。
+class _ProviderMutationGate {
+  Future<void> _tail = Future.value();
+
+  Future<T> run<T>(Future<T> Function() action) {
+    final previous = _tail;
+    final completed = Completer<void>();
+    _tail = completed.future;
+    return () async {
+      await previous;
+      try {
+        return await action();
+      } finally {
+        completed.complete();
+      }
+    }();
+  }
 }
 
 class ModelPromptTemplate {
@@ -434,6 +455,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
   final CredentialStore credentials;
   final VideoComposer composer;
   late final JobQueue queue;
+  final _providerMutationGate = _ProviderMutationGate();
 
   /// 章节导入完成后的钩子（T6 注入事件自动生成，对应 ToonFlow addNovel 触发 CleanNovel）。
   void Function(int projectId, List<int> novelIds)? onNovelsAdded;
@@ -805,6 +827,9 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       final raw = row['inputValues'] as String? ?? '{}';
       final decoded = jsonDecode(raw);
       if (decoded is! Map || decoded['provisioning'] != true) continue;
+      // 已捕获的导入/启用失败不是进程硬杀。它必须保持禁用，直到用户重新
+      // 保存凭据；否则之前已写入的某一把 Key 会把半份配置错误地恢复为可用。
+      if (decoded['provisioningFailed'] == true) continue;
       final input = Map<String, dynamic>.from(decoded);
       final providerId = row['id'] as String;
       final credentialRef =
@@ -1290,6 +1315,21 @@ WHERE id=?
     required String protocol,
     required String baseUrl,
     required String apiKey,
+  }) =>
+      _providerMutationGate.run(
+        () => _createProvider(
+          name: name,
+          protocol: protocol,
+          baseUrl: baseUrl,
+          apiKey: apiKey,
+        ),
+      );
+
+  Future<ProviderInfo> _createProvider({
+    required String name,
+    required String protocol,
+    required String baseUrl,
+    required String apiKey,
   }) async {
     final id = _providerId(name);
     final credentialRef = providerCredentialRef(id);
@@ -1342,10 +1382,15 @@ WHERE id=?
       }
     }
     inputValues.remove('provisioning');
-    db.execute(
-      'UPDATE o_vendorConfig SET enable=1,inputValues=? WHERE id=?',
-      [jsonEncode(inputValues), id],
-    );
+    try {
+      db.execute(
+        'UPDATE o_vendorConfig SET enable=1,inputValues=? WHERE id=?',
+        [jsonEncode(inputValues), id],
+      );
+    } catch (_) {
+      await _discardFailedProvisioningProvider(id, credentialRef);
+      rethrow;
+    }
     return _providerInfo(
       db.select('SELECT * FROM o_vendorConfig WHERE id=?', [id]).first,
     );
@@ -1357,6 +1402,23 @@ WHERE id=?
   /// 凭证写在 INSERT 成功之后——重复/冲突路径在结构上不可能触碰既有凭证；
   /// 凭证写失败则删除刚插入的行，不留半成品。
   Future<ProviderInfo> createProviderFromPreset({
+    required String presetId,
+    required String apiKey,
+    List<String>? selectedModelIds,
+    String? name,
+    String? baseUrl,
+  }) =>
+      _providerMutationGate.run(
+        () => _createProviderFromPreset(
+          presetId: presetId,
+          apiKey: apiKey,
+          selectedModelIds: selectedModelIds,
+          name: name,
+          baseUrl: baseUrl,
+        ),
+      );
+
+  Future<ProviderInfo> _createProviderFromPreset({
     required String presetId,
     required String apiKey,
     List<String>? selectedModelIds,
@@ -1446,10 +1508,15 @@ WHERE id=?
       }
     }
     inputValues.remove('provisioning');
-    db.execute(
-      'UPDATE o_vendorConfig SET enable=1,inputValues=? WHERE id=?',
-      [jsonEncode(inputValues), preset.id],
-    );
+    try {
+      db.execute(
+        'UPDATE o_vendorConfig SET enable=1,inputValues=? WHERE id=?',
+        [jsonEncode(inputValues), preset.id],
+      );
+    } catch (_) {
+      await _discardFailedProvisioningProvider(preset.id, credentialRef);
+      rethrow;
+    }
     return ProviderInfo(
       id: preset.id,
       name: effectiveName,
@@ -1467,25 +1534,108 @@ WHERE id=?
     String? baseUrl,
     String? apiKey,
     bool? enabled,
+  }) =>
+      _providerMutationGate.run(
+        () => _updateProvider(
+          id,
+          name: name,
+          baseUrl: baseUrl,
+          apiKey: apiKey,
+          enabled: enabled,
+        ),
+      );
+
+  Future<ProviderInfo> _updateProvider(
+    String id, {
+    String? name,
+    String? baseUrl,
+    String? apiKey,
+    bool? enabled,
   }) async {
     final row = _mustProvider(id);
+    final originalInputValues = row['inputValues'] as String? ?? '{}';
+    final originalEnabled = row['enable'] as int? ?? 1;
     final input = _jsonMap(row['inputValues']);
     if (name != null) input['name'] = name.trim();
     if (baseUrl != null) input['baseUrl'] = baseUrl.trim();
     input['credentialRef'] ??= providerCredentialRef(id);
-    if (apiKey != null && apiKey.trim().isNotEmpty) {
-      await credentials.write(input['credentialRef'] as String, apiKey.trim());
+    final credentialRef = input['credentialRef'] as String;
+    final newKey = apiKey?.trim() ?? '';
+    final desiredEnabled =
+        enabled == null ? originalEnabled : (enabled ? 1 : 0);
+    if (newKey.isEmpty) {
+      if (input['provisioningFailed'] == true && desiredEnabled == 1) {
+        throw const EngineException(
+          errProviderMissing,
+          {'reason': 'credentialRetryRequired'},
+        );
+      }
+      db.execute(
+        'UPDATE o_vendorConfig SET enable=?,inputValues=? WHERE id=?',
+        [desiredEnabled, jsonEncode(input), id],
+      );
+      return _providerInfo(
+        db.select('SELECT * FROM o_vendorConfig WHERE id=?', [id]).first,
+      );
     }
+
+    // 用户重新保存 key 是显式重试：清除上一次已捕获失败留下的状态，随后以
+    // 新的 provisioning 行走完整暂存流程。
+    input
+      ..remove('provisioning')
+      ..remove('provisioningFailed');
+
+    // 先同步暂存为禁用，触发器/磁盘错误会在尚未触碰 Keychain 时暴露；
+    // 凭据异步写入期间路由层只会看到禁用供应商。
+    final previousKey = await credentials.read(credentialRef);
+    final stagingInput = Map<String, dynamic>.from(input)
+      ..['provisioning'] = true;
     db.execute(
-      'UPDATE o_vendorConfig SET enable=COALESCE(?,enable), inputValues=? WHERE id=?',
-      [enabled == null ? null : (enabled ? 1 : 0), jsonEncode(input), id],
+      'UPDATE o_vendorConfig SET enable=0,inputValues=? WHERE id=?',
+      [jsonEncode(stagingInput), id],
     );
+    try {
+      await credentials.write(credentialRef, newKey);
+    } catch (_) {
+      final restored = _restoreProviderRow(
+        id,
+        inputValues: originalInputValues,
+        enabled: originalEnabled,
+      );
+      final credentialRestored =
+          await _restoreCredentialValue(credentialRef, previousKey);
+      if (!restored || !credentialRestored) {
+        await _discardFailedProvisioningProvider(id, credentialRef);
+      }
+      rethrow;
+    }
+    try {
+      db.execute(
+        'UPDATE o_vendorConfig SET enable=?,inputValues=? WHERE id=?',
+        [desiredEnabled, jsonEncode(input), id],
+      );
+    } catch (_) {
+      final restored = _restoreProviderRow(
+        id,
+        inputValues: originalInputValues,
+        enabled: originalEnabled,
+      );
+      final credentialRestored =
+          await _restoreCredentialValue(credentialRef, previousKey);
+      if (!restored || !credentialRestored) {
+        await _discardFailedProvisioningProvider(id, credentialRef);
+      }
+      rethrow;
+    }
     return _providerInfo(
       db.select('SELECT * FROM o_vendorConfig WHERE id=?', [id]).first,
     );
   }
 
-  Future<void> deleteProvider(String id) async {
+  Future<void> deleteProvider(String id) =>
+      _providerMutationGate.run(() => _deleteProvider(id));
+
+  Future<void> _deleteProvider(String id) async {
     final bindings = await getBindings();
     if (bindings.values.any((value) => value.startsWith('$id:'))) {
       throw const EngineException(errProviderMissing, {'reason': '供应商正在使用'});
@@ -1495,6 +1645,50 @@ WHERE id=?
         (input['credentialRef'] ?? providerCredentialRef(id)).toString();
     await credentials.delete(credentialRef);
     db.execute('DELETE FROM o_vendorConfig WHERE id=?', [id]);
+  }
+
+  bool _restoreProviderRow(
+    String id, {
+    required String inputValues,
+    required int enabled,
+  }) {
+    try {
+      db.execute(
+        'UPDATE o_vendorConfig SET enable=?,inputValues=? WHERE id=?',
+        [enabled, inputValues, id],
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _restoreCredentialValue(String ref, String? value) async {
+    try {
+      if (value == null) {
+        await credentials.delete(ref);
+      } else {
+        await credentials.write(ref, value);
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 已知同步操作报错时，不能让 provisioning 行在下次启动被误判成
+  /// “进程中断后待收敛”。尽力删除凭据与暂存行；进程硬杀不走此分支，
+  /// 仍保留既有启动恢复语义。
+  Future<void> _discardFailedProvisioningProvider(
+    String id,
+    String credentialRef,
+  ) async {
+    try {
+      await credentials.delete(credentialRef);
+    } catch (_) {}
+    try {
+      db.execute('DELETE FROM o_vendorConfig WHERE id=?', [id]);
+    } catch (_) {}
   }
 
   Future<List<ProviderModelInfo>> listProviderModels(String providerId) async {
@@ -1636,9 +1830,15 @@ WHERE id=?
     return rows.first['data'] as String? ?? '';
   }
 
-  Future<String> getPromptForStageModel(String type, String modelStage) async {
-    final binding = db.select('SELECT value FROM o_setting WHERE key=? LIMIT 1',
-        ['binding.$modelStage']).firstOrNull?['value'] as String?;
+  Future<String> getPromptForStageModel(
+    String type,
+    String modelStage, {
+    String? modelBinding,
+  }) async {
+    final binding = (modelBinding?.trim().isNotEmpty ?? false)
+        ? modelBinding!.trim()
+        : db.select('SELECT value FROM o_setting WHERE key=? LIMIT 1',
+            ['binding.$modelStage']).firstOrNull?['value'] as String?;
     final parts = binding == null ? const <String>[] : binding.split(':');
     if (parts.length == 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
       final rows = db.select(
@@ -1857,15 +2057,11 @@ VALUES (?,?,?,?,?,?)
     });
   }
 
-  String? boundModelPromptTemplatePath(
-    String modelStage, {
+  String? boundModelPromptTemplatePathForBinding(
+    String modelBinding, {
     required String kind,
   }) {
-    final binding = db.select(
-      'SELECT value FROM o_setting WHERE key=? LIMIT 1',
-      ['binding.$modelStage'],
-    ).firstOrNull?['value'] as String?;
-    final normalizedBinding = binding?.trim() ?? '';
+    final normalizedBinding = modelBinding.trim();
     final separator = normalizedBinding.indexOf(':');
     if (separator <= 0 || separator == normalizedBinding.length - 1) {
       return null;
@@ -1887,6 +2083,17 @@ VALUES (?,?,?,?,?,?)
     // Historical models may intentionally retain several mode-specific paths.
     // bindModelPromptTemplate replaces those library rows with one explicit path.
     return paths.length == 1 ? paths.single : null;
+  }
+
+  String? boundModelPromptTemplatePath(
+    String modelStage, {
+    required String kind,
+  }) {
+    final binding = db.select(
+      'SELECT value FROM o_setting WHERE key=? LIMIT 1',
+      ['binding.$modelStage'],
+    ).firstOrNull?['value'] as String?;
+    return boundModelPromptTemplatePathForBinding(binding ?? '', kind: kind);
   }
 
   Future<void> unbindModelPromptTemplate(
@@ -1948,6 +2155,10 @@ VALUES (?,?,?,?,?,?)
   }
 
   Future<void> updatePrompt(String key, String content) async {
+    _writePromptOverride(key, content);
+  }
+
+  void _writePromptOverride(String key, String content) {
     final rows = db.select('SELECT id FROM o_prompt WHERE name=?', [key]);
     if (rows.isEmpty) {
       db.execute(
@@ -2011,7 +2222,10 @@ VALUES (?,?,?,?,?,?)
     };
   }
 
-  Future<void> importConfig(Map<String, dynamic> data) async {
+  Future<void> importConfig(Map<String, dynamic> data) =>
+      _providerMutationGate.run(() => _importConfig(data));
+
+  Future<void> _importConfig(Map<String, dynamic> data) async {
     final foundVersion = data['configVersion'];
     if (foundVersion != 3) {
       throw EngineException(errConfigVersion, {'found': foundVersion});
@@ -2033,6 +2247,8 @@ VALUES (?,?,?,?,?,?)
         {'type': 'modelPrompts'},
       );
     }
+    final credentialUpdates = _importCredentialUpdates(providers);
+
     db.execute('SAVEPOINT config_import');
     try {
       if (providers is List) {
@@ -2045,11 +2261,8 @@ VALUES (?,?,?,?,?,?)
             'baseUrl': (raw['baseUrl'] ?? '').toString(),
             'credentialRef': providerCredentialRef(id),
             'createdAt': nowIso(),
+            if (credentialUpdates.containsKey(id)) 'provisioning': true,
           };
-          final apiKey = (raw['apiKey'] ?? '').toString().trim();
-          if (apiKey.isNotEmpty) {
-            await credentials.write(providerCredentialRef(id), apiKey);
-          }
           final models = [
             for (final model
                 in (raw['models'] as List? ?? const []).whereType<Map>())
@@ -2062,7 +2275,9 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
 ''',
             [
               id,
-              _boolish(raw['enabled']) ? 1 : 0,
+              credentialUpdates.containsKey(id)
+                  ? 0
+                  : (_boolish(raw['enabled']) ? 1 : 0),
               jsonEncode(inputValues),
               jsonEncode(models),
             ],
@@ -2078,7 +2293,7 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
         for (final prompt in prompts.whereType<Map>()) {
           final key = (prompt['key'] ?? '').toString();
           if (key.isEmpty) continue;
-          await updatePrompt(key, (prompt['content'] ?? '').toString());
+          _writePromptOverride(key, (prompt['content'] ?? '').toString());
         }
       }
       _importModelPromptLibrary(
@@ -2091,6 +2306,94 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
       db.execute('RELEASE SAVEPOINT config_import');
       rethrow;
     }
+    if (credentialUpdates.isEmpty) return;
+
+    // 旧配置含 apiKey 时，导入事务已经把对应供应商设为禁用 provisioning。
+    // Keychain 写入期间 resolver 因而无法拿“旧 URL + 新 key”发起远程调用。
+    try {
+      for (final entry in credentialUpdates.entries) {
+        await credentials.write(
+          providerCredentialRef(entry.key),
+          entry.value.key,
+        );
+      }
+    } catch (_) {
+      _markImportCredentialFailure(credentialUpdates.keys);
+      rethrow;
+    }
+
+    // 全部 key 写完后才在纯同步事务中启用。任一平台凭据写失败或最终写库
+    // 失败都会留下禁用 provisioning 行，下一次用户明确保存 key 前不会路由。
+    db.execute('SAVEPOINT config_import_credentials');
+    try {
+      for (final entry in credentialUpdates.entries) {
+        final provider = _mustProvider(entry.key);
+        final inputValues = _jsonMap(provider['inputValues'])
+          ..remove('provisioning');
+        db.execute(
+          'UPDATE o_vendorConfig SET enable=?,inputValues=? WHERE id=?',
+          [entry.value.enabled, jsonEncode(inputValues), entry.key],
+        );
+      }
+      db.execute('RELEASE SAVEPOINT config_import_credentials');
+    } catch (_) {
+      db.execute('ROLLBACK TO SAVEPOINT config_import_credentials');
+      db.execute('RELEASE SAVEPOINT config_import_credentials');
+      _markImportCredentialFailure(credentialUpdates.keys);
+      rethrow;
+    }
+  }
+
+  /// 将已捕获失败的旧配置导入固定为不可恢复状态。SQLite/Keychain 不是同一
+  /// 事务；这里的 marker 区分“进程被硬杀”与“操作明确失败”，避免下次启动
+  /// 将已写入的部分 key 当作完整导入自动启用。
+  void _markImportCredentialFailure(Iterable<String> providerIds) {
+    db.execute('SAVEPOINT config_import_failure');
+    try {
+      for (final providerId in providerIds) {
+        final row = db.select(
+          'SELECT inputValues FROM o_vendorConfig WHERE id=?',
+          [providerId],
+        ).firstOrNull;
+        if (row == null) continue;
+        final inputValues = _jsonMap(row['inputValues'])
+          ..['provisioning'] = true
+          ..['provisioningFailed'] = true;
+        db.execute(
+          'UPDATE o_vendorConfig SET enable=0,inputValues=? WHERE id=?',
+          [jsonEncode(inputValues), providerId],
+        );
+      }
+      db.execute('RELEASE SAVEPOINT config_import_failure');
+    } catch (_) {
+      try {
+        db.execute('ROLLBACK TO SAVEPOINT config_import_failure');
+        db.execute('RELEASE SAVEPOINT config_import_failure');
+      } catch (_) {
+        // 原始错误优先；无法写标记时保留禁用 provisioning 行，启动恢复会
+        // 尝试收敛它，跨存储的全失败情形在运行记录中单独披露。
+      }
+    }
+  }
+
+  /// 历史导入配置可携带 apiKey，但现代导出永远不写它。导入到这种历史
+  /// 配置时，provider 会先以禁用 provisioning 状态写入数据库，再迁移 key。
+  Map<String, ({String key, int enabled})> _importCredentialUpdates(
+    Object? providers,
+  ) {
+    if (providers is! List) return const {};
+    final valuesByProvider = <String, ({String key, int enabled})>{};
+    for (final raw in providers.whereType<Map>()) {
+      final id = (raw['id'] ?? _providerId('${raw['name'] ?? ''}')).toString();
+      final apiKey = (raw['apiKey'] ?? '').toString().trim();
+      if (apiKey.isNotEmpty) {
+        valuesByProvider[id] = (
+          key: apiKey,
+          enabled: _boolish(raw['enabled']) ? 1 : 0,
+        );
+      }
+    }
+    return valuesByProvider;
   }
 
   void _importModelPromptLibrary({
@@ -2198,9 +2501,10 @@ ON CONFLICT(path) DO UPDATE SET
             });
           }
           content = template['prompt'] as String;
-          _deleteLibraryModelPromptBindings(
-            mapping.providerId,
-            mapping.modelId,
+          db.execute(
+            'DELETE FROM o_modelPrompt '
+            'WHERE vendorId=? AND model=? AND path=?',
+            [mapping.providerId, mapping.modelId, mapping.promptPath],
           );
         } else {
           db.execute(

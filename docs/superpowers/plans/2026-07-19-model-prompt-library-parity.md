@@ -14,6 +14,7 @@
 - Modify: `app/lib/src/engine/prompt_resolver.dart`（仅当本地解析测试证明需要）
 - Modify: `app/test/engine/prompt_resolver_test.dart`
 - Add: `app/test/engine/model_prompt_library_test.dart`
+- Modify: `app/test/engine/engine_facade_test.dart`（复审发现的同路径 provider 凭据写入顺序回归）
 
 **Required APIs**
 
@@ -40,11 +41,11 @@ Future<void> unbindModelPromptTemplate(String providerId, String modelId);
 Future<List<ModelPromptBinding>> listModelPromptBindings();
 ```
 
-- [ ] 先写失败测试：旧 `o_modelPrompt` 中的 image/video 映射迁移一次且保留正文，既有 `text/*.md` 直连映射仍可解析且不会被库迁移删除；相同 `path` 的更新同步到所有绑定；删除返回被解绑模型且不留下悬挂映射；非法路径/不匹配 kind/不存在模型全部拒绝。
-- [ ] 加入 `o_modelPromptTemplate` 表及幂等迁移；模板库和映射操作使用事务，路径验证在所有入口复用。
-- [ ] 将 `listModelPrompts` 的现有调用平滑迁到 `listModelPromptBindings`，不得破坏既有 Seedance 编辑测试。
-- [ ] 为 `exportConfig/importConfig` 加模板库字段，覆盖旧备份缺字段、覆盖导入和映射引用顺序。
-- [ ] 运行：`cd app && flutter test --concurrency=1 test/engine/model_prompt_library_test.dart test/engine/prompt_resolver_test.dart`，然后 `flutter analyze`。
+- [x] 先写失败测试：旧 `o_modelPrompt` 中的 image/video 映射迁移一次且保留正文，既有 `text/*.md` 直连映射仍可解析且不会被库迁移删除；相同 `path` 的更新同步到所有绑定；删除返回被解绑模型且不留下悬挂映射；非法路径/不匹配 kind/不存在模型全部拒绝。
+- [x] 加入 `o_modelPromptTemplate` 表及幂等迁移；模板库和映射操作使用事务，路径验证在所有入口复用。
+- [x] 将 `listModelPrompts` 的现有调用平滑迁到 `listModelPromptBindings`，不得破坏既有 Seedance 编辑测试。
+- [x] 为 `exportConfig/importConfig` 加模板库字段，覆盖旧备份缺字段、覆盖导入和映射引用顺序。
+- [x] 运行：`cd app && flutter test --concurrency=1 test/engine/model_prompt_library_test.dart test/engine/prompt_resolver_test.dart`，然后 `flutter analyze`。本任务的定向回归覆盖模板解析、视频提示词、schema、旧配置 Key 迁移、供应商更新与预设供应商；全部使用内存或临时 SQLite、假网关和假凭据仓，未调用任何真实供应商或视频任务。最终全套数量在 Task 3 的新鲜验收输出中记录。
 
 ## Task 2: 设置页模板库与绑定体验
 
@@ -63,16 +64,16 @@ Future<List<ModelPromptBinding>> listModelPromptBindings();
 
 ## Task 1 复审修正（完成 Task 2 前必须关闭）
 
-- [ ] **绑定可达性**：`video_track.dart` 生成提示词时，模型库中已绑定的 video 模板必须优先于模型能力里的模式路径；补假网关测试，只断言本地 system prompt，不提交视频。
-- [ ] **导入原子性**：`importConfig` 的数据库写入必须以一个可回滚 savepoint 包裹；任何后段模型模板校验失败不得留下供应商、模型、全局提示词或模板库的半份配置。凭据仍走既有安全存储，测试不写真实凭据。
-- [ ] **启用状态**：绑定时同时要求供应商和模型启用，禁用供应商必须拒绝且不改旧绑定。
+- [x] **绑定可达性**：`video_track.dart` 生成提示词时，模型库中已绑定的 video 模板必须优先于模型能力里的模式路径；补假网关测试，只断言本地 system prompt，不提交视频。
+- [x] **导入原子性**：`importConfig` 的数据库写入必须以一个可回滚 savepoint 包裹；任何后段模型模板校验失败不得留下供应商、模型、全局提示词或模板库的半份配置。凭据仍走既有安全存储，测试不写真实凭据。
+- [x] **启用状态**：绑定时同时要求供应商和模型启用，禁用供应商必须拒绝且不改旧绑定。
 - [x] **不做历史多路径去重**：驳回“每模型只能一条历史映射”的建议。Flutter 的视频能力可为不同模式保留不同路径，启动迁移自动合并会丢失这些用户配置；新的显式绑定操作仍会原子替换同模型的模板库绑定。
 
 ## Task 1 终审修正（完成 Task 2 前必须关闭）
 
-- [ ] **项目模型一致性**：视频提示词的模板查询和 `resolvePrompt` 必须使用项目的 `videoModel`（若项目未指定才回退 `binding.shot_video`），不能混用项目模型能力与全局阶段模型的模板。
-- [ ] **导入保留多模式映射**：导入多个合法 image/video 路径时只替换同一 `providerId + model + path` 的重复行，不能删掉同模型的其他路径；新增导出→导入→解析双路径回归。
-- [ ] **同步数据库事务**：`config_import` savepoint 内不得 `await`；先完成纯数据验证和必要凭据处理，再进入同步数据库写入/回滚区间。数据库验证失败时仍须保留“全配置不变”的断言。
+- [x] **项目模型一致性**：视频提示词的模板查询、旧映射回退及 `promptProvenance` 均使用项目的 `videoModel`（若项目未指定才回退 `binding.shot_video`），不能混用项目模型能力与全局阶段模型的模板。
+- [x] **导入保留多模式映射**：导入多个合法 image/video 路径时只替换同一 `providerId + model + path` 的重复行，不能删掉同模型的其他路径；新增导出→导入→解析双路径回归。
+- [x] **同步数据库事务与旧 Key 导入**：`config_import` savepoint 内不得 `await`。历史配置带 `apiKey` 时，先在同步事务中把全部涉及供应商写成 `enable=0 + provisioning`，再逐把写 Keychain，全部成功后才在第二个同步 savepoint 恢复导入指定的启用状态。任一 Keychain 或最终数据库步骤已捕获失败时，会将所有涉及供应商标记为 `provisioningFailed` 并保持禁用；启动恢复明确跳过这类已知失败，设置页仅切换启用状态也不能绕过，用户必须重新保存 key 才会清除标记并重走暂存流程。供应商凭据变更由单一串行门保护，失败导入不会覆盖用户随后保存的新 key。创建/预设创建和正常硬杀仍沿用原有 provisioning 恢复路径。SQLite 与系统 Keychain 无法组成分布式事务：若记录失败标记本身也因 SQLite 全面故障写不进去，保留禁用 provisioning 行并在下次启动按既有恢复规则收敛；这是已披露的跨存储全失败残余，而不是伪造“已回滚”。测试覆盖无关 SQLite 写入不被回滚、模型校验失败零触碰旧 key、迁移等待期全部禁用、失败后重启仍禁用、单纯启用无法绕过、并发保存新 key 不被失败导入覆盖，以及更新/创建的暂存失败路径。
 
 ## Task 3: 端到端本地验证与对照归档
 

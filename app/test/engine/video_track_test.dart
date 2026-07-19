@@ -911,6 +911,175 @@ void main() {
     expect(gateway.pollCount, 0);
   });
 
+  test('generateVideoPrompt 项目视频模型覆盖阶段默认并解析其显式模板', () async {
+    db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          for (final modelId in ['stage-video', 'project-video'])
+            {
+              'id': 'volcengine:$modelId',
+              'providerId': 'volcengine',
+              'modelId': modelId,
+              'label': modelId,
+              'kind': 'video',
+              'enabled': true,
+              'capabilities': {
+                'video': {
+                  'modes': ['first_frame'],
+                  'references': {'image': 1},
+                  'durations': [5],
+                  'resolutions': ['720p'],
+                  'ratios': ['16:9'],
+                  'audio': 'none',
+                },
+              },
+            },
+        ]),
+        'volcengine',
+      ],
+    );
+    db.execute(
+      "INSERT OR REPLACE INTO o_setting (key,value) VALUES "
+      "('binding.shot_video','volcengine:stage-video')",
+    );
+    engine.editProject(
+      projectId,
+      videoModel: 'volcengine:project-video',
+      videoRatio: '9:16',
+    );
+    final stageTemplate = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '阶段默认模板',
+      prompt: 'STAGE VIDEO TEMPLATE',
+    );
+    final projectTemplate = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '项目覆盖模板',
+      prompt: 'PROJECT VIDEO TEMPLATE',
+    );
+    await engine.bindModelPromptTemplate(
+      'volcengine',
+      'stage-video',
+      stageTemplate.path,
+    );
+    await engine.bindModelPromptTemplate(
+      'volcengine',
+      'project-video',
+      projectTemplate.path,
+    );
+    final sbId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '项目模型优先级测试',
+    );
+
+    String? seenSystem;
+    gateway.textHandler = (system, user) {
+      seenSystem = system;
+      return 'project model prompt';
+    };
+
+    await engine.generateVideoPrompt(sbId);
+
+    expect(seenSystem, contains('PROJECT VIDEO TEMPLATE'));
+    expect(seenSystem, isNot(contains('STAGE VIDEO TEMPLATE')));
+    expect(gateway.submitCount, 0);
+    expect(gateway.pollCount, 0);
+  });
+
+  test('generateVideoPrompt 项目视频模型覆盖阶段默认并解析其旧版回退模板', () async {
+    db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          for (final modelId in ['stage-legacy', 'project-legacy'])
+            {
+              'id': 'volcengine:$modelId',
+              'providerId': 'volcengine',
+              'modelId': modelId,
+              'label': modelId,
+              'kind': 'video',
+              'enabled': true,
+              'capabilities': {
+                'video': {
+                  'modes': ['first_frame'],
+                  'references': {'image': 1},
+                  'durations': [5],
+                  'resolutions': ['720p'],
+                  'ratios': ['16:9'],
+                  'audio': 'none',
+                },
+              },
+            },
+        ]),
+        'volcengine',
+      ],
+    );
+    db.execute(
+      "INSERT OR REPLACE INTO o_setting (key,value) VALUES "
+      "('binding.shot_video','volcengine:stage-legacy')",
+    );
+    engine.editProject(
+      projectId,
+      videoModel: 'volcengine:project-legacy',
+      videoRatio: '9:16',
+    );
+    for (final entry in const {
+      'stage-legacy': 'STAGE LEGACY TEMPLATE',
+      'project-legacy': 'PROJECT LEGACY TEMPLATE',
+    }.entries) {
+      db.execute(
+        'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+        'VALUES (?,?,?,?,?)',
+        [
+          'volcengine',
+          entry.key,
+          'video_prompt_gen',
+          'video_prompt_gen',
+          entry.value,
+        ],
+      );
+    }
+    final sbId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '项目旧版模板优先级测试',
+    );
+
+    String? seenSystem;
+    gateway.textHandler = (system, user) {
+      seenSystem = system;
+      return 'project legacy prompt';
+    };
+
+    await engine.generateVideoPrompt(sbId);
+
+    expect(seenSystem, contains('PROJECT LEGACY TEMPLATE'));
+    expect(seenSystem, isNot(contains('STAGE LEGACY TEMPLATE')));
+    final trackId = engine.storyboards(scriptId).single.trackId!;
+    final provenanceRaw = db.select(
+      'SELECT promptProvenance FROM o_videoTrack WHERE id=?',
+      [trackId],
+    ).single['promptProvenance'] as String;
+    final provenance = jsonDecode(provenanceRaw) as Map<String, dynamic>;
+    final sources = (provenance['promptSources'] as List)
+        .map((source) => Map<String, dynamic>.from(source as Map))
+        .toList();
+    expect(
+        sources.map((source) => source['id']),
+        contains(
+          'model:volcengine:project-legacy:video_prompt_gen',
+        ));
+    expect(
+        sources.map((source) => source['id']),
+        isNot(contains(
+          'model:volcengine:stage-legacy:video_prompt_gen',
+        )));
+    expect(gateway.submitCount, 0);
+    expect(gateway.pollCount, 0);
+  });
+
   test('generateVideoPrompt 为旧版模型提示词保存实际来源', () async {
     db.execute(
       "INSERT OR REPLACE INTO o_setting (key,value) VALUES "
