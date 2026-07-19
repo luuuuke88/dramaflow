@@ -33,6 +33,35 @@ flat-assistant behavior, confirmation gate, persistence, and responsive entry
 surfaces; they do **not** prove parity with ToonFlow's layered Agent system and
 do not invoke text, image, audio, or video providers.
 
+### Deployment controls recheck — 2026-07-19
+
+This pass re-ran the deployment and responsive Agent-entry evidence directly:
+
+```text
+flutter test --concurrency=1 \
+  test/engine/assistant_skills_deploy_test.dart \
+  test/widgets/agent_chat_screen_test.dart
+# 17 passed
+
+flutter analyze lib/src/engine/assistant_deploy.dart \
+  lib/src/engine/assistant_chat.dart \
+  lib/src/engine/assistant_actions.dart \
+  lib/src/screens/agent/agent_chat_screen.dart \
+  test/engine/assistant_skills_deploy_test.dart \
+  test/widgets/agent_chat_screen_test.dart
+# No issues found
+```
+
+The result intentionally locks the present reduced contract: Flutter seeds and
+shows exactly `scriptAgent` and `productionAgent`; their model binding,
+`temperature`, and `maxOutputTokens` can persist. ToonFlow seeds three active
+top-level Agent deployments (plus its disabled TTS row) and 13 colon-keyed
+advanced sub-Agent deployments, then exposes normal/advanced mode selection,
+single-item tuning, and batch tuning in `agentConfog.vue`. Flutter has no
+`agentUseMode`, no advanced deployment rows, and no batch deployment action.
+The passing tests prove this current behavior is stable on desktop and at a
+390 px mobile entry, not that the omitted original controls are equivalent.
+
 ---
 
 ## 1. ToonFlow's actual Agent architecture
