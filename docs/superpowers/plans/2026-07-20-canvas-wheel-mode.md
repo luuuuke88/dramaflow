@@ -43,7 +43,7 @@
 - Produces `canvasWheelModeProvider`, whose notifier exposes `void setMode(CanvasWheelMode mode)` and whose `build()` returns `CanvasWheelMode.zoom`.
 - Extends `DFCanvas` with `final CanvasWheelMode wheelMode`, defaulting to `CanvasWheelMode.zoom`.
 
-- [ ] **Step 1: Write the failing provider and canvas tests**
+- [x] **Step 1: Write the failing provider and canvas tests**
 
 Add the state import and assertions that the provider starts as `CanvasWheelMode.zoom` and changes only through `setMode` in memory. The state module must not import or depend on `Engine`/`EngineConfig`; the settings-page test in Task 2 owns the separate assertion that toggling the visible control leaves `engine.config.getAll()` unchanged. Add two `DFCanvas` tests using a `TransformationController` and a `TestPointer`:
 
@@ -79,7 +79,7 @@ testWidgets('DFCanvas scroll mode pans mouse and trackpad signals',
 });
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run:
 
@@ -91,7 +91,7 @@ flutter test test/widgets/df_widgets_test.dart \
 
 Expected: compilation fails because `CanvasWheelMode` / `wheelMode` do not exist, or the assertion fails because current mouse scrolling zooms.
 
-- [ ] **Step 3: Add the state boundary and minimal canvas implementation**
+- [x] **Step 3: Add the state boundary and minimal canvas implementation**
 
 Create the value-only enum:
 
@@ -132,7 +132,7 @@ if (widget.wheelMode == CanvasWheelMode.scroll) {
 Keep `_viewportPositionOf(event)` for transformed card content; do not alter
 touch, Space, right-button, or parameter-region handling.
 
-- [ ] **Step 4: Run focused semantics and existing gesture regressions**
+- [x] **Step 4: Run focused semantics and existing gesture regressions**
 
 Run:
 
@@ -145,7 +145,7 @@ flutter test --concurrency=1 test/widgets/df_widgets_test.dart
 Expected: no analyzer issues and all existing drag, transformed-card focal,
 parameter-stop, Space, right-button, and new wheel-mode tests pass.
 
-- [ ] **Step 5: Commit the self-contained state/canvas change**
+- [x] **Step 5: Commit the self-contained state/canvas change**
 
 ```sh
 git add app/lib/src/state/canvas_wheel_mode.dart \
