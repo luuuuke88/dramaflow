@@ -7,6 +7,8 @@ import 'package:dramaflow/src/engine/audio_bind.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/errors.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/screens/cornerscape/corner_scape_screen.dart';
@@ -18,6 +20,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 class _NoopGateway implements ProviderGateway {
+  int textCalls = 0;
+
+  @override
+  Future<TextResult> generateText(
+    String system,
+    String user, {
+    required String stage,
+    dynamic cancelToken,
+  }) async {
+    textCalls++;
+    return const TextResult('润色后的雪山剑客');
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -28,19 +43,29 @@ const _imageModelLabel = '测试图片 · Corner Image';
 void main() {
   late Directory dir;
   late Engine engine;
+  late _NoopGateway gateway;
   late int projectId;
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('dramaflow-cornerscape-');
     final db = openEngineDb(':memory:');
+    gateway = _NoopGateway();
     engine = Engine(
       db: db,
       media: MediaStore(p.join(dir.path, 'media')),
-      gateway: _NoopGateway(),
+      gateway: gateway,
       config: EngineConfig(db, isMobile: false),
     );
     engine.config.update({'policy.confirmMoney': '0'});
     engine.installAudioBindPipeline();
+    engine.db.execute(
+      "INSERT INTO o_prompt (name,type,data,useData) VALUES "
+      "('asset_prompt_polish','asset_prompt_polish','本地测试提示词',NULL)",
+    );
+    engine.saveVisualManual(
+      name: '测试画风',
+      data: {for (final key in visualManualKeys) key: '本地手册[$key]'},
+    );
     engine.db.execute(
       'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
       [
@@ -60,7 +85,11 @@ void main() {
         ]),
       ],
     );
-    projectId = engine.addProject(projectType: 'novel', name: '塑角造景测试');
+    projectId = engine.addProject(
+      projectType: 'novel',
+      name: '塑角造景测试',
+      artStyle: '测试画风',
+    );
   });
 
   tearDown(() {
@@ -387,7 +416,7 @@ void main() {
     expect(find.text('已完成'), findsOneWidget);
     expect(
       find.byKey(Key('cornerscape-cancel-$generating')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.byKey(Key('cornerscape-cancel-$empty')), findsNothing);
 
@@ -410,6 +439,349 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.byKey(Key('cornerscape-detail-$done')), findsOneWidget);
+  });
+
+  testWidgets('选择历史图会只更新当前图且历史数量不变，取消需确认并将目标任务标记为已取消', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '剑客',
+    );
+    engine.saveAssetImage(
+      assetsId: assetId,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([1, 2, 3]),
+    );
+    engine.saveAssetImage(
+      assetsId: assetId,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([4, 5, 6]),
+    );
+    final imageRows = engine.db.select(
+      'SELECT id FROM o_image WHERE assetsId=? ORDER BY id ASC',
+      [assetId],
+    );
+    final historyId = imageRows.first['id'] as int;
+    final currentId = imageRows.last['id'] as int;
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(Key('cornerscape-history-image-$historyId')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(Key('cornerscape-history-image-$currentId')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(Key('cornerscape-detail-current-image-$currentId')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(Key('cornerscape-history-image-$historyId')),
+    );
+    await tester.pump();
+
+    expect(engine.assetsByIds([assetId]).single.imageId, historyId);
+    expect(
+      engine.db
+          .select('SELECT id FROM o_image WHERE assetsId=?', [assetId]).length,
+      imageRows.length,
+    );
+    expect(
+      find.byKey(Key('cornerscape-detail-current-image-$historyId')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('关闭').first);
+    await tester.pumpAndSettle();
+    final taskId = engine.generateAssetImages(
+      projectId,
+      [(assetsId: assetId, refImageBase64: null)],
+    );
+    tester.container().read(jobsGenerationProvider.notifier).bump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(Key('cornerscape-cancel-$assetId')));
+    await tester.pump();
+    expect(find.text('危险操作确认'), findsOneWidget);
+    final jobsGenerationBeforeCancel =
+        tester.container().read(jobsGenerationProvider);
+    expect(
+      (await engine.projectJobs(projectId))
+          .singleWhere((job) => job.id == taskId)
+          .state,
+      'pending',
+    );
+
+    await tester.tap(find.text('确定'));
+    await tester.pump();
+
+    final canceled = (await engine.projectJobs(projectId))
+        .singleWhere((job) => job.id == taskId);
+    expect(canceled.state, 'failed');
+    expect(
+      EngineException.fromReasonJson(
+        engine.db.select(
+          'SELECT reason FROM o_tasks WHERE id=?',
+          [taskId],
+        ).single['reason'] as String,
+      )!
+          .errKey,
+      errCanceled,
+    );
+    expect(
+      tester.container().read(jobsGenerationProvider),
+      greaterThan(jobsGenerationBeforeCancel),
+    );
+    expect(
+      find.byKey(Key('cornerscape-cancel-$assetId')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('详情提示词失焦持久化且 AI 润色调用单资产接口', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '旧提示词',
+    );
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+    expect(find.text('林朝雪 · 角色'), findsOneWidget);
+
+    final promptField = find.byKey(Key('cornerscape-prompt-$assetId'));
+    await tester.enterText(promptField, '失焦后保存的提示词');
+    tester.binding.focusManager.primaryFocus?.unfocus();
+    await tester.pump();
+    expect(
+      engine.assetsByIds([assetId]).single.prompt,
+      '失焦后保存的提示词',
+    );
+
+    final polishButton = find.byKey(Key('cornerscape-polish-$assetId'));
+    await tester.ensureVisible(polishButton);
+    await tester.pump();
+    await tester.tap(polishButton);
+    await tester.pumpAndSettle();
+
+    expect(gateway.textCalls, 1);
+    expect(engine.assetsByIds([assetId]).single.prompt, '润色后的雪山剑客');
+    expect(
+      tester.widget<TextField>(promptField).controller!.text,
+      '润色后的雪山剑客',
+    );
+  });
+
+  testWidgets('场景和道具详情共用音频选择试听并可解绑', (tester) async {
+    final sceneId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '雪山',
+      describe: '',
+      prompt: '雪夜',
+    );
+    final toolId = engine.addAsset(
+      projectId: projectId,
+      type: 'tool',
+      name: '长剑',
+      describe: '',
+      prompt: '寒光',
+    );
+    final audioId = engine.addAsset(
+      projectId: projectId,
+      type: 'audio',
+      name: '风雪声',
+      describe: '',
+    );
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$sceneId')));
+    await tester.pumpAndSettle();
+    expect(find.text('雪山 · 场景'), findsOneWidget);
+
+    final sceneAudio = find.byKey(Key('cornerscape-audio-$sceneId'));
+    await tester.ensureVisible(sceneAudio);
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: sceneAudio,
+        matching: find.byType(DropdownButtonFormField<int?>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('风雪声').last);
+    await tester.pump();
+    expect(
+      engine
+          .assetAudioBindings(projectId)
+          .singleWhere((binding) => binding.assetId == sceneId)
+          .audioAssetId,
+      audioId,
+    );
+
+    await tester.tap(
+      find.byKey(Key('cornerscape-audition-$sceneId')),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('音频文件缺失'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: sceneAudio,
+        matching: find.byType(DropdownButtonFormField<int?>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('解除绑定').last);
+    await tester.pump();
+    expect(
+      engine
+          .assetAudioBindings(projectId)
+          .singleWhere((binding) => binding.assetId == sceneId)
+          .audioAssetId,
+      isNull,
+    );
+
+    await tester.tap(find.byTooltip('关闭').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('cornerscape-card-$toolId')));
+    await tester.pumpAndSettle();
+    expect(find.text('长剑 · 道具'), findsOneWidget);
+
+    final toolAudio = find.byKey(Key('cornerscape-audio-$toolId'));
+    await tester.ensureVisible(toolAudio);
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: toolAudio,
+        matching: find.byType(DropdownButtonFormField<int?>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('风雪声').last);
+    await tester.pump();
+    expect(
+      engine
+          .assetAudioBindings(projectId)
+          .singleWhere((binding) => binding.assetId == toolId)
+          .audioAssetId,
+      audioId,
+    );
+  });
+
+  testWidgets('详情重新生成只提交当前资产提示词模型和分辨率', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山门',
+      describe: '',
+      prompt: '旧雪夜',
+    );
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final modelField = find.byKey(Key('cornerscape-model-$assetId'));
+    await tester.ensureVisible(modelField);
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: modelField,
+        matching: find.byType(DropdownButtonFormField<String>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(_imageModelLabel).last);
+    await tester.pump();
+
+    final resolution = find.byKey(Key('cornerscape-resolution-$assetId'));
+    await tester.ensureVisible(resolution);
+    await tester.pump();
+    await tester.tap(
+      find.descendant(of: resolution, matching: find.text('2K')),
+    );
+    await tester.enterText(
+      find.byKey(Key('cornerscape-prompt-$assetId')),
+      '当前雪夜提示词',
+    );
+
+    final regenerateButton = find.byKey(Key('cornerscape-regenerate-$assetId'));
+    await tester.ensureVisible(regenerateButton);
+    await tester.pump();
+    await tester.tap(regenerateButton);
+    await tester.pumpAndSettle();
+    expect(find.text('花费确认'), findsOneWidget);
+    await tester.tap(find.text('确定'));
+    await tester.pump();
+
+    final task = (await engine.projectJobs(projectId)).singleWhere(
+      (job) => job.taskClass == 'asset_image_generation',
+    );
+    expect(task.relatedObjectsJson['ids'], [assetId]);
+    expect(task.relatedObjectsJson['model'], _imageModel);
+    expect(task.relatedObjectsJson['resolution'], '2K');
+    expect(engine.assetsByIds([assetId]).single.prompt, '当前雪夜提示词');
+  });
+
+  testWidgets('详情重新生成确认期间模型失效不会创建任务', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'tool',
+      name: '长剑',
+      describe: '',
+      prompt: '寒光',
+    );
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final modelField = find.byKey(Key('cornerscape-model-$assetId'));
+    await tester.ensureVisible(modelField);
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: modelField,
+        matching: find.byType(DropdownButtonFormField<String>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(_imageModelLabel).last);
+    await tester.pump();
+
+    final regenerateButton = find.byKey(Key('cornerscape-regenerate-$assetId'));
+    await tester.ensureVisible(regenerateButton);
+    await tester.pump();
+    await tester.tap(regenerateButton);
+    await tester.pumpAndSettle();
+    expect(find.text('花费确认'), findsOneWidget);
+
+    await engine.saveProviderModels('test-image', []);
+    await tester.tap(find.text('确定'));
+    await tester.pump();
+
+    expect(
+      (await engine.projectJobs(projectId))
+          .where((job) => job.taskClass == 'asset_image_generation'),
+      isEmpty,
+    );
   });
 
   testWidgets('桌面完成卡显示两行描述和模型分辨率时不溢出且保持等高', (tester) async {
