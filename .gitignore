@@ -11,3 +11,4 @@ app/ios/Pods/
 app/macos/Pods/
 app/untranslated.txt
 .claude/
+.worktrees/
