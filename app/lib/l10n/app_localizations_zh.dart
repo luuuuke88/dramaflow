@@ -2959,6 +2959,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsProviderTestNoModel => '请先启用至少一个可测试的模型';
 
   @override
+  String get settingsProviderTestPaidTitle => '确认付费测试';
+
+  @override
+  String settingsProviderTestPaidMessage(String provider, String kind) {
+    return '将向 $provider 的 $kind 模型发送一次真实请求，可能产生供应商费用。';
+  }
+
+  @override
+  String get settingsProviderTestPaidConfirm => '继续测试';
+
+  @override
   String get taskFilterClass => '任务类型';
 
   @override
@@ -3179,6 +3190,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get providerProtocolOpenAiCompatible => 'OpenAI兼容';
 
   @override
+  String get providerProtocolAnthropic => 'Anthropic 原生';
+
+  @override
   String get settingsAddProvider => '添加供应商';
 
   @override
@@ -3186,7 +3200,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsProviderEmptySubtitle =>
-      '添加 OpenAI 兼容或火山引擎供应商后，再配置模型和环节绑定';
+      '添加 OpenAI 兼容、Anthropic 原生或火山引擎供应商后，再配置模型和环节绑定';
 
   @override
   String get settingsProviderAdded => '供应商已添加';

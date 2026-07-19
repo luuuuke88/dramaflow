@@ -1068,6 +1068,15 @@
   "settingsAboutDescription": "DramaFlow is a locally running AI short-drama studio. All data and media stay on your machine.",
   "settingsProviderTestKind": "Kind",
   "settingsProviderTestNoModel": "Enable at least one testable model first",
+  "settingsProviderTestPaidTitle": "Confirm paid test",
+  "settingsProviderTestPaidMessage": "This sends one real request to the {kind} model at {provider} and may incur provider charges.",
+  "@settingsProviderTestPaidMessage": {
+    "placeholders": {
+      "provider": {"type": "String"},
+      "kind": {"type": "String"}
+    }
+  },
+  "settingsProviderTestPaidConfirm": "Continue test",
   "taskFilterClass": "Task type",
   "taskFilterState": "State",
   "taskFilterAll": "All",
@@ -1154,9 +1163,10 @@
   "modelKindEmbedding": "Embedding",
   "providerProtocolVolcengine": "Volcengine",
   "providerProtocolOpenAiCompatible": "OpenAI-compatible",
+  "providerProtocolAnthropic": "Native Anthropic",
   "settingsAddProvider": "Add provider",
   "settingsProviderEmptyTitle": "No providers yet",
-  "settingsProviderEmptySubtitle": "Add an OpenAI-compatible or Volcengine provider, then configure models and stage bindings.",
+  "settingsProviderEmptySubtitle": "Add an OpenAI-compatible, native Anthropic, or Volcengine provider, then configure models and stage bindings.",
   "settingsProviderAdded": "Provider added",
   "settingsProviderUpdated": "Provider updated",
   "settingsProviderConfigMissing": "Provider list missing from configuration data",

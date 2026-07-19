@@ -38,6 +38,12 @@ const destructiveActionKeys = <String>{
 
 enum PolicyVerdict { allow, confirmMoney, confirmDestructive }
 
+bool requiresMoneyConfirmation(
+  EngineConfig config, {
+  bool autoMode = false,
+}) =>
+    config.str('policy.confirmMoney') != '0' && !autoMode;
+
 PolicyVerdict checkAction(
   EngineConfig config, {
   String? taskClass,
@@ -48,8 +54,7 @@ PolicyVerdict checkAction(
   if (taskClass != null && actionPolicyByTaskClass.containsKey(taskClass)) {
     final meta = actionPolicyByTaskClass[taskClass]!;
     if (meta.costsMoney &&
-        config.str('policy.confirmMoney') != '0' &&
-        !autoMode) {
+        requiresMoneyConfirmation(config, autoMode: autoMode)) {
       return PolicyVerdict.confirmMoney;
     }
     return PolicyVerdict.allow;

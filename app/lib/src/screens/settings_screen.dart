@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api/models.dart';
 import '../engine/db_admin.dart';
 import '../engine/engine.dart';
+import '../engine/pipeline_policy.dart';
 import '../engine/provider_presets.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
@@ -643,6 +644,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ? testable.first
         : await _chooseTestModel(provider, testable);
     if (!mounted || selected == null) return;
+
+    if (requiresMoneyConfirmation(ref.read(engineProvider).config)) {
+      final kindLabel = _modelKinds
+          .firstWhere((item) => item.value == selected.kind,
+              orElse: () => const _KindMeta('text'))
+          .label(context.l10n);
+      final confirmed = await _confirm(
+        title: context.l10n.settingsProviderTestPaidTitle,
+        message: context.l10n
+            .settingsProviderTestPaidMessage(provider.name, kindLabel),
+        confirmText: context.l10n.settingsProviderTestPaidConfirm,
+        confirmKey: const Key('provider-test-paid-confirm'),
+      );
+      if (!mounted || !confirmed) return;
+    }
 
     var elapsedMs = 0;
     final l10n = context.l10n;
@@ -1437,6 +1453,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required String message,
     required String confirmText,
     bool destructive = false,
+    Key? confirmKey,
   }) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -1449,6 +1466,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Text(context.l10n.commonCancel),
           ),
           FilledButton(
+            key: confirmKey,
             style: destructive
                 ? FilledButton.styleFrom(backgroundColor: context.df.red)
                 : null,
@@ -2068,6 +2086,10 @@ class _ProtocolBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color) = switch (protocol) {
       'volcengine' => (context.l10n.providerProtocolVolcengine, context.df.red),
+      'anthropic' => (
+          context.l10n.providerProtocolAnthropic,
+          context.df.primary
+        ),
       _ => (context.l10n.providerProtocolOpenAiCompatible, context.df.primary),
     };
     return Container(
@@ -2117,6 +2139,7 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
   late final TextEditingController _baseUrl;
   late final TextEditingController _apiKey;
   late String _protocol;
+  var _obscureApiKey = true;
 
   bool get _editing => widget.provider != null;
 
@@ -2159,6 +2182,10 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
                     label: Text(l10n.providerProtocolOpenAiCompatible),
                   ),
                   ButtonSegment(
+                    value: 'anthropic',
+                    label: Text(l10n.providerProtocolAnthropic),
+                  ),
+                  ButtonSegment(
                     value: 'volcengine',
                     label: Text(l10n.providerProtocolVolcengine),
                   ),
@@ -2190,9 +2217,17 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _apiKey,
+                obscureText: _obscureApiKey,
                 decoration: InputDecoration(
                   labelText: 'API Key',
                   hintText: l10n.settingsKeepEmptyUnchanged,
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureApiKey
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () =>
+                        setState(() => _obscureApiKey = !_obscureApiKey),
+                  ),
                 ),
               ),
             ],

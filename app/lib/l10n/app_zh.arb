@@ -1299,6 +1299,15 @@
   "settingsAboutDescription": "DramaFlow 是本机运行的 AI 短剧创作工作台，数据与媒体全部保存在本机。",
   "settingsProviderTestKind": "模态",
   "settingsProviderTestNoModel": "请先启用至少一个可测试的模型",
+  "settingsProviderTestPaidTitle": "确认付费测试",
+  "settingsProviderTestPaidMessage": "将向 {provider} 的 {kind} 模型发送一次真实请求，可能产生供应商费用。",
+  "@settingsProviderTestPaidMessage": {
+    "placeholders": {
+      "provider": {"type": "String"},
+      "kind": {"type": "String"}
+    }
+  },
+  "settingsProviderTestPaidConfirm": "继续测试",
   "taskFilterClass": "任务类型",
   "taskFilterState": "状态",
   "taskFilterAll": "全部",
@@ -1385,9 +1394,10 @@
   "modelKindEmbedding": "向量",
   "providerProtocolVolcengine": "火山引擎",
   "providerProtocolOpenAiCompatible": "OpenAI兼容",
+  "providerProtocolAnthropic": "Anthropic 原生",
   "settingsAddProvider": "添加供应商",
   "settingsProviderEmptyTitle": "还没有供应商",
-  "settingsProviderEmptySubtitle": "添加 OpenAI 兼容或火山引擎供应商后，再配置模型和环节绑定",
+  "settingsProviderEmptySubtitle": "添加 OpenAI 兼容、Anthropic 原生或火山引擎供应商后，再配置模型和环节绑定",
   "settingsProviderAdded": "供应商已添加",
   "settingsProviderUpdated": "供应商已更新",
   "settingsProviderConfigMissing": "配置数据缺少供应商列表",

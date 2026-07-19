@@ -3061,6 +3061,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enable at least one testable model first';
 
   @override
+  String get settingsProviderTestPaidTitle => 'Confirm paid test';
+
+  @override
+  String settingsProviderTestPaidMessage(String provider, String kind) {
+    return 'This sends one real request to the $kind model at $provider and may incur provider charges.';
+  }
+
+  @override
+  String get settingsProviderTestPaidConfirm => 'Continue test';
+
+  @override
   String get taskFilterClass => 'Task type';
 
   @override
@@ -3282,6 +3293,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get providerProtocolOpenAiCompatible => 'OpenAI-compatible';
 
   @override
+  String get providerProtocolAnthropic => 'Native Anthropic';
+
+  @override
   String get settingsAddProvider => 'Add provider';
 
   @override
@@ -3289,7 +3303,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsProviderEmptySubtitle =>
-      'Add an OpenAI-compatible or Volcengine provider, then configure models and stage bindings.';
+      'Add an OpenAI-compatible, native Anthropic, or Volcengine provider, then configure models and stage bindings.';
 
   @override
   String get settingsProviderAdded => 'Provider added';

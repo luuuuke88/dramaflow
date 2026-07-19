@@ -5782,6 +5782,24 @@ abstract class AppLocalizations {
   /// **'请先启用至少一个可测试的模型'**
   String get settingsProviderTestNoModel;
 
+  /// No description provided for @settingsProviderTestPaidTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认付费测试'**
+  String get settingsProviderTestPaidTitle;
+
+  /// No description provided for @settingsProviderTestPaidMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'将向 {provider} 的 {kind} 模型发送一次真实请求，可能产生供应商费用。'**
+  String settingsProviderTestPaidMessage(String provider, String kind);
+
+  /// No description provided for @settingsProviderTestPaidConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续测试'**
+  String get settingsProviderTestPaidConfirm;
+
   /// No description provided for @taskFilterClass.
   ///
   /// In zh, this message translates to:
@@ -6214,6 +6232,12 @@ abstract class AppLocalizations {
   /// **'OpenAI兼容'**
   String get providerProtocolOpenAiCompatible;
 
+  /// No description provided for @providerProtocolAnthropic.
+  ///
+  /// In zh, this message translates to:
+  /// **'Anthropic 原生'**
+  String get providerProtocolAnthropic;
+
   /// No description provided for @settingsAddProvider.
   ///
   /// In zh, this message translates to:
@@ -6229,7 +6253,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsProviderEmptySubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'添加 OpenAI 兼容或火山引擎供应商后，再配置模型和环节绑定'**
+  /// **'添加 OpenAI 兼容、Anthropic 原生或火山引擎供应商后，再配置模型和环节绑定'**
   String get settingsProviderEmptySubtitle;
 
   /// No description provided for @settingsProviderAdded.

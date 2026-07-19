@@ -9,7 +9,7 @@
 
 | preset | ①文本 | ②工具/JSON | ③图片 | ④/models | 证据 |
 |---|---|---|---|---|---|
-| azt | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | gpt-5.6-luna 文本+工具链路：macOS/iOS golden-path e2e 全流程（建项目→剧本→分镜表均真实调用，`.superpowers/sdd/progress.md` P0 Task 4 与"早晨总结"条目）；gpt-image-2 1024 图片 26.7s：`/tmp/p0-azt-smoke.txt`；/v1/models 当日实测返回 gpt-5.6 系列 |
+| azt | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | `gpt-5.6-luna` 文本+工具链路：Mac/iOS golden-path e2e（建项目→剧本→分镜表均真实调用，见 `.superpowers/sdd/progress.md` 的 P0 Task 4 与“早晨总结”）；`gpt-image-2` 图片产物：`/Users/luke/Documents/aivideo/azt-gpt-image2-test.png`，PNG 864×1821，SHA-256 `7297abdb556540f7425889ce4189f76617c70a701568050aeac45ed6dcf8f576`。请求的 1024×1024 未被 OAuth 路径严格遵守，尺寸/质量控制仍按 `vendor-protocol-matrix.md` 的 azt 缺口继续追踪；`/v1/models` 当日实测返回 gpt-5.6 系列。 |
 | volcengine | 待验 | 待验 | 待验 | 待验 | 今晚视频生成被明确搁置，无真实调用证据 → acceptanceVerified=false，画廊显示"未验证" |
 | openai | 待验 | 待验 | 待验(gpt-image-2) | 待验 | |
 | anthropic（原生 Messages API） | 待验 | 待验 | 无图片 | 待验 | 2026-07-19 本地假网关合同回归覆盖文本、强制工具 JSON、**Agent 首轮 `tool_use` 序列化**、视觉输入、`/models` 鉴权和文本连通测试：`app/test/engine/anthropic_gateway_test.dart`（6 项）。尚未保留 `tool_use_id` 并回传原生 `tool_result`，故多轮 Agent 工具闭环缺失；未发起真实上游调用，仍 `acceptanceVerified=false`。 |

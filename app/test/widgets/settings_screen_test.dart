@@ -166,6 +166,48 @@ void main() {
     expect(find.text('設定'), findsOneWidget);
   });
 
+  testWidgets('移动端自定义供应商表单默认遮蔽 API Key', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.text('添加供应商').first);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+        find.byKey(const Key('preset-card-custom')), 300);
+    await tester.tap(find.byKey(const Key('preset-card-custom')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(2)).obscureText,
+      isTrue,
+    );
+  });
+
+  testWidgets('Anthropic 供应商在列表和编辑页都显示原生协议', (tester) async {
+    await engine.createProvider(
+      name: 'Claude Primary',
+      protocol: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1',
+      apiKey: 'sk-ant-test',
+    );
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    expect(find.text('Anthropic 原生'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('编辑').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Anthropic 原生'), findsWidgets);
+  });
+
   testWidgets('桌面端提示词库：新建、绑定、编辑和解绑模型模板', (tester) async {
     final provider = await engine.createProvider(
       name: 'Volcengine',
@@ -602,7 +644,7 @@ void main() {
     expect(find.text('Old Gateway'), findsNothing);
   });
 
-  testWidgets('移动端设置页：连通测试只分派文字和图片，视频保持人工验收', (tester) async {
+  testWidgets('移动端设置页：付费连通测试先确认，视频保持人工验收', (tester) async {
     engine.dispose();
     final db = openEngineDb(':memory:');
     final media = MediaStore(p.join(dir.path, 'media'));
@@ -667,6 +709,11 @@ void main() {
 
     await _chooseFirstDropdown(tester, '图片 · 本地图像');
     await tester.tap(find.text('测试').last);
+    await tester.pumpAndSettle();
+
+    expect(gateway.calls, isEmpty);
+    expect(find.byKey(const Key('provider-test-paid-confirm')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('provider-test-paid-confirm')));
     await tester.pumpAndSettle();
 
     final videoCard = find.byKey(const ValueKey('b-volcengine:0'));

@@ -1068,6 +1068,15 @@
   "settingsAboutDescription": "DramaFlow はローカルで動作する AI ショートドラマ制作スタジオです。データとメディアはすべて本機に保存されます。",
   "settingsProviderTestKind": "モダリティ",
   "settingsProviderTestNoModel": "先にテスト可能なモデルを 1 つ以上有効にしてください",
+  "settingsProviderTestPaidTitle": "有料テストの確認",
+  "settingsProviderTestPaidMessage": "{provider} の {kind} モデルに実際のリクエストを 1 回送信します。プロバイダー料金が発生する場合があります。",
+  "@settingsProviderTestPaidMessage": {
+    "placeholders": {
+      "provider": {"type": "String"},
+      "kind": {"type": "String"}
+    }
+  },
+  "settingsProviderTestPaidConfirm": "テストを続ける",
   "taskFilterClass": "タスク種別",
   "taskFilterState": "状態",
   "taskFilterAll": "すべて",
@@ -1154,9 +1163,10 @@
   "modelKindEmbedding": "埋め込み",
   "providerProtocolVolcengine": "Volcengine",
   "providerProtocolOpenAiCompatible": "OpenAI 互換",
+  "providerProtocolAnthropic": "Anthropic ネイティブ",
   "settingsAddProvider": "プロバイダーを追加",
   "settingsProviderEmptyTitle": "プロバイダーはまだありません",
-  "settingsProviderEmptySubtitle": "OpenAI 互換または Volcengine プロバイダーを追加してから、モデルとステージ割り当てを設定してください。",
+  "settingsProviderEmptySubtitle": "OpenAI 互換、Anthropic ネイティブ、または Volcengine プロバイダーを追加してから、モデルとステージ割り当てを設定してください。",
   "settingsProviderAdded": "プロバイダーを追加しました",
   "settingsProviderUpdated": "プロバイダーを更新しました",
   "settingsProviderConfigMissing": "設定データにプロバイダー一覧がありません",

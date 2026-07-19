@@ -141,6 +141,27 @@ void main() {
     expect((await engine.listProviders()).single.hasCredential, isFalse);
   });
 
+  test('无 Key 的 loopback 供应商不能改为启用的远程地址', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
+    final local = await engine.createProvider(
+      name: 'Local Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: '',
+    );
+
+    await expectLater(
+      engine.updateProvider(local.id, baseUrl: 'https://proxy.example.com/v1'),
+      throwsA(isA<EngineException>()
+          .having((e) => e.errKey, 'errKey', errProviderMissing)),
+    );
+
+    final unchanged = (await engine.listProviders()).single;
+    expect(unchanged.baseUrl, 'http://127.0.0.1:8787/v1');
+    expect(unchanged.enabled, isTrue);
+  });
+
   test('凭证尚未写完时供应商保持禁用，成功后才启用', () async {
     final db = openEngineDb(':memory:');
     final credentials = _DeferredCredentialStore();
@@ -281,6 +302,42 @@ void main() {
     );
   });
 
+  test('导入配置不能绕过非火山 video 模型限制', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
+
+    await expectLater(
+      engine.importConfig({
+        'configVersion': 3,
+        'providers': [
+          {
+            'id': 'imported-openai',
+            'name': 'Imported OpenAI',
+            'protocol': 'openai_compatible',
+            'baseUrl': 'https://proxy.example.com/v1',
+            'enabled': true,
+            'models': [
+              {
+                'modelId': 'unsupported-video',
+                'kind': 'video',
+                'enabled': true,
+              },
+            ],
+          },
+        ],
+        'bindings': const {},
+        'prompts': const [],
+        'modelPrompts': const [],
+      }),
+      throwsA(isA<EngineException>()
+          .having((e) => e.errKey, 'errKey', errModelMissing)
+          .having((e) => e.errParams['reason'], 'reason',
+              'unsupportedVideoProtocol')),
+    );
+
+    expect(await engine.listProviders(), isEmpty);
+  });
+
   test('视频模型连通测试被拒绝，且不会分派给上游网关', () async {
     final db = openEngineDb(':memory:');
     final config = EngineConfig(db, isMobile: false);
@@ -313,7 +370,8 @@ void main() {
       throwsA(
         isA<EngineException>()
             .having((e) => e.errKey, 'errKey', errTaskUnsupported)
-            .having((e) => e.errParams['reason'], 'reason', 'videoTestDeferred'),
+            .having(
+                (e) => e.errParams['reason'], 'reason', 'videoTestDeferred'),
       ),
     );
     expect(gateway.videoTestCalls, 0);

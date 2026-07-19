@@ -1599,6 +1599,14 @@ WHERE id=?
     final desiredEnabled =
         enabled == null ? originalEnabled : (enabled ? 1 : 0);
     if (newKey.isEmpty) {
+      if (desiredEnabled == 1 &&
+          !isLoopbackBaseUrl((input['baseUrl'] ?? '').toString())) {
+        final existingKey = await credentials.read(credentialRef);
+        if (existingKey == null || existingKey.trim().isEmpty) {
+          throw const EngineException(
+              errProviderMissing, {'reason': 'apiKeyRequired'});
+        }
+      }
       if (input['provisioningFailed'] == true && desiredEnabled == 1) {
         throw const EngineException(
           errProviderMissing,
@@ -1739,18 +1747,25 @@ WHERE id=?
     final inputValues = _jsonMap(provider['inputValues']);
     final protocol =
         (inputValues['protocol'] ?? 'openai_compatible').toString();
+    final normalized = [
+      for (final model in models) _normalizeModel(providerId, model),
+    ];
+    _validateProviderVideoModels(protocol, normalized);
+    db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [jsonEncode(normalized), providerId],
+    );
+  }
+
+  void _validateProviderVideoModels(
+    String protocol,
+    Iterable<Map<String, dynamic>> models,
+  ) {
     if (protocol != 'volcengine' &&
         models.any((model) => model['kind']?.toString() == 'video')) {
       throw const EngineException(
           errModelMissing, {'reason': 'unsupportedVideoProtocol'});
     }
-    final normalized = [
-      for (final model in models) _normalizeModel(providerId, model),
-    ];
-    db.execute(
-      'UPDATE o_vendorConfig SET models=? WHERE id=?',
-      [jsonEncode(normalized), providerId],
-    );
   }
 
   /// /models 拉取候选（只出列表不写库；UI 定 kind 后走 saveProviderModels）。
@@ -2303,6 +2318,10 @@ VALUES (?,?,?,?,?,?)
                 in (raw['models'] as List? ?? const []).whereType<Map>())
               _normalizeModel(id, Map<String, dynamic>.from(model)),
           ];
+          _validateProviderVideoModels(
+            inputValues['protocol'] as String,
+            models,
+          );
           db.execute(
             '''
 INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)

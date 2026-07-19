@@ -1,4 +1,11 @@
-# 供应商预设体系 Implementation Plan（v3，执行中勘误已回写）
+# 供应商预设体系实施记录（归档：v3 基础计划 + v4-v7 复审修订）
+
+> **当前状态（2026-07-19）**：本文件保留最初的逐任务设计、代码草案和
+> 复审历史，不能作为待执行清单重新运行；其中未勾选的 checkbox 是历史
+> 草案格式，不代表当前工作区缺失该步骤。当前实现与验证结论以
+> [`../../parity/vendor-protocol-matrix.md`](../../parity/vendor-protocol-matrix.md)
+> 和相关测试为准。后续新增功能必须另建短计划，避免继续在本文件叠加
+> “版本勘误”。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

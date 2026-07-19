@@ -2979,6 +2979,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsProviderTestNoModel => '先にテスト可能なモデルを 1 つ以上有効にしてください';
 
   @override
+  String get settingsProviderTestPaidTitle => '有料テストの確認';
+
+  @override
+  String settingsProviderTestPaidMessage(String provider, String kind) {
+    return '$provider の $kind モデルに実際のリクエストを 1 回送信します。プロバイダー料金が発生する場合があります。';
+  }
+
+  @override
+  String get settingsProviderTestPaidConfirm => 'テストを続ける';
+
+  @override
   String get taskFilterClass => 'タスク種別';
 
   @override
@@ -3199,6 +3210,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get providerProtocolOpenAiCompatible => 'OpenAI 互換';
 
   @override
+  String get providerProtocolAnthropic => 'Anthropic ネイティブ';
+
+  @override
   String get settingsAddProvider => 'プロバイダーを追加';
 
   @override
@@ -3206,7 +3220,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsProviderEmptySubtitle =>
-      'OpenAI 互換または Volcengine プロバイダーを追加してから、モデルとステージ割り当てを設定してください。';
+      'OpenAI 互換、Anthropic ネイティブ、または Volcengine プロバイダーを追加してから、モデルとステージ割り当てを設定してください。';
 
   @override
   String get settingsProviderAdded => 'プロバイダーを追加しました';
