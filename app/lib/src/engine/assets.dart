@@ -961,6 +961,65 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     );
   }
 
+  /// Creates fresh placeholders for unfinished items in a failed image task.
+  /// The caller owns the savepoint that also inserts the replacement task.
+  Map<String, dynamic> prepareAssetImageRetry(TasksRow task) {
+    final projectId = task.projectId;
+    if (projectId == null) {
+      throw const EngineException(
+        errLlmFormat,
+        {'reason': '资产图片任务缺少项目'},
+      );
+    }
+    final related = Map<String, dynamic>.from(task.relatedObjectsJson);
+    final resolution = related['resolution'] as String?;
+    final retryItems = <Map<String, dynamic>>[];
+    final items =
+        (related['items'] as List? ?? const []).whereType<Map>().toList();
+
+    for (final item in items) {
+      final assetsId = (item['assetsId'] as num?)?.toInt();
+      if (assetsId == null) continue;
+      final asset = db.select(
+        'SELECT type FROM o_assets WHERE id=? AND projectId=? LIMIT 1',
+        [assetsId, projectId],
+      ).firstOrNull;
+      if (asset == null) continue;
+
+      final oldImageId = (item['imageId'] as num?)?.toInt();
+      final oldState = oldImageId == null
+          ? null
+          : db.select(
+              'SELECT state FROM o_image WHERE id=? AND assetsId=? LIMIT 1',
+              [oldImageId, assetsId],
+            ).firstOrNull?['state'] as String?;
+      if (oldState == stateDone) continue;
+
+      db.execute(
+        'INSERT INTO o_image (assetsId,type,state,resolution) VALUES (?,?,?,?)',
+        [assetsId, asset['type'], stateGenerating, resolution],
+      );
+      final imageId = db.lastInsertRowId;
+      db.execute(
+        'UPDATE o_assets SET imageId=? WHERE id=?',
+        [imageId, assetsId],
+      );
+      retryItems.add(Map<String, dynamic>.from(item)..['imageId'] = imageId);
+    }
+
+    if (retryItems.isEmpty) {
+      throw const EngineException(
+        errLlmFormat,
+        {'reason': '没有可重试的资产图片'},
+      );
+    }
+    related['items'] = retryItems;
+    related['ids'] = [
+      for (final item in retryItems) item['assetsId'],
+    ];
+    return related;
+  }
+
   Future<void> _runImageGeneration(TasksRow task, CancelToken token) async {
     final related = task.relatedObjectsJson;
     final resolution = related['resolution'] as String?;

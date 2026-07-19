@@ -912,6 +912,113 @@ void main() {
     );
   });
 
+  test('取消的资产生图任务重试只为失败项创建新图片并更新选中图', () async {
+    final completedAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '已完成角色',
+      describe: '保留历史',
+      prompt: '完成图',
+    );
+    final canceledAssetId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '待重试场景',
+      describe: '取消后重试',
+      prompt: '失败图',
+    );
+    final canceledRequest = Completer<String>();
+    final canceledRequestStarted = Completer<void>();
+    gateway.imageFutureHandler = (prompt, _) {
+      if (prompt.contains('已完成角色')) {
+        return Future.value('p/completed.png');
+      }
+      canceledRequestStarted.complete();
+      return canceledRequest.future;
+    };
+
+    final taskId = engine.generateAssetImages(
+      projectId,
+      [
+        (assetsId: completedAssetId, refImageBase64: null),
+        (assetsId: canceledAssetId, refImageBase64: null),
+      ],
+    );
+    final originalTask = (await engine.projectJobs(projectId))
+        .singleWhere((job) => job.id == taskId);
+    final originalItems = {
+      for (final item in (originalTask.relatedObjectsJson['items'] as List)
+          .whereType<Map>())
+        (item['assetsId'] as num).toInt(): (item['imageId'] as num).toInt(),
+    };
+    final completedImageId = originalItems[completedAssetId]!;
+    final canceledImageId = originalItems[canceledAssetId]!;
+    await canceledRequestStarted.future.timeout(const Duration(seconds: 5));
+
+    await engine.cancelJob(taskId);
+    canceledRequest.complete('p/late-canceled.png');
+    await waitTask(taskId, expectState: 'failed');
+
+    final retryRequest = Completer<String>();
+    final retryRequestStarted = Completer<void>();
+    gateway.imageFutureHandler = (_, __) {
+      retryRequestStarted.complete();
+      return retryRequest.future;
+    };
+    final retryId = await engine.retryJob(taskId);
+    final retryTask = (await engine.projectJobs(projectId))
+        .singleWhere((job) => job.id == retryId);
+    final retryItems = (retryTask.relatedObjectsJson['items'] as List)
+        .whereType<Map>()
+        .toList();
+
+    expect(retryItems, hasLength(1));
+    expect(retryItems.single['assetsId'], canceledAssetId);
+    final retryImageId = (retryItems.single['imageId'] as num).toInt();
+    expect(retryImageId, isNot(canceledImageId));
+    expect(
+      engine.assetsByIds([completedAssetId]).single.imageId,
+      completedImageId,
+    );
+    expect(
+      engine.assetsByIds([canceledAssetId]).single.imageId,
+      retryImageId,
+    );
+    await retryRequestStarted.future.timeout(const Duration(seconds: 5));
+    expect(
+      engine
+          .assetImages(canceledAssetId)
+          .singleWhere((image) => image.id == retryImageId)
+          .state,
+      stateGenerating,
+    );
+
+    retryRequest.complete('p/retried.png');
+    await waitTask(retryId);
+
+    final completedImage = engine.assetImages(completedAssetId).single;
+    final canceledImages = {
+      for (final image in engine.assetImages(canceledAssetId)) image.id: image,
+    };
+    expect(completedImage.id, completedImageId);
+    expect(completedImage.state, stateDone);
+    expect(completedImage.filePath, 'p/completed.png');
+    expect(canceledImages[canceledImageId]!.state, stateFailed);
+    expect(canceledImages[canceledImageId]!.filePath, isNull);
+    expect(
+      EngineException.fromReasonJson(
+        canceledImages[canceledImageId]!.errorReason,
+      )?.errKey,
+      errCanceled,
+    );
+    expect(canceledImages[retryImageId]!.state, stateDone);
+    expect(canceledImages[retryImageId]!.filePath, 'p/retried.png');
+    expect(
+      engine.assetsByIds([canceledAssetId]).single.imageId,
+      retryImageId,
+    );
+  });
+
   test('处理中资产生图取消后晚到结果不能覆盖取消失败态', () async {
     final pendingImage = Completer<String>();
     gateway.pendingImage = pendingImage;
@@ -1007,6 +1114,7 @@ void main() {
 class _Gateway implements ProviderGateway {
   String Function(String system, String user)? textHandler;
   String Function(String prompt, String projectId)? imageHandler;
+  Future<String> Function(String prompt, String projectId)? imageFutureHandler;
   Completer<String>? pendingImage;
 
   @override
@@ -1028,6 +1136,9 @@ class _Gateway implements ProviderGateway {
       String? modelOverride}) async {
     expect(stage, 'asset_image');
     await Future<void>.delayed(const Duration(milliseconds: 5));
+    if (imageFutureHandler case final handler?) {
+      return handler(prompt, projectId);
+    }
     if (pendingImage case final pending?) return pending.future;
     return imageHandler!(prompt, projectId);
   }

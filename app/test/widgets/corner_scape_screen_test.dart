@@ -513,6 +513,8 @@ void main() {
     await tester.tap(find.widgetWithText(OutlinedButton, '生成提示词'));
     await tester.pump();
 
+    expect(find.text('提示词批量生成已提交'), findsOneWidget);
+    expect(find.text('提示词生成完成'), findsNothing);
     final tasks = (await engine.projectJobs(projectId))
         .where((job) => job.taskClass == 'asset_prompt_polish')
         .toList();

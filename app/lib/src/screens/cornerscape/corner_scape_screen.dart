@@ -152,7 +152,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
         otherTextPrompt: supplement,
       );
       setState(_selected.clear);
-      if (mounted) _toast(l10n.cornerScapePromptDone);
+      if (mounted) _toast(l10n.assetsBatchPromptDone);
     } catch (error) {
       if (mounted) {
         _toast('${l10n.cornerScapePromptFailed}: '

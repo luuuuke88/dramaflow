@@ -1032,9 +1032,11 @@ WHERE id=?
 
     db.execute('SAVEPOINT retry_task');
     try {
-      final retryRelated = task.taskClass == 'video_generation'
-          ? prepareVideoRetry(task)
-          : oldRelated;
+      final retryRelated = switch (task.taskClass) {
+        'video_generation' => prepareVideoRetry(task),
+        'asset_image_generation' => prepareAssetImageRetry(task),
+        _ => oldRelated,
+      };
       final newRelated = Map<String, dynamic>.from(retryRelated)
         ..['_retry'] = {
           'attempt': task.attempt + 1,
