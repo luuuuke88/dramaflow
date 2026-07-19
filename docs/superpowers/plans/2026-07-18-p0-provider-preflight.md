@@ -1,5 +1,11 @@
 # P0 Provider Preflight Implementation Plan
 
+> **历史计划，禁止重跑真实调用（2026-07-19）**：用户已明确要求开发与 CI 不做
+> 真实视频生成。本计划中的 `P0_LIVE`、真实 Seedance 提交、旧 ToonFlow Key 读取和
+> `p0_live_preflight_test.dart` 均已废止；后者已从测试树删除。当前只保留 fake
+> gateway 的本地状态机/恢复/失败演练，真实视频由用户最终手动验收。下文的真实
+> 调用命令仅用于解释历史证据，不能执行。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在 W1–W4 开发前暴露视频链路风险：完成**恰好一次**真实 Seedance 付费生成（含强杀重启恢复、四项独立证据断言）与**零真实调用**的失败重试演练，产出脱敏证据文档。

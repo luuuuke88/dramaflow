@@ -3,8 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test(
-      'macOS debug keeps its data container without requiring keychain sharing',
+  test('macOS credentials use local SQLite without declaring Keychain access',
       () {
     final debug =
         File('macos/Runner/DebugProfile.entitlements').readAsStringSync();
@@ -14,7 +13,7 @@ void main() {
     expect(debug, contains('<key>com.apple.security.app-sandbox</key>'));
     expect(debug, isNot(contains('<key>keychain-access-groups</key>')));
     expect(release, contains('<key>com.apple.security.app-sandbox</key>'));
-    expect(release, contains('<key>keychain-access-groups</key>'));
+    expect(release, isNot(contains('<key>keychain-access-groups</key>')));
   });
 
   test('macOS signing can be configured without committing a developer team',

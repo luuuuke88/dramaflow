@@ -75,7 +75,7 @@ flutter build macos --debug
 **最近复验（2026-07-19）**：在 `develop` 上运行 `flutter analyze` 得到零 issue；
 `flutter test --concurrency=1` 完整退出码为 0；`node tool/parity/check_no_orphans.js`
 确认 `538/538` 原版库存均有主清单归属。该复验没有设置 `QA_FULL=1` 或
-`P0_LIVE=1`，没有发起真实视频生成。
+真实供应商开关；自动化测试树已移除真实 P0 视频线束，没有发起真实视频生成。
 
 ## 当前优先缺口
 
