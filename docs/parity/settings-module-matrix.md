@@ -138,6 +138,8 @@ flutter test --concurrency=1 \
 
 - 逐条权威结论：[`master-checklist.md`](master-checklist.md) 中 `W6D-*`、`W7A-*`、
   `W9A-*`。
+- 外观模块的原版行为、Flutter 架构边界与验收门槛：
+  [`ui-appearance-matrix.md`](ui-appearance-matrix.md)。
 - 合理不适用证明：[`inventory-na.md`](inventory-na.md)。
 - 供应商协议缺口：[`vendor-protocol-matrix.md`](vendor-protocol-matrix.md)。
 - 技能文件与 Agent 运行时差异：[`skill-runtime-matrix.md`](skill-runtime-matrix.md)。
