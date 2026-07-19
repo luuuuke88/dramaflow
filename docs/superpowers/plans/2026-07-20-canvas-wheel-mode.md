@@ -178,6 +178,8 @@ git commit -m "feat(canvas): add session wheel interaction mode"
 - [ ] **Step 1: Write failing desktop and 390dp settings tests**
 
 Use the existing `app()` fixture and `_selectSection(tester, '其他设置')`.
+Retrieve that fixture's scope through
+`ProviderScope.containerOf(tester.element(find.byType(SettingsScreen)))`.
 Assert the default zoom segment is selected, tap scroll, then assert the
 provider immediately reads `CanvasWheelMode.scroll` while
 `engine.config.getAll()` is byte-for-byte unchanged. Repeat after setting the
@@ -215,15 +217,18 @@ Add three l10n keys in every ARB file, with these baseline values:
 
 Use translated equivalents in English and Japanese, then run `flutter gen-l10n`.
 In `_otherPanel`, render a `SegmentedButton<CanvasWheelMode>` before the save
-button. Give each segment keys `settings-canvas-wheel-zoom` and
-`settings-canvas-wheel-scroll`; its `selected` set comes from
+button. `ButtonSegment` has no key slot, so give its label widgets the keys
+`settings-canvas-wheel-zoom` and `settings-canvas-wheel-scroll`; its `selected`
+set comes from
 `ref.watch(canvasWheelModeProvider)` and `onSelectionChanged` calls the
 provider notifier immediately.
 
 In `ProductionScreen.build`, watch `canvasWheelModeProvider`, pass the value
 to `_CanvasLayout`, store it as a required widget field, and pass it to the
 main `DFCanvas(wheelMode: widget.wheelMode)`. Do not pass it to
-`ImageFlowEditorPage`.
+`ImageFlowEditorPage`. Import `canvas_wheel_mode.dart` directly in both
+`settings_screen.dart` and `production_screen.dart`; `providers.dart` owns the
+provider but does not re-export the enum.
 
 - [ ] **Step 4: Run localization and cross-device UI regressions**
 
