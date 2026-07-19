@@ -55,10 +55,24 @@ Rendering, gestures, and existing optimizations, all in `app/lib/src/widgets/df_
 - **Viewport culling of nodes AND edges.** `df_canvas.dart:557-640`: `_visibleSceneRect` projects the viewport into scene space (inflated 600px), and only nodes/edges intersecting it are built. This is the opposite of ToonFlow's `only-render-visible-elements="false"`.
 - **`RepaintBoundary` around grid, the edge layer, and every node** (`df_canvas.dart:682-753`).
 - **Fit-on-init** (`_fitView`, `df_canvas.dart:530-555`), clamping scale to 0.1–1.0.
+- **User-controlled interaction reduction on the main production canvas.**
+  `production.interacting` is persistent and defaults to enabled, but
+  `DFCanvas.interactionReductionEnabled` itself defaults to false. Only desktop
+  `ProductionScreen` forwards the saved flag, so the shared image-flow canvas
+  remains unchanged. During a real drag/pan/pinch/successful wheel transform,
+  only node content enters `TickerMode(false)` and `IgnorePointer`; the outer
+  drag region stays interactive and content restores exactly 150ms after the
+  matching end. `df_widgets_test.dart` locks the timing/default isolation and
+  `production_screen_test.dart` locks the desktop setting wiring.
 
 **The one structural cost to flag:** `df_canvas.dart:330-332` — `_handleTransformChanged` calls `setState(() {})` on **every** transformation tick. So during a continuous pan or pinch, the whole `LayoutBuilder` body re-runs each frame: it rebuilds `nodesById`, recomputes `visibleNodes`/`visibleEdges`, and re-diffs the `Stack` children every frame. Culling bounds *how many* widgets get built; `RepaintBoundary` bounds repaint; but the per-frame **rebuild + element diff of the node list is unavoidably O(nodes) every pan frame**. This is the single most likely DramaFlow-side source of pan/zoom jank and the thing W1 still needs to measure.
 
 **Node dragging (both canvases).** The main production canvas has the title-handle path above. In the editImage editor, `image_flow_editor.dart` supplies `n.position += delta` through `DFCanvasNode.onDragUpdate`; `DFCanvasDragRegion` claims the drag from the visual card surface, while the expanded parameter region sets `movesNode:false` to block viewport pan without changing the node. Each pointer-move still rebuilds the editor's `DFCanvas` node list (`image_flow_editor.dart:984-1016`), not just the dragged node. Main-canvas dragging likewise updates `_CanvasLayout` state per movement. Counts are usually small, but both paths require profile evidence rather than assumptions.
+
+The interaction-reduction switch is a narrow affordance/perceived-responsiveness
+tool, not a benchmark result. It does not reduce the per-frame transform rebuild
+identified above, and it must not be used as evidence that M1/M2/M5 frame
+budgets or real-device feel have been met.
 
 **Storyboard grid inside its node.** `storyboard_canvas_node.dart:569-587`: a `SingleChildScrollView` + `Wrap` over all rows with no windowing (same shape as ToonFlow's grid, minus the always-mounted-across-viewport problem since the whole node is culled when off-screen). Cell zoom is a session-only `_cellSize` clamped 90–260 via +/- buttons (`:51, :482-491`), not a continuous pinch.
 

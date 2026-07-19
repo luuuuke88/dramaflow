@@ -23,7 +23,7 @@
 | `memoryConfig.vue` | 无完整对应分区 | 部分实现 | 仅有项目级对话清空；向量模型及摘要/RAG 参数没有实现 |
 | `dbConfig.vue` | 存储与引擎 | 部分实现 | 表信息和业务数据清理可用；缺整库备份/还原、恢复出厂和按表清空 |
 | `fileManagement.vue` | 存储与引擎 | 部分实现 | 能打开数据根目录；缺原版可选子目录快捷入口 |
-| `otherConfig.vue` | 其他 | 部分实现 | 章节正则、单集字数、素材并发和会话级画布滚轮模式已对齐；超时和交互开关缺失 |
+| `otherConfig.vue` | 其他 | 已验证等价 | 章节正则、单集字数、素材并发、可持久化的通用请求超时、会话级画布滚轮模式和制作画布交互降级开关均有对应；滚轮模式仍刻意不持久化 |
 | `about.vue` | 关于 | 部分实现 | 应用/引擎版本已展示；检查、下载和安装更新尚未实现 |
 | `requestConfig.vue` | 不适用 | 不适用 | 原版是浏览器 SPA 寻址 Electron 本地 HTTP 后端；Flutter 引擎在进程内，无可配置的本地后端地址 |
 | `loginConfig.vue` | 不适用 | 不适用 | 原版只修改 SPA 与本地 Node 后端的 JWT 登录凭据；DramaFlow 是单用户原生应用 |
@@ -95,8 +95,26 @@ flutter test --concurrency=1 \
 - 生产页回归断言该值只传给桌面主 `DFCanvas`；画布回归断言 `zoom` 中鼠标/触控板焦点缩放、
   `scroll` 中二者平移，且参数区在 `scroll` 时仍阻断滚轮。
 
-这些均使用内存数据库与 widget 夹具，不调用任何模型或媒体供应商。剩余缺口仍是请求超时和
-`interacting` 降级开关，故本分区不能标记完成。
+### 请求超时与制作画布交互降级补充证据（2026-07-20）
+
+`otherConfig.vue:11-19` 的秒级请求超时由 `EngineConfig.requestTimeout` 与设置页数值字段承接：
+默认 600 秒、最小 10 秒，保存后跨重建保留。OpenAI/Anthropic 的文本、结构化工具、Agent、
+视觉理解、TTS、连接测试和 `/models` 请求均从这一个配置边界读取接收超时。它不取代媒体的
+任务语义：OpenAI 图片仍是 960 秒、ima2 保持其供应商 `imageTimeoutMs`，Seedance 仍保留提交、
+轮询和下载的 60/30/300 秒专用策略。
+
+`otherConfig.vue:26-31` 的 `interacting` 由持久化的 `production.interacting` 开关承接，默认开启。
+它只明确传入桌面主制作画布；共享 `DFCanvas` 默认关闭，因此图片流编辑器和移动端纵向 Tab
+不会意外继承这个临时性能策略。启用后，真实节点拖拽、空格平移、视口平移/缩放或成功滚轮
+变换会让节点内容进入 `TickerMode(false)` 与 `IgnorePointer`，结束后精确等待 150ms 恢复；
+拖拽手柄仍在节点内容之外，不能被这项降级阻断。
+
+`config_test.dart`、`providers_test.dart`、`anthropic_gateway_test.dart` 锁定通用超时与媒体例外；
+`settings_screen_test.dart` 锁定 42 秒保存/重建、开关持久化、390dp 可达性和 10 秒下限；
+`df_widgets_test.dart` 锁定 150ms 命中测试与默认共享画布不受影响；
+`production_screen_test.dart` 锁定桌面主画布读取持久化值。所有测试使用内存 SQLite、假 Dio
+网关和 widget 夹具，不调用任何模型或媒体供应商。因此 `otherConfig` 的可观察设置行为可标记
+为已验证等价；主题色、字号等仍在它们自己的分区中保持缺口。
 
 ## 不适用的边界
 
@@ -111,11 +129,9 @@ flutter test --concurrency=1 \
 ## 近期修复顺序
 
 1. `uiConfig` 的主题色和字号：范围小、跨端真实可见、可做离线测试。
-2. 请求超时和交互开关：滚轮模式已于 2026-07-20 关闭；其余两项应与 W1 性能实测一起设计，
-   避免添加无效开关。
-3. 技能文件管理与按需激活：属于 W2，设计和证据见
+2. 技能文件管理与按需激活：属于 W2，设计和证据见
    [`skill-runtime-matrix.md`](skill-runtime-matrix.md)。
-4. 数据库管理、记忆、Agent 高级部署和应用更新：各自独立设计，不能在“设置页重构”里
+3. 数据库管理、记忆、Agent 高级部署和应用更新：各自独立设计，不能在“设置页重构”里
    混做。
 
 ## 关联记录

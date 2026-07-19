@@ -235,3 +235,11 @@ DramaFlow 已拥有短剧生产主链路的一部分可靠底座，但还不是 
 390dp 下相同入口使用全屏编辑表单，仍可直接输入并保存，确认操作不依赖桌面 hover 或被底部裁切。点击上传不预先限制系统文件面板，而是与拖入共用 MIME/扩展名校验，因而可以对旧 `.doc` 给出原版同样的转换提示；读取错误也会显示明确的本地化提示。实现按 `Platform` 仅在 macOS、Windows、Linux 创建 `DropTarget`，移动端走系统文件选择器。390dp widget 测试覆盖全屏 UI，但没有把宿主 macOS 上的测试冒充成 iOS/Android 文件插件的真机验证。通用自适应桌面对话框也补上 `Material` 容器，修复资产选择器内 `CheckboxListTile` 在桌面主题下无法产生 Ink/背景层的 Flutter 断言。
 
 自动化证据为 `app/test/widgets/script_screen_test.dart`（新增单剧本相关 10 项，整组 17 项）与 `app/test/engine/novel_parse_test.dart`。测试仅使用内存数据库、临时 TXT/DOC 字节夹具和假网关；没有发起 AZT、GPT Image、Seedance 或其他真实供应商请求。`W6F-SCRIPT-ADD-001` 因此由“部分实现”提升为“已验证等价”。
+
+### 最近核验：其他设置的超时与制作画布交互降级
+
+2026-07-20 已完成 ToonFlow `otherConfig.vue` 剩余两项的等价路径。请求超时为本地持久化的秒数，默认 600、最小 10；它统一覆盖 OpenAI/Anthropic 的通用文本、结构化工具、Agent、视觉理解、TTS、连接测试和 `/models` 请求。图片与视频没有被这个通用值误覆盖：OpenAI 图片维持 960 秒，ima2 保持供应商图片超时，Seedance 保留 60/30/300 秒的提交、轮询和下载策略。
+
+制作画布的 `production.interacting` 默认开启且跨重建保留。它只传给桌面主制作 `DFCanvas`，真实节点拖拽、空格平移、视口变换或成功滚轮变换期间才临时关闭节点内容的命中与 ticker，并在结束后 150ms 恢复；拖拽手柄仍可操作。共享图片流画布默认关闭该行为，390dp 仍使用纵向内容，不把这个桌面性能策略误应用到其它页面。该行为是可开关的交互降级，而非“性能已经达到某个 FPS”的结论；W1 的 profile 和真机手感验证仍未关闭。
+
+自动化证据为 `config_test.dart`、`providers_test.dart`、`anthropic_gateway_test.dart`、`settings_screen_test.dart`、`df_widgets_test.dart`、`production_screen_test.dart`（本模块聚焦组合 93 项通过）。它们只使用内存 SQLite、假 Dio 网关和 widget 夹具；没有发起任何实时文本、图片、TTS 或视频请求，也没有提交或轮询 Seedance 任务。

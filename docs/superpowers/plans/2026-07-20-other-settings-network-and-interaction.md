@@ -363,7 +363,7 @@ git commit -m "feat(canvas): add interaction reduction setting"
 - Produces a corrected `W6D-OTHER-001` record: timeout and interaction setting
   are verified; only unrelated settings/canvas gaps remain open.
 
-- [ ] **Step 1: Update only evidenced parity claims**
+- [x] **Step 1: Update only evidenced parity claims**
 
 In `settings-module-matrix.md` and `master-checklist.md`, replace the
 statement that timeout/interacting are missing with the implemented behavior,
@@ -376,7 +376,7 @@ In `w1-canvas-reference.md`, distinguish this user-controlled hit-test/ticker
 reduction from a measured frame-rate guarantee. In the execution report, record
 that verification used fake Dio and no live text/image/TTS/video provider.
 
-- [ ] **Step 2: Run authoritative project gates**
+- [x] **Step 2: Run authoritative project gates**
 
 Run:
 
@@ -394,7 +394,7 @@ Expected: analyzer has no issues, every test passes, macOS debug build succeeds,
 the parity checker reports all inventory items covered, and whitespace check is
 empty.
 
-- [ ] **Step 3: Commit documentation evidence**
+- [x] **Step 3: Commit documentation evidence**
 
 ```sh
 git add docs/parity/settings-module-matrix.md \
