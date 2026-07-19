@@ -500,6 +500,14 @@
   "scriptImportGetAiRegex": "AI解析正则",
   "scriptImportEpisodeRegexPh": "自定义剧本拆分正则",
   "scriptBatchAdd": "批量添加",
+  "scriptBatchEpisodeFallback": "第{index}集",
+  "@scriptBatchEpisodeFallback": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
   "scriptGenerateFromEvents": "事件生成剧本",
   "scriptGenerateFromEventsTitle": "选择事件生成剧本",
   "scriptGenerateFromEventsEmpty": "暂无可用事件，请先在章节页生成事件",

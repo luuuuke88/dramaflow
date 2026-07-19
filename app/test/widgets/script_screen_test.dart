@@ -150,11 +150,20 @@ void main() {
 
     await tester.enterText(
       find.byType(TextField).last,
-      '第1章 雪夜\n黑衣人来到山门。\n第2章 焦玉\n焦黑玉佩落在雪中。',
+      '第1集 雪夜\n黑衣人来到山门。\n第2集 焦玉\n焦黑玉佩落在雪中。',
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('下一步'));
     await tester.pumpAndSettle();
+    expect(find.text('已勾选：0字'), findsOneWidget,
+        reason: 'ToonFlow 第二步默认不勾选任何分集');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    expect(engine.scripts(projectId), isEmpty, reason: '没有勾选分集时保存只提示，不应写入剧本');
+    await tester.tap(find.text('雪夜'));
+    await tester.tap(find.text('焦玉'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已勾选：'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, '保存'));
     await tester.pumpAndSettle();
 
@@ -162,6 +171,49 @@ void main() {
     expect(scripts.map((s) => s.name), ['雪夜', '焦玉']);
     expect(find.text('雪夜'), findsOneWidget);
     expect(find.text('焦玉'), findsOneWidget);
+  });
+
+  testWidgets('移动端批量添加保留空集标题，并按集号分别保存', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('批量添加'));
+    await tester.pumpAndSettle();
+    final regexField = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField && widget.decoration?.hintText == '自定义剧本拆分正则',
+    );
+    expect(regexField, findsOneWidget);
+    await tester.enterText(regexField, r'/EP(\d+)/g');
+    final contentField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.minLines == 9,
+    );
+    expect(contentField, findsOneWidget);
+    await tester.enterText(
+      contentField,
+      'EP1\n第一集正文。\nEP2\n第二集正文。',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('已解析 2 章节'), findsOneWidget);
+    final nextStep = find.widgetWithText(FilledButton, '下一步');
+    expect(tester.widget<FilledButton>(nextStep).onPressed, isNotNull);
+    await tester.tap(nextStep);
+    await tester.pumpAndSettle();
+    expect(find.text('第1集'), findsOneWidget);
+    expect(find.text('第2集'), findsOneWidget);
+    await tester.tap(find.text('第1集'));
+    await tester.tap(find.text('第2集'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    final scripts = engine.scripts(projectId);
+    expect(scripts, hasLength(2));
+    expect(scripts.map((script) => script.name), ['', '']);
+    expect(scripts.map((script) => script.content), ['第一集正文。', '第二集正文。']);
   });
 
   testWidgets('桌面端新增剧本可拖入 txt 正文并保存', (tester) async {

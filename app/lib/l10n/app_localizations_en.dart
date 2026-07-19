@@ -1166,6 +1166,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scriptBatchAdd => 'Batch Add';
 
   @override
+  String scriptBatchEpisodeFallback(String index) {
+    return 'Episode $index';
+  }
+
+  @override
   String get scriptGenerateFromEvents => 'Generate from events';
 
   @override

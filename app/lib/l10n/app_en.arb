@@ -422,6 +422,14 @@
   "scriptImportGetAiRegex": "AI-Generated Regex",
   "scriptImportEpisodeRegexPh": "Customize the script splitting rule, leave it blank to use the default splitting rule (the default is to split according to the Episode X format)",
   "scriptBatchAdd": "Batch Add",
+  "scriptBatchEpisodeFallback": "Episode {index}",
+  "@scriptBatchEpisodeFallback": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
   "scriptGenerateFromEvents": "Generate from events",
   "scriptGenerateFromEventsTitle": "Select events to generate scripts",
   "scriptGenerateFromEventsEmpty": "No events are available. Generate chapter events first.",

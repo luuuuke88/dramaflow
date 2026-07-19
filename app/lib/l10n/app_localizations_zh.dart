@@ -1129,6 +1129,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get scriptBatchAdd => '批量添加';
 
   @override
+  String scriptBatchEpisodeFallback(String index) {
+    return '第$index集';
+  }
+
+  @override
   String get scriptGenerateFromEvents => '事件生成剧本';
 
   @override

@@ -13,6 +13,9 @@ final _reelRegex = RegExp(
 final _defaultChapterRegex = RegExp(
   r'第\s*([0-9０-９零一二三四五六七八九十百千万]+)\s*[章回节]\s*([^\n\r]*)',
 );
+final _defaultEpisodeRegex = RegExp(
+  r'第\s*([0-9０-９零一二三四五六七八九十百千万]+)\s*集\s*([^\n\r]*)',
+);
 
 const _chineseNumMap = {
   '零': 0,
@@ -33,6 +36,17 @@ class ParsedChapter {
   final String chapter;
   final String text;
   const ParsedChapter({
+    required this.index,
+    required this.chapter,
+    required this.text,
+  });
+}
+
+class ParsedEpisode {
+  final int index;
+  final String chapter;
+  final String text;
+  const ParsedEpisode({
     required this.index,
     required this.chapter,
     required this.text,
@@ -79,9 +93,9 @@ int parseChineseNumber(String numStr) {
   return num + digit;
 }
 
-RegExp _resolveChapterRegex(String? chapterReg) {
-  final regStr = chapterReg?.trim() ?? '';
-  if (regStr.isEmpty) return _defaultChapterRegex;
+RegExp _resolveRegex(String? value, RegExp defaultRegex) {
+  final regStr = value?.trim() ?? '';
+  if (regStr.isEmpty) return defaultRegex;
   final m = RegExp(r'^/(.*)/([igmuy]*)$').firstMatch(regStr);
   final pattern = m != null ? m.group(1)! : regStr;
   final flags = m?.group(2) ?? '';
@@ -95,6 +109,43 @@ RegExp _resolveChapterRegex(String? chapterReg) {
   } on FormatException {
     throw EngineException(errRegexInvalid, {'pattern': regStr});
   }
+}
+
+RegExp _resolveChapterRegex(String? chapterReg) =>
+    _resolveRegex(chapterReg, _defaultChapterRegex);
+
+RegExp _resolveEpisodeRegex(String? episodeReg) =>
+    _resolveRegex(episodeReg, _defaultEpisodeRegex);
+
+bool _hasStickyFlag(String? value) {
+  final regStr = value?.trim() ?? '';
+  final match = RegExp(r'^/(.*)/([igmuy]*)$').firstMatch(regStr);
+  return match != null && (match.group(2) ?? '').contains('y');
+}
+
+int _advanceRegexIndex(String text, int index, bool unicode) {
+  if (!unicode || index + 1 >= text.length) return index + 1;
+  final first = text.codeUnitAt(index);
+  final second = text.codeUnitAt(index + 1);
+  final isHighSurrogate = first >= 0xd800 && first <= 0xdbff;
+  final isLowSurrogate = second >= 0xdc00 && second <= 0xdfff;
+  return isHighSurrogate && isLowSurrogate ? index + 2 : index + 1;
+}
+
+List<Match> _scriptMatches(String text, RegExp regex, {required bool sticky}) {
+  if (!sticky) return regex.allMatches(text).toList();
+
+  final matches = <Match>[];
+  var index = 0;
+  while (index <= text.length) {
+    final match = regex.matchAsPrefix(text, index);
+    if (match == null) break;
+    matches.add(match);
+    index = match.end == index
+        ? _advanceRegexIndex(text, index, regex.isUnicode)
+        : match.end;
+  }
+  return matches;
 }
 
 List<ParsedChapter> _parseChaptersIn(String section, RegExp chapterRegex) {
@@ -165,12 +216,46 @@ List<ReelParse> parseNovel(String text, {String? chapterReg}) {
     );
     reel.chapters.addAll(chapters);
   }
-  final result = reelMap.values.toList()
-    ..sort((a, b) => a.index - b.index);
+  final result = reelMap.values.toList()..sort((a, b) => a.index - b.index);
   for (final reel in result) {
     reel.chapters.sort((a, b) => a.index - b.index);
   }
   return result;
+}
+
+/// ToonFlow `parseScript.ts` 对应的独立拆集逻辑。
+/// 剧本批量导入默认按“第 X 集”拆分，不能复用小说导入的“第 X 章”语义。
+List<ParsedEpisode> parseScript(String text, {String? episodeReg}) {
+  final regex = _resolveEpisodeRegex(episodeReg);
+  final matches = _scriptMatches(
+    text,
+    regex,
+    sticky: _hasStickyFlag(episodeReg),
+  );
+  if (matches.isEmpty) {
+    return text.trim().isEmpty
+        ? const []
+        : [ParsedEpisode(index: 1, chapter: '', text: text.trim())];
+  }
+
+  final episodes = <ParsedEpisode>[];
+  for (var i = 0; i < matches.length; i++) {
+    final match = matches[i];
+    if (match.groupCount < 1) {
+      throw StateError('剧本拆分正则必须包含第一个集号捕获组');
+    }
+    final start = match.end;
+    final end = i + 1 < matches.length ? matches[i + 1].start : text.length;
+    final content =
+        text.substring(start, end).replaceFirst(RegExp(r'^[\r\n]+'), '').trim();
+    episodes.add(ParsedEpisode(
+      index: parseChineseNumber(match.group(1)!),
+      chapter: (match.groupCount >= 2 ? match.group(2) ?? '' : '').trim(),
+      text: content,
+    ));
+  }
+  episodes.sort((a, b) => a.index.compareTo(b.index));
+  return episodes;
 }
 
 /// 供导入页/引擎使用：卷结构拍平为章节条目（对应 importNovel.vue 的 flatMap）。

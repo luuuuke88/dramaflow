@@ -177,7 +177,7 @@ script_execution_skeleton.md
 | W9B-ARTSKILLS-001 | `manuals.dart:16-30` `visualManualKeys` 12 键"1:1 照抄 addVisualManual"；11 个内置画风包（132 个 `.md` + 20 个封面图）随 zip 打包，见 2.1 |
 | W9B-STORYSKILLS-001 | `manuals.dart:32-37` `directorManualKeys` 3 键"1:1 照抄 addDirectorManual"；12 个内置叙事类型包（36 个 `.md` + 12 个封面图）随 zip 打包，见 2.1 |
 
-**其他佐证（非独立收录，避免重复计数）**：`app/lib/src/screens/script/batch_add_dialog.dart` 的 `_reparse` 复用引擎 `parseNovel`（即间接继承 B 类 `novel_parse.dart` 的移植逻辑，见 W6E-LIB-PARSESCRIPT-001）；README.md:43"视频链路（volcengine seedance）按 ToonFlow 同款参数移植，待真机实测"（DramaFlow 自述，未指向具体 checklist 行，供参考）。
+**其他佐证（非独立收录，避免重复计数）**：`app/lib/src/screens/script/batch_add_dialog.dart` 的 `_reparse` 调用独立的 `parseScript`（同在 B 类 `novel_parse.dart`，默认按第X集而非小说的第X章拆分，见 W6E-LIB-PARSESCRIPT-001 与 `script-import-matrix.md`）；README.md:43"视频链路（volcengine seedance）按 ToonFlow 同款参数移植，待真机实测"（DramaFlow 自述，未指向具体 checklist 行，供参考）。
 
 ### 2.3 明确排除：本地扩展（非 ToonFlow 衍生）
 

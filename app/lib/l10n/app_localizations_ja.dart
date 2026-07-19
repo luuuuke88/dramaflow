@@ -1140,6 +1140,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scriptBatchAdd => '一括追加';
 
   @override
+  String scriptBatchEpisodeFallback(String index) {
+    return '第$index話';
+  }
+
+  @override
   String get scriptGenerateFromEvents => 'イベントからシナリオ生成';
 
   @override

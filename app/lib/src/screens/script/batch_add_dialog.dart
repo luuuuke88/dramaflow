@@ -46,19 +46,21 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
   String? _regexError;
   bool _aiLoading = false;
   bool _saving = false;
-  List<({String scriptName, String scriptData})> _parsed = const [];
+  List<({String id, int index, String scriptName, String scriptData})> _parsed =
+      const [];
   final Set<String> _selected = {};
 
   int get _episodeLimit =>
       widget.ref.read(engineProvider).config.intOf('scriptEpisodeLength');
 
   /// 已勾选且超出单集字数上限的分集（对齐 ToonFlow：任一超限则禁用保存）。
-  List<({String scriptName, String scriptData})> get _overLimit => [
-        for (final s in _parsed)
-          if (_selected.contains(s.scriptName) &&
-              s.scriptData.length > _episodeLimit)
-            s,
-      ];
+  List<({String id, int index, String scriptName, String scriptData})>
+      get _overLimit => [
+            for (final s in _parsed)
+              if (_selected.contains(s.id) &&
+                  s.scriptData.length > _episodeLimit)
+                s,
+          ];
 
   @override
   void dispose() {
@@ -87,19 +89,19 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
   }
 
   void _reparse() {
-    // 用与引擎一致的 parseNovel（自定义正则语义相同）拆集
+    // 剧本批量导入与 ToonFlow parseScript.ts 一致，默认按“第 X 集”拆分。
     try {
-      final reels =
-          parseNovel(_content.text, chapterReg: _regex.text.trim().isEmpty
-              ? null
-              : _regex.text.trim());
+      final episodes = parseScript(
+        _content.text,
+        episodeReg: _regex.text.trim().isEmpty ? null : _regex.text.trim(),
+      );
       _parsed = [
-        for (final item in flattenParsedNovel(reels))
+        for (final item in episodes)
           (
-            scriptName: item.chapter.isEmpty
-                ? '${item.index}'
-                : item.chapter,
-            scriptData: item.chapterData,
+            id: '${item.index}',
+            index: item.index,
+            scriptName: item.chapter,
+            scriptData: item.text,
           ),
       ];
     } catch (_) {
@@ -160,7 +162,8 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
     final l10n = context.l10n;
     final rows = [
       for (final item in _parsed)
-        if (_selected.contains(item.scriptName)) item,
+        if (_selected.contains(item.id))
+          (scriptName: item.scriptName, scriptData: item.scriptData),
     ];
     if (rows.isEmpty) {
       _toast(l10n.novelImportMsgSelectChapters);
@@ -172,9 +175,7 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
     }
     setState(() => _saving = true);
     try {
-      widget.ref
-          .read(engineProvider)
-          .batchAddScripts(widget.projectId, rows);
+      widget.ref.read(engineProvider).batchAddScripts(widget.projectId, rows);
       _toast(l10n.scriptAddMsgAddSuccess);
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -226,7 +227,8 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(Icons.upload_file_outlined, size: 26, color: df.primary),
             const SizedBox(height: 4),
-            Text(l10n.scriptAddDragUpload, style: const TextStyle(fontSize: 12)),
+            Text(l10n.scriptAddDragUpload,
+                style: const TextStyle(fontSize: 12)),
             Text(l10n.scriptAddUploadHint,
                 style: TextStyle(fontSize: 10, color: df.textTertiary)),
           ]),
@@ -255,7 +257,7 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
     final l10n = context.l10n;
     final df = context.df;
     final selectedChars = _parsed
-        .where((s) => _selected.contains(s.scriptName))
+        .where((s) => _selected.contains(s.id))
         .fold<int>(0, (sum, s) => sum + s.scriptData.length);
     final limit = _episodeLimit;
     final overLimit = _overLimit;
@@ -273,11 +275,11 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
             ..clear()
             ..addAll(ids)),
           rows: [
-            for (final (i, s) in _parsed.indexed)
+            for (final s in _parsed)
               DFDataRow(
-                id: s.scriptName,
+                id: s.id,
                 cells: [
-                  Text('${i + 1}'),
+                  Text('${s.index}'),
                   Text(s.scriptName,
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                   Row(children: [
@@ -305,10 +307,14 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
               ),
           ],
           mobileCardBuilder: (c, row) {
-            final s = _parsed.firstWhere((x) => x.scriptName == row.id);
+            final s = _parsed.firstWhere((x) => x.id == row.id);
             return ListTile(
-              title: Text(s.scriptName,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(
+                  s.scriptName.isEmpty
+                      ? l10n.scriptBatchEpisodeFallback('${s.index}')
+                      : s.scriptName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
               subtitle: Text(
                 s.scriptData.length > 40
                     ? s.scriptData.substring(0, 40)
@@ -347,9 +353,8 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 430),
-            child: _step == 0
-                ? SingleChildScrollView(child: _step1())
-                : _step2(),
+            child:
+                _step == 0 ? SingleChildScrollView(child: _step1()) : _step2(),
           ),
         ),
       ),
@@ -368,9 +373,7 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
                   ? null
                   : () => setState(() {
                         _step = 1;
-                        _selected
-                          ..clear()
-                          ..addAll([for (final s in _parsed) s.scriptName]);
+                        _selected.clear();
                       }),
               child: Text(l10n.novelImportNextStep),
             )

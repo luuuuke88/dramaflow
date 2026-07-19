@@ -62,11 +62,62 @@ void main() {
     expect(chapters[1].index, 2);
   });
 
+  test('剧本默认按集号排序，并将章节标记保留在正文中', () {
+    final episodes = parseScript(
+      '第2集 终局\n终局正文\n第1集 开端\n第1章 这仍是章节正文\n开端正文',
+    );
+
+    expect(episodes.map((episode) => episode.index), [1, 2]);
+    expect(episodes.map((episode) => episode.chapter), ['开端', '终局']);
+    expect(episodes.first.text, '第1章 这仍是章节正文\n开端正文');
+    expect(episodes.last.text, '终局正文');
+  });
+
+  test('剧本无集标记时将全文作为空标题的第一集', () {
+    final episodes = parseScript('没有集标题的完整剧本正文。');
+
+    expect(episodes, hasLength(1));
+    expect(episodes.single.index, 1);
+    expect(episodes.single.chapter, '');
+    expect(episodes.single.text, '没有集标题的完整剧本正文。');
+  });
+
+  test('剧本自定义正则沿用 pattern/flags 语义', () {
+    final episodes = parseScript(
+      'EP2 终局\nB\nEP1 开端\nA',
+      episodeReg: r'/EP(\d+)/g',
+    );
+
+    expect(episodes.map((episode) => episode.index), [1, 2]);
+    expect(episodes.map((episode) => episode.chapter), ['', '']);
+    expect(episodes.map((episode) => episode.text), ['开端\nA', '终局\nB']);
+  });
+
+  test('剧本自定义 y 标志按 JavaScript 粘滞语义而非全文扫描', () {
+    const text = '前缀 EP1\n正文';
+    final episodes = parseScript(text, episodeReg: r'/EP(\d+)/y');
+
+    // ToonFlow 的 matchAll(/.../gy) 只能从 lastIndex=0 开始；前缀存在时
+    // 没有匹配，随后按原版的无集标记规则将全文作为第一集。
+    expect(episodes, hasLength(1));
+    expect(episodes.single.index, 1);
+    expect(episodes.single.chapter, '');
+    expect(episodes.single.text, text);
+  });
+
+  test('剧本自定义正则缺少集号捕获组时拒绝解析', () {
+    expect(
+      () => parseScript('EP\n正文', episodeReg: r'/EP/g'),
+      throwsA(isA<StateError>()),
+    );
+  });
+
   test('非法自定义正则抛 errRegexInvalid', () {
     expect(
       () => parseNovel('文本', chapterReg: '/[unclosed/g'),
       throwsA(
-        isA<EngineException>().having((e) => e.errKey, 'errKey', errRegexInvalid),
+        isA<EngineException>()
+            .having((e) => e.errKey, 'errKey', errRegexInvalid),
       ),
     );
   });
@@ -88,8 +139,8 @@ void main() {
         '<w:p><w:r><w:t xml:space="preserve">内容 &amp; 转义</w:t></w:r></w:p>'
         '</w:body></w:document>';
     final archive = Archive()
-      ..addFile(ArchiveFile('word/document.xml', utf8.encode(doc).length,
-          utf8.encode(doc)));
+      ..addFile(ArchiveFile(
+          'word/document.xml', utf8.encode(doc).length, utf8.encode(doc)));
     final bytes = ZipEncoder().encode(archive);
     expect(extractDocxText(bytes), '第一章 起\n内容 & 转义');
   });

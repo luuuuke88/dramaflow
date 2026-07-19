@@ -2260,6 +2260,12 @@ abstract class AppLocalizations {
   /// **'批量添加'**
   String get scriptBatchAdd;
 
+  /// No description provided for @scriptBatchEpisodeFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'第{index}集'**
+  String scriptBatchEpisodeFallback(String index);
+
   /// No description provided for @scriptGenerateFromEvents.
   ///
   /// In zh, this message translates to:
