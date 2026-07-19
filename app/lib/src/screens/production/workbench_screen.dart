@@ -196,7 +196,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final compactActions = MediaQuery.sizeOf(context).width < 620;
+    final compactActions = MediaQuery.sizeOf(context).width < 1100;
     ref.watch(jobsGenerationProvider);
     final shots = ref.watch(engineProvider).storyboards(widget.scriptId);
     _syncCheckedShots(shots);
@@ -233,6 +233,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
           ),
           if (shots.isNotEmpty && compactActions)
             PopupMenuButton<_WorkbenchBatchAction>(
+              key: const ValueKey('workbench-batch-actions'),
               enabled: _checkedShotIds.isNotEmpty && !_batchPrompting,
               icon: const Icon(Icons.more_horiz_rounded),
               onSelected: (action) {

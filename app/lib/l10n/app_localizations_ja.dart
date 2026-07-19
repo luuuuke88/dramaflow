@@ -1486,6 +1486,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchPreviewExportSelected => '選択分をエクスポート';
 
   @override
+  String get workbenchPreviewExporting => 'エクスポート中';
+
+  @override
+  String get workbenchPreviewZipFileName => '絵コンテ先頭フレーム.zip';
+
+  @override
   String workbenchPreviewExported(int count) {
     return '先頭フレーム画像を $count 件エクスポートしました';
   }

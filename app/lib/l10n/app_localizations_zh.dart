@@ -1474,6 +1474,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchPreviewExportSelected => '导出已选';
 
   @override
+  String get workbenchPreviewExporting => '正在导出';
+
+  @override
+  String get workbenchPreviewZipFileName => '分镜首帧图.zip';
+
+  @override
   String workbenchPreviewExported(int count) {
     return '已导出 $count 张首帧图';
   }

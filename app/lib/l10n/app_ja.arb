@@ -545,6 +545,8 @@
   "workbenchPreviewImagePrompt": "画像プロンプト",
   "workbenchPreviewSelectAll": "全ショットを選択",
   "workbenchPreviewExportSelected": "選択分をエクスポート",
+  "workbenchPreviewExporting": "エクスポート中",
+  "workbenchPreviewZipFileName": "絵コンテ先頭フレーム.zip",
   "workbenchPreviewExported": "先頭フレーム画像を {count} 件エクスポートしました",
   "@workbenchPreviewExported": {
     "placeholders": {

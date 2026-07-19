@@ -2926,6 +2926,18 @@ abstract class AppLocalizations {
   /// **'导出已选'**
   String get workbenchPreviewExportSelected;
 
+  /// No description provided for @workbenchPreviewExporting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导出'**
+  String get workbenchPreviewExporting;
+
+  /// No description provided for @workbenchPreviewZipFileName.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜首帧图.zip'**
+  String get workbenchPreviewZipFileName;
+
   /// No description provided for @workbenchPreviewExported.
   ///
   /// In zh, this message translates to:

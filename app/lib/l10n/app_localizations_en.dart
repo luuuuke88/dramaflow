@@ -1515,6 +1515,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchPreviewExportSelected => 'Export selected';
 
   @override
+  String get workbenchPreviewExporting => 'Exporting';
+
+  @override
+  String get workbenchPreviewZipFileName => 'storyboard-first-frames.zip';
+
+  @override
   String workbenchPreviewExported(int count) {
     return 'Exported $count first-frame images';
   }

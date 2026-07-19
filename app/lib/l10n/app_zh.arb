@@ -651,6 +651,8 @@
   "workbenchPreviewImagePrompt": "图片提示词",
   "workbenchPreviewSelectAll": "全选分镜",
   "workbenchPreviewExportSelected": "导出已选",
+  "workbenchPreviewExporting": "正在导出",
+  "workbenchPreviewZipFileName": "分镜首帧图.zip",
   "workbenchPreviewExported": "已导出 {count} 张首帧图",
   "@workbenchPreviewExported": {
     "placeholders": {

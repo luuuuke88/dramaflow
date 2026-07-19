@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/material.dart';
@@ -16,14 +15,6 @@ import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import 'workbench_preview_controller.dart';
-
-Future<void> writeWorkbenchPreviewZip(Uint8List bytes, String path) {
-  return fs.XFile.fromData(
-    bytes,
-    mimeType: 'application/zip',
-    name: '分镜压缩包.zip',
-  ).saveTo(path);
-}
 
 Future<void> showWorkbenchQuickPreview(
   BuildContext context,
@@ -58,11 +49,14 @@ class WorkbenchQuickPreviewPage extends ConsumerStatefulWidget {
 }
 
 class _WorkbenchQuickPreviewPageState
-    extends ConsumerState<WorkbenchQuickPreviewPage> {
+    extends ConsumerState<WorkbenchQuickPreviewPage>
+    with WidgetsBindingObserver {
   late final List<_PreviewShot> _shots;
   late final PreviewTimelineController _timeline;
   final Set<int> _selectedShotIds = {};
+  final Stopwatch _playClock = Stopwatch();
   Timer? _ticker;
+  var _isExporting = false;
 
   @override
   void initState() {
@@ -71,7 +65,8 @@ class _WorkbenchQuickPreviewPageState
     final rows = engine.storyboards(widget.scriptId);
     final assetIds = <int>{for (final row in rows) ...row.assetIds};
     final assets = {
-      for (final asset in engine.assetsByIds(assetIds.toList())) asset.id: asset,
+      for (final asset in engine.assetsByIds(assetIds.toList()))
+        asset.id: asset,
     };
     _shots = [
       for (final row in rows) _PreviewShot.fromRow(row, engine, assets),
@@ -79,16 +74,46 @@ class _WorkbenchQuickPreviewPageState
     _timeline = PreviewTimelineController([
       for (final shot in _shots) shot.duration,
     ]);
-    _ticker = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      _timeline.tick(const Duration(milliseconds: 50));
-    });
+    _timeline.addListener(_syncPlaybackTicker);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timeline.removeListener(_syncPlaybackTicker);
     _ticker?.cancel();
+    _playClock.stop();
     _timeline.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _timeline.pause();
+  }
+
+  void _syncPlaybackTicker() {
+    if (_timeline.isPlaying) {
+      if (!_playClock.isRunning) {
+        _playClock
+          ..reset()
+          ..start();
+      }
+      _ticker ??= Timer.periodic(const Duration(milliseconds: 50), (_) {
+        final elapsed = _playClock.elapsed;
+        _playClock
+          ..reset()
+          ..start();
+        _timeline.tick(elapsed);
+      });
+      return;
+    }
+    _ticker?.cancel();
+    _ticker = null;
+    _playClock
+      ..stop()
+      ..reset();
   }
 
   void _toggleSelected(int shotId, bool selected) {
@@ -112,35 +137,50 @@ class _WorkbenchQuickPreviewPageState
   }
 
   Future<void> _exportSelected() async {
+    if (_isExporting) return;
     final l10n = context.l10n;
+    final fileName = l10n.workbenchPreviewZipFileName;
     if (_selectedShotIds.isEmpty) {
       _toast(l10n.storyboardExportNoImages);
       return;
     }
     try {
-      final export = ref
-          .read(engineProvider)
-          .exportStoryboardImages(widget.scriptId, _selectedShotIds);
-      if (export.fileCount == 0) {
+      final engine = ref.read(engineProvider);
+      final selectedIds = Set<int>.of(_selectedShotIds);
+      if (engine.storyboardImageExportFileCount(widget.scriptId, selectedIds) ==
+          0) {
         _toast(l10n.storyboardExportNoImages);
         return;
       }
       final location = await fs.getSaveLocation(
-        suggestedName: '分镜压缩包.zip',
+        suggestedName: fileName,
         acceptedTypeGroups: const [
           fs.XTypeGroup(label: 'zip', extensions: ['zip']),
         ],
       );
       if (location == null) return;
-      await writeWorkbenchPreviewZip(export.bytes, location.path);
-      if (mounted) _toast(l10n.workbenchPreviewExported(export.fileCount));
+      setState(() => _isExporting = true);
+      final count = await engine.exportStoryboardImagesToFile(
+        widget.scriptId,
+        selectedIds,
+        location.path,
+      );
+      if (!mounted) return;
+      if (count == 0) {
+        _toast(l10n.storyboardExportNoImages);
+      } else {
+        _toast(l10n.workbenchPreviewExported(count));
+      }
     } catch (error) {
       if (mounted) _toast(localizeError(context, error));
+    } finally {
+      if (mounted && _isExporting) setState(() => _isExporting = false);
     }
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -204,7 +244,8 @@ class _WorkbenchQuickPreviewPageState
             child: ClipRRect(
               borderRadius: BorderRadius.circular(DFTokens.radiusControl),
               child: shot.imageAbsPath == null
-                  ? _PreviewEmptyImage(text: context.l10n.workbenchPreviewNoImage)
+                  ? _PreviewEmptyImage(
+                      text: context.l10n.workbenchPreviewNoImage)
                   : Image.file(
                       File(shot.imageAbsPath!),
                       fit: BoxFit.contain,
@@ -222,7 +263,8 @@ class _WorkbenchQuickPreviewPageState
             IconButton(
               key: const ValueKey('workbench-preview-previous'),
               tooltip: context.l10n.workbenchPreviewPrevious,
-              onPressed: _timeline.currentIndex == 0 ? null : _timeline.previous,
+              onPressed:
+                  _timeline.currentIndex == 0 ? null : _timeline.previous,
               icon: const Icon(Icons.skip_previous_rounded),
             ),
             FilledButton.tonalIcon(
@@ -247,18 +289,21 @@ class _WorkbenchQuickPreviewPageState
         ),
         Row(
           children: [
-            Text(_formatTime(_timeline.totalElapsed), style: DFTokens.caption12),
+            Text(_formatTime(_timeline.totalElapsed),
+                style: DFTokens.caption12),
             Expanded(
               child: Slider(
                 value: _timeline.totalElapsed.inMilliseconds.toDouble(),
-                max: math.max(1, _timeline.totalDuration.inMilliseconds)
+                max: math
+                    .max(1, _timeline.totalDuration.inMilliseconds)
                     .toDouble(),
                 onChangeStart: (_) => _timeline.pause(),
-                onChanged: (value) => _timeline
-                    .seek(Duration(milliseconds: value.round())),
+                onChanged: (value) =>
+                    _timeline.seek(Duration(milliseconds: value.round())),
               ),
             ),
-            Text(_formatTime(_timeline.totalDuration), style: DFTokens.caption12),
+            Text(_formatTime(_timeline.totalDuration),
+                style: DFTokens.caption12),
           ],
         ),
         _buildSegments(context),
@@ -273,23 +318,30 @@ class _WorkbenchQuickPreviewPageState
         for (final entry in _shots.indexed)
           Expanded(
             flex: math.max(1, entry.$2.duration.inMilliseconds),
-            child: Semantics(
-              button: true,
-              label: '${context.l10n.workbenchQuickPreview} ${entry.$1 + 1}',
-              child: InkWell(
-                onTap: () => _timeline.jumpTo(entry.$1),
-                child: Container(
-                  height: 5,
-                  margin: EdgeInsets.only(
-                    right: entry.$1 == _shots.length - 1 ? 0 : 2,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(2),
-                    color: entry.$1 < _timeline.currentIndex
-                        ? df.primary
-                        : entry.$1 == _timeline.currentIndex
-                            ? df.primary.withValues(alpha: .55)
-                            : df.stroke,
+            child: SizedBox(
+              key: ValueKey('workbench-preview-segment-${entry.$2.id}'),
+              height: 48,
+              child: Semantics(
+                button: true,
+                selected: entry.$1 == _timeline.currentIndex,
+                label: '${context.l10n.workbenchQuickPreview} ${entry.$1 + 1}',
+                child: InkWell(
+                  onTap: () => _timeline.jumpTo(entry.$1),
+                  child: Center(
+                    child: Container(
+                      height: 5,
+                      margin: EdgeInsets.only(
+                        right: entry.$1 == _shots.length - 1 ? 0 : 2,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        color: entry.$1 < _timeline.currentIndex
+                            ? df.primary
+                            : entry.$1 == _timeline.currentIndex
+                                ? df.primary.withValues(alpha: .55)
+                                : df.stroke,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -321,8 +373,8 @@ class _WorkbenchQuickPreviewPageState
             ),
             _PreviewDetailSection(
               title: l10n.workbenchPreviewDuration,
-              child: Text(l10n.workbenchPreviewSeconds(
-                  _formatSeconds(shot.duration))),
+              child: Text(
+                  l10n.workbenchPreviewSeconds(_formatSeconds(shot.duration))),
             ),
             _PreviewDetailSection(
               title: l10n.workbenchPreviewRelatedAssets,
@@ -334,12 +386,9 @@ class _WorkbenchQuickPreviewPageState
                       children: [
                         for (final asset in shot.assets)
                           Chip(
-                            avatar: asset.imageAbsPath == null
-                                ? null
-                                : CircleAvatar(
-                                    backgroundImage: FileImage(
-                                        File(asset.imageAbsPath!)),
-                                  ),
+                            avatar: _PreviewAssetAvatar(
+                              imageAbsPath: asset.imageAbsPath,
+                            ),
                             label: Text(
                               '${asset.name}（${_assetTypeLabel(context, asset.type)}）',
                             ),
@@ -349,8 +398,8 @@ class _WorkbenchQuickPreviewPageState
             ),
             _PreviewDetailSection(
               title: l10n.workbenchPreviewImagePrompt,
-              child: Text(_displayOr(
-                  shot.prompt, l10n.workbenchPreviewNoDescription)),
+              child: Text(
+                  _displayOr(shot.prompt, l10n.workbenchPreviewNoDescription)),
             ),
           ],
         ),
@@ -372,9 +421,17 @@ class _WorkbenchQuickPreviewPageState
             Expanded(child: Text(context.l10n.workbenchPreviewSelectAll)),
             FilledButton.tonalIcon(
               key: const ValueKey('workbench-preview-export'),
-              onPressed: _exportSelected,
-              icon: const Icon(Icons.download_outlined),
-              label: Text(context.l10n.workbenchPreviewExportSelected),
+              onPressed: _isExporting ? null : _exportSelected,
+              icon: _isExporting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download_outlined),
+              label: Text(_isExporting
+                  ? context.l10n.workbenchPreviewExporting
+                  : context.l10n.workbenchPreviewExportSelected),
             ),
           ],
         ),
@@ -404,7 +461,8 @@ class _WorkbenchQuickPreviewPageState
                       children: [
                         Positioned.fill(
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+                            borderRadius:
+                                BorderRadius.circular(DFTokens.radiusControl),
                             child: shot.imageAbsPath == null
                                 ? const Icon(Icons.image_not_supported_outlined)
                                 : Image.file(
@@ -428,7 +486,8 @@ class _WorkbenchQuickPreviewPageState
                           top: 0,
                           right: 0,
                           child: Checkbox(
-                            key: ValueKey('workbench-preview-selected-${shot.id}'),
+                            key: ValueKey(
+                                'workbench-preview-selected-${shot.id}'),
                             value: selected,
                             onChanged: (value) =>
                                 _toggleSelected(shot.id, value ?? false),
@@ -501,6 +560,26 @@ class _PreviewAsset {
   });
 }
 
+class _PreviewAssetAvatar extends StatelessWidget {
+  final String? imageAbsPath;
+
+  const _PreviewAssetAvatar({required this.imageAbsPath});
+
+  @override
+  Widget build(BuildContext context) => CircleAvatar(
+        child: imageAbsPath == null
+            ? const Icon(Icons.image_not_supported_outlined)
+            : ClipOval(
+                child: Image.file(
+                  File(imageAbsPath!),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.image_not_supported_outlined),
+                ),
+              ),
+      );
+}
+
 class _PreviewDetailSection extends StatelessWidget {
   final String title;
   final Widget child;
@@ -550,7 +629,7 @@ Duration _durationFromText(String? raw) {
 
 String? _absoluteMediaPath(Engine engine, String? relPath) {
   if (relPath == null || relPath.trim().isEmpty) return null;
-  return engine.mediaAbsPath(relPath);
+  return engine.media.existingFilePath(relPath);
 }
 
 String _formatTime(Duration value) {

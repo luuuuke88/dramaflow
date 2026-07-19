@@ -545,6 +545,8 @@
   "workbenchPreviewImagePrompt": "Image prompt",
   "workbenchPreviewSelectAll": "Select all shots",
   "workbenchPreviewExportSelected": "Export selected",
+  "workbenchPreviewExporting": "Exporting",
+  "workbenchPreviewZipFileName": "storyboard-first-frames.zip",
   "workbenchPreviewExported": "Exported {count} first-frame images",
   "@workbenchPreviewExported": {
     "placeholders": {

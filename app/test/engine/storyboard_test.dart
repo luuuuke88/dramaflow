@@ -110,7 +110,7 @@ void main() {
 | 2 | 近景剑锋 | 横向跟拍 | 2 | 副线 | 林朝雪 | 否 |
 ''';
 
-  test('exportStoryboardImages 仅打包已选且存在的本地首帧', () {
+  test('exportStoryboardImagesToFile 仅打包已选且存在的本地首帧', () async {
     final first = engine.addStoryboard(
       projectId: projectId,
       scriptId: scriptId,
@@ -139,17 +139,67 @@ void main() {
     engine.setStoryboardImage(missing, missingRel);
     engine.setStoryboardImage(ignored, ignoredRel);
 
-    final result = engine.exportStoryboardImages(scriptId, {first, missing});
+    final target = p.join(dir.path, 'first-frames.zip');
+    expect(
+        engine.storyboardImageExportFileCount(scriptId, {first, missing}), 1);
+    final count = await engine.exportStoryboardImagesToFile(
+      scriptId,
+      {first, missing},
+      target,
+    );
 
-    expect(result.fileCount, 1);
-    final archive = ZipDecoder().decodeBytes(result.bytes);
+    expect(count, 1);
+    final archive = ZipDecoder().decodeBytes(File(target).readAsBytesSync());
     expect(archive.files, hasLength(1));
     expect(archive.files.single.name, '分镜$first.png');
     expect(archive.files.single.content, [1, 2, 3]);
 
-    final empty = engine.exportStoryboardImages(scriptId, const {});
-    expect(empty.fileCount, 0);
-    expect(empty.bytes, isEmpty);
+    final emptyTarget = p.join(dir.path, 'empty.zip');
+    final empty = await engine.exportStoryboardImagesToFile(
+      scriptId,
+      const {},
+      emptyTarget,
+    );
+    expect(empty, 0);
+    expect(File(emptyTarget).existsSync(), isFalse);
+  });
+
+  test('首帧导出拒绝越出媒体根目录和符号链接的路径', () async {
+    final outside = File(p.join(dir.path, 'outside', 'secret.png'))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([9, 9, 9]);
+    final traversal = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '越界路径',
+    );
+    final absolute = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '绝对路径',
+    );
+    final linked = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '符号链接',
+    );
+    engine.setStoryboardImage(traversal, '../../outside/secret.png');
+    engine.setStoryboardImage(absolute, outside.path);
+    final link = Link(engine.mediaAbsPath('shots/outside.png'))
+      ..parent.createSync(recursive: true)
+      ..createSync(outside.path);
+    addTearDown(() {
+      if (link.existsSync()) link.deleteSync();
+    });
+    engine.setStoryboardImage(linked, 'shots/outside.png');
+
+    final selected = {traversal, absolute, linked};
+    expect(engine.storyboardImageExportFileCount(scriptId, selected), 0);
+    final target = p.join(dir.path, 'unsafe.zip');
+    final count =
+        await engine.exportStoryboardImagesToFile(scriptId, selected, target);
+    expect(count, 0);
+    expect(File(target).existsSync(), isFalse);
   });
 
   void seedDocuments({String table = validTable, String plan = '导演规划 A'}) {

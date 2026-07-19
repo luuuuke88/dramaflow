@@ -2,10 +2,10 @@
 // （详见 docs/reference/p3-production-canvas-brief.md §2）。
 // 状态枚举为 DB 中文字符串（逐字）：未生成/生成中/已完成/生成失败。
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
-import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart' show Row;
 
@@ -24,12 +24,7 @@ const sbGenerating = '生成中';
 const sbDone = '已完成';
 const sbFailed = '生成失败';
 
-class StoryboardImageExport {
-  final Uint8List bytes;
-  final int fileCount;
-
-  const StoryboardImageExport(this.bytes, this.fileCount);
-}
+typedef _StoryboardExportEntry = ({String archivePath, String sourcePath});
 
 String _storyboardExportExtension(String relPath) {
   final name = relPath.split('/').last.split('?').first;
@@ -37,6 +32,38 @@ String _storyboardExportExtension(String relPath) {
   if (dot <= 0 || dot == name.length - 1) return 'jpg';
   final extension = name.substring(dot + 1).toLowerCase();
   return RegExp(r'^[a-z0-9]{1,10}$').hasMatch(extension) ? extension : 'jpg';
+}
+
+Future<int> _writeStoryboardExportArchive(
+  List<_StoryboardExportEntry> entries,
+  String targetPath,
+) async {
+  final encoder = ZipFileEncoder();
+  var count = 0;
+  try {
+    encoder.create(targetPath);
+    for (final entry in entries) {
+      final source = File(entry.sourcePath);
+      if (!source.existsSync()) continue;
+      await encoder.addFile(source, entry.archivePath);
+      count++;
+    }
+    await encoder.close();
+    if (count == 0) {
+      final target = File(targetPath);
+      if (target.existsSync()) target.deleteSync();
+    }
+    return count;
+  } catch (_) {
+    try {
+      await encoder.close();
+    } catch (_) {
+      // 原始错误更有诊断价值；尽力关闭临时 ZIP 流。
+    }
+    final target = File(targetPath);
+    if (target.existsSync()) target.deleteSync();
+    rethrow;
+  }
 }
 
 class StoryboardRow {
@@ -217,36 +244,42 @@ extension StoryboardApi on Engine {
     return out;
   }
 
-  /// 将选中的本地首帧图归档为 ZIP，不修改分镜或媒体文件。
-  StoryboardImageExport exportStoryboardImages(
+  /// 返回当前可安全导出的本地首帧数量，不读取图片内容。
+  int storyboardImageExportFileCount(int scriptId, Set<int> storyboardIds) =>
+      _storyboardExportEntries(scriptId, storyboardIds).length;
+
+  /// 将选中的本地首帧图直接写入 [targetPath]。
+  ///
+  /// ZIP 编码在独立 isolate 内以流式文件读取完成，避免在 UI isolate 聚集所有
+  /// 首帧原字节与 ZIP 副本。无可导出文件时不创建目标文件。
+  Future<int> exportStoryboardImagesToFile(
+    int scriptId,
+    Set<int> storyboardIds,
+    String targetPath,
+  ) async {
+    final entries = _storyboardExportEntries(scriptId, storyboardIds);
+    if (entries.isEmpty) return 0;
+    return Isolate.run(
+        () => _writeStoryboardExportArchive(entries, targetPath));
+  }
+
+  List<_StoryboardExportEntry> _storyboardExportEntries(
       int scriptId, Set<int> storyboardIds) {
-    if (storyboardIds.isEmpty) {
-      return StoryboardImageExport(Uint8List(0), 0);
-    }
-    final archive = Archive();
-    var fileCount = 0;
+    if (storyboardIds.isEmpty) return const [];
+    final entries = <_StoryboardExportEntry>[];
     for (final row in storyboards(scriptId)) {
       final rel = row.filePath;
       if (!storyboardIds.contains(row.id) || rel == null || rel.isEmpty) {
         continue;
       }
-      final file = File(media.absPath(rel));
-      if (!file.existsSync()) continue;
-      final content = file.readAsBytesSync();
-      archive.addFile(ArchiveFile(
-        '分镜${row.id}.${_storyboardExportExtension(rel)}',
-        content.length,
-        content,
+      final path = media.existingFilePath(rel);
+      if (path == null) continue;
+      entries.add((
+        sourcePath: path,
+        archivePath: '分镜${row.id}.${_storyboardExportExtension(rel)}',
       ));
-      fileCount++;
     }
-    if (fileCount == 0) {
-      return StoryboardImageExport(Uint8List(0), 0);
-    }
-    return StoryboardImageExport(
-      Uint8List.fromList(ZipEncoder().encode(archive)),
-      fileCount,
-    );
+    return entries;
   }
 
   List<StoryboardRow> storyboards(int scriptId) {

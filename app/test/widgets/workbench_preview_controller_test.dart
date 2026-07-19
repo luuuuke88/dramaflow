@@ -63,4 +63,18 @@ void main() {
     expect(controller.totalDuration, Duration.zero);
     expect(controller.progress, 0);
   });
+
+  test('非正时长统一按三秒预览', () {
+    final controller = PreviewTimelineController(const [
+      Duration.zero,
+      Duration(seconds: -1),
+    ]);
+    addTearDown(controller.dispose);
+
+    expect(controller.totalDuration, const Duration(seconds: 6));
+    controller.togglePlay();
+    controller.tick(const Duration(seconds: 3));
+    expect(controller.currentIndex, 1);
+    expect(controller.elapsed, Duration.zero);
+  });
 }

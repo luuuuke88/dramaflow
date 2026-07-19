@@ -176,7 +176,7 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
-  Widget app() {
+  Widget app({Locale locale = const Locale('zh')}) {
     final router = GoRouter(initialLocation: '/', routes: [
       GoRoute(
         path: '/',
@@ -198,7 +198,7 @@ void main() {
       child: MaterialApp.router(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
-        locale: const Locale('zh'),
+        locale: locale,
         theme: buildTheme(Brightness.light),
         routerConfig: router,
       ),
@@ -262,6 +262,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> tapWorkbenchBatchAction(
+    WidgetTester tester,
+    String label,
+  ) async {
+    await tester.tap(find.byKey(const ValueKey('workbench-batch-actions')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(label));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('无分镜时显示空态', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
@@ -278,11 +288,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('S1'), findsOneWidget);
-    expect(find.textContaining('合成本集'), findsOneWidget);
+    expect(find.byKey(const ValueKey('workbench-compose-compact')),
+        findsOneWidget);
   });
 
-  testWidgets('工作台快速预览按时长跳镜并展示本地分镜与关联资产',
-      (tester) async {
+  testWidgets('工作台快速预览按时长跳镜并展示本地分镜与关联资产', (tester) async {
     const png =
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL3UQAAAABJRU5ErkJggg==';
     engine.db.execute(
@@ -324,7 +334,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('workbench-quick-preview')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('workbench-preview-page')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('workbench-preview-page')), findsOneWidget);
     expect(find.textContaining('镜头一描述'), findsOneWidget);
     expect(find.text('林朝雪（角色）'), findsOneWidget);
     expect(find.text('雪夜山门，月光照剑。'), findsOneWidget);
@@ -337,8 +348,7 @@ void main() {
         findsOneWidget);
   });
 
-  testWidgets('390dp 工作台快速预览可切换缩略图并访问导出动作',
-      (tester) async {
+  testWidgets('390dp 工作台快速预览可切换缩略图并访问导出动作', (tester) async {
     final first = engine.addStoryboard(
       projectId: projectId,
       scriptId: scriptId,
@@ -370,8 +380,7 @@ void main() {
     await tester.tap(thumbnail);
     await tester.pump();
     expect(find.textContaining('移动端第二镜描述'), findsOneWidget);
-    final checkbox =
-        find.byKey(ValueKey('workbench-preview-selected-$second'));
+    final checkbox = find.byKey(ValueKey('workbench-preview-selected-$second'));
     await tester.ensureVisible(checkbox);
     await tester.tap(checkbox);
     await tester.drag(
@@ -379,9 +388,72 @@ void main() {
       const Offset(0, -500),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('workbench-preview-export')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('workbench-preview-export')), findsOneWidget);
     expect(tester.takeException(), isNull);
     expect(first, isPositive);
+  });
+
+  testWidgets('快速预览缺失关联资产图时保持可用', (tester) async {
+    engine.db.execute(
+      "INSERT INTO o_image (filePath,type,state) VALUES ('assets/missing.png','role','已完成')",
+    );
+    final imageId = engine.db.lastInsertRowId;
+    engine.db.execute(
+      "INSERT INTO o_assets (projectId,name,type,imageId) VALUES (?,'缺图角色','role',?)",
+      [projectId, imageId],
+    );
+    final assetId = engine.db.lastInsertRowId;
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '缺图镜头',
+      assetIds: [assetId],
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-quick-preview')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('缺图角色（角色）'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('快速预览时间段保持 48dp 触控命中区', (tester) async {
+    final shot = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '可触控时间段',
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-quick-preview')));
+    await tester.pumpAndSettle();
+
+    final segment = find.byKey(ValueKey('workbench-preview-segment-$shot'));
+    expect(segment, findsOneWidget);
+    expect(tester.getRect(segment).height, greaterThanOrEqualTo(48));
+  });
+
+  testWidgets('1024dp 英文工作台将批量动作收进紧凑工具栏', (tester) async {
+    engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(locale: const Locale('en')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('workbench-compose-compact')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('工作台快速预览为已选首帧请求 ZIP 保存', (tester) async {
@@ -410,14 +482,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('workbench-quick-preview')));
     await tester.pumpAndSettle();
-    final checkbox =
-        find.byKey(ValueKey('workbench-preview-selected-$shot'));
+    final checkbox = find.byKey(ValueKey('workbench-preview-selected-$shot'));
     await tester.ensureVisible(checkbox);
     await tester.tap(checkbox);
     final export = find.byKey(const ValueKey('workbench-preview-export'));
     await tester.ensureVisible(export);
     await tester.tap(export);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump();
 
     expect(selector.saveCalls, 1);
     expect(selector.acceptedTypeGroups?.single.extensions, ['zip']);
@@ -5196,8 +5271,7 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s1')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('全部生成视频'));
-    await tester.pumpAndSettle();
+    await tapWorkbenchBatchAction(tester, '全部生成视频');
 
     final task = engine.db
         .select(
@@ -5231,8 +5305,7 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s1')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('全部生成运镜提示词'));
-    await tester.pumpAndSettle();
+    await tapWorkbenchBatchAction(tester, '全部生成运镜提示词');
 
     final shot1 = engine.storyboards(scriptId).singleWhere((s) => s.id == s1);
     final shot2 = engine.storyboards(scriptId).singleWhere((s) => s.id == s2);
@@ -5572,7 +5645,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.textContaining('合成本集'));
+    await tester.tap(find.byKey(const ValueKey('workbench-compose-compact')));
     await tester.pumpAndSettle();
 
     expect(find.text('合成成功'), findsOneWidget);
@@ -5609,8 +5682,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(
-        find.byKey(const ValueKey('workbench-compose-compact')));
+    await tester.tap(find.byKey(const ValueKey('workbench-compose-compact')));
     await tester.pumpAndSettle();
 
     expect(find.byType(AlertDialog), findsNothing);
@@ -5880,8 +5952,7 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s2')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('清空已选轨道'));
-    await tester.pumpAndSettle();
+    await tapWorkbenchBatchAction(tester, '清空已选轨道');
     await tester.tap(find.widgetWithText(FilledButton, '清空'));
     await tester.pumpAndSettle();
 
@@ -6188,8 +6259,7 @@ void main() {
 
     expect(engine.storyboards(scriptId).map((r) => r.id), [s2, s1]);
 
-    await tester.tap(
-        find.byKey(const ValueKey('workbench-compose-compact')));
+    await tester.tap(find.byKey(const ValueKey('workbench-compose-compact')));
     await tester.pumpAndSettle();
 
     expect(composer.concatCalls.single.map((p) => p.split('/').last), [
