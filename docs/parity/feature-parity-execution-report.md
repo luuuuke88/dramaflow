@@ -76,7 +76,7 @@
 
 制作画布的节点骨架和编辑入口已有。2026-07-19 已补齐标题栏拖动与自动布局复位：六个节点在当前会话共用一张与 ToonFlow `nodePositions` 同语义的坐标表，切换剧集不会丢失当前排布；拖动按当前缩放换算场景坐标，并会锁住画布视口以避免节点拖动与画布平移同时发生；自动布局可恢复原始主链。参考资料为 [`w1-canvas-reference.md`](w1-canvas-reference.md)。
 
-尚未达标的部分：缩放围绕光标、触控板与 iOS/Android 的实际手势、选区，以及大量节点下的帧率没有 profile 实测。完成定义：同一套画布在 macOS 鼠标/触控板与 iOS/Android 手势下都能完成平移、缩放、节点编辑；性能指标必须通过 profile 实测，而不是凭视觉判断。
+尚未达标的部分：缩放围绕光标、触控板与 iOS/Android 的实际手势、选区，以及大量节点下的帧率没有 profile 实测。2026-07-19 的静态复核还确认：ToonFlow 可在设置中选择画布滚轮“缩放”或“滚动”，而当前 Flutter 3.44.4 `InteractiveViewer` 未设置 `trackpadScrollCausesScale`，因此 macOS 触控板双指滚动默认平移且无模式选择。完成定义：同一套画布在 macOS 鼠标/触控板与 iOS/Android 手势下都能完成平移、缩放、节点编辑，并具备等价的滚轮模式选择；性能指标必须通过 profile 实测，而不是凭视觉判断。
 
 本项自动化证据：`app/test/widgets/df_widgets_test.dart` 验证 2 倍缩放下的节点拖动坐标换算；`app/test/widgets/production_screen_test.dart` 驱动真实制作页的节点拖动与自动布局复位。两项都不调用任何视频供应商。
 

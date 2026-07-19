@@ -1,8 +1,8 @@
 // 通用无限画布（照抄 @vue-flow/core 行为，Flutter 自绘方案，见
 // docs/reference/p3-production-canvas-brief.md §1/§6）：
 // InteractiveViewer 负责平移缩放，节点用 Positioned+Stack，边用 CustomPainter
-// 画三次贝塞尔曲线。节点位置由调用方在每次数据变化时重新计算并传入（链式布局，
-// 不落库——与 ToonFlow 行为一致：main canvas 不持久化坐标，仅 editImage 子画布持久化）。
+// 画三次贝塞尔曲线。节点位置由调用方管理；提供 onDragUpdate 时，顶部 36px 拖拽区
+// 会把屏幕位移换算为场景位移。调用方可将位置保留在当前会话，但不需要落库。
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -33,8 +33,8 @@ class DFCanvasEdge {
   const DFCanvasEdge({required this.sourceId, required this.targetId});
 }
 
-/// 无限画布：平移缩放 0.1–10（照抄 VueFlow 限制），空格+拖拽额外支持由
-/// InteractiveViewer 原生手势覆盖（触屏双指缩放/单指平移，桌面滚轮缩放+拖拽平移）。
+/// 无限画布：平移缩放 0.1–10（对齐 VueFlow 限制）。平移、缩放和惯性由
+/// InteractiveViewer 提供；节点拖拽走顶部拖拽区，避免和画布平移冲突。
 class DFCanvas extends StatefulWidget {
   final List<DFCanvasNode> nodes;
   final List<DFCanvasEdge> edges;
