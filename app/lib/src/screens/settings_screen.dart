@@ -545,6 +545,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _openEditProviderDialog(ProviderInfo provider) async {
+    if (provider.protocol == 'ima2') {
+      final saved = await showProviderPresetForm(
+        context,
+        ref,
+        presetId: provider.id,
+        existingProvider: provider,
+      );
+      if (saved && mounted) _invalidateProvidersAndBindings();
+      return;
+    }
     final result = await showDialog<_ProviderFormResult>(
       context: context,
       builder: (_) => _ProviderFormDialog(provider: provider),

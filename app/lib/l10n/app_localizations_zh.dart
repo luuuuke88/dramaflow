@@ -3592,6 +3592,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get presetProviderExists => '该供应商已添加，请直接编辑';
 
   @override
+  String get providerInputChatBaseUrl => '文本基地址';
+
+  @override
+  String get providerInputImageBaseUrl => '图片服务地址';
+
+  @override
+  String get providerInputImageQuality => '图片质量';
+
+  @override
+  String get providerInputImageSize => '图片尺寸';
+
+  @override
+  String get providerInputImageTimeoutMs => '图片超时（毫秒）';
+
+  @override
   String get onboardingWelcomeTitle => '欢迎使用 DramaFlow';
 
   @override

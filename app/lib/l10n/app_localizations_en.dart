@@ -3706,6 +3706,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'This provider is already added — edit it instead';
 
   @override
+  String get providerInputChatBaseUrl => 'Chat base URL';
+
+  @override
+  String get providerInputImageBaseUrl => 'Image service URL';
+
+  @override
+  String get providerInputImageQuality => 'Image quality';
+
+  @override
+  String get providerInputImageSize => 'Image size';
+
+  @override
+  String get providerInputImageTimeoutMs => 'Image timeout (ms)';
+
+  @override
   String get onboardingWelcomeTitle => 'Welcome to DramaFlow';
 
   @override

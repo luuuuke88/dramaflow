@@ -28,6 +28,9 @@ class ProviderPreset {
   final bool acceptanceVerified; // 仅当 Task 7 验收表有证据行才可 true
   final String sourceUrl;
   final String verifiedAt; // YYYY-MM-DD
+  /// 不含密钥的供应商专属默认字段。固定协议只声明实际需要的字段，
+  /// 引擎会和通用 name/protocol/baseUrl 一起持久化。
+  final Map<String, String> inputDefaults;
   final List<PresetModel> models;
 
   const ProviderPreset({
@@ -41,6 +44,7 @@ class ProviderPreset {
     this.acceptanceVerified = false,
     required this.sourceUrl,
     required this.verifiedAt,
+    this.inputDefaults = const {},
     required this.models,
   });
 }
@@ -98,7 +102,8 @@ final kProviderPresets = <ProviderPreset>[
     protocol: 'anthropic',
     sourceUrl:
         'https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions',
-    verifiedAt: '2026-07-18', // WebFetch 核实：sonnet-5/opus-4-8/haiku-4-5（官方别名）均在列，原样确认
+    verifiedAt:
+        '2026-07-18', // WebFetch 核实：sonnet-5/opus-4-8/haiku-4-5（官方别名）均在列，原样确认
     models: [
       PresetModel('claude-sonnet-5', 'text'),
       PresetModel('claude-opus-4-8', 'text'),
@@ -112,7 +117,8 @@ final kProviderPresets = <ProviderPreset>[
     keyUrl: 'https://aistudio.google.com/apikey',
     compatMode: true,
     sourceUrl: 'https://ai.google.dev/gemini-api/docs/openai',
-    verifiedAt: '2026-07-18', // WebFetch+WebSearch 核实：无 gemini-3-pro，改用 gemini-3.1-pro-preview（当前唯一 Gemini 3 代 Pro 档，无 GA 非 preview 变体）
+    verifiedAt:
+        '2026-07-18', // WebFetch+WebSearch 核实：无 gemini-3-pro，改用 gemini-3.1-pro-preview（当前唯一 Gemini 3 代 Pro 档，无 GA 非 preview 变体）
     models: [
       PresetModel('gemini-3.5-flash', 'text'),
       PresetModel('gemini-3.1-pro-preview', 'text'),
@@ -136,7 +142,8 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://openrouter.ai/api/v1',
     keyUrl: 'https://openrouter.ai/settings/keys',
     sourceUrl: 'https://openrouter.ai/models',
-    verifiedAt: '2026-07-18', // 页面为 JS 渲染 WebFetch 抓不到列表，改用公开 GET /api/v1/models 真实调用核实（344 个模型）：anthropic/claude-sonnet-5、openai/gpt-5.1 命中；google/gemini-3-pro 不存在，改 google/gemini-3.1-pro-preview
+    verifiedAt:
+        '2026-07-18', // 页面为 JS 渲染 WebFetch 抓不到列表，改用公开 GET /api/v1/models 真实调用核实（344 个模型）：anthropic/claude-sonnet-5、openai/gpt-5.1 命中；google/gemini-3-pro 不存在，改 google/gemini-3.1-pro-preview
     models: [
       PresetModel('anthropic/claude-sonnet-5', 'text'),
       PresetModel('google/gemini-3.1-pro-preview', 'text'),
@@ -150,7 +157,8 @@ final kProviderPresets = <ProviderPreset>[
     keyUrl: 'https://cloud.siliconflow.cn/account/ak',
     sourceUrl:
         'https://docs.siliconflow.cn/cn/api-reference/models/get-model-list',
-    verifiedAt: '2026-07-18', // API 文档页无具体型号示例，改用各模型详情页核实：DeepSeek-V3.2、Kwai-Kolors/Kolors 原样确认；Qwen3-Max 在硅基流动不存在（该家只托管开源权重，Max 是阿里云自有闭源档，仅 dashscope 有），改用其开源旗舰 Qwen/Qwen3.5-397B-A17B
+    verifiedAt:
+        '2026-07-18', // API 文档页无具体型号示例，改用各模型详情页核实：DeepSeek-V3.2、Kwai-Kolors/Kolors 原样确认；Qwen3-Max 在硅基流动不存在（该家只托管开源权重，Max 是阿里云自有闭源档，仅 dashscope 有），改用其开源旗舰 Qwen/Qwen3.5-397B-A17B
     models: [
       PresetModel('deepseek-ai/DeepSeek-V3.2', 'text'),
       PresetModel('Qwen/Qwen3.5-397B-A17B', 'text'),
@@ -163,7 +171,8 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://api.deepseek.com/v1',
     keyUrl: 'https://platform.deepseek.com/api_keys',
     sourceUrl: 'https://api-docs.deepseek.com',
-    verifiedAt: '2026-07-19', // 独立复核（任务评审要求：不参考 ToonFlow 任何文件，仅从 api-docs.deepseek.com 官方域名重新 WebFetch 正文+定价页+WebSearch 交叉核实）：deepseek-chat/deepseek-reasoner 仍将于 2026-07-24 15:59 UTC 停用（原样确认，剩5天）；deepseek-v4-flash/deepseek-v4-pro 经官方定价页确认为两个独立在架型号、非同一模型别名（v4-pro 1.6T/49B 激活参数强推理档，定价约为 v4-flash 284B/13B 激活参数档的3倍），原样保留
+    verifiedAt:
+        '2026-07-19', // 独立复核（任务评审要求：不参考 ToonFlow 任何文件，仅从 api-docs.deepseek.com 官方域名重新 WebFetch 正文+定价页+WebSearch 交叉核实）：deepseek-chat/deepseek-reasoner 仍将于 2026-07-24 15:59 UTC 停用（原样确认，剩5天）；deepseek-v4-flash/deepseek-v4-pro 经官方定价页确认为两个独立在架型号、非同一模型别名（v4-pro 1.6T/49B 激活参数强推理档，定价约为 v4-flash 284B/13B 激活参数档的3倍），原样保留
     models: [
       PresetModel('deepseek-v4-flash', 'text'),
       PresetModel('deepseek-v4-pro', 'text'),
@@ -175,7 +184,8 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://api.moonshot.cn/v1',
     keyUrl: 'https://platform.moonshot.cn/console/api-keys',
     sourceUrl: 'https://platform.moonshot.cn/docs',
-    verifiedAt: '2026-07-19', // 独立复核（任务评审要求：不参考 ToonFlow 任何文件，仅从 platform.moonshot.cn/docs 重新 WebFetch，再次确认跳转至新域名 platform.kimi.com/docs+WebSearch 交叉核实）：kimi-k3（2.8万亿参数旗舰，2026-07-16 刚发布，官方文档原样在列）与 kimi-k2.6（通用次档，256K上下文，官方文档原样在列）均确认现役；kimi-latest（2026-01-28停用）、kimi-k2 系列（2026-05-25停用）交叉核实确认已下线，原样保留
+    verifiedAt:
+        '2026-07-19', // 独立复核（任务评审要求：不参考 ToonFlow 任何文件，仅从 platform.moonshot.cn/docs 重新 WebFetch，再次确认跳转至新域名 platform.kimi.com/docs+WebSearch 交叉核实）：kimi-k3（2.8万亿参数旗舰，2026-07-16 刚发布，官方文档原样在列）与 kimi-k2.6（通用次档，256K上下文，官方文档原样在列）均确认现役；kimi-latest（2026-01-28停用）、kimi-k2 系列（2026-05-25停用）交叉核实确认已下线，原样保留
     models: [
       PresetModel('kimi-k3', 'text'),
       PresetModel('kimi-k2.6', 'text'),
@@ -187,7 +197,8 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     keyUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
     sourceUrl: 'https://docs.bigmodel.cn',
-    verifiedAt: '2026-07-18', // WebFetch+WebSearch 核实：glm-4.6 仍在列但已非旗舰，改用当前旗舰 glm-5.2（2026-06 发布，API id 经二次搜索交叉确认）；cogview-4 原样确认仍在架
+    verifiedAt:
+        '2026-07-18', // WebFetch+WebSearch 核实：glm-4.6 仍在列但已非旗舰，改用当前旗舰 glm-5.2（2026-06 发布，API id 经二次搜索交叉确认）；cogview-4 原样确认仍在架
     models: [
       PresetModel('glm-5.2', 'text'),
       PresetModel('cogview-4', 'image'),
@@ -199,7 +210,8 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     keyUrl: 'https://bailian.console.aliyun.com/?apiKey=1',
     sourceUrl: 'https://help.aliyun.com/zh/model-studio/models',
-    verifiedAt: '2026-07-18', // help.aliyun.com 被 WebFetch 域名策略拦截，改用 alibabacloud.com 镜像页+WebSearch 交叉核实：qwen3-max 已被 qwen3.7-max 取代（当前旗舰），qwen-plus（评测/兼容层长青别名）原样确认仍在架
+    verifiedAt:
+        '2026-07-18', // help.aliyun.com 被 WebFetch 域名策略拦截，改用 alibabacloud.com 镜像页+WebSearch 交叉核实：qwen3-max 已被 qwen3.7-max 取代（当前旗舰），qwen-plus（评测/兼容层长青别名）原样确认仍在架
     models: [
       PresetModel('qwen3.7-max', 'text'),
       PresetModel('qwen-plus', 'text'),
@@ -213,7 +225,8 @@ final kProviderPresets = <ProviderPreset>[
     keyUrl: 'https://console.volcengine.com/ark',
     protocol: 'volcengine',
     sourceUrl: 'https://www.volcengine.com/docs/82379',
-    verifiedAt: '2026-07-18', // 以仓库 engine.dart 既有种子为真值（非 WebFetch 核实，见计划"已核实的代码事实"）
+    verifiedAt:
+        '2026-07-18', // 以仓库 engine.dart 既有种子为真值（非 WebFetch 核实，见计划"已核实的代码事实"）
     models: [
       const PresetModel('doubao-seed-1-6-250615', 'text'),
       const PresetModel('doubao-seedream-4-0-250828', 'image'),
@@ -222,12 +235,40 @@ final kProviderPresets = <ProviderPreset>[
     ],
   ),
   const ProviderPreset(
+    id: 'ima2',
+    name: 'ima2 / Codex OAuth',
+    baseUrl: 'http://127.0.0.1:10531/v1',
+    keyUrl: 'https://github.com/lidge-jun/ima2-gen',
+    protocol: 'ima2',
+    sourceUrl: 'https://github.com/lidge-jun/ima2-gen',
+    verifiedAt: '2026-07-19',
+    inputDefaults: {
+      'chatBaseUrl': 'http://127.0.0.1:10531/v1',
+      'imageBaseUrl': 'http://127.0.0.1:3333',
+      'imageQuality': 'low',
+      'imageSize': '1024x1024',
+      'imageTimeoutMs': '960000',
+    },
+    models: [
+      PresetModel('gpt-5.5', 'text', label: 'GPT-5.5 (Codex OAuth)'),
+      PresetModel('gpt-5.4', 'text', label: 'GPT-5.4 (Codex OAuth)'),
+      PresetModel('gpt-5.4-mini', 'text', label: 'GPT-5.4 Mini (Codex OAuth)'),
+      PresetModel('gpt-image-2-gpt-5.5', 'image',
+          label: 'GPT Image 2 / GPT-5.5'),
+      PresetModel('gpt-image-2-gpt-5.4', 'image',
+          label: 'GPT Image 2 / GPT-5.4'),
+      PresetModel('gpt-image-2-gpt-5.4-mini', 'image',
+          label: 'GPT Image 2 / GPT-5.4 Mini'),
+    ],
+  ),
+  const ProviderPreset(
     id: 'azt',
     name: 'azt (本地 Codex OAuth)',
     baseUrl: 'http://127.0.0.1:8787/v1',
     keyUrl: 'http://127.0.0.1:8787',
     desktopOnly: true,
-    acceptanceVerified: true, // 证据：本会话早前真实 e2e/smoke，非 Task 7 新验证——文本/图片服务冒烟见 .superpowers/sdd/progress.md「P0 Task 4」与 docs/parity/p0-provider-preflight.md「## azt 服务冒烟」（gpt-5.5 文本2.2s、gpt-image-2 1024x1024 图片26.7s，摘录 /tmp/p0-azt-smoke.txt）；gpt-5.6-luna 真实文本生成见 progress.md「QA真实全链路修复(storyboard boolean parser)」「QA全链路最终结果」全链路验证；Task 7 仅将此既有证据转录为正式验收记录
+    acceptanceVerified:
+        true, // 证据：本会话早前真实 e2e/smoke，非 Task 7 新验证——文本/图片服务冒烟见 .superpowers/sdd/progress.md「P0 Task 4」与 docs/parity/p0-provider-preflight.md「## azt 服务冒烟」（gpt-5.5 文本2.2s、gpt-image-2 1024x1024 图片26.7s，摘录 /tmp/p0-azt-smoke.txt）；gpt-5.6-luna 真实文本生成见 progress.md「QA真实全链路修复(storyboard boolean parser)」「QA全链路最终结果」全链路验证；Task 7 仅将此既有证据转录为正式验收记录
     sourceUrl: 'http://127.0.0.1:8787/v1/models',
     verifiedAt: '2026-07-19', // 本机 GET /v1/models 核实文本目录；图片另有独立冒烟证据
     models: [

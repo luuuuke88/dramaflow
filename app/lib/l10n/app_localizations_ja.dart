@@ -3617,6 +3617,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get presetProviderExists => 'このプロバイダーは追加済みです。編集してください';
 
   @override
+  String get providerInputChatBaseUrl => 'テキストベース URL';
+
+  @override
+  String get providerInputImageBaseUrl => '画像サービス URL';
+
+  @override
+  String get providerInputImageQuality => '画像品質';
+
+  @override
+  String get providerInputImageSize => '画像サイズ';
+
+  @override
+  String get providerInputImageTimeoutMs => '画像タイムアウト（ms）';
+
+  @override
   String get onboardingWelcomeTitle => 'DramaFlow へようこそ';
 
   @override

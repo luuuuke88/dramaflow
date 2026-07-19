@@ -102,6 +102,131 @@ void main() {
     expect(models.map((m) => m.modelId).toList(), ['deepseek-v4-flash']);
   });
 
+  test('ima2 预设创建时持久化双端点和图片专属配置', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
+
+    await engine.createProviderFromPreset(presetId: 'ima2', apiKey: 'dummy');
+
+    final row = engine.db.select(
+        'SELECT inputValues FROM o_vendorConfig WHERE id=?', ['ima2']).single;
+    final input = jsonDecode(row['inputValues'] as String) as Map;
+    expect(input['baseUrl'], 'http://127.0.0.1:10531/v1');
+    expect(input['chatBaseUrl'], 'http://127.0.0.1:10531/v1');
+    expect(input['imageBaseUrl'], 'http://127.0.0.1:3333');
+    expect(input['imageQuality'], 'low');
+    expect(input['imageSize'], '1024x1024');
+    expect(input['imageTimeoutMs'], '960000');
+    expect(
+      (await engine.listProviderModels('ima2')).map((model) => model.modelId),
+      [
+        'gpt-5.5',
+        'gpt-5.4',
+        'gpt-5.4-mini',
+        'gpt-image-2-gpt-5.5',
+        'gpt-image-2-gpt-5.4',
+        'gpt-image-2-gpt-5.4-mini',
+      ],
+    );
+  });
+
+  test('ima2 创建时允许覆盖双端点与图片专属配置', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
+
+    final provider = await engine.createProviderFromPreset(
+      presetId: 'ima2',
+      apiKey: 'remote-secret',
+      inputOverrides: {
+        'chatBaseUrl': 'https://ima2.example.test/v1',
+        'imageBaseUrl': 'https://ima2.example.test/images',
+        'imageQuality': 'high',
+        'imageSize': '1536x864',
+        'imageTimeoutMs': '120000',
+      },
+    );
+
+    expect(provider.baseUrl, 'https://ima2.example.test/v1');
+    final row = engine.db.select(
+        'SELECT inputValues FROM o_vendorConfig WHERE id=?', ['ima2']).single;
+    final input = jsonDecode(row['inputValues'] as String) as Map;
+    expect(input['chatBaseUrl'], 'https://ima2.example.test/v1');
+    expect(input['imageBaseUrl'], 'https://ima2.example.test/images');
+    expect(input['imageQuality'], 'high');
+    expect(input['imageSize'], '1536x864');
+    expect(input['imageTimeoutMs'], '120000');
+  });
+
+  test('ima2 兼容既有 baseUrl 覆盖并将其作为文本端点', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
+
+    final provider = await engine.createProviderFromPreset(
+      presetId: 'ima2',
+      apiKey: 'remote-secret',
+      baseUrl: 'https://text.ima2.example.test/v1',
+    );
+
+    expect(provider.baseUrl, 'https://text.ima2.example.test/v1');
+    final row = engine.db.select(
+        'SELECT inputValues FROM o_vendorConfig WHERE id=?', ['ima2']).single;
+    expect(
+      (jsonDecode(row['inputValues'] as String) as Map)['chatBaseUrl'],
+      'https://text.ima2.example.test/v1',
+    );
+  });
+
+  test('ima2 编辑时原子更新双端点和图片专属配置', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
+    await engine.createProviderFromPreset(presetId: 'ima2', apiKey: 'dummy');
+
+    final updated = await engine.updateProvider(
+      'ima2',
+      inputOverrides: {
+        'chatBaseUrl': 'https://new-text.example.test/v1',
+        'imageBaseUrl': 'https://new-image.example.test',
+        'imageQuality': 'medium',
+        'imageSize': '864x1536',
+        'imageTimeoutMs': '180000',
+      },
+    );
+
+    expect(updated.baseUrl, 'https://new-text.example.test/v1');
+    final row = engine.db.select(
+        'SELECT inputValues FROM o_vendorConfig WHERE id=?', ['ima2']).single;
+    final input = jsonDecode(row['inputValues'] as String) as Map;
+    expect(input['chatBaseUrl'], 'https://new-text.example.test/v1');
+    expect(input['imageBaseUrl'], 'https://new-image.example.test');
+    expect(input['imageQuality'], 'medium');
+    expect(input['imageSize'], '864x1536');
+    expect(input['imageTimeoutMs'], '180000');
+  });
+
+  test('ima2 编辑前读取持久化的专属配置，不暴露凭证', () async {
+    final engine = _engine(openEngineDb(':memory:'));
+    addTearDown(engine.dispose);
+    await engine.createProviderFromPreset(
+      presetId: 'ima2',
+      apiKey: 'dummy',
+      inputOverrides: const {
+        'chatBaseUrl': 'https://text.ima2.example.test/v1',
+        'imageBaseUrl': 'https://images.ima2.example.test',
+        'imageQuality': 'high',
+        'imageSize': '1536x864',
+        'imageTimeoutMs': '180000',
+      },
+    );
+
+    expect(await engine.providerPresetInputs('ima2'), {
+      'chatBaseUrl': 'https://text.ima2.example.test/v1',
+      'imageBaseUrl': 'https://images.ima2.example.test',
+      'imageQuality': 'high',
+      'imageSize': '1536x864',
+      'imageTimeoutMs': '180000',
+    });
+  });
+
   test('未知 presetId 抛 errProviderMissing；选空模型抛 errModelMissing 且零写入', () async {
     final engine = _engine(openEngineDb(':memory:'));
     addTearDown(engine.dispose);
@@ -364,8 +489,8 @@ void main() {
               'unsupportedAnthropicModelKind')),
     );
     expect(
-      db.select('SELECT id FROM o_vendorConfig WHERE id=?',
-          ['imported-anthropic']),
+      db.select(
+          'SELECT id FROM o_vendorConfig WHERE id=?', ['imported-anthropic']),
       isEmpty,
     );
   });

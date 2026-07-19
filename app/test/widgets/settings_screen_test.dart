@@ -644,6 +644,24 @@ void main() {
     expect(find.text('Old Gateway'), findsNothing);
   });
 
+  testWidgets('移动端设置页编辑 ima2 时打开双端点专属表单', (tester) async {
+    await engine.createProviderFromPreset(presetId: 'ima2', apiKey: 'dummy');
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('编辑').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('preset-input-chatBaseUrl')), findsOneWidget);
+    expect(find.byKey(const Key('preset-input-imageBaseUrl')), findsOneWidget);
+    expect(find.byKey(const Key('preset-form-baseurl')), findsNothing);
+  });
+
   testWidgets('移动端设置页：付费连通测试先确认，视频保持人工验收', (tester) async {
     engine.dispose();
     final db = openEngineDb(':memory:');

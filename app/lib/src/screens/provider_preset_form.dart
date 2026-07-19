@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:dramaflow/l10n/app_localizations.dart';
+
+import '../api/models.dart';
 import '../engine/provider_presets.dart';
 import '../engine/providers/resolve.dart';
 import '../engine/util.dart';
@@ -10,36 +13,55 @@ import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
 import '../widgets/df_adaptive_dialog.dart';
 
-/// 预设预填表单（spec §5 第 2 条）。返回 true = 创建成功。
+/// 预设预填表单。返回 true = 创建或编辑成功。
 Future<bool> showProviderPresetForm(
   BuildContext context,
   WidgetRef ref, {
   required String presetId,
+  ProviderInfo? existingProvider,
 }) async {
   final preset = providerPresetById(presetId);
-  if (preset == null) return false;
-  final created = await showDFAdaptiveDialog<bool>(
+  if (preset == null ||
+      (existingProvider != null && existingProvider.id != preset.id)) {
+    return false;
+  }
+  final initialInputs = existingProvider == null
+      ? const <String, String>{}
+      : await ref.read(engineProvider).providerPresetInputs(preset.id);
+  if (!context.mounted) return false;
+  final saved = await showDFAdaptiveDialog<bool>(
     context,
     title: preset.name,
     desktopWidthFactor: .5,
-    builder: (context) => _PresetFormBody(preset: preset),
+    builder: (context) => _PresetFormBody(
+      preset: preset,
+      existingProvider: existingProvider,
+      initialInputs: initialInputs,
+    ),
   );
-  return created == true;
+  return saved == true;
 }
 
 class _PresetFormBody extends ConsumerStatefulWidget {
   final ProviderPreset preset;
-  const _PresetFormBody({required this.preset});
+  final ProviderInfo? existingProvider;
+  final Map<String, String> initialInputs;
+
+  const _PresetFormBody({
+    required this.preset,
+    required this.existingProvider,
+    required this.initialInputs,
+  });
 
   @override
   ConsumerState<_PresetFormBody> createState() => _PresetFormBodyState();
 }
 
 class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
-  late final TextEditingController _name =
-      TextEditingController(text: widget.preset.name);
-  late final TextEditingController _baseUrl =
-      TextEditingController(text: widget.preset.baseUrl);
+  late final TextEditingController _name = TextEditingController(
+      text: widget.existingProvider?.name ?? widget.preset.name);
+  late final TextEditingController _baseUrl;
+  late final Map<String, TextEditingController> _inputValues;
   final TextEditingController _apiKey = TextEditingController();
   late final Set<String> _selected = {
     for (final m in widget.preset.models) m.modelId,
@@ -48,15 +70,49 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
   bool _saving = false;
   String? _error;
 
+  bool get _usesIma2Inputs => widget.preset.protocol == 'ima2';
+  bool get _isEditing => widget.existingProvider != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final isMobile = ref.read(engineProvider).config.isMobile;
+    _inputValues = {
+      for (final entry in widget.preset.inputDefaults.entries)
+        entry.key: TextEditingController(text: () {
+          final stored = widget.initialInputs[entry.key] ?? entry.value;
+          return isMobile && isLoopbackBaseUrl(stored) ? '' : stored;
+        }()),
+    };
+    _baseUrl = TextEditingController(
+      text: _usesIma2Inputs
+          ? (_inputValues['chatBaseUrl']?.text ?? '')
+          : (widget.existingProvider?.baseUrl ?? widget.preset.baseUrl),
+    );
+  }
+
+  String get _effectiveBaseUrl => _usesIma2Inputs
+      ? (_inputValues['chatBaseUrl']?.text ?? '')
+      : _baseUrl.text;
+
+  bool get _inputsComplete => _inputValues.values
+      .every((controller) => controller.text.trim().isNotEmpty);
+
   bool get _canSave =>
       !_saving &&
-      _selected.isNotEmpty &&
-      (isLoopbackBaseUrl(_baseUrl.text) || _apiKey.text.trim().isNotEmpty);
+      (_isEditing || _selected.isNotEmpty) &&
+      _inputsComplete &&
+      (isLoopbackBaseUrl(_effectiveBaseUrl) ||
+          widget.existingProvider?.hasCredential == true ||
+          _apiKey.text.trim().isNotEmpty);
 
   @override
   void dispose() {
     _name.dispose();
     _baseUrl.dispose();
+    for (final controller in _inputValues.values) {
+      controller.dispose();
+    }
     _apiKey.dispose();
     super.dispose();
   }
@@ -67,13 +123,27 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
       _error = null;
     });
     try {
-      await ref.read(engineProvider).createProviderFromPreset(
-            presetId: widget.preset.id,
-            apiKey: _apiKey.text,
-            selectedModelIds: _selected.toList(),
-            name: _name.text,
-            baseUrl: _baseUrl.text,
-          );
+      final inputOverrides = {
+        for (final entry in _inputValues.entries) entry.key: entry.value.text,
+      };
+      if (_isEditing) {
+        await ref.read(engineProvider).updateProvider(
+              widget.existingProvider!.id,
+              name: _name.text,
+              baseUrl: _effectiveBaseUrl,
+              apiKey: _apiKey.text.trim().isEmpty ? null : _apiKey.text,
+              inputOverrides: inputOverrides,
+            );
+      } else {
+        await ref.read(engineProvider).createProviderFromPreset(
+              presetId: widget.preset.id,
+              apiKey: _apiKey.text,
+              selectedModelIds: _selected.toList(),
+              name: _name.text,
+              baseUrl: _effectiveBaseUrl,
+              inputOverrides: inputOverrides,
+            );
+      }
       if (mounted) Navigator.of(context).pop(true);
     } on EngineException catch (e) {
       // 与 settings_screen.dart 其它供应商增删改路径同源的本地化映射
@@ -114,14 +184,31 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
             decoration: InputDecoration(labelText: l10n.settingsProviderName),
           ),
           const SizedBox(height: 12),
-          TextField(
-            key: const Key('preset-form-baseurl'),
-            controller: _baseUrl,
-            onChanged: (_) => setState(() {}),
-            decoration:
-                InputDecoration(labelText: l10n.settingsProviderColumnBaseUrl),
-          ),
-          const SizedBox(height: 12),
+          if (!_usesIma2Inputs) ...[
+            TextField(
+              key: const Key('preset-form-baseurl'),
+              controller: _baseUrl,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                  labelText: l10n.settingsProviderColumnBaseUrl),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_usesIma2Inputs)
+            for (final entry in _inputValues.entries) ...[
+              TextField(
+                key: Key('preset-input-${entry.key}'),
+                controller: entry.value,
+                keyboardType: entry.key.endsWith('BaseUrl')
+                    ? TextInputType.url
+                    : TextInputType.text,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: _inputLabel(l10n, entry.key),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
           TextField(
             key: const Key('preset-form-apikey'),
             controller: _apiKey,
@@ -145,23 +232,25 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
               onPressed: () => launchUrl(Uri.parse(widget.preset.keyUrl)),
             ),
           ),
-          const Divider(height: 24),
-          for (final m in widget.preset.models)
-            CheckboxListTile(
-              key: Key('preset-model-${m.modelId}'),
-              dense: true,
-              controlAffinity: ListTileControlAffinity.leading,
-              value: _selected.contains(m.modelId),
-              title:
-                  Text(m.modelId, maxLines: 1, overflow: TextOverflow.ellipsis),
-              onChanged: (v) => setState(() {
-                if (v == true) {
-                  _selected.add(m.modelId);
-                } else {
-                  _selected.remove(m.modelId);
-                }
-              }),
-            ),
+          if (!_isEditing) ...[
+            const Divider(height: 24),
+            for (final m in widget.preset.models)
+              CheckboxListTile(
+                key: Key('preset-model-${m.modelId}'),
+                dense: true,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _selected.contains(m.modelId),
+                title: Text(m.modelId,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                onChanged: (v) => setState(() {
+                  if (v == true) {
+                    _selected.add(m.modelId);
+                  } else {
+                    _selected.remove(m.modelId);
+                  }
+                }),
+              ),
+          ],
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -178,4 +267,13 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
       ),
     );
   }
+
+  String _inputLabel(AppLocalizations l10n, String key) => switch (key) {
+        'chatBaseUrl' => l10n.providerInputChatBaseUrl,
+        'imageBaseUrl' => l10n.providerInputImageBaseUrl,
+        'imageQuality' => l10n.providerInputImageQuality,
+        'imageSize' => l10n.providerInputImageSize,
+        'imageTimeoutMs' => l10n.providerInputImageTimeoutMs,
+        _ => key,
+      };
 }

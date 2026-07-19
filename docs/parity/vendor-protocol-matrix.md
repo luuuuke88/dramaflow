@@ -22,7 +22,7 @@
 | `azt.ts` | 本机 OAuth 文本和 GPT Image 2；图片质量、尺寸、超时为配置项 | 桌面 `azt` 种子，OpenAI 兼容文本/图片 | 部分实现 | 验证图片尺寸/质量提示和多参考的可观察结果；移动端继续明确不可达。**目录复核（2026-07-19）**：本机 `GET http://127.0.0.1:8787/v1/models` 返回 `gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-5.6-luna`、`gpt-5.5`、`gpt-5.3-codex-spark`；Flutter 预设和新库桌面种子已从同一 `provider_presets.dart` 同步这五个文本模型。`/models` 未列 `gpt-image-2` 不单独证明图片不可用，图片端点已有独立冒烟记录，故保留该图片模型并将它与文本目录证据分开管理。 |
 | `deepseek.ts` | 2 个文本模型 | DeepSeek 预设经 OpenAI 兼容路径 | 部分实现 | 假网关合同和模型拉取证据；真实 Key 验收仍待用户 |
 | `grsai.ts` | 4 个默认图像模型，带图像请求适配 | 无 GRSAI 私有图片请求适配 | 缺失 | 图像生成/参考图参数、结果解析和错误态的 fake 回归 |
-| `ima2.ts` | 本机双端点：文本 OAuth 代理与图片服务；3 个文本、3 个图片模型 | 无 ima2 供应商；`azt` 不是等价替代 | 缺失 | 桌面专用 ima2 配置、双端点字段、图片多参考与长超时状态；iOS/Android 明确不展示本机回环预设 |
+| `ima2.ts` | 本机双端点：文本 OAuth 代理与图片服务；3 个文本、3 个图片模型 | `ima2` 固定协议预设；文本取 `chatBaseUrl`，图片取 `imageBaseUrl` 的 `/api/generate`；独立输入、长超时、多参考与本地媒体落库 | 部分实现 | 协议、创建/编辑、桌面与 390dp 移动端远程端点、图片连通测试均有 fake 自动化证据，详见 [`ima2-protocol-contract.md`](ima2-protocol-contract.md)。仍待用户验收真实图片尺寸/质量/时延；不做真实视频调用，也不复刻 Electron 动态 TypeScript 插件运行时 |
 | `klingai.ts` | 20 个默认视频模型，支持图像/首尾帧/多参考等模式 | 无 Kling 协议 | 缺失 | 视频请求、任务状态映射、轮询、取消和能力编辑，全部以 fake gateway 验证 |
 | `minimax.ts` | 12 个默认文本、图像、视频模型，包含参考素材上传 | 无 MiniMax 协议 | 缺失 | 多凭证字段、上传引用、图像/视频任务和能力映射的 fake 回归 |
 | `null.ts` | 1 个文本模型的开发/兜底适配 | 测试中有 fake gateway，但没有同名用户供应商 | 待分类 | 在范围门确认其是否有用户可达入口；若无，记录 N/A 理由和替代测试位置 |
@@ -38,6 +38,7 @@
 | --- | --- | --- |
 | `openai_compatible`，`providers/openai_*.dart` | 文本、视觉理解、结构化输出、图像、TTS、`/models` 候选 | 私有图像/视频负载、供应商特有认证、多端点和异步视频任务 |
 | `anthropic`，`providers/anthropic_text.dart` | 原生 Messages 文本、视觉、结构化 JSON、首轮工具调用、`/models` | 原生多轮工具闭环。当前没有保留 `tool_use_id` 或 content block，不能发送 `tool_result` |
+| `ima2`，`providers/ima2_image.dart` | OpenAI 兼容文本端点、ima2 `/api/generate` 图片端点、参考图、响应下载和图片连通测试分流 | 真实 OAuth 图片质量/尺寸/时延，及 Electron 的通用可执行供应商插件机制 |
 | `volcengine`，`providers/volcengine_video.dart` | Seedance 提交、轮询、取消；现有火山图像/文本路径 | Kling、MiniMax、Vidu、AtlasCloud、ToonFlow 等非火山视频协议；完整火山目录与逐模型能力 |
 
 当前的模型编辑器允许录入 `video` 类型，但引擎会拒绝任何非 `volcengine` 视频模型。这是防止把别家模型错误送往 Seedance 的临时保护，不是 1:1 完成状态；后续必须以独立适配器替换这条全局拒绝，而不是取消视频模型配置能力。
@@ -55,6 +56,7 @@
 | Anthropic 模态边界 | 原生 Messages 适配当前只实现文本、视觉理解和文本工具；模型编辑或配置导入若将 `anthropic` 设为 `image`/`tts`，会在写库前拒绝，避免后续误走 OpenAI 图片或语音端点。 | `provider_preset_create_test.dart`：`Anthropic 供应商只允许保存 text 模型，导入也不能绕过` | 已关闭；完整原生多轮工具闭环仍是独立缺口 |
 | 付费连通测试 | 文本、图片、配音测试在 `policy.confirmMoney` 开启时均先弹出明确的真实请求/可能计费确认；关闭开关才直接发起。 | `settings_screen_test.dart`：`付费连通测试先确认，视频保持人工验收` | 已关闭 |
 | 凭证可见性 | 预设与自定义表单的 API Key 默认遮蔽，并都提供本地显隐切换。 | `settings_screen_test.dart`：`自定义供应商表单默认遮蔽 API Key`；`provider_preset_form_test.dart` | 已关闭 |
+| ima2 双端点 | macOS 预填原版两个 loopback 端点；390dp 移动端不预填 loopback，必须填远程文本与图片端点才能保存；已添加的 ima2 仍走专属编辑表单。 | `provider_preset_form_test.dart`：桌面预填、移动端空端点拒绝/远程保存、编辑回显；`settings_screen_test.dart`：专属编辑入口 | 已关闭；真实图片验收仍待用户 |
 | 协议表述 | `anthropic` 在列表和编辑表单显示“Anthropic 原生”，不再伪装为 OpenAI 兼容；自定义供应商可明确选择该协议。 | `settings_screen_test.dart`：`Anthropic 供应商在列表和编辑页都显示原生协议` | 已关闭 |
 
 `azt` 默认目录已于 2026-07-19 按本机 `/v1/models` 同步；新库的桌面

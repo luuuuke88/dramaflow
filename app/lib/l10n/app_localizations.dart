@@ -6976,6 +6976,36 @@ abstract class AppLocalizations {
   /// **'该供应商已添加，请直接编辑'**
   String get presetProviderExists;
 
+  /// No description provided for @providerInputChatBaseUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'文本基地址'**
+  String get providerInputChatBaseUrl;
+
+  /// No description provided for @providerInputImageBaseUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片服务地址'**
+  String get providerInputImageBaseUrl;
+
+  /// No description provided for @providerInputImageQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片质量'**
+  String get providerInputImageQuality;
+
+  /// No description provided for @providerInputImageSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片尺寸'**
+  String get providerInputImageSize;
+
+  /// No description provided for @providerInputImageTimeoutMs.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片超时（毫秒）'**
+  String get providerInputImageTimeoutMs;
+
   /// No description provided for @onboardingWelcomeTitle.
   ///
   /// In zh, this message translates to:

@@ -8,9 +8,9 @@ import 'package:dramaflow/src/engine/provider_presets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('目录：12 家 id 唯一且必填字段完备（含硬门字段）', () {
-    expect(kProviderPresets.length, 12);
-    expect(kProviderPresets.map((p) => p.id).toSet().length, 12);
+  test('目录：13 家 id 唯一且必填字段完备（含硬门字段）', () {
+    expect(kProviderPresets.length, 13);
+    expect(kProviderPresets.map((p) => p.id).toSet().length, 13);
     for (final p in kProviderPresets) {
       expect(p.name.trim(), isNotEmpty);
       expect(p.keyUrl.trim(), isNotEmpty, reason: '${p.id} 缺 keyUrl');
@@ -18,10 +18,11 @@ void main() {
       expect(RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(p.verifiedAt), isTrue,
           reason: '${p.id} verifiedAt 必须 YYYY-MM-DD（硬门）');
       expect(
-          {'openai_compatible', 'anthropic', 'volcengine'}.contains(p.protocol),
+          {'openai_compatible', 'anthropic', 'ima2', 'volcengine'}
+              .contains(p.protocol),
           isTrue);
       final uri = Uri.parse(p.baseUrl);
-      if (p.id == 'azt') {
+      if (const {'azt', 'ima2'}.contains(p.id)) {
         expect(uri.host, '127.0.0.1');
       } else {
         expect(uri.scheme, 'https', reason: '${p.id} 必须 https');

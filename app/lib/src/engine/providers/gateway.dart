@@ -12,6 +12,7 @@ import '../util.dart';
 import 'openai_text.dart';
 import 'openai_vision.dart';
 import 'anthropic_text.dart';
+import 'ima2_image.dart';
 import 'openai_image.dart';
 import 'openai_tts.dart';
 import 'resolve.dart';
@@ -227,6 +228,13 @@ class HttpProviderGateway
     } else {
       model = await resolveStage(db, credentials, stage);
     }
+    if (model.protocol == 'ima2') {
+      return ima2GenerateImage(dio, model, media, prompt, projectId,
+          ratio: ratio,
+          cancelToken: cancelToken,
+          referenceAbsPaths: referenceAbsPaths,
+          maskAbsPath: maskAbsPath);
+    }
     final directiveRows = db.select(
         'SELECT useData, data FROM o_prompt WHERE name=?',
         ['image_size_directive']);
@@ -434,9 +442,19 @@ class HttpProviderGateway
   Future<int> testImageModel(ResolvedModel model,
       {CancelToken? cancelToken}) async {
     final sw = Stopwatch()..start();
-    final rel = await openaiGenerateImage(dio, model, media,
-        'a small solid circle icon, minimal', '__conn_test__',
-        imageSizeDirective: '', cancelToken: cancelToken);
+    final rel = model.protocol == 'ima2'
+        ? await ima2GenerateImage(
+            dio,
+            model,
+            media,
+            'a small solid circle icon, minimal',
+            '__conn_test__',
+            ratio: null,
+            cancelToken: cancelToken,
+          )
+        : await openaiGenerateImage(dio, model, media,
+            'a small solid circle icon, minimal', '__conn_test__',
+            imageSizeDirective: '', cancelToken: cancelToken);
     sw.stop();
     final f = File(media.absPath(rel));
     if (f.existsSync()) f.deleteSync();

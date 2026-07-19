@@ -1390,6 +1390,18 @@ WHERE id=?
             .map(_providerInfo),
       );
 
+  /// 返回预设声明的非敏感专属配置，供预设编辑界面回显。
+  /// 凭证引用和未声明字段始终不离开引擎层。
+  Future<Map<String, String>> providerPresetInputs(String providerId) async {
+    final preset = providerPresetById(providerId);
+    if (preset == null || preset.inputDefaults.isEmpty) return const {};
+    final input = _jsonMap(_mustProvider(providerId)['inputValues']);
+    return Map.unmodifiable({
+      for (final entry in preset.inputDefaults.entries)
+        entry.key: (input[entry.key] ?? entry.value).toString(),
+    });
+  }
+
   Future<ProviderInfo> _providerInfo(Row row) async {
     final input = _jsonMap(row['inputValues']);
     final providerId = row['id'] as String;
@@ -1512,6 +1524,7 @@ WHERE id=?
     List<String>? selectedModelIds,
     String? name,
     String? baseUrl,
+    Map<String, String>? inputOverrides,
   }) =>
       _providerMutationGate.run(
         () => _createProviderFromPreset(
@@ -1520,6 +1533,7 @@ WHERE id=?
           selectedModelIds: selectedModelIds,
           name: name,
           baseUrl: baseUrl,
+          inputOverrides: inputOverrides,
         ),
       );
 
@@ -1529,6 +1543,7 @@ WHERE id=?
     List<String>? selectedModelIds,
     String? name,
     String? baseUrl,
+    Map<String, String>? inputOverrides,
   }) async {
     final preset = providerPresetById(presetId);
     if (preset == null) {
@@ -1552,9 +1567,40 @@ WHERE id=?
     }
     final effectiveName =
         (name?.trim().isNotEmpty ?? false) ? name!.trim() : preset.name;
-    final effectiveBaseUrl = (baseUrl?.trim().isNotEmpty ?? false)
-        ? baseUrl!.trim()
-        : preset.baseUrl;
+    final providerInputs = Map<String, String>.from(preset.inputDefaults);
+    for (final entry
+        in inputOverrides?.entries ?? const <MapEntry<String, String>>[]) {
+      if (!providerInputs.containsKey(entry.key)) {
+        throw EngineException(
+            errLlmFormat, {'reason': 'unknownProviderInput', 'key': entry.key});
+      }
+      providerInputs[entry.key] = entry.value.trim();
+    }
+    if (preset.protocol == 'ima2' &&
+        inputOverrides?.containsKey('chatBaseUrl') != true &&
+        (baseUrl?.trim().isNotEmpty ?? false)) {
+      providerInputs['chatBaseUrl'] = baseUrl!.trim();
+    }
+    for (final entry in providerInputs.entries) {
+      if (entry.value.trim().isEmpty) {
+        throw EngineException(errProviderMissing, {
+          'providerId': preset.id,
+          'reason': 'providerInputRequired',
+          'key': entry.key,
+        });
+      }
+    }
+    final effectiveBaseUrl = preset.protocol == 'ima2'
+        ? (providerInputs['chatBaseUrl'] ?? '').trim()
+        : ((baseUrl?.trim().isNotEmpty ?? false)
+            ? baseUrl!.trim()
+            : preset.baseUrl);
+    if (effectiveBaseUrl.isEmpty) {
+      throw EngineException(errProviderMissing, {
+        'providerId': preset.id,
+        'reason': 'baseUrlRequired',
+      });
+    }
     final key = apiKey.trim();
     if (!isLoopbackBaseUrl(effectiveBaseUrl) && key.isEmpty) {
       throw const EngineException(
@@ -1562,7 +1608,11 @@ WHERE id=?
     }
     final credentialRef = providerCredentialRef(preset.id);
     final createdAt = nowIso();
+    if (preset.protocol == 'ima2') {
+      providerInputs['chatBaseUrl'] = effectiveBaseUrl;
+    }
     final inputValues = <String, dynamic>{
+      ...providerInputs,
       'name': effectiveName,
       'protocol': preset.protocol,
       'baseUrl': effectiveBaseUrl,
@@ -1639,6 +1689,7 @@ WHERE id=?
     String? baseUrl,
     String? apiKey,
     bool? enabled,
+    Map<String, String>? inputOverrides,
   }) =>
       _providerMutationGate.run(
         () => _updateProvider(
@@ -1647,6 +1698,7 @@ WHERE id=?
           baseUrl: baseUrl,
           apiKey: apiKey,
           enabled: enabled,
+          inputOverrides: inputOverrides,
         ),
       );
 
@@ -1656,13 +1708,46 @@ WHERE id=?
     String? baseUrl,
     String? apiKey,
     bool? enabled,
+    Map<String, String>? inputOverrides,
   }) async {
     final row = _mustProvider(id);
     final originalInputValues = row['inputValues'] as String? ?? '{}';
     final originalEnabled = row['enable'] as int? ?? 1;
     final input = _jsonMap(row['inputValues']);
     if (name != null) input['name'] = name.trim();
-    if (baseUrl != null) input['baseUrl'] = baseUrl.trim();
+    final protocol = (input['protocol'] ?? 'openai_compatible').toString();
+    final preset = providerPresetById(id);
+    if (protocol == 'ima2') {
+      final declaredInputs = preset?.inputDefaults ?? const <String, String>{};
+      for (final entry
+          in inputOverrides?.entries ?? const <MapEntry<String, String>>[]) {
+        if (!declaredInputs.containsKey(entry.key)) {
+          throw EngineException(errLlmFormat,
+              {'reason': 'unknownProviderInput', 'key': entry.key});
+        }
+        input[entry.key] = entry.value.trim();
+      }
+      if (baseUrl != null &&
+          inputOverrides?.containsKey('chatBaseUrl') != true) {
+        input['chatBaseUrl'] = baseUrl.trim();
+      }
+      for (final key in declaredInputs.keys) {
+        if ((input[key] ?? '').toString().trim().isEmpty) {
+          throw EngineException(errProviderMissing, {
+            'providerId': id,
+            'reason': 'providerInputRequired',
+            'key': key,
+          });
+        }
+      }
+      input['baseUrl'] = (input['chatBaseUrl'] ?? '').toString().trim();
+    } else {
+      if (inputOverrides?.isNotEmpty ?? false) {
+        throw const EngineException(
+            errLlmFormat, {'reason': 'providerInputUnsupported'});
+      }
+      if (baseUrl != null) input['baseUrl'] = baseUrl.trim();
+    }
     input['credentialRef'] ??= providerCredentialRef(id);
     final credentialRef = input['credentialRef'] as String;
     final newKey = apiKey?.trim() ?? '';

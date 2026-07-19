@@ -26,6 +26,10 @@ class ResolvedModel {
   final String baseUrl;
   final String apiKey;
   final String modelId;
+
+  /// 从供应商配置解析出的非敏感扩展字段。专用协议（如 ima2 的图片端点）
+  /// 只通过这份快照读取自身所需参数，系统凭证始终留在 [apiKey]。
+  final Map<String, String> providerInputs;
   final int? maxOutputTokens;
   final int? temperature;
 
@@ -35,6 +39,7 @@ class ResolvedModel {
     required this.baseUrl,
     required this.apiKey,
     required this.modelId,
+    this.providerInputs = const {},
     this.maxOutputTokens,
     this.temperature,
   });
@@ -49,6 +54,7 @@ class ResolvedModel {
         baseUrl: baseUrl,
         apiKey: apiKey,
         modelId: modelId,
+        providerInputs: providerInputs,
         maxOutputTokens: maxOutputTokens ?? this.maxOutputTokens,
         temperature: temperature ?? this.temperature,
       );
@@ -123,11 +129,16 @@ Future<ResolvedModel> _resolvedModel(
   CredentialStore credentials,
 ) async {
   final providerId = provider['id'] as String;
+  final protocol = inputValues['protocol'] as String? ?? 'openai_compatible';
   final credentialRef =
       (inputValues['credentialRef'] as String?)?.trim().isNotEmpty == true
           ? inputValues['credentialRef'] as String
           : providerCredentialRef(providerId);
-  final baseUrl = inputValues['baseUrl'] as String? ?? '';
+  final baseUrl = protocol == 'ima2'
+      ? (inputValues['chatBaseUrl'] as String? ??
+          inputValues['baseUrl'] as String? ??
+          '')
+      : inputValues['baseUrl'] as String? ?? '';
   final isLoopback = isLoopbackBaseUrl(baseUrl);
   var apiKey = '';
   try {
@@ -143,11 +154,23 @@ Future<ResolvedModel> _resolvedModel(
   }
   return ResolvedModel(
     providerId: providerId,
-    protocol: inputValues['protocol'] as String? ?? 'openai_compatible',
+    protocol: protocol,
     baseUrl: baseUrl,
     apiKey: apiKey,
     modelId: modelId,
+    providerInputs: {
+      for (final entry in inputValues.entries)
+        if (!_sensitiveProviderInput(entry.key)) entry.key: '${entry.value}',
+    },
   );
+}
+
+bool _sensitiveProviderInput(String key) {
+  final normalized = key.toLowerCase();
+  return normalized == 'apikey' ||
+      normalized == 'credentialref' ||
+      normalized.endsWith('apikey') ||
+      normalized.endsWith('credentialref');
 }
 
 bool isLoopbackBaseUrl(String value) {
