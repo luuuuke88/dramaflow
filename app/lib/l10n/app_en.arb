@@ -525,6 +525,32 @@
   "assetsBatchInputPh": "Enter prompt",
   "assetsBatchSaveSelected": "Save selected ({count})",
   "assetsBatchMissingPrompts": "Generate prompts for selection first",
+  "workbenchQuickPreview": "Quick Preview",
+  "workbenchPreviewNoImage": "No first-frame image",
+  "workbenchPreviewPrevious": "Previous shot",
+  "workbenchPreviewNext": "Next shot",
+  "workbenchPreviewPlay": "Play",
+  "workbenchPreviewPause": "Pause",
+  "workbenchPreviewStoryboardDescription": "Shot description",
+  "workbenchPreviewNoDescription": "No description",
+  "workbenchPreviewDuration": "Duration",
+  "workbenchPreviewSeconds": "{seconds} s",
+  "@workbenchPreviewSeconds": {
+    "placeholders": {
+      "seconds": { "type": "String" }
+    }
+  },
+  "workbenchPreviewRelatedAssets": "Related assets",
+  "workbenchPreviewNoAssets": "No related assets",
+  "workbenchPreviewImagePrompt": "Image prompt",
+  "workbenchPreviewSelectAll": "Select all shots",
+  "workbenchPreviewExportSelected": "Export selected",
+  "workbenchPreviewExported": "Exported {count} first-frame images",
+  "@workbenchPreviewExported": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "assetsBatchPromptDone": "Batch prompt generation submitted",
   "assetsBatchImageDone": "Batch image generation submitted",
   "assetsBatchSaveSuccess": "Saved",

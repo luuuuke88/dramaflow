@@ -631,6 +631,32 @@
     }
   },
   "assetsBatchMissingPrompts": "请先为所选资产生成提示词",
+  "workbenchQuickPreview": "快速预览",
+  "workbenchPreviewNoImage": "暂无首帧图",
+  "workbenchPreviewPrevious": "上一镜",
+  "workbenchPreviewNext": "下一镜",
+  "workbenchPreviewPlay": "播放",
+  "workbenchPreviewPause": "暂停",
+  "workbenchPreviewStoryboardDescription": "分镜描述",
+  "workbenchPreviewNoDescription": "暂无描述",
+  "workbenchPreviewDuration": "时长",
+  "workbenchPreviewSeconds": "{seconds} 秒",
+  "@workbenchPreviewSeconds": {
+    "placeholders": {
+      "seconds": { "type": "String" }
+    }
+  },
+  "workbenchPreviewRelatedAssets": "关联资产",
+  "workbenchPreviewNoAssets": "暂无关联资产",
+  "workbenchPreviewImagePrompt": "图片提示词",
+  "workbenchPreviewSelectAll": "全选分镜",
+  "workbenchPreviewExportSelected": "导出已选",
+  "workbenchPreviewExported": "已导出 {count} 张首帧图",
+  "@workbenchPreviewExported": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "assetsBatchPromptDone": "提示词批量生成已提交",
   "assetsBatchImageDone": "图片批量生成已提交",
   "assetsBatchSaveSuccess": "保存成功",

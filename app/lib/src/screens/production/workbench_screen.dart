@@ -25,6 +25,7 @@ import '../../widgets/local_media_preview.dart';
 import '../../widgets/policy_confirm.dart';
 import '../../widgets/common.dart';
 import 'video_request_dialog.dart';
+import 'workbench_preview.dart';
 
 void _showWorkbenchSnackBar(BuildContext context, String msg) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -205,11 +206,11 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
         .where((p) => p == null || p.isEmpty)
         .length;
     final toolbarTextButtonStyle = TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       visualDensity: VisualDensity.compact,
     );
     final toolbarFilledButtonStyle = FilledButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       visualDensity: VisualDensity.compact,
     );
 
@@ -217,6 +218,19 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       appBar: AppBar(
         title: Text(l10n.workbenchTitle),
         actions: [
+          IconButton(
+            key: const ValueKey('workbench-quick-preview'),
+            tooltip: l10n.workbenchQuickPreview,
+            onPressed: shots.isEmpty
+                ? null
+                : () => showWorkbenchQuickPreview(
+                      context,
+                      ref,
+                      projectId: widget.projectId,
+                      scriptId: widget.scriptId,
+                    ),
+            icon: const Icon(Icons.visibility_outlined),
+          ),
           if (shots.isNotEmpty && compactActions)
             PopupMenuButton<_WorkbenchBatchAction>(
               enabled: _checkedShotIds.isNotEmpty && !_batchPrompting,
@@ -281,24 +295,45 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
               icon: const Icon(Icons.layers_clear_outlined),
               label: Text(l10n.workbenchClearSelectedTracks),
             ),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton.icon(
-              style: toolbarFilledButtonStyle,
-              onPressed: _composing || shots.isEmpty ? null : _compose,
-              icon: _composing
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.movie_filter_outlined, size: 18),
-              label: Text(_composing
-                  ? l10n.workbenchComposing
-                  : missing > 0
-                      ? '${l10n.workbenchCompose} (${l10n.workbenchComposeMissing(('$missing'))})'
-                      : l10n.workbenchCompose),
+          if (compactActions)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: IconButton(
+                key: const ValueKey('workbench-compose-compact'),
+                tooltip: _composing
+                    ? l10n.workbenchComposing
+                    : missing > 0
+                        ? '${l10n.workbenchCompose} (${l10n.workbenchComposeMissing(('$missing'))})'
+                        : l10n.workbenchCompose,
+                onPressed: _composing || shots.isEmpty ? null : _compose,
+                icon: _composing
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.movie_filter_outlined),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: FilledButton.icon(
+                style: toolbarFilledButtonStyle,
+                onPressed: _composing || shots.isEmpty ? null : _compose,
+                icon: _composing
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.movie_filter_outlined, size: 18),
+                label: Text(_composing
+                    ? l10n.workbenchComposing
+                    : missing > 0
+                        ? '${l10n.workbenchCompose} (${l10n.workbenchComposeMissing(('$missing'))})'
+                        : l10n.workbenchCompose),
+              ),
             ),
-          ),
         ],
       ),
       body: shots.isEmpty

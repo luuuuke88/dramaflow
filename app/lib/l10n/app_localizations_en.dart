@@ -1468,6 +1468,58 @@ class AppLocalizationsEn extends AppLocalizations {
       'Generate prompts for selection first';
 
   @override
+  String get workbenchQuickPreview => 'Quick Preview';
+
+  @override
+  String get workbenchPreviewNoImage => 'No first-frame image';
+
+  @override
+  String get workbenchPreviewPrevious => 'Previous shot';
+
+  @override
+  String get workbenchPreviewNext => 'Next shot';
+
+  @override
+  String get workbenchPreviewPlay => 'Play';
+
+  @override
+  String get workbenchPreviewPause => 'Pause';
+
+  @override
+  String get workbenchPreviewStoryboardDescription => 'Shot description';
+
+  @override
+  String get workbenchPreviewNoDescription => 'No description';
+
+  @override
+  String get workbenchPreviewDuration => 'Duration';
+
+  @override
+  String workbenchPreviewSeconds(String seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String get workbenchPreviewRelatedAssets => 'Related assets';
+
+  @override
+  String get workbenchPreviewNoAssets => 'No related assets';
+
+  @override
+  String get workbenchPreviewImagePrompt => 'Image prompt';
+
+  @override
+  String get workbenchPreviewSelectAll => 'Select all shots';
+
+  @override
+  String get workbenchPreviewExportSelected => 'Export selected';
+
+  @override
+  String workbenchPreviewExported(int count) {
+    return 'Exported $count first-frame images';
+  }
+
+  @override
   String get assetsBatchPromptDone => 'Batch prompt generation submitted';
 
   @override

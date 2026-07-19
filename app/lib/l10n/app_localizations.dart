@@ -2836,6 +2836,102 @@ abstract class AppLocalizations {
   /// **'请先为所选资产生成提示词'**
   String get assetsBatchMissingPrompts;
 
+  /// No description provided for @workbenchQuickPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'快速预览'**
+  String get workbenchQuickPreview;
+
+  /// No description provided for @workbenchPreviewNoImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无首帧图'**
+  String get workbenchPreviewNoImage;
+
+  /// No description provided for @workbenchPreviewPrevious.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一镜'**
+  String get workbenchPreviewPrevious;
+
+  /// No description provided for @workbenchPreviewNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一镜'**
+  String get workbenchPreviewNext;
+
+  /// No description provided for @workbenchPreviewPlay.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放'**
+  String get workbenchPreviewPlay;
+
+  /// No description provided for @workbenchPreviewPause.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get workbenchPreviewPause;
+
+  /// No description provided for @workbenchPreviewStoryboardDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'分镜描述'**
+  String get workbenchPreviewStoryboardDescription;
+
+  /// No description provided for @workbenchPreviewNoDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无描述'**
+  String get workbenchPreviewNoDescription;
+
+  /// No description provided for @workbenchPreviewDuration.
+  ///
+  /// In zh, this message translates to:
+  /// **'时长'**
+  String get workbenchPreviewDuration;
+
+  /// No description provided for @workbenchPreviewSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'{seconds} 秒'**
+  String workbenchPreviewSeconds(String seconds);
+
+  /// No description provided for @workbenchPreviewRelatedAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'关联资产'**
+  String get workbenchPreviewRelatedAssets;
+
+  /// No description provided for @workbenchPreviewNoAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无关联资产'**
+  String get workbenchPreviewNoAssets;
+
+  /// No description provided for @workbenchPreviewImagePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片提示词'**
+  String get workbenchPreviewImagePrompt;
+
+  /// No description provided for @workbenchPreviewSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选分镜'**
+  String get workbenchPreviewSelectAll;
+
+  /// No description provided for @workbenchPreviewExportSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出已选'**
+  String get workbenchPreviewExportSelected;
+
+  /// No description provided for @workbenchPreviewExported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导出 {count} 张首帧图'**
+  String workbenchPreviewExported(int count);
+
   /// No description provided for @assetsBatchPromptDone.
   ///
   /// In zh, this message translates to:

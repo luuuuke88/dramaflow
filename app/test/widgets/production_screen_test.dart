@@ -394,7 +394,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('S1'), findsOneWidget);
     expect(find.text('S2'), findsOneWidget);
-    expect(find.textContaining('合成本集'), findsOneWidget);
+    expect(find.byTooltip('合成本集'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('workbench-compose-compact')), findsOneWidget);
   });
 
   testWidgets('移动端离线主链：工作台可直接合成本集', (tester) async {
@@ -413,7 +415,8 @@ void main() {
     await tester.tap(find.text('打开工作台'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('合成本集'));
+    await tester.tap(
+        find.byKey(const ValueKey('workbench-compose-compact')));
     await tester.pumpAndSettle();
 
     expect(find.text('合成成功'), findsOneWidget);

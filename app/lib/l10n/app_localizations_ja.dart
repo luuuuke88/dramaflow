@@ -1439,6 +1439,58 @@ class AppLocalizationsJa extends AppLocalizations {
   String get assetsBatchMissingPrompts => '先に選択アセットのプロンプトを生成してください';
 
   @override
+  String get workbenchQuickPreview => 'クイックプレビュー';
+
+  @override
+  String get workbenchPreviewNoImage => '先頭フレーム画像がありません';
+
+  @override
+  String get workbenchPreviewPrevious => '前のショット';
+
+  @override
+  String get workbenchPreviewNext => '次のショット';
+
+  @override
+  String get workbenchPreviewPlay => '再生';
+
+  @override
+  String get workbenchPreviewPause => '一時停止';
+
+  @override
+  String get workbenchPreviewStoryboardDescription => 'ショット説明';
+
+  @override
+  String get workbenchPreviewNoDescription => '説明はありません';
+
+  @override
+  String get workbenchPreviewDuration => '長さ';
+
+  @override
+  String workbenchPreviewSeconds(String seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String get workbenchPreviewRelatedAssets => '関連素材';
+
+  @override
+  String get workbenchPreviewNoAssets => '関連素材はありません';
+
+  @override
+  String get workbenchPreviewImagePrompt => '画像プロンプト';
+
+  @override
+  String get workbenchPreviewSelectAll => '全ショットを選択';
+
+  @override
+  String get workbenchPreviewExportSelected => '選択分をエクスポート';
+
+  @override
+  String workbenchPreviewExported(int count) {
+    return '先頭フレーム画像を $count 件エクスポートしました';
+  }
+
+  @override
   String get assetsBatchPromptDone => '一括プロンプト生成を送信しました';
 
   @override

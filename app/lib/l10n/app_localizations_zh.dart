@@ -1427,6 +1427,58 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assetsBatchMissingPrompts => '请先为所选资产生成提示词';
 
   @override
+  String get workbenchQuickPreview => '快速预览';
+
+  @override
+  String get workbenchPreviewNoImage => '暂无首帧图';
+
+  @override
+  String get workbenchPreviewPrevious => '上一镜';
+
+  @override
+  String get workbenchPreviewNext => '下一镜';
+
+  @override
+  String get workbenchPreviewPlay => '播放';
+
+  @override
+  String get workbenchPreviewPause => '暂停';
+
+  @override
+  String get workbenchPreviewStoryboardDescription => '分镜描述';
+
+  @override
+  String get workbenchPreviewNoDescription => '暂无描述';
+
+  @override
+  String get workbenchPreviewDuration => '时长';
+
+  @override
+  String workbenchPreviewSeconds(String seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String get workbenchPreviewRelatedAssets => '关联资产';
+
+  @override
+  String get workbenchPreviewNoAssets => '暂无关联资产';
+
+  @override
+  String get workbenchPreviewImagePrompt => '图片提示词';
+
+  @override
+  String get workbenchPreviewSelectAll => '全选分镜';
+
+  @override
+  String get workbenchPreviewExportSelected => '导出已选';
+
+  @override
+  String workbenchPreviewExported(int count) {
+    return '已导出 $count 张首帧图';
+  }
+
+  @override
   String get assetsBatchPromptDone => '提示词批量生成已提交';
 
   @override

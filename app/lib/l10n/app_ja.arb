@@ -525,6 +525,32 @@
   "assetsBatchInputPh": "プロンプトを入力",
   "assetsBatchSaveSelected": "選択を保存({count})",
   "assetsBatchMissingPrompts": "先に選択アセットのプロンプトを生成してください",
+  "workbenchQuickPreview": "クイックプレビュー",
+  "workbenchPreviewNoImage": "先頭フレーム画像がありません",
+  "workbenchPreviewPrevious": "前のショット",
+  "workbenchPreviewNext": "次のショット",
+  "workbenchPreviewPlay": "再生",
+  "workbenchPreviewPause": "一時停止",
+  "workbenchPreviewStoryboardDescription": "ショット説明",
+  "workbenchPreviewNoDescription": "説明はありません",
+  "workbenchPreviewDuration": "長さ",
+  "workbenchPreviewSeconds": "{seconds} 秒",
+  "@workbenchPreviewSeconds": {
+    "placeholders": {
+      "seconds": { "type": "String" }
+    }
+  },
+  "workbenchPreviewRelatedAssets": "関連素材",
+  "workbenchPreviewNoAssets": "関連素材はありません",
+  "workbenchPreviewImagePrompt": "画像プロンプト",
+  "workbenchPreviewSelectAll": "全ショットを選択",
+  "workbenchPreviewExportSelected": "選択分をエクスポート",
+  "workbenchPreviewExported": "先頭フレーム画像を {count} 件エクスポートしました",
+  "@workbenchPreviewExported": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "assetsBatchPromptDone": "一括プロンプト生成を送信しました",
   "assetsBatchImageDone": "一括画像生成を送信しました",
   "assetsBatchSaveSuccess": "保存しました",

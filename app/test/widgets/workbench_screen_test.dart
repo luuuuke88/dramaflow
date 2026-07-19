@@ -20,6 +20,7 @@ import 'package:dramaflow/src/screens/production/workbench_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
 import 'package:dio/dio.dart';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -83,6 +84,24 @@ class _RecordingComposer implements VideoComposer {
 
   @override
   Future<double?> probeDurationSec(String inputAbsPath) async => 4.0;
+}
+
+class _PreviewSaveSelector extends FileSelectorPlatform {
+  final String path;
+  int saveCalls = 0;
+  List<XTypeGroup>? acceptedTypeGroups;
+
+  _PreviewSaveSelector(this.path);
+
+  @override
+  Future<FileSaveLocation?> getSaveLocation({
+    List<XTypeGroup>? acceptedTypeGroups,
+    SaveDialogOptions options = const SaveDialogOptions(),
+  }) async {
+    saveCalls++;
+    this.acceptedTypeGroups = acceptedTypeGroups;
+    return FileSaveLocation(path);
+  }
 }
 
 void main() {
@@ -260,6 +279,148 @@ void main() {
 
     expect(find.text('S1'), findsOneWidget);
     expect(find.textContaining('合成本集'), findsOneWidget);
+  });
+
+  testWidgets('工作台快速预览按时长跳镜并展示本地分镜与关联资产',
+      (tester) async {
+    const png =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL3UQAAAABJRU5ErkJggg==';
+    engine.db.execute(
+      "INSERT INTO o_image (filePath,type,state) VALUES ('assets/hero.png','role','已完成')",
+    );
+    final imageId = engine.db.lastInsertRowId;
+    engine.db.execute(
+      "INSERT INTO o_assets (projectId,name,type,imageId) VALUES (?,'林朝雪','role',?)",
+      [projectId, imageId],
+    );
+    final assetId = engine.db.lastInsertRowId;
+    final first = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '雪夜山门，月光照剑。',
+      videoDesc: '镜头一描述',
+      duration: '2',
+      assetIds: [assetId],
+    );
+    final second = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '拔剑后快切近景。',
+      videoDesc: '镜头二描述',
+      duration: '4',
+    );
+    for (final rel in ['assets/hero.png', 'shots/one.png', 'shots/two.png']) {
+      final file = File(engine.mediaAbsPath(rel));
+      file.parent.createSync(recursive: true);
+      file.writeAsBytesSync(base64Decode(png));
+    }
+    engine.setStoryboardImage(first, 'shots/one.png');
+    engine.setStoryboardImage(second, 'shots/two.png');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-quick-preview')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('workbench-preview-page')), findsOneWidget);
+    expect(find.textContaining('镜头一描述'), findsOneWidget);
+    expect(find.text('林朝雪（角色）'), findsOneWidget);
+    expect(find.text('雪夜山门，月光照剑。'), findsOneWidget);
+    expect(find.text('00:06'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('workbench-preview-next')));
+    await tester.pump();
+    expect(find.textContaining('镜头二描述'), findsOneWidget);
+    expect(find.byKey(ValueKey('workbench-preview-thumbnail-$second')),
+        findsOneWidget);
+  });
+
+  testWidgets('390dp 工作台快速预览可切换缩略图并访问导出动作',
+      (tester) async {
+    final first = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '移动端第一镜',
+      videoDesc: '移动端第一镜描述',
+      duration: '3',
+    );
+    final second = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '移动端第二镜',
+      videoDesc: '移动端第二镜描述',
+      duration: '5',
+    );
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-quick-preview')));
+    await tester.pumpAndSettle();
+
+    final thumbnail =
+        find.byKey(ValueKey('workbench-preview-thumbnail-$second'));
+    await tester.ensureVisible(thumbnail);
+    await tester.tap(thumbnail);
+    await tester.pump();
+    expect(find.textContaining('移动端第二镜描述'), findsOneWidget);
+    final checkbox =
+        find.byKey(ValueKey('workbench-preview-selected-$second'));
+    await tester.ensureVisible(checkbox);
+    await tester.tap(checkbox);
+    await tester.drag(
+      find.byKey(const ValueKey('workbench-preview-scroll')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('workbench-preview-export')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    expect(first, isPositive);
+  });
+
+  testWidgets('工作台快速预览为已选首帧请求 ZIP 保存', (tester) async {
+    const png =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL3UQAAAABJRU5ErkJggg==';
+    final shot = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '导出镜头',
+      duration: '3',
+    );
+    const rel = 'shots/export.png';
+    final source = File(engine.mediaAbsPath(rel));
+    source.parent.createSync(recursive: true);
+    source.writeAsBytesSync(base64Decode(png));
+    engine.setStoryboardImage(shot, rel);
+    final output = p.join(dir.path, 'preview.zip');
+    final selector = _PreviewSaveSelector(output);
+    final originalSelector = FileSelectorPlatform.instance;
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-quick-preview')));
+    await tester.pumpAndSettle();
+    final checkbox =
+        find.byKey(ValueKey('workbench-preview-selected-$shot'));
+    await tester.ensureVisible(checkbox);
+    await tester.tap(checkbox);
+    final export = find.byKey(const ValueKey('workbench-preview-export'));
+    await tester.ensureVisible(export);
+    await tester.tap(export);
+    await tester.pumpAndSettle();
+
+    expect(selector.saveCalls, 1);
+    expect(selector.acceptedTypeGroups?.single.extensions, ['zip']);
   });
 
   testWidgets('桌面最大外观设置下工作台可选中镜头且主色生效', (tester) async {
@@ -5448,7 +5609,8 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('合成本集'));
+    await tester.tap(
+        find.byKey(const ValueKey('workbench-compose-compact')));
     await tester.pumpAndSettle();
 
     expect(find.byType(AlertDialog), findsNothing);
@@ -6026,7 +6188,8 @@ void main() {
 
     expect(engine.storyboards(scriptId).map((r) => r.id), [s2, s1]);
 
-    await tester.tap(find.textContaining('合成本集'));
+    await tester.tap(
+        find.byKey(const ValueKey('workbench-compose-compact')));
     await tester.pumpAndSettle();
 
     expect(composer.concatCalls.single.map((p) => p.split('/').last), [
