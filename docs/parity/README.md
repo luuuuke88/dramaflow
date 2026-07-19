@@ -23,6 +23,7 @@
 | 看分镜整体拼图预览与单图导出 | [分镜拼图对照](storyboard-preview-export-matrix.md) | 记录原版单张编号网格与当前逐镜画廊/散图导出的准确差异，避免误判为等价。 |
 | 看资产、分镜和视频如何选择参考素材 | [参考选择器对照](reference-picker-matrix.md) | 核对完整资产库与分镜表的搜索、分页、多选、媒体筛选，以及视频请求实际可发现的候选范围。 |
 | 看设置、技能、供应商 | [设置矩阵](settings-module-matrix.md) / [技能运行时矩阵](skill-runtime-matrix.md) / [供应商协议矩阵](vendor-protocol-matrix.md) | 避免把“有一个配置页面”误判成“协议或 Agent 能力已等价”。 |
+| 看表信息、单表清空、备份与恢复出厂 | [存储与数据库管理对照](database-management-matrix.md) | 把四种相近但不可互相替代的数据库动作分开核验，记录密钥保留边界。 |
 | 看项目创建链路 | [项目准入矩阵](project-intake-matrix.md) | 新建、编辑、必填校验、模型可用性与桌面/移动表单的逐项对照。 |
 | 看剧本批量导入 | [剧本导入对照](script-import-matrix.md) | 分集正则、排序、空标题、选择键和移动端保存的逐项证据。 |
 
