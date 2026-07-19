@@ -279,6 +279,7 @@ git commit -m "feat(cornerscape): add asset detail and task cancellation"
 ### Task 5: 390dp 可用性与回归收口
 
 **Files:**
+- Modify: `app/lib/src/screens/cornerscape/corner_scape_screen.dart`
 - Modify: `app/test/widgets/corner_scape_screen_test.dart`
 - Modify: `docs/parity/master-checklist.md`
 - Modify: `docs/parity/feature-parity-execution-report.md`
@@ -311,7 +312,10 @@ testWidgets('390dp 塑角造景可筛选资产、选择卡片、打开详情并�
 
 Run: `cd app && flutter test --concurrency=1 test/widgets/corner_scape_screen_test.dart --name 390dp 塑角造景`
 
-Expected: fail because the old audio-only layout has no asset type filter or image generation command.
+Expected: fail until the compact outer layout exposes the required
+`cornerscape-scroll` surface and the complete narrow-screen interaction is
+covered. This is a mobile regression test; the desktop workspace already
+exists from Task 3.
 
 - [ ] **Step 3: 实现窄屏布局收口**
 
@@ -336,6 +340,6 @@ Expected: all tests pass, analyzer reports no issues, debug application builds, 
 Set `W6-CORNERSCAPE-002` to “已验证等价” only when desktop and 390dp evidence covers filters, shortcuts, preview, cancel, history switch, prompt/regenerate and generic asset audio behavior. Record that real provider image/video generation remains user-owned final acceptance.
 
 ```bash
-git add app/test/widgets/corner_scape_screen_test.dart docs/parity/master-checklist.md docs/parity/feature-parity-execution-report.md
+git add app/lib/src/screens/cornerscape/corner_scape_screen.dart app/test/widgets/corner_scape_screen_test.dart docs/parity/master-checklist.md docs/parity/feature-parity-execution-report.md
 git commit -m "docs(parity): verify cornerscape workspace"
 ```
