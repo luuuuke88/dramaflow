@@ -17,6 +17,7 @@
 | 看资产派生和图片流是否真等价 | [图片流对照](image-flow-matrix.md) | 区分原始/派生资产关系与图片编辑器能力，避免“能出图”掩盖资产层级差异。 |
 | 看塑角造景的批量与状态反馈 | [塑角造景对照](corner-scape-matrix.md) | 核对角色/场景/道具的批量提示词、参考图、历史图与音频绑定，区分“结果已写入”和“进行中可见”。 |
 | 看异步任务是否可完整追溯 | [任务中心对照](task-center-matrix.md) | 核对项目范围、分页、筛选、失败信息和移动端可达性，不把“能显示几条任务”误判为等价。 |
+| 看桌面启动、Dock 和外部链接 | [桌面集成对照](desktop-integration-matrix.md) | 区分 Electron 内部替代层与 macOS 原生仍必须具备的启动失败保护、Dock 生命周期和系统浏览器链接。 |
 | 看设置、技能、供应商 | [设置矩阵](settings-module-matrix.md) / [技能运行时矩阵](skill-runtime-matrix.md) / [供应商协议矩阵](vendor-protocol-matrix.md) | 避免把“有一个配置页面”误判成“协议或 Agent 能力已等价”。 |
 | 看项目创建链路 | [项目准入矩阵](project-intake-matrix.md) | 新建、编辑、必填校验、模型可用性与桌面/移动表单的逐项对照。 |
 | 看剧本批量导入 | [剧本导入对照](script-import-matrix.md) | 分集正则、排序、空标题、选择键和移动端保存的逐项证据。 |
