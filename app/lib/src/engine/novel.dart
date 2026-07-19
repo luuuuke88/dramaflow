@@ -3,6 +3,7 @@
 import 'package:sqlite3/sqlite3.dart';
 
 import 'engine.dart';
+import 'event_cleanup.dart';
 import 'novel_parse.dart';
 
 class NovelRow {
@@ -43,8 +44,6 @@ class NovelRow {
         createTime: row['createTime'] as int?,
       );
 }
-
-String _placeholders(List<int> ids) => List.filled(ids.length, '?').join(',');
 
 extension NovelApi on Engine {
   ({List<NovelRow> data, int total}) novels(
@@ -126,25 +125,11 @@ extension NovelApi on Engine {
   /// 删除章节：先解除事件关联，再清孤儿事件（照抄 delNovel 级联语义）。
   void deleteNovels(List<int> ids) {
     if (ids.isEmpty) return;
-    final ph = _placeholders(ids);
-    final eventIds = db
-        .select(
-          'SELECT DISTINCT eventId FROM o_eventChapter WHERE novelId IN ($ph)',
-          ids,
-        )
-        .map((row) => row['eventId'] as int?)
-        .whereType<int>()
-        .toList();
-    db.execute('DELETE FROM o_eventChapter WHERE novelId IN ($ph)', ids);
-    if (eventIds.isNotEmpty) {
-      db.execute(
-        'DELETE FROM o_event WHERE id IN (${_placeholders(eventIds)}) '
-        'AND id NOT IN (SELECT DISTINCT eventId FROM o_eventChapter '
-        'WHERE eventId IS NOT NULL)',
-        eventIds,
-      );
-    }
-    db.execute('DELETE FROM o_novel WHERE id IN ($ph)', ids);
+    clearNovelEventLinks(db, ids);
+    db.execute(
+      'DELETE FROM o_novel WHERE id IN (${List.filled(ids.length, '?').join(',')})',
+      ids,
+    );
   }
 
   List<({int id, int index, String chapter})> novelIndex(int projectId) => db

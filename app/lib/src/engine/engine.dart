@@ -16,6 +16,7 @@ import 'config.dart';
 import 'db.dart';
 import 'errors.dart';
 import 'events.dart';
+import 'event_cleanup.dart';
 import 'media.dart';
 import 'providers/gateway.dart';
 import 'providers/resolve.dart';
@@ -93,7 +94,7 @@ class ProjectStats {
   });
 }
 
-/// 供应商凭据保存在平台安全仓，异步读写期间必须串行化同一引擎内的
+/// 供应商凭据保存在本地 SQLite，异步读写期间必须串行化同一引擎内的
 /// provider 配置变更，避免失败导入的补偿覆盖用户随后保存的新 Key。
 class _ProviderMutationGate {
   Future<void>? _tail;
@@ -1157,6 +1158,10 @@ WHERE id=?
 
   void deleteProject(int id) {
     _mustProject(id);
+    final novelIds = db
+        .select('SELECT id FROM o_novel WHERE projectId=?', [id])
+        .map((row) => row['id'] as int)
+        .toList();
     final taskIds = db
         .select('SELECT id FROM o_tasks WHERE projectId=?', [id])
         .map((row) => row['id'] as int)
@@ -1164,6 +1169,7 @@ WHERE id=?
     db.execute('BEGIN');
     try {
       db.execute('DELETE FROM o_agentWorkData WHERE projectId=?', [id]);
+      clearNovelEventLinks(db, novelIds);
       db.execute('DELETE FROM o_novel WHERE projectId=?', [id]);
       db.execute(
         'DELETE FROM o_scriptAssets WHERE scriptId IN (SELECT id FROM o_script WHERE projectId=?)',

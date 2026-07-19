@@ -203,6 +203,10 @@ void main() {
     final otherId = engine.addProject(projectType: 'series', name: '保留');
     _insertCascadeGraph(db, projectId);
     _insertCascadeGraph(db, otherId);
+    final deletedNovelId = _projectNovelId(db, projectId);
+    final retainedNovelId = _projectNovelId(db, otherId);
+    _insertChapterEvent(db, deletedNovelId, '待删事件');
+    _insertChapterEvent(db, retainedNovelId, '保留事件');
     final mediaFile = File(p.join(dir.path, 'media', '$projectId', 'x.png'));
     mediaFile.parent.createSync(recursive: true);
     mediaFile.writeAsStringSync('media');
@@ -250,6 +254,13 @@ void main() {
     );
     expect(_agentMemoryCount(db, projectId), 0);
     expect(_agentMemoryCount(db, otherId), greaterThan(0));
+    expect(_eventCount(db), 1, reason: '删除项目不能留下其章节事件');
+    expect(_eventChapterCount(db), 1, reason: '删除项目不能留下其章节事件关联');
+    expect(
+      db.select('SELECT novelId FROM o_eventChapter').single['novelId'],
+      retainedNovelId,
+      reason: '其他项目的事件关联必须保留',
+    );
     expect(Directory(p.join(dir.path, 'media', '$projectId')).existsSync(),
         isFalse);
     expect(
@@ -285,6 +296,28 @@ int _agentMemoryCount(Database db, int projectId) => db.select(
         'productionAgent:$projectId:%',
       ],
     ).first['n'] as int;
+
+int _projectNovelId(Database db, int projectId) => db.select(
+        'SELECT id FROM o_novel WHERE projectId=?', [projectId]).single['id']
+    as int;
+
+void _insertChapterEvent(Database db, int novelId, String name) {
+  db.execute('INSERT INTO o_event (name,detail,createTime) VALUES (?,?,?)', [
+    name,
+    '$name 详情',
+    1,
+  ]);
+  db.execute(
+    'INSERT INTO o_eventChapter (eventId,novelId) VALUES (?,?)',
+    [db.lastInsertRowId, novelId],
+  );
+}
+
+int _eventCount(Database db) =>
+    db.select('SELECT COUNT(*) n FROM o_event').single['n'] as int;
+
+int _eventChapterCount(Database db) =>
+    db.select('SELECT COUNT(*) n FROM o_eventChapter').single['n'] as int;
 
 void _insertCascadeGraph(Database db, int projectId) {
   db.execute(
