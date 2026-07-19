@@ -175,7 +175,7 @@ git commit -m "feat(canvas): add session wheel interaction mode"
 - `ProductionScreen` is the sole application caller that passes its watched
   mode into the main `_CanvasLayout` / `DFCanvas` path.
 
-- [ ] **Step 1: Write failing desktop and 390dp settings tests**
+- [x] **Step 1: Write failing desktop and 390dp settings tests**
 
 Use the existing `app()` fixture and `_selectSection(tester, '其他设置')`.
 Retrieve that fixture's scope through
@@ -193,7 +193,7 @@ expect(container.read(canvasWheelModeProvider), CanvasWheelMode.scroll);
 expect(engine.config.getAll(), beforeConfig);
 ```
 
-- [ ] **Step 2: Run the new settings test and verify RED**
+- [x] **Step 2: Run the new settings test and verify RED**
 
 Run:
 
@@ -205,7 +205,7 @@ flutter test test/widgets/settings_screen_test.dart \
 
 Expected: fails because the segmented control and keys are absent.
 
-- [ ] **Step 3: Wire the visible control and main production canvas**
+- [x] **Step 3: Wire the visible control and main production canvas**
 
 Add three l10n keys in every ARB file, with these baseline values:
 
@@ -230,7 +230,7 @@ main `DFCanvas(wheelMode: widget.wheelMode)`. Do not pass it to
 `settings_screen.dart` and `production_screen.dart`; `providers.dart` owns the
 provider but does not re-export the enum.
 
-- [ ] **Step 4: Run localization and cross-device UI regressions**
+- [x] **Step 4: Run localization and cross-device UI regressions**
 
 Run:
 
@@ -245,7 +245,7 @@ Expected: generated localization API compiles, desktop and 390dp settings tests
 pass, the production canvas accepts the provider value, and no existing canvas
 regression changes behavior unexpectedly.
 
-- [ ] **Step 5: Update the evidence record**
+- [x] **Step 5: Update the evidence record**
 
 Change only the four listed parity documents. Mark the canvas wheel-mode part
 of `W6-PRODUCTION-001` and `W6D-OTHER-001` as verified, while preserving the
@@ -254,7 +254,7 @@ selection, Agent episode-switch confirmation, default-open chat, and profile
 performance evidence. Record the exact source files, the session-only boundary,
 and focused test commands. Do not call the whole pages complete.
 
-- [ ] **Step 6: Run final project gates and commit**
+- [x] **Step 6: Run final project gates and commit**
 
 Run:
 
