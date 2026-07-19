@@ -2982,6 +2982,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsOtherBatchSize => '一括生成数';
 
   @override
+  String get settingsOtherCanvasWheelMode => 'キャンバスのホイール操作';
+
+  @override
+  String get settingsOtherCanvasWheelZoom => 'ズーム';
+
+  @override
+  String get settingsOtherCanvasWheelScroll => 'スクロール';
+
+  @override
   String get settingsOtherSaved => 'その他の設定を保存しました';
 
   @override

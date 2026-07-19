@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -10,6 +11,7 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/screens/settings_screen.dart';
+import 'package:dramaflow/src/state/canvas_wheel_mode.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
@@ -863,6 +865,57 @@ void main() {
     await tester.tap(find.text('花钱操作需确认'));
     await tester.pumpAndSettle();
     expect(engine.config.str('policy.confirmMoney'), '1');
+  });
+
+  testWidgets('其他设置：画布滚轮模式仅本次会话生效', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _selectSection(tester, '其他设置');
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SettingsScreen)),
+    );
+    final beforeConfig = jsonEncode(engine.config.getAll());
+    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.zoom);
+    expect(find.byKey(const Key('settings-canvas-wheel-zoom')), findsOneWidget);
+    expect(
+      find.byKey(const Key('settings-canvas-wheel-scroll')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('settings-canvas-wheel-scroll')));
+    await tester.pump();
+
+    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.scroll);
+    expect(jsonEncode(engine.config.getAll()), beforeConfig);
+  });
+
+  testWidgets('390dp 其他设置：画布滚轮模式两个选项均可操作', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _selectSection(tester, '其他设置');
+
+    final zoom = find.byKey(const Key('settings-canvas-wheel-zoom'));
+    final scroll = find.byKey(const Key('settings-canvas-wheel-scroll'));
+    expect(zoom, findsOneWidget);
+    expect(scroll, findsOneWidget);
+    const viewport = Rect.fromLTWH(0, 0, 390, 760);
+    expect(tester.getRect(zoom).overlaps(viewport), isTrue);
+    expect(tester.getRect(scroll).overlaps(viewport), isTrue);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SettingsScreen)),
+    );
+    await tester.tap(scroll);
+    await tester.pump();
+    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.scroll);
+
+    await tester.tap(zoom);
+    await tester.pump();
+    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.zoom);
   });
 
   testWidgets('模型管理：从 API 拉取候选，未分类必须定 kind 才能加入，且默认禁用', (tester) async {

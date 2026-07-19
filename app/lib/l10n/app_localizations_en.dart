@@ -3064,6 +3064,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOtherBatchSize => 'Batch generation size';
 
   @override
+  String get settingsOtherCanvasWheelMode => 'Canvas scroll behavior';
+
+  @override
+  String get settingsOtherCanvasWheelZoom => 'Zoom';
+
+  @override
+  String get settingsOtherCanvasWheelScroll => 'Scroll';
+
+  @override
   String get settingsOtherSaved => 'Other settings saved';
 
   @override

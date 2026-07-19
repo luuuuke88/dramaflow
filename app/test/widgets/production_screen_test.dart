@@ -13,8 +13,10 @@ import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/engine/storyboard.dart';
 import 'package:dramaflow/src/engine/storyboard_table.dart';
 import 'package:dramaflow/src/screens/production/production_screen.dart';
+import 'package:dramaflow/src/state/canvas_wheel_mode.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:dramaflow/src/widgets/df_canvas.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -184,6 +186,29 @@ void main() {
     // scriptPlan 已落地为真实节点，不再有占位文案。
     expect(find.textContaining('批次交付'), findsNothing);
     expect(find.text('还没有剧本规划，点此撰写整体思路、节奏与要点。'), findsOneWidget);
+  });
+
+  testWidgets('桌面画布：会话滚轮模式立即传给主 DFCanvas', (tester) async {
+    engine.addScript(projectId: projectId, name: '第一集', content: '正文内容');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ProductionScreen)),
+    );
+    expect(tester.widget<DFCanvas>(find.byType(DFCanvas)).wheelMode,
+        CanvasWheelMode.zoom);
+
+    container
+        .read(canvasWheelModeProvider.notifier)
+        .setMode(CanvasWheelMode.scroll);
+    await tester.pump();
+
+    expect(tester.widget<DFCanvas>(find.byType(DFCanvas)).wheelMode,
+        CanvasWheelMode.scroll);
   });
 
   testWidgets('桌面画布：Agent 对话入口可打开右侧面板', (tester) async {

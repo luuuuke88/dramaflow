@@ -76,9 +76,9 @@
 
 制作画布的节点骨架和编辑入口已有。2026-07-19 已补齐标题栏拖动、刷新、自动布局和首次四步操作教学：六个节点在当前会话共用一张与 ToonFlow `nodePositions` 同语义的坐标表，切换剧集不会丢失当前排布；拖动按当前缩放换算场景坐标，并会锁住画布视口以避免节点拖动与画布平移同时发生。共享画布的 `DFCanvasDragRegion` 还让图片流的卡片图片区可拖动，参数区只锁住画布、不改节点位置。刷新会重建当前本地画布，自动布局会恢复原始主链并重新 fit 视口。首次引导以 SQLite `production.guide.completed` 持久化，桌面高亮真实控件并在窗口跨越紧凑阈值后重新测量，`<840dp` 则使用可滚动的全屏步骤页、六个纵向 Tab、节点检查器和全屏 Agent；390dp widget 回归已走到同一工作台与本地 fake 合成链。参考资料为 [`w1-canvas-reference.md`](w1-canvas-reference.md)。
 
-尚未达标的部分：选区，以及大量节点下的帧率没有 profile 实测。2026-07-20 已用本地 widget 回归验证背景主键鼠标拖拽、右键隔离、鼠标滚轮焦点缩放（含变换后节点卡片）、触控板平移、从节点开始的移动端双指缩放、节点拖动和参数输入隔离；这不是 macOS/iOS/Android 真机手感或性能结论。当前固定语义是鼠标滚轮缩放、触控板滚动平移，仍缺 ToonFlow 设置中的滚轮“缩放/滚动”模式选择；还缺运行中切换剧集确认和默认展开的制作 Agent 面板。完成定义：同一套画布在 macOS 鼠标/触控板与 iOS/Android 手势下都能完成平移、缩放、节点编辑，并具备等价的滚轮模式选择；性能指标必须通过 profile 实测，而不是凭视觉判断。
+尚未达标的部分：选区，以及大量节点下的帧率没有 profile 实测。2026-07-20 已用本地 widget 回归验证背景主键鼠标拖拽、右键隔离、从节点开始的移动端双指缩放、节点拖动和参数输入隔离；新增会话级滚轮模式默认 `zoom`，切为 `scroll` 后鼠标和触控板均平移，切回后均按指针焦点缩放。它只接入桌面主制作画布，不影响图片流，且切换不写配置、数据库、导出或凭据，对齐原版的临时 `canvasWheelEvent`。这些仍不是 macOS/iOS/Android 真机手感或性能结论。还缺运行中切换剧集确认和默认展开的制作 Agent 面板。完成定义：同一套画布在 macOS 鼠标/触控板与 iOS/Android 手势下都能完成平移、缩放、节点编辑，并具备等价的滚轮模式选择；性能指标必须通过 profile 实测，而不是凭视觉判断。
 
-本项自动化证据：`app/test/widgets/df_widgets_test.dart` 验证背景主键鼠标拖拽、右键隔离、背景和变换后节点内容的鼠标滚轮焦点缩放、触控板平移、背景和节点起点的移动端双指缩放、2 倍和缩小视口下的节点拖动坐标换算、空格+鼠标左键优先平移、嵌套图片手势隔离、触摸不受该桌面快捷键影响及显式 `fitView()`；`app/test/widgets/image_flow_editor_test.dart` 验证桌面/390dp 卡片位置持久化和参数区隔离；`app/test/widgets/production_screen_test.dart` 驱动真实制作页的节点拖动、刷新重建、自动布局和跨端引导完成；`production_guide_test.dart` 验证四步、高亮、390dp 全屏、小高度滚动与紧凑/桌面切换后的重测；`config_test.dart` 验证完成状态持久化。全部不调用任何供应商。
+本项自动化证据：`app/test/widgets/df_widgets_test.dart` 验证背景主键鼠标拖拽、右键隔离、两个滚轮模式下鼠标/触控板行为、背景和变换后节点内容的焦点缩放、背景和节点起点的移动端双指缩放、2 倍和缩小视口下的节点拖动坐标换算、空格+鼠标左键优先平移、嵌套图片手势隔离、参数区在 `scroll` 模式仍阻断滚轮、触摸不受该桌面快捷键影响及显式 `fitView()`；`app/test/widgets/settings_screen_test.dart` 验证桌面和 390dp 的滚轮模式控件、默认值和零配置写入；`app/test/widgets/production_screen_test.dart` 驱动真实制作页的节点拖动、刷新重建、自动布局、模式传递和跨端引导完成；`app/test/widgets/image_flow_editor_test.dart` 验证桌面/390dp 卡片位置持久化和参数区隔离；`production_guide_test.dart` 验证四步、高亮、390dp 全屏、小高度滚动与紧凑/桌面切换后的重测；`config_test.dart` 验证完成状态持久化。全部不调用任何供应商。
 
 ### B. 原版 Agent 体系（W2）
 

@@ -5782,6 +5782,24 @@ abstract class AppLocalizations {
   /// **'批量生成数量'**
   String get settingsOtherBatchSize;
 
+  /// No description provided for @settingsOtherCanvasWheelMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'画布滚轮行为'**
+  String get settingsOtherCanvasWheelMode;
+
+  /// No description provided for @settingsOtherCanvasWheelZoom.
+  ///
+  /// In zh, this message translates to:
+  /// **'缩放'**
+  String get settingsOtherCanvasWheelZoom;
+
+  /// No description provided for @settingsOtherCanvasWheelScroll.
+  ///
+  /// In zh, this message translates to:
+  /// **'滚动'**
+  String get settingsOtherCanvasWheelScroll;
+
   /// No description provided for @settingsOtherSaved.
   ///
   /// In zh, this message translates to:

@@ -814,7 +814,7 @@ void main() {
     expect(deltas, isEmpty);
   });
 
-  testWidgets('DFCanvasDragRegion 参数区不移动节点或画布', (tester) async {
+  testWidgets('DFCanvasDragRegion 参数区不移动节点或画布（含 scroll 模式）', (tester) async {
     await setLogicalSize(tester, const Size(900, 600));
     final controller = TransformationController()
       ..value = (Matrix4.identity()
@@ -829,6 +829,7 @@ void main() {
       child: DFCanvas(
         controller: controller,
         fitOnInit: false,
+        wheelMode: CanvasWheelMode.scroll,
         nodes: [
           DFCanvasNode(
             id: 'image-node-parameters',

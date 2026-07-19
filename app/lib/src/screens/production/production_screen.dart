@@ -17,6 +17,7 @@ import '../../engine/production_dependencies.dart';
 import '../../engine/script_plan.dart';
 import '../../engine/scripts.dart';
 import '../../engine/storyboard_table.dart';
+import '../../state/canvas_wheel_mode.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -81,6 +82,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final wheelMode = ref.watch(canvasWheelModeProvider);
     final scripts = ref.watch(engineProvider).scripts(widget.projectId);
     if (scripts.isEmpty) {
       return Center(
@@ -116,6 +118,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                     key: ValueKey('production-canvas-$_productionViewRevision'),
                     projectId: widget.projectId,
                     script: script,
+                    wheelMode: wheelMode,
                     layoutTargetKey: _layoutGuideTarget,
                     canvasTargetKey: _canvasGuideTarget,
                   )
@@ -212,12 +215,14 @@ class _EpisodeBar extends StatelessWidget {
 class _CanvasLayout extends StatefulWidget {
   final int projectId;
   final ScriptRow script;
+  final CanvasWheelMode wheelMode;
   final GlobalKey layoutTargetKey;
   final GlobalKey canvasTargetKey;
   const _CanvasLayout({
     super.key,
     required this.projectId,
     required this.script,
+    required this.wheelMode,
     required this.layoutTargetKey,
     required this.canvasTargetKey,
   });
@@ -277,6 +282,7 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
       key: widget.canvasTargetKey,
       controller: _canvasController,
       fitOnInit: true,
+      wheelMode: widget.wheelMode,
       nodes: [
         DFCanvasNode(
           id: 'script',

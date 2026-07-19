@@ -2959,6 +2959,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsOtherBatchSize => '批量生成数量';
 
   @override
+  String get settingsOtherCanvasWheelMode => '画布滚轮行为';
+
+  @override
+  String get settingsOtherCanvasWheelZoom => '缩放';
+
+  @override
+  String get settingsOtherCanvasWheelScroll => '滚动';
+
+  @override
   String get settingsOtherSaved => '其他设置已保存';
 
   @override

@@ -15,6 +15,7 @@ import '../engine/engine.dart';
 import '../engine/pipeline_policy.dart';
 import '../engine/provider_presets.dart';
 import '../engine/util.dart';
+import '../state/canvas_wheel_mode.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
 import '../util/l10n_ext.dart';
@@ -949,6 +950,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _otherPanel() {
     _ensureOtherControllers();
     final l10n = context.l10n;
+    final canvasWheelMode = ref.watch(canvasWheelModeProvider);
     return _SettingsCard(
       title: l10n.settingsOtherTitle,
       child: Column(
@@ -981,6 +983,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             decoration: InputDecoration(
               labelText: l10n.settingsOtherBatchSize,
             ),
+          ),
+          const SizedBox(height: 20),
+          Text(l10n.settingsOtherCanvasWheelMode,
+              style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          SegmentedButton<CanvasWheelMode>(
+            segments: [
+              ButtonSegment(
+                value: CanvasWheelMode.zoom,
+                label: Text(
+                  l10n.settingsOtherCanvasWheelZoom,
+                  key: const Key('settings-canvas-wheel-zoom'),
+                ),
+                icon: const Icon(Icons.zoom_in_rounded),
+              ),
+              ButtonSegment(
+                value: CanvasWheelMode.scroll,
+                label: Text(
+                  l10n.settingsOtherCanvasWheelScroll,
+                  key: const Key('settings-canvas-wheel-scroll'),
+                ),
+                icon: const Icon(Icons.pan_tool_outlined),
+              ),
+            ],
+            selected: {canvasWheelMode},
+            onSelectionChanged: (selection) {
+              ref
+                  .read(canvasWheelModeProvider.notifier)
+                  .setMode(selection.first);
+            },
           ),
           const SizedBox(height: 20),
           Align(
