@@ -19,6 +19,7 @@
 | 看异步任务是否可完整追溯 | [任务中心对照](task-center-matrix.md) | 核对项目范围、分页、筛选、失败信息和移动端可达性，不把“能显示几条任务”误判为等价。 |
 | 看桌面启动、Dock 和外部链接 | [桌面集成对照](desktop-integration-matrix.md) | 区分 Electron 内部替代层与 macOS 原生仍必须具备的启动失败保护、Dock 生命周期和系统浏览器链接。 |
 | 看首次启动是否正确引导配置 | [首次引导对照](first-run-guide-matrix.md) | 核对欢迎、语言、供应商/Agent 配置入口、一次性状态和桌面/手机可达性。 |
+| 看图片预览、导出和提示词参考素材 | [图片交互对照](image-interaction-matrix.md) | 分清逐图复制/另存为、批量导出、整屏预览和 `@` 内联引用与结构化参考数据。 |
 | 看设置、技能、供应商 | [设置矩阵](settings-module-matrix.md) / [技能运行时矩阵](skill-runtime-matrix.md) / [供应商协议矩阵](vendor-protocol-matrix.md) | 避免把“有一个配置页面”误判成“协议或 Agent 能力已等价”。 |
 | 看项目创建链路 | [项目准入矩阵](project-intake-matrix.md) | 新建、编辑、必填校验、模型可用性与桌面/移动表单的逐项对照。 |
 | 看剧本批量导入 | [剧本导入对照](script-import-matrix.md) | 分集正则、排序、空标题、选择键和移动端保存的逐项证据。 |
