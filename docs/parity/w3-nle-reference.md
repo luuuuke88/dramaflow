@@ -1,6 +1,6 @@
 # W3 NLE 工作台 — Scope Reference
 
-状态：综合已完成 W0 审计发现（`docs/parity/master-checklist.md`，只读引用不修改）+ 本次针对性直接调查（非 subagent 派发——W3 的 subagent 综合任务因基础设施瞬时故障"Connection closed mid-response"连续失败 3 次，均在长任务接近尾声时中断，改为控制器直接调查）。本文档是未来 W3 里程碑的范围参考，不作任何实现。
+状态：已完成源码与定向回归审计。本文档界定未来 W3 的真实范围，不包含实现计划，也不把已有的轻量时间线夸大为自由剪辑器。
 
 Baseline：`Toonflow-web` 前端源码（WebAV 剪辑器）与 DramaFlow `app/lib/src/**` + 原生合成器（`avfoundation_composer.dart`/`ComposerPlugin.swift`/`MainActivity.kt`）。
 
@@ -94,10 +94,10 @@ DramaFlow 实际支持 **0/8**（+0/2 贴纸）。这是三个能力类别里唯
 
 | 能力 | ToonFlow（`editVideo/index.vue` + WebAV） | DramaFlow（`workbench_screen.dart` + `timeline_clip.dart`） |
 |---|---|---|
-| 时间线模型 | 自由多轨（video/image/audio/subtitle/text/sticker/filter/effect 轨），任意素材可拖入任意轨、跨轨拖拽 | **叠加层模型**：底层视频/音频轨只读（顺序分镜），仅叠加层（`o_timelineClip`）可编辑——不是自由任意素材多轨 NLE |
+| 时间线模型 | 自由多轨（video/image/audio/subtitle/text/sticker/filter/effect 轨），任意素材可拖入任意轨、跨轨拖拽 | **叠加层模型**：底层视频/音频轨只读（顺序分镜），仅 `clip` 资产可写入 `o_timelineClip`；该表只有资产、文件、轨道、起点、时长、名称和不透明度，不能表达音频、字幕、特效或素材类型——不是自由任意素材多轨 NLE |
 | 片段操作 | 拖入/跨轨移动/裁剪/播放头切分/删除/复制/转场 | 新增/移动/裁剪/切分/复制/删除 + 波纹(ripple)/分组/吸附/避让（DramaFlow 独有，ToonFlow 未显式暴露，checklist 未据此判定更优） |
 | 撤销/重做 | 有（`index.vue:46-68` 历史栈） | **无**——编辑器内没有撤销重做 |
-| 属性面板 | 常驻停靠面板：名称/起止/总时长/不透明度/音量/播放倍速/音频淡入淡出/转场类型+时长/字幕文本+字号，复制/删除 | 模态弹窗（`_EditTimelineClipDialog`）：轨道/起始/时长/不透明度——**缺音量、播放倍速、音频淡入淡出、转场类型选择、字幕字号**，且非常驻面板（每次编辑要弹窗） |
+| 属性面板 | 常驻停靠面板：名称/起止/总时长/不透明度/音量/播放倍速/音频淡入淡出/转场类型+时长/字幕文本+字号，复制/删除 | 模态弹窗（`_EditTimelineClipDialog`）：轨道/起始/时长/不透明度。现有 `o_timelineClip` 没有音量、倍速、淡入淡出、字幕或转场字段，故这些不是“补几个控件”即可；名称虽存储在表中，当前更新 API 也没有编辑入口。 |
 | 素材库 Tab | 8 类可拖拽 Tab：分镜视频/媒体/图片/音频/字幕文本/转场/特效/滤镜 | 仅 clip 类素材条（`_TimelineMediaBin`），无转场/特效/滤镜/文本预设/独立图片/音频 Tab 可拖入——参数化配置（下拉框）与"可拖拽库项目"是两种不同的交互模型 |
 | 编辑器内实时预览 | WebAV `AVCanvas` 实时合成画布（含滤镜/特效/转场逐帧渲染），编辑时所见即所得 | **无**——编辑器内没有实时时间线预览，合成只发生在最终导出阶段 |
 | 导出/合成平台覆盖 | Web 端 WebAV，浏览器内导出 MP4 | 仅 macOS/iOS/Android 三端有原生合成器；**Web/Windows/Linux 为 `UnsupportedComposer`，完全无法合成** |
@@ -106,22 +106,25 @@ DramaFlow 实际支持 **0/8**（+0/2 贴纸）。这是三个能力类别里唯
 
 ## 4. 面向未来 W3 spec 的具体缺口清单（按"低成本/高成本"分组）
 
-### A 组 — 真正的"解冻"：引擎已有数据结构，缺 UI 入口（小，UI 层工作为主）
+### A 组 — 纯 UI 收口（小，不改变现有媒体语义）
 
-1. **属性面板补字段**：`timeline_clip.dart` 的 `o_timelineClip` 表结构如果已经能承载音量/倍速/淡入淡出等字段（需先确认 schema，本次未逐列核对），则只需在 `_EditTimelineClipDialog` 增加对应输入控件；如果 schema 本身缺列则升级为 B 组。**下一步动作**：读 `app/lib/src/engine/timeline_clip.dart` 的字段定义 + 对应迁移文件确认 schema 现状，再判定这条属于 A 组还是 B 组。
-2. **常驻属性面板替代模态弹窗**：纯 UI 布局重构（`workbench_screen.dart`），不涉及数据层变更，工作量可控。
+1. **常驻属性面板替代模态弹窗**：将现有的轨道、起始、时长和不透明度放入选中片段的固定检查器；这只改变布局与窄屏呈现，不涉及数据层或合成器。
+2. **现有名称的编辑入口**：`o_timelineClip` 已有 `name` 列，但 `TimelineClipRow` 和 `updateTimelineClip` 没有暴露写入参数。补一个受测试保护的名称更新入口即可，不应借此误称为完整属性面板。
+
+已完成的字段核验：`db.dart:347-358` 定义的 `o_timelineClip` 只有 `assetId`、`durationMs`、`filePath`、`id`、`lane`、`name`、`opacity`、`projectId`、`scriptId`、`startMs`。因此音量、播放倍速、淡入淡出、字幕文字/字号、转场时长、效果参数都不存在“引擎已有、只差 UI”的解冻空间。
 
 ### B 组 — 需要新增引擎/合成器实现（中～大，三端合成器都要动）
 
-3. **转场扩容**（slide/wipe/zoom/rotate，4 种）：每种都要在 `ComposerPlugin.swift`（macOS+iOS 共享逻辑）与 `MainActivity.kt`（Android）各自新增 `AVMutableVideoCompositionLayerInstruction`/等价 Android 合成变换，`compose.dart` 允许集合同步扩容。三端工作量对称，逐种转场独立可交付。
-4. **滤镜扩容**（grayscale/sepia/saturate/brightness/contrast/blur/invert/opacity，8 种）：iOS/macOS 端多数可直接映射到现成 CoreImage filter（`CIColorControls`/`CISepiaTone`/`CIGaussianBlur`/`CIColorInvert` 等，`filterImage(_:preset:)` 已有可扩展的 `switch` 结构），实现成本低于转场；Android 端需要等价 GL/矩阵实现，工作量视现有 `colorScaleMatrix` 基础设施可复用程度而定。
-5. **特效系统（0→8+2，全新能力）**：最大的一块。需要新的数据模型（特效类型+作用片段+时长参数）、`compose.dart` 新增特效校验与序列化、三端合成器新增关键帧动画（fadeIn/fadeOut 可复用现有 opacity ramp 机制；flash/shake/zoomIn/zoomOut/pulse/rotateIn 需要新的变换插值逻辑）、贴纸需要额外的图层合成与素材管理。建议作为独立子任务，不与转场/滤镜扩容合并。
-6. **编辑器内实时预览**：DramaFlow 目前合成只在最终导出时发生，没有编辑时所见即所得。ToonFlow 用 WebAV `AVCanvas` 做浏览器内实时合成；DramaFlow 若要对等，需要在 Flutter 侧构建时间线实时预览渲染路径（不一定要复刻 WebAV 架构，但需要产品/工程共同定义"实时预览"的具体交付形态）——这是本文档四条缺口里唯一需要先明确产品设计再定工程方案的一项，不建议直接进入实施排期。
-7. **平台覆盖**：Web/Windows/Linux 完全没有合成器（`UnsupportedComposer`）。是否要补齐是产品范围决策（这几个平台是否在 DramaFlow 的支持矩阵内），不是本文档能替用户决定的事项，仅如实记录现状。
-8. **撤销/重做**：编辑器内完全没有这个能力，需要设计一个操作历史栈（`timeline_clip.dart` 层面）+ UI 快捷键/按钮，工作量中等，不依赖转场/滤镜/特效扩容，可独立排期。
+3. **自由素材时间线的数据模型**：这是后续功能的前提。需要区分视频、图片、音频、字幕、文本、贴纸、滤镜、特效等片段，并保存来源裁剪、音量、倍速、淡入淡出、文本样式和参数。现有 `o_timelineClip` 仅表示一个不透明度可调的 `clip` 视频叠加；直接往现有表打补丁会让模型继续混淆，应在设计阶段确定兼容迁移或新的片段表。
+4. **转场扩容**（slide/wipe/zoom/rotate，4 种）：每种都要在 `ComposerPlugin.swift`（macOS+iOS 共享逻辑）与 `MainActivity.kt`（Android）各自新增 `AVMutableVideoCompositionLayerInstruction`/等价 Android 合成变换，`compose.dart` 允许集合同步扩容。三端工作量对称，逐种转场独立可交付。
+5. **滤镜扩容**（grayscale/sepia/saturate/brightness/contrast/blur/invert/opacity，8 种）：iOS/macOS 端多数可直接映射到现成 CoreImage filter（`CIColorControls`/`CISepiaTone`/`CIGaussianBlur`/`CIColorInvert` 等，`filterImage(_:preset:)` 已有可扩展的 `switch` 结构），实现成本低于转场；Android 端需要等价 GL/矩阵实现，工作量视现有 `colorScaleMatrix` 基础设施可复用程度而定。
+6. **特效系统（0→8+2，全新能力）**：最大的一块。需要新的数据模型（特效类型+作用片段+时长参数）、`compose.dart` 新增特效校验与序列化、三端合成器新增关键帧动画（fadeIn/fadeOut 可复用现有 opacity ramp 机制；flash/shake/zoomIn/zoomOut/pulse/rotateIn 需要新的变换插值逻辑）、贴纸需要额外的图层合成与素材管理。建议作为独立子任务，不与转场/滤镜扩容合并。
+7. **编辑器内实时预览**：DramaFlow 目前合成只在最终导出时发生，没有编辑时所见即所得。ToonFlow 用 WebAV `AVCanvas` 做浏览器内实时合成；DramaFlow 若要对等，需要在 Flutter 侧构建时间线实时预览渲染路径（不一定要复刻 WebAV 架构，但需要产品/工程共同定义"实时预览"的具体交付形态）——这是本文档四条缺口里唯一需要先明确产品设计再定工程方案的一项，不建议直接进入实施排期。
+8. **平台覆盖**：Web/Windows/Linux 完全没有合成器（`UnsupportedComposer`）。是否要补齐是产品范围决策（这几个平台是否在 DramaFlow 的支持矩阵内），不是本文档能替用户决定的事项，仅如实记录现状。
+9. **撤销/重做**：编辑器内完全没有这个能力，需要设计一个操作历史栈（`timeline_clip.dart` 层面）+ UI 快捷键/按钮，工作量中等，不依赖转场/滤镜/特效扩容，可独立排期。
 
 ---
 
 ## 5. 一句话总结
 
-DramaFlow 的"叠加层时间线"架构本身是合理且有独到之处的（波纹/分组/吸附/避让是 ToonFlow 没有的能力），真正的 W3 缺口集中在三处：转场/滤镜集合偏窄且特效完全空白（需要新增三端合成器实现，非解冻）、属性面板/预览体验比 ToonFlow 单薄（部分可能是纯 UI 工作，需先核实数据层现状）、撤销重做缺失。不存在 spec 措辞暗示的"引擎已实现、UI 未暴露"的低成本解冻机会——这个核验结论本身就是本文档最重要的产出，能避免未来 W3 spec 把工作量估轻。
+DramaFlow 的"叠加层时间线"有合理且独到之处（波纹/分组/吸附/避让是 ToonFlow 没有的能力），但它不是原版自由多轨 NLE 的底座。W3 的首要事实是：`o_timelineClip` 不具备原版片段属性的数据模型，不能把缺口包装成“解冻”。真正的工作依次是确立自由素材片段模型，再补转场/滤镜/特效、实时预览、撤销重做和平台合成覆盖；常驻检查器与名称编辑才是少数可以独立、小步完成的 UI 收口。
