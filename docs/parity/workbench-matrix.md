@@ -1,6 +1,6 @@
 # 工作台对照：预览、生成与轨道
 
-状态：2026-07-19 源码对照与定向回归。本文只审计当前 ToonFlow 1.1.8 的
+状态：2026-07-20 源码对照、实现与定向回归。本文只审计当前 ToonFlow 1.1.8 的
 可达工作台；不把未接线草稿当成功能，也不触发真实视频生成。
 
 ## 结论先行
@@ -9,22 +9,25 @@ DramaFlow 已有一套比原版更重的本地时间线编辑能力：素材层�
 裁剪、切分、复制、删除、波纹操作、分组、吸附和避免重叠。它也已经覆盖了按
 分镜批量生成提示词、选择视频候选、保存候选为素材、编辑时长和重排分镜。
 
-但这不能掩盖两个明确的 1:1 缺口：
+其中原版的**快速预览**已经闭合：DramaFlow 从工作台顶栏进入全屏首帧预览，以 50ms
+唤醒加单调时钟实际间隔按分镜时长轮播，支持播放、暂停、逐镜跳转、总进度 seek、
+分段定位、资产/提示词审阅，以及所选本地首帧 ZIP 导出。导出只接受媒体根目录内的
+普通文件，并在独立 isolate 流式写目标 ZIP。桌面为预览与信息两栏，低于 840dp 收敛
+为可滚动单列；390dp 回归覆盖缩略图、选择与导出入口。
 
-1. 原版可以新建一条**不关联分镜的空视频轨**；DramaFlow 只会为某个分镜懒建
-   轨道，无法先建独立轨。
-2. 原版有一个**快速预览**页：按分镜时长轮播首帧、可跳镜和拖动分段进度条、
-   显示当前分镜信息。DramaFlow 有分镜画廊和持久化重排，但没有这个轻量预览器。
+这仍不能掩盖一个明确的 1:1 缺口：原版可以新建一条**不关联分镜的空视频轨**；
+DramaFlow 只会为某个分镜懒建轨道，无法先建独立轨。候选视频直接下载/批量 ZIP、
+自由 NLE 的实时画布预览也仍是独立未闭合项。
 
-快速预览不是成片播放器，也不需要视频供应商或实时渲染。以后补齐时应保持这个
-边界，不能借机扩成另一套视频合成器。
+快速预览不是成片播放器，也不需要视频供应商或实时渲染。本次实现严格保持这个
+边界：没有新增视频提交、轮询、下载或合成逻辑。
 
 ## 基线与证据
 
 | 范围 | ToonFlow 证据 | DramaFlow 证据 |
 | --- | --- | --- |
 | 工作台外壳 | `Toonflow-web/src/views/production/components/workbench/index.vue:16-45` | `app/lib/src/screens/production/workbench_screen.dart:196-348` |
-| 快速预览 | `.../workbench/preview.vue:7-166, 211-445` | `workbench_screen.dart:185-192` 与分镜节点画廊；无工作台预览器 |
+| 快速预览 | `.../workbench/preview.vue:7-166, 211-445` | `workbench_preview.dart`（首帧预览/控制/信息/选择导出）、`workbench_preview_controller.dart`（纯时间轴）、`storyboard.dart`（本地 ZIP） |
 | 轨道增加与删除 | `.../generate/components/track.vue:161-209`；`Toonflow-app/src/routes/production/workbench/{addTrack,deleteTrack}.ts` | `app/lib/src/engine/video_track.dart:175-199,1222-1243` |
 | 时间线与候选 | `.../editVideo/index.vue`、`.../generate/components/video.vue` | `workbench_screen.dart`、`timeline_clip.dart`、`video_track.dart` |
 
@@ -32,9 +35,9 @@ DramaFlow 已有一套比原版更重的本地时间线编辑能力：素材层�
 
 | 用户动作 | 原版行为 | DramaFlow 当前行为 | 判定 |
 | --- | --- | --- | --- |
-| 打开工作台 | 全屏三页签：快速预览、视频生成、视频剪辑 | 同一全屏页并置分镜生成与时间线 | 部分实现 |
-| 预览分镜首帧 | 按当前镜展示图片；播放、暂停、前后跳镜、分段 seek | 可在分镜画廊看图，但不能按时长连续预览 | 部分实现 |
-| 查看本镜信息 | 显示时长、关联资产和图片提示词；模板也尝试显示描述，但当前接口遗漏该字段，实际总是空态 | 分镜行可编辑时长、画面描述、提示词、配音；没有预览侧栏 | 部分实现 |
+| 打开工作台 | 全屏三页签：快速预览、视频生成、视频剪辑 | 全屏单屏工作台，顶栏“快速预览”打开首帧预览页；生成与时间线仍并置 | 部分实现：能力可达，但未复刻三 Tab 外壳 |
+| 预览分镜首帧 | 按当前镜展示图片；播放、暂停、前后跳镜、分段 seek | 首帧/缺图占位、播放暂停、前后跳镜、Slider seek 与按时长比例分段定位 | 已验证等价 |
+| 查看本镜信息 | 显示时长、关联资产和图片提示词；模板也尝试显示描述，但当前接口遗漏该字段，实际总是空态 | 预览侧栏显示时长、关联角色/场景/道具、图片提示词及本地 `videoDesc` | 已验证等价 |
 | 重排分镜 | 拖动只改前端临时列表；原版“恢复排序”初始化有缺陷 | 拖动后持久化 `o_storyboard.index`，合成顺序随之变化 | 覆盖可用行为 |
 | 新建视频轨 | 从模型默认时长创建独立 `o_videoTrack`，不要求关联分镜 | 仅 `ensureTrackForStoryboard`，严格一镜一轨 | 缺失 |
 | 删除视频轨 | 删除轨道并清空关联分镜的 `trackId` | 删除轨道、清候选视频文件并清空关联 | 已验证等价 |
@@ -69,10 +72,11 @@ o_storyboard.videoDesc
             └─ noDescription 空态
 ```
 
-后续 Flutter 复刻快速预览时，不应为了复制这个断链而隐藏已有的
-`StoryboardRow.videoDesc`。正确边界是：保留原版的首帧轮播、按时长进度、跳镜、资产和
-提示词审阅；把画面描述作为已验证更可用的本地字段展示，并在对应测试中证明其来源。
-这属于“修正原版无效字段”而不是扩展成视频播放器，必须在总清单的实现证据中明确标注。
+Flutter 实现没有为了复制这个断链而隐藏已有的 `StoryboardRow.videoDesc`：
+`workbench_preview.dart` 将它作为“分镜描述”展示，同时仍保留原版的首帧轮播、
+按时长进度、跳镜、资产和提示词审阅。它是对原版无效字段的本地修正，不是视频
+播放器扩展；本行判为“已验证等价”而非“已验证更优”，因为尚未取得打包版黑盒
+用例来量化这一改进。
 
 ## 定向验证
 
@@ -80,23 +84,24 @@ o_storyboard.videoDesc
 
 ```sh
 cd app
-flutter test --concurrency=1 \
-  test/engine/timeline_clip_test.dart \
-  test/engine/timeline_clip_equivalence_test.dart \
-  test/engine/compose_episode_test.dart \
-  test/engine/video_track_test.dart \
-  test/widgets/workbench_screen_test.dart
+flutter test \
+  test/widgets/workbench_preview_controller_test.dart \
+  test/engine/storyboard_test.dart \
+  test/widgets/workbench_screen_test.dart \
+  test/widgets/production_screen_test.dart
+flutter analyze
 ```
 
-结果：**165 项通过**。其中视频相关用例仅使用 Dart fake gateway、本地假媒体和
-假合成器；没有提交、轮询、下载或渲染真实供应商的视频任务。
+结果：**119 项通过**，`flutter analyze` 为零 issue。新增证据覆盖纯时间轴跨镜/边界
+定位、选中且存在的本地首帧 ZIP 内容、绝对路径/`..`/符号链接拒绝、桌面入口及 390dp
+缩略图/选择/导出入口，并覆盖 1024dp 英文工具栏和缺失资产图降级。视频相关用例仅使用
+Dart fake gateway、本地假媒体和假合成器；没有提交、轮询、下载或渲染真实供应商的视频任务。
 
 ## 后续实施边界
 
-这份审计不修改产品行为。若要补齐任一缺口，先单独做设计确认：
+这份审计不再把快速预览列为缺口。后续若要补齐其余能力，先单独做设计确认：
 
-- 快速预览：只做分镜首帧轮播、时间进度、逐镜信息和移动端等价交互；不引入
-  实时视频合成。
+- 工作台外壳：决定是否需要在不牺牲单屏效率的前提下复刻三 Tab 结构与画幅初始化。
 - 独立轨道：明确它与分镜轨的关联、删除级联、参与批量生成与合成时的排序规则。
 - 候选下载：先决定原生桌面“存为文件”和多选打包的预期，再实现，不把“保存为
   素材”误报成下载等价。
