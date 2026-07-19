@@ -343,3 +343,35 @@ Set `W6-CORNERSCAPE-002` to “已验证等价” only when desktop and 390dp ev
 git add app/lib/src/screens/cornerscape/corner_scape_screen.dart app/test/widgets/corner_scape_screen_test.dart docs/parity/master-checklist.md docs/parity/feature-parity-execution-report.md
 git commit -m "docs(parity): verify cornerscape workspace"
 ```
+
+#### Task 5 后审查回归修复
+
+跨任务总审查确认以下问题均可复现，须在再次声称 CornerScape 完成前修复：
+
+- 取消 `asset_image_generation` 任务后，相关的预插入 `o_image` 行必须从
+  `生成中` 收敛为 `生成失败/errCanceled`；已完成的历史图不得倒退。运行中的
+  图片请求返回后也不得覆盖已取消状态。
+- 取消确认必须只取消用户最初选中的任务；该任务在确认期间结束或被替换时，显示
+  "当前没有可取消的生成"，不能取消替代任务。
+- 批量提示词按钮必须进入 `batchPolishAssetPrompts` 流水线，使单一资产失败不阻断
+  剩余资产，并按原版语义将补充要求传入批量请求。
+- 详情重新生成应默认当前选中图的 `resolution`，切换历史图后也同步该默认值；
+  当前失败图在详情预览中必须显示失败而非等待。
+- `W6-CORNERSCAPE-001` 的实现/测试/备注必须如实描述当前通用
+  role/scene/tool 音频绑定，不得保留已删除的 role-only、名称搜索或绑定状态筛选声明。
+
+**Files:**
+- Modify: `app/lib/src/engine/engine.dart`
+- Modify: `app/lib/src/engine/assets.dart`
+- Modify: `app/lib/src/screens/cornerscape/corner_scape_screen.dart`
+- Modify: `app/test/engine/assets_test.dart`
+- Modify: `app/test/widgets/corner_scape_screen_test.dart`
+- Modify: `app/lib/l10n/app_zh.arb`, `app_en.arb`, `app_ja.arb` and generated localizations
+- Modify: `docs/parity/master-checklist.md`
+- Modify: `docs/parity/feature-parity-execution-report.md`
+
+- [ ] Add failing engine/widget tests for cancelled image rows, exact task identity,
+  isolated batch-prompt failures, resolution preservation, and failed-detail state.
+- [ ] Implement the scoped engine/UI/docs corrections above.
+- [ ] Re-run the Task 5 verification matrix, full Flutter suite, debug macOS build,
+  no-orphans checker, formatting, analyzer and final whole-feature review.
