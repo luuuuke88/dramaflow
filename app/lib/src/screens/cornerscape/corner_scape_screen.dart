@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -997,10 +998,11 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
       return;
     }
     if (!mounted) return;
+    final assetId = widget.asset.id;
     setState(() => _polishing = true);
     try {
-      final prompt = await engine.polishAssetPrompt(widget.asset.id);
-      if (!mounted) return;
+      final prompt = await engine.polishAssetPrompt(assetId);
+      if (!mounted || widget.asset.id != assetId) return;
       setState(() {
         _prompt.text = prompt;
         _promptDirty = false;
@@ -1009,7 +1011,9 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
     } catch (error) {
       if (mounted) _toast(localizeError(context, error));
     } finally {
-      if (mounted) setState(() => _polishing = false);
+      if (mounted && widget.asset.id == assetId) {
+        setState(() => _polishing = false);
+      }
     }
   }
 
@@ -1191,6 +1195,7 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
               key: Key('cornerscape-prompt-${widget.asset.id}'),
               controller: _prompt,
               focusNode: _promptFocus,
+              enabled: !_polishing,
               minLines: 4,
               maxLines: 8,
               onChanged: (_) => _promptDirty = true,
@@ -1262,6 +1267,11 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
                 _AuditionButton(
                   key: Key('cornerscape-audition-${widget.asset.id}'),
                   audioAssetId: _audioAssetId,
+                  audioPath: _audioAssetId == null
+                      ? null
+                      : ref
+                          .read(engineProvider)
+                          .audioAssetAbsPath(_audioAssetId!),
                 ),
               ],
             ),
@@ -1302,10 +1312,12 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
 
 class _AuditionButton extends ConsumerStatefulWidget {
   final int? audioAssetId;
+  final String? audioPath;
 
   const _AuditionButton({
     super.key,
     required this.audioAssetId,
+    required this.audioPath,
   });
 
   @override
@@ -1314,10 +1326,22 @@ class _AuditionButton extends ConsumerStatefulWidget {
 
 class _AuditionButtonState extends ConsumerState<_AuditionButton> {
   Player? _player;
+  StreamSubscription<bool>? _completedSubscription;
   bool _playing = false;
 
   @override
+  void didUpdateWidget(covariant _AuditionButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.audioAssetId != widget.audioAssetId ||
+        oldWidget.audioPath != widget.audioPath) {
+      unawaited(_stopAndReset());
+    }
+  }
+
+  @override
   void dispose() {
+    unawaited(_completedSubscription?.cancel() ?? Future.value());
+    unawaited(_player?.stop() ?? Future.value());
     _player?.dispose();
     super.dispose();
   }
@@ -1327,22 +1351,25 @@ class _AuditionButtonState extends ConsumerState<_AuditionButton> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _stopAndReset() async {
+    await _completedSubscription?.cancel();
+    _completedSubscription = null;
+    try {
+      await _player?.stop();
+    } catch (_) {
+      // Playback can already be stopped or disposed while the detail closes.
+    }
+    if (mounted) setState(() => _playing = false);
+  }
+
   Future<void> _toggle() async {
     final l10n = context.l10n;
     if (_playing) {
-      await _player?.stop();
-      if (mounted) setState(() => _playing = false);
+      await _stopAndReset();
       return;
     }
     final audioAssetId = widget.audioAssetId;
-    if (audioAssetId == null) return;
-    String? absPath;
-    try {
-      absPath = ref.read(engineProvider).audioAssetAbsPath(audioAssetId);
-    } catch (error) {
-      if (mounted) _toast(localizeError(context, error));
-      return;
-    }
+    final absPath = widget.audioPath;
     if (absPath == null || !File(absPath).existsSync()) {
       _toast(l10n.cornerScapeAudioMissing);
       return;
@@ -1350,11 +1377,23 @@ class _AuditionButtonState extends ConsumerState<_AuditionButton> {
     try {
       ensureLocalMediaKit();
       final player = _player ??= Player();
-      player.stream.completed.listen((completed) {
-        if (completed && mounted) setState(() => _playing = false);
+      await _completedSubscription?.cancel();
+      _completedSubscription = player.stream.completed.listen((completed) {
+        if (completed &&
+            mounted &&
+            widget.audioAssetId == audioAssetId &&
+            widget.audioPath == absPath) {
+          setState(() => _playing = false);
+        }
       });
       await player.open(Media(absPath));
-      if (mounted) setState(() => _playing = true);
+      if (!mounted ||
+          widget.audioAssetId != audioAssetId ||
+          widget.audioPath != absPath) {
+        await _stopAndReset();
+        return;
+      }
+      setState(() => _playing = true);
     } catch (_) {
       if (!mounted) return;
       setState(() => _playing = false);

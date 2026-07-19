@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -21,6 +22,7 @@ import 'package:path/path.dart' as p;
 
 class _NoopGateway implements ProviderGateway {
   int textCalls = 0;
+  Completer<TextResult>? pendingText;
 
   @override
   Future<TextResult> generateText(
@@ -30,6 +32,8 @@ class _NoopGateway implements ProviderGateway {
     dynamic cancelToken,
   }) async {
     textCalls++;
+    final pending = pendingText;
+    if (pending != null) return pending.future;
     return const TextResult('润色后的雪山剑客');
   }
 
@@ -686,6 +690,52 @@ void main() {
     expect(engine.assetsByIds([assetId]).single.prompt, '润色后的雪山剑客');
   });
 
+  testWidgets('详情 AI 润色确认后锁定提示词直到结果写入', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '原提示词',
+    );
+    final pending = Completer<TextResult>();
+    gateway.pendingText = pending;
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final promptField = find.byKey(Key('cornerscape-prompt-$assetId'));
+    final polishButton = find.byKey(Key('cornerscape-polish-$assetId'));
+    await tester.ensureVisible(polishButton);
+    await tester.tap(polishButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确定'));
+    await tester.pump();
+
+    expect(gateway.textCalls, 1);
+    expect(tester.widget<TextField>(promptField).enabled, isFalse);
+
+    await tester.tap(promptField);
+    await tester.enterText(promptField, '不应覆盖原提示词');
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(promptField).controller!.text,
+      '原提示词',
+    );
+
+    pending.complete(const TextResult('润色后的雪山剑客'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(promptField).enabled, isTrue);
+    expect(
+      tester.widget<TextField>(promptField).controller!.text,
+      '润色后的雪山剑客',
+    );
+    expect(engine.assetsByIds([assetId]).single.prompt, '润色后的雪山剑客');
+  });
+
   testWidgets('场景和道具详情共用音频选择试听并可解绑', (tester) async {
     final sceneId = engine.addAsset(
       projectId: projectId,
@@ -756,6 +806,18 @@ void main() {
           .audioAssetId,
       isNull,
     );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.descendant(
+              of: find.byKey(Key('cornerscape-audition-$sceneId')),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
 
     await tester.tap(find.byTooltip('关闭').first);
     await tester.pumpAndSettle();
