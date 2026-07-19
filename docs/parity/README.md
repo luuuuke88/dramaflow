@@ -72,6 +72,11 @@ flutter build macos --debug
 - `analyze` 验证 Dart 静态约束；`test` 覆盖引擎、桌面和窄屏 widget 流程，视频只使用假供应商；`build` 验证 macOS 原生插件的实际编译与链接。
 - 当前 `media_kit_libs_macos_video` / `media_kit_video` 尚未声明 Swift Package Manager 支持。Flutter 目前仅告警且 macOS Debug 构建可成功完成；后续 Flutter 升级前必须复核该插件兼容性，避免把未来构建失败留到发布阶段。
 
+**最近复验（2026-07-19）**：在 `develop` 上运行 `flutter analyze` 得到零 issue；
+`flutter test --concurrency=1` 完整退出码为 0；`node tool/parity/check_no_orphans.js`
+确认 `538/538` 原版库存均有主清单归属。该复验没有设置 `QA_FULL=1` 或
+`P0_LIVE=1`，没有发起真实视频生成。
+
 ## 当前优先缺口
 
 最直接影响生产流程的缺口集中在：制作画布体验、任务中心的全项目历史与分页、完整
