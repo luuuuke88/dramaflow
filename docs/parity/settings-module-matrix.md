@@ -68,6 +68,19 @@ flutter test --concurrency=1 \
   家族基座。它们可逐项更新温度和最大输出，但不等价于原版的多 Agent 普通/高级分组与批量
   设置，仍按本表和总清单标为部分实现。
 
+Agent 配置的独立回归也可离线复跑：
+
+```bash
+cd /Users/luke/Documents/aivideo/dramaflow/app
+flutter test --concurrency=1 \
+  test/engine/assistant_skills_deploy_test.dart \
+  test/widgets/agent_chat_screen_test.dart
+```
+
+结果：17 项通过。它锁定了两个家族基座的播种、文本模型类型校验、温度和输出上限保存，以及
+桌面/移动壳中的按需展开入口；也直接断言列表中没有已被裁掉的多层流水线部署。该断言是当前
+行为的证据，不是对原版高级模式的替代证明。
+
 ## 不适用的边界
 
 本表的四项“不适用”均已在 `inventory-na.md` 写明两项依据：
