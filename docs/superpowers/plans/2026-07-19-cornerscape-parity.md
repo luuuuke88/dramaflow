@@ -360,6 +360,11 @@ git commit -m "docs(parity): verify cornerscape workspace"
 - `W6-CORNERSCAPE-001` 的实现/测试/备注必须如实描述当前通用
   role/scene/tool 音频绑定，不得保留已删除的 role-only、名称搜索或绑定状态筛选声明。
 
+第二次复审追加三项：`asset_image_generation` 重试须为每个仍有效资产创建新的
+`生成中` 图片行并更新 payload，不能复用被取消/失败的 imageId；批量提示词入队
+后只能提示“已提交”；音频批量匹配的 widget 与 engine 覆盖范围须在两份对照文档
+中如实归属。
+
 **Files:**
 - Modify: `app/lib/src/engine/engine.dart`
 - Modify: `app/lib/src/engine/assets.dart`
