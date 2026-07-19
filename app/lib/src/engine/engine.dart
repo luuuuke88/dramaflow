@@ -300,6 +300,95 @@ void _seedSeedanceVideoProfiles(Database db) {
   }
 }
 
+List<Map<String, Object?>> _modelsFromPreset(String presetId) {
+  final preset = providerPresetById(presetId)!;
+  return [
+    for (final model in preset.models)
+      {
+        'id': '$presetId:${model.modelId}',
+        'providerId': presetId,
+        'modelId': model.modelId,
+        'label': model.label,
+        'kind': model.kind,
+        'capabilities': model.capabilities,
+        'enabled': true,
+      },
+  ];
+}
+
+/// 只升级程序从 2026-07-18 默认值原样创建的本地 azt 目录。
+/// 用户新增模型、改标签、关闭模型或改端点都会令指纹失配，从而完全保留。
+void _upgradeUnmodifiedLegacyAztSeed(Database db, {required bool isMobile}) {
+  if (isMobile) return;
+  final row = db.select(
+      'SELECT enable,inputValues,models FROM o_vendorConfig WHERE id=?',
+      ['azt']).firstOrNull;
+  if (row == null || row['enable'] != 1) return;
+  if (!_isUnmodifiedLegacyAztInput(row['inputValues']) ||
+      !_isUnmodifiedLegacyAztModels(row['models'])) {
+    return;
+  }
+  db.execute(
+    'UPDATE o_vendorConfig SET models=? WHERE id=?',
+    [jsonEncode(_modelsFromPreset('azt')), 'azt'],
+  );
+}
+
+bool _isUnmodifiedLegacyAztInput(Object? raw) {
+  if (raw is! String) return false;
+  try {
+    final input = jsonDecode(raw);
+    if (input is! Map || input.length != 5) return false;
+    const expectedKeys = {
+      'name',
+      'protocol',
+      'baseUrl',
+      'credentialRef',
+      'createdAt',
+    };
+    if (!expectedKeys.every(input.containsKey)) return false;
+    return input['name'] == 'azt' &&
+        input['protocol'] == 'openai_compatible' &&
+        input['baseUrl'] == 'http://127.0.0.1:8787/v1' &&
+        input['credentialRef'] == providerCredentialRef('azt') &&
+        input['createdAt'] is String;
+  } catch (_) {
+    return false;
+  }
+}
+
+bool _isUnmodifiedLegacyAztModels(Object? raw) {
+  if (raw is! String) return false;
+  const expected = [
+    ('gpt-5.5', 'text'),
+    ('gpt-5.4', 'text'),
+    ('gpt-5.4-mini', 'text'),
+    ('gpt-image-2', 'image'),
+  ];
+  try {
+    final models = jsonDecode(raw);
+    if (models is! List || models.length != expected.length) return false;
+    for (var index = 0; index < expected.length; index++) {
+      final model = models[index];
+      final (modelId, kind) = expected[index];
+      if (model is! Map || model.length != 7) return false;
+      if (model['id'] != 'azt:$modelId' ||
+          model['providerId'] != 'azt' ||
+          model['modelId'] != modelId ||
+          model['label'] != modelId ||
+          model['kind'] != kind ||
+          model['enabled'] != true ||
+          model['capabilities'] is! Map ||
+          (model['capabilities'] as Map).isNotEmpty) {
+        return false;
+      }
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 class Engine {
   static const version = '0.3.0-task3';
   static const _promptKeyEventExtraction = 'eventExtraction';
@@ -562,27 +651,6 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
         );
       }
 
-      Map<String, Object?> model(
-              String providerId, String modelId, String label, String kind,
-              [Map<String, Object?> capabilities = const {}]) =>
-          {
-            'id': '$providerId:$modelId',
-            'providerId': providerId,
-            'modelId': modelId,
-            'label': label,
-            'kind': kind,
-            'capabilities': capabilities,
-            'enabled': true,
-          };
-
-      List<Map<String, Object?>> presetModels(String presetId) {
-        final preset = providerPresetById(presetId)!;
-        return [
-          for (final m in preset.models)
-            model(presetId, m.modelId, m.label, m.kind, m.capabilities),
-        ];
-      }
-
       if (!isMobile) {
         final azt = providerPresetById('azt')!;
         provider(
@@ -590,7 +658,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
           name: azt.id, // 种子历史名就是 'azt'，保持不变
           protocol: azt.protocol,
           baseUrl: azt.baseUrl,
-          models: presetModels('azt'),
+          models: _modelsFromPreset('azt'),
         );
       }
 
@@ -600,9 +668,11 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
         name: volc.id, // 种子历史名 'volcengine'，保持不变
         protocol: volc.protocol,
         baseUrl: volc.baseUrl,
-        models: presetModels('volcengine'),
+        models: _modelsFromPreset('volcengine'),
       );
     }
+
+    _upgradeUnmodifiedLegacyAztSeed(db, isMobile: isMobile);
 
     _seedSeedanceVideoProfiles(db);
 
