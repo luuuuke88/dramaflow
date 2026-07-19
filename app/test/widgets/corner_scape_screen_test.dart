@@ -22,6 +22,9 @@ class _NoopGateway implements ProviderGateway {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+const _imageModel = 'test-image:corner-image';
+const _imageModelLabel = '测试图片 · Corner Image';
+
 void main() {
   late Directory dir;
   late Engine engine;
@@ -38,6 +41,25 @@ void main() {
     );
     engine.config.update({'policy.confirmMoney': '0'});
     engine.installAudioBindPipeline();
+    engine.db.execute(
+      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+      [
+        'test-image',
+        1,
+        jsonEncode({'name': '测试图片', 'protocol': 'openai_compatible'}),
+        jsonEncode([
+          {
+            'id': _imageModel,
+            'providerId': 'test-image',
+            'modelId': 'corner-image',
+            'label': 'Corner Image',
+            'kind': 'image',
+            'capabilities': {},
+            'enabled': true,
+          },
+        ]),
+      ],
+    );
     projectId = engine.addProject(projectType: 'novel', name: '塑角造景测试');
   });
 
@@ -69,6 +91,20 @@ void main() {
     await tester.pumpWidget(app(width: 1400));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
+  }
+
+  Future<void> selectImageModel(WidgetTester tester) async {
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(_imageModelLabel).last);
+    await tester.pump();
+  }
+
+  Future<void> confirmBatchImageGeneration(WidgetTester tester) async {
+    await tester.tap(find.widgetWithText(FilledButton, '开始批量生成'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确定'));
+    await tester.pump();
   }
 
   void setImageState(int assetId, String state) {
@@ -110,18 +146,60 @@ void main() {
     await pumpDesktop(tester);
     await tester.tap(find.text('角色'));
     await tester.tap(find.text('选择未生成'));
+    await selectImageModel(tester);
     await tester.tap(find.text('2K'));
-    await tester.tap(find.widgetWithText(FilledButton, '开始批量生成'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('确定'));
-    await tester.pump();
+    await confirmBatchImageGeneration(tester);
 
     final tasks = await engine.projectJobs(projectId);
     final task = tasks.singleWhere(
       (job) => job.taskClass == 'asset_image_generation',
     );
     expect(task.relatedObjectsJson['ids'], [role]);
+    expect(task.relatedObjectsJson['model'], _imageModel);
     expect(task.relatedObjectsJson['resolution'], '2K');
+  });
+
+  testWidgets('未选择图片模型时确认批量生成不会创建图片任务', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '无模型角色',
+      describe: '',
+      prompt: '剑客',
+    );
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-select-$assetId')));
+    await confirmBatchImageGeneration(tester);
+
+    expect(
+      (await engine.projectJobs(projectId))
+          .where((job) => job.taskClass == 'asset_image_generation'),
+      isEmpty,
+    );
+  });
+
+  testWidgets('项目保存的失效图片模型经确认也不会创建图片任务', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '失效模型角色',
+      describe: '',
+      prompt: '剑客',
+    );
+    engine.editProject(projectId, imageModel: 'removed:image-model');
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-select-$assetId')));
+    await confirmBatchImageGeneration(tester);
+
+    expect(
+      (await engine.projectJobs(projectId))
+          .where((job) => job.taskClass == 'asset_image_generation'),
+      isEmpty,
+    );
   });
 
   testWidgets('类型筛选会裁剪选择且音频匹配只提交当前可见选择', (tester) async {
@@ -303,5 +381,47 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.byKey(Key('cornerscape-detail-$done')), findsOneWidget);
+  });
+
+  testWidgets('桌面完成卡显示两行描述和模型分辨率时不溢出且保持等高', (tester) async {
+    final completed = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '长描述完成角色',
+      describe: '这是用于验证完成卡文本区域的两行描述，在预览保持固定高度时仍需完整占用自己的空间。',
+      prompt: '剑客',
+    );
+    final waiting = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '等高对照场景',
+      describe: '对照卡片',
+      prompt: '雪夜',
+    );
+    engine.saveAssetImage(
+      assetsId: completed,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([4, 5, 6]),
+    );
+    engine.db.execute(
+      'UPDATE o_image SET model=?, resolution=? WHERE assetsId=?',
+      ['azt:gpt-image-2', '2K', completed],
+    );
+
+    await pumpDesktop(tester);
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.textContaining('这是用于验证完成卡文本区域的两行描述'),
+      findsOneWidget,
+    );
+    final heights = [completed, waiting]
+        .map(
+          (id) =>
+              tester.getSize(find.byKey(Key('cornerscape-card-$id'))).height,
+        )
+        .toSet();
+    expect(heights, hasLength(1));
   });
 }

@@ -188,12 +188,19 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       return;
     }
     if (!mounted) return;
+    final models = await ref.read(modelOptionsProvider('image').future);
+    if (!mounted) return;
+    final model = _selectedModel;
+    if (model == null || !models.any((option) => option.value == model)) {
+      _toast(l10n.assetsGenPickModel);
+      return;
+    }
     engine.generateAssetImages(
       widget.projectId,
       [
         for (final id in ids) (assetsId: id, refImageBase64: null),
       ],
-      model: _selectedModel,
+      model: model,
       resolution: _resolution,
     );
     setState(_selected.clear);
@@ -539,7 +546,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       padding: const EdgeInsets.all(DFTokens.s16),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 320,
-        mainAxisExtent: 292,
+        mainAxisExtent: 304,
         crossAxisSpacing: DFTokens.s16,
         mainAxisSpacing: DFTokens.s16,
       ),
