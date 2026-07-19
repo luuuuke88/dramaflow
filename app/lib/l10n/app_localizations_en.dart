@@ -3362,6 +3362,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsThemeUpdated => 'Appearance updated';
 
   @override
+  String get settingsThemeColor => 'Theme color';
+
+  @override
+  String get settingsThemeColorCustom => 'Custom HEX';
+
+  @override
+  String get settingsThemeColorApply => 'Apply theme color';
+
+  @override
+  String get settingsThemeColorInvalid => 'Enter a color in #RRGGBB format';
+
+  @override
+  String get settingsThemeFontSize => 'Font size';
+
+  @override
   String get localeChinese => '中文';
 
   @override

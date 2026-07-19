@@ -121,6 +121,8 @@ class _DramaFlowAppState extends ConsumerState<DramaFlowApp> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
+    final themePrimaryColor = ref.watch(themePrimaryColorProvider);
+    final themeFontSize = ref.watch(themeFontSizeProvider);
     final locale = ref.watch(localeProvider);
     return MaterialApp.router(
       title: 'DramaFlow',
@@ -133,9 +135,18 @@ class _DramaFlowAppState extends ConsumerState<DramaFlowApp> {
       ],
       locale: locale,
       themeMode: themeMode,
-      theme: buildTheme(Brightness.light),
-      darkTheme: buildTheme(Brightness.dark),
+      theme: buildTheme(Brightness.light, primaryColor: themePrimaryColor),
+      darkTheme: buildTheme(Brightness.dark, primaryColor: themePrimaryColor),
       routerConfig: _router,
+      builder: (context, child) {
+        final inherited = MediaQuery.of(context);
+        return MediaQuery(
+          data: inherited.copyWith(
+            textScaler: TextScaler.linear(themeFontSize / 16),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

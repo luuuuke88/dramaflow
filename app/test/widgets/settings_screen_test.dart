@@ -162,10 +162,45 @@ void main() {
     await tester.pumpAndSettle();
 
     await _selectSection(tester, '外观');
+    await tester.ensureVisible(find.text('日本語'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('日本語'));
     await tester.pumpAndSettle();
     expect(engine.config.str('app.locale'), 'ja');
     expect(find.text('設定'), findsOneWidget);
+  });
+
+  testWidgets('移动端外观：主题色和字号持久化，非法 HEX 不改变当前设置', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('settings-theme-color-E34D59')));
+    await tester.pumpAndSettle();
+    expect(engine.config.themePrimaryColor, '#E34D59');
+
+    await tester.enterText(
+      find.byKey(const Key('settings-theme-color-custom')),
+      '#2BA471',
+    );
+    await tester.tap(find.byKey(const Key('settings-theme-color-apply')));
+    await tester.pumpAndSettle();
+    expect(engine.config.themePrimaryColor, '#2BA471');
+
+    await tester.tap(find.byKey(const Key('settings-theme-font-22')));
+    await tester.pumpAndSettle();
+    expect(engine.config.themeFontSize, 22);
+
+    await tester.enterText(
+      find.byKey(const Key('settings-theme-color-custom')),
+      '#FFF',
+    );
+    await tester.tap(find.byKey(const Key('settings-theme-color-apply')));
+    await tester.pumpAndSettle();
+    expect(engine.config.themePrimaryColor, '#2BA471');
+    expect(find.text('请输入 #RRGGBB 格式的颜色'), findsOneWidget);
   });
 
   testWidgets('移动端自定义供应商表单默认遮蔽 API Key', (tester) async {

@@ -6346,6 +6346,36 @@ abstract class AppLocalizations {
   /// **'外观已更新'**
   String get settingsThemeUpdated;
 
+  /// No description provided for @settingsThemeColor.
+  ///
+  /// In zh, this message translates to:
+  /// **'主题色'**
+  String get settingsThemeColor;
+
+  /// No description provided for @settingsThemeColorCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义 HEX'**
+  String get settingsThemeColorCustom;
+
+  /// No description provided for @settingsThemeColorApply.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用主题色'**
+  String get settingsThemeColorApply;
+
+  /// No description provided for @settingsThemeColorInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 #RRGGBB 格式的颜色'**
+  String get settingsThemeColorInvalid;
+
+  /// No description provided for @settingsThemeFontSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'字体大小'**
+  String get settingsThemeFontSize;
+
   /// No description provided for @localeChinese.
   ///
   /// In zh, this message translates to:

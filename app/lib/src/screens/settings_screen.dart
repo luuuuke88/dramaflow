@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/models.dart';
+import '../engine/config.dart';
 import '../engine/db_admin.dart';
 import '../engine/engine.dart';
 import '../engine/pipeline_policy.dart';
@@ -18,6 +19,7 @@ import '../engine/util.dart';
 import '../state/canvas_wheel_mode.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
+import '../theme/tokens.dart';
 import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
@@ -213,6 +215,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   TextEditingController? _episodeLengthCtrl;
   TextEditingController? _batchSizeCtrl;
 
+  TextEditingController? _themeColorCtrl;
+  String? _syncedThemeColor;
+  String? _themeColorError;
+
   @override
   void initState() {
     super.initState();
@@ -239,12 +245,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         TextEditingController(text: config.str('assetsBatchGenereateSize'));
   }
 
+  void _ensureThemeColorController(String hex) {
+    if (_themeColorCtrl == null) {
+      _themeColorCtrl = TextEditingController(text: hex);
+      _syncedThemeColor = hex;
+      return;
+    }
+    if (_syncedThemeColor == hex) return;
+    _themeColorCtrl!.value = TextEditingValue(
+      text: hex,
+      selection: TextSelection.collapsed(offset: hex.length),
+    );
+    _syncedThemeColor = hex;
+  }
+
   @override
   void dispose() {
     _chapterRegCtrl?.dispose();
     _requestTimeoutCtrl?.dispose();
     _episodeLengthCtrl?.dispose();
     _batchSizeCtrl?.dispose();
+    _themeColorCtrl?.dispose();
     super.dispose();
   }
 
@@ -363,51 +384,152 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // ---------- 0. 外观 ----------
 
+  Future<void> _saveThemeColor(String value) async {
+    final normalized = EngineConfig.normalizeThemePrimaryColor(value);
+    if (normalized == null) {
+      setState(() => _themeColorError = context.l10n.settingsThemeColorInvalid);
+      return;
+    }
+    final saved = await runAction(context, ref, () async {
+      await ref
+          .read(themePrimaryColorProvider.notifier)
+          .setThemePrimaryColor(themeColorFromHex(normalized));
+    });
+    if (!saved || !mounted) return;
+    _themeColorCtrl!.value = TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+    setState(() {
+      _syncedThemeColor = normalized;
+      _themeColorError = null;
+    });
+  }
+
   Widget _appearanceCard() {
     final themeMode = ref.watch(themeModeProvider);
+    final primaryColor = ref.watch(themePrimaryColorProvider);
+    final fontSize = ref.watch(themeFontSizeProvider);
+    final themeHex = themeColorToHex(primaryColor);
+    _ensureThemeColorController(themeHex);
     final l10n = context.l10n;
     return _SettingsCard(
       title: l10n.settingsAppearanceSection,
-      child: SegmentedButton<ThemeMode>(
-        showSelectedIcon: false,
-        style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? context.df.primaryDim
-                : context.df.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SegmentedButton<ThemeMode>(
+            showSelectedIcon: false,
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? context.df.primaryDim
+                    : context.df.surface,
+              ),
+              foregroundColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? context.df.primary
+                    : context.df.textMid,
+              ),
+              side:
+                  WidgetStateProperty.all(BorderSide(color: context.df.stroke)),
+            ),
+            segments: [
+              ButtonSegment(
+                value: ThemeMode.light,
+                icon: const Icon(Icons.light_mode_outlined, size: 18),
+                label: Text(l10n.settingsThemeLight),
+              ),
+              ButtonSegment(
+                value: ThemeMode.dark,
+                icon: const Icon(Icons.dark_mode_outlined, size: 18),
+                label: Text(l10n.settingsThemeDark),
+              ),
+              ButtonSegment(
+                value: ThemeMode.system,
+                icon: const Icon(Icons.brightness_auto_outlined, size: 18),
+                label: Text(l10n.settingsThemeSystem),
+              ),
+            ],
+            selected: {themeMode},
+            onSelectionChanged: (selected) {
+              final next = selected.single;
+              if (next == themeMode) return;
+              runAction(context, ref, () async {
+                await ref.read(themeModeProvider.notifier).setThemeMode(next);
+              }, successMessage: l10n.settingsThemeUpdated);
+            },
           ),
-          foregroundColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? context.df.primary
-                : context.df.textMid,
+          const SizedBox(height: 20),
+          Text(l10n.settingsThemeColor, style: DFTokens.section16w600),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final hex in EngineConfig.themePrimaryColorPresets)
+                _ThemeColorSwatch(
+                  key: Key('settings-theme-color-${hex.substring(1)}'),
+                  hex: hex,
+                  selected: themeHex == hex,
+                  onSelected: () => _saveThemeColor(hex),
+                ),
+            ],
           ),
-          side: WidgetStateProperty.all(BorderSide(color: context.df.stroke)),
-        ),
-        segments: [
-          ButtonSegment(
-            value: ThemeMode.light,
-            icon: const Icon(Icons.light_mode_outlined, size: 18),
-            label: Text(l10n.settingsThemeLight),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('settings-theme-color-custom'),
+            controller: _themeColorCtrl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              labelText: l10n.settingsThemeColorCustom,
+              errorText: _themeColorError,
+              prefixIcon: Container(
+                width: 22,
+                height: 22,
+                margin: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: context.df.strokeStrong),
+                ),
+              ),
+              suffixIcon: IconButton(
+                key: const Key('settings-theme-color-apply'),
+                tooltip: l10n.settingsThemeColorApply,
+                icon: const Icon(Icons.check_rounded),
+                onPressed: () => _saveThemeColor(_themeColorCtrl!.text),
+              ),
+            ),
+            onChanged: (_) {
+              if (_themeColorError != null) {
+                setState(() => _themeColorError = null);
+              }
+            },
           ),
-          ButtonSegment(
-            value: ThemeMode.dark,
-            icon: const Icon(Icons.dark_mode_outlined, size: 18),
-            label: Text(l10n.settingsThemeDark),
-          ),
-          ButtonSegment(
-            value: ThemeMode.system,
-            icon: const Icon(Icons.brightness_auto_outlined, size: 18),
-            label: Text(l10n.settingsThemeSystem),
+          const SizedBox(height: 20),
+          Text(l10n.settingsThemeFontSize, style: DFTokens.section16w600),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final size in EngineConfig.themeFontSizeOptions)
+                ChoiceChip(
+                  key: Key('settings-theme-font-$size'),
+                  label: Text('$size'),
+                  selected: fontSize == size,
+                  onSelected: fontSize == size
+                      ? null
+                      : (_) => runAction(context, ref, () async {
+                            await ref
+                                .read(themeFontSizeProvider.notifier)
+                                .setThemeFontSize(size);
+                          }),
+                ),
+            ],
           ),
         ],
-        selected: {themeMode},
-        onSelectionChanged: (selected) {
-          final next = selected.single;
-          if (next == themeMode) return;
-          runAction(context, ref, () async {
-            await ref.read(themeModeProvider.notifier).setThemeMode(next);
-          }, successMessage: l10n.settingsThemeUpdated);
-        },
       ),
     );
   }
@@ -1557,6 +1679,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     return ok == true;
+  }
+}
+
+class _ThemeColorSwatch extends StatelessWidget {
+  final String hex;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  const _ThemeColorSwatch({
+    super.key,
+    required this.hex,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = themeColorFromHex(hex);
+    final foreground =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+            ? Colors.white
+            : Colors.black87;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: hex,
+      child: Tooltip(
+        message: hex,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onSelected,
+            child: AnimatedContainer(
+              duration: DFTokens.fast120,
+              width: 40,
+              height: 40,
+              padding: EdgeInsets.all(selected ? 3 : 1),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color:
+                      selected ? context.df.primary : context.df.strokeStrong,
+                  width: selected ? 2 : 1,
+                ),
+              ),
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                child: selected
+                    ? Icon(Icons.check_rounded, color: foreground, size: 20)
+                    : null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

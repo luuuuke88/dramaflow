@@ -3252,6 +3252,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsThemeUpdated => '外观已更新';
 
   @override
+  String get settingsThemeColor => '主题色';
+
+  @override
+  String get settingsThemeColorCustom => '自定义 HEX';
+
+  @override
+  String get settingsThemeColorApply => '应用主题色';
+
+  @override
+  String get settingsThemeColorInvalid => '请输入 #RRGGBB 格式的颜色';
+
+  @override
+  String get settingsThemeFontSize => '字体大小';
+
+  @override
   String get localeChinese => '中文';
 
   @override

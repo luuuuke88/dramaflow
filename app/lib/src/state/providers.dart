@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../api/models.dart';
+import '../engine/config.dart';
 import '../engine/engine.dart';
 import '../engine/queue.dart';
 import 'canvas_wheel_mode.dart';
@@ -38,6 +39,14 @@ String _themeModeToString(ThemeMode mode) => switch (mode) {
       ThemeMode.system => 'system',
       ThemeMode.light => 'light',
     };
+
+Color themeColorFromHex(String value) =>
+    Color(0xFF000000 | int.parse(value.substring(1), radix: 16));
+
+String themeColorToHex(Color color) {
+  final rgb = color.toARGB32() & 0x00FFFFFF;
+  return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+}
 
 Locale? _localeFromString(String value) => switch (value) {
       'zh' => const Locale('zh'),
@@ -81,6 +90,73 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 
 final themeModeProvider =
     NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+
+class ThemePrimaryColorNotifier extends Notifier<Color> {
+  @override
+  Color build() {
+    Future.microtask(_load);
+    return themeColorFromHex(EngineConfig.themePrimaryColorDefault);
+  }
+
+  Future<void> _load() async {
+    try {
+      state = themeColorFromHex(
+        await ref.read(engineProvider).getThemePrimaryColor(),
+      );
+    } catch (_) {
+      state = themeColorFromHex(EngineConfig.themePrimaryColorDefault);
+    }
+  }
+
+  Future<void> setThemePrimaryColor(Color color) async {
+    final previous = state;
+    state = color;
+    try {
+      await ref
+          .read(engineProvider)
+          .setThemePrimaryColor(themeColorToHex(color));
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
+  }
+}
+
+final themePrimaryColorProvider =
+    NotifierProvider<ThemePrimaryColorNotifier, Color>(
+  ThemePrimaryColorNotifier.new,
+);
+
+class ThemeFontSizeNotifier extends Notifier<int> {
+  @override
+  int build() {
+    Future.microtask(_load);
+    return EngineConfig.themeFontSizeDefault;
+  }
+
+  Future<void> _load() async {
+    try {
+      state = await ref.read(engineProvider).getThemeFontSize();
+    } catch (_) {
+      state = EngineConfig.themeFontSizeDefault;
+    }
+  }
+
+  Future<void> setThemeFontSize(int size) async {
+    final previous = state;
+    state = size;
+    try {
+      await ref.read(engineProvider).setThemeFontSize(size);
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
+  }
+}
+
+final themeFontSizeProvider = NotifierProvider<ThemeFontSizeNotifier, int>(
+  ThemeFontSizeNotifier.new,
+);
 
 class LocaleNotifier extends Notifier<Locale?> {
   @override

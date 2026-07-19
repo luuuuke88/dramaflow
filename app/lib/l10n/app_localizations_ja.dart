@@ -3275,6 +3275,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsThemeUpdated => '外観を更新しました';
 
   @override
+  String get settingsThemeColor => 'テーマカラー';
+
+  @override
+  String get settingsThemeColorCustom => 'カスタム HEX';
+
+  @override
+  String get settingsThemeColorApply => 'テーマカラーを適用';
+
+  @override
+  String get settingsThemeColorInvalid => '#RRGGBB 形式のカラーを入力してください';
+
+  @override
+  String get settingsThemeFontSize => '文字サイズ';
+
+  @override
   String get localeChinese => '中文';
 
   @override
