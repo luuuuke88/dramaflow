@@ -69,6 +69,24 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     return _selected.where(visibleIds.contains).toList();
   }
 
+  Future<bool> _isCurrentImageCandidate(String selectedModel) async {
+    final engine = ref.read(engineProvider);
+    final providers = await engine.listProviders();
+    for (final provider in providers) {
+      if (!provider.enabled) continue;
+      final models = await engine.listProviderModels(provider.id);
+      if (models.any(
+        (model) =>
+            model.enabled &&
+            model.kind == 'image' &&
+            '${provider.id}:${model.modelId}' == selectedModel,
+      )) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void _toggleType(String type, List<CornerScapeAsset> assets) {
     setState(() {
       if (!_types.add(type)) _types.remove(type);
@@ -188,10 +206,14 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       return;
     }
     if (!mounted) return;
-    final models = await ref.read(modelOptionsProvider('image').future);
-    if (!mounted) return;
     final model = _selectedModel;
-    if (model == null || !models.any((option) => option.value == model)) {
+    if (model == null) {
+      _toast(l10n.assetsGenPickModel);
+      return;
+    }
+    final currentModel = await _isCurrentImageCandidate(model);
+    if (!mounted) return;
+    if (!currentModel) {
       _toast(l10n.assetsGenPickModel);
       return;
     }

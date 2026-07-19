@@ -202,6 +202,35 @@ void main() {
     );
   });
 
+  testWidgets('确认图片生成期间候选模型被移除时不会创建图片任务', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '确认期间移除模型的角色',
+      describe: '',
+      prompt: '剑客',
+    );
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-select-$assetId')));
+    await selectImageModel(tester);
+    await tester.tap(find.widgetWithText(FilledButton, '开始批量生成'));
+    await tester.pumpAndSettle();
+    expect(find.text('花费确认'), findsOneWidget);
+
+    await engine.saveProviderModels('test-image', []);
+
+    await tester.tap(find.text('确定'));
+    await tester.pump();
+
+    expect(
+      (await engine.projectJobs(projectId))
+          .where((job) => job.taskClass == 'asset_image_generation'),
+      isEmpty,
+    );
+  });
+
   testWidgets('类型筛选会裁剪选择且音频匹配只提交当前可见选择', (tester) async {
     final role = engine.addAsset(
       projectId: projectId,
