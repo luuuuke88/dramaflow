@@ -288,7 +288,7 @@ git commit -m "feat(cornerscape): add asset detail and task cancellation"
 - Consumes: Task 1–4 public Engine and UI APIs.
 - Produces: desktop and mobile test evidence; final parity documentation.
 
-- [ ] **Step 1: 写失败的移动端测试**
+- [x] **Step 1: 写失败的移动端测试**
 
 ```dart
 testWidgets('390dp 塑角造景可筛选资产、选择卡片、打开详情并发起批量生成', (tester) async {
@@ -308,7 +308,7 @@ testWidgets('390dp 塑角造景可筛选资产、选择卡片、打开详情并�
 });
 ```
 
-- [ ] **Step 2: 运行失败测试**
+- [x] **Step 2: 运行失败测试**
 
 Run: `cd app && flutter test --concurrency=1 test/widgets/corner_scape_screen_test.dart --name 390dp 塑角造景`
 
@@ -317,11 +317,11 @@ Expected: fail until the compact outer layout exposes the required
 covered. This is a mobile regression test; the desktop workspace already
 exists from Task 3.
 
-- [ ] **Step 3: 实现窄屏布局收口**
+- [x] **Step 3: 实现窄屏布局收口**
 
 Give the outer vertical body `Key('cornerscape-scroll')`; ensure the settings section wraps controls, the grid uses one column, the selected-count and action controls stay reachable, and every card/asset detail action has a touchable text or icon button. No fixed width may exceed the 390dp viewport.
 
-- [ ] **Step 4: 运行完整针对性验证**
+- [x] **Step 4: 运行完整针对性验证**
 
 Run:
 
@@ -335,7 +335,7 @@ cd .. && node tool/parity/check_no_orphans.js
 
 Expected: all tests pass, analyzer reports no issues, debug application builds, parity checker reports all inventory items covered.
 
-- [ ] **Step 5: 更新对照文档并提交**
+- [x] **Step 5: 更新对照文档并提交**
 
 Set `W6-CORNERSCAPE-002` to “已验证等价” only when desktop and 390dp evidence covers filters, shortcuts, preview, cancel, history switch, prompt/regenerate and generic asset audio behavior. Record that real provider image/video generation remains user-owned final acceptance.
 
