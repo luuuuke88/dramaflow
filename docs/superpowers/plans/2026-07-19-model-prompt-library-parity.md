@@ -40,7 +40,7 @@ Future<void> unbindModelPromptTemplate(String providerId, String modelId);
 Future<List<ModelPromptBinding>> listModelPromptBindings();
 ```
 
-- [ ] 先写失败测试：旧 `o_modelPrompt` 迁移一次且保留正文；相同 `path` 的更新同步到所有绑定；删除返回被解绑模型且不留下悬挂映射；非法路径/不匹配 kind/不存在模型全部拒绝。
+- [ ] 先写失败测试：旧 `o_modelPrompt` 中的 image/video 映射迁移一次且保留正文，既有 `text/*.md` 直连映射仍可解析且不会被库迁移删除；相同 `path` 的更新同步到所有绑定；删除返回被解绑模型且不留下悬挂映射；非法路径/不匹配 kind/不存在模型全部拒绝。
 - [ ] 加入 `o_modelPromptTemplate` 表及幂等迁移；模板库和映射操作使用事务，路径验证在所有入口复用。
 - [ ] 将 `listModelPrompts` 的现有调用平滑迁到 `listModelPromptBindings`，不得破坏既有 Seedance 编辑测试。
 - [ ] 为 `exportConfig/importConfig` 加模板库字段，覆盖旧备份缺字段、覆盖导入和映射引用顺序。
@@ -72,4 +72,3 @@ Future<List<ModelPromptBinding>> listModelPromptBindings();
 - [ ] 运行对照检查：`cd .. && node tool/parity/check_no_orphans.js && git diff --check`。
 - [ ] 回写三条清单状态与证据；明确测试未发起任何真实生成或视频请求。
 - [ ] 独立全功能 review；发现问题先修复再勾选本任务。
-

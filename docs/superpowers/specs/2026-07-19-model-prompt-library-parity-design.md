@@ -34,11 +34,12 @@ o_modelPrompt                 // 既有映射，保持兼容
   vendorId + model + path -> fileName + prompt
 ```
 
-- 每次启动把旧 `o_modelPrompt` 中的唯一 `path` 回填为模板库条目，确保已存在的 Seedance 映射不会丢失。
+- 每次启动把旧 `o_modelPrompt` 中合法 `image/`、`video/` 路径的唯一 `path` 回填为模板库条目，确保已存在的 Seedance 映射不会丢失。
 - 新建、更新、删除和绑定在本地事务内完成；更新会同步所有同路径映射的 `prompt`，删除会原子解绑所有引用该模板的模型。
 - 模板路径只允许 `image/<安全文件名>.md` 和 `video/<安全文件名>.md`，禁止 `/`、`\\`、控制字符、空白名称和路径穿越。
 - `resolvePrompt` 仍以既有 `o_modelPrompt.prompt` 解析；同步策略让既有流水线和导入数据不需要分叉。
 - 配置导出包含 `modelPromptTemplates`；导入先恢复模板库、再恢复映射，兼容没有该字段的旧备份。
+- Flutter 既有的 `text/*.md` 直连映射是原版文件库以外的兼容扩展：本轮不把它暴露到画廊，也不迁移为模板库条目，但必须在启动、解析、导入和导出时原样保留。
 
 ## 界面与响应式行为
 
@@ -54,4 +55,3 @@ o_modelPrompt                 // 既有映射，保持兼容
 2. Widget 测试分别从桌面和 `390dp` 设置入口完成“新建模板 -> 绑定 -> 编辑 -> 生效 -> 解绑”；测试使用内存 SQLite 和假网关。
 3. 仅验证 `resolvePrompt` 的本地返回内容；禁止真实文本、图片、语音或视频供应商调用。
 4. 通过后，`W6D-MODELMAP-001`、`W7A-MODELMAP-001` 和 `W9A-DBTABLE-MODELPROMPT-001` 才可从“部分实现”改为已验证等价。
-
