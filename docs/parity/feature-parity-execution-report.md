@@ -82,7 +82,7 @@
 
 ### B. 原版 Agent 体系（W2）
 
-当前是精简对话助手，尚未覆盖 ToonFlow 的剧本/制作 Agent 分层决策、执行、监督、摘要、向量记忆、Markdown 技能激活与复杂流程恢复。参考资料为 [`w2-agent-reference.md`](w2-agent-reference.md)。
+当前是精简对话助手，尚未覆盖 ToonFlow 的剧本/制作 Agent 分层决策、执行、监督、摘要、向量记忆、Markdown 技能激活与复杂流程恢复。2026-07-19 逐文件复核确认：Flutter 当前会把所有启用 Markdown 技能正文注入每轮 system prompt，虽有安全的文件读取 API，却没有将其作为模型可调用的按需工具；原版则以 `activate_skill` / `read_skill_file` 进行两段式加载，并按子 Agent 阶段筛选技能。原版 Web 的 `scanSkills` 客户端动作在 1.1.8 后端/打包 bundle 没有对应路由，不能按失效按钮复刻。完整证据和验收边界见 [`skill-runtime-matrix.md`](skill-runtime-matrix.md)。
 
 完成定义：以 ToonFlow 可观察行为为准移植，**禁止**恢复旧 DramaFlow 那套非原版的 JS 解释器、ES 查询 DSL 或无法维护的 2 万行单体 Agent；所有花钱或破坏性工具必须经过同一确认策略。
 
