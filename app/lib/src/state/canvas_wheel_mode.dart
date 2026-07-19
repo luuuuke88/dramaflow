@@ -1,0 +1,1 @@
+enum CanvasWheelMode { zoom, scroll }

@@ -7,10 +7,24 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../api/models.dart';
 import '../engine/engine.dart';
 import '../engine/queue.dart';
+import 'canvas_wheel_mode.dart';
 
 final engineProvider = Provider<Engine>(
   (_) =>
       throw UnimplementedError('engineProvider must be overridden by main()'),
+);
+
+/// 仅在当前应用会话中保存的主制作画布滚轮模式。
+class CanvasWheelModeNotifier extends Notifier<CanvasWheelMode> {
+  @override
+  CanvasWheelMode build() => CanvasWheelMode.zoom;
+
+  void setMode(CanvasWheelMode mode) => state = mode;
+}
+
+final canvasWheelModeProvider =
+    NotifierProvider<CanvasWheelModeNotifier, CanvasWheelMode>(
+  CanvasWheelModeNotifier.new,
 );
 
 ThemeMode _themeModeFromString(String value) => switch (value) {

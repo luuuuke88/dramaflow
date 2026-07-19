@@ -9,6 +9,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../state/canvas_wheel_mode.dart';
 import '../theme/theme.dart';
 import '../util/l10n_ext.dart';
 
@@ -268,6 +269,7 @@ class DFCanvas extends StatefulWidget {
   final List<DFCanvasEdge> edges;
   final TransformationController? controller;
   final bool fitOnInit;
+  final CanvasWheelMode wheelMode;
 
   const DFCanvas({
     super.key,
@@ -275,6 +277,7 @@ class DFCanvas extends StatefulWidget {
     this.edges = const [],
     this.controller,
     this.fitOnInit = true,
+    this.wheelMode = CanvasWheelMode.zoom,
   });
 
   @override
@@ -490,7 +493,7 @@ class _DFCanvasState extends State<DFCanvas> {
   void _handleBackgroundPointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent || _spacePanPointer != null) return;
     final transform = Matrix4.copy(_controller.value);
-    if (event.kind == PointerDeviceKind.trackpad) {
+    if (widget.wheelMode == CanvasWheelMode.scroll) {
       transform.storage[12] -= event.scrollDelta.dx;
       transform.storage[13] -= event.scrollDelta.dy;
       _controller.value = transform;

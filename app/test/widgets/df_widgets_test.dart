@@ -1,6 +1,8 @@
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:dramaflow/l10n/app_localizations.dart';
+import 'package:dramaflow/src/state/canvas_wheel_mode.dart';
+import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
 import 'package:dramaflow/src/theme/tokens.dart';
 import 'package:dramaflow/src/widgets/df_adaptive_dialog.dart';
@@ -9,6 +11,7 @@ import 'package:dramaflow/src/widgets/df_data_table.dart';
 import 'package:dramaflow/src/widgets/df_status_tag.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,6 +33,17 @@ void main() {
       home: child,
     );
   }
+
+  test('canvas wheel mode is session-only and starts at zoom', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.zoom);
+    container
+        .read(canvasWheelModeProvider.notifier)
+        .setMode(CanvasWheelMode.scroll);
+    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.scroll);
+  });
 
   testWidgets('DFDataTable renders desktop table at 900px', (tester) async {
     await setLogicalSize(tester, const Size(900, 600));
@@ -450,7 +464,9 @@ void main() {
     expect(scenePointAfter.dy, closeTo(scenePointBefore.dy, 0.1));
   });
 
-  testWidgets('DFCanvas 触控板滚动平移画布', (tester) async {
+  testWidgets(
+      'DFCanvas zoom mode lets trackpad scrolling zoom around its focal point',
+      (tester) async {
     await setLogicalSize(tester, const Size(900, 600));
     final controller = TransformationController();
 
@@ -464,13 +480,53 @@ void main() {
       ),
     )));
 
+    const focalPoint = Offset(450, 300);
     final pointer = TestPointer(1, PointerDeviceKind.trackpad);
-    pointer.hover(const Offset(450, 300));
-    await tester.sendEventToBinding(pointer.scroll(const Offset(24, -18)));
+    pointer.hover(focalPoint);
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, 100)));
     await tester.pump();
 
-    expect(controller.value.storage[12], closeTo(-24, 0.1));
-    expect(controller.value.storage[13], closeTo(18, 0.1));
+    expect(controller.value.storage[0], closeTo(0.6065, 0.001));
+    expect(controller.value.storage[5], closeTo(0.6065, 0.001));
+    expect(controller.toScene(focalPoint).dx, closeTo(focalPoint.dx, 0.1));
+    expect(controller.toScene(focalPoint).dy, closeTo(focalPoint.dy, 0.1));
+  });
+
+  testWidgets('DFCanvas scroll mode pans mouse and trackpad signals',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    final controller = TransformationController();
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        wheelMode: CanvasWheelMode.scroll,
+        nodes: const [],
+      ),
+    )));
+
+    final mouse = TestPointer(1, PointerDeviceKind.mouse)
+      ..hover(const Offset(450, 300));
+    await tester.sendEventToBinding(mouse.scroll(const Offset(20, 100)));
+    await tester.pump();
+
+    expect(controller.value.storage[0], 1);
+    expect(controller.value.storage[5], 1);
+    expect(controller.value.storage[12], closeTo(-20, 0.1));
+    expect(controller.value.storage[13], closeTo(-100, 0.1));
+
+    final trackpad = TestPointer(2, PointerDeviceKind.trackpad)
+      ..hover(const Offset(450, 300));
+    await tester.sendEventToBinding(trackpad.scroll(const Offset(-12, 18)));
+    await tester.pump();
+
+    expect(controller.value.storage[0], 1);
+    expect(controller.value.storage[5], 1);
+    expect(controller.value.storage[12], closeTo(-8, 0.1));
+    expect(controller.value.storage[13], closeTo(-118, 0.1));
   });
 
   testWidgets('DFCanvas title handle moves a node in scene coordinates',
