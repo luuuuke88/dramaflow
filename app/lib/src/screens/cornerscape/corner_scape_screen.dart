@@ -238,7 +238,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     if (!await confirmPolicyAction(
       context,
       engine.config,
-      destructiveKey: 'delete_assets',
+      destructiveKey: 'cancel_generation',
       description: context.l10n.cornerScapeCancelGeneration,
     )) {
       return;
@@ -983,10 +983,23 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
   }
 
   Future<void> _polishPrompt() async {
+    if (_prompt.text.trim().isEmpty) {
+      _toast(context.l10n.assetsGenFillPrompt);
+      return;
+    }
+    final engine = ref.read(engineProvider);
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'asset_prompt_polish',
+      description: context.l10n.assetsGenSmartGenerate,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _polishing = true);
     try {
-      final prompt =
-          await ref.read(engineProvider).polishAssetPrompt(widget.asset.id);
+      final prompt = await engine.polishAssetPrompt(widget.asset.id);
       if (!mounted) return;
       setState(() {
         _prompt.text = prompt;

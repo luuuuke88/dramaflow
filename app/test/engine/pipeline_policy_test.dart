@@ -51,8 +51,8 @@ void main() {
   });
 
   group('destructiveActionKeys', () {
-    test('包含 10 个破坏动作', () {
-      expect(destructiveActionKeys.length, 10);
+    test('包含 11 个破坏动作', () {
+      expect(destructiveActionKeys.length, 11);
     });
 
     test('包括删除与清空系列', () {
@@ -66,6 +66,7 @@ void main() {
       expect(destructiveActionKeys, contains('clear_chat'));
       expect(destructiveActionKeys, contains('clear_all_data'));
       expect(destructiveActionKeys, contains('replace_storyboards'));
+      expect(destructiveActionKeys, contains('cancel_generation'));
     });
   });
 
@@ -146,6 +147,15 @@ void main() {
       // 不修改，使用默认值
 
       final verdict = checkAction(config, destructiveKey: 'clear_all_data');
+      expect(verdict, PolicyVerdict.confirmDestructive);
+    });
+
+    test('cancel_generation 需确认（confirmDestructive=1）', () {
+      final db = openEngineDb(':memory:');
+      final config = EngineConfig(db, isMobile: false);
+      config.update({'policy.confirmDestructive': '1'});
+
+      final verdict = checkAction(config, destructiveKey: 'cancel_generation');
       expect(verdict, PolicyVerdict.confirmDestructive);
     });
   });
@@ -231,7 +241,7 @@ void main() {
       }
     });
 
-    test('10 个 destructiveKey × confirmDestructive 开/关', () {
+    test('11 个 destructiveKey × confirmDestructive 开/关', () {
       final destructiveKeys = [
         'delete_assets',
         'delete_scripts',
@@ -243,6 +253,7 @@ void main() {
         'clear_chat',
         'clear_all_data',
         'replace_storyboards',
+        'cancel_generation',
       ];
 
       for (final key in destructiveKeys) {

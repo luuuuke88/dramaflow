@@ -441,7 +441,7 @@ void main() {
     expect(find.byKey(Key('cornerscape-detail-$done')), findsOneWidget);
   });
 
-  testWidgets('选择历史图会只更新当前图且历史数量不变，取消需确认并将目标任务标记为已取消', (tester) async {
+  testWidgets('选择历史图会只更新当前图且历史数量不变，取消拒绝时任务保持等待，确认后标记为已取消', (tester) async {
     final assetId = engine.addAsset(
       projectId: projectId,
       type: 'role',
@@ -503,6 +503,7 @@ void main() {
 
     await tester.tap(find.byTooltip('关闭').first);
     await tester.pumpAndSettle();
+    engine.config.update({'policy.confirmDestructive': '1'});
     final taskId = engine.generateAssetImages(
       projectId,
       [(assetsId: assetId, refImageBase64: null)],
@@ -521,6 +522,21 @@ void main() {
           .state,
       'pending',
     );
+
+    await tester.tap(find.text('取消'));
+    await tester.pump();
+
+    expect(
+      (await engine.projectJobs(projectId))
+          .singleWhere((job) => job.id == taskId)
+          .state,
+      'pending',
+    );
+    expect(find.byKey(Key('cornerscape-cancel-$assetId')), findsOneWidget);
+
+    await tester.tap(find.byKey(Key('cornerscape-cancel-$assetId')));
+    await tester.pump();
+    expect(find.text('危险操作确认'), findsOneWidget);
 
     await tester.tap(find.text('确定'));
     await tester.pump();
@@ -583,6 +599,91 @@ void main() {
       tester.widget<TextField>(promptField).controller!.text,
       '润色后的雪山剑客',
     );
+  });
+
+  testWidgets('详情空白提示词不会调用 AI 润色', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '   ',
+    );
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final polishButton = find.byKey(Key('cornerscape-polish-$assetId'));
+    await tester.ensureVisible(polishButton);
+    await tester.tap(polishButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('花费确认'), findsNothing);
+    expect(gateway.textCalls, 0);
+    expect(engine.assetsByIds([assetId]).single.prompt, '   ');
+  });
+
+  testWidgets('详情 AI 润色在花费确认取消后不调用也不修改提示词', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '原提示词',
+    );
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final polishButton = find.byKey(Key('cornerscape-polish-$assetId'));
+    await tester.ensureVisible(polishButton);
+    await tester.tap(polishButton);
+    await tester.pumpAndSettle();
+    expect(find.text('花费确认'), findsOneWidget);
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.textCalls, 0);
+    expect(engine.assetsByIds([assetId]).single.prompt, '原提示词');
+    expect(
+      tester
+          .widget<TextField>(find.byKey(Key('cornerscape-prompt-$assetId')))
+          .controller!
+          .text,
+      '原提示词',
+    );
+  });
+
+  testWidgets('详情 AI 润色在花费确认后调用并更新提示词', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '原提示词',
+    );
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final polishButton = find.byKey(Key('cornerscape-polish-$assetId'));
+    await tester.ensureVisible(polishButton);
+    await tester.tap(polishButton);
+    await tester.pumpAndSettle();
+    expect(find.text('花费确认'), findsOneWidget);
+
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.textCalls, 1);
+    expect(engine.assetsByIds([assetId]).single.prompt, '润色后的雪山剑客');
   });
 
   testWidgets('场景和道具详情共用音频选择试听并可解绑', (tester) async {
