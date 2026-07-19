@@ -37,7 +37,7 @@ do not invoke text, image, audio, or video providers.
 
 ## 1. ToonFlow's actual Agent architecture
 
-ToonFlow ships **two fully independent Agent families** — `scriptAgent` ("统筹"/剧本) and `productionAgent` ("视频策划"/制作画布) — that share no tools. Each is a **layered decision → execution → supervision orchestration** driven by real streaming LLM tool-calls, backed by a **3-tier memory subsystem** and an **on-demand Markdown skill loader**. Entry is over socket.io (`src/socket/routes/scriptAgent.ts:21-94`, `productionAgent.ts:21-104`; row `W7F-SOCKET-AGENT-001`) with events `chat` / `stop` (AbortController) / `updateThinkConfig` (think toggle + 0–3 level) / `updateContext`.
+ToonFlow ships **two separate Agent families** — `scriptAgent` ("统筹"/剧本) and `productionAgent` ("视频策划"/制作画布). Their decision prompts and domain tool bags are distinct, while both intentionally share the same `Memory.getTools()` retrieval tool and streaming-consumption pattern. Each is a **layered decision → execution → supervision orchestration** driven by real streaming LLM tool-calls, backed by a **3-tier memory subsystem** and an **on-demand Markdown skill loader**. Entry is over socket.io (`src/socket/routes/scriptAgent.ts:21-94`, `productionAgent.ts:21-104`; row `W7F-SOCKET-AGENT-001`) with events `chat` / `stop` (AbortController) / `updateThinkConfig` (think toggle + 0–3 level) / `updateContext`.
 
 ### 1.1 Decision-layer orchestration (`runDecisionAI`)
 
