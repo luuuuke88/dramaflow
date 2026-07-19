@@ -94,7 +94,7 @@
 
 ### D. 设置、预设与移动适配（横切）
 
-供应商预设、模型选择、画风库、导入导出、设置高级项和移动版对话框仍按主清单持续补齐。供应商预设已完成目录、预填表单、画廊、`/models` 候选导入和离线回归；2026-07-19 额外修复了 390px 模型编辑器工具栏溢出，并将桌面本地 OAuth 预设 azt 从 iOS/Android 画廊隐藏。预设创建现以“禁用 provisioning 记录 → 写入 Keychain → 启用”为顺序执行；冷启动会恢复已写入凭证的中断创建，并清除未写入凭证的远程残留。当前只允许 `volcengine` 声明或提交 video 模型，这是防止把其他模型错误按 Seedance 格式请求的**临时保护**，不是供应商视频能力已等价的结论。
+供应商预设、模型选择、画风库、导入导出、设置高级项和移动版对话框仍按主清单持续补齐。供应商预设已完成目录、预填表单、画廊、`/models` 候选导入和离线回归；2026-07-19 额外修复了 390px 模型编辑器工具栏溢出，并将桌面本地 OAuth 预设 azt 从 iOS/Android 画廊隐藏。预设创建现以“禁用 provisioning 记录 → 写入 Keychain → 启用”为顺序执行；冷启动会恢复已写入凭证的中断创建，并清除未写入凭证的远程残留。当前只允许 `volcengine` 声明或提交 video 模型，这是防止把其他模型错误按 Seedance 格式请求的**临时保护**，不是供应商视频能力已等价的结论。原版 16 个设置模块与 Flutter 7 个自适应分区的逐项映射、移动端证据强度及不适用边界见 [`settings-module-matrix.md`](settings-module-matrix.md)。
 
 它改善的是通用供应商配置体验，**不改变**主清单 `W6D-VENDOR-001` 的“部分实现”结论：原版可编辑 vendor 插件、私有协议适配和动态字段仍未复刻。进一步的逐文件审计显示：原版 13 个 vendor 中，ima2、MiniMax、Kling、Vidu、AtlasCloud、GRSAI、ToonFlow 托管和独立 Seedance 2.0 线均未由当前三类 Flutter 协议完整承接。详见 [`vendor-protocol-matrix.md`](vendor-protocol-matrix.md)。正式人工验收表已存在于 [`provider-presets-acceptance.md`](provider-presets-acceptance.md)，但除 azt 外均保持“未验证”标识；移动发现记录位于 [`mobile-adaptation-findings.md`](mobile-adaptation-findings.md)。这些改动不得因“桌面能用”而标绿。
 
