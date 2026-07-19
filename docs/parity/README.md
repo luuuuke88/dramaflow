@@ -14,6 +14,7 @@
 | 看手机端是否真的可用 | [移动端适配调查](mobile-adaptation-findings.md) | 独立于桌面原版的手机可用性审计，记录触控、窄屏和功能可达性证据。 |
 | 看制作画布、Agent、NLE 的深度差异 | [W1 画布参考](w1-canvas-reference.md) / [W2 Agent 参考](w2-agent-reference.md) / [W3 NLE 参考](w3-nle-reference.md) | 三个高复杂度模块的专项源码调查与后续实现边界。 |
 | 看工作台当前能做什么、还缺什么 | [工作台对照](workbench-matrix.md) | 单独核对快速预览、独立视频轨、候选管理与时间线，避免把轻量预览误做成实时合成。 |
+| 看资产派生和图片流是否真等价 | [图片流对照](image-flow-matrix.md) | 区分原始/派生资产关系与图片编辑器能力，避免“能出图”掩盖资产层级差异。 |
 | 看设置、技能、供应商 | [设置矩阵](settings-module-matrix.md) / [技能运行时矩阵](skill-runtime-matrix.md) / [供应商协议矩阵](vendor-protocol-matrix.md) | 避免把“有一个配置页面”误判成“协议或 Agent 能力已等价”。 |
 | 看项目创建链路 | [项目准入矩阵](project-intake-matrix.md) | 新建、编辑、必填校验、模型可用性与桌面/移动表单的逐项对照。 |
 | 看剧本批量导入 | [剧本导入对照](script-import-matrix.md) | 分集正则、排序、空标题、选择键和移动端保存的逐项证据。 |
