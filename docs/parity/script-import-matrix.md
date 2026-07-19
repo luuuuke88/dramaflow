@@ -31,6 +31,19 @@
 | 390dp 移动端 | `移动端批量添加保留空集标题，并按集号分别保存` | 自定义一组捕获正则、两条空标题记录、集号选择键和独立入库。 |
 | 引擎 | `novel_parse_test.dart` 的 5 条剧本用例 | 默认排序、章节文本保留、无标记回退、自定义正则、`y` 粘滞语义和无集号捕获组拒绝。 |
 
+当前 `develop` 基线重新验证了批量添加的完整本地链路：
+
+```bash
+cd /Users/luke/Documents/aivideo/dramaflow/app
+flutter test --concurrency=1 \
+  test/widgets/batch_add_dialog_test.dart test/widgets/script_screen_test.dart \
+  test/engine/novel_parse_test.dart test/engine/scripts_test.dart
+flutter analyze lib/src/engine/novel_parse.dart lib/src/engine/scripts.dart \
+  lib/src/screens/script/script_screen.dart lib/src/screens/script/batch_add_dialog.dart
+```
+
+44 条测试通过、静态分析无诊断。其中前三条批量对话框测试明确使用“第 N 集”输入，进入第二步后先手动勾选目标分集，再验证限额与落库，防止未来将 ToonFlow 的默认零勾选契约误改成自动全选。测试只使用本地数据库和假网关，不会调用真实模型或视频生成。
+
 ## 验收边界
 
 验证只覆盖纯文本解析、UI 状态和 SQLite 落库。AI 解析规则用假网关验证协议处理；没有请求真实文本模型，也没有提交、轮询或下载任何视频任务。
