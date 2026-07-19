@@ -150,7 +150,7 @@ DramaFlow 已拥有短剧生产主链路的一部分可靠底座，但还不是 
 
 ### 最近核验：Claude 原生协议闭环
 
-2026-07-19 已将 Anthropic 预设从错误的“OpenAI 兼容模式”改为原生 `anthropic` 协议。网关对普通文本、强制工具 JSON、Agent 工具调用、参考图视觉理解、`/models` 鉴权和文本连通测试分别走 Messages API 规定的 `x-api-key`、`anthropic-version`、顶层 `system` 与 `tools[].input_schema` 格式；六条 fake-Dio 回归都断言请求不会落到 `/chat/completions`。xAI 的过期 `grok-4.3` 预设模型也已移除，仅保留当前目录可核实的 `grok-4.5`。
+2026-07-19 已将 Anthropic 预设从错误的“OpenAI 兼容模式”改为原生 `anthropic` 协议。网关对普通文本、强制工具 JSON、**Agent 首轮工具调用**、参考图视觉理解、`/models` 鉴权和文本连通测试分别走 Messages API 规定的 `x-api-key`、`anthropic-version`、顶层 `system` 与 `tools[].input_schema` 格式；六条 fake-Dio 回归都断言请求不会落到 `/chat/completions`。xAI 的过期 `grok-4.3` 预设模型也已移除，仅保留当前目录可核实的 `grok-4.5`。
 
 这不是云端验收：所有验证均在进程内假网关完成，未发起真实文本、图像或视频请求，Anthropic 画廊卡仍显示“未验证”。另外，当前 Agent 历史仍以现有的文本化工具结果接口传递上下文，尚未形成 Anthropic 原生 `tool_use_id` / `tool_result` 往返；这属于 Agent 完整协议对齐的后续缺口，不能借本轮适配宣称全量原生代理等价。证据见 `app/test/engine/anthropic_gateway_test.dart`、`app/test/engine/provider_presets_test.dart` 与 `app/test/widgets/provider_preset_gallery_test.dart`。
 
