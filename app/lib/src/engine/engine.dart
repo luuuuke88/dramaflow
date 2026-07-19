@@ -1269,6 +1269,48 @@ WHERE id=?
           .map(TasksRow.fromRow)
           .toList();
 
+  Future<TaskHistoryPage> taskHistory(TaskHistoryQuery query) async {
+    final where = <String>[];
+    final parameters = <Object?>[];
+    if (query.projectId != null) {
+      where.add('o_tasks.projectId=?');
+      parameters.add(query.projectId);
+    }
+    if (query.taskClass != null) {
+      where.add('o_tasks.taskClass=?');
+      parameters.add(query.taskClass);
+    }
+    if (query.state != null) {
+      where.add('o_tasks.state=?');
+      parameters.add(query.state);
+    }
+    final whereSql = where.isEmpty ? '' : ' WHERE ${where.join(' AND ')}';
+    final total = db
+        .select(
+          'SELECT COUNT(*) AS total FROM o_tasks$whereSql',
+          parameters,
+        )
+        .single['total'] as int;
+    final items = db
+        .select(
+          'SELECT o_tasks.*, o_project.name AS projectName '
+          'FROM o_tasks LEFT JOIN o_project ON o_project.id=o_tasks.projectId'
+          '$whereSql ORDER BY o_tasks.id DESC LIMIT ? OFFSET ?',
+          [...parameters, query.limit, query.offset],
+        )
+        .map(TasksRow.fromRow)
+        .toList();
+    return TaskHistoryPage(items: items, total: total, query: query);
+  }
+
+  Future<List<String>> taskHistoryClasses() async => db
+      .select(
+        "SELECT DISTINCT taskClass FROM o_tasks WHERE taskClass<>'' "
+        'ORDER BY taskClass ASC',
+      )
+      .map((row) => row['taskClass'] as String)
+      .toList();
+
   Future<int> retryJob(int taskId) async {
     final rows = db.select('SELECT * FROM o_tasks WHERE id=?', [taskId]);
     if (rows.isEmpty) {

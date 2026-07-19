@@ -9,6 +9,7 @@ import 'errors.dart';
 class TasksRow {
   final int id;
   final int? projectId;
+  final String? projectName;
   final String state;
   final String? reason;
   final String? relatedObjects;
@@ -20,6 +21,7 @@ class TasksRow {
   const TasksRow({
     required this.id,
     required this.projectId,
+    this.projectName,
     required this.state,
     required this.reason,
     required this.relatedObjects,
@@ -32,6 +34,7 @@ class TasksRow {
   factory TasksRow.fromRow(Row row) => TasksRow(
         id: row['id'] as int,
         projectId: row['projectId'] as int?,
+        projectName: row['projectName'] as String?,
         state: row['state'] as String? ?? 'pending',
         reason: row['reason'] as String?,
         relatedObjects: row['relatedObjects'] as String?,
@@ -64,6 +67,75 @@ class TasksRow {
       (retryJson['supersededByTaskId'] as num?)?.toInt();
 
   EngineException? get engineReason => EngineException.fromReasonJson(reason);
+}
+
+class TaskHistoryQuery {
+  final int? projectId;
+  final String? taskClass;
+  final String? state;
+  final int page;
+  final int limit;
+
+  factory TaskHistoryQuery({
+    int? projectId,
+    String? taskClass,
+    String? state,
+    int page = 1,
+    int limit = 10,
+  }) =>
+      TaskHistoryQuery._(
+        projectId: projectId,
+        taskClass: _optionalValue(taskClass),
+        state: _optionalValue(state),
+        page: page < 1 ? 1 : page,
+        limit: limit < 1 ? 1 : limit,
+      );
+
+  const TaskHistoryQuery._({
+    required this.projectId,
+    required this.taskClass,
+    required this.state,
+    required this.page,
+    required this.limit,
+  });
+
+  int get offset => (page - 1) * limit;
+
+  static String? _optionalValue(String? value) {
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is TaskHistoryQuery &&
+      other.projectId == projectId &&
+      other.taskClass == taskClass &&
+      other.state == state &&
+      other.page == page &&
+      other.limit == limit;
+
+  @override
+  int get hashCode => Object.hash(projectId, taskClass, state, page, limit);
+}
+
+class TaskHistoryPage {
+  final List<TasksRow> items;
+  final int total;
+  final TaskHistoryQuery query;
+
+  const TaskHistoryPage({
+    required this.items,
+    required this.total,
+    required this.query,
+  });
+
+  int get totalPages =>
+      total == 0 ? 1 : (total + query.limit - 1) ~/ query.limit;
+
+  bool get hasPrevious => query.page > 1;
+
+  bool get hasNext => query.page < totalPages;
 }
 
 typedef TaskRunner = Future<void> Function(TasksRow task, CancelToken token);
