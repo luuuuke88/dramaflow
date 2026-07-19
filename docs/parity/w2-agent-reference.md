@@ -4,6 +4,35 @@ Status: Synthesis of completed W0 audit findings (`docs/parity/master-checklist.
 
 Baseline: `Toonflow-app` backend (SHA-256 manifest baseline). All ToonFlow citations are backend TypeScript; all DramaFlow citations are `app/lib/src/…`.
 
+## Evidence refresh — 2026-07-19
+
+The current Flutter baseline was re-run before this reference was used for
+implementation planning:
+
+```text
+flutter test --concurrency=1 \
+  test/engine/assistant_actions_test.dart \
+  test/engine/assistant_chat_test.dart \
+  test/engine/assistant_skills_deploy_test.dart \
+  test/widgets/agent_chat_screen_test.dart \
+  test/widgets/canvas_chat_panel_test.dart
+# 45 passed
+
+flutter analyze lib/src/engine/assistant_actions.dart \
+  lib/src/engine/assistant_chat.dart \
+  lib/src/engine/assistant_deploy.dart \
+  lib/src/engine/assistant_skills.dart \
+  lib/src/engine/project_notes.dart \
+  lib/src/screens/agent/agent_chat_screen.dart \
+  lib/src/screens/production/canvas_chat_panel.dart
+# No issues found
+```
+
+These are in-memory/fake-gateway tests. They prove the documented current
+flat-assistant behavior, confirmation gate, persistence, and responsive entry
+surfaces; they do **not** prove parity with ToonFlow's layered Agent system and
+do not invoke text, image, audio, or video providers.
+
 ---
 
 ## 1. ToonFlow's actual Agent architecture
