@@ -7,6 +7,22 @@
 - **`provider_presets.dart` 里把某家 `acceptanceVerified` 翻 true 的唯一合法途径：本表该行填入日期+模型+证据路径。**画廊"未验证"角标随字段自动消失。
 - 记录格式：日期 / 所测模型 / 证据（日志路径、测试名或截图路径）。
 
+## 离线回归证据
+
+当前 `develop` 已在不接触任何真实密钥或上游服务的条件下复跑下列范围：
+
+```bash
+cd /Users/luke/Documents/aivideo/dramaflow/app
+flutter test --concurrency=1 \
+  test/engine/config_test.dart test/engine/providers_test.dart \
+  test/engine/provider_presets_test.dart test/engine/provider_preset_create_test.dart \
+  test/engine/remote_model_candidates_test.dart test/engine/model_prompt_library_test.dart \
+  test/engine/prompt_resolver_test.dart test/widgets/provider_preset_gallery_test.dart \
+  test/widgets/provider_preset_form_test.dart test/widgets/settings_screen_test.dart
+```
+
+结果为 124 条通过。测试以 `NoopGateway`、Dio 假 HTTP 适配器或记录型网关替代网络；视频模型的连通测试在网关分派前被拒绝。它证明的是预设目录、表单、模型模板和本地策略，绝不替代下表所要求的真实供应商验收。
+
 | preset | ①文本 | ②工具/JSON | ③图片 | ④/models | 证据 |
 |---|---|---|---|---|---|
 | azt | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | `gpt-5.6-luna` 文本+工具链路：Mac/iOS golden-path e2e（建项目→剧本→分镜表均真实调用，见 `.superpowers/sdd/progress.md` 的 P0 Task 4 与“早晨总结”）；`gpt-image-2` 图片产物：`/Users/luke/Documents/aivideo/azt-gpt-image2-test.png`，PNG 864×1821，SHA-256 `7297abdb556540f7425889ce4189f76617c70a701568050aeac45ed6dcf8f576`。请求的 1024×1024 未被 OAuth 路径严格遵守，尺寸/质量控制仍按 `vendor-protocol-matrix.md` 的 azt 缺口继续追踪；`/v1/models` 当日实测返回 gpt-5.6 系列。 |
