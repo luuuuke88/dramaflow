@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
 
-const schemaVersion = 11;
+const schemaVersion = 12;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
@@ -18,6 +18,7 @@ Database openEngineDb(String path) {
   }
   if (version == 0) {
     initSchema(db);
+    migrateLegacyModelPromptTemplates(db);
     _ensureV10Indexes(db);
     return db;
   }
@@ -27,6 +28,7 @@ Database openEngineDb(String path) {
     try {
       initSchema(db, setVersion: false);
       migrateSchema(db, version, schemaVersion);
+      migrateLegacyModelPromptTemplates(db);
       _ensureV10Indexes(db);
       db.execute('PRAGMA user_version = $schemaVersion');
       db.execute('COMMIT');
@@ -38,6 +40,7 @@ Database openEngineDb(String path) {
   }
 
   initSchema(db, setVersion: false);
+  migrateLegacyModelPromptTemplates(db);
   _ensureV10Indexes(db);
   return db;
 }
@@ -93,6 +96,11 @@ void migrateSchema(Database db, int fromVersion, int toVersion) {
         _addColumnIfMissing(db, 'o_video', 'upstreamTaskId TEXT');
         _addColumnIfMissing(db, 'o_video', 'upstreamState TEXT');
         _addColumnIfMissing(db, 'o_video', 'upstreamUpdatedAt INTEGER');
+        break;
+      case 11:
+        // v11 -> v12 adds the reusable image/video prompt-template library.
+        // initSchema creates the table; migrateLegacyModelPromptTemplates
+        // performs the data backfill inside the same outer transaction.
         break;
       default:
         // Versions before v8 have no published Flutter-only schema delta.
@@ -204,6 +212,14 @@ CREATE TABLE IF NOT EXISTS o_modelPrompt (
   path TEXT,
   prompt TEXT,
   vendorId TEXT
+);
+CREATE TABLE IF NOT EXISTS o_modelPromptTemplate (
+  path TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  createTime INTEGER NOT NULL,
+  updateTime INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS o_memoryVector (
   dimension INTEGER,
@@ -391,6 +407,99 @@ CREATE INDEX IF NOT EXISTS idx_o_timelineClip_script ON o_timelineClip(scriptId,
 CREATE INDEX IF NOT EXISTS idx_o_memoryVector_scope ON o_memoryVector(isolationKey, type, provider, model);
 ''');
   if (setVersion) db.execute('PRAGMA user_version = $schemaVersion');
+}
+
+final _libraryModelPromptPath = RegExp(
+  r'^(image|video)/([^/\\\x00-\x1f<>:"|?*]+)\.md$',
+);
+final _legacyTextModelPromptPath = RegExp(
+  r'^text/([^/\\\x00-\x1f<>:"|?*]+)\.md$',
+);
+
+/// Returns `image` or `video` only for a canonical, local template path.
+///
+/// The single relative segment intentionally excludes Windows-reserved path
+/// characters too, so exported configuration remains safe on every target.
+String? modelPromptTemplateKindForPath(String value) {
+  if (value != value.trim()) return null;
+  final match = _libraryModelPromptPath.firstMatch(value);
+  if (match == null || !_safeModelPromptStem(match.group(2)!)) return null;
+  return match.group(1);
+}
+
+/// Legacy text mappings remain direct rows and never enter the template library.
+bool isSafeLegacyTextModelPromptPath(String value) {
+  if (value != value.trim()) return false;
+  final match = _legacyTextModelPromptPath.firstMatch(value);
+  return match != null && _safeModelPromptStem(match.group(1)!);
+}
+
+String modelPromptTemplateNameForPath(String value) {
+  final kind = modelPromptTemplateKindForPath(value);
+  if (kind == null) {
+    throw ArgumentError.value(value, 'value', 'Unsafe model prompt path');
+  }
+  return value.substring(kind.length + 1, value.length - '.md'.length);
+}
+
+bool _safeModelPromptStem(String value) {
+  if (value.isEmpty || value.trim() != value) return false;
+  if (value == '.' || value == '..') return false;
+  return !value.endsWith('.');
+}
+
+/// Idempotently adopts only safe image/video mappings into the local library.
+///
+/// Existing library content is authoritative. This matters after a user edits a
+/// reusable template: reopening the database must not restore stale mapping
+/// copies. Direct `text/*.md` compatibility rows are deliberately untouched.
+void migrateLegacyModelPromptTemplates(Database db) {
+  db.execute('SAVEPOINT migrate_model_prompt_templates');
+  try {
+    final latestByPath = <String, String>{};
+    for (final row in db.select(
+      'SELECT id,path,prompt FROM o_modelPrompt ORDER BY id',
+    )) {
+      final promptPath = (row['path'] ?? '').toString();
+      if (modelPromptTemplateKindForPath(promptPath) == null) continue;
+      final prompt = (row['prompt'] ?? '').toString();
+      if (prompt.trim().isEmpty) continue;
+      latestByPath[promptPath] = prompt;
+    }
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    for (final entry in latestByPath.entries) {
+      final kind = modelPromptTemplateKindForPath(entry.key)!;
+      db.execute(
+        '''
+INSERT OR IGNORE INTO o_modelPromptTemplate
+  (path,name,kind,prompt,createTime,updateTime)
+VALUES (?,?,?,?,?,?)
+''',
+        [
+          entry.key,
+          modelPromptTemplateNameForPath(entry.key),
+          kind,
+          entry.value,
+          timestamp,
+          timestamp,
+        ],
+      );
+      final template = db.select(
+        'SELECT prompt FROM o_modelPromptTemplate WHERE path=?',
+        [entry.key],
+      ).single;
+      db.execute(
+        'UPDATE o_modelPrompt SET prompt=? WHERE path=?',
+        [template['prompt'], entry.key],
+      );
+    }
+    db.execute('RELEASE SAVEPOINT migrate_model_prompt_templates');
+  } catch (_) {
+    db.execute('ROLLBACK TO SAVEPOINT migrate_model_prompt_templates');
+    db.execute('RELEASE SAVEPOINT migrate_model_prompt_templates');
+    rethrow;
+  }
 }
 
 void _ensureV10Indexes(Database db) {

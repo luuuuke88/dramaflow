@@ -191,7 +191,7 @@ void main() {
     expect(resolution.sources.single.version, promptContentHash('BASE NEWEST'));
   });
 
-  test('可选文字模型模板缺失时跳过，存在时按固定顺序注入', () {
+  test('可选文字模型模板缺失时跳过，存在时按固定顺序注入', () async {
     final projectId = engine.addProject(
       projectType: 'drama',
       name: 'p',
@@ -230,5 +230,17 @@ void main() {
         withModel.system, 'PLAN BASE\n\nPLAN VISUAL\n\nPLAN DIRECTOR\n\nMODEL');
     expect(
         withModel.sources.last.id, 'model:azt:gpt-5.5:text/director_plan.md');
+
+    expect(
+      (await engine.listModelPromptTemplates()).map((item) => item.path),
+      isNot(contains('text/director_plan.md')),
+    );
+    expect(
+      db.select(
+        'SELECT path,prompt FROM o_modelPrompt WHERE path=?',
+        ['text/director_plan.md'],
+      ),
+      hasLength(1),
+    );
   });
 }

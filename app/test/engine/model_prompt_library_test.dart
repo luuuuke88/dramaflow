@@ -1,0 +1,590 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:dramaflow/src/engine/config.dart';
+import 'package:dramaflow/src/engine/credentials.dart';
+import 'package:dramaflow/src/engine/db.dart';
+import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/errors.dart';
+import 'package:dramaflow/src/engine/media.dart';
+import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart';
+
+class _NoopGateway implements ProviderGateway {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+void main() {
+  late Directory dir;
+  late Database db;
+  late Engine engine;
+
+  setUp(() {
+    dir = Directory.systemTemp.createTempSync('dramaflow-model-prompts-');
+    db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+    );
+  });
+
+  tearDown(() {
+    engine.dispose();
+    db.close();
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+  });
+
+  test('openEngineDb 新库包含模板表，Engine 构造迁移安全旧映射且保留 text 直连', () async {
+    expect(_tables(db), contains('o_modelPromptTemplate'));
+    engine.dispose();
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      ['p', 'image-1', 'portrait.md', 'image/portrait.md', 'IMAGE BODY'],
+    );
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      ['p', 'video-1', 'shot.md', 'video/shot.md', 'VIDEO BODY'],
+    );
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      ['p', 'text-1', 'director.md', 'text/director.md', 'TEXT BODY'],
+    );
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'constructor-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+    );
+
+    final templates = await engine.listModelPromptTemplates();
+
+    expect(
+      templates.map((template) => (
+            template.path,
+            template.kind,
+            template.prompt,
+          )),
+      containsAll([
+        ('image/portrait.md', 'image', 'IMAGE BODY'),
+        ('video/shot.md', 'video', 'VIDEO BODY'),
+      ]),
+    );
+    expect(
+      templates.map((template) => template.path),
+      isNot(contains('text/director.md')),
+    );
+    expect(
+      db.select(
+        'SELECT prompt FROM o_modelPrompt WHERE path=?',
+        ['text/director.md'],
+      ).single['prompt'],
+      'TEXT BODY',
+    );
+  });
+
+  test('Engine.boot 从持久化旧库幂等迁移 image/video，text 映射保持直接存储', () async {
+    engine.dispose();
+    db.close();
+
+    final dataDir = p.join(dir.path, 'persistent');
+    Directory(dataDir).createSync(recursive: true);
+    final dbPath = p.join(dataDir, 'dramaflow.sqlite');
+    final legacy = sqlite3.open(dbPath);
+    initSchema(legacy);
+    legacy.execute('DROP TABLE o_modelPromptTemplate');
+    legacy.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      ['legacy', 'image-1', 'portrait.md', 'image/portrait.md', 'OLD IMAGE'],
+    );
+    legacy.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      ['legacy', 'text-1', 'director.md', 'text/director.md', 'OLD TEXT'],
+    );
+    legacy.execute('PRAGMA user_version = 11');
+    legacy.close();
+
+    final booted = await Engine.boot(
+      dataDir: dataDir,
+      isMobile: false,
+      credentialStore: InMemoryCredentialStore(),
+    );
+    final templates = await booted.listModelPromptTemplates();
+    expect(templates, hasLength(1));
+    expect(templates.single.path, 'image/portrait.md');
+    expect(templates.single.prompt, 'OLD IMAGE');
+    expect(
+      booted.db.select(
+        'SELECT prompt FROM o_modelPrompt WHERE path=?',
+        ['text/director.md'],
+      ).single['prompt'],
+      'OLD TEXT',
+    );
+    booted.dispose();
+
+    final reopened = await Engine.boot(
+      dataDir: dataDir,
+      isMobile: false,
+      credentialStore: InMemoryCredentialStore(),
+    );
+    expect(await reopened.listModelPromptTemplates(), hasLength(1));
+    expect(
+      reopened.db
+          .select(
+            'SELECT COUNT(*) n FROM o_modelPromptTemplate',
+          )
+          .single['n'],
+      1,
+    );
+    reopened.dispose();
+
+    db = openEngineDb(':memory:');
+    engine = Engine(
+      db: db,
+      media: MediaStore(p.join(dir.path, 'replacement-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(db, isMobile: false),
+    );
+  });
+
+  test('模板创建更新同步所有绑定，旧 list/update API 继续工作', () async {
+    await _installModels(engine);
+    final template = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: 'Seedance 多参',
+      prompt: 'V1',
+    );
+
+    expect(template.path, 'video/Seedance 多参.md');
+    expect(template.kind, 'video');
+    expect(template.name, 'Seedance 多参');
+    expect(template.createTime, greaterThan(0));
+    expect(template.updateTime, template.createTime);
+
+    await engine.bindModelPromptTemplate(
+        'provider-a', 'video-1', template.path);
+    await engine.bindModelPromptTemplate(
+        'provider-b', 'video-2', template.path);
+    await engine.updateModelPromptTemplate(template.path, 'V2');
+
+    expect(
+      db.select(
+        'SELECT DISTINCT prompt FROM o_modelPrompt WHERE path=?',
+        [template.path],
+      ).map((row) => row['prompt']),
+      ['V2'],
+    );
+    final bindings = await engine.listModelPromptBindings();
+    expect(
+      bindings.map((binding) => '${binding.providerId}:${binding.modelId}'),
+      ['provider-a:video-1', 'provider-b:video-2'],
+    );
+    expect(bindings.every((binding) => binding.prompt == 'V2'), isTrue);
+
+    final legacyRows = await engine.listModelPrompts();
+    final firstId = legacyRows.first['id'] as int;
+    await engine.updateModelPrompt(firstId, 'V3');
+    expect(
+      (await engine.listModelPromptTemplates()).single.prompt,
+      'V3',
+    );
+    expect(
+      db.select(
+        'SELECT DISTINCT prompt FROM o_modelPrompt WHERE path=?',
+        [template.path],
+      ).single['prompt'],
+      'V3',
+    );
+  });
+
+  test('删除模板原子解绑全部模型并返回稳定模型标识，text 映射不受影响', () async {
+    await _installModels(engine);
+    final template = await engine.createModelPromptTemplate(
+      kind: 'image',
+      name: '角色立绘',
+      prompt: 'PORTRAIT',
+    );
+    await engine.bindModelPromptTemplate(
+        'provider-a', 'image-1', template.path);
+    await engine.bindModelPromptTemplate(
+        'provider-b', 'image-2', template.path);
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'provider-a',
+        'text-1',
+        'director.md',
+        'text/director.md',
+        'DIRECTOR',
+      ],
+    );
+
+    final unbound = await engine.deleteModelPromptTemplate(template.path);
+
+    expect(unbound, ['provider-a:image-1', 'provider-b:image-2']);
+    expect(await engine.listModelPromptTemplates(), isEmpty);
+    expect(await engine.listModelPromptBindings(), isEmpty);
+    expect(
+      db.select(
+        'SELECT prompt FROM o_modelPrompt WHERE path=?',
+        ['text/director.md'],
+      ).single['prompt'],
+      'DIRECTOR',
+    );
+  });
+
+  test('绑定校验路径、模板类型和模型存在性，失败不会破坏原绑定', () async {
+    await _installModels(engine);
+    final image = await engine.createModelPromptTemplate(
+      kind: 'image',
+      name: '安全图像',
+      prompt: 'IMAGE',
+    );
+    final video = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '安全视频',
+      prompt: 'VIDEO',
+    );
+    await engine.bindModelPromptTemplate('provider-a', 'video-1', video.path);
+
+    for (final name in [' ', '../escape', r'bad\name', 'bad/name']) {
+      await expectLater(
+        engine.createModelPromptTemplate(
+          kind: 'image',
+          name: name,
+          prompt: 'X',
+        ),
+        throwsA(isA<EngineException>()),
+      );
+    }
+    await expectLater(
+      engine.createModelPromptTemplate(
+        kind: 'text',
+        name: 'legacy',
+        prompt: 'X',
+      ),
+      throwsA(isA<EngineException>()),
+    );
+    await expectLater(
+      engine.bindModelPromptTemplate(
+        'provider-a',
+        'video-1',
+        '../escape.md',
+      ),
+      throwsA(isA<EngineException>()),
+    );
+    await expectLater(
+      engine.bindModelPromptTemplate('provider-a', 'video-1', image.path),
+      throwsA(
+        isA<EngineException>().having(
+          (error) => error.errKey,
+          'errKey',
+          errModelMissing,
+        ),
+      ),
+    );
+    await expectLater(
+      engine.bindModelPromptTemplate('provider-a', 'missing', video.path),
+      throwsA(
+        isA<EngineException>().having(
+          (error) => error.errKey,
+          'errKey',
+          errModelMissing,
+        ),
+      ),
+    );
+
+    final remaining = await engine.listModelPromptBindings();
+    expect(remaining, hasLength(1));
+    expect(remaining.single.path, video.path);
+  });
+
+  test('解绑仅删除 image/video 库映射，不删除 text 直连映射', () async {
+    await _installModels(engine);
+    final template = await engine.createModelPromptTemplate(
+      kind: 'image',
+      name: '解绑测试',
+      prompt: 'IMAGE',
+    );
+    await engine.bindModelPromptTemplate(
+        'provider-a', 'image-1', template.path);
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'provider-a',
+        'image-1',
+        'legacy.md',
+        'text/legacy.md',
+        'LEGACY',
+      ],
+    );
+
+    await engine.unbindModelPromptTemplate('provider-a', 'image-1');
+
+    expect(await engine.listModelPromptBindings(), isEmpty);
+    expect(
+      db.select(
+        'SELECT prompt FROM o_modelPrompt WHERE path=?',
+        ['text/legacy.md'],
+      ).single['prompt'],
+      'LEGACY',
+    );
+  });
+
+  test('导出导入包含模板并先恢复模板再绑定，同时保留 text 直连映射', () async {
+    await _installModels(engine);
+    final template = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '可移植模板',
+      prompt: 'PORTABLE',
+    );
+    await engine.bindModelPromptTemplate(
+        'provider-a', 'video-1', template.path);
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'provider-a',
+        'text-1',
+        'director.md',
+        'text/director.md',
+        'TEXT PORTABLE',
+      ],
+    );
+    db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'retired-provider',
+        'retired-text',
+        'retired.md',
+        'text/retired.md',
+        'RETIRED TEXT',
+      ],
+    );
+
+    final exported = await engine.exportConfig();
+    expect(exported['modelPromptTemplates'], hasLength(1));
+    expect(
+      (exported['modelPromptTemplates'] as List).single,
+      containsPair('path', template.path),
+    );
+
+    final targetDb = openEngineDb(':memory:');
+    final target = Engine(
+      db: targetDb,
+      media: MediaStore(p.join(dir.path, 'target-media')),
+      gateway: _NoopGateway(),
+      config: EngineConfig(targetDb, isMobile: false),
+    );
+    addTearDown(() {
+      target.dispose();
+      targetDb.close();
+    });
+
+    await target.importConfig(exported);
+
+    expect((await target.listModelPromptTemplates()).single.prompt, 'PORTABLE');
+    expect((await target.listModelPromptBindings()).single.path, template.path);
+    expect(
+      targetDb.select(
+        'SELECT prompt FROM o_modelPrompt WHERE path=?',
+        ['text/director.md'],
+      ).single['prompt'],
+      'TEXT PORTABLE',
+    );
+    expect(
+      targetDb.select(
+        'SELECT prompt FROM o_modelPrompt '
+        'WHERE vendorId=? AND model=? AND path=?',
+        ['retired-provider', 'retired-text', 'text/retired.md'],
+      ).single['prompt'],
+      'RETIRED TEXT',
+    );
+  });
+
+  test('旧备份没有模板字段时从安全映射回填，覆盖导入以模板正文为准', () async {
+    await _installModels(engine);
+    final existing = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '旧备份',
+      prompt: 'BEFORE',
+    );
+    await engine.bindModelPromptTemplate(
+      'provider-a',
+      'video-1',
+      existing.path,
+    );
+
+    final providers = (await engine.exportConfig())['providers'];
+    await engine.importConfig({
+      'configVersion': 3,
+      'providers': providers,
+      'bindings': const {},
+      'prompts': const [],
+      'modelPrompts': [
+        {
+          'vendorId': 'provider-a',
+          'model': 'video-1',
+          'fileName': '旧备份.md',
+          'path': 'video/旧备份.md',
+          'prompt': 'LEGACY IMPORT',
+        },
+        {
+          'vendorId': 'provider-a',
+          'model': 'text-1',
+          'fileName': 'director.md',
+          'path': 'text/director.md',
+          'prompt': 'LEGACY TEXT',
+        },
+      ],
+    });
+
+    expect((await engine.listModelPromptTemplates()).single.prompt,
+        'LEGACY IMPORT');
+    expect((await engine.listModelPromptBindings()).single.prompt,
+        'LEGACY IMPORT');
+    expect(
+      db.select(
+        'SELECT prompt FROM o_modelPrompt WHERE path=?',
+        ['text/director.md'],
+      ).single['prompt'],
+      'LEGACY TEXT',
+    );
+
+    await engine.importConfig({
+      'configVersion': 3,
+      'providers': providers,
+      'bindings': const {},
+      'prompts': const [],
+      'modelPromptTemplates': [
+        {
+          'path': 'video/旧备份.md',
+          'name': '旧备份',
+          'kind': 'video',
+          'prompt': 'TEMPLATE WINS',
+          'createTime': 10,
+          'updateTime': 20,
+        },
+      ],
+    });
+
+    expect(
+      db.select(
+        'SELECT prompt FROM o_modelPrompt WHERE path=?',
+        ['video/旧备份.md'],
+      ).single['prompt'],
+      'TEMPLATE WINS',
+    );
+  });
+
+  test('非法导入在模板映射事务内回滚且不破坏既有绑定', () async {
+    await _installModels(engine);
+    final template = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '保留',
+      prompt: 'KEEP',
+    );
+    await engine.bindModelPromptTemplate(
+        'provider-a', 'video-1', template.path);
+    final providers = (await engine.exportConfig())['providers'];
+
+    await expectLater(
+      engine.importConfig({
+        'configVersion': 3,
+        'providers': providers,
+        'bindings': const {},
+        'prompts': const [],
+        'modelPromptTemplates': [
+          {
+            'path': 'video/new.md',
+            'name': 'new',
+            'kind': 'video',
+            'prompt': 'NEW',
+          },
+        ],
+        'modelPrompts': [
+          {
+            'vendorId': 'provider-a',
+            'model': 'video-1',
+            'fileName': 'new.md',
+            'path': '../escape.md',
+            'prompt': 'INVALID',
+          },
+        ],
+      }),
+      throwsA(isA<EngineException>()),
+    );
+
+    expect(
+      (await engine.listModelPromptTemplates())
+          .map((item) => item.path)
+          .toList(),
+      [template.path],
+    );
+    expect((await engine.listModelPromptBindings()).single.path, template.path);
+  });
+}
+
+Set<String> _tables(Database db) => db
+    .select("SELECT name FROM sqlite_master WHERE type='table'")
+    .map((row) => row['name'] as String)
+    .toSet();
+
+Future<void> _installModels(Engine engine) async {
+  for (final providerId in ['provider-a', 'provider-b']) {
+    engine.db.execute(
+      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+      [
+        providerId,
+        1,
+        jsonEncode({
+          'name': providerId,
+          'protocol': 'volcengine',
+          'baseUrl': 'https://example.invalid',
+        }),
+        jsonEncode([
+          {
+            'id': '$providerId:image-${providerId == 'provider-a' ? 1 : 2}',
+            'providerId': providerId,
+            'modelId': 'image-${providerId == 'provider-a' ? 1 : 2}',
+            'label': 'Image',
+            'kind': 'image',
+            'capabilities': const <String, Object?>{},
+            'enabled': true,
+          },
+          {
+            'id': '$providerId:video-${providerId == 'provider-a' ? 1 : 2}',
+            'providerId': providerId,
+            'modelId': 'video-${providerId == 'provider-a' ? 1 : 2}',
+            'label': 'Video',
+            'kind': 'video',
+            'capabilities': const <String, Object?>{},
+            'enabled': true,
+          },
+          if (providerId == 'provider-a')
+            {
+              'id': '$providerId:text-1',
+              'providerId': providerId,
+              'modelId': 'text-1',
+              'label': 'Text',
+              'kind': 'text',
+              'capabilities': const <String, Object?>{},
+              'enabled': true,
+            },
+        ]),
+      ],
+    );
+  }
+}

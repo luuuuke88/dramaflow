@@ -21,6 +21,7 @@ const toonflowTables = [
   'o_image',
   'o_imageFlow',
   'o_modelPrompt',
+  'o_modelPromptTemplate',
   _legacyVectorTable,
   'o_novel',
   'o_project',
@@ -168,7 +169,8 @@ void main() {
       final dbPath = p.join(dir.path, 'dramaflow.sqlite');
       final old = sqlite3.open(dbPath);
       initSchema(old);
-      old.execute("INSERT INTO o_project (name,artStyle) VALUES ('保留项目','ink_pack')");
+      old.execute(
+          "INSERT INTO o_project (name,artStyle) VALUES ('保留项目','ink_pack')");
       old.execute("INSERT INTO o_image (filePath) VALUES ('p1/role.png')");
       old.execute('PRAGMA user_version = 8');
       old.close();
@@ -198,7 +200,8 @@ void main() {
       });
       final dbPath = p.join(dir.path, 'dramaflow.sqlite');
       final old = sqlite3.open(dbPath);
-      old.execute('CREATE TABLE legacy_data (id INTEGER PRIMARY KEY, name TEXT)');
+      old.execute(
+          'CREATE TABLE legacy_data (id INTEGER PRIMARY KEY, name TEXT)');
       old.execute("INSERT INTO legacy_data (id,name) VALUES (1,'不能丢')");
       old.execute('PRAGMA user_version = 2');
       old.close();

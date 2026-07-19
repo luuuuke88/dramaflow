@@ -92,6 +92,94 @@ class ProjectStats {
   });
 }
 
+class ModelPromptTemplate {
+  final String path;
+  final String name;
+  final String kind;
+  final String prompt;
+  final int createTime;
+  final int updateTime;
+
+  const ModelPromptTemplate({
+    required this.path,
+    required this.name,
+    required this.kind,
+    required this.prompt,
+    required this.createTime,
+    required this.updateTime,
+  });
+
+  factory ModelPromptTemplate.fromRow(Row row) => ModelPromptTemplate(
+        path: row['path'] as String,
+        name: row['name'] as String,
+        kind: row['kind'] as String,
+        prompt: row['prompt'] as String,
+        createTime: row['createTime'] as int,
+        updateTime: row['updateTime'] as int,
+      );
+
+  Map<String, Object?> toJson() => {
+        'path': path,
+        'name': name,
+        'kind': kind,
+        'prompt': prompt,
+        'createTime': createTime,
+        'updateTime': updateTime,
+      };
+}
+
+class ModelPromptBinding {
+  final int id;
+  final String providerId;
+  final String providerName;
+  final String modelId;
+  final String modelLabel;
+  final String modelKind;
+  final String fileName;
+  final String path;
+  final String prompt;
+
+  const ModelPromptBinding({
+    required this.id,
+    required this.providerId,
+    required this.providerName,
+    required this.modelId,
+    required this.modelLabel,
+    required this.modelKind,
+    required this.fileName,
+    required this.path,
+    required this.prompt,
+  });
+
+  Map<String, dynamic> toLegacyJson() => {
+        'id': id,
+        'vendorId': providerId,
+        'providerName': providerName,
+        'model': modelId,
+        'modelLabel': modelLabel,
+        'modelKind': modelKind,
+        'fileName': fileName,
+        'path': path,
+        'prompt': prompt,
+      };
+}
+
+class _ImportedModelPromptMapping {
+  final String providerId;
+  final String modelId;
+  final String fileName;
+  final String promptPath;
+  final String prompt;
+
+  const _ImportedModelPromptMapping({
+    required this.providerId,
+    required this.modelId,
+    required this.fileName,
+    required this.promptPath,
+    required this.prompt,
+  });
+}
+
 Map<String, Object?> _seedanceTwoCapabilities() => {
       'video': {
         'modes': [for (final mode in VideoMode.values) mode.wireValue],
@@ -361,6 +449,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     TaskRunner? taskRunner,
   })  : credentials = credentials ?? InMemoryCredentialStore(),
         composer = composer ?? const UnsupportedComposer() {
+    migrateLegacyModelPromptTemplates(db);
     queue = JobQueue(
       db,
       run: taskRunner ?? _dispatchTask,
@@ -390,6 +479,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     final config = EngineConfig(db, isMobile: isMobile);
     _seedDefaults(db, config, isMobile: isMobile);
     _seedBundledModelPromptRows(db, dataDir);
+    migrateLegacyModelPromptTemplates(db);
     final credentials = credentialStore ?? SecureCredentialStore();
     await _migrateLegacyProviderCredentials(db, credentials);
     await _recoverProvisioningProviders(db, credentials);
@@ -1585,7 +1675,205 @@ LIMIT 1
     return getPrompt(type);
   }
 
-  Future<List<Map<String, dynamic>>> listModelPrompts() async {
+  Future<List<Map<String, dynamic>>> listModelPrompts() async =>
+      (await listModelPromptBindings())
+          .map((binding) => binding.toLegacyJson())
+          .toList(growable: false);
+
+  Future<void> updateModelPrompt(int id, String content) async {
+    migrateLegacyModelPromptTemplates(db);
+    final rows =
+        db.select('SELECT id,path FROM o_modelPrompt WHERE id=?', [id]);
+    if (rows.isEmpty) {
+      throw const EngineException(errPromptMissing, {'type': 'modelPrompt'});
+    }
+    final promptPath = (rows.first['path'] ?? '').toString();
+    if (modelPromptTemplateKindForPath(promptPath) != null &&
+        db.select(
+          'SELECT path FROM o_modelPromptTemplate WHERE path=?',
+          [promptPath],
+        ).isNotEmpty) {
+      await updateModelPromptTemplate(promptPath, content);
+      return;
+    }
+    db.execute('UPDATE o_modelPrompt SET prompt=? WHERE id=?', [content, id]);
+  }
+
+  Future<List<ModelPromptTemplate>> listModelPromptTemplates({
+    String? kind,
+  }) async {
+    if (kind != null && kind != 'image' && kind != 'video') {
+      throw EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptTemplate', 'kind': kind},
+      );
+    }
+    final rows = kind == null
+        ? db.select(
+            'SELECT path,name,kind,prompt,createTime,updateTime '
+            'FROM o_modelPromptTemplate ORDER BY kind,name,path',
+          )
+        : db.select(
+            'SELECT path,name,kind,prompt,createTime,updateTime '
+            'FROM o_modelPromptTemplate WHERE kind=? ORDER BY name,path',
+            [kind],
+          );
+    return rows.map(ModelPromptTemplate.fromRow).toList(growable: false);
+  }
+
+  Future<ModelPromptTemplate> createModelPromptTemplate({
+    required String kind,
+    required String name,
+    required String prompt,
+  }) async {
+    final promptPath = _newModelPromptTemplatePath(kind, name);
+    final content = _requireModelPromptContent(prompt);
+    return _withModelPromptTransaction(() {
+      if (db.select(
+        'SELECT path FROM o_modelPromptTemplate WHERE path=?',
+        [promptPath],
+      ).isNotEmpty) {
+        throw EngineException(
+          errPromptMissing,
+          {'type': 'modelPromptTemplate', 'reason': 'alreadyExists'},
+        );
+      }
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      db.execute(
+        '''
+INSERT INTO o_modelPromptTemplate
+  (path,name,kind,prompt,createTime,updateTime)
+VALUES (?,?,?,?,?,?)
+''',
+        [
+          promptPath,
+          modelPromptTemplateNameForPath(promptPath),
+          kind,
+          content,
+          timestamp,
+          timestamp,
+        ],
+      );
+      return ModelPromptTemplate.fromRow(
+        db.select(
+          'SELECT path,name,kind,prompt,createTime,updateTime '
+          'FROM o_modelPromptTemplate WHERE path=?',
+          [promptPath],
+        ).single,
+      );
+    });
+  }
+
+  Future<void> updateModelPromptTemplate(
+    String promptPath,
+    String prompt,
+  ) async {
+    _requireLibraryModelPromptPath(promptPath);
+    final content = _requireModelPromptContent(prompt);
+    _withModelPromptTransaction(() {
+      if (db.select(
+        'SELECT path FROM o_modelPromptTemplate WHERE path=?',
+        [promptPath],
+      ).isEmpty) {
+        throw const EngineException(
+          errPromptMissing,
+          {'type': 'modelPromptTemplate'},
+        );
+      }
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      db.execute(
+        'UPDATE o_modelPromptTemplate SET prompt=?,updateTime=? WHERE path=?',
+        [content, timestamp, promptPath],
+      );
+      db.execute(
+        'UPDATE o_modelPrompt SET prompt=? WHERE path=?',
+        [content, promptPath],
+      );
+    });
+  }
+
+  Future<List<String>> deleteModelPromptTemplate(String promptPath) async {
+    _requireLibraryModelPromptPath(promptPath);
+    return _withModelPromptTransaction(() {
+      if (db.select(
+        'SELECT path FROM o_modelPromptTemplate WHERE path=?',
+        [promptPath],
+      ).isEmpty) {
+        throw const EngineException(
+          errPromptMissing,
+          {'type': 'modelPromptTemplate'},
+        );
+      }
+      final unbound = db
+          .select(
+            'SELECT vendorId,model FROM o_modelPrompt WHERE path=? '
+            'ORDER BY vendorId,model,id',
+            [promptPath],
+          )
+          .map((row) => '${row['vendorId']}:${row['model']}')
+          .toSet()
+          .toList()
+        ..sort();
+      db.execute('DELETE FROM o_modelPrompt WHERE path=?', [promptPath]);
+      db.execute(
+        'DELETE FROM o_modelPromptTemplate WHERE path=?',
+        [promptPath],
+      );
+      return unbound;
+    });
+  }
+
+  Future<void> bindModelPromptTemplate(
+    String providerId,
+    String modelId,
+    String promptPath,
+  ) async {
+    final template = _mustModelPromptTemplate(promptPath);
+    final model = _mustPromptTemplateModel(
+      providerId,
+      modelId,
+      requireEnabled: true,
+    );
+    if (model.kind != template.kind) {
+      throw EngineException(errModelMissing, {
+        'modelId': modelId,
+        'requiredKind': template.kind,
+        'actualKind': model.kind,
+      });
+    }
+    _withModelPromptTransaction(() {
+      _deleteLibraryModelPromptBindings(providerId, modelId);
+      db.execute(
+        'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+        'VALUES (?,?,?,?,?)',
+        [
+          providerId,
+          modelId,
+          path.basename(promptPath),
+          promptPath,
+          template.prompt,
+        ],
+      );
+    });
+  }
+
+  Future<void> unbindModelPromptTemplate(
+    String providerId,
+    String modelId,
+  ) async {
+    final model = _mustPromptTemplateModel(providerId, modelId);
+    if (model.kind != 'image' && model.kind != 'video') {
+      throw EngineException(
+        errModelMissing,
+        {'modelId': modelId, 'actualKind': model.kind},
+      );
+    }
+    _withModelPromptTransaction(() {
+      _deleteLibraryModelPromptBindings(providerId, modelId);
+    });
+  }
+
+  Future<List<ModelPromptBinding>> listModelPromptBindings() async {
     final providerNames = <String, String>{};
     final modelLabels = <String, String>{};
     final modelKinds = <String, String>{};
@@ -1601,33 +1889,30 @@ LIMIT 1
         modelKinds[key] = (model['kind'] ?? '').toString();
       }
     }
-    return [
-      for (final row in db.select(
-        'SELECT id,vendorId,model,fileName,path,prompt FROM o_modelPrompt '
-        'ORDER BY vendorId,model,fileName,path,id',
-      ))
-        {
-          'id': row['id'],
-          'vendorId': row['vendorId'],
-          'providerName': providerNames[(row['vendorId'] ?? '').toString()] ??
-              (row['vendorId'] ?? '').toString(),
-          'model': row['model'],
-          'modelLabel': modelLabels['${row['vendorId']}:${row['model']}'] ??
-              (row['model'] ?? '').toString(),
-          'modelKind': modelKinds['${row['vendorId']}:${row['model']}'] ?? '',
-          'fileName': row['fileName'],
-          'path': row['path'],
-          'prompt': row['prompt'] ?? '',
-        },
-    ];
-  }
 
-  Future<void> updateModelPrompt(int id, String content) async {
-    final rows = db.select('SELECT id FROM o_modelPrompt WHERE id=?', [id]);
-    if (rows.isEmpty) {
-      throw const EngineException(errPromptMissing, {'type': 'modelPrompt'});
+    final bindings = <ModelPromptBinding>[];
+    for (final row in db.select(
+      'SELECT id,vendorId,model,fileName,path,prompt FROM o_modelPrompt '
+      'ORDER BY vendorId,model,path,id',
+    )) {
+      final promptPath = (row['path'] ?? '').toString();
+      if (modelPromptTemplateKindForPath(promptPath) == null) continue;
+      final providerId = (row['vendorId'] ?? '').toString();
+      final modelId = (row['model'] ?? '').toString();
+      final key = '$providerId:$modelId';
+      bindings.add(ModelPromptBinding(
+        id: row['id'] as int,
+        providerId: providerId,
+        providerName: providerNames[providerId] ?? providerId,
+        modelId: modelId,
+        modelLabel: modelLabels[key] ?? modelId,
+        modelKind: modelKinds[key] ?? '',
+        fileName: (row['fileName'] ?? '').toString(),
+        path: promptPath,
+        prompt: (row['prompt'] ?? '').toString(),
+      ));
     }
-    db.execute('UPDATE o_modelPrompt SET prompt=? WHERE id=?', [content, id]);
+    return bindings;
   }
 
   Future<void> updatePrompt(String key, String content) async {
@@ -1646,46 +1931,53 @@ LIMIT 1
     db.execute('UPDATE o_prompt SET useData=NULL WHERE name=?', [key]);
   }
 
-  Future<Map<String, dynamic>> exportConfig() async => {
-        'configVersion': 3,
-        'providers': [
-          for (final provider in await listProviders())
-            {
-              'id': provider.id,
-              'name': provider.name,
-              'protocol': provider.protocol,
-              'baseUrl': provider.baseUrl,
-              'hasCredential': provider.hasCredential,
-              'enabled': provider.enabled,
-              'models': [
-                for (final model in await listProviderModels(provider.id))
-                  {
-                    'id': model.id,
-                    'modelId': model.modelId,
-                    'label': model.label,
-                    'kind': model.kind,
-                    'capabilities': model.capabilities,
-                    'enabled': model.enabled,
-                  },
-              ],
-            },
-        ],
-        'bindings': await getBindings(),
-        'prompts': await listPrompts(),
-        'modelPrompts': [
-          for (final row in db.select(
-            'SELECT vendorId,model,fileName,path,prompt FROM o_modelPrompt '
-            'ORDER BY id',
-          ))
-            {
-              'vendorId': row['vendorId'],
-              'model': row['model'],
-              'fileName': row['fileName'],
-              'path': row['path'],
-              'prompt': row['prompt'],
-            },
-        ],
-      };
+  Future<Map<String, dynamic>> exportConfig() async {
+    migrateLegacyModelPromptTemplates(db);
+    return {
+      'configVersion': 3,
+      'providers': [
+        for (final provider in await listProviders())
+          {
+            'id': provider.id,
+            'name': provider.name,
+            'protocol': provider.protocol,
+            'baseUrl': provider.baseUrl,
+            'hasCredential': provider.hasCredential,
+            'enabled': provider.enabled,
+            'models': [
+              for (final model in await listProviderModels(provider.id))
+                {
+                  'id': model.id,
+                  'modelId': model.modelId,
+                  'label': model.label,
+                  'kind': model.kind,
+                  'capabilities': model.capabilities,
+                  'enabled': model.enabled,
+                },
+            ],
+          },
+      ],
+      'bindings': await getBindings(),
+      'prompts': await listPrompts(),
+      'modelPrompts': [
+        for (final row in db.select(
+          'SELECT vendorId,model,fileName,path,prompt FROM o_modelPrompt '
+          'ORDER BY id',
+        ))
+          {
+            'vendorId': row['vendorId'],
+            'model': row['model'],
+            'fileName': row['fileName'],
+            'path': row['path'],
+            'prompt': row['prompt'],
+          },
+      ],
+      'modelPromptTemplates': [
+        for (final template in await listModelPromptTemplates())
+          template.toJson(),
+      ],
+    };
+  }
 
   Future<void> importConfig(Map<String, dynamic> data) async {
     final foundVersion = data['configVersion'];
@@ -1742,29 +2034,331 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
       }
     }
     final modelPrompts = data['modelPrompts'];
-    if (modelPrompts is List) {
-      for (final raw in modelPrompts.whereType<Map>()) {
-        final vendorId = (raw['vendorId'] ?? '').toString();
-        final model = (raw['model'] ?? '').toString();
-        final fileName = (raw['fileName'] ?? '').toString();
-        final path = (raw['path'] ?? '').toString();
-        final prompt = (raw['prompt'] ?? '').toString();
-        if (vendorId.isEmpty || model.isEmpty || prompt.trim().isEmpty) {
-          continue;
-        }
+    final modelPromptTemplates = data['modelPromptTemplates'];
+    if (modelPromptTemplates != null && modelPromptTemplates is! List) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptTemplates'},
+      );
+    }
+    if (modelPrompts != null && modelPrompts is! List) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'modelPrompts'},
+      );
+    }
+    _importModelPromptLibrary(
+      templates: modelPromptTemplates as List?,
+      mappings: modelPrompts as List?,
+    );
+  }
+
+  void _importModelPromptLibrary({
+    required List? templates,
+    required List? mappings,
+  }) {
+    final templateRows = [
+      for (final raw in (templates ?? const []).whereType<Map>())
+        _validatedImportedModelPromptTemplate(
+          Map<String, dynamic>.from(raw),
+        ),
+    ];
+    final mappingRows = [
+      for (final raw in (mappings ?? const []).whereType<Map>())
+        _validatedImportedModelPromptMapping(Map<String, dynamic>.from(raw)),
+    ];
+    final explicitTemplatePaths = {
+      for (final row in templateRows) row.path,
+    };
+
+    _withModelPromptTransaction(() {
+      for (final template in templateRows) {
         db.execute(
-          'DELETE FROM o_modelPrompt '
-          'WHERE vendorId=? AND model=? AND coalesce(fileName,?)=? '
-          'AND coalesce(path,?)=?',
-          [vendorId, model, '', fileName, '', path],
+          '''
+INSERT INTO o_modelPromptTemplate
+  (path,name,kind,prompt,createTime,updateTime)
+VALUES (?,?,?,?,?,?)
+ON CONFLICT(path) DO UPDATE SET
+  name=excluded.name,
+  kind=excluded.kind,
+  prompt=excluded.prompt,
+  createTime=excluded.createTime,
+  updateTime=excluded.updateTime
+''',
+          [
+            template.path,
+            template.name,
+            template.kind,
+            template.prompt,
+            template.createTime,
+            template.updateTime,
+          ],
         );
+        db.execute(
+          'UPDATE o_modelPrompt SET prompt=? WHERE path=?',
+          [template.prompt, template.path],
+        );
+      }
+
+      for (final mapping in mappingRows) {
+        final libraryKind = modelPromptTemplateKindForPath(mapping.promptPath);
+        if (libraryKind != null &&
+            !explicitTemplatePaths.contains(mapping.promptPath)) {
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          db.execute(
+            '''
+INSERT INTO o_modelPromptTemplate
+  (path,name,kind,prompt,createTime,updateTime)
+VALUES (?,?,?,?,?,?)
+ON CONFLICT(path) DO UPDATE SET
+  name=excluded.name,
+  kind=excluded.kind,
+  prompt=excluded.prompt,
+  updateTime=excluded.updateTime
+''',
+            [
+              mapping.promptPath,
+              modelPromptTemplateNameForPath(mapping.promptPath),
+              libraryKind,
+              mapping.prompt,
+              timestamp,
+              timestamp,
+            ],
+          );
+          db.execute(
+            'UPDATE o_modelPrompt SET prompt=? WHERE path=?',
+            [mapping.prompt, mapping.promptPath],
+          );
+        }
+      }
+
+      for (final mapping in mappingRows) {
+        final libraryKind = modelPromptTemplateKindForPath(mapping.promptPath);
+        var content = mapping.prompt;
+        if (libraryKind != null) {
+          final template = db.select(
+            'SELECT kind,prompt FROM o_modelPromptTemplate WHERE path=?',
+            [mapping.promptPath],
+          ).firstOrNull;
+          if (template == null) {
+            throw const EngineException(
+              errPromptMissing,
+              {'type': 'modelPromptTemplate'},
+            );
+          }
+          final model = _mustPromptTemplateModel(
+            mapping.providerId,
+            mapping.modelId,
+          );
+          if (model.kind != template['kind']) {
+            throw EngineException(errModelMissing, {
+              'modelId': mapping.modelId,
+              'requiredKind': template['kind'],
+              'actualKind': model.kind,
+            });
+          }
+          content = template['prompt'] as String;
+          _deleteLibraryModelPromptBindings(
+            mapping.providerId,
+            mapping.modelId,
+          );
+        } else {
+          db.execute(
+            'DELETE FROM o_modelPrompt '
+            'WHERE vendorId=? AND model=? AND path=?',
+            [mapping.providerId, mapping.modelId, mapping.promptPath],
+          );
+        }
         db.execute(
           'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
           'VALUES (?,?,?,?,?)',
-          [vendorId, model, fileName, path, prompt],
+          [
+            mapping.providerId,
+            mapping.modelId,
+            mapping.fileName,
+            mapping.promptPath,
+            content,
+          ],
         );
       }
+    });
+  }
+
+  T _withModelPromptTransaction<T>(T Function() action) {
+    db.execute('SAVEPOINT model_prompt_library');
+    try {
+      final result = action();
+      db.execute('RELEASE SAVEPOINT model_prompt_library');
+      return result;
+    } catch (_) {
+      db.execute('ROLLBACK TO SAVEPOINT model_prompt_library');
+      db.execute('RELEASE SAVEPOINT model_prompt_library');
+      rethrow;
     }
+  }
+
+  String _newModelPromptTemplatePath(String kind, String name) {
+    if (kind != 'image' && kind != 'video') {
+      throw EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptTemplate', 'kind': kind},
+      );
+    }
+    final normalizedName = name.trim();
+    final promptPath = '$kind/$normalizedName.md';
+    if (normalizedName.isEmpty ||
+        modelPromptTemplateKindForPath(promptPath) != kind) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptTemplate', 'reason': 'unsafePath'},
+      );
+    }
+    return promptPath;
+  }
+
+  String _requireLibraryModelPromptPath(String promptPath) {
+    if (modelPromptTemplateKindForPath(promptPath) == null) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptTemplate', 'reason': 'unsafePath'},
+      );
+    }
+    return promptPath;
+  }
+
+  String _requireModelPromptContent(String prompt) {
+    if (prompt.trim().isEmpty) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptTemplate', 'reason': 'emptyPrompt'},
+      );
+    }
+    return prompt;
+  }
+
+  ModelPromptTemplate _mustModelPromptTemplate(String promptPath) {
+    _requireLibraryModelPromptPath(promptPath);
+    migrateLegacyModelPromptTemplates(db);
+    final row = db.select(
+      'SELECT path,name,kind,prompt,createTime,updateTime '
+      'FROM o_modelPromptTemplate WHERE path=?',
+      [promptPath],
+    ).firstOrNull;
+    if (row == null) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptTemplate'},
+      );
+    }
+    return ModelPromptTemplate.fromRow(row);
+  }
+
+  ProviderModelInfo _mustPromptTemplateModel(
+    String providerId,
+    String modelId, {
+    bool requireEnabled = false,
+  }) {
+    final provider = _mustProvider(providerId);
+    for (final raw in _models(provider)) {
+      final model = ProviderModelInfo.fromJson(raw);
+      if (model.modelId != modelId) continue;
+      if (requireEnabled && !model.enabled) {
+        throw EngineException(
+          errModelMissing,
+          {'modelId': modelId, 'reason': 'disabled'},
+        );
+      }
+      return model;
+    }
+    throw EngineException(errModelMissing, {'modelId': modelId});
+  }
+
+  void _deleteLibraryModelPromptBindings(
+    String providerId,
+    String modelId,
+  ) {
+    final ids = <int>[];
+    for (final row in db.select(
+      'SELECT id,path FROM o_modelPrompt WHERE vendorId=? AND model=?',
+      [providerId, modelId],
+    )) {
+      if (modelPromptTemplateKindForPath(
+            (row['path'] ?? '').toString(),
+          ) !=
+          null) {
+        ids.add(row['id'] as int);
+      }
+    }
+    for (final id in ids) {
+      db.execute('DELETE FROM o_modelPrompt WHERE id=?', [id]);
+    }
+  }
+
+  ModelPromptTemplate _validatedImportedModelPromptTemplate(
+    Map<String, dynamic> raw,
+  ) {
+    final promptPath = (raw['path'] ?? '').toString();
+    final kind = modelPromptTemplateKindForPath(promptPath);
+    if (kind == null || (raw['kind'] ?? '').toString() != kind) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptTemplate', 'reason': 'unsafePath'},
+      );
+    }
+    final pathName = modelPromptTemplateNameForPath(promptPath);
+    final name = (raw['name'] ?? pathName).toString().trim();
+    if (_newModelPromptTemplatePath(kind, name) != promptPath) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptTemplate', 'reason': 'namePathMismatch'},
+      );
+    }
+    final prompt = _requireModelPromptContent(
+      (raw['prompt'] ?? '').toString(),
+    );
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return ModelPromptTemplate(
+      path: promptPath,
+      name: name,
+      kind: kind,
+      prompt: prompt,
+      createTime:
+          raw['createTime'] is int ? raw['createTime'] as int : timestamp,
+      updateTime:
+          raw['updateTime'] is int ? raw['updateTime'] as int : timestamp,
+    );
+  }
+
+  _ImportedModelPromptMapping _validatedImportedModelPromptMapping(
+    Map<String, dynamic> raw,
+  ) {
+    final providerId = (raw['vendorId'] ?? '').toString();
+    final modelId = (raw['model'] ?? '').toString();
+    final promptPath = (raw['path'] ?? '').toString();
+    final libraryKind = modelPromptTemplateKindForPath(promptPath);
+    final isLegacyText = isSafeLegacyTextModelPromptPath(promptPath);
+    if (providerId.isEmpty ||
+        modelId.isEmpty ||
+        (libraryKind == null && !isLegacyText)) {
+      throw const EngineException(
+        errPromptMissing,
+        {'type': 'modelPromptMapping', 'reason': 'unsafePath'},
+      );
+    }
+    final rawPrompt = (raw['prompt'] ?? '').toString();
+    final prompt =
+        libraryKind == null ? rawPrompt : _requireModelPromptContent(rawPrompt);
+    if (libraryKind != null) {
+      _mustPromptTemplateModel(providerId, modelId);
+    }
+    final fileName = (raw['fileName'] ?? path.basename(promptPath)).toString();
+    return _ImportedModelPromptMapping(
+      providerId: providerId,
+      modelId: modelId,
+      fileName: fileName,
+      promptPath: promptPath,
+      prompt: prompt,
+    );
   }
 
   Row _mustProvider(String id) {
