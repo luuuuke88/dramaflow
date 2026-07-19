@@ -153,6 +153,8 @@ git commit -m "feat(cornerscape): generalize asset audio bindings"
 **Files:**
 - Modify: `app/lib/src/screens/cornerscape/corner_scape_screen.dart`
 - Modify: `app/test/widgets/corner_scape_screen_test.dart`
+- Modify: `app/lib/src/engine/pipeline_policy.dart`
+- Modify: `app/test/engine/pipeline_policy_test.dart`
 - Modify: `app/lib/l10n/app_zh.arb`
 - Modify: `app/lib/l10n/app_en.arb`
 - Modify: `app/lib/l10n/app_ja.arb`
@@ -219,8 +221,10 @@ git commit -m "feat(cornerscape): restore batch image workspace"
 - Modify: `app/test/widgets/corner_scape_screen_test.dart`
 
 **Interfaces:**
-- Consumes: `Engine.assetImages`, `Engine.saveAssetImage`, `Engine.updateAsset`, `Engine.polishAssetPrompt`, `Engine.cornerScapeImageTaskId`, `Engine.cancelJob`, generic asset audio APIs.
+- Consumes: `Engine.assetImages`, `Engine.saveAssetImage`, `Engine.updateAsset`, `Engine.polishAssetPrompt`, `Engine.cornerScapeImageTaskId`, `Engine.cancelJob`, generic asset audio APIs, shared action policy.
 - Produces: desktop side sheet / mobile full-screen detail form, historical image selection and cancellation confirmation.
+
+**Review correction:** `asset_prompt_polish` must pass the shared money-confirmation gate and reject an empty prompt before it can enqueue. Add the semantically correct non-queue destructive key `cancel_generation` to `destructiveActionKeys`; task cancellation must use that key rather than `delete_assets`. Cover both keys and the confirm/reject branches with engine/widget tests.
 
 - [ ] **Step 1: 写失败的详情测试**
 
@@ -268,7 +272,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/lib/src/screens/cornerscape/corner_scape_screen.dart app/test/widgets/corner_scape_screen_test.dart
+git add app/lib/src/screens/cornerscape/corner_scape_screen.dart app/test/widgets/corner_scape_screen_test.dart app/lib/src/engine/pipeline_policy.dart app/test/engine/pipeline_policy_test.dart
 git commit -m "feat(cornerscape): add asset detail and task cancellation"
 ```
 
