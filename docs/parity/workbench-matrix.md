@@ -60,12 +60,13 @@ DramaFlow 的 `ensureTrackForStoryboard` 则在创建时回填 `o_storyboard.tra
 cd app
 flutter test --concurrency=1 \
   test/engine/timeline_clip_test.dart \
+  test/engine/timeline_clip_equivalence_test.dart \
   test/engine/compose_episode_test.dart \
   test/engine/video_track_test.dart \
   test/widgets/workbench_screen_test.dart
 ```
 
-结果：**155 项通过**。其中视频相关用例仅使用 Dart fake gateway、本地假媒体和
+结果：**165 项通过**。其中视频相关用例仅使用 Dart fake gateway、本地假媒体和
 假合成器；没有提交、轮询、下载或渲染真实供应商的视频任务。
 
 ## 后续实施边界
