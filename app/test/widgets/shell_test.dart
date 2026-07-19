@@ -1,4 +1,5 @@
 import 'package:dramaflow/l10n/app_localizations.dart';
+import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/queue.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
@@ -8,7 +9,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-Widget _app(double width, {String initial = '/', EdgeInsets viewPadding = EdgeInsets.zero}) {
+Widget _app(
+  double width, {
+  String initial = '/',
+  EdgeInsets viewPadding = EdgeInsets.zero,
+  ProviderContainer? container,
+}) {
   final router = GoRouter(
     initialLocation: initial,
     routes: [
@@ -22,27 +28,54 @@ Widget _app(double width, {String initial = '/', EdgeInsets viewPadding = EdgeIn
       ),
     ],
   );
+  final child = MediaQuery(
+    data: MediaQueryData(size: Size(width, 800), padding: viewPadding),
+    child: MaterialApp.router(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+      locale: const Locale('zh'),
+      theme: buildTheme(Brightness.light),
+      routerConfig: router,
+    ),
+  );
+  if (container != null) {
+    return UncontrolledProviderScope(container: container, child: child);
+  }
   return ProviderScope(
     overrides: [
       activeJobsProvider.overrideWith(ActiveJobsStub.new),
     ],
-    child: MediaQuery(
-      data: MediaQueryData(size: Size(width, 800), padding: viewPadding),
-      child: MaterialApp.router(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
-        locale: const Locale('zh'),
-        theme: buildTheme(Brightness.light),
-        routerConfig: router,
-      ),
-    ),
+    child: child,
   );
 }
+
+ProviderContainer _container() => ProviderContainer(
+      overrides: [
+        activeJobsProvider.overrideWith(ActiveJobsStub.new),
+      ],
+    );
 
 class ActiveJobsStub extends ActiveJobsNotifier {
   @override
   List<TasksRow> build() => const [];
 }
+
+const _scriptProject = ProjectRow(
+  id: 7,
+  artStyle: null,
+  createTime: null,
+  directorManual: null,
+  imageModel: 'image:demo',
+  imageQuality: '1K',
+  intro: '测试项目',
+  mode: 'text',
+  name: '剧本项目',
+  projectType: 'script',
+  type: '现代',
+  userId: 1,
+  videoModel: 'volcengine:demo',
+  videoRatio: '16:9',
+);
 
 void main() {
   testWidgets('桌面壳：细侧栏 + 顶栏，未选项目时项目菜单禁用', (tester) async {
@@ -104,6 +137,24 @@ void main() {
     }
     for (final batch in ['P2', 'P3', 'P4', 'P5']) {
       expect(find.text(batch), findsNothing, reason: '不应再有 $batch 占位徽标');
+    }
+  });
+
+  testWidgets('剧本项目隐藏小说专属菜单，保留其余制作分区', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final container = _container();
+    addTearDown(container.dispose);
+    container.read(currentProjectProvider.notifier).select(_scriptProject);
+    await tester.pumpWidget(_app(1200, container: container));
+    await tester.pumpAndSettle();
+
+    expect(find.text('剧本项目'), findsOneWidget);
+    expect(find.text('小说原文'), findsNothing);
+    expect(find.text('剧本Agent'), findsNothing);
+    for (final label in ['剧本管理', '塑角造景', '视频生产', '资产中心']) {
+      expect(find.text(label), findsOneWidget, reason: '$label 应保留给剧本项目');
     }
   });
 }
