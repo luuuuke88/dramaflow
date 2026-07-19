@@ -69,6 +69,7 @@ Future<List<ModelPromptBinding>> listModelPromptBindings();
 
 - [x] 首次供应商保存曾在 widget test 的 `FakeAsync` zone 中卡在构造期 `Future.value()`；串行门现仅在存在前序操作时等待，并在队列排空时释放尾部 Future。原有供应商新建回归与新增桌面提示词库回归均覆盖该路径。
 - [x] `runAction` 现返回成功状态；模板绑定、解绑、删除和保存只在成功后更新局部 UI 或关闭编辑器，避免错误被 SnackBar 捕获后仍伪造成功状态。
+- [x] **Seedance 模式播种**：复审发现 Full/Fast 能力已声明 4 个模板路径，但生产启动仅播种 Mini 的单条映射。现以一次性本地播种补齐 Mini 1 条、Full/Fast 各 4 条，并在四份源模板齐全且非空时才写入完成标记；用户解绑后重启不复活。`engine_facade_test.dart` 的失败测试先行并验证完整映射、共享 4 条模板库和解绑持久性。
 
 ## Task 1 复审修正（完成 Task 2 前必须关闭）
 

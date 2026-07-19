@@ -744,26 +744,58 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
   }
 
   static void _seedBundledModelPromptRows(Database db, String dataDir) {
-    const vendorId = 'volcengine';
-    const modelId = 'doubao-seedance-2-0-mini-260615';
-    const modelPromptPath = 'video/seedance2Multi-parameterMode.md';
-    const fileName = 'seedance2Multi-parameterMode.md';
-    final source = File(path.join(dataDir, 'model_prompts', modelPromptPath));
-    if (!source.existsSync()) return;
+    const seedKey = 'bootstrap.modelPromptProfiles.v1';
+    if (db.select(
+        'SELECT value FROM o_setting WHERE key=?', [seedKey]).isNotEmpty) {
+      return;
+    }
 
-    final existing = db.select(
-      'SELECT id FROM o_modelPrompt WHERE vendorId=? AND model=? AND path=?',
-      [vendorId, modelId, modelPromptPath],
-    );
-    if (existing.isNotEmpty) return;
+    const multiReference = 'video/seedance2Multi-parameterMode.md';
+    const fullModePaths = [
+      multiReference,
+      'video/universalMulti-parameterMode.md',
+      'video/wan2.6Single-imageFirstFrameMode.md',
+      'video/universalFirstAndLastFrameMode.md',
+    ];
+    const pathsByModel = {
+      'doubao-seedance-2-0-mini-260615': [multiReference],
+      'doubao-seedance-2-0-260128': fullModePaths,
+      'doubao-seedance-2-0-fast-260128': fullModePaths,
+    };
 
-    final prompt = source.readAsStringSync();
-    if (prompt.trim().isEmpty) return;
-    db.execute(
-      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
-      'VALUES (?,?,?,?,?)',
-      [vendorId, modelId, fileName, modelPromptPath, prompt],
-    );
+    final promptByPath = <String, String>{};
+    for (final promptPath in fullModePaths) {
+      final source = File(path.join(dataDir, 'model_prompts', promptPath));
+      if (!source.existsSync()) return;
+      final prompt = source.readAsStringSync();
+      if (prompt.trim().isEmpty) return;
+      promptByPath[promptPath] = prompt;
+    }
+
+    for (final entry in pathsByModel.entries) {
+      for (final promptPath in entry.value) {
+        final existing = db.select(
+          'SELECT id FROM o_modelPrompt WHERE vendorId=? AND model=? AND path=?',
+          ['volcengine', entry.key, promptPath],
+        );
+        if (existing.isNotEmpty) continue;
+        db.execute(
+          'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+          'VALUES (?,?,?,?,?)',
+          [
+            'volcengine',
+            entry.key,
+            path.basename(promptPath),
+            promptPath,
+            promptByPath[promptPath],
+          ],
+        );
+      }
+    }
+    db.execute('INSERT OR REPLACE INTO o_setting (key,value) VALUES (?,?)', [
+      seedKey,
+      '1',
+    ]);
   }
 
   static Future<void> _migrateLegacyProviderCredentials(

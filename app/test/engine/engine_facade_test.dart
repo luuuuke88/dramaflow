@@ -667,16 +667,24 @@ description: 分镜表构建 Agent
         '新模板');
   });
 
-  test('boot 注册 Seedance Mini 默认模板且不覆盖用户编辑', () async {
+  test('boot 为 Seedance 全系列播种模式模板且不复活已解绑模型', () async {
     final dataDir = p.join(dir.path, 'seeded-model-prompts');
-    final template = File(p.join(
-      dataDir,
-      'model_prompts',
-      'video',
-      'seedance2Multi-parameterMode.md',
-    ));
-    template.createSync(recursive: true);
-    template.writeAsStringSync('Seedance bundled template');
+    const templateBodies = {
+      'seedance2Multi-parameterMode.md': 'Seedance multi-reference template',
+      'universalMulti-parameterMode.md': 'Seedance text template',
+      'wan2.6Single-imageFirstFrameMode.md': 'Seedance first-frame template',
+      'universalFirstAndLastFrameMode.md': 'Seedance first-last-frame template',
+    };
+    for (final entry in templateBodies.entries) {
+      final template = File(p.join(
+        dataDir,
+        'model_prompts',
+        'video',
+        entry.key,
+      ));
+      template.createSync(recursive: true);
+      template.writeAsStringSync(entry.value);
+    }
 
     final seeded = await bootForTest(dataDir);
     var seededDisposed = false;
@@ -685,26 +693,46 @@ description: 分镜表构建 Agent
     });
 
     final rows = await seeded.listModelPrompts();
-    expect(rows, hasLength(1));
-    expect(rows.single['vendorId'], 'volcengine');
-    expect(rows.single['model'], 'doubao-seedance-2-0-mini-260615');
-    expect(rows.single['fileName'], 'seedance2Multi-parameterMode.md');
-    expect(rows.single['path'], 'video/seedance2Multi-parameterMode.md');
-    expect(rows.single['prompt'], 'Seedance bundled template');
+    final pathsByModel = <String, Set<String>>{};
+    for (final row in rows) {
+      pathsByModel
+          .putIfAbsent(row['model'] as String, () => <String>{})
+          .add(row['path'] as String);
+    }
+    expect(pathsByModel['doubao-seedance-2-0-mini-260615'], {
+      'video/seedance2Multi-parameterMode.md',
+    });
+    const fullPaths = {
+      'video/seedance2Multi-parameterMode.md',
+      'video/universalMulti-parameterMode.md',
+      'video/wan2.6Single-imageFirstFrameMode.md',
+      'video/universalFirstAndLastFrameMode.md',
+    };
+    expect(pathsByModel['doubao-seedance-2-0-260128'], fullPaths);
+    expect(pathsByModel['doubao-seedance-2-0-fast-260128'], fullPaths);
+    expect(await seeded.listModelPromptTemplates(), hasLength(4));
     expect(
       await seeded.getPromptForStageModel('video_prompt_gen', 'shot_video'),
       await seeded.getPrompt('video_prompt_gen'),
     );
 
-    await seeded.updateModelPrompt(rows.single['id'] as int, 'user edited');
+    await seeded.unbindModelPromptTemplate(
+      'volcengine',
+      'doubao-seedance-2-0-260128',
+    );
     seeded.dispose();
     seededDisposed = true;
 
     final rebooted = await bootForTest(dataDir);
     addTearDown(rebooted.dispose);
-    final rebootedRows = await rebooted.listModelPrompts();
-    expect(rebootedRows, hasLength(1));
-    expect(rebootedRows.single['prompt'], 'user edited');
+    final rebootedPaths = <String, Set<String>>{};
+    for (final row in await rebooted.listModelPrompts()) {
+      rebootedPaths
+          .putIfAbsent(row['model'] as String, () => <String>{})
+          .add(row['path'] as String);
+    }
+    expect(rebootedPaths['doubao-seedance-2-0-260128'], isNull);
+    expect(rebootedPaths['doubao-seedance-2-0-fast-260128'], fullPaths);
   });
 
   test('boot seeds structured Seedance video capabilities', () async {
