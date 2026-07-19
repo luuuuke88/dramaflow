@@ -302,6 +302,74 @@ void main() {
     );
   });
 
+  test('Anthropic 供应商只允许保存 text 模型，导入也不能绕过', () async {
+    final db = openEngineDb(':memory:');
+    final engine = _engine(db);
+    addTearDown(engine.dispose);
+    db.execute(
+      'INSERT INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+      [
+        'anthropic',
+        1,
+        jsonEncode({
+          'name': 'Claude (Anthropic)',
+          'protocol': 'anthropic',
+          'baseUrl': 'https://api.anthropic.com/v1',
+        }),
+        '[]',
+      ],
+    );
+
+    await expectLater(
+      engine.saveProviderModels('anthropic', [
+        {'modelId': 'not-an-image-model', 'kind': 'image', 'enabled': true},
+      ]),
+      throwsA(isA<EngineException>()
+          .having((e) => e.errKey, 'errKey', errModelMissing)
+          .having((e) => e.errParams['reason'], 'reason',
+              'unsupportedAnthropicModelKind')),
+    );
+    expect(
+      db.select('SELECT models FROM o_vendorConfig WHERE id=?',
+          ['anthropic']).single['models'],
+      '[]',
+    );
+
+    await expectLater(
+      engine.importConfig({
+        'configVersion': 3,
+        'providers': [
+          {
+            'id': 'imported-anthropic',
+            'name': 'Imported Anthropic',
+            'protocol': 'anthropic',
+            'baseUrl': 'https://api.anthropic.com/v1',
+            'enabled': true,
+            'models': [
+              {
+                'modelId': 'not-a-tts-model',
+                'kind': 'tts',
+                'enabled': true,
+              },
+            ],
+          },
+        ],
+        'bindings': const {},
+        'prompts': const [],
+        'modelPrompts': const [],
+      }),
+      throwsA(isA<EngineException>()
+          .having((e) => e.errKey, 'errKey', errModelMissing)
+          .having((e) => e.errParams['reason'], 'reason',
+              'unsupportedAnthropicModelKind')),
+    );
+    expect(
+      db.select('SELECT id FROM o_vendorConfig WHERE id=?',
+          ['imported-anthropic']),
+      isEmpty,
+    );
+  });
+
   test('导入配置不能绕过非火山 video 模型限制', () async {
     final engine = _engine(openEngineDb(':memory:'));
     addTearDown(engine.dispose);

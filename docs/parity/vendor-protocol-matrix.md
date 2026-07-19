@@ -52,6 +52,7 @@
 | --- | --- | --- | --- |
 | 远程地址与凭证 | 启用中的 loopback 供应商改为远程地址时，必须已有 Key 或同时提供新 Key；校验失败不改写原配置。 | `provider_preset_create_test.dart`：`无 Key 的 loopback 供应商不能改为启用的远程地址` | 已关闭 |
 | 视频协议边界 | 非 `volcengine` 的 video 模型在模型编辑和配置导入两条入口均被拒绝；video 连通测试在分派网关前拒绝。 | `provider_preset_create_test.dart`：保存、导入、连通测试三条回归 | 已关闭；正常视频生成代码保留给用户最终手动验收 |
+| Anthropic 模态边界 | 原生 Messages 适配当前只实现文本、视觉理解和文本工具；模型编辑或配置导入若将 `anthropic` 设为 `image`/`tts`，会在写库前拒绝，避免后续误走 OpenAI 图片或语音端点。 | `provider_preset_create_test.dart`：`Anthropic 供应商只允许保存 text 模型，导入也不能绕过` | 已关闭；完整原生多轮工具闭环仍是独立缺口 |
 | 付费连通测试 | 文本、图片、配音测试在 `policy.confirmMoney` 开启时均先弹出明确的真实请求/可能计费确认；关闭开关才直接发起。 | `settings_screen_test.dart`：`付费连通测试先确认，视频保持人工验收` | 已关闭 |
 | 凭证可见性 | 预设与自定义表单的 API Key 默认遮蔽，并都提供本地显隐切换。 | `settings_screen_test.dart`：`自定义供应商表单默认遮蔽 API Key`；`provider_preset_form_test.dart` | 已关闭 |
 | 协议表述 | `anthropic` 在列表和编辑表单显示“Anthropic 原生”，不再伪装为 OpenAI 兼容；自定义供应商可明确选择该协议。 | `settings_screen_test.dart`：`Anthropic 供应商在列表和编辑页都显示原生协议` | 已关闭 |

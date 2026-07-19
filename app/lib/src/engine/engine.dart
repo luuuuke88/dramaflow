@@ -1750,17 +1750,24 @@ WHERE id=?
     final normalized = [
       for (final model in models) _normalizeModel(providerId, model),
     ];
-    _validateProviderVideoModels(protocol, normalized);
+    _validateProviderModelKinds(protocol, normalized);
     db.execute(
       'UPDATE o_vendorConfig SET models=? WHERE id=?',
       [jsonEncode(normalized), providerId],
     );
   }
 
-  void _validateProviderVideoModels(
+  void _validateProviderModelKinds(
     String protocol,
     Iterable<Map<String, dynamic>> models,
   ) {
+    if (protocol == 'anthropic' &&
+        models.any((model) => model['kind']?.toString() != 'text')) {
+      throw const EngineException(
+        errModelMissing,
+        {'reason': 'unsupportedAnthropicModelKind'},
+      );
+    }
     if (protocol != 'volcengine' &&
         models.any((model) => model['kind']?.toString() == 'video')) {
       throw const EngineException(
@@ -2318,7 +2325,7 @@ VALUES (?,?,?,?,?,?)
                 in (raw['models'] as List? ?? const []).whereType<Map>())
               _normalizeModel(id, Map<String, dynamic>.from(model)),
           ];
-          _validateProviderVideoModels(
+          _validateProviderModelKinds(
             inputValues['protocol'] as String,
             models,
           );
