@@ -22,6 +22,8 @@
 
 **v6 协议审查收口（2026-07-19）**：上述“协议仅是元数据”的描述已不再适用于 Anthropic。复审先以 six-case fake gateway 写出失败测试，再加入 `providers/anthropic_text.dart` 与 gateway 分发：文本、强制工具 JSON、Agent 工具、视觉、`/models` 鉴权和连通测试均使用原生 Messages API；预设改为 `protocol: anthropic` 且不再显示“兼容模式”。该项不改变“真实 Key 验收前不可置 acceptanceVerified=true”的规则。Gemini/xAI 仍是 OpenAI 兼容路径；xAI 未经当前官方目录核实的 `grok-4.3` 已从默认预设移除。相关回归：`app/test/engine/anthropic_gateway_test.dart`、`app/test/engine/provider_presets_test.dart`、`app/test/widgets/provider_preset_gallery_test.dart`。
 
+**v7 Agent 工具循环复核（2026-07-19）**：v6 的“Agent 工具”证据仅覆盖首轮 `tool_use` 请求/响应，不能扩展解释为原生多轮 Agent。当前 `AgentTurnResult` 未保留 Anthropic 的 `tool_use_id` 与完整 assistant content blocks，`assistant_chat.dart` 又将执行结果压为普通 assistant 文本；因此下一轮无法按 Messages API 发送“assistant `tool_use` → user `tool_result`”。在实现该闭环及两轮 fake-gateway 回归前，Anthropic 只能称为“原生文本、结构化 JSON、视觉与首轮工具调用适配”，不得称完整原生 Agent 支持。
+
 ## Global Constraints
 
 - 模型 ID 硬门：任何模型 ID 未经当日对照 `sourceUrl` 核实（或经该家真实 API 调用验证）**不得写入常量**；核实后必须填 `verifiedAt`（'YYYY-MM-DD'）。目录单测断言两字段非空。
