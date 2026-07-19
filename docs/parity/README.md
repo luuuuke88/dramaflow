@@ -47,6 +47,20 @@
 4. 更新 [总对照清单](master-checklist.md) 的源码证据、状态、验收方法和测试链接；必要时补充专题矩阵。
 5. 运行 `node tool/parity/check_no_orphans.js`，确保任何原版库存项都没有失去归属。
 
+## 本地验证基线
+
+以下三条命令验证不同层面，缺一条都不能替代另一条：
+
+```bash
+cd app
+flutter analyze
+flutter test --concurrency=1
+flutter build macos --debug
+```
+
+- `analyze` 验证 Dart 静态约束；`test` 覆盖引擎、桌面和窄屏 widget 流程，视频只使用假供应商；`build` 验证 macOS 原生插件的实际编译与链接。
+- 当前 `media_kit_libs_macos_video` / `media_kit_video` 尚未声明 Swift Package Manager 支持。Flutter 目前仅告警且 macOS Debug 构建可成功完成；后续 Flutter 升级前必须复核该插件兼容性，避免把未来构建失败留到发布阶段。
+
 ## 当前优先缺口
 
 最直接影响生产流程的缺口集中在：项目创建的完整准入保护、制作画布体验、完整 Agent 体系、NLE 素材/预览能力，以及原版供应商私有协议适配。每项的具体范围、而不是泛泛的“待优化”，已经在总清单和对应专项文档中落了源码证据。
