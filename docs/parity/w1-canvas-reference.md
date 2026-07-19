@@ -1,6 +1,6 @@
 # W1 Canvas Performance & Gesture-Feel Metrics — Reference Draft
 
-Status: draft input for a future W1 spec. Read-only investigation, 2026-07-18. All factual claims cite `file:line`. Anything I could not verify from static source is explicitly labeled speculation. I did not run either app.
+Status: draft input for a future W1 spec. Read-only investigation started 2026-07-18 and was evidence-corrected 2026-07-19. All factual claims cite `file:line`. Anything I could not verify from static source is explicitly labeled speculation. I did not run either app.
 
 ## 0. Scope note: there are two canvases
 
@@ -59,6 +59,18 @@ Rendering, gestures, and existing optimizations, all in `app/lib/src/widgets/df_
 
 **Storyboard grid inside its node.** `storyboard_canvas_node.dart:569-587`: a `SingleChildScrollView` + `Wrap` over all rows with no windowing (same shape as ToonFlow's grid, minus the always-mounted-across-viewport problem since the whole node is culled when off-screen). Cell zoom is a session-only `_cellSize` clamped 90–260 via +/- buttons (`:51, :482-491`), not a continuous pinch.
 
+### User-visible parity deltas confirmed by source
+
+These are behavior differences, not performance guesses. They keep the production-canvas checklist at **partial** even though its six-node workflow and mobile alternative are already covered by widget tests.
+
+| Behavior | ToonFlow evidence | DramaFlow evidence | Parity consequence |
+| --- | --- | --- | --- |
+| Automatic layout also recenters the viewport | `Toonflow-web/src/views/production/index.vue:440` calls `fitView({ duration: 300 })` after layout | `production_screen.dart:158-160` restores only `_positions`; `DFCanvas._fitView` is private and runs only on initial mount (`df_canvas.dart:133-158`) | After moving far away, "自动布局" restores node coordinates but can leave the user looking at empty space. |
+| Visible canvas controls | VueFlow renders `<Controls />` at `index.vue:55` | Desktop overlay has automatic-layout and Agent buttons only (`production_screen.dart:240-258`) | There is no user-visible equivalent for the reference canvas control surface. Exact button semantics still need black-box confirmation before an implementation choice. |
+| Space + left-button pan | `index.vue:143-171` deliberately enables it even while the pointer is over a node | `DFCanvas` has title-handle dragging and `InteractiveViewer` gestures, but no keyboard listener or Space-state path (`df_canvas.dart:84-290`) | A desktop power-user navigation shortcut is missing. |
+| Episode switch during active production Agent work | `index.vue:255-295` asks for confirmation while status is `pending` or `streaming` | The Flutter episode bar directly assigns `_scriptId` (`production_screen.dart:65-70`) | The original protection is absent. Flutter's simplified Agent has different status architecture; the user-facing switch guard is nevertheless not present. |
+| Agent panel initial state | `openShowVisible = ref(true)` at `index.vue:127` | `_chatOpen = false` at `production_screen.dart:140` | Small default-state difference: ToonFlow opens production chat by default; DramaFlow requires an explicit click. |
+
 ---
 
 ## 3. Proposed measurable metrics for W1
@@ -80,7 +92,7 @@ Proposed test tiers: **N = 50 (typical-heavy), 100 (design max), 200 (headroom/s
 | M3 | **Zoom follows cursor / focal point** | After a pinch centered at point P, the scene point under P stays under P within **≤ 2 logical px** | Pure widget test: set a known transform, apply a focal-point scale, assert `controller.toScene(P)` is invariant. `InteractiveViewer` already does focal-point zoom; this is a *regression guard*, not new behavior. |
 | M4 | **Pointer-device behavior matches the selected mode** | `zoom`: mouse wheel and trackpad scroll scale around the focal point; `scroll`: both pan. Pinch always scales; fling-pan decelerates over **≥ 300 ms** with no frame > 33 ms during the inertia tail | Add a current-session `zoom` / `scroll` mode selector equivalent to ToonFlow's `canvasWheelEvent`; widget tests assert its mapping to `InteractiveViewer.trackpadScrollCausesScale`, then manually capture macOS mouse and trackpad evidence in profile mode. Actual inertia smoothness remains manual + screen-recording evidence. |
 | M5 | **Node drag has no stutter** (main and editImage canvases) | Dragging one node among N=25: median frame ≤ 16.6ms, no frame > 33ms across a 1s scripted drag | `integration_test`: drive each canvas's real drag handle and collect `addTimingsCallback` timings. Also assert rebuild scope with a build counter on non-dragged editImage nodes to catch the whole-list rebuild cost (`image_flow_editor.dart:992`). |
-| M6 | **Culling correctness under pan** (protects M1) | With N=200 cells spread across the scene, the number of built node widgets stays bounded to those intersecting viewport±600px at all pan positions | Widget test using a build-tap counter or `find`-count on node keys after moving the `TransformationController`; assert built count ≪ N when most nodes are off-screen. Directly exercises `_visibleSceneRect`/`_nodeIntersects` (`df_canvas.dart:160-183`). |
+| M6 | **Culling correctness under pan** (protects M1) | With N=200 cells spread across the scene, the number of built node widgets stays bounded to those intersecting viewport±600px at all pan positions | Existing widget coverage already exercises a stronger 1,000-top-level-node culling case: `test/widgets/df_widgets_test.dart:128-172`. W1 should preserve that regression guard and extend it only where the production storyboard's nested cells reveal a distinct failure mode. |
 | M7 | **Grid layer cost is bounded** | First-frame raster after canvas mount ≤ a chosen budget (TBD in W1); no per-pan grid repaint | `addTimingsCallback` on the mount frame; verify `_GridPainter.shouldRepaint` never fires during pan (it depends only on color, `df_canvas.dart:313-315`). See §5 note — the 12000×8000 paint area needs real measurement. |
 
 General methodology (aligns with the spec's "profile 基准 + 录屏证据"): run M1/M2/M5/M6 as automated `integration_test` assertions in **profile mode** (debug-mode timings are meaningless), and back M4 and the subjective "feel" with a DevTools timeline export + screen recording. Seed a synthetic project with N shots via the engine's `addStoryboard` path so the storyboard node is genuinely populated.
@@ -89,13 +101,14 @@ General methodology (aligns with the spec's "profile 基准 + 录屏证据"): ru
 
 ## 4. What is explicitly NOT benchmarked today
 
-**Zero** performance/frame-timing coverage exists for either canvas. Confirmed by:
+**Zero frame-timing / FPS benchmark coverage** exists for either canvas. That statement needs to stay narrow: the project does have meaningful canvas behavior coverage and three real-process integration tests.
 
-- The only canvas-related tests are `test/widgets/storyboard_canvas_node_test.dart` and `test/widgets/canvas_chat_panel_test.dart`, both **purely behavioral** (preview-all page count, export button, insert-before ordering, generate-button gating, chat send/clear — see their `testWidgets` names).
-- Grep of the entire `app/test/` tree for `FrameTiming`, `SchedulerBinding`, `timeDilation`, `frameBuildTime`, `BenchmarkResultPrinter`, `integration_test`, `benchmark`, `fps` returns **nothing** (the only "frame" hits are the string `'old/frame.png'` in `storyboard_test.dart:503,594`).
-- There is no `integration_test/` directory and no benchmark harness.
+- `test/widgets/df_widgets_test.dart:128-172` proves off-screen culling across a **1,000-node** `DFCanvas`; `:174-207` proves title-handle drag converts screen movement into scene coordinates. `test/widgets/production_screen_test.dart:155-178` covers desktop node dragging, episode selection, and automatic layout; mobile canvas alternatives are covered at `:197-208`.
+- `test/widgets/storyboard_canvas_node_test.dart` and `test/widgets/canvas_chat_panel_test.dart` add storyboard editing / production-chat behavior, but they are not rendering-performance tests.
+- `integration_test/` exists: `golden_path_desktop_test.dart`, `golden_path_navigation_test.dart`, and `composer_audio_smoke_test.dart` boot a real process or exercise the native compositor. They do **not** collect canvas `FrameTiming`, profile scripted pan/zoom, or assert frame budgets.
+- A repository search found no `FrameTiming`, benchmark harness, or canvas FPS assertion under `app/test`, `app/integration_test`, or `app/lib`.
 
-So every metric in §3 is **new work**. None of it is silently covered by an existing test. W1 will need to add an `integration_test` target and a profile-mode run path that does not exist yet.
+So M1/M2/M4/M5/M7 are new validation work. M6's basic culling correctness is already covered; W1 should retain, not duplicate, that 1,000-node guard. A profile-mode run path must be added only if measured evidence shows the interaction work needs it.
 
 ---
 
@@ -110,7 +123,7 @@ Honest calibration from static reading. Where I cannot tell without running the 
 | M3 (cursor-follow zoom) | **Likely already satisfied** | Stock `InteractiveViewer` does focal-point scaling; this is a cheap regression guard. |
 | M4 (pointer-device behavior + inertia) | **Partially implemented; feel is unknown** | Pinch and fling inertia come from `InteractiveViewer`; mouse wheel scales. But Flutter's default `trackpadScrollCausesScale=false` makes two-finger scroll pan, and no equivalent of ToonFlow's current-session `zoom` / `scroll` setting exists. Whether inertia feels good (and whether the per-frame rebuild stutters during its tail) **cannot be judged statically** — it needs a device recording. |
 | M5 (node drag, both canvases) | **Likely needs moderate tuning** | Main-canvas dragging updates `_CanvasLayout` on every pointer movement; editImage's `onPanUpdate → setState` rebuilds the editor's whole node list per delta (`image_flow_editor.dart:992, 984-1016`). At small N either may be fine; profile data should choose whether a drag-local state refinement is needed. |
-| M6 (culling correctness) | **Likely already satisfied** | Logic exists and is straightforward (`df_canvas.dart:160-202`); this metric mostly locks in current behavior against regressions. |
+| M6 (culling correctness) | **Verified for generic nodes; storyboard-cell coverage still open** | `test/widgets/df_widgets_test.dart:128-172` already verifies culling in a 1,000-node `DFCanvas`. The outstanding question is not whether generic nodes are culled, but whether the nested storyboard grid behaves acceptably under the production workload. |
 | M7 (grid layer cost) | **Uncertain — needs measurement; possible rearchitecture** | The grid `CustomPaint` covers the full **12000×8000** scene (`df_canvas.dart:229-239, 293-315`). Whether Flutter rasterizes that as one very large cached layer (potentially large raster memory) or clips it is **not determinable from static reading** — I'm flagging it as a specific thing to measure. If it proves costly, switching the grid to a viewport-space tiled/repeating painter (paint only the visible rect, follow the transform) would be a moderate change. *(Raster-memory concern here is speculation pending measurement.)* |
 
 ### Cross-cutting note for the W1 spec author
