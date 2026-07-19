@@ -54,7 +54,7 @@ flutter test --concurrency=1 \
   test/widgets/settings_screen_test.dart
 ```
 
-结果：50 项通过。其证据边界需要如实保留：
+结果：53 项通过。其证据边界需要如实保留：
 
 - `dbInfo()` 可列出业务表及行数；`clearAllData()` 会在事务内清空项目、章节、剧本、素材、
   分镜、任务和记忆，并删除媒体文件，但刻意保留供应商、模型、绑定、提示词、画风、外观和

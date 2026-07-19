@@ -9,7 +9,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 预设画廊式添加供应商——12 家预设（含 OpenAI/Claude/Gemini/Grok 国际线）一键预填，原子创建防 Key 覆盖，`/models` 拉取候选。
+**Goal:** 预设画廊式添加供应商——13 家预设（含 OpenAI/Claude/Gemini/Grok 国际线）一键预填，原子创建防 Key 覆盖，`/models` 拉取候选。
 
 **Architecture:** 目录常量（`provider_presets.dart`，同时成为种子的单一事实来源）+ 一个新引擎 API（`createProviderFromPreset`：先 INSERT 抢占、后写凭证、失败删行——结构性消除并发删 Key）+ 一个新网关方法（`listRemoteModelIds`，只出候选不写库）+ 设置页画廊/预填表单/候选合并三段 UI。数据库 schema、协议分发、现有 `createProvider`/`saveProviderModels` 零改动。
 
@@ -87,9 +87,9 @@ import 'package:dramaflow/src/engine/provider_presets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('目录：12 家 id 唯一且必填字段完备（含硬门字段）', () {
-    expect(kProviderPresets.length, 12);
-    expect(kProviderPresets.map((p) => p.id).toSet().length, 12);
+  test('目录：13 家 id 唯一且必填字段完备（含硬门字段）', () {
+    expect(kProviderPresets.length, 13);
+    expect(kProviderPresets.map((p) => p.id).toSet().length, 13);
     for (final p in kProviderPresets) {
       expect(p.name.trim(), isNotEmpty);
       expect(p.keyUrl.trim(), isNotEmpty, reason: '${p.id} 缺 keyUrl');
@@ -480,7 +480,7 @@ Expected: 新 4 test PASS；既有引擎套件全绿（种子内容未变）。
 ```bash
 flutter analyze lib/src/engine/provider_presets.dart lib/src/engine/engine.dart test/engine/provider_presets_test.dart
 git add lib/src/engine/provider_presets.dart lib/src/engine/engine.dart test/engine/provider_presets_test.dart
-git commit -m "feat(engine): 供应商预设目录（12 家，种子单一事实来源+防漂移锁）"
+git commit -m "feat(engine): 供应商预设目录（13 家，种子单一事实来源+防漂移锁）"
 ```
 
 ---

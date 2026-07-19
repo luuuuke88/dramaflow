@@ -10,9 +10,9 @@ DramaFlow 现状：添加供应商是一个裸表单（名称/BaseURL/API Key �
 
 ## 2. 已确认的三个关键决策
 
-1. **协议架构：预设优先，协议后补。** 第一期所有预设走现有 `openai_compatible` 协议——OpenAI 原生即此格式；Anthropic 官方支持 OpenAI SDK 指向 `api.anthropic.com/v1`；Google 提供 `generativelanguage.googleapis.com/v1beta/openai/` 兼容层。预设结构保留 `protocol` 字段，未来要 Gemini 原生图片、Claude 思考预算控制时按供应商补原生适配器，数据结构不动。
-2. **目录广度：12 家真实预设 + "自定义"入口**（用户裁剪自 18 家草案；画廊共 13 张卡）。裁剪原则：列了就意味着"我们声称能用"，没人真用的预设伤可信度；目录是常量列表，后续加一家约 10 行代码。砍掉：Mistral、Groq（对短剧场景无独特价值）、Ollama/LM Studio（走"自定义"即可）、可灵/Vidu 灰显占位（不能点的东西是噪音，等视频协议真接了再上架）。Grok 因用户明确有需求而保留。
-3. **UI 形态：预设画廊式添加。** 不重建设置页双栏布局（ToonFlow 那种在手机上要拆两级导航，且现有设置页已有 12 个手机视口测试）。"添加供应商"先弹画廊，选中后进预填表单；"自定义"卡保留现在的裸表单原样。
+1. **协议架构：预设优先，按协议明确分流。** 大部分预设走 `openai_compatible`；`anthropic`、`volcengine` 与本地 OAuth 的 `ima2` 使用各自已实现的专用适配器。预设结构保留 `protocol` 字段；Gemini 原生图片、Claude 进一步的原生控制等能力须按供应商补适配器，不能伪装成已被兼容协议覆盖。
+2. **目录广度：13 家真实预设 + "自定义"入口**（用户裁剪自 18 家草案；画廊共 14 张卡）。裁剪原则：列了就意味着"我们声称能用"，没人真用的预设伤可信度；目录是常量列表，后续加一家约 10 行代码。砍掉：Mistral、Groq（对短剧场景无独特价值）、Ollama/LM Studio（走"自定义"即可）、可灵/Vidu 灰显占位（不能点的东西是噪音，等视频协议真接了再上架）。Grok 因用户明确有需求而保留。
+3. **UI 形态：预设画廊式添加。** 不重建设置页双栏布局（ToonFlow 那种在手机上要拆两级导航，且现有设置页已有移动视口回归）。"添加供应商"先弹画廊，选中后进预填表单；"自定义"卡保留现在的裸表单原样。
 
 ## 3. 数据模型
 
@@ -47,7 +47,7 @@ class PresetModel {
 
 许可证红线：目录内容全部独立编写。公开 API 端点与模型 ID 是事实数据；**不复制 ToonFlow 的 `data/vendor/*.ts` 任何代码或文案**（其许可证非标准 Apache-2.0，W0 审计已确认）。
 
-## 4. 目录内容（12 家预设 + 自定义入口，画廊 13 张卡）
+## 4. 目录内容（13 家预设 + 自定义入口，画廊 14 张卡）
 
 预置模型为 2-4 个旗舰模型的**策展快照**；下表模型 ID 以设计时点的公开资料为准，**实施时逐家用官方文档或 `GET /models` 核实**（核实属于实施计划的一个显式步骤，不是可跳过的注脚）。过时问题由"从 API 拉取模型列表"按钮（§5 第 5 条）长效解决。
 
@@ -102,9 +102,9 @@ keyUrl 每家指向其控制台 API Key 页（如 platform.openai.com/api-keys�
 
 ## 7. 测试计划
 
-- **目录单测**（`provider_presets_test.dart`）：12 家预设 id 唯一（custom 是 UI 入口不进目录常量）；URL 均为合法 https（azt 例外允许 http loopback）；每家 protocol ∈ {openai_compatible, anthropic, volcengine}；模型清单非空且 kind ∈ {text,image,video,tts}；keyUrl 非空；**verifiedAt/sourceUrl 非空**（§3 硬门的机器锁）。
+- **目录单测**（`provider_presets_test.dart`）：13 家预设 id 唯一（custom 是 UI 入口不进目录常量）；URL 均为合法 https（azt 例外允许 http loopback）；每家 protocol ∈ {openai_compatible, anthropic, volcengine, ima2}；模型清单非空且 kind ∈ {text,image,video,tts}；keyUrl 非空；**verifiedAt/sourceUrl 非空**（§3 硬门的机器锁）。
 - **`createProviderFromPreset` 单测**：重复创建 → 抛"已添加"且断言旧凭证值未变（直击 P0 缺陷场景）；INSERT 失败注入 → 断言新凭证被回滚删除；正常路径 → 供应商+模型一次到位无中间态。
-- **画廊 widget 测试**：390px 与桌面各渲染一遍，并显式模拟 iOS；桌面断言 12 预设卡 + 自定义卡齐全，iOS/Android 断言 `desktopOnly` 的 azt 不出现；能力角标正确、兼容模式角标只出现在 gemini/xai、Anthropic 显示“未验证”但不显示“兼容模式”、已存在实例的卡显示"已添加"并进编辑。
+- **画廊 widget 测试**：390px 与桌面各渲染一遍，并显式模拟 iOS；桌面断言 13 预设卡 + 自定义卡齐全，iOS/Android 断言 `desktopOnly` 的 azt 不出现；能力角标正确、兼容模式角标只出现在 gemini/xai、Anthropic 显示“未验证”但不显示“兼容模式”、已存在实例的卡显示"已添加"并进编辑。
 - **预填流程测试**：选中某预设 → 断言表单 BaseURL/模型清单与目录一致、Key 框 obscureText 且可切换明文；填 Key 保存 → 断言 in-memory 引擎里真实建出供应商与模型（含 kind/capabilities）。
 - **自定义回归**：现有添加供应商测试不改动、继续绿。
 - **拉取候选单测**：mock 网络层——候选不落库；目录内 ID 自动带 kind；未知 ID 标未分类且不能不选 kind 就保存；已有条目不被覆盖；端点 404/超时报错不崩。
