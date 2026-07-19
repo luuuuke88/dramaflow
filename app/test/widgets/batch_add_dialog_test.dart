@@ -45,8 +45,9 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
-  // 一短一长两集：默认章节正则拆分为「第1章/第2章」。
-  const content = '第1章 短集\n短\n第2章 长集\n长文内容超长';
+  // 一短一长两集：批量剧本导入默认按「第 N 集」拆分（对齐 ToonFlow，剧本按集、
+  // 小说按章）。
+  const content = '第1集 短集\n短\n第2集 长集\n长文内容超长';
 
   Widget app() => ProviderScope(
         overrides: [engineProvider.overrideWithValue(engine)],
@@ -69,8 +70,11 @@ void main() {
         ),
       );
 
+  // 移动宽度进入第二步。第二步默认不勾选任何分集（对齐 ToonFlow，见
+  // script_screen_test「ToonFlow 第二步默认不勾选任何分集」），由各用例按需
+  // 点标题勾选。
   Future<void> openStep2(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
@@ -81,7 +85,6 @@ void main() {
     await tester.enterText(find.byType(TextField).last, content);
     await tester.pumpAndSettle();
 
-    // 下一步（默认全选所有分集）。
     await tester.tap(find.text('下一步'));
     await tester.pumpAndSettle();
   }
@@ -90,7 +93,10 @@ void main() {
     engine.config.update({'scriptEpisodeLength': '5'});
     await openStep2(tester);
 
-    // 「长集」内容长度 > 5，全选状态下保存应被禁用。
+    // 勾选超限的「长集」（正文「长文内容超长」6 字 > 5）后，保存应被禁用。
+    await tester.tap(find.text('长集'));
+    await tester.pumpAndSettle();
+
     final save = find.widgetWithText(FilledButton, '保存');
     expect(save, findsOneWidget);
     expect(tester.widget<FilledButton>(save).onPressed, isNull,
@@ -104,6 +110,11 @@ void main() {
   testWidgets('限额足够大时保存可用并写入剧本', (tester) async {
     engine.config.update({'scriptEpisodeLength': '5000'});
     await openStep2(tester);
+
+    // 勾选两集后保存。
+    await tester.tap(find.text('短集'));
+    await tester.tap(find.text('长集'));
+    await tester.pumpAndSettle();
 
     final save = find.widgetWithText(FilledButton, '保存');
     expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
@@ -125,7 +136,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
-        find.byType(TextField).last, '第1章 $longTitle\n正文内容');
+        find.byType(TextField).last, '第1集 $longTitle\n正文内容');
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('下一步'));
