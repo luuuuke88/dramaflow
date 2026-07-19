@@ -166,7 +166,7 @@ void main() {
     expect(models.single.kind, 'text');
   });
 
-  test('供应商 API Key 不写入 SQLite 或普通配置导出', () async {
+  test('供应商 API Key 不写入普通供应商配置或导出 JSON', () async {
     const secret = 'sk-provider-secret';
     final provider = await engine.createProvider(
       name: '安全供应商',
