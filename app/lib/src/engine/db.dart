@@ -294,6 +294,10 @@ CREATE TABLE IF NOT EXISTS o_setting (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+CREATE TABLE IF NOT EXISTS o_secret (
+  ref TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS o_skillAttribution (
   attribution TEXT,
   skillId TEXT,

@@ -1,8 +1,8 @@
 // 存储管理（P?/审计补齐）：数据库信息 + 清空数据。
 // dbInfo() 列出所有业务表及其行数，供设置页"数据库信息"面板展示。
 // clearAllData() 清空全部内容数据（项目/章节/剧本/资产/分镜/视频/任务/记忆），
-// 并保留供应商、模型、绑定、提示词、外观/语言等用户配置（o_setting / o_vendorConfig /
-// o_prompt / o_user / o_artStyle），使应用清空后仍可直接继续使用。
+// 并保留供应商、密钥、模型、绑定、提示词、外观/语言等用户配置（o_setting / o_secret /
+// o_vendorConfig / o_prompt / o_user / o_artStyle），使应用清空后仍可直接继续使用。
 // 同时清空媒体根目录下的项目媒体文件。清空在单个事务内完成，失败回滚。
 import 'dart:io';
 
@@ -19,9 +19,10 @@ class DbTableInfo {
 }
 
 extension DbAdminApi on Engine {
-  /// 清空数据时保留的用户配置表（供应商/模型/绑定/提示词/外观/语言/用户/画风）。
+  /// 清空数据时保留的用户配置表（供应商/密钥/模型/绑定/提示词/外观/语言/用户/画风）。
   static const _preservedTables = {
     'o_setting',
+    'o_secret',
     'o_vendorConfig',
     'o_prompt',
     'o_user',

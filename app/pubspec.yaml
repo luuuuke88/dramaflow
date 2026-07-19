@@ -26,7 +26,6 @@ dependencies:
   archive: ^4.0.9
   crypto: ^3.0.7
   image: ^4.8.0
-  flutter_secure_storage: ^10.3.1
   url_launcher: ^6.3.2
   # 视频播放 + 音频试听：media_kit 单包覆盖 macOS（主目标，内置 libmpv）/Windows/Linux/
   # iOS/Android，避开 video_player_avfoundation 在桌面端的历史缺口，且同时支持音频，

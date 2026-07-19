@@ -594,7 +594,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     _seedDefaults(db, config, isMobile: isMobile);
     _seedBundledModelPromptRows(db, dataDir);
     migrateLegacyModelPromptTemplates(db);
-    final credentials = credentialStore ?? SecureCredentialStore();
+    final credentials = credentialStore ?? DbCredentialStore(db);
     await _migrateLegacyProviderCredentials(db, credentials);
     await _recoverProvisioningProviders(db, credentials);
     final media = MediaStore(path.join(dataDir, 'media'));

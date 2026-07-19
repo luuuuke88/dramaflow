@@ -1,7 +1,6 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:sqlite3/sqlite3.dart';
 
-/// Stores provider secrets outside the SQLite configuration database.
+/// Stores provider secrets (API keys) keyed by a credential ref.
 abstract interface class CredentialStore {
   Future<String?> read(String key);
   Future<void> write(String key, String value);
@@ -11,26 +10,38 @@ abstract interface class CredentialStore {
 String providerCredentialRef(String providerId) =>
     'dramaflow.provider.$providerId.api-key';
 
-class SecureCredentialStore implements CredentialStore {
-  final FlutterSecureStorage _storage;
+/// Stores secrets in the local SQLite `o_secret` table — the same database file
+/// as the rest of the config, so behaviour is identical across macOS/iOS/
+/// Android/Windows/Linux with no OS keychain and no native-plugin dependency.
+///
+/// Secrets are deliberately kept off two paths: [Engine.exportConfig] uses a
+/// hand-written allowlist that never touches `o_secret`, and `clearAllData`
+/// preserves `o_secret` alongside `o_vendorConfig` so a data wipe keeps a
+/// provider's key next to the provider it belongs to.
+class DbCredentialStore implements CredentialStore {
+  final Database _db;
 
-  SecureCredentialStore({FlutterSecureStorage? storage})
-      : _storage = storage ??
-            const FlutterSecureStorage(
-              mOptions: MacOsOptions(
-                usesDataProtectionKeychain: kReleaseMode,
-              ),
-            );
-
-  @override
-  Future<String?> read(String key) => _storage.read(key: key);
-
-  @override
-  Future<void> write(String key, String value) =>
-      _storage.write(key: key, value: value);
+  DbCredentialStore(this._db);
 
   @override
-  Future<void> delete(String key) => _storage.delete(key: key);
+  Future<String?> read(String key) async {
+    final rows = _db.select('SELECT value FROM o_secret WHERE ref=?', [key]);
+    return rows.isEmpty ? null : rows.first['value'] as String;
+  }
+
+  @override
+  Future<void> write(String key, String value) async {
+    _db.execute(
+      'INSERT INTO o_secret (ref,value) VALUES (?,?) '
+      'ON CONFLICT(ref) DO UPDATE SET value=excluded.value',
+      [key, value],
+    );
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    _db.execute('DELETE FROM o_secret WHERE ref=?', [key]);
+  }
 }
 
 /// Test-only credential store. Values live only for the lifetime of the

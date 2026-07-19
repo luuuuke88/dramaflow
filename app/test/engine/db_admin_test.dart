@@ -73,6 +73,12 @@ void main() {
     final rel = engine.media.saveImage([1, 2, 3], projectId.toString());
     expect(File(engine.media.absPath(rel)).existsSync(), isTrue);
 
+    // 预置一条密钥，验证清空后随供应商一起保留（否则供应商还在却丢了 Key）。
+    db.execute(
+      "INSERT INTO o_secret (ref,value) "
+      "VALUES ('dramaflow.provider.azt.api-key','sk-keep-me')",
+    );
+
     final providersBefore =
         db.select('SELECT COUNT(*) n FROM o_vendorConfig').first['n'] as int;
     final bindingsBefore = db
@@ -89,9 +95,14 @@ void main() {
     expect(db.select('SELECT COUNT(*) n FROM o_script').first['n'], 0);
     // 媒体文件被删除
     expect(File(engine.media.absPath(rel)).existsSync(), isFalse);
-    // 供应商与绑定配置被保留
+    // 供应商、密钥与绑定配置被保留
     expect(db.select('SELECT COUNT(*) n FROM o_vendorConfig').first['n'],
         providersBefore);
+    expect(
+        db.select(
+                "SELECT value FROM o_secret WHERE ref='dramaflow.provider.azt.api-key'")
+            .single['value'],
+        'sk-keep-me');
     expect(
         db
             .select(
