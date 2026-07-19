@@ -151,3 +151,22 @@ flutter test --concurrency=1 \
 
 关联总清单：`W6B-GEN-REF-001`、`W6E-CMP-STORYCHECK-001`、
 `W6E-LIB-ASSETSEL-001`。
+
+## 独立复验快照（2026-07-19）
+
+当前 `develop` 工作树重新运行了本页列出的跨模块回归：
+
+```bash
+cd app
+flutter test --concurrency=1 \
+  test/widgets/image_flow_editor_test.dart \
+  test/widgets/workbench_screen_test.dart \
+  test/widgets/script_screen_test.dart \
+  test/engine/video_request_test.dart \
+  test/engine/video_track_test.dart
+```
+
+结果为 `151` 条测试全部通过。用例只使用内存 SQLite、临时媒体文件与 fake gateway；
+即使覆盖了视频请求的校验、提交状态、冷启动恢复、取消和重试，也没有连接、提交、轮询
+或下载任何真实视频服务。该证据重新确认了结构化引用、能力限制和本地视频状态机，
+不能填补完整资产库发现、搜索分页或资产绑定音频自动追加这三项选择体验缺口。
