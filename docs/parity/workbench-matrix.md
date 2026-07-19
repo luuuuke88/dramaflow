@@ -34,7 +34,7 @@ DramaFlow 已有一套比原版更重的本地时间线编辑能力：素材层�
 | --- | --- | --- | --- |
 | 打开工作台 | 全屏三页签：快速预览、视频生成、视频剪辑 | 同一全屏页并置分镜生成与时间线 | 部分实现 |
 | 预览分镜首帧 | 按当前镜展示图片；播放、暂停、前后跳镜、分段 seek | 可在分镜画廊看图，但不能按时长连续预览 | 部分实现 |
-| 查看本镜信息 | 显示描述、时长、关联资产和图片提示词 | 分镜行可编辑时长、提示词、配音；没有预览侧栏 | 部分实现 |
+| 查看本镜信息 | 显示时长、关联资产和图片提示词；模板也尝试显示描述，但当前接口遗漏该字段，实际总是空态 | 分镜行可编辑时长、画面描述、提示词、配音；没有预览侧栏 | 部分实现 |
 | 重排分镜 | 拖动只改前端临时列表；原版“恢复排序”初始化有缺陷 | 拖动后持久化 `o_storyboard.index`，合成顺序随之变化 | 覆盖可用行为 |
 | 新建视频轨 | 从模型默认时长创建独立 `o_videoTrack`，不要求关联分镜 | 仅 `ensureTrackForStoryboard`，严格一镜一轨 | 缺失 |
 | 删除视频轨 | 删除轨道并清空关联分镜的 `trackId` | 删除轨道、清候选视频文件并清空关联 | 已验证等价 |
@@ -51,6 +51,28 @@ DramaFlow 已有一套比原版更重的本地时间线编辑能力：素材层�
 DramaFlow 的 `ensureTrackForStoryboard` 则在创建时回填 `o_storyboard.trackId`。两者
 数据模型并不等价。将来补这个缺口时，应新增明确的独立建轨 API/引擎方法和 UI
 入口，不能把某个分镜自动创建后伪装成独立轨。
+
+## 快速预览的数据边界
+
+`preview.vue` 的右侧信息面板写的是 `currentShot.description`，但
+`getStoryboardData.ts` 最终只投影 `id`、`createTime`、`duration`、`filePath`、
+`prompt`、`scriptId`、`characters` 和 `index`。它没有返回 `description`，也没有返回
+`o_storyboard.videoDesc`。因此当前打包版中“分镜描述”一栏会稳定显示“无描述”，并不是
+一个已经可用的描述审阅能力。
+
+这条结论来自同一条真实数据链，而不是只看 Vue 模板：
+
+```text
+o_storyboard.videoDesc
+  └─ getStoryboardData.ts 的最终 return 未投影
+       └─ preview.vue 读取不存在的 currentShot.description
+            └─ noDescription 空态
+```
+
+后续 Flutter 复刻快速预览时，不应为了复制这个断链而隐藏已有的
+`StoryboardRow.videoDesc`。正确边界是：保留原版的首帧轮播、按时长进度、跳镜、资产和
+提示词审阅；把画面描述作为已验证更可用的本地字段展示，并在对应测试中证明其来源。
+这属于“修正原版无效字段”而不是扩展成视频播放器，必须在总清单的实现证据中明确标注。
 
 ## 定向验证
 
