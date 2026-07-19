@@ -142,7 +142,11 @@ General methodology (aligns with the spec's "profile 基准 + 录屏证据"): ru
 - `integration_test/` exists: `golden_path_desktop_test.dart`, `golden_path_navigation_test.dart`, and `composer_audio_smoke_test.dart` boot a real process or exercise the native compositor. They do **not** collect canvas `FrameTiming`, profile scripted pan/zoom, or assert frame budgets.
 - A repository search found no `FrameTiming`, benchmark harness, or canvas FPS assertion under `app/test`, `app/integration_test`, or `app/lib`.
 
-So M1/M2/M4/M5/M7 are new validation work. M6's basic culling correctness is already covered; W1 should retain, not duplicate, that 1,000-node guard. A profile-mode run path must be added only if measured evidence shows the interaction work needs it.
+So M1/M2/M5/M7 remain new profile-validation work. M4 still needs true-device
+feel, inertia, and performance evidence beyond its covered widget semantics.
+M6's basic culling correctness is already covered; W1 should retain, not
+duplicate, that 1,000-node guard. A profile-mode run path must be added only if
+measured evidence shows the interaction work needs it.
 
 ---
 
@@ -166,7 +170,7 @@ The highest-leverage single question W1 profiling should answer first: **does th
 
 ---
 
-## 6. Evidence refresh — 2026-07-19
+## 6. Evidence refresh — 2026-07-20
 
 This refresh reran the canvas-facing widget suite against the current `develop`
 worktree. It is deliberately an interaction regression result, **not** a
@@ -180,7 +184,7 @@ flutter test --concurrency=1 \
   test/widgets/storyboard_canvas_node_test.dart \
   test/widgets/canvas_chat_panel_test.dart
 
-37 tests passed
+61 tests passed
 ```
 
 | Verified by this run | What it proves | What it does not prove |
@@ -198,6 +202,8 @@ passes it only to the main desktop `DFCanvas`. `image_flow_editor.dart` does
 not read the setting, matching ToonFlow's separate edit-image VueFlow. Open
 user-visible deltas remain selection, active-Agent episode-switch confirmation,
 and the default-open production chat. The post-layout `fitView`, persisted
-guide, and Space-held pan are also closed differences. No test above covers the
-W1 frame-time metrics M1/M2/M4/M5/M7, so `W6-PRODUCTION-001` correctly remains **partial** in
+guide, and Space-held pan are also closed differences. Widget tests cover M4's
+mode-selection semantics, but not its real-device feel, inertia, or frame-time
+cost; M1/M2/M5/M7 likewise still lack frame-time evidence. Therefore
+`W6-PRODUCTION-001` correctly remains **partial** in
 [`master-checklist.md`](master-checklist.md).
