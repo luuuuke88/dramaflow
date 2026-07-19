@@ -65,3 +65,25 @@ DramaFlow 在 [`shell.dart`](../../app/lib/src/widgets/shell.dart) 中已经用 
 Manager；当前 Flutter 仅给出未来兼容性警告，未阻塞 CocoaPods Debug 构建。该烟雾验证
 只证明当前应用可编译和呈现首个真实界面，不替代本页尚未完成的不可写数据目录错误边界、
 Dock 生命周期、外部链接覆盖或视频供应商人工验收。
+
+## 独立复验快照（2026-07-19）
+
+本次在当前 `develop` 工作树重新执行了以下只读或本地验证：
+
+```bash
+cd app
+flutter test --concurrency=1
+flutter analyze
+flutter build macos --debug
+cd ..
+node tool/parity/check_no_orphans.js
+```
+
+四项命令均成功；静态分析为 `No issues found`，Debug 包再次生成在
+`app/build/macos/Build/Products/Debug/dramaflow.app`，库存对账为 `538/538`。
+全量测试运行时没有设置 `QA_FULL=1`，因此 `test/qa/full_pipeline_test.dart` 按其
+默认零副作用分支退出；没有调用文本、图片、音频或视频上游，更没有发起真实视频任务。
+
+本次尝试通过 macOS 可访问性树检查刚构建的应用时，系统处于锁屏状态，自动化无法解锁。
+因此这组命令不能作为新的可视化启动证据，也没有改变本页关于 Dock、启动错误边界和
+外部链接的缺口判定；它只重新证明当前代码可测试、可分析、可构建且审计库存未漂移。
