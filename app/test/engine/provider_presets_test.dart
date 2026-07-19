@@ -16,7 +16,8 @@ void main() {
       expect(p.sourceUrl.trim(), isNotEmpty, reason: '${p.id} 缺 sourceUrl（硬门）');
       expect(RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(p.verifiedAt), isTrue,
           reason: '${p.id} verifiedAt 必须 YYYY-MM-DD（硬门）');
-      expect({'openai_compatible', 'volcengine'}.contains(p.protocol), isTrue);
+      expect({'openai_compatible', 'anthropic', 'volcengine'}
+          .contains(p.protocol), isTrue);
       final uri = Uri.parse(p.baseUrl);
       if (p.id == 'azt') {
         expect(uri.host, '127.0.0.1');
@@ -31,10 +32,11 @@ void main() {
     }
   });
 
-  test('兼容模式恰为 anthropic/gemini/xai；acceptanceVerified 初始仅 azt', () {
+  test('Anthropic 走原生协议；兼容模式仅保留 gemini/xai', () {
+    expect(providerPresetById('anthropic')!.protocol, 'anthropic');
     expect(
         kProviderPresets.where((p) => p.compatMode).map((p) => p.id).toSet(),
-        {'anthropic', 'gemini', 'xai'});
+        {'gemini', 'xai'});
     expect(
         kProviderPresets
             .where((p) => p.acceptanceVerified)
@@ -49,6 +51,13 @@ void main() {
     expect(providerPresetById('nope'), isNull);
     expect(presetModelKinds('volcengine').values.toSet(),
         containsAll({'text', 'image', 'video'}));
+  });
+
+  test('xAI 默认模型只保留当前官方目录可核实的型号', () {
+    expect(
+      providerPresetById('xai')!.models.map((model) => model.modelId),
+      ['grok-4.5'],
+    );
   });
 
   test('防漂移：Engine.boot 种子与目录逐字段一致（桌面含 azt，移动不含）', () async {

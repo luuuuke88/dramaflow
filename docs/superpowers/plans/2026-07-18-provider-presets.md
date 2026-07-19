@@ -20,11 +20,13 @@
 
 **已核实执行状态（2026-07-19）**：Task 1–6 的代码已分别落在 `63c84dc`、`2d18c37`、`7d4c31e`/`7ffc380`、`e543c9b`、`05b0ab5`/`8f805c5`、`29b90f4`；它们实现的是预设目录、通用 OpenAI 兼容配置与模型管理体验。Task 7 的正式验收记录已经建立，但除 azt 外均为“待验”；`protocol` 目前仍主要是配置元数据，尚未驱动 Claude/Gemini 等供应商的原生私有协议适配。不能据此把主清单的 `W6D-VENDOR-001` 标为完成。
 
+**v6 协议审查收口（2026-07-19）**：上述“协议仅是元数据”的描述已不再适用于 Anthropic。复审先以 six-case fake gateway 写出失败测试，再加入 `providers/anthropic_text.dart` 与 gateway 分发：文本、强制工具 JSON、Agent 工具、视觉、`/models` 鉴权和连通测试均使用原生 Messages API；预设改为 `protocol: anthropic` 且不再显示“兼容模式”。该项不改变“真实 Key 验收前不可置 acceptanceVerified=true”的规则。Gemini/xAI 仍是 OpenAI 兼容路径；xAI 未经当前官方目录核实的 `grok-4.3` 已从默认预设移除。相关回归：`app/test/engine/anthropic_gateway_test.dart`、`app/test/engine/provider_presets_test.dart`、`app/test/widgets/provider_preset_gallery_test.dart`。
+
 ## Global Constraints
 
 - 模型 ID 硬门：任何模型 ID 未经当日对照 `sourceUrl` 核实（或经该家真实 API 调用验证）**不得写入常量**；核实后必须填 `verifiedAt`（'YYYY-MM-DD'）。目录单测断言两字段非空。
 - 许可证红线：**不复制 ToonFlow `data/vendor/*.ts` 任何代码或文案**。
-- 兼容模式诚实标注：anthropic/gemini/xai 三家 `compatMode: true`，画廊显示"兼容模式"角标。
+- 兼容模式诚实标注：Gemini/xAI 两家 `compatMode: true`，画廊显示"兼容模式"角标；Anthropic 走原生 Messages API，但在真实 Key 验收完成前仍显示“未验证”。
 - 验收诚实标注：`acceptanceVerified` 仅在人工验收表（Task 7）留下证据行后方可置 true；false 的预设画廊显示"未验证"角标。初始仅 azt 为 true（证据见 Task 7）。
 - 新 UI 文案一律三语（zh/en/ja）。模板 arb 是 `app/lib/l10n/app_zh.arb`，改后跑 `flutter gen-l10n`，`untranslated.txt` 必须为空。
 - 原子创建语义：重复创建**不写凭证**（结构上：凭证写在 INSERT 成功之后）；凭证写失败删除刚 INSERT 的行；无"建了供应商没模型"中间态。
@@ -100,10 +102,15 @@ void main() {
     }
   });
 
-  test('兼容模式恰为 anthropic/gemini/xai；acceptanceVerified 初始仅 azt', () {
+  test('兼容模式恰为 gemini/xai；Anthropic 使用原生协议', () {
     expect(
         kProviderPresets.where((p) => p.compatMode).map((p) => p.id).toSet(),
-        {'anthropic', 'gemini', 'xai'});
+        {'gemini', 'xai'});
+    expect(
+        kProviderPresets
+            .singleWhere((preset) => preset.id == 'anthropic')
+            .protocol,
+        'anthropic');
     expect(
         kProviderPresets
             .where((p) => p.acceptanceVerified)
@@ -1998,7 +2005,7 @@ Expected: 0 issues；全套件 PASS。失败先修再继续。
 | azt | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | ✅ 2026-07-18 | gpt-5.6-luna 文本+工具链路：macOS/iOS golden-path e2e 全流程（建项目→剧本→分镜表均真实调用，`.superpowers/sdd/progress.md` P0 Task 4 与"早晨总结"条目）；gpt-image-2 1024 图片 26.7s：`/tmp/p0-azt-smoke.txt`；/v1/models 当日实测返回 gpt-5.6 系列 |
 | volcengine | 待验 | 待验 | 待验 | 待验 | 今晚视频生成被明确搁置，无真实调用证据 → acceptanceVerified=false，画廊显示"未验证" |
 | openai | 待验 | 待验 | 待验(gpt-image-2) | 待验 | |
-| anthropic（兼容模式） | 待验 | 待验 | 无图片 | 待验 | |
+| anthropic（原生 Messages API） | 待验 | 待验 | 无图片 | 待验 | 本地假网关覆盖文本、工具 JSON、Agent 工具、视觉、`/models` 鉴权及连通测试；真实 Key 验收前保持未验证。 |
 | gemini（兼容模式） | 待验 | 待验 | 无图片(协议后补) | 待验 | |
 | xai（兼容模式） | 待验 | 待验 | 无图片 | 待验 | |
 | openrouter | 待验 | 待验 | 无图片 | 待验 | |

@@ -22,7 +22,7 @@ class ProviderPreset {
   final String name;
   final String baseUrl;
   final String keyUrl;
-  final String protocol; // openai_compatible | volcengine
+  final String protocol; // openai_compatible | anthropic | volcengine
   final bool compatMode;
   final bool desktopOnly;
   final bool acceptanceVerified; // 仅当 Task 7 验收表有证据行才可 true
@@ -95,7 +95,7 @@ final kProviderPresets = <ProviderPreset>[
     name: 'Claude (Anthropic)',
     baseUrl: 'https://api.anthropic.com/v1',
     keyUrl: 'https://console.anthropic.com/settings/keys',
-    compatMode: true,
+    protocol: 'anthropic',
     sourceUrl:
         'https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions',
     verifiedAt: '2026-07-18', // WebFetch 核实：sonnet-5/opus-4-8/haiku-4-5（官方别名）均在列，原样确认
@@ -125,10 +125,9 @@ final kProviderPresets = <ProviderPreset>[
     keyUrl: 'https://console.x.ai',
     compatMode: true,
     sourceUrl: 'https://docs.x.ai/developers/models',
-    verifiedAt: '2026-07-18', // WebFetch 核实：grok-4.5/grok-4.3 均在定价表在列，原样确认
+    verifiedAt: '2026-07-19', // 官方 models 页当前只列 grok-4.5；其他型号由用户按自身账号可见列表手动添加
     models: [
       PresetModel('grok-4.5', 'text'),
-      PresetModel('grok-4.3', 'text'),
     ],
   ),
   const ProviderPreset(

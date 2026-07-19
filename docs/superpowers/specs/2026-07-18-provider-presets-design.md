@@ -16,7 +16,7 @@ DramaFlow 现状：添加供应商是一个裸表单（名称/BaseURL/API Key �
 
 ## 3. 数据模型
 
-新增 `app/lib/src/engine/provider_presets.dart`，纯 Dart 常量目录。**数据库 schema（`o_vendorConfig`）、现有引擎 API、协议层零改动。**
+新增 `app/lib/src/engine/provider_presets.dart`，纯 Dart 常量目录。原始设计假定协议层零改动；2026-07-19 的实施复审已为 Anthropic 增加原生 Messages API 分发与 fake-gateway 合同测试，数据库 schema 和既有供应商 CRUD API 仍不改动。
 
 ```dart
 class ProviderPreset {
@@ -24,8 +24,8 @@ class ProviderPreset {
   final String name;          // 品牌名，不翻译（DeepSeek、Kimi 等中文名直接写）
   final String baseUrl;       // 预填端点
   final String keyUrl;        // "前往平台"拿 Key 的控制台链接
-  final String protocol;      // 第一期均为 'openai_compatible'（火山为 'volcengine'）
-  final bool compatMode;      // true = 走官方 OpenAI 兼容层而非原生 API（Claude/Gemini/Grok），
+  final String protocol;      // 'openai_compatible' | 'anthropic' | 'volcengine'
+  final bool compatMode;      // true = 走官方 OpenAI 兼容层而非原生 API（当前为 Gemini/xAI），
                               // 画廊卡片显示"兼容模式"角标，不暗示完整原生能力
   final bool desktopOnly;     // true = iOS/Android 画廊不展示（本机 loopback 预设）
   final String sourceUrl;     // 模型清单出处（官方模型文档页）
@@ -54,9 +54,9 @@ class PresetModel {
 | # | id | 名称 | BaseURL | 预置模型（kind）——写入常量前逐条过 §3 硬门 |
 |---|---|---|---|---|
 | 1 | openai | OpenAI | https://api.openai.com/v1 | GPT-5.6 系（sol/terra/luna，text）、gpt-image-2(image)；出处 developers.openai.com/api/docs/models |
-| 2 | anthropic | Claude (Anthropic) | https://api.anthropic.com/v1 | claude-sonnet-5(text)、claude-opus-4-8(text)、claude-haiku-4-5(text)；**兼容模式** |
+| 2 | anthropic | Claude (Anthropic) | https://api.anthropic.com/v1 | claude-sonnet-5(text)、claude-opus-4-8(text)、claude-haiku-4-5(text)；**原生 Messages API** |
 | 3 | gemini | Gemini (Google) | https://generativelanguage.googleapis.com/v1beta/openai | gemini-3.5-flash(text) 及当期 pro 型号；**兼容模式**（官方标 beta）；图片走原生 API，待协议后补 |
-| 4 | xai | Grok (xAI) | https://api.x.ai/v1 | Grok 4.3/4.5 当期型号(text)；**兼容模式**（Chat Completions 已被 xAI 标 legacy） |
+| 4 | xai | Grok (xAI) | https://api.x.ai/v1 | grok-4.5(text)；**兼容模式**（Chat Completions 已被 xAI 标 legacy；未核实的 grok-4.3 不进入默认目录） |
 | 5 | openrouter | OpenRouter | https://openrouter.ai/api/v1 | anthropic/claude-sonnet-5(text)、google/gemini-3-pro(text) 等当期热门(text) |
 | 6 | siliconflow | 硅基流动 | https://api.siliconflow.cn/v1 | deepseek-ai/DeepSeek-V3.2(text)、Qwen/Qwen3-Max(text)、Kwai-Kolors/Kolors(image) |
 | 7 | deepseek | DeepSeek | https://api.deepseek.com/v1 | deepseek-chat(text)、deepseek-reasoner(text) |
@@ -69,9 +69,9 @@ class PresetModel {
 
 keyUrl 每家指向其控制台 API Key 页（如 platform.openai.com/api-keys、console.anthropic.com、aistudio.google.com/apikey 等，实施时逐一核实链接有效）。
 
-**兼容模式的诚实标注**：Anthropic 官方明确其 OpenAI 兼容层"主要用于测试比较，非长期生产方案"；Gemini 兼容层官方标 beta；xAI 已把 Chat Completions 标 legacy。这三家画廊卡片显示"兼容模式"角标（`compatMode: true`），文案不得暗示完整原生能力；这也是"协议后补"阶段的优先级依据。
+**兼容模式的诚实标注**：Anthropic 已于 2026-07-19 改走原生 Messages API，不显示“兼容模式”角标。Gemini 兼容层官方标 beta，xAI 已把 Chat Completions 标 legacy；这两家保持 `compatMode: true`，文案不得暗示完整原生能力。
 
-**每家预设的验收标准**（不是"模型出现在 /models 就算通"——现有引擎文本恒走 `/chat/completions` 且携带 `tools/tool_choice/max_completion_tokens`，openai_text.dart:64）：
+**每家预设的验收标准**（不是“模型出现在 /models 就算通”）：按该家的实际协议验证普通文本、强制工具 JSON、已声明的图片能力与模型列表。OpenAI 兼容供应商使用 `/chat/completions`；Anthropic 使用 `/messages`，且工具 schema 为 `input_schema`。
 1. 普通文本生成真实调用通过；
 2. 强制工具调用/结构化 JSON 输出通过（剧本、事件抽取、Agent 全依赖此路径）；
 3. 声称有"图片"角标的，图片生成与编辑真实调用通过——不通过则该家不显示图片能力；
@@ -98,21 +98,22 @@ keyUrl 每家指向其控制台 API Key 页（如 platform.openai.com/api-keys�
   2. 无冲突后写凭证、INSERT 供应商与模型（同一调用内完成，不存在"建了供应商没模型"的半成品窗口）；
   3. INSERT 失败时删除刚写入的新凭证再抛错，不留孤儿凭证。
 - 新增 `fetchRemoteModelCandidates(providerId)`：gateway 层小函数，dio 调 `GET /models`、解析 `data[].id`，**只返回候选列表不写库**（写库由 UI 在用户定 kind 后走现有 `saveProviderModels`）。仅此一个新网络调用。
-- 不改：数据库 schema、现有 `createProvider`/`saveProviderModels` 签名（自定义路径继续用）、协议分发、种子逻辑。
+- 不改：数据库 schema、现有 `createProvider`/`saveProviderModels` 签名（自定义路径继续用）、种子逻辑。实施修订：为 Anthropic 新增原生协议分发；其他私有协议仍需先有对应 adapter 和 fake-gateway 回归才可声明支持。
 
 ## 7. 测试计划
 
-- **目录单测**（`provider_presets_test.dart`）：12 家预设 id 唯一（custom 是 UI 入口不进目录常量）；URL 均为合法 https（azt 例外允许 http loopback）；每家 protocol ∈ {openai_compatible, volcengine}；模型清单非空且 kind ∈ {text,image,video,tts}；keyUrl 非空；**verifiedAt/sourceUrl 非空**（§3 硬门的机器锁）。
+- **目录单测**（`provider_presets_test.dart`）：12 家预设 id 唯一（custom 是 UI 入口不进目录常量）；URL 均为合法 https（azt 例外允许 http loopback）；每家 protocol ∈ {openai_compatible, anthropic, volcengine}；模型清单非空且 kind ∈ {text,image,video,tts}；keyUrl 非空；**verifiedAt/sourceUrl 非空**（§3 硬门的机器锁）。
 - **`createProviderFromPreset` 单测**：重复创建 → 抛"已添加"且断言旧凭证值未变（直击 P0 缺陷场景）；INSERT 失败注入 → 断言新凭证被回滚删除；正常路径 → 供应商+模型一次到位无中间态。
-- **画廊 widget 测试**：390px 与桌面各渲染一遍，并显式模拟 iOS；桌面断言 12 预设卡 + 自定义卡齐全，iOS/Android 断言 `desktopOnly` 的 azt 不出现；能力角标正确、兼容模式角标只出现在 anthropic/gemini/xai、已存在实例的卡显示"已添加"并进编辑。
+- **画廊 widget 测试**：390px 与桌面各渲染一遍，并显式模拟 iOS；桌面断言 12 预设卡 + 自定义卡齐全，iOS/Android 断言 `desktopOnly` 的 azt 不出现；能力角标正确、兼容模式角标只出现在 gemini/xai、Anthropic 显示“未验证”但不显示“兼容模式”、已存在实例的卡显示"已添加"并进编辑。
 - **预填流程测试**：选中某预设 → 断言表单 BaseURL/模型清单与目录一致、Key 框 obscureText 且可切换明文；填 Key 保存 → 断言 in-memory 引擎里真实建出供应商与模型（含 kind/capabilities）。
 - **自定义回归**：现有添加供应商测试不改动、继续绿。
 - **拉取候选单测**：mock 网络层——候选不落库；目录内 ID 自动带 kind；未知 ID 标未分类且不能不选 kind 就保存；已有条目不被覆盖；端点 404/超时报错不崩。
+- **Anthropic 合同回归**（`anthropic_gateway_test.dart`）：fake Dio 覆盖文本、工具 JSON、Agent 工具、视觉、`/models` 鉴权与连通测试；不以本地 fake 测试替代真实 Key 验收。
 - **每家真实连通验收**（人工/env-gated，需真实 Key，不进默认 CI）：按 §4 验收标准逐家过文本、工具调用/JSON、图片（如声称）、/models 四项。
 
 ## 8. 范围外（明确不做）
 
-- Anthropic/Gemini 原生协议适配器（思考预算、Gemini 原生图片）——协议后补阶段。
+- Gemini 原生协议/图片适配器，以及 Anthropic 的思考预算和原生 tool_result 往返——协议后补阶段。
 - 可灵、Vidu、MiniMax 等视频供应商预设——等视频协议扩展后上架（避免灰显占位噪音）。
 - 品牌 logo 素材、远程可更新的预设目录（常量目录 + 拉取模型按钮已够）。
 - 供应商启用/禁用开关的 ToonFlow 式双栏重构——现有卡片列表不动。

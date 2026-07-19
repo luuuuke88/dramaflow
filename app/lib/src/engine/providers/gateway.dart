@@ -11,6 +11,7 @@ import '../media.dart';
 import '../util.dart';
 import 'openai_text.dart';
 import 'openai_vision.dart';
+import 'anthropic_text.dart';
 import 'openai_image.dart';
 import 'openai_tts.dart';
 import 'resolve.dart';
@@ -145,6 +146,10 @@ class HttpProviderGateway
   Future<TextResult> generateText(String system, String user,
       {required String stage, CancelToken? cancelToken}) async {
     final model = await resolveStage(db, credentials, stage);
+    if (model.protocol == 'anthropic') {
+      return anthropicGenerateText(dio, model, system, user,
+          cancelToken: cancelToken);
+    }
     return openaiGenerateText(dio, model, system, user,
         cancelToken: cancelToken);
   }
@@ -157,6 +162,10 @@ class HttpProviderGateway
     CancelToken? cancelToken,
   }) async {
     final model = await resolveStage(db, credentials, stage);
+    if (model.protocol == 'anthropic') {
+      return anthropicAnalyzeImage(dio, model, prompt, imageAbsPath,
+          cancelToken: cancelToken);
+    }
     return openaiAnalyzeImage(dio, model, prompt, imageAbsPath,
         cancelToken: cancelToken);
   }
@@ -171,6 +180,10 @@ class HttpProviderGateway
     CancelToken? cancelToken,
   }) async {
     final model = await resolveStage(db, credentials, stage);
+    if (model.protocol == 'anthropic') {
+      return anthropicGenerateToolJson(dio, model, system, user,
+          toolName: toolName, schema: schema, cancelToken: cancelToken);
+    }
     return openaiGenerateToolJson(dio, model, system, user,
         toolName: toolName, schema: schema, cancelToken: cancelToken);
   }
@@ -184,6 +197,10 @@ class HttpProviderGateway
     CancelToken? cancelToken,
   }) async {
     final model = await resolveAssistantStage(db, credentials, stage);
+    if (model.protocol == 'anthropic') {
+      return anthropicGenerateAgentTurn(dio, model, system, messages, tools,
+          cancelToken: cancelToken);
+    }
     return openaiGenerateAgentTurn(dio, model, system, messages, tools,
         cancelToken: cancelToken);
   }
@@ -329,6 +346,8 @@ class HttpProviderGateway
         (inputValues['credentialRef'] ?? providerCredentialRef(providerId))
             .toString();
     final isLoopback = isLoopbackBaseUrl(baseUrl);
+    final protocol =
+        (inputValues['protocol'] ?? 'openai_compatible').toString();
     var apiKey = '';
     try {
       apiKey = await credentials.read(credentialRef) ?? '';
@@ -346,7 +365,11 @@ class HttpProviderGateway
         '$baseUrl/models',
         options: Options(
           headers: {
-            if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey',
+            if (protocol == 'anthropic') ...{
+              'x-api-key': apiKey,
+              'anthropic-version': anthropicApiVersion,
+            } else if (apiKey.isNotEmpty)
+              'Authorization': 'Bearer $apiKey',
           },
           receiveTimeout: const Duration(seconds: 20),
         ),
@@ -396,7 +419,13 @@ class HttpProviderGateway
   Future<int> testTextModel(ResolvedModel model,
       {CancelToken? cancelToken}) async {
     final sw = Stopwatch()..start();
-    await openaiGenerateText(dio, model, '', '只回复OK', cancelToken: cancelToken);
+    if (model.protocol == 'anthropic') {
+      await anthropicGenerateText(dio, model, '', '只回复OK',
+          cancelToken: cancelToken);
+    } else {
+      await openaiGenerateText(dio, model, '', '只回复OK',
+          cancelToken: cancelToken);
+    }
     sw.stop();
     return sw.elapsedMilliseconds;
   }

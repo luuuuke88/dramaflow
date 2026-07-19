@@ -148,6 +148,12 @@ DramaFlow 已拥有短剧生产主链路的一部分可靠底座，但还不是 
 
 视频协议当前只实现火山 Seedance。模型编辑层、正式 HTTP 网关和设置页的 `testVideoModel` 连通测试均拒绝非 `volcengine` 的 video 模型，且拒绝发生在任何 HTTP 请求之前；这不是减少视频能力，而是防止将 OpenAI 兼容供应商误按 Seedance 任务格式调用。未来接入新的视频供应商时，必须先实现对应的提交、轮询、取消和连通测试适配器，以及 fake-gateway 回归，再开放该协议的 video 类型。自动化证据：`app/test/engine/provider_preset_create_test.dart`、`app/test/engine/engine_facade_test.dart`、`app/test/engine/providers_test.dart` 与 `app/test/widgets/settings_screen_test.dart`；没有发起真实视频、图像或文本生成。
 
+### 最近核验：Claude 原生协议闭环
+
+2026-07-19 已将 Anthropic 预设从错误的“OpenAI 兼容模式”改为原生 `anthropic` 协议。网关对普通文本、强制工具 JSON、Agent 工具调用、参考图视觉理解、`/models` 鉴权和文本连通测试分别走 Messages API 规定的 `x-api-key`、`anthropic-version`、顶层 `system` 与 `tools[].input_schema` 格式；六条 fake-Dio 回归都断言请求不会落到 `/chat/completions`。xAI 的过期 `grok-4.3` 预设模型也已移除，仅保留当前目录可核实的 `grok-4.5`。
+
+这不是云端验收：所有验证均在进程内假网关完成，未发起真实文本、图像或视频请求，Anthropic 画廊卡仍显示“未验证”。另外，当前 Agent 历史仍以现有的文本化工具结果接口传递上下文，尚未形成 Anthropic 原生 `tool_use_id` / `tool_result` 往返；这属于 Agent 完整协议对齐的后续缺口，不能借本轮适配宣称全量原生代理等价。证据见 `app/test/engine/anthropic_gateway_test.dart`、`app/test/engine/provider_presets_test.dart` 与 `app/test/widgets/provider_preset_gallery_test.dart`。
+
 ### 最近核验：首次启动引导
 
 2026-07-19 已补齐欢迎页、中文/英文/日文切换、三步引导、供应商/模型绑定深链、返回引导以及本机一次性完成状态；390dp 路由回归还修正了底部操作栏的窄屏溢出。该功能仍是“部分实现”：原版第二步的完整 Agent 配置面未具备，不能因引导壳已出现而把相关 Agent 能力标绿。证据见 `app/test/engine/onboarding_test.dart`、`app/test/widgets/first_run_guide_test.dart` 和 `app/test/widgets/onboarding_router_test.dart`。

@@ -34,7 +34,7 @@ Finder _inCard(String presetId, String text) => find.descendant(
     of: find.byKey(Key('preset-card-$presetId')), matching: find.text(text));
 
 void main() {
-  testWidgets('手机宽度：卡片、兼容模式+未验证双角标、选中回传', (tester) async {
+  testWidgets('手机宽度：卡片、原生 Anthropic 未验证角标、选中回传', (tester) async {
     tester.view.physicalSize = const Size(390, 760);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -46,9 +46,9 @@ void main() {
     // openai 未过验收 → 未验证；非兼容模式 → 无兼容模式角标
     expect(_inCard('openai', '未验证'), findsOneWidget);
     expect(_inCard('openai', '兼容模式'), findsNothing);
-    // anthropic 双角标
+    // Anthropic 已有原生协议，尚未做真实 Key 验收，因此仅显示未验证。
     expect(_inCard('anthropic', '未验证'), findsOneWidget);
-    expect(_inCard('anthropic', '兼容模式'), findsOneWidget);
+    expect(_inCard('anthropic', '兼容模式'), findsNothing);
 
     await tester.tap(find.byKey(const Key('preset-card-openai')));
     await tester.pumpAndSettle();
