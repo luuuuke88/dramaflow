@@ -16,6 +16,8 @@
 - Interaction reduction applies only to the desktop main production `DFCanvas`; mobile settings remain editable and explain the desktop-only canvas effect. `image_flow_editor.dart` remains untouched.
 - While active, only node content loses pointer/ticker activity; drag handles and background gestures must continue working. Recovery is exactly 150ms after the final interaction.
 - All UI strings must exist in zh/en/ja and fit at 390dp. Tests use fake Dio/local fixtures only. Do not invoke text, image, TTS, or video providers.
+- Remove the opt-in real-AZT QA harness from `app/test/` before feature work;
+  `QA_FULL=1` must never turn an automated test into a paid provider call.
 - Do not stage `.superpowers/sdd/progress.md` or `docs/superpowers/acceptance/`.
 
 ---
@@ -30,6 +32,55 @@
 - Modify `app/lib/src/screens/settings_screen.dart` plus `app/lib/l10n/app_{zh,en,ja}.arb` and generated localization files: numeric timeout field, canvas performance toggle, and responsive labels.
 - Modify `app/test/engine/config_test.dart`, `app/test/engine/providers_test.dart`, `app/test/widgets/df_widgets_test.dart`, and `app/test/widgets/settings_screen_test.dart`.
 - Modify `docs/parity/settings-module-matrix.md`, `docs/parity/master-checklist.md`, `docs/parity/w1-canvas-reference.md`, and `docs/parity/feature-parity-execution-report.md` after verified execution.
+
+## Task 0: Remove the Opt-in Live Provider Test
+
+**Files:**
+- Delete: `app/test/qa/full_pipeline_test.dart`
+
+**Interfaces:**
+- Removes the only `flutter test` entry point whose `QA_FULL=1` environment
+  variable can call local AZT/OAuth services. No application production code
+  changes and no replacement test calls an external service.
+
+- [ ] **Step 1: Confirm the live-call trigger before deleting it**
+
+Run:
+
+```sh
+cd app
+rg -n "QA_FULL|real azt calls|127\\.0\\.0\\.1:8787" test/qa/full_pipeline_test.dart
+```
+
+Expected: the file documents `QA_FULL=1`, binds AZT models, and starts with a
+real-provider test name.
+
+- [ ] **Step 2: Delete the opt-in harness**
+
+Remove `test/qa/full_pipeline_test.dart` completely. Do not move its real
+requests to another Dart test, integration-test target, or CI script. The user
+will perform any paid provider acceptance in the packaged App.
+
+- [ ] **Step 3: Verify the automated test tree has no live QA switch**
+
+Run:
+
+```sh
+cd app
+test ! -e test/qa/full_pipeline_test.dart
+! rg -n "QA_FULL|qa full pipeline with real azt calls" test
+flutter test --concurrency=1
+```
+
+Expected: both shell assertions succeed and the complete fake/local test suite
+passes without a live model call.
+
+- [ ] **Step 4: Commit Task 0**
+
+```sh
+git add -u app/test/qa/full_pipeline_test.dart
+git commit -m "test(qa): remove opt-in live provider harness"
+```
 
 ## Task 1: Persisted Timeout and Explicit Generic Request Policy
 

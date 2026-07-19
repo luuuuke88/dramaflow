@@ -98,6 +98,11 @@ main VueFlow.
 
 ## Tests and Verification
 
+- The opt-in `app/test/qa/full_pipeline_test.dart` real-AZT harness is removed
+  from the automated test tree. Its `QA_FULL=1` switch can otherwise make a
+  test spend text and image quota. Real-provider acceptance belongs to the
+  user's manual packaged-App workflow, never an environment-variable branch
+  inside `flutter test`.
 - Engine configuration tests prove defaults, persistence, rejected/normalized
   sub-10 input, and ordinary config exports contain the two non-secret values.
 - Fake-Dio adapter tests inspect the `receiveTimeout` used for generic OpenAI
@@ -113,4 +118,3 @@ main VueFlow.
   report. These two settings become verified only after source links and exact
   command evidence are recorded; unrelated canvas performance profiling stays
   explicitly open.
-
