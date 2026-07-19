@@ -155,6 +155,34 @@ void main() {
     expect(rows.map((r) => r.index), [1, 2], reason: '删除后重排剩余序号');
   });
 
+  test('单条删除分镜会清理图片流和已空视频轨', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '待删除镜头',
+    );
+    db.execute("INSERT INTO o_imageFlow (flowData) VALUES ('{}')");
+    final flowId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_videoTrack (projectId,scriptId,state) VALUES (?,?,?)',
+      [projectId, scriptId, '未生成'],
+    );
+    final trackId = db.lastInsertRowId;
+    db.execute(
+      'UPDATE o_storyboard SET flowId=?,trackId=? WHERE id=?',
+      [flowId, trackId, storyboardId],
+    );
+
+    engine.deleteStoryboards([storyboardId]);
+
+    expect(
+        db.select('SELECT id FROM o_imageFlow WHERE id=?', [flowId]), isEmpty,
+        reason: 'ToonFlow removeFrame 会随分镜删除图片编辑流程');
+    expect(
+        db.select('SELECT id FROM o_videoTrack WHERE id=?', [trackId]), isEmpty,
+        reason: 'ToonFlow removeFrame 会删除只属于该镜头的空轨');
+  });
+
   test('前插语义：insertAfterIndex=目标index-1 使新镜头排到目标之前', () {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头1');
@@ -263,8 +291,8 @@ notes
 | 提示C | 描述C | 3 | yes |
 | 提示D | 描述D | 3 | Y |
 ''');
-    expect(looseTrue.map((s) => s.shouldGenerateImage),
-        [true, true, true, true]);
+    expect(
+        looseTrue.map((s) => s.shouldGenerateImage), [true, true, true, true]);
 
     final looseFalse = engine.parseStoryboardTable('''
 | 画面提示词 | 画面描述 | 时长 | 生成首帧 |
@@ -510,6 +538,10 @@ notes
     }
     db.execute(
         'UPDATE o_storyboard SET filePath=? WHERE id=?', [oldImageRel, oldId]);
+    db.execute("INSERT INTO o_imageFlow (flowData) VALUES ('{}')");
+    final oldFlowId = db.lastInsertRowId;
+    db.execute(
+        'UPDATE o_storyboard SET flowId=? WHERE id=?', [oldFlowId, oldId]);
     db.execute(
       'INSERT INTO o_videoTrack (projectId,scriptId,state) VALUES (?,?,?)',
       [projectId, scriptId, '已完成'],
@@ -543,6 +575,9 @@ notes
     );
     await waitTask(failed, expectState: 'failed');
     expect(engine.storyboards(scriptId).single.id, oldId);
+    expect(db.select('SELECT id FROM o_imageFlow WHERE id=?', [oldFlowId]),
+        isNotEmpty,
+        reason: '替换验证失败时不能提前删除旧分镜的图片流');
     expect(File(engine.media.absPath(oldImageRel)).existsSync(), isTrue);
     expect(File(engine.media.absPath(oldVideoRel)).existsSync(), isTrue);
     expect(
@@ -573,6 +608,9 @@ notes
         isEmpty);
     expect(db.select('SELECT id FROM o_video WHERE scriptId=?', [scriptId]),
         isEmpty);
+    expect(db.select('SELECT id FROM o_imageFlow WHERE id=?', [oldFlowId]),
+        isEmpty,
+        reason: '原子替换成功后不能遗留旧分镜的图片流');
     expect(
         db.select('SELECT id FROM o_timelineClip WHERE scriptId=?', [scriptId]),
         isEmpty);

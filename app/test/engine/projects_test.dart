@@ -266,6 +266,43 @@ void main() {
     expect(
         Directory(p.join(dir.path, 'media', '$otherId')).existsSync(), isFalse);
   });
+
+  test('deleteProject 会清理该项目资产和分镜的图片编辑流程', () {
+    final projectId = engine.addProject(projectType: 'series', name: '待删除');
+    db.execute(
+      'INSERT INTO o_script (projectId,name,content) VALUES (?,?,?)',
+      [projectId, '第一集', 'x'],
+    );
+    final scriptId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_assets (projectId,scriptId,name,type) VALUES (?,?,?,?)',
+      [projectId, scriptId, '角色', 'role'],
+    );
+    final assetId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_storyboard (projectId,scriptId,"index",prompt) '
+      'VALUES (?,?,?,?)',
+      [projectId, scriptId, 1, '镜头'],
+    );
+    final storyboardId = db.lastInsertRowId;
+    db.execute("INSERT INTO o_imageFlow (flowData) VALUES ('{}')");
+    final assetFlowId = db.lastInsertRowId;
+    db.execute("INSERT INTO o_imageFlow (flowData) VALUES ('{}')");
+    final storyboardFlowId = db.lastInsertRowId;
+    db.execute(
+        'UPDATE o_assets SET flowId=? WHERE id=?', [assetFlowId, assetId]);
+    db.execute('UPDATE o_storyboard SET flowId=? WHERE id=?',
+        [storyboardFlowId, storyboardId]);
+
+    engine.deleteProject(projectId);
+
+    expect(
+      db.select('SELECT id FROM o_imageFlow WHERE id IN (?,?)',
+          [assetFlowId, storyboardFlowId]),
+      isEmpty,
+      reason: '项目删除不能留下已失主的图片编辑流程',
+    );
+  });
 }
 
 int _count(Database db, String table, int projectId) {

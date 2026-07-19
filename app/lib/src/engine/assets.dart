@@ -12,6 +12,7 @@ import 'package:sqlite3/sqlite3.dart' show Row;
 
 import 'engine.dart';
 import 'errors.dart';
+import 'image_flow_cleanup.dart';
 import 'manuals.dart';
 import 'prompt_resolver.dart';
 import 'queue.dart';
@@ -462,6 +463,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       all.add(r['id'] as int);
     }
     final allList = all.toList();
+    final flowIds = imageFlowIdsForAssets(db, allList);
     for (final r in db.select(
       'SELECT filePath FROM o_image WHERE assetsId IN (${_ph(allList)}) '
       'AND filePath IS NOT NULL',
@@ -474,7 +476,11 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         'DELETE FROM o_image WHERE assetsId IN (${_ph(allList)})', allList);
     db.execute('DELETE FROM o_scriptAssets WHERE assetId IN (${_ph(allList)})',
         allList);
+    db.execute(
+        'DELETE FROM o_assets2Storyboard WHERE assetId IN (${_ph(allList)})',
+        allList);
     db.execute('DELETE FROM o_assets WHERE id IN (${_ph(allList)})', allList);
+    clearUnreferencedImageFlows(db, flowIds);
   }
 
   // ───────── 音频资产 ─────────
@@ -532,6 +538,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         .map((r) => r['id'] as int)
         .toList();
     if (oldChildren.isNotEmpty) {
+      final flowIds = imageFlowIdsForAssets(db, oldChildren);
       for (final r in db.select(
         'SELECT id,filePath FROM o_image WHERE assetsId IN (${_ph(oldChildren)})',
         oldChildren,
@@ -544,8 +551,13 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         }
         db.execute('DELETE FROM o_image WHERE id=?', [r['id']]);
       }
+      db.execute(
+        'DELETE FROM o_assets2Storyboard WHERE assetId IN (${_ph(oldChildren)})',
+        oldChildren,
+      );
       db.execute('DELETE FROM o_assets WHERE id IN (${_ph(oldChildren)})',
           oldChildren);
+      clearUnreferencedImageFlows(db, flowIds);
     }
     _writeAudioItems(projectId, parentId, items);
   }

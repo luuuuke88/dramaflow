@@ -9,11 +9,13 @@ import 'package:sqlite3/sqlite3.dart' show Row;
 
 import 'engine.dart';
 import 'errors.dart';
+import 'image_flow_cleanup.dart';
 import 'production_dependencies.dart';
 import 'prompt_resolver.dart';
 import 'queue.dart';
 import 'script_plan.dart';
 import 'storyboard_table.dart';
+import 'video_track.dart' show VideoTrackApi;
 
 const sbNotGenerated = '未生成';
 const sbGenerating = '生成中';
@@ -337,6 +339,18 @@ extension StoryboardApi on Engine {
   void deleteStoryboards(List<int> ids) {
     if (ids.isEmpty) return;
     final ph = _ph(ids);
+    final flowIds = imageFlowIdsForStoryboards(db, ids);
+    final trackIds = ids.length == 1
+        ? db
+            .select(
+              'SELECT trackId FROM o_storyboard WHERE id IN ($ph) '
+              'AND trackId IS NOT NULL',
+              ids,
+            )
+            .map((row) => row['trackId'] as int)
+            .toSet()
+            .toList()
+        : const <int>[];
     final scriptIds = db
         .select(
             'SELECT DISTINCT scriptId FROM o_storyboard WHERE id IN ($ph)', ids)
@@ -352,6 +366,16 @@ extension StoryboardApi on Engine {
     db.execute(
         'DELETE FROM o_assets2Storyboard WHERE storyboardId IN ($ph)', ids);
     db.execute('DELETE FROM o_storyboard WHERE id IN ($ph)', ids);
+    clearUnreferencedImageFlows(db, flowIds);
+    // 对齐 ToonFlow removeFrame：单镜删除后，若其轨道已空则一并移除。
+    // 批量删除保持 batchDelete 的原始语义，不主动删除空轨。
+    for (final trackId in trackIds) {
+      final hasStoryboard = db.select(
+        'SELECT id FROM o_storyboard WHERE trackId=? LIMIT 1',
+        [trackId],
+      );
+      if (hasStoryboard.isEmpty) deleteVideoTrack(trackId);
+    }
     for (final scriptId in scriptIds) {
       final remaining = db.select(
         'SELECT id FROM o_storyboard WHERE scriptId=? ORDER BY "index" ASC',
@@ -783,7 +807,13 @@ extension StoryboardApi on Engine {
     }
 
     final oldMediaPaths = <String>{};
+    final oldStoryboardIds = <int>[];
+    final oldFlowIds = <int>[];
     if (replaceExisting) {
+      oldStoryboardIds.addAll(db.select(
+          'SELECT id FROM o_storyboard WHERE scriptId=?',
+          [scriptId]).map((row) => row['id'] as int));
+      oldFlowIds.addAll(imageFlowIdsForStoryboards(db, oldStoryboardIds));
       for (final row in db.select(
         'SELECT filePath FROM o_storyboard WHERE scriptId=? '
         'AND filePath IS NOT NULL',
@@ -810,6 +840,7 @@ extension StoryboardApi on Engine {
           [scriptId],
         );
         db.execute('DELETE FROM o_storyboard WHERE scriptId=?', [scriptId]);
+        clearUnreferencedImageFlows(db, oldFlowIds);
         db.execute('DELETE FROM o_video WHERE scriptId=?', [scriptId]);
         db.execute('DELETE FROM o_videoTrack WHERE scriptId=?', [scriptId]);
         db.execute('DELETE FROM o_timelineClip WHERE scriptId=?', [scriptId]);

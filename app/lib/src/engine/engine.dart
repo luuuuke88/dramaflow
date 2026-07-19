@@ -17,6 +17,7 @@ import 'db.dart';
 import 'errors.dart';
 import 'events.dart';
 import 'event_cleanup.dart';
+import 'image_flow_cleanup.dart';
 import 'media.dart';
 import 'providers/gateway.dart';
 import 'providers/resolve.dart';
@@ -995,7 +996,8 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
 
   /// 项目进入制作前的本地准入检查。只解析已保存的模型绑定，不触发供应商请求。
   Future<bool> projectModelsAvailable(ProjectRow project) async {
-    final imageReady = await _projectModelAvailable(project.imageModel, 'image');
+    final imageReady =
+        await _projectModelAvailable(project.imageModel, 'image');
     if (!imageReady) return false;
     return _projectModelAvailable(project.videoModel, 'video');
   }
@@ -1162,6 +1164,18 @@ WHERE id=?
         .select('SELECT id FROM o_novel WHERE projectId=?', [id])
         .map((row) => row['id'] as int)
         .toList();
+    final assetIds = db
+        .select('SELECT id FROM o_assets WHERE projectId=?', [id])
+        .map((row) => row['id'] as int)
+        .toList();
+    final storyboardIds = db
+        .select('SELECT id FROM o_storyboard WHERE projectId=?', [id])
+        .map((row) => row['id'] as int)
+        .toList();
+    final imageFlowIds = <int>{
+      ...imageFlowIdsForAssets(db, assetIds),
+      ...imageFlowIdsForStoryboards(db, storyboardIds),
+    };
     final taskIds = db
         .select('SELECT id FROM o_tasks WHERE projectId=?', [id])
         .map((row) => row['id'] as int)
@@ -1187,6 +1201,7 @@ WHERE id=?
         [id],
       );
       db.execute('DELETE FROM o_assets WHERE projectId=?', [id]);
+      clearUnreferencedImageFlows(db, imageFlowIds);
       db.execute('DELETE FROM o_tasks WHERE projectId=?', [id]);
       db.execute('DELETE FROM o_timelineClip WHERE projectId=?', [id]);
       db.execute('DELETE FROM o_videoTrack WHERE projectId=?', [id]);

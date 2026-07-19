@@ -63,6 +63,27 @@ flutter test --concurrency=1 \
 移动端参数保存。测试图像调用均为 fake gateway，本地临时图片仅用于组件渲染；
 没有调用真实图像或视频供应商。
 
+## 删除生命周期复验（2026-07-19）
+
+`o_imageFlow` 没有外键，不能依赖 SQLite 自动级联。现在所有会删除其归属对象的
+引擎路径都会先收集候选 `flowId`，删除资产或分镜后，再由
+`image_flow_cleanup.dart` 只删除已不被 `o_assets` 和 `o_storyboard` 任一行引用的
+流程。这样既对齐 ToonFlow 删除派生资产、删除分镜和替换分镜时清理图片流的行为，
+也能保护导入历史数据中意外共用的流程。
+
+覆盖入口包括：资产及其子资产删除、音频资产编辑时替换旧子项、单条或批量分镜删除、
+剧本删除、项目删除，以及“重新生成分镜”验证通过后的原子替换。单条分镜删除还按
+ToonFlow `removeFrame` 语义删除已空的视频轨；批量删除保留 `batchDelete` 不主动删空轨的
+原始差异。
+
+定向引擎回归覆盖五条主删除链和两个边界：替换验证失败时旧流程仍存在、共享 `flowId`
+在另一资产仍引用时被保留。命令为：
+
+```bash
+cd app
+flutter test --concurrency=1 test/engine/assets_test.dart test/engine/storyboard_test.dart test/engine/scripts_test.dart test/engine/projects_test.dart
+```
+
 ## 实施边界
 
 这份审计不修改产品行为。未来要补齐时，建议拆成三个独立设计项：

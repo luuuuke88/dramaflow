@@ -12,6 +12,7 @@ import 'package:sqlite3/sqlite3.dart' show Row;
 import 'engine.dart';
 import 'errors.dart';
 import 'events.dart' show stripThink;
+import 'image_flow_cleanup.dart';
 import 'queue.dart';
 import 'production_dependencies.dart';
 import 'util.dart' show extractJson;
@@ -334,6 +335,11 @@ ORDER BY MIN(n.chapterIndex), e.id
         .map((row) => row['projectId'] as int?)
         .whereType<int>()
         .toList();
+    final storyboardIds = db
+        .select('SELECT id FROM o_storyboard WHERE scriptId IN ($ph)', ids)
+        .map((row) => row['id'] as int)
+        .toList();
+    final flowIds = imageFlowIdsForStoryboards(db, storyboardIds);
     db.execute('DELETE FROM o_agentWorkData WHERE episodesId IN ($ph)', ids);
     db.execute(
       'DELETE FROM o_assets2Storyboard WHERE storyboardId IN '
@@ -350,6 +356,7 @@ ORDER BY MIN(n.chapterIndex), e.id
       if (file.existsSync()) file.deleteSync();
     }
     db.execute('DELETE FROM o_storyboard WHERE scriptId IN ($ph)', ids);
+    clearUnreferencedImageFlows(db, flowIds);
     // 视频文件与 o_video/o_videoTrack 行一并清理（此前只删 o_video 行，
     // 泄漏了磁盘上的 .mp4 与整张 o_videoTrack 表，与 deleteProject 不一致）。
     for (final row in db.select(

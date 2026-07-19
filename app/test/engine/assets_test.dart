@@ -423,7 +423,7 @@ void main() {
     expect(latestTask, greaterThan(firstTask));
   });
 
-  test('deleteAssets 级联子资产+图片文件；deleteAssetImage 置空选中', () {
+  test('deleteAssets 级联子资产、图片流和分镜关联；deleteAssetImage 置空选中', () {
     final parent = engine.addAsset(
         projectId: projectId, type: 'scene', name: '寒山', describe: 'x');
     engine.saveAssetImage(
@@ -440,14 +440,71 @@ void main() {
     expect(
         engine.getAssets(projectId, type: 'scene').data.single.imageId, isNull);
 
-    engine.addAsset(
+    final child = engine.addAsset(
         projectId: projectId,
         type: 'scene',
         name: '子',
         describe: 'y',
         parentAssetsId: parent);
+
+    db.execute("INSERT INTO o_imageFlow (flowData) VALUES ('{}')");
+    final parentFlowId = db.lastInsertRowId;
+    db.execute("INSERT INTO o_imageFlow (flowData) VALUES ('{}')");
+    final childFlowId = db.lastInsertRowId;
+    db.execute(
+        'UPDATE o_assets SET flowId=? WHERE id=?', [parentFlowId, parent]);
+    db.execute('UPDATE o_assets SET flowId=? WHERE id=?', [childFlowId, child]);
+    db.execute(
+      'INSERT INTO o_script (projectId,name,content) VALUES (?,?,?)',
+      [projectId, '第一集', 'x'],
+    );
+    final scriptId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_storyboard (projectId,scriptId,"index",prompt) '
+      'VALUES (?,?,?,?)',
+      [projectId, scriptId, 1, '镜头'],
+    );
+    final storyboardId = db.lastInsertRowId;
+    for (final assetId in [parent, child]) {
+      db.execute(
+        'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?)',
+        [assetId, storyboardId],
+      );
+    }
+
     engine.deleteAssets([parent]);
     expect(db.select('SELECT COUNT(*) n FROM o_assets').first['n'], 0);
+    expect(
+      db.select('SELECT id FROM o_imageFlow WHERE id IN (?,?)',
+          [parentFlowId, childFlowId]),
+      isEmpty,
+      reason: '删除资产和其子资产必须同步删除其图片编辑流程',
+    );
+    expect(
+      db.select('SELECT assetId FROM o_assets2Storyboard WHERE storyboardId=?',
+          [storyboardId]),
+      isEmpty,
+      reason: '删除资产不能留下挂在分镜上的资产关联',
+    );
+  });
+
+  test('deleteAssets 保留仍被其他资产引用的图片流', () {
+    final deletedAsset = engine.addAsset(
+        projectId: projectId, type: 'role', name: '待删', describe: 'x');
+    final retainedAsset = engine.addAsset(
+        projectId: projectId, type: 'role', name: '保留', describe: 'y');
+    db.execute("INSERT INTO o_imageFlow (flowData) VALUES ('{}')");
+    final sharedFlowId = db.lastInsertRowId;
+    db.execute('UPDATE o_assets SET flowId=? WHERE id IN (?,?)',
+        [sharedFlowId, deletedAsset, retainedAsset]);
+
+    engine.deleteAssets([deletedAsset]);
+
+    expect(
+      db.select('SELECT id FROM o_imageFlow WHERE id=?', [sharedFlowId]),
+      isNotEmpty,
+      reason: '异常导入数据共用 flowId 时，删除一方不能破坏另一方的编辑记录',
+    );
   });
 
   test('uploadClip：真实文件落盘 + o_image 行 + imageId 选中', () {
@@ -507,6 +564,27 @@ void main() {
     expect(parent.sonAssets.single.prompt, '今日天气不错');
     expect(parent.sonAssets.single.filePath, endsWith('.mp3'));
 
+    final oldChildId = parent.sonAssets.single.id;
+    db.execute("INSERT INTO o_imageFlow (flowData) VALUES ('{}')");
+    final oldChildFlowId = db.lastInsertRowId;
+    db.execute('UPDATE o_assets SET flowId=? WHERE id=?',
+        [oldChildFlowId, oldChildId]);
+    db.execute(
+      'INSERT INTO o_script (projectId,name,content) VALUES (?,?,?)',
+      [projectId, '第一集', 'x'],
+    );
+    final scriptId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_storyboard (projectId,scriptId,"index",prompt) '
+      'VALUES (?,?,?,?)',
+      [projectId, scriptId, 1, '镜头'],
+    );
+    final storyboardId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?)',
+      [oldChildId, storyboardId],
+    );
+
     engine.updateAudioAssets(
       parentId: parentId,
       projectId: projectId,
@@ -518,6 +596,17 @@ void main() {
     final updated = engine.getAssets(projectId, type: 'audio').data.single;
     expect(updated.name, '沉稳男声2');
     expect(updated.sonAssets, isEmpty);
+    expect(
+      db.select('SELECT id FROM o_imageFlow WHERE id=?', [oldChildFlowId]),
+      isEmpty,
+      reason: '编辑音频资产替换旧子项时也不能留下图片编辑流程',
+    );
+    expect(
+      db.select('SELECT assetId FROM o_assets2Storyboard WHERE storyboardId=?',
+          [storyboardId]),
+      isEmpty,
+      reason: '编辑音频资产替换旧子项时应解除其分镜关联',
+    );
   });
 
   test('单资产润色：视觉手册作 system、模板逐字、状态流转', () async {

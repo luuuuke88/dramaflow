@@ -95,6 +95,27 @@ void main() {
     expect(engine.scripts(projectId), hasLength(2));
   });
 
+  test('删除剧本会清理其分镜的图片编辑流程', () {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '待删除', content: 'x');
+    db.execute(
+      'INSERT INTO o_storyboard (projectId,scriptId,"index",prompt) '
+      'VALUES (?,?,?,?)',
+      [projectId, scriptId, 1, '镜头'],
+    );
+    final storyboardId = db.lastInsertRowId;
+    db.execute("INSERT INTO o_imageFlow (flowData) VALUES ('{}')");
+    final flowId = db.lastInsertRowId;
+    db.execute(
+        'UPDATE o_storyboard SET flowId=? WHERE id=?', [flowId, storyboardId]);
+
+    engine.deleteScripts([scriptId]);
+
+    expect(
+        db.select('SELECT id FROM o_imageFlow WHERE id=?', [flowId]), isEmpty,
+        reason: '剧本级联删除分镜时必须同步删除图片编辑流程');
+  });
+
   test('更新剧本名称或内容会使本集下游过期', () {
     final scriptA =
         engine.addScript(projectId: projectId, name: '第一集', content: '旧内容');
