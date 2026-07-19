@@ -186,6 +186,12 @@ DramaFlow 已拥有短剧生产主链路的一部分可靠底座，但还不是 
 
 自动化证据为 `app/test/engine/manuals_test.dart`、`app/test/widgets/manual_gallery_test.dart`、`app/test/widgets/manual_editor_test.dart` 和 `app/test/widgets/project_page_test.dart`（本次相关 21 项通过）。测试使用临时目录、内存数据库和本地 1px PNG 夹具，不调用任何图像、文本或视频供应商。
 
+### 最近核验：全局画风库与项目视觉手册的边界
+
+2026-07-19 复核确认两者不能混为同一功能。当前 ToonFlow 项目页实际加载 `projectDialog.vue`，以视觉/导演手册包写入项目的 `artStyle` / `directorManual`；Flutter 已内置并逐文件校验两类默认手册包。旧 `addProject.vue` 虽引用全局 `artStyle.vue`，但该组件不在 `Toonflow-web` 的 9c4cb0e git 基线，不能作为可用前端流程的证据。
+
+原版服务端仍保留 `o_artStyle` 的增改查和多参考图 AI 提取画风提示词接口。Flutter 已有本地 `o_artStyle`、封面落盘、CRUD 及独立弹窗测试，但生产代码没有调用 `showArtStyleLibrary`，所以用户无法进入该库；AI 提取也完全缺失。主清单据此把资产页与全局画风 CRUD 均校正为“部分实现”，不把底层代码或隔离测试冒充为用户可用功能。此处不改行为，也不发起任何真实模型调用；后续必须先决定独立画风库的正式入口和它与项目手册的关联语义，再做实现与验收。
+
 ### 最近核验：塑角造景批量参考图工作区
 
 2026-07-19 已完成 `W6-CORNERSCAPE-001` 与 `W6-CORNERSCAPE-002` 的页面级复核。`W6-CORNERSCAPE-001` 纠正了旧审计遗留的“仅角色数据源、绑定状态/名称筛选、全选未绑定、缺少通用测试”描述：原版 `getAllAssets` 与当前 `cornerScapeAssets` 均提供角色/场景/道具顶层资产，音频操作是任一资产详情内绑定或解绑一个音频，以及对当前所选通用资产批量 AI 匹配。桌面 widget 证据直接覆盖三类资产数据、场景/道具详情绑定/解绑/试听，以及筛选后角色选择的批量匹配任务提交；场景/道具通用批量匹配由 `app/test/engine/audio_bind_test.dart` 覆盖，对应资产数据边界由 `app/test/engine/assets_test.dart` 支持。
