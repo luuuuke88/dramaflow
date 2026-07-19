@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -33,6 +34,8 @@ class CornerScapeScreen extends ConsumerStatefulWidget {
 class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
   final Set<int> _selected = {};
   final Set<String> _types = {};
+  final Map<int, Future<void>> _detailPolishOperations = {};
+  final ValueNotifier<int> _detailPolishRevision = ValueNotifier(0);
   final TextEditingController _otherPrompt = TextEditingController();
   String? _selectedModel;
   String _resolution = '1K';
@@ -53,6 +56,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
 
   @override
   void dispose() {
+    _detailPolishRevision.dispose();
     _otherPrompt.dispose();
     super.dispose();
   }
@@ -842,6 +846,32 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     return item.images.isEmpty ? null : item.images.last;
   }
 
+  bool _isDetailPolishing(int assetId) =>
+      _detailPolishOperations.containsKey(assetId);
+
+  Future<void> _polishDetailAsset(int assetId) {
+    final existing = _detailPolishOperations[assetId];
+    if (existing != null) return existing;
+
+    late final Future<void> operation;
+    operation = ref
+        .read(engineProvider)
+        .polishAssetPrompt(assetId)
+        .then<void>((_) {})
+        .whenComplete(() {
+      if (identical(_detailPolishOperations[assetId], operation)) {
+        _detailPolishOperations.remove(assetId);
+      }
+      if (mounted) {
+        _detailPolishRevision.value++;
+        setState(() {});
+      }
+    });
+    _detailPolishOperations[assetId] = operation;
+    _detailPolishRevision.value++;
+    return operation;
+  }
+
   void _openAssetDetail(CornerScapeAsset item) {
     final asset = item.asset;
     showDFAdaptiveDialog<void>(
@@ -856,6 +886,9 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
         initialModel: _selectedModel,
         initialResolution: _resolution,
         validateModel: _isCurrentImageCandidate,
+        polishRevision: _detailPolishRevision,
+        isPolishing: _isDetailPolishing,
+        polishPrompt: _polishDetailAsset,
         onChanged: () {
           if (mounted) setState(() {});
         },
@@ -890,6 +923,9 @@ class _AssetDetailBody extends ConsumerStatefulWidget {
   final String? initialModel;
   final String initialResolution;
   final Future<bool> Function(String model) validateModel;
+  final ValueListenable<int> polishRevision;
+  final bool Function(int assetId) isPolishing;
+  final Future<void> Function(int assetId) polishPrompt;
   final VoidCallback onChanged;
 
   const _AssetDetailBody({
@@ -900,6 +936,9 @@ class _AssetDetailBody extends ConsumerStatefulWidget {
     required this.initialModel,
     required this.initialResolution,
     required this.validateModel,
+    required this.polishRevision,
+    required this.isPolishing,
+    required this.polishPrompt,
     required this.onChanged,
   });
 
@@ -915,13 +954,14 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
   late int? _selectedImageId = widget.asset.imageId;
   late String? _model = widget.initialModel;
   late String _resolution = widget.initialResolution;
+  late bool _polishing = widget.isPolishing(widget.asset.id);
   int? _audioAssetId;
   bool _promptDirty = false;
-  bool _polishing = false;
 
   @override
   void initState() {
     super.initState();
+    widget.polishRevision.addListener(_handlePolishStateChanged);
     final bindings =
         ref.read(engineProvider).assetAudioBindings(widget.projectId);
     for (final binding in bindings) {
@@ -934,7 +974,8 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
 
   @override
   void dispose() {
-    if (_promptDirty) {
+    widget.polishRevision.removeListener(_handlePolishStateChanged);
+    if (_promptDirty && !widget.isPolishing(widget.asset.id)) {
       ref.read(engineProvider).updateAsset(
             widget.asset.id,
             prompt: _prompt.text,
@@ -947,13 +988,28 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
     super.dispose();
   }
 
+  void _handlePolishStateChanged() {
+    final polishing = widget.isPolishing(widget.asset.id);
+    if (polishing == _polishing || !mounted) return;
+    setState(() {
+      _polishing = polishing;
+      _promptDirty = false;
+      if (!polishing) {
+        final assets = ref.read(engineProvider).assetsByIds([widget.asset.id]);
+        if (assets.isNotEmpty) {
+          _prompt.text = assets.single.prompt ?? '';
+        }
+      }
+    });
+  }
+
   void _toast(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _savePromptOnBlur() {
-    if (_promptFocus.hasFocus || !_promptDirty) return;
+    if (_promptFocus.hasFocus || !_promptDirty || _polishing) return;
     ref.read(engineProvider).updateAsset(
           widget.asset.id,
           prompt: _prompt.text,
@@ -984,6 +1040,7 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
   }
 
   Future<void> _polishPrompt() async {
+    if (_polishing) return;
     if (_prompt.text.trim().isEmpty) {
       _toast(context.l10n.assetsGenFillPrompt);
       return;
@@ -997,35 +1054,27 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
     )) {
       return;
     }
-    if (!mounted) return;
+    if (!mounted || _polishing) return;
+    if (_prompt.text.trim().isEmpty) {
+      _toast(context.l10n.assetsGenFillPrompt);
+      return;
+    }
     final assetId = widget.asset.id;
-    setState(() => _polishing = true);
     try {
-      final prompt = await engine.polishAssetPrompt(assetId);
-      if (!mounted || widget.asset.id != assetId) return;
-      setState(() {
-        _prompt.text = prompt;
-        _promptDirty = false;
-      });
-      widget.onChanged();
+      await widget.polishPrompt(assetId);
     } catch (error) {
       if (mounted) _toast(localizeError(context, error));
-    } finally {
-      if (mounted && widget.asset.id == assetId) {
-        setState(() => _polishing = false);
-      }
     }
   }
 
   Future<void> _regenerate() async {
+    if (_polishing) return;
     final l10n = context.l10n;
-    final prompt = _prompt.text.trim();
-    if (prompt.isEmpty) {
+    if (_prompt.text.trim().isEmpty) {
       _toast(l10n.assetsGenFillPrompt);
       return;
     }
-    final selectedModel = _model;
-    if (selectedModel == null) {
+    if (_model == null) {
       _toast(l10n.assetsGenPickModel);
       return;
     }
@@ -1038,9 +1087,20 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
     )) {
       return;
     }
-    if (!mounted) return;
+    if (!mounted || _polishing) return;
+    final selectedModel = _model;
+    if (selectedModel == null) {
+      _toast(l10n.assetsGenPickModel);
+      return;
+    }
     if (!await widget.validateModel(selectedModel)) {
       if (mounted) _toast(l10n.assetsGenPickModel);
+      return;
+    }
+    if (!mounted || _polishing) return;
+    final prompt = _prompt.text.trim();
+    if (prompt.isEmpty) {
+      _toast(l10n.assetsGenFillPrompt);
       return;
     }
     engine.updateAsset(widget.asset.id, prompt: prompt);
@@ -1296,7 +1356,7 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
                 Expanded(
                   child: FilledButton.icon(
                     key: Key('cornerscape-regenerate-${widget.asset.id}'),
-                    onPressed: _regenerate,
+                    onPressed: _polishing ? null : _regenerate,
                     icon: const Icon(Icons.refresh_rounded, size: 18),
                     label: Text(l10n.directorPlanRegenerate),
                   ),
@@ -1327,7 +1387,12 @@ class _AuditionButton extends ConsumerStatefulWidget {
 class _AuditionButtonState extends ConsumerState<_AuditionButton> {
   Player? _player;
   StreamSubscription<bool>? _completedSubscription;
+  int _playbackGeneration = 0;
+  int? _openingGeneration;
+  bool _stopping = false;
   bool _playing = false;
+
+  bool get _opening => _openingGeneration != null;
 
   @override
   void didUpdateWidget(covariant _AuditionButton oldWidget) {
@@ -1340,10 +1405,27 @@ class _AuditionButtonState extends ConsumerState<_AuditionButton> {
 
   @override
   void dispose() {
-    unawaited(_completedSubscription?.cancel() ?? Future.value());
-    unawaited(_player?.stop() ?? Future.value());
-    _player?.dispose();
+    _playbackGeneration++;
+    final subscription = _completedSubscription;
+    _completedSubscription = null;
+    final player = _player;
+    _player = null;
+    unawaited(subscription?.cancel() ?? Future.value());
+    if (player != null) unawaited(_disposePlayer(player));
     super.dispose();
+  }
+
+  Future<void> _disposePlayer(Player player) async {
+    try {
+      await player.stop();
+    } catch (_) {
+      // The player may already be stopping after a binding change.
+    }
+    try {
+      await player.dispose();
+    } catch (_) {
+      // Disposal is best-effort while the detail route is closing.
+    }
   }
 
   void _toast(String message) {
@@ -1352,18 +1434,38 @@ class _AuditionButtonState extends ConsumerState<_AuditionButton> {
   }
 
   Future<void> _stopAndReset() async {
-    await _completedSubscription?.cancel();
+    final generation = ++_playbackGeneration;
+    final subscription = _completedSubscription;
     _completedSubscription = null;
+    final player = _player;
+    if (subscription == null && player == null && !_opening && !_playing) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _stopping = true;
+        _playing = false;
+      });
+    } else {
+      _stopping = true;
+      _playing = false;
+    }
     try {
-      await _player?.stop();
+      await subscription?.cancel();
+      await player?.stop();
     } catch (_) {
       // Playback can already be stopped or disposed while the detail closes.
+    } finally {
+      if (generation == _playbackGeneration) {
+        _stopping = false;
+        if (mounted) setState(() {});
+      }
     }
-    if (mounted) setState(() => _playing = false);
   }
 
   Future<void> _toggle() async {
     final l10n = context.l10n;
+    if (_opening || _stopping) return;
     if (_playing) {
       await _stopAndReset();
       return;
@@ -1374,44 +1476,68 @@ class _AuditionButtonState extends ConsumerState<_AuditionButton> {
       _toast(l10n.cornerScapeAudioMissing);
       return;
     }
+    final generation = ++_playbackGeneration;
+    setState(() => _openingGeneration = generation);
     try {
       ensureLocalMediaKit();
       final player = _player ??= Player();
-      await _completedSubscription?.cancel();
+      final previousSubscription = _completedSubscription;
+      _completedSubscription = null;
+      await previousSubscription?.cancel();
+      if (!mounted || generation != _playbackGeneration) return;
       _completedSubscription = player.stream.completed.listen((completed) {
         if (completed &&
             mounted &&
+            generation == _playbackGeneration &&
+            identical(_player, player) &&
             widget.audioAssetId == audioAssetId &&
             widget.audioPath == absPath) {
           setState(() => _playing = false);
         }
       });
       await player.open(Media(absPath));
-      if (!mounted ||
+      if (!mounted) return;
+      if (generation != _playbackGeneration ||
           widget.audioAssetId != audioAssetId ||
           widget.audioPath != absPath) {
-        await _stopAndReset();
+        try {
+          await player.stop();
+        } catch (_) {
+          // A newer stop or disposal already invalidated this open.
+        }
         return;
       }
-      setState(() => _playing = true);
+      setState(() => _playing = !player.state.completed);
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _playbackGeneration) return;
       setState(() => _playing = false);
       _toast(l10n.cornerScapeAuditionFailed);
+    } finally {
+      if (_openingGeneration == generation) {
+        _openingGeneration = null;
+        if (mounted) setState(() {});
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final enabled = widget.audioAssetId != null;
+    final busy = _opening || _stopping;
+    final enabled = widget.audioAssetId != null && !busy;
     return IconButton(
       tooltip:
           _playing ? l10n.cornerScapeStopAudition : l10n.cornerScapeAudition,
       onPressed: enabled ? _toggle : null,
-      icon: Icon(
-        _playing ? Icons.stop_circle_outlined : Icons.play_circle_outline,
-      ),
+      icon: busy
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              _playing ? Icons.stop_circle_outlined : Icons.play_circle_outline,
+            ),
     );
   }
 }

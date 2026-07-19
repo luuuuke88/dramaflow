@@ -736,6 +736,76 @@ void main() {
     expect(engine.assetsByIds([assetId]).single.prompt, '润色后的雪山剑客');
   });
 
+  testWidgets('详情 AI 润色关闭重开后保持锁定且旧控制器不会覆盖结果', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '原提示词',
+    );
+    final pending = Completer<TextResult>();
+    gateway.pendingText = pending;
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final promptField = find.byKey(Key('cornerscape-prompt-$assetId'));
+    await tester.enterText(promptField, '待润色草稿');
+    final polishButton = find.byKey(Key('cornerscape-polish-$assetId'));
+    await tester.ensureVisible(polishButton);
+    await tester.tap(polishButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确定'));
+    await tester.pump();
+
+    expect(gateway.textCalls, 1);
+    expect(tester.widget<TextField>(promptField).enabled, isFalse);
+    expect(tester.widget<OutlinedButton>(polishButton).onPressed, isNull);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(Key('cornerscape-regenerate-$assetId')),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.byTooltip('关闭').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final reopenedPrompt = find.byKey(Key('cornerscape-prompt-$assetId'));
+    final reopenedPolish = find.byKey(Key('cornerscape-polish-$assetId'));
+    final reopenedRegenerate =
+        find.byKey(Key('cornerscape-regenerate-$assetId'));
+    await tester.ensureVisible(reopenedPolish);
+    await tester.pump();
+
+    expect(tester.widget<TextField>(reopenedPrompt).enabled, isFalse);
+    expect(tester.widget<OutlinedButton>(reopenedPolish).onPressed, isNull);
+    expect(tester.widget<FilledButton>(reopenedRegenerate).onPressed, isNull);
+
+    pending.complete(const TextResult('润色后的雪山剑客'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(reopenedPrompt).enabled, isTrue);
+    expect(
+      tester.widget<TextField>(reopenedPrompt).controller!.text,
+      '润色后的雪山剑客',
+    );
+    expect(tester.widget<OutlinedButton>(reopenedPolish).onPressed, isNotNull);
+    expect(
+      tester.widget<FilledButton>(reopenedRegenerate).onPressed,
+      isNotNull,
+    );
+    expect(engine.assetsByIds([assetId]).single.prompt, '润色后的雪山剑客');
+  });
+
   testWidgets('场景和道具详情共用音频选择试听并可解绑', (tester) async {
     final sceneId = engine.addAsset(
       projectId: projectId,
@@ -900,6 +970,57 @@ void main() {
     expect(task.relatedObjectsJson['model'], _imageModel);
     expect(task.relatedObjectsJson['resolution'], '2K');
     expect(engine.assetsByIds([assetId]).single.prompt, '当前雪夜提示词');
+  });
+
+  testWidgets('详情重新生成确认后读取最新提示词而非确认前快照', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山门',
+      describe: '',
+      prompt: '旧雪夜',
+    );
+    engine.config.update({'policy.confirmMoney': '1'});
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final modelField = find.byKey(Key('cornerscape-model-$assetId'));
+    await tester.ensureVisible(modelField);
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: modelField,
+        matching: find.byType(DropdownButtonFormField<String>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(_imageModelLabel).last);
+    await tester.pump();
+
+    final promptField = find.byKey(Key('cornerscape-prompt-$assetId'));
+    await tester.enterText(promptField, '确认前提示词');
+    final promptController = tester.widget<TextField>(promptField).controller!;
+    final regenerateButton = find.byKey(Key('cornerscape-regenerate-$assetId'));
+    await tester.ensureVisible(regenerateButton);
+    await tester.pump();
+    await tester.tap(regenerateButton);
+    await tester.pumpAndSettle();
+    expect(find.text('花费确认'), findsOneWidget);
+
+    promptController.text = '确认后的最新提示词';
+    await tester.tap(find.text('确定'));
+    await tester.pump();
+
+    final task = (await engine.projectJobs(projectId)).singleWhere(
+      (job) => job.taskClass == 'asset_image_generation',
+    );
+    expect(task.relatedObjectsJson['ids'], [assetId]);
+    expect(
+      engine.assetsByIds([assetId]).single.prompt,
+      '确认后的最新提示词',
+    );
   });
 
   testWidgets('详情重新生成确认期间模型失效不会创建任务', (tester) async {
