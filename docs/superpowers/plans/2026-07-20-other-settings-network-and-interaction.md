@@ -30,7 +30,7 @@
 - Modify `app/lib/src/widgets/df_canvas.dart`: interaction-state timer and reduced node-content wrapper.
 - Modify `app/lib/src/screens/production/production_screen.dart`: pass the persisted flag to only the desktop main canvas.
 - Modify `app/lib/src/screens/settings_screen.dart` plus `app/lib/l10n/app_{zh,en,ja}.arb` and generated localization files: numeric timeout field, canvas performance toggle, and responsive labels.
-- Modify `app/test/engine/config_test.dart`, `app/test/engine/providers_test.dart`, `app/test/widgets/df_widgets_test.dart`, and `app/test/widgets/settings_screen_test.dart`.
+- Modify `app/test/engine/config_test.dart`, `app/test/engine/providers_test.dart`, `app/test/engine/anthropic_gateway_test.dart`, `app/test/widgets/df_widgets_test.dart`, and `app/test/widgets/settings_screen_test.dart`.
 - Modify `docs/parity/settings-module-matrix.md`, `docs/parity/master-checklist.md`, `docs/parity/w1-canvas-reference.md`, and `docs/parity/feature-parity-execution-report.md` after verified execution.
 
 ## Task 0: Remove the Opt-in Live Provider Test
@@ -43,7 +43,7 @@
   variable can call local AZT/OAuth services. No application production code
   changes and no replacement test calls an external service.
 
-- [ ] **Step 1: Confirm the live-call trigger before deleting it**
+- [x] **Step 1: Confirm the live-call trigger before deleting it**
 
 Run:
 
@@ -55,13 +55,13 @@ rg -n "QA_FULL|real azt calls|127\\.0\\.0\\.1:8787" test/qa/full_pipeline_test.d
 Expected: the file documents `QA_FULL=1`, binds AZT models, and starts with a
 real-provider test name.
 
-- [ ] **Step 2: Delete the opt-in harness**
+- [x] **Step 2: Delete the opt-in harness**
 
 Remove `test/qa/full_pipeline_test.dart` completely. Do not move its real
 requests to another Dart test, integration-test target, or CI script. The user
 will perform any paid provider acceptance in the packaged App.
 
-- [ ] **Step 3: Verify the automated test tree has no live QA switch**
+- [x] **Step 3: Verify the automated test tree has no live QA switch**
 
 Run:
 
@@ -75,7 +75,7 @@ flutter test --concurrency=1
 Expected: both shell assertions succeed and the complete fake/local test suite
 passes without a live model call.
 
-- [ ] **Step 4: Commit Task 0**
+- [x] **Step 4: Commit Task 0**
 
 ```sh
 git add -u app/test/qa/full_pipeline_test.dart
@@ -93,6 +93,7 @@ git commit -m "test(qa): remove opt-in live provider harness"
 - Modify: `app/lib/src/engine/providers/openai_tts.dart`
 - Test: `app/test/engine/config_test.dart`
 - Test: `app/test/engine/providers_test.dart`
+- Test: `app/test/engine/anthropic_gateway_test.dart`
 
 **Interfaces:**
 - Add `String` config defaults `requestTimeoutSeconds: '600'` and `production.interacting: '1'`.
@@ -100,7 +101,7 @@ git commit -m "test(qa): remove opt-in live provider harness"
 - Add required named `Duration requestTimeout` to generic OpenAI/Anthropic text, tool JSON, Agent turn, vision, and TTS helper calls.
 - `HttpProviderGateway` passes `config.requestTimeout` to those helpers and uses it for `listRemoteModelIds`; image/video helpers receive no new timeout argument.
 
-- [ ] **Step 1: Write focused failing engine tests**
+- [x] **Step 1: Write focused failing engine tests**
 
 Extend `config_test.dart` with defaults, persistence, and normalization:
 
@@ -131,7 +132,11 @@ same value. Preserve and extend existing image/video tests to assert their
 current values are still `960s` for OpenAI image, configured `imageTimeoutMs`
 for ima2, and `60s` for Seedance submission.
 
-- [ ] **Step 2: Verify RED**
+The implemented regression set also asserts the 42-second value for OpenAI
+Agent turns, structured tool JSON, visual understanding, TTS, and Anthropic
+text/tool/Agent/connection-test paths. All adapters are in-process fakes.
+
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -144,7 +149,12 @@ flutter test test/engine/config_test.dart test/engine/providers_test.dart \
 Expected: compilation failure because `EngineConfig.requestTimeout` and the new
 defaults do not exist.
 
-- [ ] **Step 3: Implement one normalized config boundary**
+Observed: the initial focused test failed for the missing getter. Additional
+Agent, tool-JSON, Anthropic tool/Agent, and Anthropic connection-test assertions
+were each checked against a temporary 300-second forwarding value and failed
+with `Actual: Duration: 0:05:00` before the configured value was restored.
+
+- [x] **Step 3: Implement one normalized config boundary**
 
 In `EngineConfig`, add only these defaults and getter:
 
@@ -170,14 +180,15 @@ once at each public generic operation and forward it. Change only `/models`
 from the hard-coded 20 seconds to the same configured duration. Do not touch
 `openai_image.dart`, `ima2_image.dart`, or `volcengine_video.dart`.
 
-- [ ] **Step 4: Verify generic policy and media exceptions**
+- [x] **Step 4: Verify generic policy and media exceptions**
 
 Run:
 
 ```sh
 cd app
 flutter analyze
-flutter test --concurrency=1 test/engine/config_test.dart test/engine/providers_test.dart
+flutter test --concurrency=1 test/engine/config_test.dart \
+  test/engine/providers_test.dart test/engine/anthropic_gateway_test.dart
 ```
 
 Expected: no analyzer diagnostics; generic OpenAI/Anthropic/text/TTS/model
@@ -193,7 +204,9 @@ git add app/lib/src/engine/config.dart \
   app/lib/src/engine/providers/anthropic_text.dart \
   app/lib/src/engine/providers/openai_vision.dart \
   app/lib/src/engine/providers/openai_tts.dart \
-  app/test/engine/config_test.dart app/test/engine/providers_test.dart
+  app/test/engine/config_test.dart app/test/engine/providers_test.dart \
+  app/test/engine/anthropic_gateway_test.dart \
+  docs/superpowers/plans/2026-07-20-other-settings-network-and-interaction.md
 git commit -m "feat(settings): persist generic request timeout"
 ```
 

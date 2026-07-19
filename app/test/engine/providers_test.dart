@@ -197,18 +197,22 @@ void main() {
     }
 
     test('正常解析 content 与 usage', () async {
-      final g = gw(FakeAdapter((o) => jsonBody({
+      final adapter = FakeAdapter((o) => jsonBody({
             'choices': [
               {
                 'message': {'content': 'OK啦'}
               }
             ],
             'usage': {'prompt_tokens': 3, 'completion_tokens': 5},
-          })));
+          }));
+      final g = gw(adapter);
       bindModel('script_gen', 'text');
+      config.update({'requestTimeoutSeconds': '42'});
       final r = await g.generateText('sys', 'user', stage: 'script_gen');
       expect(r.content, 'OK啦');
       expect(r.completionTokens, 5);
+      expect(
+          adapter.requests.single.receiveTimeout, const Duration(seconds: 42));
     });
 
     test('上游 500 → DioException 且 errMessage 带响应体', () async {
@@ -235,6 +239,7 @@ void main() {
             ],
           }));
       bindModel('script_gen', 'text');
+      config.update({'requestTimeoutSeconds': '42'});
 
       final r = await gw(adapter).generateAgentTurn(
         'sys',
@@ -246,9 +251,46 @@ void main() {
       );
 
       expect(r.text, 'APPROVE');
+      expect(
+          adapter.requests.single.receiveTimeout, const Duration(seconds: 42));
       final body = adapter.requests.single.data as Map;
       expect(body, isNot(contains('tools')));
       expect(body, isNot(contains('tool_choice')));
+    });
+  });
+
+  group('generateToolJson', () {
+    test('使用用户配置的通用请求超时', () async {
+      final adapter = FakeAdapter((_) => jsonBody({
+            'choices': [
+              {
+                'message': {
+                  'tool_calls': [
+                    {
+                      'function': {
+                        'arguments': '{"title":"宗门试炼"}',
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          }));
+      bindModel('script_gen', 'text');
+      config.update({'requestTimeoutSeconds': '42'});
+
+      expect(
+        await gw(adapter).generateToolJson(
+          'sys',
+          'user',
+          stage: 'script_gen',
+          toolName: 'extract_event',
+          schema: const {'type': 'object'},
+        ),
+        {'title': '宗门试炼'},
+      );
+      expect(
+          adapter.requests.single.receiveTimeout, const Duration(seconds: 42));
     });
   });
 
@@ -265,6 +307,7 @@ void main() {
             'usage': {'prompt_tokens': 11, 'completion_tokens': 7},
           }));
       bindModel('script_gen', 'text', modelId: 'gpt-vision');
+      config.update({'requestTimeoutSeconds': '42'});
 
       final r = await (gw(adapter) as dynamic).analyzeImage(
         '提炼这张参考图的短剧画风关键词',
@@ -275,6 +318,7 @@ void main() {
       expect(r.content, '冷白水墨、低饱和、角色边缘清晰');
       expect(r.promptTokens, 11);
       final request = adapter.requests.single;
+      expect(request.receiveTimeout, const Duration(seconds: 42));
       expect(request.path, endsWith('/chat/completions'));
       final body = request.data as Map;
       expect(body['model'], 'gpt-vision');
@@ -310,6 +354,8 @@ void main() {
       final body = adapter.requests.single.data as Map;
       expect(body['prompt'] as String, contains('一只猫'));
       expect(body['prompt'] as String, contains('SQUARE 1:1'));
+      expect(
+          adapter.requests.single.receiveTimeout, const Duration(seconds: 960));
     });
 
     test('无图像数据抛 EngineException', () async {
@@ -418,6 +464,8 @@ void main() {
       );
 
       expect(result.upstreamTaskId, 'task-text');
+      expect(
+          adapter.requests.single.receiveTimeout, const Duration(seconds: 60));
       final body = adapter.requests.single.data as Map;
       expectVideoParameters(body);
       expect(body['content'], [
@@ -695,6 +743,7 @@ void main() {
         ),
       );
       bindModel('tts', 'tts', modelId: 'tts-1');
+      config.update({'requestTimeoutSeconds': '42'});
 
       final rel = await gw(adapter).generateSpeech(
         '你好，少侠',
@@ -715,6 +764,23 @@ void main() {
       expect(body['input'], '你好，少侠');
       expect(body['voice'], 'alloy');
       expect(body['response_format'], 'mp3');
+      expect(request.receiveTimeout, const Duration(seconds: 42));
+    });
+  });
+
+  group('listRemoteModelIds', () {
+    test('使用用户配置的通用请求超时', () async {
+      final adapter = FakeAdapter((_) => jsonBody({
+            'data': [
+              {'id': 'm1'},
+            ],
+          }));
+      bindModel('script_gen', 'text');
+      config.update({'requestTimeoutSeconds': '42'});
+
+      expect(await gw(adapter).listRemoteModelIds('p1'), ['m1']);
+      expect(
+          adapter.requests.single.receiveTimeout, const Duration(seconds: 42));
     });
   });
 }

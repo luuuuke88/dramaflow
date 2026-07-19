@@ -38,7 +38,10 @@ void main() {
 
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  HttpProviderGateway seededGateway(HttpClientAdapter adapter) {
+  HttpProviderGateway seededGateway(
+    HttpClientAdapter adapter, {
+    int? timeoutSeconds,
+  }) {
     final db = openEngineDb(':memory:');
     addTearDown(db.close);
     const providerId = 'anthropic';
@@ -71,10 +74,14 @@ void main() {
       'INSERT INTO o_setting (key,value) VALUES (?,?)',
       ['binding.script_gen', '$providerId:claude-test'],
     );
+    final config = EngineConfig(db, isMobile: false);
+    if (timeoutSeconds != null) {
+      config.update({'requestTimeoutSeconds': '$timeoutSeconds'});
+    }
     final dio = Dio()..httpClientAdapter = adapter;
     return HttpProviderGateway(
       db,
-      EngineConfig(db, isMobile: false),
+      config,
       MediaStore(tmp.path),
       credentials: credentials,
       dio: dio,
@@ -85,6 +92,7 @@ void main() {
     final gateway = seededGateway(_FakeAdapter((options) {
       expect(options.method, 'POST');
       expect(options.path, 'https://api.anthropic.com/v1/messages');
+      expect(options.receiveTimeout, const Duration(seconds: 42));
       expect(options.headers['x-api-key'], 'anthropic-secret');
       expect(options.headers['anthropic-version'], isNotEmpty);
       final body = options.data as Map;
@@ -101,9 +109,11 @@ void main() {
           'usage': {'input_tokens': 7, 'output_tokens': 11},
         }),
         200,
-        headers: {'content-type': ['application/json']},
+        headers: {
+          'content-type': ['application/json']
+        },
       );
-    }));
+    }), timeoutSeconds: 42);
 
     final result = await gateway.generateText('system prompt', 'user prompt',
         stage: 'script_gen');
@@ -116,6 +126,7 @@ void main() {
   test('Anthropic 结构化输出使用 input_schema 并读取 tool_use.input', () async {
     final gateway = seededGateway(_FakeAdapter((options) {
       expect(options.path, 'https://api.anthropic.com/v1/messages');
+      expect(options.receiveTimeout, const Duration(seconds: 42));
       final body = options.data as Map;
       expect(body['tool_choice'], {'type': 'tool', 'name': 'extract_event'});
       expect(body['tools'], [
@@ -124,7 +135,9 @@ void main() {
           'description': '结构化结果提交工具',
           'input_schema': {
             'type': 'object',
-            'properties': {'title': {'type': 'string'}},
+            'properties': {
+              'title': {'type': 'string'}
+            },
           },
         },
       ]);
@@ -139,9 +152,11 @@ void main() {
           ],
         }),
         200,
-        headers: {'content-type': ['application/json']},
+        headers: {
+          'content-type': ['application/json']
+        },
       );
-    }));
+    }), timeoutSeconds: 42);
 
     final result = await gateway.generateToolJson(
       'system prompt',
@@ -150,7 +165,9 @@ void main() {
       toolName: 'extract_event',
       schema: {
         'type': 'object',
-        'properties': {'title': {'type': 'string'}},
+        'properties': {
+          'title': {'type': 'string'}
+        },
       },
     );
 
@@ -160,6 +177,7 @@ void main() {
   test('Anthropic 助手回退阶段仍使用 Messages 的多工具格式', () async {
     final gateway = seededGateway(_FakeAdapter((options) {
       expect(options.path, 'https://api.anthropic.com/v1/messages');
+      expect(options.receiveTimeout, const Duration(seconds: 42));
       final body = options.data as Map;
       expect(body['tool_choice'], {'type': 'auto'});
       expect(body['tools'], [
@@ -180,9 +198,11 @@ void main() {
           ],
         }),
         200,
-        headers: {'content-type': ['application/json']},
+        headers: {
+          'content-type': ['application/json']
+        },
       );
-    }));
+    }), timeoutSeconds: 42);
 
     final result = await gateway.generateAgentTurn(
       'assistant system',
@@ -205,12 +225,13 @@ void main() {
   });
 
   test('Anthropic 视觉理解按原生 base64 image block 提交', () async {
-    final image = File('${tmp.path}/reference.png')..writeAsBytesSync([1, 2, 3]);
+    final image = File('${tmp.path}/reference.png')
+      ..writeAsBytesSync([1, 2, 3]);
     final gateway = seededGateway(_FakeAdapter((options) {
       expect(options.path, 'https://api.anthropic.com/v1/messages');
       final body = options.data as Map;
-      final content = ((body['messages'] as List).single as Map)['content']
-          as List;
+      final content =
+          ((body['messages'] as List).single as Map)['content'] as List;
       expect(content[0], {'type': 'text', 'text': '分析构图'});
       expect(content[1], {
         'type': 'image',
@@ -228,7 +249,9 @@ void main() {
           'usage': {'input_tokens': 13, 'output_tokens': 5},
         }),
         200,
-        headers: {'content-type': ['application/json']},
+        headers: {
+          'content-type': ['application/json']
+        },
       );
     }));
 
@@ -255,7 +278,9 @@ void main() {
           ],
         }),
         200,
-        headers: {'content-type': ['application/json']},
+        headers: {
+          'content-type': ['application/json']
+        },
       );
     }));
 
@@ -266,6 +291,7 @@ void main() {
   test('Anthropic 文本连通测试也走 Messages API', () async {
     final gateway = seededGateway(_FakeAdapter((options) {
       expect(options.path, 'https://api.anthropic.com/v1/messages');
+      expect(options.receiveTimeout, const Duration(seconds: 42));
       expect(options.headers['x-api-key'], 'anthropic-secret');
       return ResponseBody.fromString(
         jsonEncode({
@@ -274,9 +300,11 @@ void main() {
           ],
         }),
         200,
-        headers: {'content-type': ['application/json']},
+        headers: {
+          'content-type': ['application/json']
+        },
       );
-    }));
+    }), timeoutSeconds: 42);
 
     final elapsed = await gateway.testTextModel(const ResolvedModel(
       providerId: 'anthropic',

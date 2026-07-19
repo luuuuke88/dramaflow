@@ -12,6 +12,7 @@ Future<TextResult> openaiGenerateText(
   ResolvedModel model,
   String system,
   String user, {
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -30,7 +31,7 @@ Future<TextResult> openaiGenerateText(
           ? const <String, String>{}
           : {'Authorization': 'Bearer ${model.apiKey}'},
       sendTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 300),
+      receiveTimeout: requestTimeout,
       validateStatus: (s) => s != null && s < 400,
     ),
     cancelToken: cancelToken,
@@ -68,6 +69,7 @@ Future<Map<String, dynamic>> openaiGenerateToolJson(
   String user, {
   required String toolName,
   required Map<String, dynamic> schema,
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -104,7 +106,7 @@ Future<Map<String, dynamic>> openaiGenerateToolJson(
           ? const <String, String>{}
           : {'Authorization': 'Bearer ${model.apiKey}'},
       sendTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 300),
+      receiveTimeout: requestTimeout,
       validateStatus: (s) => s != null && s < 400,
     ),
     cancelToken: cancelToken,
@@ -162,6 +164,7 @@ Future<AgentTurnResult> openaiGenerateAgentTurn(
   String system,
   List<Map<String, String>> messages,
   List<AgentToolDef> tools, {
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -194,7 +197,7 @@ Future<AgentTurnResult> openaiGenerateAgentTurn(
           ? const <String, String>{}
           : {'Authorization': 'Bearer ${model.apiKey}'},
       sendTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 300),
+      receiveTimeout: requestTimeout,
       validateStatus: (s) => s != null && s < 400,
     ),
     cancelToken: cancelToken,

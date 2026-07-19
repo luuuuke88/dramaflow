@@ -32,6 +32,8 @@ class EngineConfig {
     'chapterReg': '',
     'scriptEpisodeLength': '5000',
     'assetsBatchGenereateSize': '5',
+    'requestTimeoutSeconds': '600',
+    'production.interacting': '1',
     'themeMode': 'light',
     'app.locale': '',
     'onboarding.completed': '0',
@@ -49,6 +51,12 @@ class EngineConfig {
   }
 
   int intOf(String key) => int.tryParse(str(key)) ?? 0;
+
+  /// 通用供应商请求超时。ToonFlow 的设置下限为 10 秒；异常配置也按该下限处理。
+  Duration get requestTimeout {
+    final seconds = int.tryParse(str('requestTimeoutSeconds')) ?? 600;
+    return Duration(seconds: seconds < 10 ? 10 : seconds);
+  }
 
   Map<String, dynamic> getAll() => {
         for (final k in _defaults.keys)

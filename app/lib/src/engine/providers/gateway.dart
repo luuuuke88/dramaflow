@@ -149,10 +149,10 @@ class HttpProviderGateway
     final model = await resolveStage(db, credentials, stage);
     if (model.protocol == 'anthropic') {
       return anthropicGenerateText(dio, model, system, user,
-          cancelToken: cancelToken);
+          requestTimeout: config.requestTimeout, cancelToken: cancelToken);
     }
     return openaiGenerateText(dio, model, system, user,
-        cancelToken: cancelToken);
+        requestTimeout: config.requestTimeout, cancelToken: cancelToken);
   }
 
   @override
@@ -165,10 +165,10 @@ class HttpProviderGateway
     final model = await resolveStage(db, credentials, stage);
     if (model.protocol == 'anthropic') {
       return anthropicAnalyzeImage(dio, model, prompt, imageAbsPath,
-          cancelToken: cancelToken);
+          requestTimeout: config.requestTimeout, cancelToken: cancelToken);
     }
     return openaiAnalyzeImage(dio, model, prompt, imageAbsPath,
-        cancelToken: cancelToken);
+        requestTimeout: config.requestTimeout, cancelToken: cancelToken);
   }
 
   @override
@@ -183,10 +183,16 @@ class HttpProviderGateway
     final model = await resolveStage(db, credentials, stage);
     if (model.protocol == 'anthropic') {
       return anthropicGenerateToolJson(dio, model, system, user,
-          toolName: toolName, schema: schema, cancelToken: cancelToken);
+          toolName: toolName,
+          schema: schema,
+          requestTimeout: config.requestTimeout,
+          cancelToken: cancelToken);
     }
     return openaiGenerateToolJson(dio, model, system, user,
-        toolName: toolName, schema: schema, cancelToken: cancelToken);
+        toolName: toolName,
+        schema: schema,
+        requestTimeout: config.requestTimeout,
+        cancelToken: cancelToken);
   }
 
   @override
@@ -200,10 +206,10 @@ class HttpProviderGateway
     final model = await resolveAssistantStage(db, credentials, stage);
     if (model.protocol == 'anthropic') {
       return anthropicGenerateAgentTurn(dio, model, system, messages, tools,
-          cancelToken: cancelToken);
+          requestTimeout: config.requestTimeout, cancelToken: cancelToken);
     }
     return openaiGenerateAgentTurn(dio, model, system, messages, tools,
-        cancelToken: cancelToken);
+        requestTimeout: config.requestTimeout, cancelToken: cancelToken);
   }
 
   @override
@@ -379,7 +385,7 @@ class HttpProviderGateway
             } else if (apiKey.isNotEmpty)
               'Authorization': 'Bearer $apiKey',
           },
-          receiveTimeout: const Duration(seconds: 20),
+          receiveTimeout: config.requestTimeout,
         ),
       );
       final body = resp.data;
@@ -420,6 +426,7 @@ class HttpProviderGateway
       projectId,
       voice: voice,
       format: format,
+      requestTimeout: config.requestTimeout,
       cancelToken: cancelToken,
     );
   }
@@ -429,10 +436,10 @@ class HttpProviderGateway
     final sw = Stopwatch()..start();
     if (model.protocol == 'anthropic') {
       await anthropicGenerateText(dio, model, '', '只回复OK',
-          cancelToken: cancelToken);
+          requestTimeout: config.requestTimeout, cancelToken: cancelToken);
     } else {
       await openaiGenerateText(dio, model, '', '只回复OK',
-          cancelToken: cancelToken);
+          requestTimeout: config.requestTimeout, cancelToken: cancelToken);
     }
     sw.stop();
     return sw.elapsedMilliseconds;

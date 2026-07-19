@@ -64,6 +64,24 @@ void main() {
     expect(c.intOf('assetsBatchGenereateSize'), 5);
   });
 
+  test('其他设置持久化请求超时和制作画布性能开关', () {
+    final db = openEngineDb(':memory:');
+    final config = EngineConfig(db, isMobile: false);
+    expect(config.requestTimeout, const Duration(seconds: 600));
+    expect(config.str('production.interacting'), '1');
+
+    config.update({
+      'requestTimeoutSeconds': '42',
+      'production.interacting': '0',
+    });
+    final again = EngineConfig(db, isMobile: false);
+    expect(again.requestTimeout, const Duration(seconds: 42));
+    expect(again.str('production.interacting'), '0');
+
+    again.update({'requestTimeoutSeconds': '3'});
+    expect(again.requestTimeout, const Duration(seconds: 10));
+  });
+
   test('其他设置读写往返并持久化', () {
     final db = openEngineDb(':memory:');
     final c = EngineConfig(db, isMobile: false);

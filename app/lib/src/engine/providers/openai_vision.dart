@@ -12,6 +12,7 @@ Future<TextResult> openaiAnalyzeImage(
   ResolvedModel model,
   String prompt,
   String imageAbsPath, {
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final file = File(imageAbsPath);
@@ -52,7 +53,7 @@ Future<TextResult> openaiAnalyzeImage(
           ? const <String, String>{}
           : {'Authorization': 'Bearer ${model.apiKey}'},
       sendTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 300),
+      receiveTimeout: requestTimeout,
       validateStatus: (s) => s != null && s < 400,
     ),
     cancelToken: cancelToken,

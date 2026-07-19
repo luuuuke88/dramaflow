@@ -15,6 +15,7 @@ Future<String> openaiGenerateSpeech(
   String projectId, {
   required String voice,
   String? format,
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -33,7 +34,7 @@ Future<String> openaiGenerateSpeech(
           : {'Authorization': 'Bearer ${model.apiKey}'},
       responseType: ResponseType.bytes,
       sendTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 300),
+      receiveTimeout: requestTimeout,
       validateStatus: (s) => s != null && s < 400,
     ),
     cancelToken: cancelToken,

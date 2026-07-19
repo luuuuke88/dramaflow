@@ -14,6 +14,7 @@ Future<TextResult> anthropicGenerateText(
   ResolvedModel model,
   String system,
   String user, {
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final data = await _post(
@@ -27,6 +28,7 @@ Future<TextResult> anthropicGenerateText(
         {'role': 'user', 'content': user},
       ],
     },
+    requestTimeout: requestTimeout,
     cancelToken: cancelToken,
   );
   final content = _textContent(data);
@@ -48,6 +50,7 @@ Future<Map<String, dynamic>> anthropicGenerateToolJson(
   String user, {
   required String toolName,
   required Map<String, dynamic> schema,
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final data = await _post(
@@ -69,6 +72,7 @@ Future<Map<String, dynamic>> anthropicGenerateToolJson(
       ],
       'tool_choice': {'type': 'tool', 'name': toolName},
     },
+    requestTimeout: requestTimeout,
     cancelToken: cancelToken,
   );
   for (final block in _contentBlocks(data)) {
@@ -85,6 +89,7 @@ Future<AgentTurnResult> anthropicGenerateAgentTurn(
   String system,
   List<Map<String, String>> messages,
   List<AgentToolDef> tools, {
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final data = await _post(
@@ -106,6 +111,7 @@ Future<AgentTurnResult> anthropicGenerateAgentTurn(
         ],
       if (tools.isNotEmpty) 'tool_choice': {'type': 'auto'},
     },
+    requestTimeout: requestTimeout,
     cancelToken: cancelToken,
   );
   for (final block in _contentBlocks(data)) {
@@ -130,6 +136,7 @@ Future<TextResult> anthropicAnalyzeImage(
   ResolvedModel model,
   String prompt,
   String imageAbsPath, {
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final file = File(imageAbsPath);
@@ -162,6 +169,7 @@ Future<TextResult> anthropicAnalyzeImage(
         },
       ],
     },
+    requestTimeout: requestTimeout,
     cancelToken: cancelToken,
   );
   final content = _textContent(data);
@@ -180,13 +188,14 @@ Future<Map<String, dynamic>> _post(
   Dio dio,
   ResolvedModel model,
   Map<String, dynamic> body, {
+  required Duration requestTimeout,
   CancelToken? cancelToken,
 }) async {
   final base = model.baseUrl.replaceAll(RegExp(r'/+$'), '');
   final response = await dio.post<dynamic>(
     '$base/messages',
     data: body,
-    options: _options(model),
+    options: _options(model, requestTimeout),
     cancelToken: cancelToken,
   );
   if (response.data is! Map) {
@@ -195,13 +204,13 @@ Future<Map<String, dynamic>> _post(
   return Map<String, dynamic>.from(response.data as Map);
 }
 
-Options _options(ResolvedModel model) => Options(
+Options _options(ResolvedModel model, Duration requestTimeout) => Options(
       headers: {
         'x-api-key': model.apiKey,
         'anthropic-version': anthropicApiVersion,
       },
       sendTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 300),
+      receiveTimeout: requestTimeout,
       validateStatus: (status) => status != null && status < 400,
     );
 
