@@ -130,3 +130,38 @@ Honest calibration from static reading. Where I cannot tell without running the 
 ### Cross-cutting note for the W1 spec author
 
 The highest-leverage single question W1 profiling should answer first: **does the `setState`-per-transform-tick rebuild (`df_canvas.dart:84-85`) actually cost frames at N≈100, or does culling absorb it?** Most of M1/M2/M5's scope hinges on that answer, and it is exactly the kind of thing that cannot be resolved by reading — it needs a profile-mode timeline. Everything else (culling, RepaintBoundary, focal-point zoom, inertia) is already structurally present, which is why DramaFlow starts from a materially better place than ToonFlow's no-virtualization + interaction-mode-hack baseline.
+
+---
+
+## 6. Evidence refresh — 2026-07-19
+
+This refresh reran the canvas-facing widget suite against the current `develop`
+worktree. It is deliberately an interaction regression result, **not** a
+performance claim and not a real video-provider test.
+
+```text
+cd app
+flutter test --concurrency=1 \
+  test/widgets/df_widgets_test.dart \
+  test/widgets/production_screen_test.dart \
+  test/widgets/storyboard_canvas_node_test.dart \
+  test/widgets/canvas_chat_panel_test.dart
+
+37 tests passed
+```
+
+| Verified by this run | What it proves | What it does not prove |
+| --- | --- | --- |
+| `DFCanvas` 1,000-node culling | Off-screen top-level nodes are not mounted and become visible after a viewport transform | Raster/build time while panning, nested storyboard-cell cost, or device frame rate |
+| Title-handle drag at 2× scale | Pointer deltas are converted to scene coordinates correctly | Space-held panning or drag performance under a populated canvas |
+| Desktop production page | Six nodes render; the Agent panel opens; node positions survive episode switching and automatic layout restores positions | Automatic layout recenters the viewport, active-Agent episode switch protection, or the default chat-open state |
+| 390dp production alternative | The Tab layout, node inspector, full-screen Agent entry, storyboard/workbench routes and local fake-composition path remain reachable | Native iOS/Android gesture feel, touch performance, or a desktop infinite-canvas equivalent on a narrow screen |
+| Storyboard and production chat | Editing and local confirmation paths still render through the production surface | Real image/video generation; this run invokes no real media provider |
+
+The source comparison was also rechecked in the same worktree. The six
+user-visible deltas in §2 remain open: post-layout `fitView`, VueFlow-style
+canvas controls, `Space + left-button` pan, active-Agent episode-switch
+confirmation, the default-open production chat, and the persisted production
+canvas guide. No test above covers the W1 frame-time metrics M1/M2/M4/M5/M7,
+so `W6-PRODUCTION-001` correctly remains **partial** in
+[`master-checklist.md`](master-checklist.md).
