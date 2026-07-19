@@ -375,8 +375,8 @@ git commit -m "docs(parity): verify cornerscape workspace"
 - Modify: `docs/parity/master-checklist.md`
 - Modify: `docs/parity/feature-parity-execution-report.md`
 
-- [ ] Add failing engine/widget tests for cancelled image rows, exact task identity,
+- [x] Add failing engine/widget tests for cancelled image rows, exact task identity,
   isolated batch-prompt failures, resolution preservation, and failed-detail state.
-- [ ] Implement the scoped engine/UI/docs corrections above.
-- [ ] Re-run the Task 5 verification matrix, full Flutter suite, debug macOS build,
+- [x] Implement the scoped engine/UI/docs corrections above.
+- [x] Re-run the Task 5 verification matrix, full Flutter suite, debug macOS build,
   no-orphans checker, formatting, analyzer and final whole-feature review.
