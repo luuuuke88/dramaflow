@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/models.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
+import '../../util/l10n_ext.dart';
 
 class ModelOption {
   final String value; // providerId:modelId
@@ -39,6 +40,7 @@ class ModelSelect extends ConsumerWidget {
   final String? value;
   final String hint;
   final ValueChanged<ModelOption?> onChanged;
+  final VoidCallback? onConfigure;
 
   const ModelSelect({
     super.key,
@@ -46,6 +48,7 @@ class ModelSelect extends ConsumerWidget {
     required this.value,
     required this.hint,
     required this.onChanged,
+    this.onConfigure,
   });
 
   @override
@@ -58,6 +61,28 @@ class ModelSelect extends ConsumerWidget {
       error: (e, _) => Text('$e',
           style: TextStyle(color: df.danger, fontSize: 12)),
       data: (items) {
+        if (items.isEmpty && onConfigure != null) {
+          return InputDecorator(
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            ),
+            child: Row(children: [
+              Expanded(
+                child: Text(
+                  hint,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: df.textTertiary, fontSize: 13),
+                ),
+              ),
+              TextButton.icon(
+                key: Key('model-select-configure-$kind'),
+                onPressed: onConfigure,
+                icon: const Icon(Icons.settings_outlined, size: 16),
+                label: Text(context.l10n.modelSelectGoSettings),
+              ),
+            ]),
+          );
+        }
         final valid = items.any((o) => o.value == value) ? value : null;
         return DropdownButtonFormField<String>(
           initialValue: valid,

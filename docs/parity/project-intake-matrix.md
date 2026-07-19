@@ -8,14 +8,14 @@
 
 ## 结论先行
 
-Flutter 已承接双栏表单、项目字段存储、视觉/导演手册画廊及其编辑、十项保存校验，以及打开项目前的本地模型可用性保护；模块仍因无模型引导和默认手册标题两个可见缺口维持“部分实现”。
+Flutter 已承接双栏表单、项目字段存储、视觉/导演手册画廊及其编辑、十项保存校验、无模型设置引导，以及打开项目前的本地模型可用性保护；模块只因默认手册标题仍有可见差异而维持“部分实现”。
 
 | 旅程环节 | ToonFlow 可观察行为与证据 | DramaFlow 现状与证据 | 状态 |
 | --- | --- | --- | --- |
 | 表单布局 | 左栏依次展示项目类型、名称、题材、图片模型+清晰度、视频模型+模式、比例、简介；右栏为视觉手册和导演手册画廊，`projectDialog.vue:13-134` | 同一字段和两套画廊位于 `app/lib/src/screens/project/project_dialog.dart:194-337`；可用宽度小于 700 时切为单列，`:346-367` | 已承接 |
 | 项目类型 | 可选择“基于小说原文”或“基于剧本”，`projectDialog.vue:16-20` | `novel` / `script` 下拉，`project_dialog.dart:198-210` | 已承接 |
 | 模型与视频模式 | 图片、视频模型各有选择器；视频模型变化后刷新可选模式，`projectDialog.vue:28-47` | `ModelSelect` 按 `image` / `video` 过滤；模型 capability 驱动模式选择，`project_dialog.dart:69-86,221-288` | 已承接 |
-| 无模型引导 | 原版选择器为空时展示“去设置”动作，点击直接打开供应商配置，`Toonflow-web/src/components/modelSelect.vue:24-31,158-162` | Flutter `ModelSelect` 在无候选时只显示空下拉框，`app/lib/src/screens/project/model_select.dart:54-79`；用户无法从当前向导跳转到模型配置 | 缺失 |
+| 无模型引导 | 原版选择器为空时展示“去设置”动作，点击直接打开供应商配置，`Toonflow-web/src/components/modelSelect.vue:24-31,158-162` | `ModelSelect` 空列表显示设置图标和“去设置”，`model_select.dart:63-84`；项目向导关闭自身后路由到 `/settings?section=providers`，`project_dialog.dart:156-161`。桌面和 390dp 回归均覆盖 | 已验证 |
 | 视觉/导演手册 | 画廊选中、创建、编辑、删除、封面预览，`projectDialog.vue:60-131` | `ManualGallery` 选中、创建、编辑、删除均接到本地引擎，`project_dialog.dart:299-337` | 已承接 |
 | 字段持久化 | 确认时将 11 个表单字段提交给 add/edit，`projectDialog.vue:432-460` | 新建与编辑均将 11 项传给 `Engine.addProject/editProject`，`project_dialog.dart:108-150`；引擎 CRUD 回归覆盖，`app/test/engine/projects_test.dart:36-90` | 已承接 |
 | 保存前校验 | 原版依序拒绝：名称、题材、图片模型、视频模型、视觉手册、导演手册、视频比例、简介、图片清晰度、视频模式，`projectDialog.vue:421-431` | `firstMissingProjectIntakeField()` 以相同顺序检查十项，`project_dialog.dart:20-62`；保存时显示本地化首个错误并保持对话框打开，`:108-152`。纯函数回归覆盖十项顺序，桌面向导回归覆盖名称与题材拦截 | 已验证 |
@@ -24,8 +24,8 @@ Flutter 已承接双栏表单、项目字段存储、视觉/导演手册画廊�
 
 ## 跨端验证现状
 
-- 桌面：`app/test/widgets/project_page_test.dart` 覆盖空态、有效模型卡片打开、失效模型阻断并进入编辑、鼠标悬停编辑删除、手册编辑入口和十项校验的前两步；`app/test/widgets/project_intake_validation_test.dart` 覆盖十项固定顺序。
-- 移动端：同文件以 390×760 点选全套字段、滚动至两类手册并保存；失效图片/视频绑定同样只能打开编辑而不能进入小说页；另覆盖触控场景的编辑删除与平板宽度。
+- 桌面：`app/test/widgets/project_page_test.dart` 覆盖空态、有效模型卡片打开、失效模型阻断并进入编辑、无模型直达供应商设置、鼠标悬停编辑删除、手册编辑入口和十项校验的前两步；`app/test/widgets/project_intake_validation_test.dart` 覆盖十项固定顺序。
+- 移动端：同文件以 390×760 点选全套字段、滚动至两类手册并保存；失效图片/视频绑定同样只能打开编辑，无模型可直达供应商设置，另覆盖触控场景的编辑删除与平板宽度。
 - 这些回归使用内存 SQLite、本地模型记录和假网关；只验证字段、绑定解析和路由阻断，不调用文本、图像或视频供应商。
 
 ## 默认视觉手册基线（2026-07-19）
@@ -81,8 +81,7 @@ flutter test --concurrency=1 \
 
 ## 后续实施边界
 
-1. 没有可选图片或视频模型时，在相应选择器给出到“供应商”设置区的明确动作；不重复实现供应商编辑表单。
-2. 从默认手册的 `README.md` 首行派生可读标题，保持与 ToonFlow 的画廊命名一致。
+1. 从默认手册的 `README.md` 首行派生可读标题，保持与 ToonFlow 的画廊命名一致。
 3. 项目直接 CRUD 保持对导入和恢复记录的宽容性；十项非空限制属于用户向导契约，不能借此改变底层数据修复能力。
 4. 入口保护的桌面与 390dp 回归只查询本地绑定并使用假网关；绝不提交真实视频任务。
 

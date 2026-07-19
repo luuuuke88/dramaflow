@@ -55,6 +55,10 @@ void main() {
           builder: (c, s) => const Scaffold(body: ProjectListScreen())),
       GoRoute(
           path: '/p/:pid/novel', builder: (c, s) => const Text('novel-page')),
+      GoRoute(
+        path: '/settings',
+        builder: (c, s) => const Text('settings-provider-page'),
+      ),
     ]);
     return ProviderScope(
       overrides: [engineProvider.overrideWithValue(engine)],
@@ -448,6 +452,38 @@ void main() {
     expect(project.videoModel, 'demo-video-provider:video-demo');
     expect(project.mode, 'fast');
     expect(project.videoRatio, '9:16');
+  });
+
+  testWidgets('移动端无可用模型时可从项目向导直达供应商设置', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('新建项目').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('model-select-configure-image')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('settings-provider-page'), findsOneWidget);
+    expect(find.text('项目类型'), findsNothing);
+  });
+
+  testWidgets('桌面端无可用模型时也可从项目向导直达供应商设置', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('新建项目').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('model-select-configure-video')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('settings-provider-page'), findsOneWidget);
+    expect(find.text('项目类型'), findsNothing);
   });
 
   testWidgets('移动端新建向导不再暴露重复画风库入口', (tester) async {

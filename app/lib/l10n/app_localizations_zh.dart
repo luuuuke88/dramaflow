@@ -576,6 +576,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get projectMsgModelProviderDisabled => '视频模型或图片模型供应商未启用或无模型供应商，请先配置';
 
   @override
+  String get modelSelectGoSettings => '去设置';
+
+  @override
   String get projectTypeNovel => '基于小说原文';
 
   @override

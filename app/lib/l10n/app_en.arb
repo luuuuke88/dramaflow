@@ -241,6 +241,7 @@
   "projectMsgDirectorManualAdded": "Director's Manual added",
   "projectMsgDirectorManual": "Please select Project Director's Manual",
   "projectMsgModelProviderDisabled": "The video model or picture model supplier is not enabled or there is no model supplier, please configure it first",
+  "modelSelectGoSettings": "Go to settings",
   "projectTypeNovel": "Based on the original novel",
   "projectTypeScript": "Based on novel script",
   "commonEdit": "Edit",

@@ -262,6 +262,7 @@
   "projectMsgDirectorManualAdded": "导演手册已添加",
   "projectMsgDirectorManual": "请选择项目导演手册",
   "projectMsgModelProviderDisabled": "视频模型或图片模型供应商未启用或无模型供应商，请先配置",
+  "modelSelectGoSettings": "去设置",
   "projectTypeNovel": "基于小说原文",
   "projectTypeScript": "基于小说剧本",
   "commonEdit": "编辑",

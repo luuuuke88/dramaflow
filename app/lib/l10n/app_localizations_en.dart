@@ -593,6 +593,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'The video model or picture model supplier is not enabled or there is no model supplier, please configure it first';
 
   @override
+  String get modelSelectGoSettings => 'Go to settings';
+
+  @override
   String get projectTypeNovel => 'Based on the original novel';
 
   @override

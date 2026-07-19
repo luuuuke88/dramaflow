@@ -582,6 +582,9 @@ class AppLocalizationsJa extends AppLocalizations {
       'ビデオ モデルまたは画像モデルのサプライヤーが有効になっていない、またはモデル サプライヤーがありません。最初に設定してください。';
 
   @override
+  String get modelSelectGoSettings => '設定へ';
+
+  @override
   String get projectTypeNovel => '原作小説に基づいて';
 
   @override

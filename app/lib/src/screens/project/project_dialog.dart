@@ -4,6 +4,7 @@
 // 校验照抄：名称必填。移动端 <840 全屏单列。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
 
@@ -149,6 +150,12 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  void _openProviderSettings() {
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    router.go('/settings?section=providers');
   }
 
   String _intakeError(
@@ -302,6 +309,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
             value: _imageModel,
             hint: l10n.projectMsgEnterImageModel,
             onChanged: (o) => setState(() => _imageModel = o?.value),
+            onConfigure: _openProviderSettings,
           ),
         ),
         const SizedBox(width: 6),
@@ -331,6 +339,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
               _videoModel = o?.value;
               _setVideoModes(o);
             }),
+            onConfigure: _openProviderSettings,
           ),
         ),
         if (_videoModes.isNotEmpty) ...[

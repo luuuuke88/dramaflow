@@ -1186,6 +1186,12 @@ abstract class AppLocalizations {
   /// **'视频模型或图片模型供应商未启用或无模型供应商，请先配置'**
   String get projectMsgModelProviderDisabled;
 
+  /// No description provided for @modelSelectGoSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'去设置'**
+  String get modelSelectGoSettings;
+
   /// No description provided for @projectTypeNovel.
   ///
   /// In zh, this message translates to:

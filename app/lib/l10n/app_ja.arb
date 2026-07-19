@@ -241,6 +241,7 @@
   "projectMsgDirectorManualAdded": "ディレクターズマニュアルを追加しました",
   "projectMsgDirectorManual": "プロジェクトディレクターズマニュアルを選択してください",
   "projectMsgModelProviderDisabled": "ビデオ モデルまたは画像モデルのサプライヤーが有効になっていない、またはモデル サプライヤーがありません。最初に設定してください。",
+  "modelSelectGoSettings": "設定へ",
   "projectTypeNovel": "原作小説に基づいて",
   "projectTypeScript": "小説の脚本に基づく",
   "commonEdit": "編集",
