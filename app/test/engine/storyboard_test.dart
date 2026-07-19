@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/credentials.dart';
@@ -108,6 +109,48 @@ void main() {
 | 1 | 雪夜山门\\|剑光 | 慢镜推近 | 3 | 主线 | 林朝雪，山门, 青霜剑 | 是 |
 | 2 | 近景剑锋 | 横向跟拍 | 2 | 副线 | 林朝雪 | 否 |
 ''';
+
+  test('exportStoryboardImages 仅打包已选且存在的本地首帧', () {
+    final first = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '首张图',
+    );
+    final missing = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '缺失图',
+    );
+    final ignored = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '未选图',
+    );
+    const firstRel = 'images/first.png';
+    const missingRel = 'images/missing.jpg';
+    const ignoredRel = 'images/ignored.webp';
+    File(engine.mediaAbsPath(firstRel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    File(engine.mediaAbsPath(ignoredRel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([9, 8, 7]);
+    engine.setStoryboardImage(first, firstRel);
+    engine.setStoryboardImage(missing, missingRel);
+    engine.setStoryboardImage(ignored, ignoredRel);
+
+    final result = engine.exportStoryboardImages(scriptId, {first, missing});
+
+    expect(result.fileCount, 1);
+    final archive = ZipDecoder().decodeBytes(result.bytes);
+    expect(archive.files, hasLength(1));
+    expect(archive.files.single.name, '分镜$first.png');
+    expect(archive.files.single.content, [1, 2, 3]);
+
+    final empty = engine.exportStoryboardImages(scriptId, const {});
+    expect(empty.fileCount, 0);
+    expect(empty.bytes, isEmpty);
+  });
 
   void seedDocuments({String table = validTable, String plan = '导演规划 A'}) {
     engine.saveScriptPlan(projectId, plan);

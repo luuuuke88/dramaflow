@@ -3,7 +3,9 @@
 // 状态枚举为 DB 中文字符串（逐字）：未生成/生成中/已完成/生成失败。
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart' show Row;
 
@@ -21,6 +23,21 @@ const sbNotGenerated = '未生成';
 const sbGenerating = '生成中';
 const sbDone = '已完成';
 const sbFailed = '生成失败';
+
+class StoryboardImageExport {
+  final Uint8List bytes;
+  final int fileCount;
+
+  const StoryboardImageExport(this.bytes, this.fileCount);
+}
+
+String _storyboardExportExtension(String relPath) {
+  final name = relPath.split('/').last.split('?').first;
+  final dot = name.lastIndexOf('.');
+  if (dot <= 0 || dot == name.length - 1) return 'jpg';
+  final extension = name.substring(dot + 1).toLowerCase();
+  return RegExp(r'^[a-z0-9]{1,10}$').hasMatch(extension) ? extension : 'jpg';
+}
 
 class StoryboardRow {
   final int id;
@@ -198,6 +215,38 @@ extension StoryboardApi on Engine {
       out.add((shotNumber: i + 1, absPath: media.absPath(rel)));
     }
     return out;
+  }
+
+  /// 将选中的本地首帧图归档为 ZIP，不修改分镜或媒体文件。
+  StoryboardImageExport exportStoryboardImages(
+      int scriptId, Set<int> storyboardIds) {
+    if (storyboardIds.isEmpty) {
+      return StoryboardImageExport(Uint8List(0), 0);
+    }
+    final archive = Archive();
+    var fileCount = 0;
+    for (final row in storyboards(scriptId)) {
+      final rel = row.filePath;
+      if (!storyboardIds.contains(row.id) || rel == null || rel.isEmpty) {
+        continue;
+      }
+      final file = File(media.absPath(rel));
+      if (!file.existsSync()) continue;
+      final content = file.readAsBytesSync();
+      archive.addFile(ArchiveFile(
+        '分镜${row.id}.${_storyboardExportExtension(rel)}',
+        content.length,
+        content,
+      ));
+      fileCount++;
+    }
+    if (fileCount == 0) {
+      return StoryboardImageExport(Uint8List(0), 0);
+    }
+    return StoryboardImageExport(
+      Uint8List.fromList(ZipEncoder().encode(archive)),
+      fileCount,
+    );
   }
 
   List<StoryboardRow> storyboards(int scriptId) {
