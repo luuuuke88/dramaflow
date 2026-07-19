@@ -283,39 +283,46 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
           position: scriptPos,
           size: const Size(nodeW, 400),
           onDragUpdate: (delta) => _moveNode('script', delta),
-          child: _ScriptNode(script: script),
+          child:
+              DFCanvasViewportSignalRegion(child: _ScriptNode(script: script)),
         ),
         DFCanvasNode(
           id: 'scriptPlan',
           position: planPos,
           size: const Size(nodeW, 260),
           onDragUpdate: (delta) => _moveNode('scriptPlan', delta),
-          child: ScriptPlanNode(projectId: projectId),
+          child: DFCanvasViewportSignalRegion(
+              child: ScriptPlanNode(projectId: projectId)),
         ),
         DFCanvasNode(
           id: 'assets',
           position: assetsPos,
           size: const Size(nodeW, 320),
           onDragUpdate: (delta) => _moveNode('assets', delta),
-          child: _AssetsNode(projectId: projectId, script: script),
+          child: DFCanvasViewportSignalRegion(
+              child: _AssetsNode(projectId: projectId, script: script)),
         ),
         DFCanvasNode(
           id: 'storyboardTable',
           position: tablePos,
           size: const Size(nodeW, 400),
           onDragUpdate: (delta) => _moveNode('storyboardTable', delta),
-          child:
-              _StoryboardTableNode(projectId: projectId, scriptId: script.id),
+          child: DFCanvasViewportSignalRegion(
+            child:
+                _StoryboardTableNode(projectId: projectId, scriptId: script.id),
+          ),
         ),
         DFCanvasNode(
           id: 'storyboard',
           position: storyboardPos,
           size: const Size(storyboardW, 620),
           onDragUpdate: (delta) => _moveNode('storyboard', delta),
-          child: _NodeFrame(
-            title: context.l10n.productionNodeStoryboardTitle,
-            child:
-                StoryboardCanvasNode(projectId: projectId, scriptId: script.id),
+          child: DFCanvasViewportSignalRegion(
+            child: _NodeFrame(
+              title: context.l10n.productionNodeStoryboardTitle,
+              child: StoryboardCanvasNode(
+                  projectId: projectId, scriptId: script.id),
+            ),
           ),
         ),
         DFCanvasNode(
@@ -323,7 +330,9 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
           position: workbenchPos,
           size: const Size(nodeW, 220),
           onDragUpdate: (delta) => _moveNode('workbench', delta),
-          child: _WorkbenchNode(projectId: projectId, scriptId: script.id),
+          child: DFCanvasViewportSignalRegion(
+            child: _WorkbenchNode(projectId: projectId, scriptId: script.id),
+          ),
         ),
       ],
       edges: const [

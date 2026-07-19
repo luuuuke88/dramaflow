@@ -783,173 +783,184 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
           boxShadow: DFTokens.cardRest,
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            _HandleDot(
-              onTap: () => _handleHandleTap(node, isSource: false),
-              active: false,
-            ),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                color: df.textPrimary,
-                child: Row(children: [
-                  Icon(Icons.auto_fix_high, size: 14, color: df.surface),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(l10n.productionEditImageImageGeneration,
-                        style: TextStyle(fontSize: 12, color: df.surface)),
+          DFCanvasDragRegion(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Row(children: [
+                _HandleDot(
+                  onTap: () => _handleHandleTap(node, isSource: false),
+                  active: false,
+                ),
+                Expanded(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    color: df.textPrimary,
+                    child: Row(children: [
+                      Icon(Icons.auto_fix_high, size: 14, color: df.surface),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(l10n.productionEditImageImageGeneration,
+                            style: TextStyle(fontSize: 12, color: df.surface)),
+                      ),
+                      InkWell(
+                        onTap: () => _deleteNode(node.id),
+                        child: Icon(Icons.close, size: 14, color: df.surface),
+                      ),
+                    ]),
                   ),
-                  InkWell(
-                    onTap: () => _deleteNode(node.id),
-                    child: Icon(Icons.close, size: 14, color: df.surface),
-                  ),
-                ]),
+                ),
+              ]),
+              Container(
+                width: _nodeWidth,
+                height: 160,
+                color: df.surfaceMuted,
+                child: switch (node.state) {
+                  'generating' => Center(
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)),
+                            const SizedBox(height: 6),
+                            Text(l10n.productionEditImageGenerating,
+                                style: TextStyle(
+                                    fontSize: 11, color: df.textTertiary)),
+                          ]),
+                    ),
+                  'done' when node.generatedRel != null => Image.file(
+                      File(_engine.mediaAbsPath(node.generatedRel!)),
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => Icon(
+                          Icons.broken_image_outlined,
+                          color: df.textTertiary)),
+                  'failed' => Center(
+                      child: Tooltip(
+                        message: node.errorText ?? '',
+                        child: Icon(Icons.error_outline, color: df.danger),
+                      ),
+                    ),
+                  _ => Icon(Icons.image_not_supported_outlined,
+                      color: df.textTertiary),
+                },
               ),
-            ),
-          ]),
-          Container(
-            width: _nodeWidth,
-            height: 160,
-            color: df.surfaceMuted,
-            child: switch (node.state) {
-              'generating' => Center(
-                  child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2)),
-                        const SizedBox(height: 6),
-                        Text(l10n.productionEditImageGenerating,
-                            style: TextStyle(
-                                fontSize: 11, color: df.textTertiary)),
-                      ]),
-                ),
-              'done' when node.generatedRel != null => Image.file(
-                  File(_engine.mediaAbsPath(node.generatedRel!)),
-                  fit: BoxFit.cover,
-                  errorBuilder: (c, e, s) => Icon(Icons.broken_image_outlined,
-                      color: df.textTertiary)),
-              'failed' => Center(
-                  child: Tooltip(
-                    message: node.errorText ?? '',
-                    child: Icon(Icons.error_outline, color: df.danger),
-                  ),
-                ),
-              _ => Icon(Icons.image_not_supported_outlined,
-                  color: df.textTertiary),
-            },
+            ]),
           ),
           if (node.selected)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(children: [
-                if (node.references.isNotEmpty)
-                  SizedBox(
-                    height: 40,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        for (final rel in node.references)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: Image.file(
-                                File(_engine.mediaAbsPath(rel)),
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
+            DFCanvasDragRegion(
+              movesNode: false,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(children: [
+                  if (node.references.isNotEmpty)
+                    SizedBox(
+                      height: 40,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          for (final rel in node.references)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image.file(
+                                  File(_engine.mediaAbsPath(rel)),
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: node.promptCtl,
-                  minLines: 2,
-                  maxLines: 3,
-                  style: const TextStyle(fontSize: 12),
-                  decoration: InputDecoration(
-                      hintText: l10n.productionEditImagePromptPlaceholder,
-                      isDense: true),
-                ),
-                const SizedBox(height: 6),
-                // 模型选择（enabled 图片模型；对齐 ToonFlow modelSelect）。
-                _modelSelectField(node),
-                const SizedBox(height: 6),
-                // 画幅 + 清晰度（静态枚举；对齐 ToonFlow 两个 t-select）。
-                Row(children: [
-                  Expanded(
-                    child: _enumSelectField(
-                      value: node.ratio,
-                      hint: l10n.imageEditorRatio,
-                      options: _ratioOptions,
-                      onChanged: (v) => setState(() => node.ratio = v),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _enumSelectField(
-                      value: node.quality,
-                      hint: l10n.imageEditorQuality,
-                      options: _qualityOptions,
-                      onChanged: (v) => setState(() => node.quality = v),
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: 6),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed:
-                          node.state == 'generating' || !_canGenerate(node)
-                              ? null
-                              : () => _generate(node),
-                      child: Text(l10n.productionEditImageGenerateBtn,
-                          style: const TextStyle(fontSize: 12)),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed:
-                          node.generatedRel == null ? null : () => _apply(node),
-                      child: Text(l10n.commonConfirm,
-                          style: const TextStyle(fontSize: 12)),
-                    ),
-                  ),
-                ]),
-                if (node.generatedRel != null) ...[
                   const SizedBox(height: 6),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: node.state == 'generating'
-                          ? null
-                          : () => _repaint(node),
-                      icon: const Icon(Icons.brush_outlined, size: 16),
-                      label: Text(l10n.repaintAction,
-                          style: const TextStyle(fontSize: 12)),
-                    ),
+                  TextField(
+                    controller: node.promptCtl,
+                    minLines: 2,
+                    maxLines: 3,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(
+                        hintText: l10n.productionEditImagePromptPlaceholder,
+                        isDense: true),
                   ),
                   const SizedBox(height: 6),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: node.state == 'generating'
-                          ? null
-                          : () => _localInpaint(node),
-                      icon: const Icon(Icons.gesture_rounded, size: 16),
-                      label: Text(l10n.inpaintAction,
-                          style: const TextStyle(fontSize: 12)),
+                  // 模型选择（enabled 图片模型；对齐 ToonFlow modelSelect）。
+                  _modelSelectField(node),
+                  const SizedBox(height: 6),
+                  // 画幅 + 清晰度（静态枚举；对齐 ToonFlow 两个 t-select）。
+                  Row(children: [
+                    Expanded(
+                      child: _enumSelectField(
+                        value: node.ratio,
+                        hint: l10n.imageEditorRatio,
+                        options: _ratioOptions,
+                        onChanged: (v) => setState(() => node.ratio = v),
+                      ),
                     ),
-                  ),
-                ],
-              ]),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _enumSelectField(
+                        value: node.quality,
+                        hint: l10n.imageEditorQuality,
+                        options: _qualityOptions,
+                        onChanged: (v) => setState(() => node.quality = v),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed:
+                            node.state == 'generating' || !_canGenerate(node)
+                                ? null
+                                : () => _generate(node),
+                        child: Text(l10n.productionEditImageGenerateBtn,
+                            style: const TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: node.generatedRel == null
+                            ? null
+                            : () => _apply(node),
+                        child: Text(l10n.commonConfirm,
+                            style: const TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                  ]),
+                  if (node.generatedRel != null) ...[
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: node.state == 'generating'
+                            ? null
+                            : () => _repaint(node),
+                        icon: const Icon(Icons.brush_outlined, size: 16),
+                        label: Text(l10n.repaintAction,
+                            style: const TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: node.state == 'generating'
+                            ? null
+                            : () => _localInpaint(node),
+                        icon: const Icon(Icons.gesture_rounded, size: 16),
+                        label: Text(l10n.inpaintAction,
+                            style: const TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                  ],
+                ]),
+              ),
             ),
         ]),
       ),
@@ -988,12 +999,10 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
               id: n.id,
               position: n.position,
               size: _nodeSize(n),
-              child: GestureDetector(
-                onPanUpdate: (d) => setState(() => n.position += d.delta),
-                child: n.type == 'upload'
-                    ? _uploadNodeWidget(n)
-                    : _generatedNodeWidget(n),
-              ),
+              onDragUpdate: (delta) => setState(() => n.position += delta),
+              child: n.type == 'upload'
+                  ? DFCanvasDragRegion(child: _uploadNodeWidget(n))
+                  : _generatedNodeWidget(n),
             ),
           // 每条连线中点放一个 × 手柄，点击删除该连线（对齐 ToonFlow removeLine）。
           for (final e in _edges)

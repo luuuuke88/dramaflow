@@ -264,6 +264,103 @@ void main() {
     expect(gen.data['model'], modelValue);
   });
 
+  testWidgets('图片流生成节点拖动后保存新的画布位置', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final flowId = engine.saveImageFlow([
+      const ImageFlowNode(
+        id: 'g0',
+        type: 'generated',
+        x: 80,
+        y: 100,
+        data: {'prompt': '御剑少年', 'ratio': '16:9'},
+      ),
+    ], const []);
+
+    await tester.pumpWidget(host(flowId: flowId));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // 生成节点的图片区不是表单控件；拖动它应移动节点而不是平移整个画布。
+    await tester.drag(
+      find.byIcon(Icons.image_not_supported_outlined),
+      const Offset(60, 30),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+
+    final saved = engine.getImageFlow(flowId);
+    final generated = saved.nodes.singleWhere((node) => node.id == 'g0');
+    expect(generated.x, closeTo(140, 0.1));
+    expect(generated.y, closeTo(130, 0.1));
+  });
+
+  testWidgets('移动端图片流生成节点拖动后保存新的画布位置', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final flowId = engine.saveImageFlow([
+      const ImageFlowNode(
+        id: 'g0',
+        type: 'generated',
+        x: 40,
+        y: 80,
+        data: {'prompt': '雨中持剑', 'ratio': '9:16'},
+      ),
+    ], const []);
+
+    await tester.pumpWidget(
+      host(flowId: flowId, size: const Size(390, 900)),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final imagePlaceholder = find.byIcon(Icons.image_not_supported_outlined);
+    expect(imagePlaceholder.hitTestable(), findsOneWidget);
+    await tester.drag(imagePlaceholder, const Offset(30, 20));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+
+    final saved = engine.getImageFlow(flowId);
+    final generated = saved.nodes.singleWhere((node) => node.id == 'g0');
+    expect(generated.x, closeTo(70, 0.1));
+    expect(generated.y, closeTo(100, 0.1));
+  });
+
+  testWidgets('图片流生成节点的参数区拖动不会移动节点', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final flowId = engine.saveImageFlow([
+      const ImageFlowNode(
+        id: 'g0',
+        type: 'generated',
+        x: 80,
+        y: 100,
+        data: {'prompt': '剑光划过雨幕', 'ratio': '16:9'},
+      ),
+    ], const []);
+
+    await tester.pumpWidget(host(flowId: flowId));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await expandGeneratedNode(tester);
+
+    final prompt = find.byType(TextField).first;
+    await tester.drag(prompt, const Offset(50, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+
+    final saved = engine.getImageFlow(flowId);
+    final generated = saved.nodes.singleWhere((node) => node.id == 'g0');
+    expect(generated.x, closeTo(80, 0.1));
+    expect(generated.y, closeTo(100, 0.1));
+  });
+
   // upload 节点内包裹图片区、可触发选图的 InkWell（onTap→选图来源表）。
   Finder uploadImageTap() => find.ancestor(
         of: find.byType(Image),
@@ -337,6 +434,9 @@ void main() {
       of: find.byType(GestureDetector),
       matching: find.text('图片生成'),
     );
+    final generatedTitleRect = tester.getRect(generatedTitle.last);
+    expect(generatedTitleRect.right, lessThanOrEqualTo(390),
+        reason: '紧凑视图需要先把生成节点缩放到可视区域内');
     expect(generatedTitle.hitTestable(), findsOneWidget,
         reason: '390px 宽度下生成节点应在首屏可点击，不能只停留在画布右侧视野外');
 
