@@ -1,5 +1,10 @@
 # C1 Safety And Manual Foundation Implementation Plan
 
+> **历史凭证策略已失效（2026-07-19）**：本计划的 Keychain/Keystore、
+> `flutter_secure_storage` 与“密钥在 SQLite 外”的描述只保留作当时实施记录，
+> 不得重新执行。现行规则是 `DbCredentialStore` 将供应商密钥写入本地 SQLite
+> `o_secret`，并禁止钥匙串、自动迁移和密钥导出，详见仓库根目录 `AGENTS.md`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the Flutter application safe to upgrade and give every project one stable, bundled ToonFlow visual/director manual selection before adding more generation behavior.

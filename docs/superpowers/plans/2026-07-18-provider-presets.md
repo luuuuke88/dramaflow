@@ -6,6 +6,11 @@
 > [`../../parity/vendor-protocol-matrix.md`](../../parity/vendor-protocol-matrix.md)
 > 和相关测试为准。后续新增功能必须另建短计划，避免继续在本文件叠加
 > “版本勘误”。
+>
+> **凭证勘误（2026-07-19）**：本计划中任何 `flutter_secure_storage`、
+> Keychain/Keystore 或“密钥不落 SQLite”的叙述均已被 `71c844d` 取代。现行
+> 实现是 `DbCredentialStore` 写本地 SQLite `o_secret`；密钥仍不得导出、记录到
+> 日志/测试快照或提交到 git。此注记优先于下方历史代码草案。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -13,7 +18,7 @@
 
 **Architecture:** 目录常量（`provider_presets.dart`，同时成为种子的单一事实来源）+ 一个新引擎 API（`createProviderFromPreset`：先 INSERT 抢占、后写凭证、失败删行——结构性消除并发删 Key）+ 一个新网关方法（`listRemoteModelIds`，只出候选不写库）+ 设置页画廊/预填表单/候选合并三段 UI。数据库 schema、协议分发、现有 `createProvider`/`saveProviderModels` 零改动。
 
-**Tech Stack:** Flutter/Dart，sqlite3，dio，flutter_secure_storage（经 `CredentialStore`），riverpod，url_launcher，现有 l10n（zh/en/ja）。
+**Tech Stack（历史快照）:** Flutter/Dart，sqlite3，dio，CredentialStore，riverpod，url_launcher，现有 l10n（zh/en/ja）。当前 CredentialStore 的生产实现为本地 SQLite `o_secret`，不是 `flutter_secure_storage`。
 
 **Spec:** `docs/superpowers/specs/2026-07-18-provider-presets-design.md`（唯一需求来源，冲突以 spec 为准）
 

@@ -4,6 +4,10 @@ Date: 2026-07-10
 
 Status: approved in conversation for specification writing
 
+> **历史状态**：本设计已被 2026-07-17 的 100% 复刻总路线部分取代。尤其本文件
+> 关于“系统安全凭证设施/密钥不落 SQLite”的约束已于 2026-07-19 明确废止；当前
+> 凭证策略为 `DbCredentialStore` → 本地 SQLite `o_secret`，不使用系统钥匙串。
+
 ## 1. Objective
 
 Build a single Flutter application that reproduces ToonFlow's useful short-drama production workflow, while removing or deferring infrastructure that does not improve the first successful episode.

@@ -2,7 +2,7 @@
 
 状态：总路线（meta-spec）。本文档批准 L0a 立即止损与 W0 / P0 进入实施；W1–W4 须在 W0 总清单经用户确认、且 L0b 分发决策过门后，各自另写独立 spec 与 plan。
 
-本 spec 取代 `2026-07-10-toonflow-core-parity-convergence-design.md` 中与"核心工作流即可"相关的边界决策（详见第 10 节 Decision Log）。该收敛 spec 的其余工程约束（凭证不落 SQLite、任务恢复语义、原生合成路线等）继续有效。
+本 spec 取代 `2026-07-10-toonflow-core-parity-convergence-design.md` 中与"核心工作流即可"相关的边界决策（详见第 10 节 Decision Log）。旧收敛 spec 的任务恢复语义与原生合成路线仍可作为历史参考；**凭证不落 SQLite 的约束已在 2026-07-19 被用户明确撤销**，现行凭证纪律以 `AGENTS.md` 和本文件第 7/10 节为准。
 
 ## 1. 背景与目标
 
@@ -128,16 +128,16 @@ ID | 模块/页面 | ToonFlow 源码证据 | 用户行为 | 数据依赖 | Drama
 
 ## 7. P0：最小真实供应商预检（本次批准执行）
 
-目的：视频链路零实测是全项目最大风险，必须在 W1–W4 大规模开发前暴露，而不是拖到终验收。
+目的：在不消耗视频供应商额度的前提下，先证明视频任务的本地状态机、恢复和错误路径正确；真实视频生成由用户在最终验收自行执行。
 
-- 范围拆成两个互不污染的场景：
-  - **真实付费场景（恰好一次）**：Seedance 2.0 Mini、480p、最短时长，向真实供应商提交**一次**；待 `upstreamTaskId` 落库后强制退出 App；重启后验证仅继续轮询、下载落盘。
-  - **提交次数的独立证据源**（`o_tasks` / `o_video.upstreamTaskId` 只能证明最终存了一个任务 id，不能证明客户端没有提交两次，不得单独作为证据）：首选**脱敏本地转发代理**——供应商 `baseUrl` 指向本地代理（已核实 `providers/volcengine_video.dart` 从 `model.baseUrl` 读取地址，无需改代码），代理只记录方法/路径/次数与时间戳，**不记录 key 与请求正文**。断言四项同时成立：真实 POST 提交次数 == 1；`upstreamTaskId` 数量 == 1；重启后只有轮询类请求；本地生成候选数量 == 1。备选：供应商控制台请求记录交叉核对；或临时测试构建加提交计数器（测后必须撤销并单独审核）。
-  - **失败与重试场景（零真实调用）**：通过本地测试网关或在提交前制造确定性错误，验证错误落库、任务中心可见、重试路径可走通；**不得触达真实供应商**。
-  - 文本/图片链路用 azt（Codex OAuth）做同等冒烟——无单次 API 账单，但消耗 Codex 订阅额度，且稳定性不作保证。
-- 凭证纪律：火山引擎 key 从旧 ToonFlow 运行库（`~/Library/Application Support/toonflow/data/db2.sqlite` 的 `o_vendorConfig`）一次性迁移，**只写入 DramaFlow 现有凭证存储**（`flutter_secure_storage`——macOS 上即系统 Keychain；release 构建启用 Data Protection Keychain 形态，对应 `Release.entitlements` 的 keychain-access-groups）。若旧库中无有效 key，则退化为用户在设置页填入一次（属一次性配置，不计入"用户测试"）。key 不得出现在：日志、spec/文档、SQLite 明文、git 提交、终端回显。迁移脚本用后即删。
+- 范围拆成两个互不污染的**零真实视频调用**场景：
+  - **恰好一次提交/恢复模拟**：Seedance 请求指向可审计的本地 fake gateway；模拟任务受理后，在 `upstreamTaskId` 落库时强制退出进程，冷启动后断言只继续轮询，且本地候选只出现一次。
+  - **失败与重试模拟**：本地 fake gateway 在提交前或终态返回确定性错误，验证错误落库、任务中心可见、重试语义和幂等保护；**不得触达真实视频供应商**。
+  - **提交次数的独立证据源**：fake gateway 只记录方法/路径/次数与时间戳，**不记录 key 与请求正文**。断言提交 POST == 1、`upstreamTaskId` 数量 == 1、重启后仅有轮询类请求、候选数量 == 1。
+  - 文本/图片链路是否做真实 smoke test 另行按供应商与额度决定；本 P0 不把它们当作视频链路已验证的证据。
+- 凭证纪律：用户在 DramaFlow 设置页填写密钥，`DbCredentialStore` 只写入本地 SQLite `o_secret`；不使用 `flutter_secure_storage`、macOS Keychain 或旧 ToonFlow 密钥的自动迁移。密钥不得进入配置导出、日志、spec/文档、测试快照或 git 提交。`clearAllData` 保留 `o_secret`，使用户清项目数据后不必重新授权。
 - 修复纪律：P0 期间**默认只诊断与记录**（缺陷进总清单/任务卡）。确需修复才能完成预检的阻塞缺陷，必须单独立任务卡——限定文件白名单 + 明确验收命令，在独立 worktree/分支执行，经逐行审核后合入 `develop`。
-- 产物：`docs/parity/p0-provider-preflight.md`（记录任务 id、耗时、产物路径、恢复行为；不含 key 与完整 prompt）。
+- 产物：`docs/parity/p0-provider-preflight.md`（记录 fake task id、请求次数、恢复行为与测试产物路径；不含 key 与完整 prompt）。
 
 ## 8. W1–W4 概要（占位，不在本次批准范围）
 
@@ -151,7 +151,7 @@ ID | 模块/页面 | ToonFlow 源码证据 | 用户行为 | 数据依赖 | Drama
 - 协作分工沿用既有模式：Claude 写规格、逐行审核 diff、亲自复跑测试、提交；`codex exec --full-auto` 执行实现。每个任务卡必须限定可改文件白名单与验收命令。
 - 分支纪律：每个任务卡在**独立 worktree/分支**执行，逐行审核通过后合入 `develop`；**禁止任何 Agent 直接在 `develop` 上无边界运行 `--full-auto`**。提交只 add 明确列出的文件，禁止 `git add .`（当前 `docs/superpowers/acceptance/` 为未跟踪目录，且工作区可能存在其他未跟踪产物）。
 - 测试纪律：每个移植/新增能力必须带 engine/widget 测试；全套 `flutter test` 保持绿色是每个审核门的前置条件。
-- 自验证边界：文本/图片用 azt 真实调用；视频真实调用仅发生在 P0 与各里程碑关口的少量确认点，成本可控。
+- 自验证边界：视频全程只走 fake gateway、状态机和 UI 回归；真实视频调用、画质和供应商额度由用户在最终验收自行确认。文本/图片是否真实调用须另按供应商额度和用户指示决定。
 
 ## 10. Decision Log
 
@@ -165,7 +165,7 @@ ID | 模块/页面 | ToonFlow 源码证据 | 用户行为 | 数据依赖 | Drama
 - P0 提交次数证据（2026-07-18 修订）：任务表不能证明未重复提交；采用脱敏本地转发代理（baseUrl 可配置，已核实）+ 四项断言为主，控制台记录/临时计数构建为备选。
 - macOS 先达标；iOS / Android / Web / Windows 后续逐平台跟进。
 - 开发期用户零测试；用户参与仅四点：L0a 止损确认、W0 范围确认、L0b 分发决策、最终收尾总验收。
-- P0 独立于 W0（W0 保持只读审计）；P0 拆"真实付费恰好一次"与"隔离失败演练（零真实调用）"两场景；P0 默认只诊断记录，修复走文件白名单任务卡 + 独立 worktree，审核后合入。火山 key 只存现有 Keychain 凭证存储，禁止任何明文落地。
+- P0 独立于 W0（W0 保持只读审计）；2026-07-19 起，用户明确禁止开发和 CI 发起真实视频生成，P0 改为 fake gateway 的恰好一次恢复模拟与隔离失败演练；真实视频只留给用户最终验收。凭证固定存本地 SQLite `o_secret`，禁止恢复 Keychain、`flutter_secure_storage` 或自动迁移旧钥匙串密钥；同样禁止进入导出、日志、文档、测试快照和 git。
 - W2 不恢复 JS 解释器与 ES-DSL（经 `Toonflow-app` 后端源码验证为非原版能力；W0 须在完整基线上复核）；多 Agent / 向量记忆 / 摘要 / Markdown 技能按源码行为移植。
 - W4 长尾按批次过审核门，不穿插打断 W1–W3。
 - 本 spec 批准 L0a + W0 + P0；L0b 依赖 W0 产出；W1–W4 待 W0 清单确认与 L0b 过门后各写独立 spec。
