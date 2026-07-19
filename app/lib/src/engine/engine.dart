@@ -921,9 +921,9 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
     }
   }
 
-  /// SQLite 与系统凭证仓无法做跨存储事务。预设创建会先落一个禁用的
-  /// provisioning 记录；启动时将“凭证已写入但进程来不及启用”的记录收敛为
-  /// ready，未写入凭证的远程记录则清掉，避免永久留下假可用供应商。
+  /// 供应商配置与密钥都在本地 SQLite，但创建流程仍先落一个禁用的
+  /// provisioning 记录；启动时将“密钥已写入但进程来不及启用”的记录收敛为
+  /// ready，未写入密钥的远程记录则清掉，避免永久留下假可用供应商。
   static Future<void> _recoverProvisioningProviders(
     Database db,
     CredentialStore credentials,
@@ -945,7 +945,7 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       try {
         key = await credentials.read(credentialRef);
       } catch (_) {
-        // 系统凭证仓可能暂时锁定；保持禁用，留待下次启动安全收敛。
+        // 本地密钥读取失败；保持禁用，留待下次启动安全收敛。
         continue;
       }
       if (!isLoopbackBaseUrl(baseUrl) && (key == null || key.trim().isEmpty)) {
@@ -1482,7 +1482,7 @@ WHERE id=?
       'provisioning': true,
     };
 
-    // 先抢占禁用行，再写系统凭证仓。这样同名冲突无法覆盖既有 Key，
+    // 先抢占禁用行，再写本地 SQLite 密钥表。这样同名冲突无法覆盖既有 Key，
     // 且进程在凭证写完前中断时，启动恢复能识别这条未完成记录。
     final existing =
         db.select('SELECT id FROM o_vendorConfig WHERE id=?', [id]);
@@ -1800,7 +1800,7 @@ WHERE id=?
       ..remove('provisioning')
       ..remove('provisioningFailed');
 
-    // 先同步暂存为禁用，触发器/磁盘错误会在尚未触碰 Keychain 时暴露；
+    // 先同步暂存为禁用，触发器/磁盘错误会在尚未触碰本地密钥时暴露；
     // 凭据异步写入期间路由层只会看到禁用供应商。
     final previousKey = await credentials.read(credentialRef);
     final stagingInput = Map<String, dynamic>.from(input)
@@ -2542,7 +2542,7 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
     if (credentialUpdates.isEmpty) return;
 
     // 旧配置含 apiKey 时，导入事务已经把对应供应商设为禁用 provisioning。
-    // Keychain 写入期间 resolver 因而无法拿“旧 URL + 新 key”发起远程调用。
+    // 本地密钥写入期间 resolver 因而无法拿“旧 URL + 新 key”发起远程调用。
     try {
       for (final entry in credentialUpdates.entries) {
         await credentials.write(
@@ -2577,8 +2577,8 @@ ON CONFLICT(id) DO UPDATE SET enable=excluded.enable,inputValues=excluded.inputV
     }
   }
 
-  /// 将已捕获失败的旧配置导入固定为不可恢复状态。SQLite/Keychain 不是同一
-  /// 事务；这里的 marker 区分“进程被硬杀”与“操作明确失败”，避免下次启动
+  /// 将已捕获失败的旧配置导入固定为不可恢复状态。配置与密钥的导入分多步
+  /// 完成；这里的 marker 区分“进程被硬杀”与“操作明确失败”，避免下次启动
   /// 将已写入的部分 key 当作完整导入自动启用。
   void _markImportCredentialFailure(Iterable<String> providerIds) {
     db.execute('SAVEPOINT config_import_failure');

@@ -28,7 +28,7 @@ class ResolvedModel {
   final String modelId;
 
   /// 从供应商配置解析出的非敏感扩展字段。专用协议（如 ima2 的图片端点）
-  /// 只通过这份快照读取自身所需参数，系统凭证始终留在 [apiKey]。
+  /// 只通过这份快照读取自身所需参数，API 密钥始终只经 [apiKey] 传入。
   final Map<String, String> providerInputs;
   final int? maxOutputTokens;
   final int? temperature;
