@@ -166,7 +166,7 @@ void main() {
     expect(find.text('設定'), findsOneWidget);
   });
 
-  testWidgets('移动端设置页：可编辑模型专属提示词模板', (tester) async {
+  testWidgets('桌面端提示词库：新建、绑定、编辑和解绑模型模板', (tester) async {
     final provider = await engine.createProvider(
       name: 'Volcengine',
       protocol: 'volcengine',
@@ -181,16 +181,106 @@ void main() {
         'enabled': true,
       },
     ]);
-    engine.db.execute(
-      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
-      'VALUES (?,?,?,?,?)',
-      [
-        provider.id,
-        'doubao-seedance-2-0-mini-260615',
-        'video_prompt_gen',
-        'video/seedance2Multi-parameterMode.md',
-        '旧 Seedance 模板',
-      ],
+
+    tester.view.physicalSize = const Size(1280, 860);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '提示词');
+    expect(find.text('Volcengine'), findsOneWidget);
+    final targetKey = ValueKey(
+      'model-prompt-target-${provider.id}:doubao-seedance-2-0-mini-260615',
+    );
+    await tester.scrollUntilVisible(find.byKey(targetKey), 320);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(targetKey));
+    await tester.pumpAndSettle();
+    expect(find.text('模型提示词模板'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('model-prompt-template-create')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('model-prompt-template-save')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('model-prompt-template-name')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const Key('model-prompt-template-name')),
+      'Seedance 多参',
+    );
+    await tester.enterText(
+      find.byKey(const Key('model-prompt-template-content')),
+      '初版模板正文',
+    );
+    await tester.tap(find.byKey(const Key('model-prompt-template-save')));
+    await tester.pumpAndSettle();
+
+    final templatePath = 'video/Seedance 多参.md';
+    await tester.tap(
+      find.byKey(ValueKey('model-prompt-bind-$templatePath')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('model-prompt-unbind-$templatePath')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(ValueKey('model-prompt-edit-$templatePath')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('model-prompt-template-content')),
+      '更新后的模板正文',
+    );
+    await tester.tap(find.byKey(const Key('model-prompt-template-save')));
+    await tester.pumpAndSettle();
+    expect(
+      (await engine.listModelPromptTemplates(kind: 'video')).single.prompt,
+      '更新后的模板正文',
+    );
+
+    await tester.tap(
+      find.byKey(ValueKey('model-prompt-delete-$templatePath')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('删除“Seedance 多参”后，将解绑 1 个模型。此操作不可撤销。'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(ValueKey('model-prompt-unbind-$templatePath')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('model-prompt-bind-$templatePath')),
+        findsOneWidget);
+  });
+
+  testWidgets('移动端提示词库：可选择既有模板并编辑且无溢出', (tester) async {
+    final provider = await engine.createProvider(
+      name: 'Volcengine',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
+      apiKey: 'sk',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'seedance-mobile',
+        'label': 'Seedance Mobile',
+        'kind': 'video',
+        'enabled': true,
+      },
+    ]);
+    final template = await engine.createModelPromptTemplate(
+      kind: 'video',
+      name: '移动端已有模板',
+      prompt: '旧正文',
     );
 
     tester.view.physicalSize = const Size(390, 760);
@@ -200,25 +290,40 @@ void main() {
     await tester.pumpAndSettle();
 
     await _selectSection(tester, '提示词');
-    expect(find.text('模型专属模板'), findsOneWidget);
-    expect(find.textContaining('Volcengine · Seedance Mini'), findsOneWidget);
+    await tester.drag(
+      find.byKey(const Key('settings-section-scroll')),
+      const Offset(0, -1500),
+    );
+    await tester.pumpAndSettle();
+    final target = find
+        .byKey(ValueKey('model-prompt-target-${provider.id}:seedance-mobile'))
+        .hitTestable();
+    expect(target, findsOneWidget);
+    await tester.tap(
+      target,
+    );
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(ValueKey('model-prompt-bind-${template.path}')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('model-prompt-unbind-${template.path}')),
+      findsOneWidget,
+    );
 
     await tester
-        .ensureVisible(find.textContaining('Volcengine · Seedance Mini'));
+        .tap(find.byKey(ValueKey('model-prompt-edit-${template.path}')));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Volcengine · Seedance Mini'));
+    await tester.enterText(
+      find.byKey(const Key('model-prompt-template-content')),
+      '移动端新正文',
+    );
+    await tester.tap(find.byKey(const Key('model-prompt-template-save')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('编辑提示词 · Volcengine · Seedance Mini'),
-        findsOneWidget);
-
-    await tester.enterText(find.byType(TextField).last, '新 Seedance 模板');
-    await tester.tap(find.text('保存'));
-    await tester.pumpAndSettle();
-
-    final prompt = engine.db.select(
-        'SELECT prompt FROM o_modelPrompt WHERE vendorId=?',
-        [provider.id]).single['prompt'];
-    expect(prompt, '新 Seedance 模板');
+    expect(
+      (await engine.listModelPromptTemplates(kind: 'video')).single.prompt,
+      '移动端新正文',
+    );
   });
 
   testWidgets('移动端设置页：模型管理、模型绑定与数据库信息可用', (tester) async {

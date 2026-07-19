@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api/models.dart';
 import '../engine/db_admin.dart';
+import '../engine/engine.dart';
 import '../engine/provider_presets.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
@@ -251,6 +252,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.invalidate(bindingsProvider);
     ref.invalidate(promptsProvider);
     ref.invalidate(modelPromptsProvider);
+    ref.invalidate(modelPromptTemplatesProvider);
+    ref.invalidate(modelPromptTargetsProvider);
     ref.invalidate(settingsProvider);
     ref.invalidate(healthProvider);
     setState(() => _modelRevision++);
@@ -325,6 +328,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _sectionBody() {
     return ListView(
+      key: const Key('settings-section-scroll'),
       children: [
         const SizedBox(height: 16),
         switch (_section) {
@@ -805,7 +809,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _promptsPanel() {
     final promptsAsync = ref.watch(promptsProvider);
-    final modelPromptsAsync = ref.watch(modelPromptsProvider);
+    final modelTargetsAsync = ref.watch(modelPromptTargetsProvider);
+    final templatesAsync = ref.watch(modelPromptTemplatesProvider);
     return _SettingsCard(
       title: context.l10n.promptPanelTitle,
       child: AsyncView<List<Map<String, dynamic>>>(
@@ -827,27 +832,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onOpen: () => _openPromptEditor(meta, byKey[meta.key]),
                 ),
               const SizedBox(height: 18),
-              _SubsectionTitle(label: context.l10n.promptModelTemplates),
-              AsyncView<List<Map<String, dynamic>>>(
-                value: modelPromptsAsync,
-                onRetry: () => ref.invalidate(modelPromptsProvider),
-                builder: (modelPrompts) => modelPrompts.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        child: Text(
-                          context.l10n.promptModelTemplatesEmpty,
-                          style: TextStyle(color: context.df.textLo),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SubsectionTitle(
+                      label: context.l10n.promptModelTemplates,
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('model-prompt-template-create-global'),
+                    tooltip: context.l10n.promptTemplateCreate,
+                    icon: const Icon(Icons.add_rounded),
+                    onPressed: _openNewModelPromptTemplate,
+                  ),
+                ],
+              ),
+              AsyncView<List<ModelPromptTarget>>(
+                value: modelTargetsAsync,
+                onRetry: () => ref.invalidate(modelPromptTargetsProvider),
+                builder: (targets) => AsyncView<List<ModelPromptTemplate>>(
+                  value: templatesAsync,
+                  onRetry: () => ref.invalidate(modelPromptTemplatesProvider),
+                  builder: (templates) => targets.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          child: Text(
+                            context.l10n.promptTemplateLibraryEmpty,
+                            style: TextStyle(color: context.df.textLo),
+                          ),
+                        )
+                      : _ModelPromptTargetGroups(
+                          targets: targets,
+                          templates: templates,
+                          onOpen: _openModelPromptLibrary,
                         ),
-                      )
-                    : Column(
-                        children: [
-                          for (final prompt in modelPrompts)
-                            _ModelPromptRow(
-                              prompt: prompt,
-                              onOpen: () => _openModelPromptEditor(prompt),
-                            ),
-                        ],
-                      ),
+                ),
               ),
             ],
           );
@@ -872,15 +891,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _openModelPromptEditor(Map<String, dynamic> prompt) async {
+  Future<void> _openModelPromptLibrary(ModelPromptTarget target) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => _ModelPromptEditorPage(prompt: prompt),
+        builder: (_) => _ModelPromptBindingPage(target: target),
         fullscreenDialog: true,
       ),
     );
     if (saved == true && mounted) {
       ref.invalidate(modelPromptsProvider);
+      ref.invalidate(modelPromptTemplatesProvider);
+      ref.invalidate(modelPromptTargetsProvider);
+    }
+  }
+
+  Future<void> _openNewModelPromptTemplate() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const _ModelPromptTemplateEditorPage(),
+        fullscreenDialog: true,
+      ),
+    );
+    if (saved == true && mounted) {
+      ref.invalidate(modelPromptTemplatesProvider);
+      ref.invalidate(modelPromptTargetsProvider);
     }
   }
 
@@ -3253,34 +3287,68 @@ class _SubsectionTitle extends StatelessWidget {
   }
 }
 
-class _ModelPromptRow extends StatelessWidget {
-  final Map<String, dynamic> prompt;
-  final VoidCallback onOpen;
+class _ModelPromptTargetGroups extends StatelessWidget {
+  final List<ModelPromptTarget> targets;
+  final List<ModelPromptTemplate> templates;
+  final ValueChanged<ModelPromptTarget> onOpen;
 
-  const _ModelPromptRow({
-    required this.prompt,
+  const _ModelPromptTargetGroups({
+    required this.targets,
+    required this.templates,
     required this.onOpen,
   });
 
-  String get _title {
-    final provider = (prompt['providerName'] ?? '').toString();
-    final model = (prompt['modelLabel'] ?? prompt['model'] ?? '').toString();
-    final key = ((prompt['fileName'] ?? '').toString().isNotEmpty
-            ? prompt['fileName']
-            : prompt['path'])
-        .toString();
-    return [provider, model, key].where((v) => v.isNotEmpty).join(' · ');
+  @override
+  Widget build(BuildContext context) {
+    final groups = <String, List<ModelPromptTarget>>{};
+    for (final target in targets) {
+      groups.putIfAbsent(target.provider.id, () => []).add(target);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final group in groups.values) ...[
+          _SubsectionTitle(label: group.first.provider.name),
+          for (final target in group)
+            _ModelPromptTargetRow(
+              target: target,
+              templates: templates,
+              onOpen: () => onOpen(target),
+            ),
+        ],
+      ],
+    );
   }
+}
+
+class _ModelPromptTargetRow extends StatelessWidget {
+  final ModelPromptTarget target;
+  final List<ModelPromptTemplate> templates;
+  final VoidCallback onOpen;
+
+  const _ModelPromptTargetRow({
+    required this.target,
+    required this.templates,
+    required this.onOpen,
+  });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final content = (prompt['prompt'] ?? '').toString();
-    final preview = content.trim().replaceAll(r'\n', ' ').replaceAll('\n', ' ');
-    final path = (prompt['path'] ?? '').toString();
+    final templatesByPath = {
+      for (final template in templates) template.path: template
+    };
+    final paths = target.boundTemplatePaths.toList()..sort();
+    final bindingLabel = switch (paths.length) {
+      0 => l10n.promptTemplateUnbound,
+      1 => templatesByPath[paths.single]?.name ?? l10n.promptTemplateBound,
+      _ => l10n.promptTemplateBoundCount(paths.length),
+    };
+    final kindLabel = _KindMeta(target.model.kind).label(l10n);
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        key: ValueKey('model-prompt-target-${target.key}'),
         onTap: onOpen,
         borderRadius: BorderRadius.circular(8),
         child: Container(
@@ -3295,36 +3363,18 @@ class _ModelPromptRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _title,
+                      target.model.label,
                       style: TextStyle(
                         color: context.df.textHi,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (path.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        path,
-                        style:
-                            TextStyle(color: context.df.textLo, fontSize: 12),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
                     Text(
-                      preview.isEmpty ? l10n.promptUnset : preview,
-                      maxLines: 2,
+                      '$kindLabel · $bindingLabel',
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: preview.isEmpty
-                            ? context.df.textLo
-                            : context.df.textMid,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      l10n.promptCharacterCount(content.length),
-                      style: TextStyle(color: context.df.textLo, fontSize: 12),
+                      style: TextStyle(color: context.df.textMid, fontSize: 13),
                     ),
                   ],
                 ),
@@ -3365,105 +3415,408 @@ class _PromptOverrideBadge extends StatelessWidget {
   }
 }
 
-class _ModelPromptEditorPage extends ConsumerStatefulWidget {
-  final Map<String, dynamic> prompt;
+class _ModelPromptBindingPage extends ConsumerStatefulWidget {
+  final ModelPromptTarget target;
 
-  const _ModelPromptEditorPage({required this.prompt});
+  const _ModelPromptBindingPage({required this.target});
 
   @override
-  ConsumerState<_ModelPromptEditorPage> createState() =>
-      _ModelPromptEditorPageState();
+  ConsumerState<_ModelPromptBindingPage> createState() =>
+      _ModelPromptBindingPageState();
 }
 
-class _ModelPromptEditorPageState
-    extends ConsumerState<_ModelPromptEditorPage> {
-  late final TextEditingController _controller;
-
-  String get _title {
-    final provider = (widget.prompt['providerName'] ?? '').toString();
-    final model = (widget.prompt['modelLabel'] ?? widget.prompt['model'] ?? '')
-        .toString();
-    final key = ((widget.prompt['fileName'] ?? '').toString().isNotEmpty
-            ? widget.prompt['fileName']
-            : widget.prompt['path'])
-        .toString();
-    return [provider, model, key].where((v) => v.isNotEmpty).join(' · ');
-  }
+class _ModelPromptBindingPageState
+    extends ConsumerState<_ModelPromptBindingPage> {
+  late Set<String> _boundTemplatePaths;
 
   @override
   void initState() {
     super.initState();
-    _controller =
-        TextEditingController(text: (widget.prompt['prompt'] ?? '').toString());
+    _boundTemplatePaths = {...widget.target.boundTemplatePaths};
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void _invalidateLibrary() {
+    ref.invalidate(modelPromptsProvider);
+    ref.invalidate(modelPromptTemplatesProvider);
+    ref.invalidate(modelPromptTargetsProvider);
   }
 
-  Future<void> _save() async {
-    final l10n = context.l10n;
-    await runAction(context, ref, () async {
-      await ref
-          .read(engineProvider)
-          .updateModelPrompt(widget.prompt['id'] as int, _controller.text);
-    }, successMessage: l10n.promptSaved);
-    if (mounted) Navigator.of(context).pop(true);
+  Future<void> _openEditor([ModelPromptTemplate? template]) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _ModelPromptTemplateEditorPage(
+          template: template,
+          fixedKind: widget.target.model.kind,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+    if (saved == true && mounted) _invalidateLibrary();
+  }
+
+  Future<void> _bind(ModelPromptTemplate template) async {
+    final completed = await runAction(context, ref, () async {
+      await ref.read(engineProvider).bindModelPromptTemplate(
+            widget.target.provider.id,
+            widget.target.model.modelId,
+            template.path,
+          );
+    }, successMessage: context.l10n.promptTemplateBound);
+    if (!completed || !mounted) return;
+    setState(() => _boundTemplatePaths = {template.path});
+    _invalidateLibrary();
+  }
+
+  Future<void> _unbind() async {
+    final completed = await runAction(context, ref, () async {
+      await ref.read(engineProvider).unbindModelPromptTemplate(
+            widget.target.provider.id,
+            widget.target.model.modelId,
+          );
+    }, successMessage: context.l10n.promptTemplateUnbound);
+    if (!completed || !mounted) return;
+    setState(_boundTemplatePaths.clear);
+    _invalidateLibrary();
+  }
+
+  Future<void> _delete(ModelPromptTemplate template) async {
+    final bindings = await ref.read(engineProvider).listModelPromptBindings();
+    final count = bindings
+        .where((binding) => binding.path == template.path)
+        .map((binding) => '${binding.providerId}:${binding.modelId}')
+        .toSet()
+        .length;
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.promptTemplateDeleteTitle),
+        content: Text(
+          context.l10n.promptTemplateDeleteMessage(template.name, count),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.l10n.commonCancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: context.df.red),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(context.l10n.commonDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final completed = await runAction(context, ref, () async {
+      await ref.read(engineProvider).deleteModelPromptTemplate(template.path);
+    }, successMessage: context.l10n.promptTemplateDeleted);
+    if (!completed || !mounted) return;
+    setState(() => _boundTemplatePaths.remove(template.path));
+    _invalidateLibrary();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final templatesAsync = ref.watch(modelPromptTemplatesProvider);
+    final title =
+        '${widget.target.provider.name} · ${widget.target.model.label}';
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.promptEditTitle(_title)),
+        title: Text(l10n.promptEditTitle(title)),
         actions: [
-          FilledButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.save_outlined, size: 18),
-            label: Text(l10n.commonSave),
+          IconButton(
+            key: const Key('model-prompt-template-create'),
+            tooltip: l10n.promptTemplateCreate,
+            onPressed: _openEditor,
+            icon: const Icon(Icons.add_rounded),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
         ],
       ),
       body: PageContainer(
         maxWidth: 1040,
-        child: Column(
+        child: AsyncView<List<ModelPromptTemplate>>(
+          value: templatesAsync,
+          onRetry: () => ref.invalidate(modelPromptTemplatesProvider),
+          builder: (allTemplates) {
+            final templates = allTemplates
+                .where((template) => template.kind == widget.target.model.kind)
+                .toList(growable: false);
+            return ListView(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              children: [
+                Text(
+                  l10n.promptTemplateLibraryTitle,
+                  style: TextStyle(
+                    color: context.df.textHi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _KindMeta(widget.target.model.kind).label(l10n),
+                  style: TextStyle(color: context.df.textLo, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                if (templates.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    child: Text(
+                      l10n.promptTemplateNoMatch,
+                      style: TextStyle(color: context.df.textLo),
+                    ),
+                  ),
+                for (final template in templates)
+                  _ModelPromptTemplateRow(
+                    template: template,
+                    isBound: _boundTemplatePaths.contains(template.path),
+                    onBind: () => _bind(template),
+                    onUnbind: _unbind,
+                    onEdit: () => _openEditor(template),
+                    onDelete: () => _delete(template),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ModelPromptTemplateRow extends StatelessWidget {
+  final ModelPromptTemplate template;
+  final bool isBound;
+  final VoidCallback onBind;
+  final VoidCallback onUnbind;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ModelPromptTemplateRow({
+    required this.template,
+    required this.isBound,
+    required this.onBind,
+    required this.onUnbind,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final preview =
+        template.prompt.trim().replaceAll(r'\n', ' ').replaceAll('\n', ' ');
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.df.stroke)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  template.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: context.df.textHi,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (isBound)
+                Text(
+                  l10n.promptTemplateBound,
+                  style: TextStyle(color: context.df.green, fontSize: 12),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            preview.isEmpty ? l10n.promptUnset : preview,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: preview.isEmpty ? context.df.textLo : context.df.textMid,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              spacing: 2,
+              children: [
+                IconButton(
+                  key: ValueKey(
+                      'model-prompt-${isBound ? 'unbind' : 'bind'}-${template.path}'),
+                  tooltip: isBound
+                      ? l10n.promptTemplateUnbind
+                      : l10n.promptTemplateBind,
+                  onPressed: isBound ? onUnbind : onBind,
+                  icon: Icon(
+                    isBound ? Icons.link_off_rounded : Icons.link_rounded,
+                    size: 19,
+                  ),
+                ),
+                IconButton(
+                  key: ValueKey('model-prompt-edit-${template.path}'),
+                  tooltip: l10n.commonEdit,
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined, size: 19),
+                ),
+                IconButton(
+                  key: ValueKey('model-prompt-delete-${template.path}'),
+                  tooltip: l10n.commonDelete,
+                  onPressed: onDelete,
+                  icon: Icon(Icons.delete_outline_rounded,
+                      size: 19, color: context.df.red),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModelPromptTemplateEditorPage extends ConsumerStatefulWidget {
+  final ModelPromptTemplate? template;
+  final String? fixedKind;
+
+  const _ModelPromptTemplateEditorPage({
+    this.template,
+    this.fixedKind,
+  });
+
+  @override
+  ConsumerState<_ModelPromptTemplateEditorPage> createState() =>
+      _ModelPromptTemplateEditorPageState();
+}
+
+class _ModelPromptTemplateEditorPageState
+    extends ConsumerState<_ModelPromptTemplateEditorPage> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _contentController;
+  late String _kind;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.template?.name ?? '');
+    _contentController =
+        TextEditingController(text: widget.template?.prompt ?? '');
+    _kind = widget.fixedKind ?? widget.template?.kind ?? 'video';
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final l10n = context.l10n;
+    final completed = await runAction(context, ref, () async {
+      final existing = widget.template;
+      if (existing == null) {
+        await ref.read(engineProvider).createModelPromptTemplate(
+              kind: _kind,
+              name: _nameController.text,
+              prompt: _contentController.text,
+            );
+      } else {
+        await ref
+            .read(engineProvider)
+            .updateModelPromptTemplate(existing.path, _contentController.text);
+      }
+    }, successMessage: l10n.promptTemplateSaved);
+    if (completed && mounted) Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final isEditing = widget.template != null;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          isEditing
+              ? l10n.promptEditTitle(widget.template!.name)
+              : l10n.promptTemplateCreate,
+        ),
+        actions: [
+          IconButton(
+            key: const Key('model-prompt-template-save'),
+            tooltip: l10n.commonSave,
+            onPressed: _save,
+            icon: const Icon(Icons.save_outlined),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: PageContainer(
+        maxWidth: 1040,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 16),
           children: [
-            const SizedBox(height: 16),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                expands: true,
-                maxLines: null,
-                minLines: null,
-                textAlignVertical: TextAlignVertical.top,
-                keyboardType: TextInputType.multiline,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  color: context.df.textHi,
-                  height: 1.45,
-                ),
-                decoration: InputDecoration(
-                  alignLabelWithHint: true,
-                  labelText: l10n.settingsPromptContent,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, _) => Text(
-                  l10n.promptCharacterCount(_controller.text.length),
-                  style: TextStyle(color: context.df.textLo, fontSize: 12),
-                ),
+            TextField(
+              key: const Key('model-prompt-template-name'),
+              controller: _nameController,
+              enabled: !isEditing,
+              decoration: InputDecoration(
+                labelText: l10n.promptTemplateName,
+                hintText: l10n.promptTemplateNameHint,
               ),
             ),
             const SizedBox(height: 16),
+            if (isEditing || widget.fixedKind != null)
+              InputDecorator(
+                decoration: InputDecoration(labelText: l10n.promptTemplateKind),
+                child: Text(_KindMeta(_kind).label(l10n)),
+              )
+            else
+              DropdownButtonFormField<String>(
+                initialValue: _kind,
+                decoration: InputDecoration(labelText: l10n.promptTemplateKind),
+                items: const ['video', 'image']
+                    .map(
+                      (kind) => DropdownMenuItem(
+                        value: kind,
+                        child: Text(_KindMeta(kind).label(l10n)),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value != null) setState(() => _kind = value);
+                },
+              ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const Key('model-prompt-template-content'),
+              controller: _contentController,
+              minLines: 14,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              textAlignVertical: TextAlignVertical.top,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                color: context.df.textHi,
+                height: 1.45,
+              ),
+              decoration: InputDecoration(
+                alignLabelWithHint: true,
+                labelText: l10n.settingsPromptContent,
+              ),
+            ),
           ],
         ),
       ),

@@ -191,6 +191,63 @@ final modelPromptsProvider =
   (ref) => ref.watch(engineProvider).listModelPrompts(),
 );
 
+/// 设置页的模型提示词库只显示可实际绑定的图片/视频模型。绑定路径单独保留，
+/// 以兼容历史视频模型可能留有多条模式模板的情况。
+class ModelPromptTarget {
+  final ProviderInfo provider;
+  final ProviderModelInfo model;
+  final Set<String> boundTemplatePaths;
+
+  const ModelPromptTarget({
+    required this.provider,
+    required this.model,
+    required this.boundTemplatePaths,
+  });
+
+  String get key => '${provider.id}:${model.modelId}';
+}
+
+final modelPromptTemplatesProvider =
+    FutureProvider.autoDispose<List<ModelPromptTemplate>>(
+  (ref) => ref.watch(engineProvider).listModelPromptTemplates(),
+);
+
+final modelPromptTargetsProvider =
+    FutureProvider.autoDispose<List<ModelPromptTarget>>((ref) async {
+  final engine = ref.watch(engineProvider);
+  final providers = await engine.listProviders();
+  final bindings = await engine.listModelPromptBindings();
+  final boundPaths = <String, Set<String>>{};
+  for (final binding in bindings) {
+    boundPaths
+        .putIfAbsent('${binding.providerId}:${binding.modelId}', () => {})
+        .add(binding.path);
+  }
+
+  final targets = <ModelPromptTarget>[];
+  for (final provider in providers.where((provider) => provider.enabled)) {
+    final models = await engine.listProviderModels(provider.id);
+    for (final model in models) {
+      if (!model.enabled || (model.kind != 'image' && model.kind != 'video')) {
+        continue;
+      }
+      final key = '${provider.id}:${model.modelId}';
+      targets.add(ModelPromptTarget(
+        provider: provider,
+        model: model,
+        boundTemplatePaths: Set.unmodifiable(boundPaths[key] ?? const {}),
+      ));
+    }
+  }
+  targets.sort((a, b) {
+    final providerOrder = a.provider.name.compareTo(b.provider.name);
+    return providerOrder != 0
+        ? providerOrder
+        : a.model.label.compareTo(b.model.label);
+  });
+  return targets;
+});
+
 /// 当前选中项目（对应 ToonFlow projectStore.currentProject）。
 /// 深链/刷新时可用 ensure(pid) 从引擎按 id 回填。
 class CurrentProjectNotifier extends Notifier<ProjectRow?> {

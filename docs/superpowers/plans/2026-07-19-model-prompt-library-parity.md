@@ -51,16 +51,24 @@ Future<List<ModelPromptBinding>> listModelPromptBindings();
 
 **Files**
 - Modify: `app/lib/src/screens/settings_screen.dart`
+- Modify: `app/lib/src/state/providers.dart`
 - Modify: `app/lib/l10n/app_zh.arb`
 - Modify: `app/lib/l10n/app_en.arb`
 - Modify: `app/lib/l10n/app_ja.arb`
+- Modify: `app/lib/src/widgets/common.dart`（动作失败时返回结果，编辑器不能误关）
+- Modify: `app/lib/src/engine/engine.dart`（供应商配置串行门的 widget-test zone 回归）
 - Modify: `app/test/widgets/settings_screen_test.dart`
 
-- [ ] 先写失败 widget 测试：桌面设置入口显示一个未绑定的视频模型；从其入口新建模板、绑定，列表显示绑定名且重新打开能看到正文；解绑回到未绑定。
-- [ ] 再写 `390dp` 测试：从移动设置页进入同一模型页，新建或选择既有模板、编辑、保存，所有确认按钮可见且没有 overflow/exception。
-- [ ] 实现按供应商分组的模型列表、模型详情页、模板库选择/新增/编辑/删除/解绑；删除必须走现有确认机制，且展示会解绑的模型数。
-- [ ] 现有已绑定行仍可一键进入并编辑；不要求用户先创建新模板。
-- [ ] 运行：`cd app && flutter test --concurrency=1 test/widgets/settings_screen_test.dart`，然后 `flutter analyze`。
+- [x] 先写失败 widget 测试：桌面设置入口显示一个未绑定的视频模型；从其入口新建模板、绑定，列表显示绑定名且重新打开能看到正文；解绑回到未绑定。额外断言空名称保存后编辑器不关闭，删除确认准确显示将解绑的模型数。
+- [x] 再写 `390dp` 测试：从移动设置页进入同一模型页，选择既有模板、编辑、保存；使用真实设置滚动容器定位可点击目标，无 overflow/exception。
+- [x] 实现按供应商分组的模型列表、模型详情页、模板库选择/新增/编辑/删除/解绑；删除走确认框并展示去重后的受影响模型数。
+- [x] 现有已绑定行仍可一键进入并编辑；不要求用户先创建新模板。
+- [x] 运行：`cd app && flutter test --concurrency=1 test/widgets/settings_screen_test.dart`（15 条通过），然后 `flutter analyze`（No issues found）。
+
+### Task 2 收尾复审（2026-07-19）
+
+- [x] 首次供应商保存曾在 widget test 的 `FakeAsync` zone 中卡在构造期 `Future.value()`；串行门现仅在存在前序操作时等待，并在队列排空时释放尾部 Future。原有供应商新建回归与新增桌面提示词库回归均覆盖该路径。
+- [x] `runAction` 现返回成功状态；模板绑定、解绑、删除和保存只在成功后更新局部 UI 或关闭编辑器，避免错误被 SnackBar 捕获后仍伪造成功状态。
 
 ## Task 1 复审修正（完成 Task 2 前必须关闭）
 
@@ -82,7 +90,7 @@ Future<List<ModelPromptBinding>> listModelPromptBindings();
 - Modify: `docs/parity/feature-parity-execution-report.md`
 - Modify: this plan
 
-- [ ] 运行本地验证：`cd app && env -u QA_FULL -u P0_LIVE flutter test && flutter analyze && flutter build macos --debug`。
-- [ ] 运行对照检查：`cd .. && node tool/parity/check_no_orphans.js && git diff --check`。
-- [ ] 回写三条清单状态与证据；明确测试未发起任何真实生成或视频请求。
-- [ ] 独立全功能 review；发现问题先修复再勾选本任务。
+- [x] 运行本地验证：`cd app && env -u QA_FULL -u P0_LIVE flutter test --concurrency=1`、`flutter analyze`（No issues found）及 `flutter build macos --debug`（`dramaflow.app` 成功构建）。全套执行期间不设置 `QA_FULL` / `P0_LIVE`，不发起真实供应商或视频请求。
+- [x] 运行对照检查：`cd .. && node tool/parity/check_no_orphans.js`（538 项全部覆盖）与 `git diff --check`（通过）。
+- [x] 回写三条清单状态与证据；明确测试未发起任何真实生成或视频请求。
+- [x] 独立全功能 review；修复了 widget-test zone 串行门、动作失败误关闭编辑器和移动滚动目标歧义后，定向引擎/设置页/本地化回归与全套离线验证完成。

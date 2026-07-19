@@ -198,7 +198,7 @@ class EmptyHint extends StatelessWidget {
 }
 
 /// 执行生成类动作的统一封装：错误弹 SnackBar，成功后立刻 poke 轮询器。
-Future<void> runAction(
+Future<bool> runAction(
   BuildContext context,
   WidgetRef ref,
   Future<void> Function() action, {
@@ -219,6 +219,7 @@ Future<void> runAction(
             duration: const Duration(seconds: 2)),
       );
     }
+    return true;
   } on EngineException catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -228,6 +229,7 @@ Future<void> runAction(
         duration: const Duration(seconds: 4),
       ));
     }
+    return false;
   }
 }
 

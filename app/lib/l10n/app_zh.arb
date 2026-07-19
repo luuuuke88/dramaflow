@@ -59,6 +59,37 @@
   "promptGlobalTemplates": "全局模板",
   "promptModelTemplates": "模型专属模板",
   "promptModelTemplatesEmpty": "暂无模型专属模板。导入配置或模型模板后会显示在这里。",
+  "promptTemplateLibraryTitle": "模型提示词模板",
+  "promptTemplateLibraryEmpty": "没有可绑定的图片或视频模型。请先在供应商中启用模型。",
+  "promptTemplateCreate": "新建模板",
+  "promptTemplateName": "模板名称",
+  "promptTemplateNameHint": "例如：Seedance 多参",
+  "promptTemplateKind": "适用类型",
+  "promptTemplateBind": "绑定",
+  "promptTemplateUnbind": "解绑",
+  "promptTemplateBound": "已绑定",
+  "promptTemplateUnbound": "未绑定",
+  "promptTemplateBoundCount": "已绑定 {count} 个模板",
+  "@promptTemplateBoundCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptTemplateNoMatch": "没有适用于此模型的模板。",
+  "promptTemplateDeleteTitle": "删除模板",
+  "promptTemplateDeleteMessage": "删除“{name}”后，将解绑 {count} 个模型。此操作不可撤销。",
+  "@promptTemplateDeleteMessage": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptTemplateSaved": "模板已保存",
+  "promptTemplateDeleted": "模板已删除",
   "promptEditTitle": "编辑提示词 · {title}",
   "@promptEditTitle": {
     "placeholders": {

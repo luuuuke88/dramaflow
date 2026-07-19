@@ -169,6 +169,59 @@ class AppLocalizationsJa extends AppLocalizations {
       'モデル別テンプレートはまだありません。設定やモデルテンプレートを読み込むとここに表示されます。';
 
   @override
+  String get promptTemplateLibraryTitle => 'モデルプロンプトテンプレート';
+
+  @override
+  String get promptTemplateLibraryEmpty =>
+      '紐付け可能な画像または動画モデルがありません。先にプロバイダーでモデルを有効にしてください。';
+
+  @override
+  String get promptTemplateCreate => 'テンプレートを作成';
+
+  @override
+  String get promptTemplateName => 'テンプレート名';
+
+  @override
+  String get promptTemplateNameHint => '例：Seedance マルチパラメータ';
+
+  @override
+  String get promptTemplateKind => '対象タイプ';
+
+  @override
+  String get promptTemplateBind => '紐付け';
+
+  @override
+  String get promptTemplateUnbind => '紐付け解除';
+
+  @override
+  String get promptTemplateBound => '紐付け済み';
+
+  @override
+  String get promptTemplateUnbound => '未紐付け';
+
+  @override
+  String promptTemplateBoundCount(int count) {
+    return '$count 件のテンプレートを紐付け済み';
+  }
+
+  @override
+  String get promptTemplateNoMatch => 'このモデルに使えるテンプレートはありません。';
+
+  @override
+  String get promptTemplateDeleteTitle => 'テンプレートを削除';
+
+  @override
+  String promptTemplateDeleteMessage(Object name, int count) {
+    return '“$name”を削除すると、$count 件のモデルの紐付けが解除されます。この操作は取り消せません。';
+  }
+
+  @override
+  String get promptTemplateSaved => 'テンプレートを保存しました';
+
+  @override
+  String get promptTemplateDeleted => 'テンプレートを削除しました';
+
+  @override
   String promptEditTitle(Object title) {
     return 'プロンプトを編集 · $title';
   }

@@ -412,6 +412,102 @@ abstract class AppLocalizations {
   /// **'暂无模型专属模板。导入配置或模型模板后会显示在这里。'**
   String get promptModelTemplatesEmpty;
 
+  /// No description provided for @promptTemplateLibraryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型提示词模板'**
+  String get promptTemplateLibraryTitle;
+
+  /// No description provided for @promptTemplateLibraryEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有可绑定的图片或视频模型。请先在供应商中启用模型。'**
+  String get promptTemplateLibraryEmpty;
+
+  /// No description provided for @promptTemplateCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建模板'**
+  String get promptTemplateCreate;
+
+  /// No description provided for @promptTemplateName.
+  ///
+  /// In zh, this message translates to:
+  /// **'模板名称'**
+  String get promptTemplateName;
+
+  /// No description provided for @promptTemplateNameHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：Seedance 多参'**
+  String get promptTemplateNameHint;
+
+  /// No description provided for @promptTemplateKind.
+  ///
+  /// In zh, this message translates to:
+  /// **'适用类型'**
+  String get promptTemplateKind;
+
+  /// No description provided for @promptTemplateBind.
+  ///
+  /// In zh, this message translates to:
+  /// **'绑定'**
+  String get promptTemplateBind;
+
+  /// No description provided for @promptTemplateUnbind.
+  ///
+  /// In zh, this message translates to:
+  /// **'解绑'**
+  String get promptTemplateUnbind;
+
+  /// No description provided for @promptTemplateBound.
+  ///
+  /// In zh, this message translates to:
+  /// **'已绑定'**
+  String get promptTemplateBound;
+
+  /// No description provided for @promptTemplateUnbound.
+  ///
+  /// In zh, this message translates to:
+  /// **'未绑定'**
+  String get promptTemplateUnbound;
+
+  /// No description provided for @promptTemplateBoundCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已绑定 {count} 个模板'**
+  String promptTemplateBoundCount(int count);
+
+  /// No description provided for @promptTemplateNoMatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有适用于此模型的模板。'**
+  String get promptTemplateNoMatch;
+
+  /// No description provided for @promptTemplateDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除模板'**
+  String get promptTemplateDeleteTitle;
+
+  /// No description provided for @promptTemplateDeleteMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除“{name}”后，将解绑 {count} 个模型。此操作不可撤销。'**
+  String promptTemplateDeleteMessage(Object name, int count);
+
+  /// No description provided for @promptTemplateSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'模板已保存'**
+  String get promptTemplateSaved;
+
+  /// No description provided for @promptTemplateDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'模板已删除'**
+  String get promptTemplateDeleted;
+
   /// No description provided for @promptEditTitle.
   ///
   /// In zh, this message translates to:

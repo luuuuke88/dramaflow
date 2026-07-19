@@ -59,6 +59,37 @@
   "promptGlobalTemplates": "グローバルテンプレート",
   "promptModelTemplates": "モデル別テンプレート",
   "promptModelTemplatesEmpty": "モデル別テンプレートはまだありません。設定やモデルテンプレートを読み込むとここに表示されます。",
+  "promptTemplateLibraryTitle": "モデルプロンプトテンプレート",
+  "promptTemplateLibraryEmpty": "紐付け可能な画像または動画モデルがありません。先にプロバイダーでモデルを有効にしてください。",
+  "promptTemplateCreate": "テンプレートを作成",
+  "promptTemplateName": "テンプレート名",
+  "promptTemplateNameHint": "例：Seedance マルチパラメータ",
+  "promptTemplateKind": "対象タイプ",
+  "promptTemplateBind": "紐付け",
+  "promptTemplateUnbind": "紐付け解除",
+  "promptTemplateBound": "紐付け済み",
+  "promptTemplateUnbound": "未紐付け",
+  "promptTemplateBoundCount": "{count} 件のテンプレートを紐付け済み",
+  "@promptTemplateBoundCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptTemplateNoMatch": "このモデルに使えるテンプレートはありません。",
+  "promptTemplateDeleteTitle": "テンプレートを削除",
+  "promptTemplateDeleteMessage": "“{name}”を削除すると、{count} 件のモデルの紐付けが解除されます。この操作は取り消せません。",
+  "@promptTemplateDeleteMessage": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptTemplateSaved": "テンプレートを保存しました",
+  "promptTemplateDeleted": "テンプレートを削除しました",
   "promptEditTitle": "プロンプトを編集 · {title}",
   "@promptEditTitle": {
     "placeholders": {

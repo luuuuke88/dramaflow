@@ -96,18 +96,21 @@ class ProjectStats {
 /// 供应商凭据保存在平台安全仓，异步读写期间必须串行化同一引擎内的
 /// provider 配置变更，避免失败导入的补偿覆盖用户随后保存的新 Key。
 class _ProviderMutationGate {
-  Future<void> _tail = Future.value();
+  Future<void>? _tail;
 
   Future<T> run<T>(Future<T> Function() action) {
     final previous = _tail;
     final completed = Completer<void>();
     _tail = completed.future;
     return () async {
-      await previous;
+      // 首次操作不等待构造期创建的 Future。这样既避免 Flutter widget test
+      // 跨 FakeAsync zone 的首个 await 卡住，也让无竞争的保存直达操作本身。
+      if (previous != null) await previous;
       try {
         return await action();
       } finally {
         completed.complete();
+        if (identical(_tail, completed.future)) _tail = null;
       }
     }();
   }

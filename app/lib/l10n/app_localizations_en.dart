@@ -172,6 +172,59 @@ class AppLocalizationsEn extends AppLocalizations {
       'No model-specific templates yet. Imported configs or model templates will appear here.';
 
   @override
+  String get promptTemplateLibraryTitle => 'Model prompt templates';
+
+  @override
+  String get promptTemplateLibraryEmpty =>
+      'No image or video model is available to bind. Enable a model in Providers first.';
+
+  @override
+  String get promptTemplateCreate => 'New template';
+
+  @override
+  String get promptTemplateName => 'Template name';
+
+  @override
+  String get promptTemplateNameHint => 'For example: Seedance multi-parameter';
+
+  @override
+  String get promptTemplateKind => 'Applies to';
+
+  @override
+  String get promptTemplateBind => 'Bind';
+
+  @override
+  String get promptTemplateUnbind => 'Unbind';
+
+  @override
+  String get promptTemplateBound => 'Bound';
+
+  @override
+  String get promptTemplateUnbound => 'Unbound';
+
+  @override
+  String promptTemplateBoundCount(int count) {
+    return '$count templates bound';
+  }
+
+  @override
+  String get promptTemplateNoMatch => 'No template matches this model.';
+
+  @override
+  String get promptTemplateDeleteTitle => 'Delete template';
+
+  @override
+  String promptTemplateDeleteMessage(Object name, int count) {
+    return 'Deleting “$name” will unbind $count model(s). This cannot be undone.';
+  }
+
+  @override
+  String get promptTemplateSaved => 'Template saved';
+
+  @override
+  String get promptTemplateDeleted => 'Template deleted';
+
+  @override
   String promptEditTitle(Object title) {
     return 'Edit prompt · $title';
   }

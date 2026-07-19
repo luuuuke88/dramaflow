@@ -167,6 +167,58 @@ class AppLocalizationsZh extends AppLocalizations {
   String get promptModelTemplatesEmpty => '暂无模型专属模板。导入配置或模型模板后会显示在这里。';
 
   @override
+  String get promptTemplateLibraryTitle => '模型提示词模板';
+
+  @override
+  String get promptTemplateLibraryEmpty => '没有可绑定的图片或视频模型。请先在供应商中启用模型。';
+
+  @override
+  String get promptTemplateCreate => '新建模板';
+
+  @override
+  String get promptTemplateName => '模板名称';
+
+  @override
+  String get promptTemplateNameHint => '例如：Seedance 多参';
+
+  @override
+  String get promptTemplateKind => '适用类型';
+
+  @override
+  String get promptTemplateBind => '绑定';
+
+  @override
+  String get promptTemplateUnbind => '解绑';
+
+  @override
+  String get promptTemplateBound => '已绑定';
+
+  @override
+  String get promptTemplateUnbound => '未绑定';
+
+  @override
+  String promptTemplateBoundCount(int count) {
+    return '已绑定 $count 个模板';
+  }
+
+  @override
+  String get promptTemplateNoMatch => '没有适用于此模型的模板。';
+
+  @override
+  String get promptTemplateDeleteTitle => '删除模板';
+
+  @override
+  String promptTemplateDeleteMessage(Object name, int count) {
+    return '删除“$name”后，将解绑 $count 个模型。此操作不可撤销。';
+  }
+
+  @override
+  String get promptTemplateSaved => '模板已保存';
+
+  @override
+  String get promptTemplateDeleted => '模板已删除';
+
+  @override
   String promptEditTitle(Object title) {
     return '编辑提示词 · $title';
   }

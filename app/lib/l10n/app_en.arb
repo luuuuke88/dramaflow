@@ -59,6 +59,37 @@
   "promptGlobalTemplates": "Global Templates",
   "promptModelTemplates": "Model-Specific Templates",
   "promptModelTemplatesEmpty": "No model-specific templates yet. Imported configs or model templates will appear here.",
+  "promptTemplateLibraryTitle": "Model prompt templates",
+  "promptTemplateLibraryEmpty": "No image or video model is available to bind. Enable a model in Providers first.",
+  "promptTemplateCreate": "New template",
+  "promptTemplateName": "Template name",
+  "promptTemplateNameHint": "For example: Seedance multi-parameter",
+  "promptTemplateKind": "Applies to",
+  "promptTemplateBind": "Bind",
+  "promptTemplateUnbind": "Unbind",
+  "promptTemplateBound": "Bound",
+  "promptTemplateUnbound": "Unbound",
+  "promptTemplateBoundCount": "{count} templates bound",
+  "@promptTemplateBoundCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptTemplateNoMatch": "No template matches this model.",
+  "promptTemplateDeleteTitle": "Delete template",
+  "promptTemplateDeleteMessage": "Deleting “{name}” will unbind {count} model(s). This cannot be undone.",
+  "@promptTemplateDeleteMessage": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptTemplateSaved": "Template saved",
+  "promptTemplateDeleted": "Template deleted",
   "promptEditTitle": "Edit prompt · {title}",
   "@promptEditTitle": {
     "placeholders": {
