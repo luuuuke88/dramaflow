@@ -81,6 +81,7 @@ DramaFlow replaced the whole system with a **single flat tool-calling loop share
 - **On-demand skill activation** — skills are **blanket-injected**. `assistantSkillContexts` (`assistant_skills.dart:171-184`) concatenates **all** enabled markdown skill bodies into every system prompt (`assistant_chat.dart:369`). `readAssistantSkillFile` exists but is **unreachable** — it is not in `_assistantToolDefs`; only tests call it (`W8-AGENTUTIL-SKILLS-001`).
 - **The 13 sub-agent skill files' methodology content** — the decision/supervision/execution skill bodies (6-stage pipeline constants, R1–R4 red-lines, 大三角/矛盾四级阶梯, 付费点比例, etc.) are entirely absent; where DramaFlow keeps same-named workspace slots (`director_plan`/`storyboard_table`/`storyboard_gen` in `script_plan.dart`/`storyboard_table.dart`/`storyboard.dart`), the default seed prompts are single-paragraph generic instructions (`engine.dart:592-614`), not the methodology (`W9C-PRODSKILL-CORE-001`, `-PIPELINE-001`, `-SCRIPTSKILL-CORE-001`, `-TECHNIQUE-001`, all **缺失**).
 - **Per-token streaming, `stop`/abort, think-level (0–3)** — none (`W7F-SOCKET-AGENT-001`). Chat is request→wait→whole render.
+- **Typed rich message segments** — none. ToonFlow `useChat.ts` accepts `text` and `markdown` content blocks, keeps `thinking` blocks before normal content and collapses them by default; the two Agent runners publish reasoning start/delta/end into those blocks. DramaFlow persists one `String` per message and `_AssistantMessageBubble` renders it with plain `Text`; Markdown lists/code/links are not rendered, and an Agent reply URL cannot open in the system browser. This is distinct from merely adding a stream transport: W2 must retain segment type, streaming/complete state and safe external-link handling across desktop and mobile.
 - **Per-Agent temperature / maxOutputTokens / batch deploy / normal-vs-advanced mode** — `W7A-AGENT-DEPLOY-001` (部分), `W7A-AGENT-USEMODE-001` (**缺失**, `agentUseMode` grep 0 hits), `W7A-MEMORY-PARAMS-001` (**缺失**).
 - **`agentSetKey` one-click** — DramaFlow doesn't bundle ToonFlow's hosted `toonflow` Claude proxy; **缺失** (`W7A-AGENT-SETKEY-001`).
 - **Memory-clear granularity** — only clear-all; `type=message`/`type=summary` and the `summarized→shortTerm` reflow have no equivalent (needs a `memories`-with-summary layer) (`W7F-AGENT-MEM-CLEAR-001` 部分, `W7A-MEMORY-CLEAR-001` 部分).
@@ -130,9 +131,9 @@ Each chunk: what it is · why it matters (user-observable) · size · natural st
 - **Start**: `assistant_chat.dart:374-388,360-372`.
 - **Rows**: `W8-AGENTTOOL-SCRIPTAGENT-001`, `W8-AGENTTOOL-PRODUCTION-001`.
 
-### Chunk F — Streaming, stop/abort, think-level  ·  **MEDIUM** (gateway-dependent)
-- **What**: per-token streaming into bubbles (incl. reasoning segments with elapsed timer), a `stop` control, and a 0–3 think-level toggle.
-- **Why**: user-observable "看到流式回复、可中止、调思考档" — three named behaviors currently absent (whole-turn render only).
+### Chunk F — 流式、富内容段、停止/中止、思考等级  ·  **MEDIUM** (gateway-dependent)
+- **What**: per-token streaming into typed bubbles (including collapsed reasoning segments with elapsed timer and Markdown rendering), a `stop` control, a 0–3 think-level toggle, and safe external-link opening from Agent Markdown.
+- **Why**: user-observable "看到流式回复、可中止、调思考档，并能阅读 Markdown/点击链接" — these are separate behaviors currently absent because the Flutter chat persists and renders whole plain strings.
 - **Size**: MEDIUM but bounded by whether `gateway.generateAgentTurn` / the provider layer can stream (today it returns a whole turn). May be spec-deferrable independent of orchestration.
 - **Start**: `assistant_chat.dart:266-289` + `providers/gateway.dart` + `canvas_chat_panel.dart`/`agent_chat_screen.dart`. Target: `consumeFullStream` (`productionAgent/index.ts:397-448`).
 - **Rows**: `W7F-SOCKET-AGENT-001`.
