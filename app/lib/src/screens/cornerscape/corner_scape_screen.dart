@@ -342,17 +342,23 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 840;
-        final settingsPanel = _settingsPanel(assets, visible);
-        final cardGrid = _cardGrid(assets, visible, audioByAsset);
         if (compact) {
-          final panelHeight = (constraints.maxHeight * .56).clamp(360.0, 560.0);
-          return Column(
-            children: [
-              SizedBox(height: panelHeight, child: settingsPanel),
-              Expanded(child: cardGrid),
+          return CustomScrollView(
+            key: const Key('cornerscape-scroll'),
+            slivers: [
+              SliverToBoxAdapter(
+                child: _settingsPanel(
+                  assets,
+                  visible,
+                  compact: true,
+                ),
+              ),
+              _compactCardSliver(assets, visible, audioByAsset),
             ],
           );
         }
+        final settingsPanel = _settingsPanel(assets, visible);
+        final cardGrid = _cardGrid(assets, visible, audioByAsset);
         return Row(
           children: [
             SizedBox(width: 328, child: settingsPanel),
@@ -365,8 +371,9 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
 
   Widget _settingsPanel(
     List<CornerScapeAsset> assets,
-    List<CornerScapeAsset> visible,
-  ) {
+    List<CornerScapeAsset> visible, {
+    bool compact = false,
+  }) {
     final l10n = context.l10n;
     final df = context.df;
     final selectedCount = _selectedVisible(visible).length;
@@ -400,189 +407,235 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
           label: Text(label),
         );
 
+    final content = Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.cornerScapeBatchSettings,
+                  style: DFTokens.title20w700.copyWith(color: df.textPrimary),
+                ),
+              ),
+              DFTagChip(
+                label: visible.length.toString(),
+                tone: DFTagTone.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: DFTokens.s20),
+          sectionLabel(l10n.cornerScapeQuickActions),
+          Wrap(
+            spacing: DFTokens.s8,
+            runSpacing: DFTokens.s8,
+            children: [
+              quickAction(
+                icon: Icons.done_all_rounded,
+                label: l10n.cornerScapeSelectAll,
+                onPressed: () => _selectWhere(currentVisible(), (_) => true),
+              ),
+              quickAction(
+                icon: Icons.notes_rounded,
+                label: l10n.cornerScapeSelectPromptEmpty,
+                onPressed: () => _selectWhere(
+                  currentVisible(),
+                  (item) => (item.asset.prompt ?? '').trim().isEmpty,
+                ),
+              ),
+              quickAction(
+                icon: Icons.image_not_supported_outlined,
+                label: l10n.cornerScapeSelectUngenerated,
+                onPressed: () => _selectWhere(
+                  currentVisible(),
+                  (item) => item.asset.imageState?.isNotEmpty != true,
+                ),
+              ),
+              quickAction(
+                icon: Icons.check_circle_outline_rounded,
+                label: l10n.cornerScapeSelectCompleted,
+                onPressed: () => _selectWhere(
+                  currentVisible(),
+                  (item) => item.asset.imageState == stateDone,
+                ),
+              ),
+              quickAction(
+                icon: Icons.error_outline_rounded,
+                label: l10n.cornerScapeSelectFailed,
+                onPressed: () => _selectWhere(
+                  currentVisible(),
+                  (item) => item.asset.imageState == stateFailed,
+                ),
+              ),
+              quickAction(
+                icon: Icons.swap_horiz_rounded,
+                label: l10n.cornerScapeInvertSelection,
+                onPressed: () => _invertSelection(currentVisible()),
+              ),
+              quickAction(
+                icon: Icons.clear_rounded,
+                label: l10n.cornerScapeClearSelection,
+                onPressed: () => setState(_selected.clear),
+              ),
+              quickAction(
+                icon: Icons.grid_view_rounded,
+                label: l10n.cornerScapeBatchPreview,
+                onPressed: () => _showBatchPreview(currentVisible()),
+              ),
+            ],
+          ),
+          const SizedBox(height: DFTokens.s20),
+          sectionLabel(l10n.cornerScapeAssetType),
+          Wrap(
+            spacing: DFTokens.s8,
+            runSpacing: DFTokens.s8,
+            children: [
+              FilterChip(
+                label: Text(l10n.cornerScapeFilterRole),
+                selected: _types.contains('role'),
+                onSelected: (_) => _toggleType('role', assets),
+              ),
+              FilterChip(
+                label: Text(l10n.cornerScapeFilterScene),
+                selected: _types.contains('scene'),
+                onSelected: (_) => _toggleType('scene', assets),
+              ),
+              FilterChip(
+                label: Text(l10n.cornerScapeFilterTool),
+                selected: _types.contains('tool'),
+                onSelected: (_) => _toggleType('tool', assets),
+              ),
+            ],
+          ),
+          const SizedBox(height: DFTokens.s20),
+          sectionLabel(l10n.cornerScapeImageModel),
+          ModelSelect(
+            kind: 'image',
+            value: _selectedModel,
+            hint: l10n.assetsGenPickModel,
+            onChanged: (option) =>
+                setState(() => _selectedModel = option?.value),
+          ),
+          const SizedBox(height: DFTokens.s16),
+          sectionLabel(l10n.cornerScapeResolution),
+          SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: '1K', label: Text('1K')),
+              ButtonSegment(value: '2K', label: Text('2K')),
+              ButtonSegment(value: '4K', label: Text('4K')),
+            ],
+            selected: {_resolution},
+            onSelectionChanged: (values) =>
+                setState(() => _resolution = values.single),
+          ),
+          const SizedBox(height: DFTokens.s16),
+          TextField(
+            controller: _otherPrompt,
+            minLines: 3,
+            maxLines: 5,
+            decoration: InputDecoration(
+              labelText: l10n.cornerScapeOtherPrompt,
+              hintText: l10n.cornerScapeOtherPromptHint,
+              alignLabelWithHint: true,
+            ),
+          ),
+          const SizedBox(height: DFTokens.s16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: DFTagChip(
+              label: l10n.assetsBatchSelected(selectedCount.toString()),
+              tone: DFTagTone.primary,
+            ),
+          ),
+          const SizedBox(height: DFTokens.s12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _polishing
+                      ? null
+                      : () => _generatePrompts(currentVisible()),
+                  icon: _polishing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_fix_high_rounded, size: 17),
+                  label: Text(l10n.cornerScapeGeneratePrompts),
+                ),
+              ),
+              const SizedBox(width: DFTokens.s8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _matchAudio(currentVisible()),
+                  icon: const Icon(Icons.graphic_eq_rounded, size: 17),
+                  label: Text(l10n.cornerScapeMatchAudio),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: DFTokens.s8),
+          FilledButton.icon(
+            onPressed: () => _startBatch(currentVisible()),
+            icon: const Icon(Icons.image_outlined, size: 18),
+            label: Text(l10n.cornerScapeStartBatch),
+          ),
+        ],
+      ),
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: df.surface,
-        border: Border(right: BorderSide(color: df.stroke)),
+        border: compact
+            ? Border(bottom: BorderSide(color: df.stroke))
+            : Border(right: BorderSide(color: df.stroke)),
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(DFTokens.s16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.cornerScapeBatchSettings,
-                    style: DFTokens.title20w700.copyWith(color: df.textPrimary),
-                  ),
-                ),
-                DFTagChip(
-                  label: visible.length.toString(),
-                  tone: DFTagTone.primary,
-                ),
-              ],
-            ),
-            const SizedBox(height: DFTokens.s20),
-            sectionLabel(l10n.cornerScapeQuickActions),
-            Wrap(
-              spacing: DFTokens.s8,
-              runSpacing: DFTokens.s8,
-              children: [
-                quickAction(
-                  icon: Icons.done_all_rounded,
-                  label: l10n.cornerScapeSelectAll,
-                  onPressed: () => _selectWhere(currentVisible(), (_) => true),
-                ),
-                quickAction(
-                  icon: Icons.notes_rounded,
-                  label: l10n.cornerScapeSelectPromptEmpty,
-                  onPressed: () => _selectWhere(
-                    currentVisible(),
-                    (item) => (item.asset.prompt ?? '').trim().isEmpty,
-                  ),
-                ),
-                quickAction(
-                  icon: Icons.image_not_supported_outlined,
-                  label: l10n.cornerScapeSelectUngenerated,
-                  onPressed: () => _selectWhere(
-                    currentVisible(),
-                    (item) => item.asset.imageState?.isNotEmpty != true,
-                  ),
-                ),
-                quickAction(
-                  icon: Icons.check_circle_outline_rounded,
-                  label: l10n.cornerScapeSelectCompleted,
-                  onPressed: () => _selectWhere(
-                    currentVisible(),
-                    (item) => item.asset.imageState == stateDone,
-                  ),
-                ),
-                quickAction(
-                  icon: Icons.error_outline_rounded,
-                  label: l10n.cornerScapeSelectFailed,
-                  onPressed: () => _selectWhere(
-                    currentVisible(),
-                    (item) => item.asset.imageState == stateFailed,
-                  ),
-                ),
-                quickAction(
-                  icon: Icons.swap_horiz_rounded,
-                  label: l10n.cornerScapeInvertSelection,
-                  onPressed: () => _invertSelection(currentVisible()),
-                ),
-                quickAction(
-                  icon: Icons.clear_rounded,
-                  label: l10n.cornerScapeClearSelection,
-                  onPressed: () => setState(_selected.clear),
-                ),
-                quickAction(
-                  icon: Icons.grid_view_rounded,
-                  label: l10n.cornerScapeBatchPreview,
-                  onPressed: () => _showBatchPreview(currentVisible()),
-                ),
-              ],
-            ),
-            const SizedBox(height: DFTokens.s20),
-            sectionLabel(l10n.cornerScapeAssetType),
-            Wrap(
-              spacing: DFTokens.s8,
-              runSpacing: DFTokens.s8,
-              children: [
-                FilterChip(
-                  label: Text(l10n.cornerScapeFilterRole),
-                  selected: _types.contains('role'),
-                  onSelected: (_) => _toggleType('role', assets),
-                ),
-                FilterChip(
-                  label: Text(l10n.cornerScapeFilterScene),
-                  selected: _types.contains('scene'),
-                  onSelected: (_) => _toggleType('scene', assets),
-                ),
-                FilterChip(
-                  label: Text(l10n.cornerScapeFilterTool),
-                  selected: _types.contains('tool'),
-                  onSelected: (_) => _toggleType('tool', assets),
-                ),
-              ],
-            ),
-            const SizedBox(height: DFTokens.s20),
-            sectionLabel(l10n.cornerScapeImageModel),
-            ModelSelect(
-              kind: 'image',
-              value: _selectedModel,
-              hint: l10n.assetsGenPickModel,
-              onChanged: (option) =>
-                  setState(() => _selectedModel = option?.value),
-            ),
-            const SizedBox(height: DFTokens.s16),
-            sectionLabel(l10n.cornerScapeResolution),
-            SegmentedButton<String>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: '1K', label: Text('1K')),
-                ButtonSegment(value: '2K', label: Text('2K')),
-                ButtonSegment(value: '4K', label: Text('4K')),
-              ],
-              selected: {_resolution},
-              onSelectionChanged: (values) =>
-                  setState(() => _resolution = values.single),
-            ),
-            const SizedBox(height: DFTokens.s16),
-            TextField(
-              controller: _otherPrompt,
-              minLines: 3,
-              maxLines: 5,
-              decoration: InputDecoration(
-                labelText: l10n.cornerScapeOtherPrompt,
-                hintText: l10n.cornerScapeOtherPromptHint,
-                alignLabelWithHint: true,
-              ),
-            ),
-            const SizedBox(height: DFTokens.s16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: DFTagChip(
-                label: l10n.assetsBatchSelected(selectedCount.toString()),
-                tone: DFTagTone.primary,
-              ),
-            ),
-            const SizedBox(height: DFTokens.s12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _polishing
-                        ? null
-                        : () => _generatePrompts(currentVisible()),
-                    icon: _polishing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.auto_fix_high_rounded, size: 17),
-                    label: Text(l10n.cornerScapeGeneratePrompts),
-                  ),
-                ),
-                const SizedBox(width: DFTokens.s8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _matchAudio(currentVisible()),
-                    icon: const Icon(Icons.graphic_eq_rounded, size: 17),
-                    label: Text(l10n.cornerScapeMatchAudio),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: DFTokens.s8),
-            FilledButton.icon(
-              onPressed: () => _startBatch(currentVisible()),
-              icon: const Icon(Icons.image_outlined, size: 18),
-              label: Text(l10n.cornerScapeStartBatch),
-            ),
-          ],
+      child: compact ? content : SingleChildScrollView(child: content),
+    );
+  }
+
+  Widget _compactCardSliver(
+    List<CornerScapeAsset> all,
+    List<CornerScapeAsset> visible,
+    Map<int, String?> audioByAsset,
+  ) {
+    final l10n = context.l10n;
+    if (all.isEmpty) {
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          height: 240,
+          child: Center(child: DFEmpty(text: l10n.cornerScapeNoAssets)),
+        ),
+      );
+    }
+    if (visible.isEmpty) {
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          height: 240,
+          child: Center(
+            child: DFEmpty(text: l10n.cornerScapeNoVisibleAssets),
+          ),
+        ),
+      );
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 1,
+          mainAxisExtent: 304,
+          mainAxisSpacing: DFTokens.s16,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final item = visible[index];
+            return _assetCard(item, audioByAsset[item.asset.id]);
+          },
+          childCount: visible.length,
         ),
       ),
     );

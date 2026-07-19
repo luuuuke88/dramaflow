@@ -180,6 +180,14 @@ DramaFlow 已拥有短剧生产主链路的一部分可靠底座，但还不是 
 
 自动化证据为 `app/test/engine/manuals_test.dart`、`app/test/widgets/manual_gallery_test.dart`、`app/test/widgets/manual_editor_test.dart` 和 `app/test/widgets/project_page_test.dart`（本次相关 21 项通过）。测试使用临时目录、内存数据库和本地 1px PNG 夹具，不调用任何图像、文本或视频供应商。
 
+### 最近核验：塑角造景批量参考图工作区
+
+2026-07-19 已完成 `W6-CORNERSCAPE-002` 的页面级复核。桌面证据直接覆盖角色/场景/道具类型筛选、按提示词和生成状态快捷选择、反选/清空、仅预览已选资产的生成图、取消生成的拒绝与确认路径、历史图切换、详情提示词失焦保存与 AI 润色、按当前模型/分辨率重生成，以及角色/场景/道具共用的音频绑定、解绑和试听入口。该证据来自 `app/test/widgets/corner_scape_screen_test.dart`，通用资产图片任务与三类资产音频约束另由 `app/test/engine/assets_test.dart`、`app/test/engine/audio_bind_test.dart` 支持。
+
+新增的 390dp 回归使用 `Key('cornerscape-scroll')` 驱动同一工作区：实际筛选场景、快捷选择未生成项、滚动到单列资产卡、打开并关闭详情、确认详情底部操作可达，再滚动到批量命令，经真实 `ModelSelect` 夹具和共享花费确认策略只入队目标场景的 `asset_image_generation` 任务。用例同时断言卡片宽度不超过 390dp、单列宽度可用且整个交互无布局异常；桌面仍保留左侧设置与右侧多列卡片布局。
+
+所有自动化均使用内存数据库、临时媒体目录、本地供应商/模型配置和假网关，只验证 UI、策略确认与本地任务入队，不发起真实文本、图像、音频或视频请求。`W6-CORNERSCAPE-002` 据此提升为“已验证等价”。真实供应商图像/视频生成仍是用户负责的最终验收，本轮明确未执行，也不将任务入队、分析通过或 macOS 构建成功表述为真实生成验收。
+
 ### 最近核验：单剧本导入与关联资产
 
 2026-07-19 已补齐单个“新建剧本”对话框的真实入口回归。桌面端同时覆盖点击选择 TXT、Finder 拖入 TXT、旧 `.doc` 的明确转换提示，以及选择角色和场景后保存关联资产；音频不会混入该选择器。正文为空时会先按原版顺序提示补充正文，项目单集字数上限会即时禁用确认。`.docx` 的段落提取和损坏文件失败态由 `novel_parse_test.dart` 的引擎级夹具覆盖。

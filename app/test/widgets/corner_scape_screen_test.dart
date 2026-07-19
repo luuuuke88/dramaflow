@@ -159,6 +159,115 @@ void main() {
     return checkbox.value ?? false;
   }
 
+  testWidgets(
+    '390dp 塑角造景可筛选资产、选择卡片、打开详情并发起批量生成',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 667);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final role = engine.addAsset(
+        projectId: projectId,
+        type: 'role',
+        name: '林朝雪',
+        describe: '',
+        prompt: '剑客',
+      );
+      final scene = engine.addAsset(
+        projectId: projectId,
+        type: 'scene',
+        name: '山门雪夜',
+        describe: '',
+        prompt: '雪夜',
+      );
+      final tool = engine.addAsset(
+        projectId: projectId,
+        type: 'tool',
+        name: '灵剑',
+        describe: '',
+        prompt: '长剑',
+      );
+      engine.config.update({'policy.confirmMoney': '1'});
+
+      await tester.pumpWidget(app(width: 390));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      final scroll = find.byKey(const Key('cornerscape-scroll'));
+      expect(scroll, findsOneWidget);
+      await tester.dragUntilVisible(
+        find.text('场景'),
+        scroll,
+        const Offset(0, -80),
+      );
+      await tester.tap(find.text('场景'));
+      await tester.pump();
+      expect(find.byKey(Key('cornerscape-card-$role')), findsNothing);
+      expect(find.byKey(Key('cornerscape-card-$tool')), findsNothing);
+      expect(find.byKey(Key('cornerscape-card-$scene')), findsOneWidget);
+
+      await tester.ensureVisible(find.text('选择未生成'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择未生成'));
+      await tester.pump();
+      expect(find.text('已选 1 项'), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byType(DropdownButtonFormField<String>),
+      );
+      await tester.pumpAndSettle();
+      await selectImageModel(tester);
+
+      final sceneCard = find.byKey(Key('cornerscape-card-$scene'));
+      await tester.dragUntilVisible(
+        sceneCard,
+        scroll,
+        const Offset(0, -100),
+      );
+      expect(isSelected(tester, scene), isTrue);
+      expect(tester.getSize(sceneCard).width, greaterThanOrEqualTo(350));
+      expect(tester.getSize(sceneCard).width, lessThanOrEqualTo(390));
+      await tester.tap(sceneCard);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(Key('cornerscape-detail-$scene')),
+        findsOneWidget,
+      );
+
+      final regenerate = find.byKey(Key('cornerscape-regenerate-$scene'));
+      await tester.ensureVisible(regenerate);
+      await tester.pump();
+      expect(
+        tester.widget<FilledButton>(regenerate).onPressed,
+        isNotNull,
+      );
+      await tester.tap(find.byTooltip('关闭').first);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(Key('cornerscape-detail-$scene')),
+        findsNothing,
+      );
+
+      final batchButton = find.widgetWithText(FilledButton, '开始批量生成');
+      await tester.ensureVisible(batchButton);
+      await tester.pumpAndSettle();
+      await tester.tap(batchButton);
+      await tester.pumpAndSettle();
+      expect(find.text('花费确认'), findsOneWidget);
+      await tester.tap(find.text('确定'));
+      await tester.pump();
+
+      final imageJobs = (await engine.projectJobs(projectId))
+          .where((job) => job.taskClass == 'asset_image_generation')
+          .toList();
+      expect(imageJobs, hasLength(1));
+      expect(imageJobs.single.relatedObjectsJson['ids'], [scene]);
+      expect(imageJobs.single.relatedObjectsJson['model'], _imageModel);
+      expect(imageJobs.single.relatedObjectsJson['resolution'], '1K');
+      expect(gateway.textCalls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('桌面塑角造景按类型筛选未生成资产并以模型和分辨率发起批量图片任务', (tester) async {
     final role = engine.addAsset(
       projectId: projectId,
@@ -376,6 +485,50 @@ void main() {
     await tester.tap(find.text('清空'));
     await tester.pump();
     expect(find.text('已选 0 项'), findsOneWidget);
+  });
+
+  testWidgets('桌面批量预览只展示已选资产的生成图', (tester) async {
+    final selected = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '剑客',
+    );
+    final unselected = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山门',
+      describe: '',
+      prompt: '雪夜',
+    );
+    engine.saveAssetImage(
+      assetsId: selected,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([1, 2, 3]),
+    );
+    engine.saveAssetImage(
+      assetsId: unselected,
+      projectId: projectId,
+      type: 'scene',
+      base64Image: base64Encode([4, 5, 6]),
+    );
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-select-$selected')));
+    await tester.tap(find.text('批量预览'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('资产图片预览'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+    expect(gateway.textCalls, 0);
   });
 
   testWidgets('资产卡固定高度并呈现空白生成中失败完成四种状态', (tester) async {
