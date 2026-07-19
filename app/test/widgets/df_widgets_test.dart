@@ -205,4 +205,70 @@ void main() {
     expect(total.dx, closeTo(20, 0.1));
     expect(total.dy, closeTo(10, 0.1));
   });
+
+  testWidgets('DFCanvas title handle keeps scene delta at zoom below one',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    final controller = TransformationController()
+      ..value = Matrix4.diagonal3Values(0.5, 0.5, 1);
+    final deltas = <Offset>[];
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        nodes: [
+          DFCanvasNode(
+            id: 'zoomed-out',
+            position: const Offset(80, 80),
+            size: const Size(220, 120),
+            onDragUpdate: deltas.add,
+            child: const ColoredBox(color: Colors.blue),
+          ),
+        ],
+      ),
+    )));
+
+    await tester.drag(
+      find.byKey(const ValueKey('df-canvas-drag-zoomed-out')),
+      const Offset(40, 20),
+    );
+
+    final total = deltas.fold(Offset.zero, (sum, delta) => sum + delta);
+    expect(total.dx, closeTo(80, 0.1));
+    expect(total.dy, closeTo(40, 0.1));
+  });
+
+  testWidgets('DFCanvasController fits all nodes into the current viewport',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    final controller = DFCanvasController()
+      ..value = Matrix4.diagonal3Values(3, 3, 1);
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        nodes: const [
+          DFCanvasNode(
+            id: 'wide',
+            position: Offset.zero,
+            size: Size(1500, 800),
+            child: SizedBox.expand(),
+          ),
+        ],
+      ),
+    )));
+
+    expect(tester.getSize(find.byType(DFCanvas)), const Size(900, 600));
+
+    controller.fitView();
+    await tester.pump();
+
+    expect(controller.value.storage[0], lessThan(1));
+  });
 }

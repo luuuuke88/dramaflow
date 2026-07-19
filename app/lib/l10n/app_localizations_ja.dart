@@ -1508,6 +1508,62 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productionAutoLayout => '自動レイアウト';
 
   @override
+  String get productionGuideTitle => '制作キャンバスガイド';
+
+  @override
+  String productionGuideStepCounter(int current, int total) {
+    return '$current / $total ステップ';
+  }
+
+  @override
+  String get productionGuideEpisodeTitle => '話数を切り替える';
+
+  @override
+  String get productionGuideEpisodeBody =>
+      '話数を選択して、対応する脚本、絵コンテ、ワークベンチのデータを確認します。';
+
+  @override
+  String get productionGuideRefreshTitle => 'キャンバスを更新';
+
+  @override
+  String get productionGuideRefreshBody => '現在の制作ビューを再読み込みして、最新のローカルデータを確認します。';
+
+  @override
+  String get productionGuideLayoutTitle => '自動レイアウト';
+
+  @override
+  String get productionGuideLayoutBody => '標準の制作フローに戻し、すべてのノードを画面内に配置します。';
+
+  @override
+  String get productionGuideCanvasTitle => 'キャンバスを操作';
+
+  @override
+  String get productionGuideCanvasBody =>
+      '空白部分をドラッグして移動し、ホイールまたはトラックパッドで拡大縮小します。ノードのタイトルバーをドラッグすると移動できます。';
+
+  @override
+  String get productionGuideMobileLayoutBody =>
+      'スマートフォンでは、ノードインスペクターとタブで制作フローを確認します。';
+
+  @override
+  String get productionGuideSkip => 'スキップ';
+
+  @override
+  String get productionGuideBack => '戻る';
+
+  @override
+  String get productionGuideNext => '次へ';
+
+  @override
+  String get productionGuideFinish => '完了';
+
+  @override
+  String get productionRefresh => '更新';
+
+  @override
+  String get productionRefreshed => 'キャンバスを更新しました';
+
+  @override
   String canvasDragNode(String node) {
     return '$node ノードをドラッグ';
   }

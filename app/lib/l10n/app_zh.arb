@@ -654,6 +654,29 @@
   "productionMobileCurrentNode": "当前节点",
   "productionSelectEpisode": "选择剧集",
   "productionAutoLayout": "自动布局",
+  "productionGuideTitle": "制作画布操作",
+  "productionGuideStepCounter": "第 {current} / {total} 步",
+  "@productionGuideStepCounter": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "productionGuideEpisodeTitle": "切换剧集",
+  "productionGuideEpisodeBody": "选择不同剧集，查看对应的剧本、分镜和工作台数据。",
+  "productionGuideRefreshTitle": "刷新画布",
+  "productionGuideRefreshBody": "重新加载当前制作视图，查看本地数据的最新状态。",
+  "productionGuideLayoutTitle": "自动布局",
+  "productionGuideLayoutBody": "恢复默认制作链路，并将视图对齐到所有节点。",
+  "productionGuideCanvasTitle": "操作画布",
+  "productionGuideCanvasBody": "拖拽空白处平移，滚轮或触控板缩放；拖动节点标题栏可移动节点。",
+  "productionGuideMobileLayoutBody": "在手机上通过节点检查器和标签页浏览制作链路。",
+  "productionGuideSkip": "跳过",
+  "productionGuideBack": "上一步",
+  "productionGuideNext": "下一步",
+  "productionGuideFinish": "完成",
+  "productionRefresh": "刷新",
+  "productionRefreshed": "画布已刷新",
   "canvasDragNode": "拖动节点 {node}",
   "@canvasDragNode": {
     "placeholders": {

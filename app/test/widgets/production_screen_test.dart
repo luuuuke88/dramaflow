@@ -68,6 +68,8 @@ void main() {
     // 本文件断言的是「生成分镜」等按钮触发任务入队的业务逻辑，不是确认闸弹窗本身
     // （闸本身已由 policy_confirm_test.dart 覆盖）；关闸避免每个用例都要多点一次确认。
     engine.config.update({'policy.confirmMoney': '0'});
+    // 大多数画布行为用例不关心首次教学；引导专项用例会显式恢复未完成状态。
+    engine.config.update({'production.guide.completed': '1'});
     engine.installStoryboardPipeline();
     projectId = engine.addProject(projectType: 'novel', name: '画布测试');
   });
@@ -115,6 +117,54 @@ void main() {
     expect(find.text('script-page'), findsOneWidget);
   });
 
+  testWidgets('桌面制作页首次显示四步引导，完成后重进不再出现', (tester) async {
+    engine.config.update({'production.guide.completed': '0'});
+    engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('production-guide')), findsOneWidget);
+    for (var index = 0; index < 3; index++) {
+      await tester.tap(find.byKey(const Key('production-guide-next')));
+      await tester.pump();
+    }
+    await tester.tap(find.byKey(const Key('production-guide-finish')));
+    await tester.pumpAndSettle();
+
+    expect(engine.config.str('production.guide.completed'), '1');
+    expect(find.byKey(const Key('production-guide')), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('production-guide')), findsNothing);
+  });
+
+  testWidgets('390dp 制作页引导完成后仍可访问节点标签页', (tester) async {
+    engine.config.update({'production.guide.completed': '0'});
+    engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('production-guide-compact')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('production-guide-skip')));
+    await tester.pumpAndSettle();
+
+    expect(engine.config.str('production.guide.completed'), '1');
+    expect(find.byType(TabBar), findsOneWidget);
+    expect(find.text('剧本'), findsWidgets);
+  });
+
   testWidgets('桌面画布：渲染 6 节点标题+剧集选择器', (tester) async {
     engine.addScript(projectId: projectId, name: '第一集', content: '正文内容');
     tester.view.physicalSize = const Size(1400, 900);
@@ -149,6 +199,26 @@ void main() {
     // 面板打开后出现欢迎语与发送按钮。
     expect(find.textContaining('我是制作 Agent'), findsOneWidget);
     expect(find.text('发送'), findsOneWidget);
+  });
+
+  testWidgets('桌面画布：刷新会重建当前视图并反馈结果', (tester) async {
+    engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    final before = const ValueKey('production-canvas-0');
+    final after = const ValueKey('production-canvas-1');
+    expect(find.byKey(before), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('production-refresh')));
+    await tester.pump();
+
+    expect(find.byKey(before), findsNothing);
+    expect(find.byKey(after), findsOneWidget);
+    expect(find.text('画布已刷新'), findsOneWidget);
   });
 
   testWidgets('桌面画布：节点可从标题栏拖动并能自动布局复位', (tester) async {

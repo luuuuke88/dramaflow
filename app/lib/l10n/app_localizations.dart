@@ -2974,6 +2974,108 @@ abstract class AppLocalizations {
   /// **'自动布局'**
   String get productionAutoLayout;
 
+  /// No description provided for @productionGuideTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'制作画布操作'**
+  String get productionGuideTitle;
+
+  /// No description provided for @productionGuideStepCounter.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {current} / {total} 步'**
+  String productionGuideStepCounter(int current, int total);
+
+  /// No description provided for @productionGuideEpisodeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换剧集'**
+  String get productionGuideEpisodeTitle;
+
+  /// No description provided for @productionGuideEpisodeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择不同剧集，查看对应的剧本、分镜和工作台数据。'**
+  String get productionGuideEpisodeBody;
+
+  /// No description provided for @productionGuideRefreshTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新画布'**
+  String get productionGuideRefreshTitle;
+
+  /// No description provided for @productionGuideRefreshBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新加载当前制作视图，查看本地数据的最新状态。'**
+  String get productionGuideRefreshBody;
+
+  /// No description provided for @productionGuideLayoutTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动布局'**
+  String get productionGuideLayoutTitle;
+
+  /// No description provided for @productionGuideLayoutBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认制作链路，并将视图对齐到所有节点。'**
+  String get productionGuideLayoutBody;
+
+  /// No description provided for @productionGuideCanvasTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作画布'**
+  String get productionGuideCanvasTitle;
+
+  /// No description provided for @productionGuideCanvasBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖拽空白处平移，滚轮或触控板缩放；拖动节点标题栏可移动节点。'**
+  String get productionGuideCanvasBody;
+
+  /// No description provided for @productionGuideMobileLayoutBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'在手机上通过节点检查器和标签页浏览制作链路。'**
+  String get productionGuideMobileLayoutBody;
+
+  /// No description provided for @productionGuideSkip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过'**
+  String get productionGuideSkip;
+
+  /// No description provided for @productionGuideBack.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一步'**
+  String get productionGuideBack;
+
+  /// No description provided for @productionGuideNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get productionGuideNext;
+
+  /// No description provided for @productionGuideFinish.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get productionGuideFinish;
+
+  /// No description provided for @productionRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新'**
+  String get productionRefresh;
+
+  /// No description provided for @productionRefreshed.
+  ///
+  /// In zh, this message translates to:
+  /// **'画布已刷新'**
+  String get productionRefreshed;
+
   /// No description provided for @canvasDragNode.
   ///
   /// In zh, this message translates to:

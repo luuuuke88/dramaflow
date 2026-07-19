@@ -548,6 +548,29 @@
   "productionMobileCurrentNode": "Current node",
   "productionSelectEpisode": "Select episode",
   "productionAutoLayout": "Auto layout",
+  "productionGuideTitle": "Production canvas guide",
+  "productionGuideStepCounter": "Step {current} of {total}",
+  "@productionGuideStepCounter": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "productionGuideEpisodeTitle": "Switch episodes",
+  "productionGuideEpisodeBody": "Choose an episode to view its script, storyboards, and workbench data.",
+  "productionGuideRefreshTitle": "Refresh the canvas",
+  "productionGuideRefreshBody": "Reload the current production view to see the latest local data.",
+  "productionGuideLayoutTitle": "Auto layout",
+  "productionGuideLayoutBody": "Restore the default production flow and fit every node into view.",
+  "productionGuideCanvasTitle": "Navigate the canvas",
+  "productionGuideCanvasBody": "Drag empty space to pan, use a wheel or trackpad to zoom, and drag node title bars to move them.",
+  "productionGuideMobileLayoutBody": "On a phone, use the node inspector and tabs to browse the production flow.",
+  "productionGuideSkip": "Skip",
+  "productionGuideBack": "Back",
+  "productionGuideNext": "Next",
+  "productionGuideFinish": "Finish",
+  "productionRefresh": "Refresh",
+  "productionRefreshed": "Canvas refreshed",
   "canvasDragNode": "Drag {node} node",
   "@canvasDragNode": {
     "placeholders": {

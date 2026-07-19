@@ -63,14 +63,21 @@ Rendering, gestures, and existing optimizations, all in `app/lib/src/widgets/df_
 
 These are behavior differences, not performance guesses. They keep the production-canvas checklist at **partial** even though its six-node workflow and mobile alternative are already covered by widget tests.
 
+### 已关闭的画布差异
+
+| Behavior | ToonFlow evidence | DramaFlow evidence | Verification |
+| --- | --- | --- | --- |
+| Automatic layout recenters the viewport | `Toonflow-web/src/views/production/index.vue:440` calls `fitView({ duration: 300 })` after layout | `production_screen.dart` now calls public `DFCanvasController.fitView()` after restoring node positions; `df_canvas.dart` attaches/detaches that controller safely | `df_widgets_test.dart` verifies a wide graph fits its viewport; `production_screen_test.dart` drives the real auto-layout command. |
+| Production canvas onboarding guide | `index.vue:97,463-489` persists `productionCurrent` and teaches four steps | `production_guide.dart` provides four target-aware desktop steps and a 390dp scrollable full-screen counterpart; `production_screen.dart` persists `production.guide.completed` in SQLite | `config_test.dart`, `production_guide_test.dart`, and `production_screen_test.dart` verify persistence, target highlight, one-time completion, desktop re-entry, compact Tab access, small-height scrolling, and remeasurement after a compact-to-desktop change. |
+
+The closed rows are retained here so the audit trail shows the original evidence and the exact replacement, rather than silently dropping resolved differences.
+
 | Behavior | ToonFlow evidence | DramaFlow evidence | Parity consequence |
 | --- | --- | --- | --- |
-| Automatic layout also recenters the viewport | `Toonflow-web/src/views/production/index.vue:440` calls `fitView({ duration: 300 })` after layout | `production_screen.dart:158-160` restores only `_positions`; `DFCanvas._fitView` is private and runs only on initial mount (`df_canvas.dart:133-158`) | After moving far away, "自动布局" restores node coordinates but can leave the user looking at empty space. |
 | Visible canvas controls | VueFlow renders `<Controls />` at `index.vue:55` | Desktop overlay has automatic-layout and Agent buttons only (`production_screen.dart:240-258`) | There is no user-visible equivalent for the reference canvas control surface. Exact button semantics still need black-box confirmation before an implementation choice. |
 | Space + left-button pan | `index.vue:143-171` deliberately enables it even while the pointer is over a node | `DFCanvas` has title-handle dragging and `InteractiveViewer` gestures, but no keyboard listener or Space-state path (`df_canvas.dart:84-290`) | A desktop power-user navigation shortcut is missing. |
 | Episode switch during active production Agent work | `index.vue:255-295` asks for confirmation while status is `pending` or `streaming` | The Flutter episode bar directly assigns `_scriptId` (`production_screen.dart:65-70`) | The original protection is absent. Flutter's simplified Agent has different status architecture; the user-facing switch guard is nevertheless not present. |
 | Agent panel initial state | `openShowVisible = ref(true)` at `index.vue:127` | `_chatOpen = false` at `production_screen.dart:140` | Small default-state difference: ToonFlow opens production chat by default; DramaFlow requires an explicit click. |
-| Production canvas onboarding guide | `index.vue:97,463-489` persists `productionCurrent` and presents four steps: episode switching, refresh, automatic layout and canvas navigation | No production guide state, overlay or equivalent targets under `app/lib/src/screens/production` | A first-use, user-visible walkthrough is missing. It is distinct from the app-wide first-run guide because it teaches controls inside an already-open project canvas. |
 
 ---
 
@@ -154,14 +161,14 @@ flutter test --concurrency=1 \
 | --- | --- | --- |
 | `DFCanvas` 1,000-node culling | Off-screen top-level nodes are not mounted and become visible after a viewport transform | Raster/build time while panning, nested storyboard-cell cost, or device frame rate |
 | Title-handle drag at 2× scale | Pointer deltas are converted to scene coordinates correctly | Space-held panning or drag performance under a populated canvas |
-| Desktop production page | Six nodes render; the Agent panel opens; node positions survive episode switching and automatic layout restores positions | Automatic layout recenters the viewport, active-Agent episode switch protection, or the default chat-open state |
+| Desktop production page | Six nodes render; the Agent panel opens; node positions survive episode switching; refresh rebuilds the current local view; automatic layout restores positions and recenters the viewport | Active-Agent episode switch protection or the default chat-open state |
 | 390dp production alternative | The Tab layout, node inspector, full-screen Agent entry, storyboard/workbench routes and local fake-composition path remain reachable | Native iOS/Android gesture feel, touch performance, or a desktop infinite-canvas equivalent on a narrow screen |
 | Storyboard and production chat | Editing and local confirmation paths still render through the production surface | Real image/video generation; this run invokes no real media provider |
 
-The source comparison was also rechecked in the same worktree. The six
-user-visible deltas in §2 remain open: post-layout `fitView`, VueFlow-style
-canvas controls, `Space + left-button` pan, active-Agent episode-switch
-confirmation, the default-open production chat, and the persisted production
-canvas guide. No test above covers the W1 frame-time metrics M1/M2/M4/M5/M7,
+The source comparison was also rechecked in the same worktree. The four
+user-visible deltas in §2 remain open: VueFlow-style canvas controls,
+`Space + left-button` pan, active-Agent episode-switch confirmation, and the
+default-open production chat. The post-layout `fitView` and persisted guide
+are listed above as closed differences. No test above covers the W1 frame-time metrics M1/M2/M4/M5/M7,
 so `W6-PRODUCTION-001` correctly remains **partial** in
 [`master-checklist.md`](master-checklist.md).

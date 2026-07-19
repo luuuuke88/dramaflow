@@ -1496,6 +1496,59 @@ class AppLocalizationsZh extends AppLocalizations {
   String get productionAutoLayout => '自动布局';
 
   @override
+  String get productionGuideTitle => '制作画布操作';
+
+  @override
+  String productionGuideStepCounter(int current, int total) {
+    return '第 $current / $total 步';
+  }
+
+  @override
+  String get productionGuideEpisodeTitle => '切换剧集';
+
+  @override
+  String get productionGuideEpisodeBody => '选择不同剧集，查看对应的剧本、分镜和工作台数据。';
+
+  @override
+  String get productionGuideRefreshTitle => '刷新画布';
+
+  @override
+  String get productionGuideRefreshBody => '重新加载当前制作视图，查看本地数据的最新状态。';
+
+  @override
+  String get productionGuideLayoutTitle => '自动布局';
+
+  @override
+  String get productionGuideLayoutBody => '恢复默认制作链路，并将视图对齐到所有节点。';
+
+  @override
+  String get productionGuideCanvasTitle => '操作画布';
+
+  @override
+  String get productionGuideCanvasBody => '拖拽空白处平移，滚轮或触控板缩放；拖动节点标题栏可移动节点。';
+
+  @override
+  String get productionGuideMobileLayoutBody => '在手机上通过节点检查器和标签页浏览制作链路。';
+
+  @override
+  String get productionGuideSkip => '跳过';
+
+  @override
+  String get productionGuideBack => '上一步';
+
+  @override
+  String get productionGuideNext => '下一步';
+
+  @override
+  String get productionGuideFinish => '完成';
+
+  @override
+  String get productionRefresh => '刷新';
+
+  @override
+  String get productionRefreshed => '画布已刷新';
+
+  @override
   String canvasDragNode(String node) {
     return '拖动节点 $node';
   }

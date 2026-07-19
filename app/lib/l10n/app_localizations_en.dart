@@ -1539,6 +1539,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String get productionAutoLayout => 'Auto layout';
 
   @override
+  String get productionGuideTitle => 'Production canvas guide';
+
+  @override
+  String productionGuideStepCounter(int current, int total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get productionGuideEpisodeTitle => 'Switch episodes';
+
+  @override
+  String get productionGuideEpisodeBody =>
+      'Choose an episode to view its script, storyboards, and workbench data.';
+
+  @override
+  String get productionGuideRefreshTitle => 'Refresh the canvas';
+
+  @override
+  String get productionGuideRefreshBody =>
+      'Reload the current production view to see the latest local data.';
+
+  @override
+  String get productionGuideLayoutTitle => 'Auto layout';
+
+  @override
+  String get productionGuideLayoutBody =>
+      'Restore the default production flow and fit every node into view.';
+
+  @override
+  String get productionGuideCanvasTitle => 'Navigate the canvas';
+
+  @override
+  String get productionGuideCanvasBody =>
+      'Drag empty space to pan, use a wheel or trackpad to zoom, and drag node title bars to move them.';
+
+  @override
+  String get productionGuideMobileLayoutBody =>
+      'On a phone, use the node inspector and tabs to browse the production flow.';
+
+  @override
+  String get productionGuideSkip => 'Skip';
+
+  @override
+  String get productionGuideBack => 'Back';
+
+  @override
+  String get productionGuideNext => 'Next';
+
+  @override
+  String get productionGuideFinish => 'Finish';
+
+  @override
+  String get productionRefresh => 'Refresh';
+
+  @override
+  String get productionRefreshed => 'Canvas refreshed';
+
+  @override
   String canvasDragNode(String node) {
     return 'Drag $node node';
   }

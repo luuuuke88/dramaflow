@@ -33,6 +33,22 @@ class DFCanvasEdge {
   const DFCanvasEdge({required this.sourceId, required this.targetId});
 }
 
+/// 画布视口控制器。
+///
+/// 保留 [TransformationController] 的缩放和平移 API，并额外提供由 [DFCanvas]
+/// 在挂载期间注册的 [fitView]。未挂载时调用是安全的空操作。
+class DFCanvasController extends TransformationController {
+  VoidCallback? _fitView;
+
+  void fitView() => _fitView?.call();
+
+  void _attachFitView(VoidCallback callback) => _fitView = callback;
+
+  void _detachFitView(VoidCallback callback) {
+    if (_fitView == callback) _fitView = null;
+  }
+}
+
 /// 无限画布：平移缩放 0.1–10（对齐 VueFlow 限制）。平移、缩放和惯性由
 /// InteractiveViewer 提供；节点拖拽走顶部拖拽区，避免和画布平移冲突。
 class DFCanvas extends StatefulWidget {
@@ -54,8 +70,8 @@ class DFCanvas extends StatefulWidget {
 }
 
 class _DFCanvasState extends State<DFCanvas> {
-  late final TransformationController _controller;
-  late final bool _ownsController;
+  late TransformationController _controller;
+  late bool _ownsController;
   bool _fitted = false;
   int? _dragPointer;
   Offset? _lastDragPosition;
@@ -64,9 +80,7 @@ class _DFCanvasState extends State<DFCanvas> {
   @override
   void initState() {
     super.initState();
-    _ownsController = widget.controller == null;
-    _controller = widget.controller ?? TransformationController();
-    _controller.addListener(_handleTransformChanged);
+    _setController(widget.controller);
     if (widget.fitOnInit && widget.nodes.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     }
@@ -74,11 +88,25 @@ class _DFCanvasState extends State<DFCanvas> {
 
   @override
   void dispose() {
-    _controller.removeListener(_handleTransformChanged);
-    if (_ownsController) {
-      _controller.dispose();
-    }
+    _releaseController();
     super.dispose();
+  }
+
+  void _setController(TransformationController? controller) {
+    _ownsController = controller == null;
+    _controller = controller ?? TransformationController();
+    _controller.addListener(_handleTransformChanged);
+    if (_controller case final DFCanvasController canvasController) {
+      canvasController._attachFitView(_fitView);
+    }
+  }
+
+  void _releaseController() {
+    if (_controller case final DFCanvasController canvasController) {
+      canvasController._detachFitView(_fitView);
+    }
+    _controller.removeListener(_handleTransformChanged);
+    if (_ownsController) _controller.dispose();
   }
 
   void _handleTransformChanged() {
@@ -103,7 +131,10 @@ class _DFCanvasState extends State<DFCanvas> {
     if (_transformBeforeDrag != null) {
       _controller.value = Matrix4.copy(_transformBeforeDrag!);
     }
-    final scale = _controller.value.getMaxScaleOnAxis();
+    // Matrix4 的 Z 轴固定为 1；getMaxScaleOnAxis 在缩小视图时会误取该轴。
+    // InteractiveViewer 不允许旋转，取两个平面轴即可得到真实的画布缩放。
+    final storage = _controller.value.storage;
+    final scale = math.max(storage[0].abs(), storage[5].abs());
     if (scale > 0) node.onDragUpdate!(delta / scale);
   }
 
@@ -122,6 +153,10 @@ class _DFCanvasState extends State<DFCanvas> {
   @override
   void didUpdateWidget(covariant DFCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _releaseController();
+      _setController(widget.controller);
+    }
     if (widget.fitOnInit &&
         !_fitted &&
         widget.nodes.isNotEmpty &&

@@ -34,6 +34,20 @@ void main() {
     expect(EngineConfig(db, isMobile: false).str('themeMode'), 'dark');
   });
 
+  test('制作画布引导默认未完成且完成状态持久化', () {
+    final db = openEngineDb(':memory:');
+    final config = EngineConfig(db, isMobile: false);
+
+    expect(config.str('production.guide.completed'), '0');
+
+    config.update({'production.guide.completed': '1'});
+
+    expect(
+      EngineConfig(db, isMobile: false).str('production.guide.completed'),
+      '1',
+    );
+  });
+
   test('未知键忽略，已知键持久化', () {
     final db = openEngineDb(':memory:');
     final c = EngineConfig(db, isMobile: false);

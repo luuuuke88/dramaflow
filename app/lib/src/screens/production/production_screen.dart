@@ -30,6 +30,7 @@ import 'canvas_chat_panel.dart';
 import 'image_flow_editor.dart';
 import 'script_plan_node.dart';
 import 'workbench_screen.dart';
+import 'production_guide.dart';
 import 'storyboard_canvas_node.dart';
 
 class ProductionScreen extends ConsumerStatefulWidget {
@@ -42,6 +43,40 @@ class ProductionScreen extends ConsumerStatefulWidget {
 
 class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   int? _scriptId;
+  final _episodeGuideTarget = GlobalKey();
+  final _refreshGuideTarget = GlobalKey();
+  final _layoutGuideTarget = GlobalKey();
+  final _canvasGuideTarget = GlobalKey();
+  var _guideScheduled = false;
+  var _showGuide = false;
+  var _productionViewRevision = 0;
+
+  void _scheduleGuideIfNeeded() {
+    final config = ref.read(engineProvider).config;
+    if (_guideScheduled || config.str('production.guide.completed') == '1') {
+      return;
+    }
+    _guideScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || config.str('production.guide.completed') == '1') return;
+      setState(() => _showGuide = true);
+    });
+  }
+
+  void _completeGuide() {
+    ref.read(engineProvider).config.update({'production.guide.completed': '1'});
+    if (mounted) setState(() => _showGuide = false);
+  }
+
+  void _refreshProduction() {
+    setState(() => _productionViewRevision++);
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.productionRefreshed),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,19 +97,51 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final script = scripts.firstWhere((s) => s.id == _scriptId,
         orElse: () => scripts.first);
 
-    return Column(children: [
-      _EpisodeBar(
-        scripts: scripts,
-        selectedId: script.id,
-        onSelect: (id) => setState(() => _scriptId = id),
-      ),
-      Expanded(
-        child: LayoutBuilder(builder: (context, constraints) {
-          return constraints.maxWidth >= 840
-              ? _CanvasLayout(projectId: widget.projectId, script: script)
-              : _MobileTabsLayout(projectId: widget.projectId, script: script);
-        }),
-      ),
+    _scheduleGuideIfNeeded();
+
+    return Stack(children: [
+      Column(children: [
+        _EpisodeBar(
+          targetKey: _episodeGuideTarget,
+          refreshTargetKey: _refreshGuideTarget,
+          scripts: scripts,
+          selectedId: script.id,
+          onSelect: (id) => setState(() => _scriptId = id),
+          onRefresh: _refreshProduction,
+        ),
+        Expanded(
+          child: LayoutBuilder(builder: (context, constraints) {
+            return constraints.maxWidth >= 840
+                ? _CanvasLayout(
+                    key: ValueKey('production-canvas-$_productionViewRevision'),
+                    projectId: widget.projectId,
+                    script: script,
+                    layoutTargetKey: _layoutGuideTarget,
+                    canvasTargetKey: _canvasGuideTarget,
+                  )
+                : _MobileTabsLayout(
+                    key: ValueKey('production-mobile-$_productionViewRevision'),
+                    projectId: widget.projectId,
+                    script: script,
+                    inspectorTargetKey: _layoutGuideTarget,
+                    tabsTargetKey: _canvasGuideTarget,
+                  );
+          }),
+        ),
+      ]),
+      if (_showGuide)
+        Positioned.fill(
+          child: ProductionGuideOverlay(
+            compact: MediaQuery.sizeOf(context).width < 840,
+            targets: [
+              _episodeGuideTarget,
+              _refreshGuideTarget,
+              _layoutGuideTarget,
+              _canvasGuideTarget,
+            ],
+            onComplete: _completeGuide,
+          ),
+        ),
     ]);
   }
 }
@@ -82,16 +149,23 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 class _EpisodeBar extends StatelessWidget {
   final List<ScriptRow> scripts;
   final int selectedId;
+  final GlobalKey targetKey;
+  final GlobalKey refreshTargetKey;
   final ValueChanged<int> onSelect;
+  final VoidCallback onRefresh;
   const _EpisodeBar(
       {required this.scripts,
       required this.selectedId,
-      required this.onSelect});
+      required this.targetKey,
+      required this.refreshTargetKey,
+      required this.onSelect,
+      required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
     final df = context.df;
     return Container(
+      key: targetKey,
       height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration:
@@ -117,6 +191,15 @@ class _EpisodeBar extends StatelessWidget {
             ],
           ),
         ),
+        SizedBox(
+          key: refreshTargetKey,
+          child: IconButton(
+            key: const ValueKey('production-refresh'),
+            tooltip: context.l10n.productionRefresh,
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: onRefresh,
+          ),
+        ),
       ]),
     );
   }
@@ -129,7 +212,15 @@ class _EpisodeBar extends StatelessWidget {
 class _CanvasLayout extends StatefulWidget {
   final int projectId;
   final ScriptRow script;
-  const _CanvasLayout({required this.projectId, required this.script});
+  final GlobalKey layoutTargetKey;
+  final GlobalKey canvasTargetKey;
+  const _CanvasLayout({
+    super.key,
+    required this.projectId,
+    required this.script,
+    required this.layoutTargetKey,
+    required this.canvasTargetKey,
+  });
 
   @override
   State<_CanvasLayout> createState() => _CanvasLayoutState();
@@ -138,6 +229,7 @@ class _CanvasLayout extends StatefulWidget {
 class _CanvasLayoutState extends State<_CanvasLayout> {
   static const _chatPanelWidth = 380.0;
   bool _chatOpen = false;
+  final _canvasController = DFCanvasController();
   late Map<String, Offset> _positions = _defaultPositions();
 
   Map<String, Offset> _defaultPositions() => {
@@ -157,6 +249,14 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
 
   void _resetLayout() {
     setState(() => _positions = _defaultPositions());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _canvasController.fitView());
+  }
+
+  @override
+  void dispose() {
+    _canvasController.dispose();
+    super.dispose();
   }
 
   @override
@@ -174,6 +274,8 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
     final assetsPos = positions['assets']!;
 
     final canvas = DFCanvas(
+      key: widget.canvasTargetKey,
+      controller: _canvasController,
       fitOnInit: true,
       nodes: [
         DFCanvasNode(
@@ -242,12 +344,15 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
           top: 12,
           right: 12,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            FloatingActionButton.small(
-              key: const ValueKey('production-auto-layout'),
-              heroTag: 'canvasAutoLayout',
-              tooltip: context.l10n.productionAutoLayout,
-              onPressed: _resetLayout,
-              child: const Icon(Icons.account_tree_outlined),
+            SizedBox(
+              key: widget.layoutTargetKey,
+              child: FloatingActionButton.small(
+                key: const ValueKey('production-auto-layout'),
+                heroTag: 'canvasAutoLayout',
+                tooltip: context.l10n.productionAutoLayout,
+                onPressed: _resetLayout,
+                child: const Icon(Icons.account_tree_outlined),
+              ),
             ),
             const SizedBox(width: 8),
             FloatingActionButton.extended(
@@ -290,7 +395,15 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
 class _MobileTabsLayout extends StatefulWidget {
   final int projectId;
   final ScriptRow script;
-  const _MobileTabsLayout({required this.projectId, required this.script});
+  final GlobalKey inspectorTargetKey;
+  final GlobalKey tabsTargetKey;
+  const _MobileTabsLayout({
+    super.key,
+    required this.projectId,
+    required this.script,
+    required this.inspectorTargetKey,
+    required this.tabsTargetKey,
+  });
 
   @override
   State<_MobileTabsLayout> createState() => _MobileTabsLayoutState();
@@ -440,10 +553,13 @@ class _MobileTabsLayoutState extends State<_MobileTabsLayout>
             ],
           ),
         ),
-        IconButton(
-          tooltip: l10n.productionMobileNodeInspector,
-          icon: const Icon(Icons.account_tree_outlined),
-          onPressed: _openInspector,
+        SizedBox(
+          key: widget.inspectorTargetKey,
+          child: IconButton(
+            tooltip: l10n.productionMobileNodeInspector,
+            icon: const Icon(Icons.account_tree_outlined),
+            onPressed: _openInspector,
+          ),
         ),
         IconButton(
           tooltip: l10n.canvasChatOpen,
@@ -453,6 +569,7 @@ class _MobileTabsLayoutState extends State<_MobileTabsLayout>
         const SizedBox(width: 4),
       ]),
       Expanded(
+        key: widget.tabsTargetKey,
         child: TabBarView(controller: _tab, children: [
           _ScriptNode(script: widget.script),
           ScriptPlanNode(projectId: widget.projectId),

@@ -548,6 +548,29 @@
   "productionMobileCurrentNode": "現在のノード",
   "productionSelectEpisode": "話数を選択",
   "productionAutoLayout": "自動レイアウト",
+  "productionGuideTitle": "制作キャンバスガイド",
+  "productionGuideStepCounter": "{current} / {total} ステップ",
+  "@productionGuideStepCounter": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "productionGuideEpisodeTitle": "話数を切り替える",
+  "productionGuideEpisodeBody": "話数を選択して、対応する脚本、絵コンテ、ワークベンチのデータを確認します。",
+  "productionGuideRefreshTitle": "キャンバスを更新",
+  "productionGuideRefreshBody": "現在の制作ビューを再読み込みして、最新のローカルデータを確認します。",
+  "productionGuideLayoutTitle": "自動レイアウト",
+  "productionGuideLayoutBody": "標準の制作フローに戻し、すべてのノードを画面内に配置します。",
+  "productionGuideCanvasTitle": "キャンバスを操作",
+  "productionGuideCanvasBody": "空白部分をドラッグして移動し、ホイールまたはトラックパッドで拡大縮小します。ノードのタイトルバーをドラッグすると移動できます。",
+  "productionGuideMobileLayoutBody": "スマートフォンでは、ノードインスペクターとタブで制作フローを確認します。",
+  "productionGuideSkip": "スキップ",
+  "productionGuideBack": "戻る",
+  "productionGuideNext": "次へ",
+  "productionGuideFinish": "完了",
+  "productionRefresh": "更新",
+  "productionRefreshed": "キャンバスを更新しました",
   "canvasDragNode": "{node} ノードをドラッグ",
   "@canvasDragNode": {
     "placeholders": {
