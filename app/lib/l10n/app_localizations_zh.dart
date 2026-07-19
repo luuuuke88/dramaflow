@@ -1846,10 +1846,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchReorderShot => '拖拽调整顺序';
 
   @override
-  String get cornerScapeTitle => '配音';
+  String get cornerScapeTitle => '塑角造景';
 
   @override
-  String get cornerScapeAutoMatch => 'AI 自动匹配';
+  String get cornerScapeAutoMatch => 'AI 匹配音频';
 
   @override
   String get cornerScapeAutoMatching => '匹配中...';
@@ -1874,6 +1874,120 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cornerScapeUnbind => '解除绑定';
+
+  @override
+  String get cornerScapeBatchSettings => '批量设置';
+
+  @override
+  String get cornerScapeQuickActions => '快捷选择';
+
+  @override
+  String get cornerScapeSelectAll => '全选';
+
+  @override
+  String get cornerScapeSelectPromptEmpty => '提示词为空';
+
+  @override
+  String get cornerScapeSelectUngenerated => '选择未生成';
+
+  @override
+  String get cornerScapeSelectCompleted => '选择已完成';
+
+  @override
+  String get cornerScapeSelectFailed => '选择失败';
+
+  @override
+  String get cornerScapeInvertSelection => '反选';
+
+  @override
+  String get cornerScapeClearSelection => '清空';
+
+  @override
+  String get cornerScapeBatchPreview => '批量预览';
+
+  @override
+  String get cornerScapeAssetType => '资产类型';
+
+  @override
+  String get cornerScapeFilterRole => '角色';
+
+  @override
+  String get cornerScapeFilterScene => '场景';
+
+  @override
+  String get cornerScapeFilterTool => '道具';
+
+  @override
+  String get cornerScapeImageModel => '图片模型';
+
+  @override
+  String get cornerScapeResolution => '分辨率';
+
+  @override
+  String get cornerScapeOtherPrompt => '补充提示词';
+
+  @override
+  String get cornerScapeOtherPromptHint => '补充画风、构图或一致性要求';
+
+  @override
+  String get cornerScapeGeneratePrompts => '生成提示词';
+
+  @override
+  String get cornerScapeMatchAudio => 'AI 匹配音频';
+
+  @override
+  String get cornerScapeStartBatch => '开始批量生成';
+
+  @override
+  String get cornerScapeWaitingGeneration => '等待生成';
+
+  @override
+  String get cornerScapeGenerating => '生成中';
+
+  @override
+  String get cornerScapeGenerationFailed => '生成失败';
+
+  @override
+  String get cornerScapeGenerationDone => '已完成';
+
+  @override
+  String get cornerScapePromptReady => '已有提示词';
+
+  @override
+  String get cornerScapePromptMissing => '无提示词';
+
+  @override
+  String get cornerScapeCancelGeneration => '取消生成';
+
+  @override
+  String get cornerScapeNoAssets => '暂无角色、场景或道具资产';
+
+  @override
+  String get cornerScapeNoVisibleAssets => '当前筛选下没有资产';
+
+  @override
+  String get cornerScapeSelectAtLeastOneAsset => '请至少选择一项资产';
+
+  @override
+  String get cornerScapeMissingPrompts => '请先为所选资产生成提示词';
+
+  @override
+  String get cornerScapePromptDone => '提示词生成完成';
+
+  @override
+  String get cornerScapePromptFailed => '提示词生成失败';
+
+  @override
+  String get cornerScapeAudioMatchStarted => '音频匹配任务已提交';
+
+  @override
+  String get cornerScapeImageGenerationStarted => '图片生成任务已提交';
+
+  @override
+  String get cornerScapeNoPreviewImages => '所选资产暂无可预览图片';
+
+  @override
+  String get cornerScapePreviewTitle => '资产图片预览';
 
   @override
   String get promptStoryboardGenTitle => '分镜生成';

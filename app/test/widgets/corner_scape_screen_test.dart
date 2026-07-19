@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
@@ -35,11 +36,9 @@ void main() {
       gateway: _NoopGateway(),
       config: EngineConfig(db, isMobile: false),
     );
-    // 本文件断言的是「触发批量任务」这一业务逻辑，不是确认闸弹窗本身
-    // （闸本身已由 policy_confirm_test.dart 覆盖）；关闸避免每个用例都要多点一次确认。
     engine.config.update({'policy.confirmMoney': '0'});
     engine.installAudioBindPipeline();
-    projectId = engine.addProject(projectType: 'novel', name: '配音测试');
+    projectId = engine.addProject(projectType: 'novel', name: '塑角造景测试');
   });
 
   tearDown(() {
@@ -63,256 +62,246 @@ void main() {
     );
   }
 
-  testWidgets('无角色资产时显示空态', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-    expect(find.text('暂无角色资产，请先在「资产中心」创建角色'), findsOneWidget);
-  });
+  Future<void> pumpDesktop(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(width: 1400));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+  }
 
-  testWidgets('有角色时渲染列表+未绑定提示；无音频池时显示警示', (tester) async {
+  void setImageState(int assetId, String state) {
+    engine.db.execute(
+      'INSERT INTO o_image (assetsId,type,state) VALUES (?,?,?)',
+      [assetId, 'role', state],
+    );
+    final imageId = engine.db.lastInsertRowId;
+    engine.db.execute(
+      'UPDATE o_assets SET imageId=? WHERE id=?',
+      [imageId, assetId],
+    );
+  }
+
+  bool isSelected(WidgetTester tester, int assetId) {
+    final checkbox = tester.widget<Checkbox>(
+      find.byKey(Key('cornerscape-select-$assetId')),
+    );
+    return checkbox.value ?? false;
+  }
+
+  testWidgets('桌面塑角造景按类型筛选未生成资产并以模型和分辨率发起批量图片任务', (tester) async {
+    final role = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '剑客',
+    );
     engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+      projectId: projectId,
+      type: 'scene',
+      name: '山门',
+      describe: '',
+      prompt: '雪夜',
+    );
+    engine.config.update({'policy.confirmMoney': '1'});
 
-    expect(find.text('林朝雪'), findsOneWidget);
-    expect(find.text('暂无音频素材，请先在「资产中心」上传音频'), findsWidgets);
-  });
-
-  testWidgets('手动绑定音频下拉可选并调用引擎', (tester) async {
-    engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    engine.addAsset(
-        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
-    await tester.pumpWidget(app());
+    await pumpDesktop(tester);
+    await tester.tap(find.text('角色'));
+    await tester.tap(find.text('选择未生成'));
+    await tester.tap(find.text('2K'));
+    await tester.tap(find.widgetWithText(FilledButton, '开始批量生成'));
     await tester.pumpAndSettle();
-
-    await tester.tap(find.byType(DropdownButtonFormField<int?>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('低音男声').last);
-    await tester.pumpAndSettle();
-
-    expect(engine.roleAudioBindings(projectId).single.audioName, '低音男声');
-  });
-
-  testWidgets('勾选角色后点击 AI 自动匹配触发批量任务', (tester) async {
-    engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    engine.addAsset(
-        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byType(Checkbox));
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('AI 自动匹配'));
+    await tester.tap(find.text('确定'));
     await tester.pump();
 
     final tasks = await engine.projectJobs(projectId);
-    expect(tasks.any((t) => t.taskClass == 'audio_bind'), isTrue);
+    final task = tasks.singleWhere(
+      (job) => job.taskClass == 'asset_image_generation',
+    );
+    expect(task.relatedObjectsJson['ids'], [role]);
+    expect(task.relatedObjectsJson['resolution'], '2K');
   });
 
-  testWidgets('状态筛选「未绑定」只展示未绑定角色', (tester) async {
-    final bound = engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
+  testWidgets('类型筛选会裁剪选择且音频匹配只提交当前可见选择', (tester) async {
+    final role = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '剑客',
+    );
+    final scene = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山门',
+      describe: '雪夜',
+    );
     engine.addAsset(
-        projectId: projectId, type: 'role', name: '沈砚之', describe: 'x');
-    final audio = engine.addAsset(
-        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
-    engine.bindRoleAudio(bound, audio);
+      projectId: projectId,
+      type: 'audio',
+      name: '清冷女声',
+      describe: '',
+    );
 
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpDesktop(tester);
+    await tester.tap(find.text('全选'));
+    await tester.pump();
+    expect(isSelected(tester, role), isTrue);
+    expect(isSelected(tester, scene), isTrue);
 
-    // 初始「全部」两角色都在。
-    expect(find.text('林朝雪'), findsOneWidget);
-    expect(find.text('沈砚之'), findsOneWidget);
+    await tester.tap(find.text('角色'));
+    await tester.pump();
+    expect(find.byKey(Key('cornerscape-card-$scene')), findsNothing);
+    expect(isSelected(tester, role), isTrue);
+    expect(find.text('已选 1 项'), findsOneWidget);
 
-    // 切到「未绑定」：只剩未绑定的沈砚之。
-    await tester.tap(find.text('未绑定'));
-    await tester.pumpAndSettle();
-    expect(find.text('林朝雪'), findsNothing);
-    expect(find.text('沈砚之'), findsOneWidget);
-
-    // 切到「已绑定」：只剩已绑定的林朝雪。
-    await tester.tap(find.text('已绑定'));
-    await tester.pumpAndSettle();
-    expect(find.text('林朝雪'), findsOneWidget);
-    expect(find.text('沈砚之'), findsNothing);
-  });
-
-  testWidgets('搜索按角色名称过滤列表', (tester) async {
-    engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    engine.addAsset(
-        projectId: projectId, type: 'role', name: '沈砚之', describe: 'x');
-
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), '林');
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pumpAndSettle();
-
-    expect(find.text('林朝雪'), findsOneWidget);
-    expect(find.text('沈砚之'), findsNothing);
-  });
-
-  testWidgets('全选未绑定把可见未绑定角色加入 AI 匹配选择', (tester) async {
-    final bound = engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    engine.addAsset(
-        projectId: projectId, type: 'role', name: '沈砚之', describe: 'x');
-    engine.addAsset(
-        projectId: projectId, type: 'role', name: '苏晚', describe: 'x');
-    final audio = engine.addAsset(
-        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
-    engine.bindRoleAudio(bound, audio);
-
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    // 三角色一绑定两未绑定：点「全选未绑定」应选中 2 个。
-    await tester.tap(find.text('全选未绑定'));
-    await tester.pumpAndSettle();
-
-    // AI 自动匹配按钮标签带上选择计数 (2)。
-    expect(find.textContaining('(2)'), findsOneWidget);
-
-    // 触发批量匹配，任务的 roleIds 恰为两个未绑定角色。
-    await tester.tap(find.textContaining('AI 自动匹配'));
+    await tester.tap(find.text('AI 匹配音频'));
     await tester.pump();
 
     final tasks = await engine.projectJobs(projectId);
-    final task = tasks.firstWhere((t) => t.taskClass == 'audio_bind');
-    final roleIds = (task.relatedObjectsJson['roleIds'] as List)
-        .map((e) => (e as num).toInt())
+    final task = tasks.singleWhere((job) => job.taskClass == 'audio_bind');
+    expect(task.relatedObjectsJson['assetIds'], [role]);
+  });
+
+  testWidgets('快捷选择按提示词和图片状态选择并支持反选与清空', (tester) async {
+    final empty = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '空白角色',
+      describe: '',
+      prompt: '',
+    );
+    final generating = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '生成角色',
+      describe: '',
+      prompt: '生成中',
+    );
+    final failed = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '失败角色',
+      describe: '',
+      prompt: '失败',
+    );
+    final done = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '完成角色',
+      describe: '',
+      prompt: '完成',
+    );
+    setImageState(generating, stateGenerating);
+    setImageState(failed, stateFailed);
+    engine.saveAssetImage(
+      assetsId: done,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([1, 2, 3]),
+    );
+
+    await pumpDesktop(tester);
+
+    await tester.tap(find.text('提示词为空'));
+    await tester.pump();
+    expect(isSelected(tester, empty), isTrue);
+    expect(isSelected(tester, generating), isFalse);
+
+    await tester.tap(find.text('选择未生成'));
+    await tester.pump();
+    expect(isSelected(tester, empty), isTrue);
+    expect(isSelected(tester, failed), isFalse);
+
+    await tester.tap(find.text('选择已完成'));
+    await tester.pump();
+    expect(isSelected(tester, done), isTrue);
+    expect(isSelected(tester, empty), isFalse);
+
+    await tester.tap(find.text('选择失败'));
+    await tester.pump();
+    expect(isSelected(tester, failed), isTrue);
+    expect(isSelected(tester, done), isFalse);
+
+    await tester.tap(find.text('全选'));
+    await tester.pump();
+    expect(find.text('已选 4 项'), findsOneWidget);
+
+    await tester.tap(find.text('反选'));
+    await tester.pump();
+    expect(find.text('已选 0 项'), findsOneWidget);
+
+    await tester.tap(find.text('全选'));
+    await tester.tap(find.text('清空'));
+    await tester.pump();
+    expect(find.text('已选 0 项'), findsOneWidget);
+  });
+
+  testWidgets('资产卡固定高度并呈现空白生成中失败完成四种状态', (tester) async {
+    final empty = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '空白角色',
+      describe: '',
+    );
+    final generating = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '生成角色',
+      describe: '',
+    );
+    final failed = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '失败角色',
+      describe: '',
+    );
+    final done = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '完成角色',
+      describe: '',
+    );
+    setImageState(generating, stateGenerating);
+    setImageState(failed, stateFailed);
+    engine.saveAssetImage(
+      assetsId: done,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([4, 5, 6]),
+    );
+
+    await pumpDesktop(tester);
+
+    expect(find.text('等待生成'), findsOneWidget);
+    expect(find.text('生成中'), findsOneWidget);
+    expect(find.text('生成失败'), findsOneWidget);
+    expect(find.text('已完成'), findsOneWidget);
+    expect(
+      find.byKey(Key('cornerscape-cancel-$generating')),
+      findsOneWidget,
+    );
+    expect(find.byKey(Key('cornerscape-cancel-$empty')), findsNothing);
+
+    final heights = [empty, generating, failed, done]
+        .map(
+          (id) =>
+              tester.getSize(find.byKey(Key('cornerscape-card-$id'))).height,
+        )
         .toSet();
-    expect(roleIds, hasLength(2));
-    expect(roleIds.contains(bound), isFalse);
-  });
+    expect(heights, hasLength(1));
 
-  testWidgets('试听按钮：未绑定禁用，已绑定但文件缺失时提示', (tester) async {
-    final role = engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    engine.addAsset(
-        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
-
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    // 未绑定：试听图标存在但按钮禁用（onPressed == null）。
-    final playIcon = find.byIcon(Icons.play_circle_outline);
-    expect(playIcon, findsOneWidget);
-    final btnFinder =
-        find.ancestor(of: playIcon, matching: find.byType(IconButton));
-    expect(tester.widget<IconButton>(btnFinder).onPressed, isNull);
-
-    // 绑定一个无实际文件的音频父资产，按钮启用；点击应提示"音频文件缺失"，不崩溃。
-    final audio = engine.audioPool(projectId).single.id;
-    engine.bindRoleAudio(role, audio);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-    expect(tester.widget<IconButton>(btnFinder).onPressed, isNotNull);
-    await tester.tap(find.byIcon(Icons.play_circle_outline));
+    await tester.tap(find.byKey(Key('cornerscape-card-$generating')));
     await tester.pump();
-    expect(tester.takeException(), isNull);
-    expect(find.text('音频文件缺失'), findsOneWidget);
-  });
+    expect(
+      find.byKey(Key('cornerscape-detail-$generating')),
+      findsNothing,
+    );
 
-  testWidgets('移动端配音页：手动绑定角色音频', (tester) async {
-    engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    engine.addAsset(
-        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
-    tester.view.physicalSize = const Size(390, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(app(width: 390));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byType(DropdownButtonFormField<int?>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('低音男声').last);
-    await tester.pumpAndSettle();
-
-    expect(engine.roleAudioBindings(projectId).single.audioName, '低音男声');
-    expect(find.text('低音男声'), findsOneWidget);
-  });
-
-  testWidgets('移动端配音页：勾选角色后可发起 AI 自动匹配任务', (tester) async {
-    engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    engine.addAsset(
-        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
-    tester.view.physicalSize = const Size(390, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(app(width: 390));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byType(Checkbox));
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('AI 自动匹配'));
+    await tester.tap(find.byKey(Key('cornerscape-card-$done')));
     await tester.pump();
-
-    final tasks = await engine.projectJobs(projectId);
-    expect(tasks.any((t) => t.taskClass == 'audio_bind'), isTrue);
-  });
-
-  testWidgets('移动端配音页：超长角色名不会把列表行撑成畸形高度（回归：窄屏固定宽度下拉挤压名字导致逐字换行）',
-      (tester) async {
-    const longName = '云梦泽畔听雪楼二当家';
-    engine.addAsset(
-        projectId: projectId, type: 'role', name: longName, describe: 'x');
-    engine.addAsset(
-        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
-    tester.view.physicalSize = const Size(390, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(app(width: 390));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    // 名字整体仍以一个 Text 渲染（未被逐字拆行打断），且该 Text 的渲染高度
-    // 接近单行文字高度，而不是被压缩成每行一两个字、行数暴增的畸形布局。
-    final nameFinder = find.text(longName);
-    expect(nameFinder, findsOneWidget);
-    final nameSize = tester.getSize(nameFinder);
-    expect(nameSize.height, lessThan(40));
-
-    // 列表行整体高度保持在合理范围内：修复后是"名字行 + 独立下拉行"两行堆叠
-    // （约 120~140px），而不是修复前逐字换行导致的 ~200px+ 畸形高度。
-    final rowFinder = find
-        .ancestor(of: nameFinder, matching: find.byType(Container))
-        .first;
-    final rowSize = tester.getSize(rowFinder);
-    expect(rowSize.height, lessThan(160));
-  });
-
-  testWidgets('移动端配音页：试听已绑定但缺失的音频时显示错误', (tester) async {
-    final role = engine.addAsset(
-        projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    final audio = engine.addAsset(
-        projectId: projectId, type: 'audio', name: '低音男声', describe: 'x');
-    engine.bindRoleAudio(role, audio);
-    tester.view.physicalSize = const Size(390, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(app(width: 390));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byIcon(Icons.play_circle_outline));
-    await tester.pump();
-
-    expect(tester.takeException(), isNull);
-    expect(find.text('音频文件缺失'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.byKey(Key('cornerscape-detail-$done')), findsOneWidget);
   });
 }

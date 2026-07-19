@@ -1858,10 +1858,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchReorderShot => 'ドラッグして並べ替え';
 
   @override
-  String get cornerScapeTitle => '配音';
+  String get cornerScapeTitle => 'キャラ・背景制作';
 
   @override
-  String get cornerScapeAutoMatch => 'AI自動マッチング';
+  String get cornerScapeAutoMatch => 'AI音声マッチング';
 
   @override
   String get cornerScapeAutoMatching => 'マッチング中...';
@@ -1886,6 +1886,120 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cornerScapeUnbind => '割り当て解除';
+
+  @override
+  String get cornerScapeBatchSettings => '一括設定';
+
+  @override
+  String get cornerScapeQuickActions => 'クイック選択';
+
+  @override
+  String get cornerScapeSelectAll => 'すべて選択';
+
+  @override
+  String get cornerScapeSelectPromptEmpty => 'プロンプトなし';
+
+  @override
+  String get cornerScapeSelectUngenerated => '未生成を選択';
+
+  @override
+  String get cornerScapeSelectCompleted => '完了を選択';
+
+  @override
+  String get cornerScapeSelectFailed => '失敗を選択';
+
+  @override
+  String get cornerScapeInvertSelection => '選択を反転';
+
+  @override
+  String get cornerScapeClearSelection => 'クリア';
+
+  @override
+  String get cornerScapeBatchPreview => '一括プレビュー';
+
+  @override
+  String get cornerScapeAssetType => 'アセット種別';
+
+  @override
+  String get cornerScapeFilterRole => 'キャラクター';
+
+  @override
+  String get cornerScapeFilterScene => 'シーン';
+
+  @override
+  String get cornerScapeFilterTool => '小道具';
+
+  @override
+  String get cornerScapeImageModel => '画像モデル';
+
+  @override
+  String get cornerScapeResolution => '解像度';
+
+  @override
+  String get cornerScapeOtherPrompt => '追加プロンプト';
+
+  @override
+  String get cornerScapeOtherPromptHint => '画風、構図、一貫性の要件を追加';
+
+  @override
+  String get cornerScapeGeneratePrompts => 'プロンプト生成';
+
+  @override
+  String get cornerScapeMatchAudio => 'AI音声マッチング';
+
+  @override
+  String get cornerScapeStartBatch => '一括生成を開始';
+
+  @override
+  String get cornerScapeWaitingGeneration => '生成待ち';
+
+  @override
+  String get cornerScapeGenerating => '生成中';
+
+  @override
+  String get cornerScapeGenerationFailed => '生成失敗';
+
+  @override
+  String get cornerScapeGenerationDone => '完了';
+
+  @override
+  String get cornerScapePromptReady => 'プロンプトあり';
+
+  @override
+  String get cornerScapePromptMissing => 'プロンプトなし';
+
+  @override
+  String get cornerScapeCancelGeneration => '生成をキャンセル';
+
+  @override
+  String get cornerScapeNoAssets => 'キャラクター、シーン、小道具のアセットがありません';
+
+  @override
+  String get cornerScapeNoVisibleAssets => '現在のフィルターに一致するアセットがありません';
+
+  @override
+  String get cornerScapeSelectAtLeastOneAsset => 'アセットを1件以上選択してください';
+
+  @override
+  String get cornerScapeMissingPrompts => '選択したアセットのプロンプトを先に生成してください';
+
+  @override
+  String get cornerScapePromptDone => 'プロンプト生成が完了しました';
+
+  @override
+  String get cornerScapePromptFailed => 'プロンプト生成に失敗しました';
+
+  @override
+  String get cornerScapeAudioMatchStarted => '音声マッチングタスクを送信しました';
+
+  @override
+  String get cornerScapeImageGenerationStarted => '画像生成タスクを送信しました';
+
+  @override
+  String get cornerScapeNoPreviewImages => '選択したアセットにプレビュー画像がありません';
+
+  @override
+  String get cornerScapePreviewTitle => 'アセット画像プレビュー';
 
   @override
   String get promptStoryboardGenTitle => '絵コンテ生成';

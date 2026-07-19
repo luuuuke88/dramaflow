@@ -1899,10 +1899,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchReorderShot => 'Drag to reorder';
 
   @override
-  String get cornerScapeTitle => 'Voice';
+  String get cornerScapeTitle => 'Characters & Scenes';
 
   @override
-  String get cornerScapeAutoMatch => 'AI Auto-Match';
+  String get cornerScapeAutoMatch => 'AI Match Audio';
 
   @override
   String get cornerScapeAutoMatching => 'Matching...';
@@ -1929,6 +1929,124 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cornerScapeUnbind => 'Unbind';
+
+  @override
+  String get cornerScapeBatchSettings => 'Batch settings';
+
+  @override
+  String get cornerScapeQuickActions => 'Quick selection';
+
+  @override
+  String get cornerScapeSelectAll => 'Select all';
+
+  @override
+  String get cornerScapeSelectPromptEmpty => 'Empty prompt';
+
+  @override
+  String get cornerScapeSelectUngenerated => 'Select ungenerated';
+
+  @override
+  String get cornerScapeSelectCompleted => 'Select completed';
+
+  @override
+  String get cornerScapeSelectFailed => 'Select failed';
+
+  @override
+  String get cornerScapeInvertSelection => 'Invert';
+
+  @override
+  String get cornerScapeClearSelection => 'Clear';
+
+  @override
+  String get cornerScapeBatchPreview => 'Batch preview';
+
+  @override
+  String get cornerScapeAssetType => 'Asset type';
+
+  @override
+  String get cornerScapeFilterRole => 'Role';
+
+  @override
+  String get cornerScapeFilterScene => 'Scene';
+
+  @override
+  String get cornerScapeFilterTool => 'Prop';
+
+  @override
+  String get cornerScapeImageModel => 'Image model';
+
+  @override
+  String get cornerScapeResolution => 'Resolution';
+
+  @override
+  String get cornerScapeOtherPrompt => 'Additional prompt';
+
+  @override
+  String get cornerScapeOtherPromptHint =>
+      'Add style, composition, or consistency requirements';
+
+  @override
+  String get cornerScapeGeneratePrompts => 'Generate prompts';
+
+  @override
+  String get cornerScapeMatchAudio => 'AI match audio';
+
+  @override
+  String get cornerScapeStartBatch => 'Start batch generation';
+
+  @override
+  String get cornerScapeWaitingGeneration => 'Waiting';
+
+  @override
+  String get cornerScapeGenerating => 'Generating';
+
+  @override
+  String get cornerScapeGenerationFailed => 'Generation failed';
+
+  @override
+  String get cornerScapeGenerationDone => 'Completed';
+
+  @override
+  String get cornerScapePromptReady => 'Prompt ready';
+
+  @override
+  String get cornerScapePromptMissing => 'No prompt';
+
+  @override
+  String get cornerScapeCancelGeneration => 'Cancel generation';
+
+  @override
+  String get cornerScapeNoAssets => 'No role, scene, or prop assets';
+
+  @override
+  String get cornerScapeNoVisibleAssets => 'No assets match the current filter';
+
+  @override
+  String get cornerScapeSelectAtLeastOneAsset => 'Select at least one asset';
+
+  @override
+  String get cornerScapeMissingPrompts =>
+      'Generate prompts for the selected assets first';
+
+  @override
+  String get cornerScapePromptDone => 'Prompt generation completed';
+
+  @override
+  String get cornerScapePromptFailed => 'Prompt generation failed';
+
+  @override
+  String get cornerScapeAudioMatchStarted => 'Audio matching task submitted';
+
+  @override
+  String get cornerScapeImageGenerationStarted =>
+      'Image generation task submitted';
+
+  @override
+  String get cornerScapeNoPreviewImages =>
+      'Selected assets have no preview images';
+
+  @override
+  String get cornerScapePreviewTitle => 'Asset image preview';
 
   @override
   String get promptStoryboardGenTitle => 'Storyboard Generation';

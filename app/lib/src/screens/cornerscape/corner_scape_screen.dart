@@ -1,36 +1,26 @@
-// 配音页（照抄 cornerScape/index.vue 语义，见 P4 参照 §4）：角色资产列表 + 音频绑定
-// （手动下拉选择 / AI 自动匹配批量）。本页只做"绑定关系"；上传音频与文本配音生成
-// 均在素材中心完成。
-//
-// 列表管理控件（对齐 ToonFlow cornerScape 列表上方的筛选/快捷选择区）：
-//   - 绑定状态筛选（全部 / 已绑定 / 未绑定）过滤可见列表；
-//   - 角色名称搜索（复用 DFSearchField）；
-//   - 「全选未绑定」快捷动作，把当前可见未绑定角色喂给既有的批量 AI 匹配选择。
-// 说明：ToonFlow 的 cornerScape 列表按资产类型（角色/场景/道具）筛选并展示参考图轮播；
-// 但本页的数据源 engine.roleAudioBindings() 只返回角色类资产，且不携带图片字段
-// （roleId/roleName/audioAssetId/audioName），故资产类型筛选与批量图片预览在本页数据上
-// 无对应意义，未实现——改为实现对真实数据有效的"绑定状态"筛选。
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
 
+import '../../engine/assets.dart';
 import '../../engine/audio_bind.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/asset_image_preview.dart';
+import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_empty.dart';
-import '../../widgets/df_search_field.dart';
-import '../../widgets/local_media_preview.dart';
+import '../../widgets/df_status_tag.dart';
+import '../../widgets/df_tag_chip.dart';
 import '../../widgets/policy_confirm.dart';
-
-enum _BindFilter { all, bound, unbound }
+import '../project/model_select.dart';
 
 class CornerScapeScreen extends ConsumerStatefulWidget {
   final int projectId;
+
   const CornerScapeScreen({super.key, required this.projectId});
 
   @override
@@ -39,350 +29,883 @@ class CornerScapeScreen extends ConsumerStatefulWidget {
 
 class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
   final Set<int> _selected = {};
-  _BindFilter _filter = _BindFilter.all;
-  String _query = '';
+  final Set<String> _types = {};
+  final TextEditingController _otherPrompt = TextEditingController();
+  String? _selectedModel;
+  String _resolution = '1K';
+  bool _modelLoaded = false;
+  bool _polishing = false;
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  bool _matchesFilter(RoleAudioBinding r) {
-    switch (_filter) {
-      case _BindFilter.all:
-        return true;
-      case _BindFilter.bound:
-        return r.audioAssetId != null;
-      case _BindFilter.unbound:
-        return r.audioAssetId == null;
-    }
-  }
-
-  bool _matchesQuery(RoleAudioBinding r) {
-    if (_query.isEmpty) return true;
-    return (r.roleName ?? '').toLowerCase().contains(_query.toLowerCase());
-  }
-
-  List<RoleAudioBinding> _visible(List<RoleAudioBinding> roles) =>
-      roles.where((r) => _matchesFilter(r) && _matchesQuery(r)).toList();
-
-  Future<void> _autoMatch(List<({int id, String name})> pool) async {
-    final l10n = context.l10n;
-    if (pool.isEmpty) {
-      _toast(l10n.cornerScapeNoAudioPool);
-      return;
-    }
-    if (_selected.isEmpty) {
-      _toast(l10n.cornerScapeSelectAtLeastOne);
-      return;
-    }
-    final config = ref.read(engineProvider).config;
-    if (!await confirmPolicyAction(
-      context,
-      config,
-      taskClass: 'audio_bind',
-      description: l10n.cornerScapeAutoMatch,
-      units: _selected.length,
-    )) {
-      return;
-    }
-    if (!mounted) return;
-    ref
-        .read(engineProvider)
-        .batchBindAudio(widget.projectId, _selected.toList());
-    _toast(l10n.cornerScapeAutoMatching);
-  }
-
-  /// 把当前可见的未绑定角色加入批量 AI 匹配选择集。
-  void _selectAllUnbound(List<RoleAudioBinding> visible) {
-    setState(() {
-      for (final r in visible) {
-        if (r.audioAssetId == null) _selected.add(r.roleId);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_modelLoaded) return;
+    _modelLoaded = true;
+    ref.read(engineProvider).getProject(widget.projectId).then((project) {
+      if (mounted && _selectedModel == null) {
+        setState(() => _selectedModel = project.imageModel);
       }
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final df = context.df;
-    ref.watch(jobsGenerationProvider);
-    final engine = ref.watch(engineProvider);
-    final roles = engine.roleAudioBindings(widget.projectId);
-    final pool = engine.audioPool(widget.projectId);
-
-    if (roles.isEmpty) {
-      return Center(child: DFEmpty(text: l10n.cornerScapeNoRoles));
-    }
-
-    // 剔除已不存在的角色选择（防御：角色被删除后残留脏选择）。
-    final roleIds = roles.map((r) => r.roleId).toSet();
-    _selected.removeWhere((id) => !roleIds.contains(id));
-
-    final visible = _visible(roles);
-    final boundCount = roles.where((r) => r.audioAssetId != null).length;
-    final visibleUnboundCount =
-        visible.where((r) => r.audioAssetId == null).length;
-
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
-        child: LayoutBuilder(builder: (context, constraints) {
-          final action = FilledButton.icon(
-            onPressed: () => _autoMatch(pool),
-            icon: const Icon(Icons.auto_awesome, size: 16),
-            label: Text(_selected.isEmpty
-                ? l10n.cornerScapeAutoMatch
-                : '${l10n.cornerScapeAutoMatch} (${_selected.length})'),
-          );
-          final heading = Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(l10n.cornerScapeTitle,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(width: 10),
-            Text(
-              l10n.cornerScapeBoundSummary(boundCount, roles.length),
-              style: TextStyle(fontSize: 12, color: df.textTertiary),
-            ),
-          ]);
-          if (constraints.maxWidth < 420) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                heading,
-                const SizedBox(height: 10),
-                action,
-              ],
-            );
-          }
-          return Row(children: [
-            heading,
-            const Spacer(),
-            action,
-          ]);
-        }),
-      ),
-      // 列表管理工具栏：状态筛选 + 搜索 + 全选未绑定。用 Wrap 保证窄屏（移动端）换行；
-      // 搜索框宽度随可用宽度收缩，避免窄屏下固定 220px 顶到溢出边缘。
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-        child: LayoutBuilder(builder: (context, constraints) {
-          final searchWidth =
-              constraints.maxWidth < 260 ? constraints.maxWidth : 220.0;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SegmentedButton<_BindFilter>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment(
-                      value: _BindFilter.all,
-                      label: Text(l10n.cornerScapeFilterAll)),
-                  ButtonSegment(
-                      value: _BindFilter.bound,
-                      label: Text(l10n.cornerScapeFilterBound)),
-                  ButtonSegment(
-                      value: _BindFilter.unbound,
-                      label: Text(l10n.cornerScapeFilterUnbound)),
-                ],
-                selected: {_filter},
-                onSelectionChanged: (s) => setState(() => _filter = s.first),
-              ),
-              DFSearchField(
-                width: searchWidth,
-                hint: l10n.cornerScapeSearchHint,
-                onSearch: (v) => setState(() => _query = v.trim()),
-              ),
-              OutlinedButton.icon(
-                onPressed: visibleUnboundCount == 0
-                    ? null
-                    : () => _selectAllUnbound(visible),
-                icon: const Icon(Icons.done_all_rounded, size: 16),
-                label: Text(l10n.cornerScapeSelectAllUnbound),
-              ),
-            ],
-          );
-        }),
-      ),
-      if (pool.isEmpty)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(l10n.cornerScapeNoAudioPool,
-              style: TextStyle(fontSize: 12, color: df.warning)),
-        ),
-      Expanded(
-        child: visible.isEmpty
-            ? Center(child: DFEmpty(text: l10n.cornerScapeNoMatch))
-            : ListView.separated(
-                padding: const EdgeInsets.all(20),
-                itemCount: visible.length,
-                separatorBuilder: (c, i) => const SizedBox(height: 8),
-                itemBuilder: (c, i) {
-                  final role = visible[i];
-                  final selected = _selected.contains(role.roleId);
-                  final checkbox = Checkbox(
-                    value: selected,
-                    onChanged: (v) => setState(() {
-                      if (v == true) {
-                        _selected.add(role.roleId);
-                      } else {
-                        _selected.remove(role.roleId);
-                      }
-                    }),
-                  );
-                  final nameText = Expanded(
-                    child: Text(role.roleName ?? '',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
-                  );
-                  // 试听已绑定音频（media_kit）。未绑定时禁用。
-                  final auditionButton =
-                      _AuditionButton(audioAssetId: role.audioAssetId);
-                  final dropdown = DropdownButtonFormField<int?>(
-                    initialValue: role.audioAssetId,
-                    isExpanded: true,
-                    hint: Text(l10n.cornerScapeNoAudio,
-                        style: TextStyle(fontSize: 12, color: df.textTertiary)),
-                    items: [
-                      DropdownMenuItem(
-                          value: null,
-                          child: Text(l10n.cornerScapeUnbind,
-                              style: const TextStyle(fontSize: 12))),
-                      for (final a in pool)
-                        DropdownMenuItem(
-                            value: a.id,
-                            child: Text(a.name,
-                                style: const TextStyle(fontSize: 12))),
-                    ],
-                    onChanged: (v) {
-                      try {
-                        ref.read(engineProvider).bindRoleAudio(role.roleId, v);
-                      } catch (e) {
-                        _toast(localizeError(context, e));
-                      }
-                    },
-                  );
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: df.surface,
-                      borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-                      border:
-                          Border.all(color: selected ? df.primary : df.stroke),
-                    ),
-                    // 窄屏（如手机）下固定 220px 下拉框会把角色名挤到几乎没有宽度，
-                    // 导致长名字逐字换行、行高失控；与顶部标题栏同款断点，改为把
-                    // 下拉框换到独立一行、撑满宽度，角色名超长则用省略号。
-                    child: LayoutBuilder(builder: (context, constraints) {
-                      if (constraints.maxWidth < 420) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(children: [
-                              checkbox,
-                              nameText,
-                              auditionButton,
-                            ]),
-                            const SizedBox(height: 8),
-                            dropdown,
-                          ],
-                        );
-                      }
-                      return Row(children: [
-                        checkbox,
-                        nameText,
-                        auditionButton,
-                        const SizedBox(width: 4),
-                        SizedBox(width: 220, child: dropdown),
-                      ]);
-                    }),
-                  );
-                },
-              ),
-      ),
-    ]);
-  }
-}
-
-/// 音频试听按钮：解析绑定音频父资产的文件绝对路径（engine.audioAssetAbsPath），
-/// 用 media_kit Player 播放/停止。未绑定或文件缺失时禁用/提示。
-class _AuditionButton extends ConsumerStatefulWidget {
-  final int? audioAssetId;
-  const _AuditionButton({required this.audioAssetId});
-
-  @override
-  ConsumerState<_AuditionButton> createState() => _AuditionButtonState();
-}
-
-class _AuditionButtonState extends ConsumerState<_AuditionButton> {
-  Player? _player;
-  bool _playing = false;
-
-  @override
   void dispose() {
-    _player?.dispose();
+    _otherPrompt.dispose();
     super.dispose();
   }
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _toggle() async {
+  List<CornerScapeAsset> _visible(List<CornerScapeAsset> assets) {
+    if (_types.isEmpty) return assets;
+    return assets.where((item) => _types.contains(item.asset.type)).toList();
+  }
+
+  List<int> _selectedVisible(List<CornerScapeAsset> visible) {
+    final visibleIds = visible.map((item) => item.asset.id).toSet();
+    return _selected.where(visibleIds.contains).toList();
+  }
+
+  void _toggleType(String type, List<CornerScapeAsset> assets) {
+    setState(() {
+      if (!_types.add(type)) _types.remove(type);
+      final visibleIds = _visible(assets).map((item) => item.asset.id).toSet();
+      _selected.removeWhere((id) => !visibleIds.contains(id));
+    });
+  }
+
+  void _selectWhere(
+    List<CornerScapeAsset> visible,
+    bool Function(CornerScapeAsset item) predicate,
+  ) {
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(
+          visible.where(predicate).map((item) => item.asset.id),
+        );
+    });
+  }
+
+  void _invertSelection(List<CornerScapeAsset> visible) {
+    setState(() {
+      final visibleIds = visible.map((item) => item.asset.id).toSet();
+      final inverted = visibleIds.difference(_selected);
+      _selected
+        ..removeWhere(visibleIds.contains)
+        ..addAll(inverted);
+    });
+  }
+
+  Future<void> _generatePrompts(List<CornerScapeAsset> visible) async {
+    final ids = _selectedVisible(visible);
     final l10n = context.l10n;
-    if (_playing) {
-      await _player?.stop();
-      if (mounted) setState(() => _playing = false);
+    if (ids.isEmpty) {
+      _toast(l10n.cornerScapeSelectAtLeastOneAsset);
       return;
     }
-    final id = widget.audioAssetId;
-    if (id == null) return;
-    String? abs;
+    final engine = ref.read(engineProvider);
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'asset_prompt_polish',
+      description: l10n.cornerScapeGeneratePrompts,
+      units: ids.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _polishing = true);
+    final supplement = _otherPrompt.text.trim();
     try {
-      abs = ref.read(engineProvider).audioAssetAbsPath(id);
-    } catch (e) {
-      if (mounted) _toast(localizeError(context, e));
-      return;
-    }
-    if (abs == null || !File(abs).existsSync()) {
-      _toast(l10n.cornerScapeAudioMissing);
-      return;
-    }
-    try {
-      ensureLocalMediaKit();
-      final player = _player ??= Player();
-      // 播放结束自动复位按钮状态。
-      player.stream.completed.listen((done) {
-        if (done && mounted) setState(() => _playing = false);
-      });
-      await player.open(Media(abs));
-      if (mounted) setState(() => _playing = true);
-    } catch (e) {
-      if (mounted) {
-        setState(() => _playing = false);
-        _toast(l10n.cornerScapeAuditionFailed);
+      for (final id in ids) {
+        final prompt = await engine.polishAssetPrompt(id);
+        if (supplement.isNotEmpty) {
+          engine.updateAsset(id, prompt: '$prompt\n$supplement');
+        }
       }
+      if (mounted) _toast(l10n.cornerScapePromptDone);
+    } catch (error) {
+      if (mounted) {
+        _toast('${l10n.cornerScapePromptFailed}: '
+            '${localizeError(context, error)}');
+      }
+    } finally {
+      if (mounted) setState(() => _polishing = false);
     }
+  }
+
+  Future<void> _matchAudio(List<CornerScapeAsset> visible) async {
+    final ids = _selectedVisible(visible);
+    final l10n = context.l10n;
+    if (ids.isEmpty) {
+      _toast(l10n.cornerScapeSelectAtLeastOneAsset);
+      return;
+    }
+    final engine = ref.read(engineProvider);
+    if (engine.audioPool(widget.projectId).isEmpty) {
+      _toast(l10n.cornerScapeNoAudioPool);
+      return;
+    }
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'audio_bind',
+      description: l10n.cornerScapeMatchAudio,
+      units: ids.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    engine.batchBindAudio(widget.projectId, ids);
+    setState(_selected.clear);
+    _toast(l10n.cornerScapeAudioMatchStarted);
+  }
+
+  Future<void> _startBatch(List<CornerScapeAsset> visible) async {
+    final ids = _selectedVisible(visible);
+    final l10n = context.l10n;
+    if (ids.isEmpty) {
+      _toast(l10n.cornerScapeSelectAtLeastOneAsset);
+      return;
+    }
+    final byId = {for (final item in visible) item.asset.id: item};
+    if (ids.any((id) => (byId[id]?.asset.prompt ?? '').trim().isEmpty)) {
+      _toast(l10n.cornerScapeMissingPrompts);
+      return;
+    }
+    final engine = ref.read(engineProvider);
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'asset_image_generation',
+      description: l10n.cornerScapeStartBatch,
+      units: ids.length,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    engine.generateAssetImages(
+      widget.projectId,
+      [
+        for (final id in ids) (assetsId: id, refImageBase64: null),
+      ],
+      model: _selectedModel,
+      resolution: _resolution,
+    );
+    setState(_selected.clear);
+    _toast(l10n.cornerScapeImageGenerationStarted);
+  }
+
+  void _showBatchPreview(List<CornerScapeAsset> visible) {
+    final engine = ref.read(engineProvider);
+    final selectedIds = _selectedVisible(visible).toSet();
+    var paths = visible
+        .where(
+          (item) =>
+              selectedIds.contains(item.asset.id) &&
+              item.asset.filePath?.isNotEmpty == true,
+        )
+        .map((item) => engine.mediaAbsPath(item.asset.filePath!))
+        .toList();
+    if (paths.isEmpty) {
+      paths = visible
+          .where((item) => item.asset.filePath?.isNotEmpty == true)
+          .map((item) => engine.mediaAbsPath(item.asset.filePath!))
+          .toList();
+    }
+    if (paths.isEmpty) {
+      _toast(context.l10n.cornerScapeNoPreviewImages);
+      return;
+    }
+    showDFAdaptiveDialog<void>(
+      context,
+      title: context.l10n.cornerScapePreviewTitle,
+      desktopWidthFactor: .68,
+      builder: (context) => SizedBox(
+        height: 560,
+        child: GridView.builder(
+          padding: const EdgeInsets.all(DFTokens.s16),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 260,
+            mainAxisExtent: 190,
+            crossAxisSpacing: DFTokens.s12,
+            mainAxisSpacing: DFTokens.s12,
+          ),
+          itemCount: paths.length,
+          itemBuilder: (context, index) {
+            final path = paths[index];
+            return InkWell(
+              onTap: () => showAssetImagePreview(context, absPath: path),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+                child: ColoredBox(
+                  color: context.df.surfaceMuted,
+                  child: Image.file(
+                    File(path),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.broken_image_outlined,
+                      color: context.df.textTertiary,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(jobsGenerationProvider);
+    final engine = ref.watch(engineProvider);
+    final assets = engine.cornerScapeAssets(widget.projectId);
+    final assetIds = assets.map((item) => item.asset.id).toSet();
+    _selected.removeWhere((id) => !assetIds.contains(id));
+    final visible = _visible(assets);
+    final audioByAsset = {
+      for (final binding in engine.assetAudioBindings(widget.projectId))
+        binding.assetId: binding.audioName,
+    };
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 840;
+        final settingsPanel = _settingsPanel(assets, visible);
+        final cardGrid = _cardGrid(assets, visible, audioByAsset);
+        if (compact) {
+          final panelHeight = (constraints.maxHeight * .56).clamp(360.0, 560.0);
+          return Column(
+            children: [
+              SizedBox(height: panelHeight, child: settingsPanel),
+              Expanded(child: cardGrid),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            SizedBox(width: 328, child: settingsPanel),
+            Expanded(child: cardGrid),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _settingsPanel(
+    List<CornerScapeAsset> assets,
+    List<CornerScapeAsset> visible,
+  ) {
     final l10n = context.l10n;
     final df = context.df;
-    final enabled = widget.audioAssetId != null;
-    return IconButton(
-      visualDensity: VisualDensity.compact,
-      tooltip:
-          _playing ? l10n.cornerScapeStopAudition : l10n.cornerScapeAudition,
-      icon: Icon(
-        _playing ? Icons.stop_circle_outlined : Icons.play_circle_outline,
-        size: 20,
-        color: enabled ? df.primary : df.textTertiary,
+    final selectedCount = _selectedVisible(visible).length;
+    List<CornerScapeAsset> currentVisible() => _visible(assets);
+
+    Widget sectionLabel(String text) => Padding(
+          padding: const EdgeInsets.only(bottom: DFTokens.s8),
+          child: Text(
+            text,
+            style: DFTokens.caption12.copyWith(
+              color: df.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        );
+
+    Widget quickAction({
+      required IconData icon,
+      required String label,
+      required VoidCallback onPressed,
+    }) =>
+        OutlinedButton.icon(
+          style: const ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            padding: WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: DFTokens.s8),
+            ),
+          ),
+          onPressed: onPressed,
+          icon: Icon(icon, size: 15),
+          label: Text(label),
+        );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: df.surface,
+        border: Border(right: BorderSide(color: df.stroke)),
       ),
-      onPressed: enabled ? _toggle : null,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(DFTokens.s16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.cornerScapeBatchSettings,
+                    style: DFTokens.title20w700.copyWith(color: df.textPrimary),
+                  ),
+                ),
+                DFTagChip(
+                  label: visible.length.toString(),
+                  tone: DFTagTone.primary,
+                ),
+              ],
+            ),
+            const SizedBox(height: DFTokens.s20),
+            sectionLabel(l10n.cornerScapeQuickActions),
+            Wrap(
+              spacing: DFTokens.s8,
+              runSpacing: DFTokens.s8,
+              children: [
+                quickAction(
+                  icon: Icons.done_all_rounded,
+                  label: l10n.cornerScapeSelectAll,
+                  onPressed: () => _selectWhere(currentVisible(), (_) => true),
+                ),
+                quickAction(
+                  icon: Icons.notes_rounded,
+                  label: l10n.cornerScapeSelectPromptEmpty,
+                  onPressed: () => _selectWhere(
+                    currentVisible(),
+                    (item) => (item.asset.prompt ?? '').trim().isEmpty,
+                  ),
+                ),
+                quickAction(
+                  icon: Icons.image_not_supported_outlined,
+                  label: l10n.cornerScapeSelectUngenerated,
+                  onPressed: () => _selectWhere(
+                    currentVisible(),
+                    (item) => item.asset.imageState?.isNotEmpty != true,
+                  ),
+                ),
+                quickAction(
+                  icon: Icons.check_circle_outline_rounded,
+                  label: l10n.cornerScapeSelectCompleted,
+                  onPressed: () => _selectWhere(
+                    currentVisible(),
+                    (item) => item.asset.imageState == stateDone,
+                  ),
+                ),
+                quickAction(
+                  icon: Icons.error_outline_rounded,
+                  label: l10n.cornerScapeSelectFailed,
+                  onPressed: () => _selectWhere(
+                    currentVisible(),
+                    (item) => item.asset.imageState == stateFailed,
+                  ),
+                ),
+                quickAction(
+                  icon: Icons.swap_horiz_rounded,
+                  label: l10n.cornerScapeInvertSelection,
+                  onPressed: () => _invertSelection(currentVisible()),
+                ),
+                quickAction(
+                  icon: Icons.clear_rounded,
+                  label: l10n.cornerScapeClearSelection,
+                  onPressed: () => setState(_selected.clear),
+                ),
+                quickAction(
+                  icon: Icons.grid_view_rounded,
+                  label: l10n.cornerScapeBatchPreview,
+                  onPressed: () => _showBatchPreview(currentVisible()),
+                ),
+              ],
+            ),
+            const SizedBox(height: DFTokens.s20),
+            sectionLabel(l10n.cornerScapeAssetType),
+            Wrap(
+              spacing: DFTokens.s8,
+              runSpacing: DFTokens.s8,
+              children: [
+                FilterChip(
+                  label: Text(l10n.cornerScapeFilterRole),
+                  selected: _types.contains('role'),
+                  onSelected: (_) => _toggleType('role', assets),
+                ),
+                FilterChip(
+                  label: Text(l10n.cornerScapeFilterScene),
+                  selected: _types.contains('scene'),
+                  onSelected: (_) => _toggleType('scene', assets),
+                ),
+                FilterChip(
+                  label: Text(l10n.cornerScapeFilterTool),
+                  selected: _types.contains('tool'),
+                  onSelected: (_) => _toggleType('tool', assets),
+                ),
+              ],
+            ),
+            const SizedBox(height: DFTokens.s20),
+            sectionLabel(l10n.cornerScapeImageModel),
+            ModelSelect(
+              kind: 'image',
+              value: _selectedModel,
+              hint: l10n.assetsGenPickModel,
+              onChanged: (option) =>
+                  setState(() => _selectedModel = option?.value),
+            ),
+            const SizedBox(height: DFTokens.s16),
+            sectionLabel(l10n.cornerScapeResolution),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: '1K', label: Text('1K')),
+                ButtonSegment(value: '2K', label: Text('2K')),
+                ButtonSegment(value: '4K', label: Text('4K')),
+              ],
+              selected: {_resolution},
+              onSelectionChanged: (values) =>
+                  setState(() => _resolution = values.single),
+            ),
+            const SizedBox(height: DFTokens.s16),
+            TextField(
+              controller: _otherPrompt,
+              minLines: 3,
+              maxLines: 5,
+              decoration: InputDecoration(
+                labelText: l10n.cornerScapeOtherPrompt,
+                hintText: l10n.cornerScapeOtherPromptHint,
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: DFTokens.s16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: DFTagChip(
+                label: l10n.assetsBatchSelected(selectedCount.toString()),
+                tone: DFTagTone.primary,
+              ),
+            ),
+            const SizedBox(height: DFTokens.s12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _polishing
+                        ? null
+                        : () => _generatePrompts(currentVisible()),
+                    icon: _polishing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.auto_fix_high_rounded, size: 17),
+                    label: Text(l10n.cornerScapeGeneratePrompts),
+                  ),
+                ),
+                const SizedBox(width: DFTokens.s8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _matchAudio(currentVisible()),
+                    icon: const Icon(Icons.graphic_eq_rounded, size: 17),
+                    label: Text(l10n.cornerScapeMatchAudio),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: DFTokens.s8),
+            FilledButton.icon(
+              onPressed: () => _startBatch(currentVisible()),
+              icon: const Icon(Icons.image_outlined, size: 18),
+              label: Text(l10n.cornerScapeStartBatch),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Widget _cardGrid(
+    List<CornerScapeAsset> all,
+    List<CornerScapeAsset> visible,
+    Map<int, String?> audioByAsset,
+  ) {
+    final l10n = context.l10n;
+    if (all.isEmpty) {
+      return Center(child: DFEmpty(text: l10n.cornerScapeNoAssets));
+    }
+    if (visible.isEmpty) {
+      return Center(child: DFEmpty(text: l10n.cornerScapeNoVisibleAssets));
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 320,
+        mainAxisExtent: 292,
+        crossAxisSpacing: DFTokens.s16,
+        mainAxisSpacing: DFTokens.s16,
+      ),
+      itemCount: visible.length,
+      itemBuilder: (context, index) {
+        final item = visible[index];
+        return _assetCard(item, audioByAsset[item.asset.id]);
+      },
+    );
+  }
+
+  Widget _assetCard(CornerScapeAsset item, String? audioName) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final asset = item.asset;
+    final selectedImage = _selectedImage(item);
+    final generating = asset.imageState == stateGenerating;
+    final done = asset.imageState == stateDone;
+    final failed = asset.imageState == stateFailed;
+    final selected = _selected.contains(asset.id);
+    final filePath = asset.filePath;
+
+    final status = generating
+        ? DFStatusTag(
+            kind: DFStatusKind.processing,
+            text: l10n.cornerScapeGenerating,
+          )
+        : failed
+            ? Tooltip(
+                message: selectedImage?.errorReason ?? '',
+                child: DFStatusTag(
+                  kind: DFStatusKind.failed,
+                  text: l10n.cornerScapeGenerationFailed,
+                ),
+              )
+            : done
+                ? DFStatusTag(
+                    kind: DFStatusKind.success,
+                    text: l10n.cornerScapeGenerationDone,
+                  )
+                : DFStatusTag(
+                    kind: DFStatusKind.pending,
+                    text: l10n.cornerScapeWaitingGeneration,
+                  );
+
+    return Material(
+      color: df.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        side: BorderSide(color: selected ? df.primary : df.stroke),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: Key('cornerscape-card-${asset.id}'),
+        onTap: generating ? null : () => _openAssetDetail(item),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 160,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: df.surfaceMuted,
+                    child: _cardPreview(
+                      item,
+                      status: status,
+                      filePath: filePath,
+                    ),
+                  ),
+                  if (done)
+                    Positioned(
+                      right: DFTokens.s8,
+                      bottom: DFTokens.s8,
+                      child: status,
+                    ),
+                  Positioned(
+                    left: DFTokens.s8,
+                    top: DFTokens.s8,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: df.surface.withValues(alpha: .9),
+                        borderRadius:
+                            BorderRadius.circular(DFTokens.radiusControl),
+                      ),
+                      child: Checkbox(
+                        key: Key('cornerscape-select-${asset.id}'),
+                        value: selected,
+                        visualDensity: VisualDensity.compact,
+                        onChanged: (value) => setState(() {
+                          if (value == true) {
+                            _selected.add(asset.id);
+                          } else {
+                            _selected.remove(asset.id);
+                          }
+                        }),
+                      ),
+                    ),
+                  ),
+                  if (generating)
+                    Positioned(
+                      right: DFTokens.s8,
+                      top: DFTokens.s8,
+                      child: IconButton(
+                        key: Key('cornerscape-cancel-${asset.id}'),
+                        tooltip: l10n.cornerScapeCancelGeneration,
+                        onPressed: () {},
+                        style: IconButton.styleFrom(
+                          backgroundColor: df.surface.withValues(alpha: .92),
+                          foregroundColor: df.danger,
+                        ),
+                        icon: const Icon(Icons.stop_circle_outlined, size: 20),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(DFTokens.s12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      asset.name ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DFTokens.body14.copyWith(
+                        color: df.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: DFTokens.s8),
+                    Wrap(
+                      spacing: DFTokens.s4,
+                      runSpacing: DFTokens.s4,
+                      children: [
+                        Tooltip(
+                          message: _typeLabel(asset.type),
+                          child: Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              color: df.surfaceMuted,
+                              borderRadius: BorderRadius.circular(
+                                DFTokens.radiusControl,
+                              ),
+                              border: Border.all(color: df.stroke),
+                            ),
+                            child: Icon(
+                              _typeIcon(asset.type),
+                              size: 15,
+                              color: df.textSecondary,
+                            ),
+                          ),
+                        ),
+                        DFTagChip(
+                          label: (asset.prompt ?? '').trim().isEmpty
+                              ? l10n.cornerScapePromptMissing
+                              : l10n.cornerScapePromptReady,
+                          tone: (asset.prompt ?? '').trim().isEmpty
+                              ? DFTagTone.danger
+                              : DFTagTone.success,
+                        ),
+                        if (audioName?.isNotEmpty == true)
+                          DFTagChip(
+                            label: audioName!,
+                            tone: DFTagTone.primary,
+                          ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      asset.describe?.trim().isNotEmpty == true
+                          ? asset.describe!
+                          : asset.prompt ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: DFTokens.caption12.copyWith(
+                        color: df.textSecondary,
+                      ),
+                    ),
+                    if (selectedImage?.model?.isNotEmpty == true ||
+                        selectedImage?.resolution?.isNotEmpty == true) ...[
+                      const SizedBox(height: DFTokens.s4),
+                      Text(
+                        [
+                          if (selectedImage?.model?.isNotEmpty == true)
+                            selectedImage!.model!,
+                          if (selectedImage?.resolution?.isNotEmpty == true)
+                            selectedImage!.resolution!,
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: DFTokens.caption12.copyWith(
+                          color: df.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cardPreview(
+    CornerScapeAsset item, {
+    required Widget status,
+    required String? filePath,
+  }) {
+    final df = context.df;
+    if (item.asset.imageState == stateDone && filePath?.isNotEmpty == true) {
+      return Image.file(
+        File(ref.read(engineProvider).mediaAbsPath(filePath!)),
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => Center(
+          child: Icon(
+            Icons.broken_image_outlined,
+            color: df.textTertiary,
+            size: 36,
+          ),
+        ),
+      );
+    }
+    return Center(child: status);
+  }
+
+  AssetImageRow? _selectedImage(CornerScapeAsset item) {
+    for (final image in item.images) {
+      if (image.selected) return image;
+    }
+    return item.images.isEmpty ? null : item.images.last;
+  }
+
+  void _openAssetDetail(CornerScapeAsset item) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final asset = item.asset;
+    final filePath = asset.filePath;
+    final status = switch (asset.imageState) {
+      stateDone => DFStatusTag(
+          kind: DFStatusKind.success,
+          text: l10n.cornerScapeGenerationDone,
+        ),
+      stateFailed => DFStatusTag(
+          kind: DFStatusKind.failed,
+          text: l10n.cornerScapeGenerationFailed,
+        ),
+      _ => DFStatusTag(
+          kind: DFStatusKind.pending,
+          text: l10n.cornerScapeWaitingGeneration,
+        ),
+    };
+
+    showDFAdaptiveDialog<void>(
+      context,
+      title: asset.name ?? '',
+      desktopWidthFactor: .42,
+      builder: (dialogContext) => SizedBox(
+        key: Key('cornerscape-detail-${asset.id}'),
+        height: 520,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(DFTokens.s16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 300,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+                  child: ColoredBox(
+                    color: df.surfaceMuted,
+                    child: filePath?.isNotEmpty == true
+                        ? InkWell(
+                            key: Key(
+                              'cornerscape-detail-preview-${asset.id}',
+                            ),
+                            onTap: () => showAssetImagePreview(
+                              dialogContext,
+                              absPath: ref
+                                  .read(engineProvider)
+                                  .mediaAbsPath(filePath),
+                            ),
+                            child: Image.file(
+                              File(
+                                ref
+                                    .read(engineProvider)
+                                    .mediaAbsPath(filePath!),
+                              ),
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.broken_image_outlined,
+                                color: df.textTertiary,
+                                size: 40,
+                              ),
+                            ),
+                          )
+                        : Center(child: status),
+                  ),
+                ),
+              ),
+              const SizedBox(height: DFTokens.s12),
+              Row(
+                children: [
+                  Tooltip(
+                    message: _typeLabel(asset.type),
+                    child: Icon(
+                      _typeIcon(asset.type),
+                      size: 18,
+                      color: df.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: DFTokens.s8),
+                  status,
+                ],
+              ),
+              if (asset.describe?.trim().isNotEmpty == true) ...[
+                const SizedBox(height: DFTokens.s12),
+                Text(
+                  asset.describe!,
+                  style: DFTokens.body14.copyWith(color: df.textSecondary),
+                ),
+              ],
+              const SizedBox(height: DFTokens.s16),
+              Text(
+                l10n.assetsColPrompt,
+                style: DFTokens.caption12.copyWith(
+                  color: df.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: DFTokens.s4),
+              SelectableText(
+                (asset.prompt ?? '').trim().isEmpty
+                    ? l10n.cornerScapePromptMissing
+                    : asset.prompt!,
+                style: DFTokens.body14.copyWith(color: df.textPrimary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _typeLabel(String type) {
+    final l10n = context.l10n;
+    return switch (type) {
+      'role' => l10n.cornerScapeFilterRole,
+      'scene' => l10n.cornerScapeFilterScene,
+      'tool' => l10n.cornerScapeFilterTool,
+      _ => type,
+    };
+  }
+
+  IconData _typeIcon(String type) {
+    return switch (type) {
+      'role' => Icons.person_outline_rounded,
+      'scene' => Icons.landscape_outlined,
+      'tool' => Icons.construction_outlined,
+      _ => Icons.category_outlined,
+    };
   }
 }

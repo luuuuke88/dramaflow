@@ -3655,13 +3655,13 @@ abstract class AppLocalizations {
   /// No description provided for @cornerScapeTitle.
   ///
   /// In zh, this message translates to:
-  /// **'配音'**
+  /// **'塑角造景'**
   String get cornerScapeTitle;
 
   /// No description provided for @cornerScapeAutoMatch.
   ///
   /// In zh, this message translates to:
-  /// **'AI 自动匹配'**
+  /// **'AI 匹配音频'**
   String get cornerScapeAutoMatch;
 
   /// No description provided for @cornerScapeAutoMatching.
@@ -3711,6 +3711,234 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'解除绑定'**
   String get cornerScapeUnbind;
+
+  /// No description provided for @cornerScapeBatchSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量设置'**
+  String get cornerScapeBatchSettings;
+
+  /// No description provided for @cornerScapeQuickActions.
+  ///
+  /// In zh, this message translates to:
+  /// **'快捷选择'**
+  String get cornerScapeQuickActions;
+
+  /// No description provided for @cornerScapeSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get cornerScapeSelectAll;
+
+  /// No description provided for @cornerScapeSelectPromptEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词为空'**
+  String get cornerScapeSelectPromptEmpty;
+
+  /// No description provided for @cornerScapeSelectUngenerated.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择未生成'**
+  String get cornerScapeSelectUngenerated;
+
+  /// No description provided for @cornerScapeSelectCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择已完成'**
+  String get cornerScapeSelectCompleted;
+
+  /// No description provided for @cornerScapeSelectFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择失败'**
+  String get cornerScapeSelectFailed;
+
+  /// No description provided for @cornerScapeInvertSelection.
+  ///
+  /// In zh, this message translates to:
+  /// **'反选'**
+  String get cornerScapeInvertSelection;
+
+  /// No description provided for @cornerScapeClearSelection.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空'**
+  String get cornerScapeClearSelection;
+
+  /// No description provided for @cornerScapeBatchPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量预览'**
+  String get cornerScapeBatchPreview;
+
+  /// No description provided for @cornerScapeAssetType.
+  ///
+  /// In zh, this message translates to:
+  /// **'资产类型'**
+  String get cornerScapeAssetType;
+
+  /// No description provided for @cornerScapeFilterRole.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色'**
+  String get cornerScapeFilterRole;
+
+  /// No description provided for @cornerScapeFilterScene.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景'**
+  String get cornerScapeFilterScene;
+
+  /// No description provided for @cornerScapeFilterTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'道具'**
+  String get cornerScapeFilterTool;
+
+  /// No description provided for @cornerScapeImageModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片模型'**
+  String get cornerScapeImageModel;
+
+  /// No description provided for @cornerScapeResolution.
+  ///
+  /// In zh, this message translates to:
+  /// **'分辨率'**
+  String get cornerScapeResolution;
+
+  /// No description provided for @cornerScapeOtherPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'补充提示词'**
+  String get cornerScapeOtherPrompt;
+
+  /// No description provided for @cornerScapeOtherPromptHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'补充画风、构图或一致性要求'**
+  String get cornerScapeOtherPromptHint;
+
+  /// No description provided for @cornerScapeGeneratePrompts.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成提示词'**
+  String get cornerScapeGeneratePrompts;
+
+  /// No description provided for @cornerScapeMatchAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 匹配音频'**
+  String get cornerScapeMatchAudio;
+
+  /// No description provided for @cornerScapeStartBatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始批量生成'**
+  String get cornerScapeStartBatch;
+
+  /// No description provided for @cornerScapeWaitingGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待生成'**
+  String get cornerScapeWaitingGeneration;
+
+  /// No description provided for @cornerScapeGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成中'**
+  String get cornerScapeGenerating;
+
+  /// No description provided for @cornerScapeGenerationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成失败'**
+  String get cornerScapeGenerationFailed;
+
+  /// No description provided for @cornerScapeGenerationDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get cornerScapeGenerationDone;
+
+  /// No description provided for @cornerScapePromptReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已有提示词'**
+  String get cornerScapePromptReady;
+
+  /// No description provided for @cornerScapePromptMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'无提示词'**
+  String get cornerScapePromptMissing;
+
+  /// No description provided for @cornerScapeCancelGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消生成'**
+  String get cornerScapeCancelGeneration;
+
+  /// No description provided for @cornerScapeNoAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无角色、场景或道具资产'**
+  String get cornerScapeNoAssets;
+
+  /// No description provided for @cornerScapeNoVisibleAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前筛选下没有资产'**
+  String get cornerScapeNoVisibleAssets;
+
+  /// No description provided for @cornerScapeSelectAtLeastOneAsset.
+  ///
+  /// In zh, this message translates to:
+  /// **'请至少选择一项资产'**
+  String get cornerScapeSelectAtLeastOneAsset;
+
+  /// No description provided for @cornerScapeMissingPrompts.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先为所选资产生成提示词'**
+  String get cornerScapeMissingPrompts;
+
+  /// No description provided for @cornerScapePromptDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词生成完成'**
+  String get cornerScapePromptDone;
+
+  /// No description provided for @cornerScapePromptFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词生成失败'**
+  String get cornerScapePromptFailed;
+
+  /// No description provided for @cornerScapeAudioMatchStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频匹配任务已提交'**
+  String get cornerScapeAudioMatchStarted;
+
+  /// No description provided for @cornerScapeImageGenerationStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片生成任务已提交'**
+  String get cornerScapeImageGenerationStarted;
+
+  /// No description provided for @cornerScapeNoPreviewImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'所选资产暂无可预览图片'**
+  String get cornerScapeNoPreviewImages;
+
+  /// No description provided for @cornerScapePreviewTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'资产图片预览'**
+  String get cornerScapePreviewTitle;
 
   /// No description provided for @promptStoryboardGenTitle.
   ///
