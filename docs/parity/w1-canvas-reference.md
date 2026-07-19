@@ -79,6 +79,28 @@ The closed rows are retained here so the audit trail shows the original evidence
 | Episode switch during active production Agent work | `index.vue:255-295` asks for confirmation while status is `pending` or `streaming` | The Flutter episode bar directly assigns `_scriptId` (`production_screen.dart:65-70`) | The original protection is absent. Flutter's simplified Agent has different status architecture; the user-facing switch guard is nevertheless not present. |
 | Agent panel initial state | `openShowVisible = ref(true)` at `index.vue:127` | `_chatOpen = false` at `production_screen.dart:140` | Small default-state difference: ToonFlow opens production chat by default; DramaFlow requires an explicit click. |
 
+### Next interaction closure: Space-held pan
+
+This is a narrow, reusable `DFCanvas` behavior rather than a production-page
+button. ToonFlow listens for `Space` at the document level, captures a left
+button press while that key is held, suppresses node handling, and updates the
+viewport from the pointer delta (`index.vue:143-171`). The effect is deliberate:
+users can pan even when their pointer starts on a draggable node.
+
+DramaFlow should preserve that precedence in the shared canvas: with Space
+held, left-button movement changes only `TransformationController` translation
+in logical screen pixels; it must not call a node's `onDragUpdate`, trigger a
+node action, or alter scale. Releasing the pointer or cancelling it ends that
+temporary mode. Normal pointer dragging and touch/pinch behavior stay with
+`InteractiveViewer`. This scope covers both the six-node production canvas and
+the image-flow editor because both use `DFCanvas`.
+
+The closure evidence must be a widget regression at zoom above and below one:
+Space + title-handle drag translates the viewport by the screen delta and emits
+no node-position delta; the same handle drag without Space retains the existing
+scene-coordinate behavior. No provider call, media task, or persisted project
+state is involved.
+
 ---
 
 ## 3. Proposed measurable metrics for W1
