@@ -70,6 +70,7 @@ These are behavior differences, not performance guesses. They keep the productio
 | Space + left-button pan | `index.vue:143-171` deliberately enables it even while the pointer is over a node | `DFCanvas` has title-handle dragging and `InteractiveViewer` gestures, but no keyboard listener or Space-state path (`df_canvas.dart:84-290`) | A desktop power-user navigation shortcut is missing. |
 | Episode switch during active production Agent work | `index.vue:255-295` asks for confirmation while status is `pending` or `streaming` | The Flutter episode bar directly assigns `_scriptId` (`production_screen.dart:65-70`) | The original protection is absent. Flutter's simplified Agent has different status architecture; the user-facing switch guard is nevertheless not present. |
 | Agent panel initial state | `openShowVisible = ref(true)` at `index.vue:127` | `_chatOpen = false` at `production_screen.dart:140` | Small default-state difference: ToonFlow opens production chat by default; DramaFlow requires an explicit click. |
+| Production canvas onboarding guide | `index.vue:97,463-489` persists `productionCurrent` and presents four steps: episode switching, refresh, automatic layout and canvas navigation | No production guide state, overlay or equivalent targets under `app/lib/src/screens/production` | A first-use, user-visible walkthrough is missing. It is distinct from the app-wide first-run guide because it teaches controls inside an already-open project canvas. |
 
 ---
 
