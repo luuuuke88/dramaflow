@@ -540,6 +540,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get projectMsgEnterProjectType => 'プロジェクトのタイプを入力してください';
 
   @override
+  String get projectMsgEnterProjectQuality => '画像の画質を選択してください';
+
+  @override
   String get projectMsgEnterArtStyle => 'プロジェクトのビジュアルパンフレットを選択してください';
 
   @override

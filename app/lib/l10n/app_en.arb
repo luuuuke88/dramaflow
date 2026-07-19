@@ -228,6 +228,7 @@
   "projectMsgEnterProjectName": "Please enter project name",
   "projectMsgEnterProjectIntro": "Please enter the novel introduction",
   "projectMsgEnterProjectType": "Please enter project type",
+  "projectMsgEnterProjectQuality": "Please select image quality",
   "projectMsgEnterArtStyle": "Please select a project visual brochure",
   "projectMsgEnterVideoRatio": "Please select video ratio",
   "projectMsgEnterImageModel": "Please select a picture model",

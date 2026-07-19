@@ -1108,6 +1108,12 @@ abstract class AppLocalizations {
   /// **'请输入小说类型'**
   String get projectMsgEnterProjectType;
 
+  /// No description provided for @projectMsgEnterProjectQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择图片清晰度'**
+  String get projectMsgEnterProjectQuality;
+
   /// No description provided for @projectMsgEnterArtStyle.
   ///
   /// In zh, this message translates to:

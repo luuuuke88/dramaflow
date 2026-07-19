@@ -89,6 +89,69 @@ void main() {
     expect(project.mode, 'fast');
   });
 
+  test('项目入口只接受两个仍可解析的启用模型绑定', () async {
+    final imageProvider = await engine.createProvider(
+      name: 'Image Provider',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(imageProvider.id, const [
+      {
+        'modelId': 'image-ready',
+        'label': 'Image Ready',
+        'kind': 'image',
+        'enabled': true,
+      },
+    ]);
+    final videoProvider = await engine.createProvider(
+      name: 'Video Provider',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
+      apiKey: 'test-key',
+    );
+    await engine.saveProviderModels(videoProvider.id, const [
+      {
+        'modelId': 'video-ready',
+        'label': 'Video Ready',
+        'kind': 'video',
+        'enabled': true,
+      },
+    ]);
+    final id = engine.addProject(
+      projectType: 'novel',
+      name: '准入项目',
+      imageModel: '${imageProvider.id}:image-ready',
+      videoModel: '${videoProvider.id}:video-ready',
+    );
+
+    expect(await engine.projectModelsAvailable(await engine.getProject(id)),
+        isTrue);
+
+    await engine.saveProviderModels(imageProvider.id, const [
+      {
+        'modelId': 'image-ready',
+        'label': 'Image Ready',
+        'kind': 'image',
+        'enabled': false,
+      },
+    ]);
+    expect(await engine.projectModelsAvailable(await engine.getProject(id)),
+        isFalse);
+
+    await engine.saveProviderModels(imageProvider.id, const [
+      {
+        'modelId': 'image-ready',
+        'label': 'Image Ready',
+        'kind': 'image',
+        'enabled': true,
+      },
+    ]);
+    await engine.updateProvider(imageProvider.id, enabled: false);
+    expect(await engine.projectModelsAvailable(await engine.getProject(id)),
+        isFalse);
+  });
+
   test('projectStats 按项目汇总章节/剧本/素材/分镜数量', () {
     final projectId = engine.addProject(projectType: 'series', name: '统计');
     final otherId = engine.addProject(projectType: 'series', name: '其他');

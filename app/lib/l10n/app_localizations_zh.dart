@@ -535,6 +535,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get projectMsgEnterProjectType => '请输入小说类型';
 
   @override
+  String get projectMsgEnterProjectQuality => '请选择图片清晰度';
+
+  @override
   String get projectMsgEnterArtStyle => '请选择项目视觉手册';
 
   @override

@@ -30,7 +30,19 @@ final projectStatsProvider =
 class ProjectListScreen extends ConsumerWidget {
   const ProjectListScreen({super.key});
 
-  void _openProject(BuildContext context, WidgetRef ref, ProjectRow project) {
+  Future<void> _openProject(
+      BuildContext context, WidgetRef ref, ProjectRow project) async {
+    final modelsAvailable =
+        await ref.read(engineProvider).projectModelsAvailable(project);
+    if (!modelsAvailable) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.projectMsgModelProviderDisabled)),
+      );
+      await _edit(context, ref, existing: project);
+      return;
+    }
+    if (!context.mounted) return;
     ref.read(currentProjectProvider.notifier).select(project);
     final section = project.projectType == 'script' ? 'script' : 'novel';
     context.go('/p/${project.id}/$section');
@@ -141,7 +153,9 @@ class ProjectListScreen extends ConsumerWidget {
                     itemBuilder: (c, i) => _ProjectCard(
                       project: projects[i],
                       stats: stats[projects[i].id] ?? const ProjectStats(),
-                      onOpen: () => _openProject(context, ref, projects[i]),
+                      onOpen: () {
+                        _openProject(context, ref, projects[i]);
+                      },
                       onEdit: () => _edit(context, ref, existing: projects[i]),
                       onDelete: () => _delete(context, ref, projects[i]),
                     ),

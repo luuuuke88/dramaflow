@@ -992,6 +992,23 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
       .map(ProjectRow.fromRow)
       .toList();
 
+  /// 项目进入制作前的本地准入检查。只解析已保存的模型绑定，不触发供应商请求。
+  Future<bool> projectModelsAvailable(ProjectRow project) async {
+    final imageReady = await _projectModelAvailable(project.imageModel, 'image');
+    if (!imageReady) return false;
+    return _projectModelAvailable(project.videoModel, 'video');
+  }
+
+  Future<bool> _projectModelAvailable(String? binding, String kind) async {
+    if (binding?.trim().isEmpty ?? true) return false;
+    try {
+      await resolveModelBinding(db, credentials, binding!, kind: kind);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Map<int, ProjectStats> projectStats() {
     final values =
         <int, ({int chapters, int scripts, int assets, int storyboards})>{};

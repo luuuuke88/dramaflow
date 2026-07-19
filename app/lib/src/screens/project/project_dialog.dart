@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:dramaflow/l10n/app_localizations.dart';
+
 import '../../engine/engine.dart';
 import '../../engine/manuals.dart';
 import '../../state/providers.dart';
@@ -15,6 +17,50 @@ import '../../widgets/df_adaptive_dialog.dart';
 import '../manuals/manual_editor.dart';
 import '../manuals/manual_gallery.dart';
 import 'model_select.dart';
+
+/// ToonFlow 项目向导在保存前按固定顺序提示首个缺失项。
+enum ProjectIntakeField {
+  name,
+  type,
+  imageModel,
+  videoModel,
+  artStyle,
+  directorManual,
+  videoRatio,
+  intro,
+  imageQuality,
+  mode,
+}
+
+ProjectIntakeField? firstMissingProjectIntakeField({
+  required String? name,
+  required String? type,
+  required String? imageModel,
+  required String? videoModel,
+  required String? artStyle,
+  required String? directorManual,
+  required String? videoRatio,
+  required String? intro,
+  required String? imageQuality,
+  required String? mode,
+}) {
+  final values = <(ProjectIntakeField, String?)>[
+    (ProjectIntakeField.name, name),
+    (ProjectIntakeField.type, type),
+    (ProjectIntakeField.imageModel, imageModel),
+    (ProjectIntakeField.videoModel, videoModel),
+    (ProjectIntakeField.artStyle, artStyle),
+    (ProjectIntakeField.directorManual, directorManual),
+    (ProjectIntakeField.videoRatio, videoRatio),
+    (ProjectIntakeField.intro, intro),
+    (ProjectIntakeField.imageQuality, imageQuality),
+    (ProjectIntakeField.mode, mode),
+  ];
+  for (final (field, value) in values) {
+    if (value?.trim().isEmpty ?? true) return field;
+  }
+  return null;
+}
 
 Future<bool?> showProjectDialog(BuildContext context, {ProjectRow? existing}) {
   final l10n = context.l10n;
@@ -105,10 +151,39 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  String _intakeError(
+    AppLocalizations l10n,
+    ProjectIntakeField field,
+  ) =>
+      switch (field) {
+        ProjectIntakeField.name => l10n.projectMsgEnterProjectName,
+        ProjectIntakeField.type => l10n.projectMsgEnterProjectType,
+        ProjectIntakeField.imageModel => l10n.projectMsgEnterImageModel,
+        ProjectIntakeField.videoModel => l10n.projectMsgEnterVideoModel,
+        ProjectIntakeField.artStyle => l10n.projectMsgEnterArtStyle,
+        ProjectIntakeField.directorManual => l10n.projectMsgDirectorManual,
+        ProjectIntakeField.videoRatio => l10n.projectMsgEnterVideoRatio,
+        ProjectIntakeField.intro => l10n.projectMsgEnterProjectIntro,
+        ProjectIntakeField.imageQuality => l10n.projectMsgEnterProjectQuality,
+        ProjectIntakeField.mode => l10n.projectMsgSelectMode,
+      };
+
   Future<void> _save() async {
     final l10n = context.l10n;
-    if (_name.text.trim().isEmpty) {
-      _toast(l10n.projectMsgEnterProjectName);
+    final missing = firstMissingProjectIntakeField(
+      name: _name.text,
+      type: _novelType.text,
+      imageModel: _imageModel,
+      videoModel: _videoModel,
+      artStyle: _artStyle,
+      directorManual: _directorManual,
+      videoRatio: _videoRatio,
+      intro: _intro.text,
+      imageQuality: _imageQuality,
+      mode: _mode,
+    );
+    if (missing != null) {
+      _toast(_intakeError(l10n, missing));
       return;
     }
     setState(() => _saving = true);

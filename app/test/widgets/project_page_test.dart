@@ -68,6 +68,62 @@ void main() {
     );
   }
 
+  Future<
+      ({
+        String artStyle,
+        String directorManual,
+        String imageModel,
+        String videoModel
+      })> seedEditableProjectInputs() async {
+    final imageProvider = await engine.createProvider(
+      name: 'Edit Image Provider',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(imageProvider.id, const [
+      {
+        'modelId': 'edit-image',
+        'label': '编辑图片模型',
+        'kind': 'image',
+        'enabled': true,
+      },
+    ]);
+    final videoProvider = await engine.createProvider(
+      name: 'Edit Video Provider',
+      protocol: 'volcengine',
+      baseUrl: 'https://ark.test',
+      apiKey: 'test-key',
+    );
+    await engine.saveProviderModels(videoProvider.id, const [
+      {
+        'modelId': 'edit-video',
+        'label': '编辑视频模型',
+        'kind': 'video',
+        'enabled': true,
+        'capabilities': {
+          'modes': ['first_frame'],
+        },
+      },
+    ]);
+    engine.saveVisualManual(
+      name: '编辑视觉',
+      pack: 'edit_visual',
+      data: const {'README': 'visual'},
+    );
+    engine.saveDirectorManual(
+      name: '编辑导演',
+      pack: 'edit_director',
+      data: const {'README': 'director'},
+    );
+    return (
+      artStyle: 'edit_visual',
+      directorManual: 'edit_director',
+      imageModel: '${imageProvider.id}:edit-image',
+      videoModel: '${videoProvider.id}:edit-video',
+    );
+  }
+
   testWidgets('空态：提示与新建按钮', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
@@ -80,8 +136,15 @@ void main() {
   });
 
   testWidgets('项目卡片渲染与点击跳转', (tester) async {
+    final inputs = await seedEditableProjectInputs();
     engine.addProject(
-        projectType: 'novel', name: '剑出寒山', intro: '少年得剑', artStyle: '国风水墨');
+      projectType: 'novel',
+      name: '剑出寒山',
+      intro: '少年得剑',
+      artStyle: '国风水墨',
+      imageModel: inputs.imageModel,
+      videoModel: inputs.videoModel,
+    );
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -97,12 +160,67 @@ void main() {
     expect(find.text('novel-page'), findsOneWidget);
   });
 
+  testWidgets('模型绑定失效的项目进入前提示并打开编辑', (tester) async {
+    engine.addProject(
+      projectType: 'novel',
+      name: '待修复配置',
+      imageModel: 'missing-image-provider:image-model',
+      videoModel: 'missing-video-provider:video-model',
+    );
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('待修复配置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('novel-page'), findsNothing);
+    expect(find.text('编辑项目'), findsOneWidget);
+    expect(
+      find.widgetWithText(
+        SnackBar,
+        '视频模型或图片模型供应商未启用或无模型供应商，请先配置',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('移动端失效模型也不能绕过项目入口保护', (tester) async {
+    engine.addProject(
+      projectType: 'novel',
+      name: '移动端待修复配置',
+      imageModel: 'missing-image-provider:image-model',
+      videoModel: 'missing-video-provider:video-model',
+    );
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('移动端待修复配置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('novel-page'), findsNothing);
+    expect(find.text('编辑项目'), findsOneWidget);
+  });
+
   testWidgets('桌面项目卡片：hover 后可编辑和删除', (tester) async {
+    final inputs = await seedEditableProjectInputs();
     final projectId = engine.addProject(
       projectType: 'novel',
       name: '桌面项目',
       intro: '旧简介',
-      artStyle: '电影感',
+      type: '玄幻',
+      artStyle: inputs.artStyle,
+      directorManual: inputs.directorManual,
+      videoRatio: '16:9',
+      imageModel: inputs.imageModel,
+      videoModel: inputs.videoModel,
+      imageQuality: '1K',
+      mode: 'first_frame',
     );
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
@@ -154,6 +272,24 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(SnackBar, '请输入项目名称'), findsOneWidget);
+  });
+
+  testWidgets('新建对话框：名称后按原版顺序拦住缺少题材', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('新建项目').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '待校验项目');
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(SnackBar, '请输入小说类型'), findsOneWidget);
+    expect(engine.projects(), isEmpty);
+    expect(find.text('项目类型'), findsOneWidget, reason: '校验失败必须留在项目向导，而不是静默关闭');
   });
 
   testWidgets('项目对话框的手册画廊可打开视觉手册编辑器', (tester) async {
@@ -334,11 +470,19 @@ void main() {
   });
 
   testWidgets('移动端项目卡片：无需 hover 也能编辑和删除', (tester) async {
+    final inputs = await seedEditableProjectInputs();
     final projectId = engine.addProject(
       projectType: 'novel',
       name: '移动端项目',
       intro: '旧简介',
-      artStyle: '国风水墨',
+      type: '玄幻',
+      artStyle: inputs.artStyle,
+      directorManual: inputs.directorManual,
+      videoRatio: '16:9',
+      imageModel: inputs.imageModel,
+      videoModel: inputs.videoModel,
+      imageQuality: '1K',
+      mode: 'first_frame',
     );
 
     tester.view.physicalSize = const Size(390, 760);

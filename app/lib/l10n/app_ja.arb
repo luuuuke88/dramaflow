@@ -228,6 +228,7 @@
   "projectMsgEnterProjectName": "プロジェクト名を入力してください",
   "projectMsgEnterProjectIntro": "小説の紹介文を入力してください",
   "projectMsgEnterProjectType": "プロジェクトのタイプを入力してください",
+  "projectMsgEnterProjectQuality": "画像の画質を選択してください",
   "projectMsgEnterArtStyle": "プロジェクトのビジュアルパンフレットを選択してください",
   "projectMsgEnterVideoRatio": "ビデオ比率を選択してください",
   "projectMsgEnterImageModel": "画像モデルを選択してください",

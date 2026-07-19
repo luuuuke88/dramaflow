@@ -242,6 +242,7 @@
   "projectMsgEnterProjectName": "请输入项目名称",
   "projectMsgEnterProjectIntro": "请输入小说简介",
   "projectMsgEnterProjectType": "请输入小说类型",
+  "projectMsgEnterProjectQuality": "请选择图片清晰度",
   "projectMsgEnterArtStyle": "请选择项目视觉手册",
   "projectMsgEnterVideoRatio": "请选择影片比例",
   "projectMsgEnterImageModel": "请选择图片模型",
