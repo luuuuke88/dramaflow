@@ -1408,6 +1408,25 @@ WHERE id=?
     config.update({'themeMode': themeMode});
   }
 
+  Future<String> getThemePrimaryColor() async => config.themePrimaryColor;
+
+  Future<void> setThemePrimaryColor(String color) async {
+    final normalized = EngineConfig.normalizeThemePrimaryColor(color);
+    if (normalized == null) {
+      throw const EngineException(errLlmFormat, {'reason': '主题颜色无效'});
+    }
+    config.update({'theme.primaryColor': normalized});
+  }
+
+  Future<int> getThemeFontSize() async => config.themeFontSize;
+
+  Future<void> setThemeFontSize(int size) async {
+    if (!EngineConfig.isThemeFontSize(size)) {
+      throw const EngineException(errLlmFormat, {'reason': '字体大小无效'});
+    }
+    config.update({'theme.fontSize': size});
+  }
+
   Future<String> getAppLocale() async => config.str('app.locale');
 
   Future<void> setAppLocale(String locale) async {

@@ -40,49 +40,68 @@ class DFColors extends ThemeExtension<DFColors> {
     required this.focusRing,
   });
 
-  factory DFColors.light() {
-    return const DFColors(
-      bg: Color(0xFFF5F4F0),
-      surface: Color(0xFFFFFFFF),
-      surfaceMuted: Color(0xFFFAF9F6),
-      stroke: Color(0xFFE7E4DD),
-      strokeStrong: Color(0xFFD8D4CA),
-      primary: Color(0xFF414CB2),
-      primaryHover: Color(0xFF3540A0),
-      primarySubtle: Color(0xFFEEEFFA),
-      accent: Color(0xFFC97F1B),
-      textPrimary: Color(0xFF201F1B),
-      textSecondary: Color(0xFF6B685F),
-      textTertiary: Color(0xFF97938A),
-      success: Color(0xFF2E9E63),
-      danger: Color(0xFFD9463E),
-      warning: Color(0xFFDB8B1F),
-      running: Color(0xFF414CB2),
-      focusRing: Color(0x66414CB2),
+  factory DFColors.light({Color primary = const Color(0xFF414CB2)}) {
+    final hsl = HSLColor.fromColor(primary);
+    final hover = _withLightness(hsl, hsl.lightness - .10);
+    final subtle = _withLightness(
+      hsl.withSaturation(hsl.saturation > .5 ? .5 : hsl.saturation),
+      .94,
+    );
+    return DFColors(
+      bg: const Color(0xFFF5F4F0),
+      surface: const Color(0xFFFFFFFF),
+      surfaceMuted: const Color(0xFFFAF9F6),
+      stroke: const Color(0xFFE7E4DD),
+      strokeStrong: const Color(0xFFD8D4CA),
+      primary: primary,
+      primaryHover: hover,
+      primarySubtle: subtle,
+      accent: const Color(0xFFC97F1B),
+      textPrimary: const Color(0xFF201F1B),
+      textSecondary: const Color(0xFF6B685F),
+      textTertiary: const Color(0xFF97938A),
+      success: const Color(0xFF2E9E63),
+      danger: const Color(0xFFD9463E),
+      warning: const Color(0xFFDB8B1F),
+      running: primary,
+      focusRing: primary.withAlpha(0x66),
     );
   }
 
-  factory DFColors.dark() {
-    return const DFColors(
-      bg: Color(0xFF141419),
-      surface: Color(0xFF1C1C24),
-      surfaceMuted: Color(0xFF22222C),
-      stroke: Color(0xFF2C2C38),
-      strokeStrong: Color(0xFF3A3A48),
-      primary: Color(0xFF8B93E8),
-      primaryHover: Color(0xFFA0A7F0),
-      primarySubtle: Color(0xFF262A45),
-      accent: Color(0xFFE8A33D),
-      textPrimary: Color(0xFFEDECE6),
-      textSecondary: Color(0xFFA5A299),
-      textTertiary: Color(0xFF6E6E7A),
-      success: Color(0xFF4CC583),
-      danger: Color(0xFFE86A62),
-      warning: Color(0xFFD98E2B),
-      running: Color(0xFF8B93E8),
-      focusRing: Color(0x668B93E8),
+  factory DFColors.dark({Color primary = const Color(0xFF8B93E8)}) {
+    final source = HSLColor.fromColor(primary);
+    final darkPrimary = _withLightness(
+      source.withSaturation(source.saturation < .12 ? .12 : source.saturation),
+      source.lightness < .68 ? .68 : source.lightness,
+    );
+    final hover = _withLightness(HSLColor.fromColor(darkPrimary), .82);
+    final subtle = _withLightness(
+      HSLColor.fromColor(darkPrimary).withSaturation(.42),
+      .18,
+    );
+    return DFColors(
+      bg: const Color(0xFF141419),
+      surface: const Color(0xFF1C1C24),
+      surfaceMuted: const Color(0xFF22222C),
+      stroke: const Color(0xFF2C2C38),
+      strokeStrong: const Color(0xFF3A3A48),
+      primary: darkPrimary,
+      primaryHover: hover,
+      primarySubtle: subtle,
+      accent: const Color(0xFFE8A33D),
+      textPrimary: const Color(0xFFEDECE6),
+      textSecondary: const Color(0xFFA5A299),
+      textTertiary: const Color(0xFF6E6E7A),
+      success: const Color(0xFF4CC583),
+      danger: const Color(0xFFE86A62),
+      warning: const Color(0xFFD98E2B),
+      running: darkPrimary,
+      focusRing: darkPrimary.withAlpha(0x66),
     );
   }
+
+  static Color _withLightness(HSLColor color, double lightness) =>
+      color.withLightness(lightness.clamp(.05, .95)).toColor();
 
   Color get card => surface;
   Color get cardHover => surfaceMuted;

@@ -10,9 +10,14 @@ abstract final class DF {
   static const radius = DFTokens.radiusCard;
 }
 
-ThemeData buildTheme(Brightness brightness) {
+ThemeData buildTheme(
+  Brightness brightness, {
+  Color primaryColor = const Color(0xFF414CB2),
+}) {
   final isLight = brightness == Brightness.light;
-  final colors = isLight ? DFColors.light() : DFColors.dark();
+  final colors = isLight
+      ? DFColors.light(primary: primaryColor)
+      : DFColors.dark(primary: primaryColor);
   final onPrimary = isLight ? Colors.white : colors.bg;
   final scheme = isLight
       ? ColorScheme.light(

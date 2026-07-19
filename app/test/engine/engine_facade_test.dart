@@ -54,6 +54,26 @@ void main() {
     expect(() => engine.setThemeMode('sepia'), throwsA(isA<EngineException>()));
   });
 
+  test('主题主色与字号持久化并拒绝非法输入', () async {
+    await engine.setThemePrimaryColor('e34d59');
+    await engine.setThemeFontSize(22);
+
+    expect(await engine.getThemePrimaryColor(), '#E34D59');
+    expect(await engine.getThemeFontSize(), 22);
+    expect(
+      () => engine.setThemePrimaryColor('#FFF'),
+      throwsA(isA<EngineException>()),
+    );
+    expect(
+      () => engine.setThemePrimaryColor('not-a-color'),
+      throwsA(isA<EngineException>()),
+    );
+    expect(
+      () => engine.setThemeFontSize(15),
+      throwsA(isA<EngineException>()),
+    );
+  });
+
   test('locale 持久化并拒绝非法值', () async {
     expect(await engine.getAppLocale(), '');
     await engine.setAppLocale('zh');

@@ -34,6 +34,23 @@ void main() {
     expect(EngineConfig(db, isMobile: false).str('themeMode'), 'dark');
   });
 
+  test('外观主色和字号使用 ToonFlow 默认值并安全回退', () {
+    final db = openEngineDb(':memory:');
+    final config = EngineConfig(db, isMobile: false);
+
+    expect(config.themePrimaryColor, '#0052D9');
+    expect(config.themeFontSize, 16);
+
+    config.update({
+      'theme.primaryColor': 'not-a-color',
+      'theme.fontSize': '15',
+    });
+
+    final restored = EngineConfig(db, isMobile: false);
+    expect(restored.themePrimaryColor, '#0052D9');
+    expect(restored.themeFontSize, 16);
+  });
+
   test('制作画布引导默认未完成且完成状态持久化', () {
     final db = openEngineDb(':memory:');
     final config = EngineConfig(db, isMobile: false);

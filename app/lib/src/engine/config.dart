@@ -7,6 +7,19 @@ class EngineConfig {
   final bool isMobile;
 
   static const maskedKeys = <String>[];
+  static const themePrimaryColorDefault = '#0052D9';
+  static const themePrimaryColorPresets = <String>[
+    '#000000',
+    '#0052D9',
+    '#2BA471',
+    '#ED7B2F',
+    '#E34D59',
+    '#7B61FF',
+    '#111111',
+  ];
+  static const themeFontSizeDefault = 16;
+  static const themeFontSizeOptions = <int>[12, 13, 14, 16, 18, 20, 22];
+  static final _themeColorPattern = RegExp(r'^#?([0-9a-fA-F]{6})$');
 
   static const _sizeDirective =
       'You MUST generate this image at exactly 1024x1024 resolution as a SQUARE 1:1 canvas. Do not add any text, watermark or border.';
@@ -35,6 +48,8 @@ class EngineConfig {
     'requestTimeoutSeconds': '600',
     'production.interacting': '1',
     'themeMode': 'light',
+    'theme.primaryColor': themePrimaryColorDefault,
+    'theme.fontSize': '$themeFontSizeDefault',
     'app.locale': '',
     'onboarding.completed': '0',
     'production.guide.completed': '0',
@@ -51,6 +66,26 @@ class EngineConfig {
   }
 
   int intOf(String key) => int.tryParse(str(key)) ?? 0;
+
+  static String? normalizeThemePrimaryColor(String value) {
+    final match = _themeColorPattern.firstMatch(value.trim());
+    if (match == null) return null;
+    return '#${match.group(1)!.toUpperCase()}';
+  }
+
+  static bool isThemeFontSize(int size) =>
+      themeFontSizeOptions.contains(size);
+
+  String get themePrimaryColor =>
+      normalizeThemePrimaryColor(str('theme.primaryColor')) ??
+      themePrimaryColorDefault;
+
+  int get themeFontSize {
+    final size = int.tryParse(str('theme.fontSize'));
+    return size != null && isThemeFontSize(size)
+        ? size
+        : themeFontSizeDefault;
+  }
 
   /// 通用供应商请求超时。ToonFlow 的设置下限为 10 秒；异常配置也按该下限处理。
   Duration get requestTimeout {
