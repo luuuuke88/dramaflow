@@ -186,6 +186,48 @@ void main() {
     );
   }
 
+  Widget appearanceApp() {
+    final router = GoRouter(initialLocation: '/', routes: [
+      GoRoute(
+        path: '/',
+        builder: (c, s) => Scaffold(
+          body: Builder(builder: (innerContext) {
+            return Consumer(builder: (context, ref, _) {
+              return ElevatedButton(
+                onPressed: () => showWorkbench(innerContext, ref,
+                    projectId: projectId, scriptId: scriptId),
+                child: const Text('open'),
+              );
+            });
+          }),
+        ),
+      ),
+    ]);
+    return ProviderScope(
+      overrides: [engineProvider.overrideWithValue(engine)],
+      child: Consumer(
+        builder: (context, ref, _) {
+          final primaryColor = ref.watch(themePrimaryColorProvider);
+          final fontSize = ref.watch(themeFontSizeProvider);
+          return MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+            locale: const Locale('zh'),
+            theme: buildTheme(Brightness.light, primaryColor: primaryColor),
+            darkTheme: buildTheme(Brightness.dark, primaryColor: primaryColor),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(fontSize / 16),
+              ),
+              child: child ?? const SizedBox.shrink(),
+            ),
+            routerConfig: router,
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> tapTimelineClipAction(
     WidgetTester tester, {
     required int clipId,
@@ -218,6 +260,34 @@ void main() {
 
     expect(find.text('S1'), findsOneWidget);
     expect(find.textContaining('合成本集'), findsOneWidget);
+  });
+
+  testWidgets('桌面最大外观设置下工作台可选中镜头且主色生效', (tester) async {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '外观极值镜头',
+    );
+    await engine.setThemePrimaryColor('#2BA471');
+    await engine.setThemeFontSize(22);
+    tester.view.physicalSize = const Size(1440, 960);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(appearanceApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final shotContext = tester.element(find.text('S1'));
+    expect(Theme.of(shotContext).colorScheme.primary, const Color(0xFF2BA471));
+    expect(MediaQuery.textScalerOf(shotContext).scale(16), 22);
+
+    final checkboxKey = ValueKey('workbench-shot-check-$storyboardId');
+    expect(tester.widget<Checkbox>(find.byKey(checkboxKey)).value, isTrue);
+    await tester.tap(find.byKey(checkboxKey));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Checkbox>(find.byKey(checkboxKey)).value, isFalse);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('工作台显示视频轨和音频轨时间线总览', (tester) async {

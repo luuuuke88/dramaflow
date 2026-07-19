@@ -2937,13 +2937,15 @@ class _TimelineClip extends StatelessWidget {
     final hasAudio = audioName?.isNotEmpty == true;
     final isVideo = kind == _TimelineClipKind.video;
     final active = isVideo ? hasVideo : hasAudio;
+    final textScale =
+        MediaQuery.textScalerOf(context).scale(1).clamp(1.0, double.infinity);
     final label = isVideo
         ? (hasVideo ? l10n.workbenchSelected : l10n.workbenchTimelineUnselected)
         : (audioName ?? l10n.workbenchTimelineNoAudio);
 
     return Container(
       width: width,
-      height: isVideo ? 48 : 36,
+      height: (isVideo ? 48 : 36) * textScale,
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -3146,10 +3148,12 @@ class _TimelineAssetClipState extends State<_TimelineAssetClip> {
     final width = _timelineAssetClipWidth(clip);
     final opacityPercent = (clip.opacity * 100).round();
     final opacitySuffix = opacityPercent >= 100 ? '' : ' · $opacityPercent%';
+    final textScale =
+        MediaQuery.textScalerOf(context).scale(1).clamp(1.0, double.infinity);
 
     return Container(
       width: width,
-      height: 48,
+      height: 48 * textScale,
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

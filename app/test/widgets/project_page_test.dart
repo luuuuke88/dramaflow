@@ -72,6 +72,43 @@ void main() {
     );
   }
 
+  Widget appearanceApp() {
+    final router = GoRouter(initialLocation: '/', routes: [
+      GoRoute(
+          path: '/',
+          builder: (c, s) => const Scaffold(body: ProjectListScreen())),
+      GoRoute(
+          path: '/p/:pid/novel', builder: (c, s) => const Text('novel-page')),
+      GoRoute(
+        path: '/settings',
+        builder: (c, s) => const Text('settings-provider-page'),
+      ),
+    ]);
+    return ProviderScope(
+      overrides: [engineProvider.overrideWithValue(engine)],
+      child: Consumer(
+        builder: (context, ref, _) {
+          final primaryColor = ref.watch(themePrimaryColorProvider);
+          final fontSize = ref.watch(themeFontSizeProvider);
+          return MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+            locale: const Locale('zh'),
+            theme: buildTheme(Brightness.light, primaryColor: primaryColor),
+            darkTheme: buildTheme(Brightness.dark, primaryColor: primaryColor),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(fontSize / 16),
+              ),
+              child: child ?? const SizedBox.shrink(),
+            ),
+            routerConfig: router,
+          );
+        },
+      ),
+    );
+  }
+
   Future<
       ({
         String artStyle,
@@ -353,6 +390,33 @@ void main() {
 
     expect(engine.visualManuals(), isEmpty);
     expect(find.text('待维护视觉手册'), findsNothing);
+  });
+
+  testWidgets('390dp 最大外观设置下可打开新建项目且主色生效', (tester) async {
+    await engine.setThemePrimaryColor('#2BA471');
+    await engine.setThemeFontSize(22);
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(appearanceApp());
+    await tester.pumpAndSettle();
+
+    final projectContext = tester.element(find.byType(ProjectListScreen));
+    expect(
+        Theme.of(projectContext).colorScheme.primary, const Color(0xFF2BA471));
+    expect(MediaQuery.textScalerOf(projectContext).scale(16), 22);
+    expect(
+      FilledButtonTheme.of(projectContext)
+          .style!
+          .backgroundColor!
+          .resolve(const {}),
+      const Color(0xFF2BA471),
+    );
+
+    await tester.tap(find.text('新建项目').first);
+    await tester.pumpAndSettle();
+    expect(find.text('项目类型'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('移动端新建向导：完整项目设置保存到本地库', (tester) async {

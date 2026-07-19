@@ -48,7 +48,7 @@ void main() {
   });
 
   test('themeMode 持久化并拒绝非法值', () async {
-    expect(await engine.getThemeMode(), 'light');
+    expect(await engine.getThemeMode(), 'system');
     await engine.setThemeMode('system');
     expect(await engine.getThemeMode(), 'system');
     expect(() => engine.setThemeMode('sepia'), throwsA(isA<EngineException>()));

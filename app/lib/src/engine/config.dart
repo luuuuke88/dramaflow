@@ -47,7 +47,7 @@ class EngineConfig {
     'assetsBatchGenereateSize': '5',
     'requestTimeoutSeconds': '600',
     'production.interacting': '1',
-    'themeMode': 'light',
+    'themeMode': 'system',
     'theme.primaryColor': themePrimaryColorDefault,
     'theme.fontSize': '$themeFontSizeDefault',
     'app.locale': '',
@@ -73,8 +73,7 @@ class EngineConfig {
     return '#${match.group(1)!.toUpperCase()}';
   }
 
-  static bool isThemeFontSize(int size) =>
-      themeFontSizeOptions.contains(size);
+  static bool isThemeFontSize(int size) => themeFontSizeOptions.contains(size);
 
   String get themePrimaryColor =>
       normalizeThemePrimaryColor(str('theme.primaryColor')) ??
@@ -82,9 +81,7 @@ class EngineConfig {
 
   int get themeFontSize {
     final size = int.tryParse(str('theme.fontSize'));
-    return size != null && isThemeFontSize(size)
-        ? size
-        : themeFontSizeDefault;
+    return size != null && isThemeFontSize(size) ? size : themeFontSizeDefault;
   }
 
   /// 通用供应商请求超时。ToonFlow 的设置下限为 10 秒；异常配置也按该下限处理。

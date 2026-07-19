@@ -1,72 +1,60 @@
 # 外观设置对照
 
 更新时间：2026-07-20
+
 基线：ToonFlow 1.1.8 的 `Toonflow-web/src/components/setting/components/uiConfig.vue`、
 `src/utils/theme.ts` 与 `src/stores/setting.ts`。
 
 ## 结论先行
 
-DramaFlow 已对齐颜色模式的用户行为：浅色、深色和跟随系统均可从设置页切换，设置会写入
-本地 SQLite 并在应用重建时恢复。原版的主题主色和七档全局字号尚未实现，因而本模块保持
-**部分实现**。这不是文案或控件缺失，而是两项都必须影响整套 Flutter `ThemeData` 与移动、
-桌面布局，不能用只改变设置页自身颜色或字号的假实现冒充完成。
+DramaFlow 已完成 `uiConfig` 的可观察能力等价：首次启动跟随系统，用户可切换浅色、深色或跟随
+系统；可选择原版七个主色预设、输入自定义六位 HEX，并在七档字号间切换。三项偏好都存于本地
+SQLite `o_setting`，不触碰供应商、`o_secret` 或系统钥匙串。
 
 | 用户能力 | ToonFlow 事实 | DramaFlow 当前事实 | 判定 |
 | --- | --- | --- | --- |
-| 颜色模式 | `uiConfig.vue:4-10` 提供 `auto` / `light` / `dark`；`theme.ts:61-77,137-155` 立即应用并监听系统模式变化 | `settings_screen.dart:_appearanceCard` 提供浅色/深色/跟随系统；`themeModeProvider` 保存 `themeMode`；`MaterialApp.themeMode` 消费它 | 已验证等价 |
-| 主题主色 | `uiConfig.vue:11-23` 有 7 个圆形预设和 HEX 取色器；`theme.ts:47-59,80-101` 生成并写入品牌色阶 | `theme.dart` 的 `DFColors.light()` / `.dark()` 是固定调色板，设置页无颜色控件或持久化键 | 缺失 |
-| 全局字号 | `uiConfig.vue:24-34` 有 12/13/14/16/18/20/22 七档；`theme.ts:90-99` 改浏览器根字号 | Flutter 文本同时来自 `ThemeData.textTheme`、设计 token 和大量语义明确的局部 `TextStyle(fontSize: ...)`；无全局字号设置 | 缺失 |
+| 颜色模式 | `uiConfig.vue:4-10` 提供 `auto` / `light` / `dark`；`theme.ts:61-77,137-155` 立即应用并监听系统模式变化 | `EngineConfig` 默认 `system`；设置页提供浅色/深色/跟随系统，`MaterialApp.themeMode` 消费持久化值 | 已验证等价 |
+| 主题主色 | `uiConfig.vue:11-23` 有 7 个圆形预设和 HEX 取色器；`theme.ts:47-59,80-101` 生成并写入品牌色阶 | 相同 7 个预设、可校验 HEX 输入框和色块预览；同一主色派生亮暗 `ColorScheme` 与 `DFColors` | 已验证等价 |
+| 全局字号 | `uiConfig.vue:24-34` 有 12/13/14/16/18/20/22 七档；`theme.ts:90-99` 改浏览器根字号 | 相同 7 个离散选项，经应用根 `MediaQuery` 只缩放一次；工作台紧凑时间线在增大时扩高防溢出 | 已验证等价 |
 
-## 原版行为边界
+## 实现边界
 
-### 颜色模式
+原版默认 `themeSetting.mode=auto`、`primaryColor=#0052D9`、`fontSize=16`。DramaFlow 对应默认值为
+`system`、`#0052D9`、`16`。`ThemeModeNotifier` 在配置异步加载前和加载失败时也保持 `system`，避免
+首次绘制闪成浅色。用户已保存的 `light` 或 `dark` 值仍会完整恢复。
 
-原版持久化 `themeSetting.mode`、`primaryColor` 和 `fontSize`，默认分别为 `auto`、`#0052D9`
-和 `16`（`setting.ts:18-29`）。`auto` 只改变实际明暗模式，仍保留用户选择的主色；系统模式
-变化时会重新应用主色。浏览器的 View Transition 是实现细节，不是 Flutter 必须模仿的用户
-功能。
+主色预设依次为黑、蓝、绿、橙、红、紫和深灰：`#000000`、`#0052D9`、`#2BA471`、`#ED7B2F`、
+`#E34D59`、`#7B61FF`、`#111111`。自定义值只接受完整六位 HEX，统一保存为大写 `#RRGGBB`；无效
+输入保留当前颜色并显示本地化错误。Flutter 不复制 CSS 变量或浏览器 View Transition，而是以
+`buildTheme` 的一个主色输入派生按钮、选择态、焦点、滑块、复选框、进度条和亮暗 `DFColors`。
 
-### 主题主色
+字号选择使用一个应用根 `MediaQuery.textScaler`，不会再额外按比例改写 `TextTheme`。这匹配原版
+“全局根字号”的用户效果，同时保留图标、最小触控目标和时间线刻度的固定语义。最大 22px 测试
+暴露了工作台视频、音频和素材时间线卡片的固定高度溢出，已改为只在缩放大于 1 时增高卡片，默认
+密度不变。
 
-原版预设依次为黑、蓝、绿、橙、红、紫和深灰：
-`#000000`、`#0052D9`、`#2BA471`、`#ED7B2F`、`#E34D59`、`#7B61FF`、`#111111`。
-用户也可输入任意 6 位 HEX；无效值回退为蓝色。`theme.ts` 用 HSL 生成十级色阶，并在深色模式
-反转色阶。Flutter 不需要照抄 CSS 变量或 HSL 算法，但最终的主色、悬停/按下、弱强调、选中态、
-焦点和文本链接必须由一个一致的主题输入派生，不能散落修改控件颜色。
+## 代码与自动化证据
 
-### 字号
+- `app/lib/src/engine/config.dart`：允许的预设、字号、标准化与安全回退，默认 `themeMode=system`。
+- `app/lib/src/engine/engine.dart`：主色和字号的验证型读写 API。
+- `app/lib/src/state/providers.dart` 与 `app/lib/src/app.dart`：持久化 notifier、根主题和唯一的文字
+  缩放边界。
+- `app/lib/src/screens/settings_screen.dart`：颜色模式、七个带 tooltip 的语义色块、自定义 HEX 输入和
+  七个字号选项。
+- `app/lib/src/screens/production/workbench_screen.dart`：22px 下时间线卡片的防溢出高度约束。
 
-Web 根字号影响使用 `rem` 的布局；它不会逐个重写原版组件的固定像素样式。Flutter 没有等价的
-根 `font-size`，而且 DramaFlow 在数据表、时间线、紧凑操作栏、移动全屏表单中存在有意固定的
-信息密度字号。因此 1:1 的目标是提供相同七档用户选择并让**主题文字层级**按比例变化，同时
-保留安全关键的最小点击目标、图标尺寸、时间线刻度和防溢出约束。不能把 `MediaQuery.textScaler`
-粗暴写死，也不能全局把每个 `TextStyle` 乘倍数后声称性能或可用性已验证。
+以下回归已在 2026-07-20 重跑，全部只使用内存 SQLite、临时媒体目录、假网关和 widget 夹具：
 
-## DramaFlow 架构落点
+```sh
+cd /Users/luke/Documents/aivideo/dramaflow/app
+flutter analyze
+flutter test --concurrency=1
+flutter build macos --debug
+```
 
-当前 `app/lib/src/theme/theme.dart` 是唯一 `ThemeData` 组装点，`DFColors` 是通过
-`ThemeExtension` 提供给页面的调色板。`app/lib/src/app.dart` 在 `MaterialApp.router` 同时注入
-亮/暗主题；`app/lib/src/state/providers.dart` 的 `ThemeModeNotifier` 负责异步加载和失败回退。
-这是扩展主题色、字号的正确边界：增加有类型的外观偏好和 ThemeExtension/ThemeData 派生，页面
-只读取 `context.df` 或 `Theme.of(context)`，不在各业务页添加临时颜色/字号状态。
+外观专属断言包括：默认跟随系统、模式/颜色/字号跨重建持久化、非法 HEX/字号回退、亮暗主题主色
+派生、390 x 760 设置页的预设与自定义色路径、390dp 新建项目，以及 1440 x 960 工作台中镜头选择。
+后两条均以绿色 `#2BA471` 和最大字号 `22` 运行并断言无 Flutter 布局异常。
 
-落实时需要同时验证：
-
-1. 本地设置值在应用重建后恢复，非法 HEX 或字号不会破坏现有主题。
-2. 主题色改变后，按钮、选择态、输入焦点、导航选中、滑块、复选框和进度条共同变化；深浅主题
-   都保持可读对比度。
-3. 390dp 移动设置页可以选择预设、填写自定义色和选择字号，不依赖 hover；桌面布局不发生溢出。
-4. 文本比例至少覆盖设置、项目列表、资产表格、制作画布、工作台和全屏表单；每个覆盖项保持
-   最小触控面积和可滚动性。
-5. 全部测试仅用内存数据库和 widget 夹具，不发起文本、图像、TTS 或视频请求。
-
-## 现有证据与后续门槛
-
-`app/test/engine/config_test.dart` 已验证 `themeMode` 的默认值和持久化；
-`app/test/engine/engine_facade_test.dart` 验证 API 拒绝非法模式；
-`app/test/widgets/settings_screen_test.dart` 验证移动端切换深色模式会写入配置。
-这些证据只覆盖颜色模式，**不能**作为主题色或字号已实现的证据。
-
-实现完成前，主清单 `W6D-UI-001` 与 `W6E-LIB-THEME-001` 继续保持部分实现；实现后必须以
-桌面与 390dp 的真实控件路径、跨重建持久化、亮暗主题对比和代表性界面无溢出回归更新本页及
-`master-checklist.md`。
+验证没有发起任何文本、图片、音频或视频供应商请求，也没有提交、轮询或下载 Seedance 任务。macOS
+debug 构建成功；移动端证据是 390dp widget 回归，不把它表述为 iOS/Android 真机供应商验收。

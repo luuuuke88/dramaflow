@@ -35,13 +35,13 @@
 - `Engine.getThemePrimaryColor()/setThemePrimaryColor(String)` and `Engine.getThemeFontSize()/setThemeFontSize(int)` are the only persistence APIs.
 - `buildTheme(Brightness brightness, {Color primaryColor})` derives all primary-dependent Material and `DFColors` values from one color.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add engine tests that save `e34d59` and `22`, then assert a new config instance reads `#E34D59` and `22`. Assert `#FFF`, a non-hex value, and `15` each raise `EngineException`; assert corrupt stored values safely read as defaults.
 
 Create `theme_test.dart` with light/dark `buildTheme(... primaryColor: Color(0xFFE34D59))` assertions: `ColorScheme.primary` and primary-derived `DFColors` differ from defaults, while danger remains the established semantic color.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```sh
 cd app
@@ -50,13 +50,13 @@ flutter test test/engine/config_test.dart test/engine/engine_facade_test.dart te
 
 Expected: missing typed getters, Engine APIs, optional theme input, and test source make the new assertions fail or not compile.
 
-- [ ] **Step 3: Implement the boundary**
+- [x] **Step 3: Implement the boundary**
 
 Add `theme.primaryColor` and `theme.fontSize` to the allowed config defaults. Centralize the exact preset list, full six-hex normalization, and accepted font sizes in `EngineConfig`; do not let a UI write arbitrary config keys. Add validating Engine methods.
 
 Make `DFColors.light/dark` accept the resolved primary and derive `primaryHover`, `primarySubtle`, `focusRing`, and `running` via HSL. Dark mode must choose a readable derivative, not reuse a low-luminance color. Preserve neutral backgrounds/text and semantic success/warning/danger tokens. Thread the same color through `ColorScheme` and `DFColors`.
 
-- [ ] **Step 4: Verify green**
+- [x] **Step 4: Verify green**
 
 ```sh
 cd app
@@ -64,7 +64,7 @@ flutter analyze
 flutter test --concurrency=1 test/engine/config_test.dart test/engine/engine_facade_test.dart test/theme/theme_test.dart
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```sh
 git add app/lib/src/engine/config.dart app/lib/src/engine/engine.dart \
@@ -90,13 +90,13 @@ git commit -m "feat(theme): add persistent color and font preferences"
 - `DramaFlowApp` watches both and wraps only the app child in `MediaQuery.copyWith(textScaler: TextScaler.linear(fontSize / 16))`.
 - Stable control keys begin `settings-theme-`.
 
-- [ ] **Step 1: Write failing widgets**
+- [x] **Step 1: Write failing widgets**
 
 At `390 x 760`, select preset `#E34D59`, then apply custom `#2BA471`, select `22`, rebuild with the same Engine, and assert saved values plus selected controls. Apply `#FFF` and assert a localized error with no config mutation.
 
 Pump `DramaFlowApp` after seeding `#E34D59` and `22`. From a descendant context, assert `Theme.of(context).colorScheme.primary == Color(0xFFE34D59)` and `MediaQuery.textScalerOf(context).textScaleFactor` is `22 / 16`. Switch dark mode and assert the primary remains a non-default readable derivative. No test may invoke a gateway.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```sh
 cd app
@@ -105,13 +105,13 @@ flutter test test/widgets/settings_screen_test.dart test/widgets/app_appearance_
 
 Expected: missing providers, settings controls, localizations, and app text-scaler wiring fail the new tests.
 
-- [ ] **Step 3: Implement responsive UI**
+- [x] **Step 3: Implement responsive UI**
 
 Add the two notifiers and let `DramaFlowApp` rebuild its themes from the provider color while preserving routing, locale, and mode. Add a descendant `MediaQuery` linear scale exactly once; do not multiply `TextTheme` values as well.
 
 In the appearance card, use a wrapping set of semantic/tooltip-equipped color swatches, a HEX field with current-color preview and an apply `IconButton`, and a wrapping set of seven discrete size choice controls. Persist only complete valid HEX input; leave the current theme active on invalid input. All labels/errors require zh/en/ja keys. At 390dp controls may wrap but may not overflow or require hover.
 
-- [ ] **Step 4: Verify focused green**
+- [x] **Step 4: Verify focused green**
 
 ```sh
 cd app
@@ -121,7 +121,7 @@ flutter test --concurrency=1 test/widgets/settings_screen_test.dart \
   test/widgets/app_appearance_test.dart test/l10n_test.dart
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```sh
 git add app/lib/src/state/providers.dart app/lib/src/app.dart \
@@ -146,19 +146,19 @@ git commit -m "feat(settings): add theme color and font size controls"
 - Consumes the persisted appearance values from Tasks 1–2.
 - Produces evidence that the extreme valid setting is usable beyond the settings page.
 
-- [ ] **Step 1: Write failing representative tests**
+- [x] **Step 1: Write failing representative tests**
 
 Seed green `#2BA471` and `22`, then cover one 390dp project-list/new-project path and one desktop workbench interaction. After each path, assert `tester.takeException()` is null and a selected/primary control consumes the configured color.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run each named test before its fixture/wiring exists. Expected: test absence or failure because the app does not yet honor persisted appearance preferences.
 
-- [ ] **Step 3: Correct only exposed layouts**
+- [x] **Step 3: Correct only exposed layouts**
 
 If the valid maximum scale exposes an overflow, make the affected row wrap, scroll, or use existing flexible constraints. Do not lower the maximum, disable scaling, or globally shrink text. Preserve usable touch targets.
 
-- [ ] **Step 4: Run authoritative gates**
+- [x] **Step 4: Run authoritative gates**
 
 ```sh
 cd app
@@ -172,7 +172,7 @@ git diff --check
 
 Expected: all offline tests pass, no analyzer diagnostics, debug macOS build succeeds, inventory remains covered, and no whitespace errors occur.
 
-- [ ] **Step 5: Update evidence and commit**
+- [x] **Step 5: Update evidence and commit**
 
 Mark `W6D-UI-001` and `W6E-LIB-THEME-001` verified only after Task 3 passes. Record custom HEX normalization, seven-choice text scaling, bright/dark contrast boundary, 390dp/desktop coverage, and that no video/provider calls ran.
 

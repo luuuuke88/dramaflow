@@ -68,4 +68,16 @@ void main() {
     expect(
         Theme.of(context).colorScheme.primary, isNot(const Color(0xFF414CB2)));
   });
+
+  testWidgets('DramaFlowApp 首次启动默认跟随系统主题', (tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const DramaFlowApp(),
+      ),
+    );
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.themeMode, ThemeMode.system);
+  });
 }

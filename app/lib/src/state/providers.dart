@@ -31,7 +31,7 @@ final canvasWheelModeProvider =
 ThemeMode _themeModeFromString(String value) => switch (value) {
       'dark' => ThemeMode.dark,
       'system' => ThemeMode.system,
-      _ => ThemeMode.light,
+      _ => ThemeMode.system,
     };
 
 String _themeModeToString(ThemeMode mode) => switch (mode) {
@@ -64,7 +64,7 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
   @override
   ThemeMode build() {
     Future.microtask(_load);
-    return ThemeMode.light;
+    return ThemeMode.system;
   }
 
   Future<void> _load() async {
@@ -72,7 +72,7 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
       state =
           _themeModeFromString(await ref.read(engineProvider).getThemeMode());
     } catch (_) {
-      state = ThemeMode.light;
+      state = ThemeMode.system;
     }
   }
 
