@@ -93,6 +93,8 @@ void main() {
       expect(find.byKey(const Key('preset-card-azt')), findsNothing,
           reason: '127.0.0.1 的本地 OAuth 代理不属于 iOS/Android 可用供应商');
       expect(find.byKey(const Key('preset-card-volcengine')), findsOneWidget);
+      await tester.scrollUntilVisible(
+          find.byKey(const Key('preset-card-custom')), 300);
       expect(find.byKey(const Key('preset-card-custom')), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = null;

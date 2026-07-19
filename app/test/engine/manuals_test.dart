@@ -105,6 +105,29 @@ void main() {
     );
   });
 
+  test('默认手册在没有 meta 时使用 README 首行作为显示名', () {
+    final visualDir = Directory(p.join(
+      dir.path,
+      'skills',
+      'art_skills',
+      'default_visual',
+    ))..createSync(recursive: true);
+    File(p.join(visualDir.path, 'README.md'))
+        .writeAsStringSync('# --国风新潮--\n后续说明');
+
+    final directorDir = Directory(p.join(
+      dir.path,
+      'skills',
+      'story_skills',
+      'default_director',
+    ))..createSync(recursive: true);
+    File(p.join(directorDir.path, 'README.md'))
+        .writeAsStringSync('# --历史史诗--\n后续说明');
+
+    expect(engine.visualManuals().single.name, '# 国风新潮');
+    expect(engine.directorManuals().single.name, '# 历史史诗');
+  });
+
   test('删除清目录', () {
     engine.saveVisualManual(name: 'B', data: visualData());
     final pack = engine.visualManuals().single.pack;

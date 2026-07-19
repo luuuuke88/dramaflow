@@ -1,6 +1,6 @@
 // 视觉/导演手册文件包（照抄 ToonFlow skills/art_skills、skills/story_skills 布局）：
 // <root>/skills/{art_skills|story_skills}/<pack>/
-//   meta.json {"name": 显示名}
+//   meta.json {"name": 自定义显示名}；默认包没有 meta 时，显示名取 README 首行
 //   README.md、prefix.md（视觉）
 //   art_prompt/<key>.md（art_* 系列）
 //   driector_skills/<key>.md（director_* 系列，目录名保留 ToonFlow 原拼写）
@@ -105,14 +105,28 @@ extension ManualsApi on Engine {
     for (final entry in dir.listSync().whereType<Directory>()) {
       final packName = p.basename(entry.path);
       var display = packName;
+      var hasMetaName = false;
       final meta = File(p.join(entry.path, 'meta.json'));
       if (meta.existsSync()) {
         try {
           final decoded = jsonDecode(meta.readAsStringSync());
           if (decoded is Map && decoded['name'] is String) {
             display = decoded['name'] as String;
+            hasMetaName = true;
           }
         } catch (_) {}
+      }
+      if (!hasMetaName) {
+        final readme = File(p.join(entry.path, 'README.md'));
+        if (readme.existsSync()) {
+          try {
+            display = readme
+                .readAsStringSync()
+                .split('\n')
+                .first
+                .replaceAll('--', '');
+          } catch (_) {}
+        }
       }
       final data = <String, String>{};
       for (final key in keys) {

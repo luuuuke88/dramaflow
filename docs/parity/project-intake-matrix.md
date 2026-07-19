@@ -8,7 +8,7 @@
 
 ## 结论先行
 
-Flutter 已承接双栏表单、项目字段存储、视觉/导演手册画廊及其编辑、十项保存校验、无模型设置引导，以及打开项目前的本地模型可用性保护；模块只因默认手册标题仍有可见差异而维持“部分实现”。
+Flutter 已承接双栏表单、项目字段存储、视觉/导演手册画廊及其编辑、十项保存校验、无模型设置引导、打开项目前的本地模型可用性保护，以及默认手册标题解析；本矩阵覆盖的项目创建与打开旅程已验证等价。
 
 | 旅程环节 | ToonFlow 可观察行为与证据 | DramaFlow 现状与证据 | 状态 |
 | --- | --- | --- | --- |
@@ -20,7 +20,7 @@ Flutter 已承接双栏表单、项目字段存储、视觉/导演手册画廊�
 | 字段持久化 | 确认时将 11 个表单字段提交给 add/edit，`projectDialog.vue:432-460` | 新建与编辑均将 11 项传给 `Engine.addProject/editProject`，`project_dialog.dart:108-150`；引擎 CRUD 回归覆盖，`app/test/engine/projects_test.dart:36-90` | 已承接 |
 | 保存前校验 | 原版依序拒绝：名称、题材、图片模型、视频模型、视觉手册、导演手册、视频比例、简介、图片清晰度、视频模式，`projectDialog.vue:421-431` | `firstMissingProjectIntakeField()` 以相同顺序检查十项，`project_dialog.dart:20-62`；保存时显示本地化首个错误并保持对话框打开，`:108-152`。纯函数回归覆盖十项顺序，桌面向导回归覆盖名称与题材拦截 | 已验证 |
 | 打开项目保护 | 项目卡片被点击时，原版先检查 image/video binding 非空且该模型仍可由启用供应商解析；不满足时提示并打开编辑，`Toonflow-web/src/views/project/index.vue:92-121` | `Engine.projectModelsAvailable()` 只解析本地已启用绑定，`engine.dart:995-1011`；`_openProject()` 阻断失效绑定、提示并打开编辑，`project_list_screen.dart:33-52`。引擎回归覆盖禁用模型，widget 回归覆盖失效项目不路由 | 已验证 |
-| 手册名称 | 原版视觉手册名称来自每包 README 首行；见 `Toonflow-app/src/routes/project/getVisualManual.ts:65-66` | 内置包无 `meta.json` 时回退技术目录名；详细证据已记于 `master-checklist.md` 的 `W9B-ARTSKILLS-001` | 缺失 |
+| 手册名称 | 原版视觉手册名称来自每包 README 首行；见 `Toonflow-app/src/routes/project/getVisualManual.ts:65-66` | `manuals.dart` 优先自定义 `meta.json.name`，内置包无 `meta.json` 时取 `README.md` 首行并移除 `--`；视觉与导演两类包的回归覆盖此回退 | 已验证 |
 
 ## 跨端验证现状
 
@@ -53,14 +53,13 @@ flutter test --concurrency=1 \
   test/widgets/art_style_library_test.dart
 ```
 
-结果：28 项通过，覆盖首启按文件补齐且不覆盖用户编辑、手册读写与封面、画廊预览，以及
-390dp 和 800dp 触控宽度下无需 hover 的编辑/删除操作。该测试集不调用任何文本、图像或视频
-供应商。
+结果：默认手册标题与既有的首启补齐、手册读写与封面、画廊预览回归均通过，覆盖首启按文件
+补齐且不覆盖用户编辑，以及 390dp 和 800dp 触控宽度下无需 hover 的编辑/删除操作。该测试集
+不调用任何文本、图像或视频供应商。
 
-仍未达到等价的地方必须单独保留：原版画廊从每个 `README.md` 的首行派生可读标题；当前
-Flutter 内置包没有 `meta.json` 时回退显示技术目录名。这会使用户看到
-`2D_chinese_guofeng` 一类标识，而不是“国风二次元新国潮风格说明”等标题。后续修复应只补
-安全的 README 标题提取与测试，不把视觉手册再复制成 `o_artStyle` 默认数据。
+默认包与原版一致：没有 `meta.json` 时，画廊从 `README.md` 的首行派生显示标题，并移除
+`--`。自定义手册的 `meta.json.name` 仍具有优先级，因此不会改变用户已保存的显示名；这一
+规则只影响画廊呈现，不会把视觉手册复制成另一套 `o_artStyle` 默认数据。
 
 ### 生成消费证据
 
@@ -81,9 +80,8 @@ flutter test --concurrency=1 \
 
 ## 后续实施边界
 
-1. 从默认手册的 `README.md` 首行派生可读标题，保持与 ToonFlow 的画廊命名一致。
-3. 项目直接 CRUD 保持对导入和恢复记录的宽容性；十项非空限制属于用户向导契约，不能借此改变底层数据修复能力。
-4. 入口保护的桌面与 390dp 回归只查询本地绑定并使用假网关；绝不提交真实视频任务。
+1. 项目直接 CRUD 保持对导入和恢复记录的宽容性；十项非空限制属于用户向导契约，不能借此改变底层数据修复能力。
+2. 入口保护的桌面与 390dp 回归只查询本地绑定并使用假网关；绝不提交真实视频任务。
 
 ## 关联记录
 
