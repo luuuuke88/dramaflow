@@ -1107,10 +1107,26 @@ WHERE id=?
   }
 
   Future<void> cancelJob(int taskId) async {
-    final task = db.select(
-        'SELECT taskClass FROM o_tasks WHERE id=?', [taskId]).firstOrNull;
+    final taskRow =
+        db.select('SELECT * FROM o_tasks WHERE id=?', [taskId]).firstOrNull;
     queue.cancel(taskId);
-    if (task?['taskClass'] == 'video_generation') {
+    if (taskRow == null) return;
+    final task = TasksRow.fromRow(taskRow);
+    if (task.taskClass == 'asset_image_generation') {
+      final items = (task.relatedObjectsJson['items'] as List? ?? const [])
+          .whereType<Map>();
+      final canceledReason = const EngineException(errCanceled).toReasonJson();
+      for (final item in items) {
+        final imageId = (item['imageId'] as num?)?.toInt();
+        if (imageId == null) continue;
+        db.execute(
+          'UPDATE o_image SET state=?, errorReason=? '
+          'WHERE id=? AND state=?',
+          [stateFailed, canceledReason, imageId, stateGenerating],
+        );
+      }
+    }
+    if (task.taskClass == 'video_generation') {
       await cancelVideoGenerationTask(taskId);
     }
   }

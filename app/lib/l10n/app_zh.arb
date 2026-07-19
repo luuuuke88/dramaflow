@@ -839,6 +839,7 @@
   "cornerScapePromptReady": "已有提示词",
   "cornerScapePromptMissing": "无提示词",
   "cornerScapeCancelGeneration": "取消生成",
+  "cornerScapeNoCancelableGeneration": "当前没有可取消的生成",
   "cornerScapeNoAssets": "暂无角色、场景或道具资产",
   "cornerScapeNoVisibleAssets": "当前筛选下没有资产",
   "cornerScapeSelectAtLeastOneAsset": "请至少选择一项资产",

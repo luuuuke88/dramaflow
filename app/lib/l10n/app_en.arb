@@ -712,6 +712,7 @@
   "cornerScapePromptReady": "Prompt ready",
   "cornerScapePromptMissing": "No prompt",
   "cornerScapeCancelGeneration": "Cancel generation",
+  "cornerScapeNoCancelableGeneration": "There is no active generation to cancel",
   "cornerScapeNoAssets": "No role, scene, or prop assets",
   "cornerScapeNoVisibleAssets": "No assets match the current filter",
   "cornerScapeSelectAtLeastOneAsset": "Select at least one asset",

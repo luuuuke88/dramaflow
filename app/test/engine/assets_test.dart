@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -62,6 +63,18 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
     fail('任务超时');
+  }
+
+  Future<void> waitForTaskState(int taskId, String expected) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (DateTime.now().isBefore(deadline)) {
+      final state = db.select(
+              'SELECT state FROM o_tasks WHERE id=?', [taskId]).first['state']
+          as String;
+      if (state == expected) return;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    fail('任务未进入 $expected');
   }
 
   test('CRUD：父子层级/getAssets JOIN 选中图/分页搜索', () {
@@ -861,6 +874,80 @@ void main() {
     expect(states, [stateDone, stateDone, stateFailed]);
   });
 
+  test('取消待处理资产生图会失败生成中占位并保留已完成历史', () async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸',
+      describe: '主角',
+      prompt: '侠客',
+    );
+    engine.saveAssetImage(
+      assetsId: assetId,
+      projectId: projectId,
+      type: 'role',
+      base64Image: base64Encode([1, 2, 3]),
+    );
+    final completedId = engine.assetImages(assetId).single.id;
+    final taskId = engine.generateAssetImages(
+      projectId,
+      [(assetsId: assetId, refImageBase64: null)],
+    );
+    final task = (await engine.projectJobs(projectId))
+        .singleWhere((job) => job.id == taskId);
+    final canceledImageId = ((task.relatedObjectsJson['items'] as List).single
+        as Map)['imageId'] as int;
+
+    await engine.cancelJob(taskId);
+
+    final images = {
+      for (final image in engine.assetImages(assetId)) image.id: image
+    };
+    expect(images[completedId]!.state, stateDone);
+    expect(images[canceledImageId]!.state, stateFailed);
+    expect(
+      EngineException.fromReasonJson(images[canceledImageId]!.errorReason)
+          ?.errKey,
+      errCanceled,
+    );
+  });
+
+  test('处理中资产生图取消后晚到结果不能覆盖取消失败态', () async {
+    final pendingImage = Completer<String>();
+    gateway.pendingImage = pendingImage;
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '雪山',
+      describe: '夜景',
+      prompt: '风雪',
+    );
+    final taskId = engine.generateAssetImages(
+      projectId,
+      [(assetsId: assetId, refImageBase64: null)],
+    );
+    final task = (await engine.projectJobs(projectId))
+        .singleWhere((job) => job.id == taskId);
+    final imageId = ((task.relatedObjectsJson['items'] as List).single
+        as Map)['imageId'] as int;
+    await waitForTaskState(taskId, 'processing');
+
+    await engine.cancelJob(taskId);
+    final stateAfterCancel = engine.assetImages(assetId).single.state;
+    pendingImage.complete('p/late_result.png');
+    await waitTask(taskId, expectState: 'failed');
+
+    final image = engine.assetImages(assetId).single;
+    expect(stateAfterCancel, stateFailed);
+    expect(image.id, imageId);
+    expect(image.state, stateFailed);
+    expect(image.filePath, isNull);
+    expect(
+      EngineException.fromReasonJson(image.errorReason)?.errKey,
+      errCanceled,
+    );
+  });
+
   test('生图：预插生成中→成功落盘/失败保留错误码；冷启动恢复', () async {
     final a = engine.addAsset(
         projectId: projectId,
@@ -920,6 +1007,7 @@ void main() {
 class _Gateway implements ProviderGateway {
   String Function(String system, String user)? textHandler;
   String Function(String prompt, String projectId)? imageHandler;
+  Completer<String>? pendingImage;
 
   @override
   Future<TextResult> generateText(String system, String user,
@@ -940,6 +1028,7 @@ class _Gateway implements ProviderGateway {
       String? modelOverride}) async {
     expect(stage, 'asset_image');
     await Future<void>.delayed(const Duration(milliseconds: 5));
+    if (pendingImage case final pending?) return pending.future;
     return imageHandler!(prompt, projectId);
   }
 

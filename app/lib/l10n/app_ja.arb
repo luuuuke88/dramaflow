@@ -712,6 +712,7 @@
   "cornerScapePromptReady": "プロンプトあり",
   "cornerScapePromptMissing": "プロンプトなし",
   "cornerScapeCancelGeneration": "生成をキャンセル",
+  "cornerScapeNoCancelableGeneration": "キャンセルできる生成はありません",
   "cornerScapeNoAssets": "キャラクター、シーン、小道具のアセットがありません",
   "cornerScapeNoVisibleAssets": "現在のフィルターに一致するアセットがありません",
   "cornerScapeSelectAtLeastOneAsset": "アセットを1件以上選択してください",

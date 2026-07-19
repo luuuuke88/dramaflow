@@ -487,6 +487,47 @@ void main() {
     expect(find.text('已选 0 项'), findsOneWidget);
   });
 
+  testWidgets('批量提示词命令只入队一次并隔离补充要求', (tester) async {
+    final role = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '剑客',
+    );
+    final scene = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山门',
+      describe: '雪夜',
+    );
+
+    await pumpDesktop(tester);
+    await tester.tap(find.text('全选'));
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == '补充提示词',
+      ),
+      '统一冷色调',
+    );
+    await tester.tap(find.widgetWithText(OutlinedButton, '生成提示词'));
+    await tester.pump();
+
+    final tasks = (await engine.projectJobs(projectId))
+        .where((job) => job.taskClass == 'asset_prompt_polish')
+        .toList();
+    expect(tasks, hasLength(1));
+    expect(tasks.single.relatedObjectsJson['ids'], [role, scene]);
+    expect(
+      tasks.single.relatedObjectsJson['privateInstructionVersion'],
+      isNotNull,
+    );
+    expect(engine.readTaskPrivatePayload(tasks.single.id), '统一冷色调');
+    expect(engine.assetsByIds([role, scene]).map((asset) => asset.promptState),
+        everyElement(stateGenerating));
+    expect(gateway.textCalls, 0);
+  });
+
   testWidgets('桌面批量预览只展示已选资产的生成图', (tester) async {
     final selected = engine.addAsset(
       projectId: projectId,
@@ -717,6 +758,149 @@ void main() {
     );
     expect(
       find.byKey(Key('cornerscape-cancel-$assetId')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('取消确认只针对打开确认框时捕获的任务', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+      prompt: '剑客',
+    );
+    engine.config.update({'policy.confirmDestructive': '1'});
+    final originalTaskId = engine.generateAssetImages(
+      projectId,
+      [(assetsId: assetId, refImageBase64: null)],
+    );
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-cancel-$assetId')));
+    await tester.pump();
+    expect(find.text('危险操作确认'), findsOneWidget);
+
+    await engine.cancelJob(originalTaskId);
+    final replacementTaskId = engine.generateAssetImages(
+      projectId,
+      [(assetsId: assetId, refImageBase64: null)],
+    );
+
+    await tester.tap(find.text('确定'));
+    await tester.pump();
+
+    final jobs = await engine.projectJobs(projectId);
+    expect(
+      jobs.singleWhere((job) => job.id == originalTaskId).state,
+      'failed',
+    );
+    expect(
+      jobs.singleWhere((job) => job.id == replacementTaskId).state,
+      'pending',
+    );
+    expect(find.text('当前没有可取消的生成'), findsOneWidget);
+  });
+
+  testWidgets('详情分辨率默认使用当前选中图片的分辨率', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '山门',
+      describe: '',
+      prompt: '雪夜',
+    );
+    engine.saveAssetImage(
+      assetsId: assetId,
+      projectId: projectId,
+      type: 'scene',
+      base64Image: base64Encode([1, 2, 3]),
+    );
+    engine.db.execute(
+      'UPDATE o_image SET resolution=? WHERE assetsId=?',
+      ['2K', assetId],
+    );
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final resolution = tester.widget<SegmentedButton<String>>(
+      find.descendant(
+        of: find.byKey(Key('cornerscape-resolution-$assetId')),
+        matching: find.byType(SegmentedButton<String>),
+      ),
+    );
+    expect(resolution.selected, {'2K'});
+  });
+
+  testWidgets('切换有分辨率的历史图会更新详情重新生成默认值', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'tool',
+      name: '灵剑',
+      describe: '',
+      prompt: '长剑',
+    );
+    engine.saveAssetImage(
+      assetsId: assetId,
+      projectId: projectId,
+      type: 'tool',
+      base64Image: base64Encode([1, 2, 3]),
+    );
+    engine.saveAssetImage(
+      assetsId: assetId,
+      projectId: projectId,
+      type: 'tool',
+      base64Image: base64Encode([4, 5, 6]),
+    );
+    final images = engine.assetImages(assetId);
+    final historyId = images.first.id;
+    engine.db.execute(
+      'UPDATE o_image SET resolution=? WHERE id=?',
+      ['4K', historyId],
+    );
+    engine.db.execute(
+      'UPDATE o_image SET resolution=? WHERE id=?',
+      ['1K', images.last.id],
+    );
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('cornerscape-history-image-$historyId')));
+    await tester.pump();
+
+    final resolution = tester.widget<SegmentedButton<String>>(
+      find.descendant(
+        of: find.byKey(Key('cornerscape-resolution-$assetId')),
+        matching: find.byType(SegmentedButton<String>),
+      ),
+    );
+    expect(resolution.selected, {'4K'});
+  });
+
+  testWidgets('失败的当前图片在详情显示失败而不是等待生成', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '失败角色',
+      describe: '',
+      prompt: '剑客',
+    );
+    setImageState(assetId, stateFailed);
+
+    await pumpDesktop(tester);
+    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await tester.pumpAndSettle();
+
+    final detail = find.byKey(Key('cornerscape-detail-$assetId'));
+    expect(
+      find.descendant(of: detail, matching: find.text('生成失败')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: detail, matching: find.text('等待生成')),
       findsNothing,
     );
   });

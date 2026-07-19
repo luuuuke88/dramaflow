@@ -146,12 +146,12 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     setState(() => _polishing = true);
     final supplement = _otherPrompt.text.trim();
     try {
-      for (final id in ids) {
-        final prompt = await engine.polishAssetPrompt(id);
-        if (supplement.isNotEmpty) {
-          engine.updateAsset(id, prompt: '$prompt\n$supplement');
-        }
-      }
+      engine.batchPolishAssetPrompts(
+        widget.projectId,
+        ids,
+        otherTextPrompt: supplement,
+      );
+      setState(_selected.clear);
       if (mounted) _toast(l10n.cornerScapePromptDone);
     } catch (error) {
       if (mounted) {
@@ -250,13 +250,14 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     }
     if (!mounted) return;
     final currentTaskId = engine.cornerScapeImageTaskId(assetId);
-    if (currentTaskId == null) {
+    if (currentTaskId != taskId) {
       ref.read(jobsGenerationProvider.notifier).bump();
       setState(() {});
+      _toast(context.l10n.cornerScapeNoCancelableGeneration);
       return;
     }
     try {
-      await engine.cancelJob(currentTaskId);
+      await engine.cancelJob(taskId);
     } catch (error) {
       if (mounted) _toast(localizeError(context, error));
     } finally {
@@ -927,6 +928,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
 
   void _openAssetDetail(CornerScapeAsset item) {
     final asset = item.asset;
+    final selectedImage = _selectedImage(item);
     showDFAdaptiveDialog<void>(
       context,
       title: '${asset.name ?? ''} · ${_typeLabel(asset.type)}',
@@ -937,7 +939,9 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
         asset: asset,
         images: item.images,
         initialModel: _selectedModel,
-        initialResolution: _resolution,
+        initialResolution: selectedImage?.resolution?.isNotEmpty == true
+            ? selectedImage!.resolution!
+            : _resolution,
         validateModel: _isCurrentImageCandidate,
         polishRevision: _detailPolishRevision,
         isPolishing: _isDetailPolishing,
@@ -1088,7 +1092,12 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
           type: widget.asset.type,
         );
     if (!mounted) return;
-    setState(() => _selectedImageId = image.id);
+    setState(() {
+      _selectedImageId = image.id;
+      if (image.resolution?.isNotEmpty == true) {
+        _resolution = image.resolution!;
+      }
+    });
     widget.onChanged();
   }
 
@@ -1220,8 +1229,12 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
                   child: selectedAbsPath == null
                       ? Center(
                           child: DFStatusTag(
-                            kind: DFStatusKind.pending,
-                            text: l10n.cornerScapeWaitingGeneration,
+                            kind: selectedImage?.state == stateFailed
+                                ? DFStatusKind.failed
+                                : DFStatusKind.pending,
+                            text: selectedImage?.state == stateFailed
+                                ? l10n.cornerScapeGenerationFailed
+                                : l10n.cornerScapeWaitingGeneration,
                           ),
                         )
                       : InkWell(

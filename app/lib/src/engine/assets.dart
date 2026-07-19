@@ -1012,9 +1012,14 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
             quality: resolution,
             modelOverride: modelOverride,
           );
+          if (token.isCancelled) return;
+          final imageState = db.select('SELECT state FROM o_image WHERE id=?',
+              [imageId]).firstOrNull?['state'] as String?;
+          if (imageState != stateGenerating) return;
           db.execute(
-            'UPDATE o_image SET state=?, filePath=?, errorReason=NULL WHERE id=?',
-            [stateDone, rel, imageId],
+            'UPDATE o_image SET state=?, filePath=?, errorReason=NULL '
+            'WHERE id=? AND state=?',
+            [stateDone, rel, imageId, stateGenerating],
           );
           db.execute(
               'UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetsId]);

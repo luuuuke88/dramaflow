@@ -1972,6 +1972,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cornerScapeCancelGeneration => '生成をキャンセル';
 
   @override
+  String get cornerScapeNoCancelableGeneration => 'キャンセルできる生成はありません';
+
+  @override
   String get cornerScapeNoAssets => 'キャラクター、シーン、小道具のアセットがありません';
 
   @override

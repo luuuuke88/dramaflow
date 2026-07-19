@@ -2016,6 +2016,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cornerScapeCancelGeneration => 'Cancel generation';
 
   @override
+  String get cornerScapeNoCancelableGeneration =>
+      'There is no active generation to cancel';
+
+  @override
   String get cornerScapeNoAssets => 'No role, scene, or prop assets';
 
   @override

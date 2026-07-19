@@ -1960,6 +1960,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cornerScapeCancelGeneration => '取消生成';
 
   @override
+  String get cornerScapeNoCancelableGeneration => '当前没有可取消的生成';
+
+  @override
   String get cornerScapeNoAssets => '暂无角色、场景或道具资产';
 
   @override

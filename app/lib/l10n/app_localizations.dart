@@ -3880,6 +3880,12 @@ abstract class AppLocalizations {
   /// **'取消生成'**
   String get cornerScapeCancelGeneration;
 
+  /// No description provided for @cornerScapeNoCancelableGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前没有可取消的生成'**
+  String get cornerScapeNoCancelableGeneration;
+
   /// No description provided for @cornerScapeNoAssets.
   ///
   /// In zh, this message translates to:
