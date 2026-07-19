@@ -161,7 +161,7 @@ git commit -m "feat(cornerscape): generalize asset audio bindings"
 - Consumes: `Engine.cornerScapeAssets`, `Engine.assetAudioBindings`, `Engine.generateAssetImages`, `Engine.polishAssetPrompt`, `confirmPolicyAction`。
 - Produces: card grid type filter and quick selection state; `Key('cornerscape-card-<assetId>')`; `Key('cornerscape-cancel-<assetId>')`.
 
-- [ ] **Step 1: 写失败的桌面入口测试**
+- [x] **Step 1: 写失败的桌面入口测试**
 
 ```dart
 testWidgets('桌面塑角造景按类型筛选未生成资产并以模型和分辨率发起批量图片任务', (tester) async {
@@ -178,13 +178,13 @@ testWidgets('桌面塑角造景按类型筛选未生成资产并以模型和分�
 });
 ```
 
-- [ ] **Step 2: 运行失败测试**
+- [x] **Step 2: 运行失败测试**
 
 Run: `cd app && flutter test --concurrency=1 test/widgets/corner_scape_screen_test.dart --name 桌面塑角造景按类型筛选`
 
 Expected: fail because the screen contains only the audio binding list.
 
-- [ ] **Step 3: 实现页面结构和批量动作**
+- [x] **Step 3: 实现页面结构和批量动作**
 
 Replace the audio-only list with `LayoutBuilder`:
 
@@ -199,13 +199,13 @@ The settings panel must provide role/scene/tool `FilterChip`s, all original quic
 
 Cards must represent empty, generating, failed and completed image states with fixed-height previews; card taps open detail only when not generating.
 
-- [ ] **Step 4: 验证通过**
+- [x] **Step 4: 验证通过**
 
 Run: `cd app && flutter test --concurrency=1 test/widgets/corner_scape_screen_test.dart --name 桌面塑角造景按类型筛选`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/lib/src/screens/cornerscape/corner_scape_screen.dart app/test/widgets/corner_scape_screen_test.dart app/lib/l10n
