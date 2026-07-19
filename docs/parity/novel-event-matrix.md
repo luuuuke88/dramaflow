@@ -39,6 +39,22 @@
 | 移动/桌面小说页、导入与选中章节生成 | `app/test/widgets/novel_screen_test.dart` |
 | 额外事件 Tab | `app/test/widgets/event_tab_test.dart`，该测试证明实现存在，不可作为原版等价证据。 |
 
+在当前 `develop` 基线重新执行了上述引擎和界面范围：
+
+```bash
+cd /Users/luke/Documents/aivideo/dramaflow/app
+flutter test --concurrency=1 \
+  test/engine/events_test.dart test/engine/novel_crud_test.dart \
+  test/engine/novel_parse_test.dart test/widgets/import_novel_dialog_test.dart \
+  test/widgets/novel_screen_test.dart test/widgets/event_tab_test.dart
+flutter analyze lib/src/engine/novel.dart lib/src/engine/novel_parse.dart \
+  lib/src/engine/events.dart lib/src/screens/novel/novel_screen.dart \
+  lib/src/screens/novel/import_novel_dialog.dart lib/src/screens/novel/event_tab.dart \
+  lib/src/screens/novel/event_analysis_view.dart
+```
+
+结果为 36 条测试通过、静态分析无诊断。测试全部使用本地临时数据库和假供应商，未提交任何真实模型或视频请求。
+
 ## 结论
 
 章节导入、自动事件提取、重新生成、状态展示与 CRUD 已有足够的源码和测试证据。当前未达到“页面级 1:1”的原因不是漏做，而是多暴露了原版没有接通的事件列表与分析界面。总清单的 `W6-NOVEL-001` 因此维持为**部分实现**，直到 `NE-01`、`NE-02` 完成收口并回归验证。
