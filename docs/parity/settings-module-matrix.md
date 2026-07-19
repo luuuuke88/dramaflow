@@ -41,6 +41,33 @@ Flutter 的 `SettingsScreen` 有真实的窄屏结构，不是缩小的桌面导
 编辑器、模板库、复杂表单与未来的技能文件管理，仍必须各自补 390dp 实际交互回归；仅能
 渲染或仅桌面测试不能升为“已验证等价”。
 
+## 当前验证基线（2026-07-19）
+
+本轮没有执行任何真实图片或视频请求。以下回归只使用内存 SQLite、假供应商网关和 widget
+测试夹具，因此可在不消耗供应商额度的条件下重复执行：
+
+```bash
+cd /Users/luke/Documents/aivideo/dramaflow/app
+flutter test --concurrency=1 \
+  test/engine/db_admin_test.dart \
+  test/engine/engine_facade_test.dart \
+  test/widgets/settings_screen_test.dart
+```
+
+结果：50 项通过。其证据边界需要如实保留：
+
+- `dbInfo()` 可列出业务表及行数；`clearAllData()` 会在事务内清空项目、章节、剧本、素材、
+  分镜、任务和记忆，并删除媒体文件，但刻意保留供应商、模型、绑定、提示词、画风、外观和
+  语言配置。
+- 配置导出/导入只覆盖供应商元数据、模型、绑定和提示词；API Key 始终留在平台凭据存储，
+  不写进 SQLite 或导出的 JSON。因此它不是 ToonFlow 的完整数据库快照/恢复能力。
+- 390dp 设置页覆盖了数据库信息、内容清空确认、导入导出错误可见性、模型管理与视频能力
+  编辑。测试并没有证明“按表清空”“整库恢复出厂”“完整数据库备份/恢复”或原版 Agent
+  普通/高级模式已经存在。
+- 当前 `assistantDeployments()` 被测试锁定为仅 `scriptAgent` 与 `productionAgent` 两个
+  家族基座。它们可逐项更新温度和最大输出，但不等价于原版的多 Agent 普通/高级分组与批量
+  设置，仍按本表和总清单标为部分实现。
+
 ## 不适用的边界
 
 本表的四项“不适用”均已在 `inventory-na.md` 写明两项依据：
