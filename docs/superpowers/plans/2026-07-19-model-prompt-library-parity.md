@@ -61,6 +61,13 @@ Future<List<ModelPromptBinding>> listModelPromptBindings();
 - [ ] 现有已绑定行仍可一键进入并编辑；不要求用户先创建新模板。
 - [ ] 运行：`cd app && flutter test --concurrency=1 test/widgets/settings_screen_test.dart`，然后 `flutter analyze`。
 
+## Task 1 复审修正（完成 Task 2 前必须关闭）
+
+- [ ] **绑定可达性**：`video_track.dart` 生成提示词时，模型库中已绑定的 video 模板必须优先于模型能力里的模式路径；补假网关测试，只断言本地 system prompt，不提交视频。
+- [ ] **导入原子性**：`importConfig` 的数据库写入必须以一个可回滚 savepoint 包裹；任何后段模型模板校验失败不得留下供应商、模型、全局提示词或模板库的半份配置。凭据仍走既有安全存储，测试不写真实凭据。
+- [ ] **启用状态**：绑定时同时要求供应商和模型启用，禁用供应商必须拒绝且不改旧绑定。
+- [x] **不做历史多路径去重**：驳回“每模型只能一条历史映射”的建议。Flutter 的视频能力可为不同模式保留不同路径，启动迁移自动合并会丢失这些用户配置；新的显式绑定操作仍会原子替换同模型的模板库绑定。
+
 ## Task 3: 端到端本地验证与对照归档
 
 **Files**
