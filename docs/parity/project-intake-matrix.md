@@ -28,6 +28,40 @@ Flutter 已承接双栏表单、项目字段存储、视觉/导演手册画廊�
 - 移动端：同文件 `:218-315` 使用 390×760 真实点选全套字段、滚动至两类手册并保存；`:336-388` 覆盖触控场景的编辑删除与平板宽度。
 - 这些回归证明控件可到达且保存完整表单不会溢出，**不**证明缺失字段会被阻止。因此不能用“完整保存用例通过”替代完整性校验的验收。
 
+## 默认视觉手册基线（2026-07-19）
+
+这里的“默认画风”是随项目提供的视觉手册包，不是 `o_artStyle` 的用户自建画风卡。原版
+`o_artStyle` 只有新增、读取和编辑路由，没有首启插入默认卡片的路径；把视觉手册复制成另一套
+数据库卡片会产生两份内容来源，反而偏离原版。
+
+DramaFlow 将相同类型的资源随包保存为
+`app/assets/default_skills/toonflow_default_skills.zip`，`pubspec.yaml` 已声明该资源，首启通过
+`seedBundledDefaultSkills()` 按文件补齐到本地 `skills/` 目录。资源库存为 11 套
+`art_skills` 视觉手册与 12 套 `story_skills` 导演手册；压缩包 SHA-256 为
+`7101fc169dbb22065b3409c749f82bb00693d1142fa1e5a3835fd7f80c23ff35`。
+
+可重复的离线验证命令：
+
+```bash
+cd /Users/luke/Documents/aivideo/dramaflow/app
+flutter test --concurrency=1 \
+  test/bootstrap/bootstrap_io_test.dart \
+  test/engine/manuals_test.dart \
+  test/widgets/manual_gallery_test.dart \
+  test/widgets/project_page_test.dart \
+  test/engine/art_style_test.dart \
+  test/widgets/art_style_library_test.dart
+```
+
+结果：28 项通过，覆盖首启按文件补齐且不覆盖用户编辑、手册读写与封面、画廊预览，以及
+390dp 和 800dp 触控宽度下无需 hover 的编辑/删除操作。该测试集不调用任何文本、图像或视频
+供应商。
+
+仍未达到等价的地方必须单独保留：原版画廊从每个 `README.md` 的首行派生可读标题；当前
+Flutter 内置包没有 `meta.json` 时回退显示技术目录名。这会使用户看到
+`2D_chinese_guofeng` 一类标识，而不是“国风二次元新国潮风格说明”等标题。后续修复应只补
+安全的 README 标题提取与测试，不把视觉手册再复制成 `o_artStyle` 默认数据。
+
 ## 后续实施边界
 
 1. 新建和编辑共用一套按原版顺序的字段校验，逐项使用本地化提示；保留目前默认项目类型、比例、清晰度的初始值。
