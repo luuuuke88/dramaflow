@@ -2976,10 +2976,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsOtherChapterRegRestore => 'デフォルトに戻す';
 
   @override
+  String get settingsOtherRequestTimeout => 'リクエストのタイムアウト';
+
+  @override
+  String get settingsOtherSeconds => '秒';
+
+  @override
+  String get settingsOtherInvalidTimeout => 'リクエストのタイムアウトは 10 秒以上にしてください';
+
+  @override
   String get settingsOtherEpisodeLength => '1話あたりの最大文字数';
 
   @override
   String get settingsOtherBatchSize => '一括生成数';
+
+  @override
+  String get settingsOtherCanvasInteraction => '制作キャンバスのドラッグ性能最適化';
+
+  @override
+  String get settingsOtherCanvasInteractionHint =>
+      'ドラッグ、パン、ズーム中はデスクトップ制作キャンバスを一時的に簡略化します。モバイルでは設定のみ保存されます。';
 
   @override
   String get settingsOtherCanvasWheelMode => 'キャンバスのホイール操作';

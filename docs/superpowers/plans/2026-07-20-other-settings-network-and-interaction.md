@@ -195,7 +195,7 @@ Expected: no analyzer diagnostics; generic OpenAI/Anthropic/text/TTS/model
 requests capture the configured duration; image and video assertions retain
 their former dedicated limits.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```sh
 git add app/lib/src/engine/config.dart \
@@ -207,7 +207,7 @@ git add app/lib/src/engine/config.dart \
   app/test/engine/config_test.dart app/test/engine/providers_test.dart \
   app/test/engine/anthropic_gateway_test.dart \
   docs/superpowers/plans/2026-07-20-other-settings-network-and-interaction.md
-git commit -m "feat(settings): persist generic request timeout"
+git commit -m "feat(settings): persist generic request timeout" # d68b565
 ```
 
 ## Task 2: Canvas Interaction Reduction and Settings UI
@@ -222,23 +222,26 @@ git commit -m "feat(settings): persist generic request timeout"
 - Regenerate: `app/lib/l10n/app_localizations*.dart`
 - Test: `app/test/widgets/df_widgets_test.dart`
 - Test: `app/test/widgets/settings_screen_test.dart`
+- Test: `app/test/widgets/production_screen_test.dart`
 
 **Interfaces:**
 - Extend `DFCanvas` with `final bool interactionReductionEnabled`, default
-  `true`.
+  `false`; production explicitly passes its persisted setting, so the shared
+  image-flow canvas remains unchanged.
 - Expose no global interaction provider. The persistent boolean is read by
   `ProductionScreen` and passed into `_CanvasLayout` then its main `DFCanvas`.
 - `DFCanvas` owns `bool _isInteracting` and a cancelable 150ms `Timer`.
 
-- [ ] **Step 1: Write failing canvas and settings tests**
+- [x] **Step 1: Write failing canvas and settings tests**
 
 Add a lightweight tappable node child and a drag callback to
 `df_widgets_test.dart`. With `interactionReductionEnabled: true`, begin an
 actual drag on `df-canvas-drag-<id>`, pump, and assert the child is absent from
 hit testing while the drag handle still moves the node. Release, pump 149ms,
 assert the child remains unavailable; pump 1ms, assert it is tappable again.
-Create a separate false-flag test proving a node child is never wrapped/blocked
-during a drag.
+Create a separate default-value test proving a non-production node child is
+never wrapped/blocked during a drag. Add a production-screen test proving the
+persisted value is passed only after the desktop canvas is rebuilt.
 
 In `settings_screen_test.dart`, choose Other Settings, set the timeout to
 `42`, tap the performance switch off, save, rebuild the settings page with the
@@ -253,7 +256,7 @@ Repeat only the visible-control/hit-test assertions after a `Size(390, 760)`
 viewport. Include a `9`-second entry assertion that save keeps the current
 config and displays the existing human-readable validation error.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -266,17 +269,23 @@ flutter test test/widgets/df_widgets_test.dart \
 Expected: compilation failure because `interactionReductionEnabled` and its
 temporary interaction behavior do not exist.
 
-- [ ] **Step 3: Implement the canvas-only transient state**
+Observed: the canvas test failed to compile because the named parameter did
+not exist. The settings test then failed because its request-timeout field was
+absent. Both tests were written before their production implementations.
 
-Add `interactionReductionEnabled = true` to `DFCanvas`. In its state class,
-own one `Timer? _interactionRecovery` and a `_setInteracting(bool active)`
-method: when disabled, cancel and leave `_isInteracting` false; when starting,
-cancel recovery and set true only on a state change; when stopping, schedule
-exactly `const Duration(milliseconds: 150)` to clear it; cancel in `dispose`.
+- [x] **Step 3: Implement the canvas-only transient state**
 
-Call start from real node-drag activation, Space-pan start, viewport gesture
-start, two-finger start, and successful pointer-scroll transform. Call delayed
-stop from their matching end paths. A node's `child` becomes:
+Add `interactionReductionEnabled = false` to `DFCanvas`. A source-wide audit
+found `image_flow_editor.dart` is another direct caller, so a disabled default
+is essential. In its state class, own one `Timer? _interactionRecovery` and
+explicit begin/end/clear methods: when disabled, cancel and leave
+`_isInteracting` false; when starting, cancel recovery and set true only on a
+state change; when stopping, schedule exactly `const Duration(milliseconds: 150)`
+to clear it; cancel in `dispose`.
+
+Call start from the first real node-drag, Space-pan, viewport pan/pinch, or
+successful pointer-scroll transform. Call delayed stop from their matching end
+paths. A node's `child` becomes:
 
 ```dart
 final content = _isInteracting && widget.interactionReductionEnabled
@@ -301,13 +310,13 @@ Add a timeout controller in `SettingsScreen`, dispose it, initialize it from
 and include its parsed value in `_saveOtherSettings`. Add a `SwitchListTile`
 with a desktop-canvas helper text and update `production.interacting`
 immediately. The timeout field saves through the existing Save button; reject
-an invalid or `<10` value with `settingsOtherInvalidNumber` rather than
+an invalid or `<10` value with `settingsOtherInvalidTimeout` rather than
 silently changing what the user typed.
 
 Add zh/en/ja labels for request timeout, seconds, canvas performance title,
 and mobile/desktop explanatory copy, then run `flutter gen-l10n`.
 
-- [ ] **Step 4: Run responsive UI and gesture regressions**
+- [x] **Step 4: Run responsive UI and gesture regressions**
 
 Run:
 
@@ -322,6 +331,12 @@ flutter test --concurrency=1 test/widgets/df_widgets_test.dart \
 
 Expected: no analyzer diagnostics; existing zoom/scroll, mouse, trackpad,
 touch, Space, right-button, parameter-stop, and mobile settings tests all pass.
+
+Observed: 78 relevant widget/localization tests passed, including 390dp visible
+controls, real vertical scrolling to pre-existing confirmation and wheel
+controls, default image-flow-safe canvas behavior, and desktop production
+setting forwarding. `flutter analyze` reported no diagnostics. All requests in
+this regression set use local fakes; no text, image, TTS, or video provider ran.
 
 - [ ] **Step 5: Commit Task 2**
 

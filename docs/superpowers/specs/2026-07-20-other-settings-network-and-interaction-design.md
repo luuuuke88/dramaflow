@@ -76,7 +76,10 @@ desktop production canvas, because mobile intentionally uses tabbed panels
 instead of an infinite canvas.
 
 `DFCanvas` receives a plain `bool interactionReductionEnabled`, defaulting to
-true for direct callers. It owns short-lived interaction state:
+false. A source-wide call-site audit found that `image_flow_editor.dart` also
+uses this shared canvas; a disabled default is therefore necessary to keep the
+optimization exclusive to the desktop production canvas. It owns short-lived
+interaction state:
 
 - enter on a real node drag, Space-pan, background pan/pinch, or pointer-wheel
   viewport change;
@@ -92,8 +95,8 @@ than duplicating Web CSS concepts that Flutter does not have. When the setting
 is off, the wrapper is absent and no active-state timer alters node interaction.
 
 Only `ProductionScreen` passes the persisted setting to its desktop main
-`DFCanvas`. `image_flow_editor.dart` stays independent, matching the original
-where `canvasWheelEvent` and `interacting` are consumed only by production's
+`DFCanvas`. `image_flow_editor.dart` inherits the disabled default, matching
+the original where `canvasWheelEvent` and `interacting` are consumed only by production's
 main VueFlow.
 
 ## Tests and Verification

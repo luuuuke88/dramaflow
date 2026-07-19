@@ -211,6 +211,36 @@ void main() {
         CanvasWheelMode.scroll);
   });
 
+  testWidgets('桌面画布读取持久化的拖动性能开关', (tester) async {
+    engine.config.update({'production.interacting': '0'});
+    engine.addScript(projectId: projectId, name: '第一集', content: '正文内容');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<DFCanvas>(find.byType(DFCanvas))
+          .interactionReductionEnabled,
+      isFalse,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    engine.config.update({'production.interacting': '1'});
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<DFCanvas>(find.byType(DFCanvas))
+          .interactionReductionEnabled,
+      isTrue,
+    );
+  });
+
   testWidgets('桌面画布：Agent 对话入口可打开右侧面板', (tester) async {
     engine.addScript(projectId: projectId, name: '第一集', content: 'x');
     tester.view.physicalSize = const Size(1400, 900);

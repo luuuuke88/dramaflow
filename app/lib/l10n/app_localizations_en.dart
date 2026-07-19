@@ -3058,10 +3058,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOtherChapterRegRestore => 'Restore default';
 
   @override
+  String get settingsOtherRequestTimeout => 'Request timeout';
+
+  @override
+  String get settingsOtherSeconds => 'seconds';
+
+  @override
+  String get settingsOtherInvalidTimeout =>
+      'Request timeout must be at least 10 seconds';
+
+  @override
   String get settingsOtherEpisodeLength => 'Max characters per episode';
 
   @override
   String get settingsOtherBatchSize => 'Batch generation size';
+
+  @override
+  String get settingsOtherCanvasInteraction =>
+      'Production canvas drag performance';
+
+  @override
+  String get settingsOtherCanvasInteractionHint =>
+      'Temporarily simplify the desktop production canvas while dragging, panning, or zooming. Mobile only saves this setting.';
 
   @override
   String get settingsOtherCanvasWheelMode => 'Canvas scroll behavior';

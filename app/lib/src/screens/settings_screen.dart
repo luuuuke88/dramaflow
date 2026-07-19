@@ -209,6 +209,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // 其他设置字段控制器（懒初始化：进入面板时按引擎当前值填充）。
   TextEditingController? _chapterRegCtrl;
+  TextEditingController? _requestTimeoutCtrl;
   TextEditingController? _episodeLengthCtrl;
   TextEditingController? _batchSizeCtrl;
 
@@ -230,6 +231,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (_chapterRegCtrl != null) return;
     final config = ref.read(engineProvider).config;
     _chapterRegCtrl = TextEditingController(text: config.str('chapterReg'));
+    _requestTimeoutCtrl =
+        TextEditingController(text: '${config.requestTimeout.inSeconds}');
     _episodeLengthCtrl =
         TextEditingController(text: config.str('scriptEpisodeLength'));
     _batchSizeCtrl =
@@ -239,6 +242,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void dispose() {
     _chapterRegCtrl?.dispose();
+    _requestTimeoutCtrl?.dispose();
     _episodeLengthCtrl?.dispose();
     _batchSizeCtrl?.dispose();
     super.dispose();
@@ -970,6 +974,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           TextField(
+            key: const Key('settings-request-timeout'),
+            controller: _requestTimeoutCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: l10n.settingsOtherRequestTimeout,
+              suffixText: l10n.settingsOtherSeconds,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
             controller: _episodeLengthCtrl,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
@@ -985,6 +999,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 20),
+          SwitchListTile(
+            key: const ValueKey('settings-canvas-interaction-switch'),
+            contentPadding: EdgeInsets.zero,
+            value:
+                ref.read(engineProvider).config.str('production.interacting') !=
+                    '0',
+            onChanged: (enabled) => setState(() {
+              ref
+                  .read(engineProvider)
+                  .config
+                  .update({'production.interacting': enabled ? '1' : '0'});
+            }),
+            title: Text(l10n.settingsOtherCanvasInteraction),
+            subtitle: Text(l10n.settingsOtherCanvasInteractionHint),
+          ),
+          const SizedBox(height: 12),
           Text(l10n.settingsOtherCanvasWheelMode,
               style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
@@ -1060,8 +1090,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _saveOtherSettings() async {
     final l10n = context.l10n;
+    final timeout = int.tryParse(_requestTimeoutCtrl!.text.trim());
     final episode = int.tryParse(_episodeLengthCtrl!.text.trim());
     final batch = int.tryParse(_batchSizeCtrl!.text.trim());
+    if (timeout == null || timeout < 10) {
+      await runAction(context, ref, () async {
+        throw EngineException(l10n.settingsOtherInvalidTimeout);
+      });
+      return;
+    }
     if (episode == null || episode <= 0 || batch == null || batch <= 0) {
       await runAction(context, ref, () async {
         throw EngineException(l10n.settingsOtherInvalidNumber);
@@ -1071,6 +1108,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await runAction(context, ref, () async {
       ref.read(engineProvider).config.update({
         'chapterReg': _chapterRegCtrl!.text.trim(),
+        'requestTimeoutSeconds': '$timeout',
         'scriptEpisodeLength': '$episode',
         'assetsBatchGenereateSize': '$batch',
       });

@@ -3,6 +3,7 @@
 // 背景手势层负责平移缩放，节点用 Positioned+Stack，边用 CustomPainter 画三次贝塞尔
 // 曲线。节点位置由调用方管理；提供 onDragUpdate 时，顶部 36px 拖拽区会把屏幕位移
 // 换算为场景位移。背景与节点是命中测试的同级层，保证卡片内的输入控件不被画布抢手势。
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -270,6 +271,7 @@ class DFCanvas extends StatefulWidget {
   final TransformationController? controller;
   final bool fitOnInit;
   final CanvasWheelMode wheelMode;
+  final bool interactionReductionEnabled;
 
   const DFCanvas({
     super.key,
@@ -278,6 +280,7 @@ class DFCanvas extends StatefulWidget {
     this.controller,
     this.fitOnInit = true,
     this.wheelMode = CanvasWheelMode.zoom,
+    this.interactionReductionEnabled = false,
   });
 
   @override
@@ -297,6 +300,8 @@ class _DFCanvasState extends State<DFCanvas> {
   Matrix4? _transformBeforeViewportGesture;
   Offset? _viewportGestureOrigin;
   bool _twoFingerPinchActive = false;
+  Timer? _interactionRecovery;
+  bool _isInteracting = false;
 
   @override
   void initState() {
@@ -309,6 +314,7 @@ class _DFCanvasState extends State<DFCanvas> {
 
   @override
   void dispose() {
+    _interactionRecovery?.cancel();
     _releaseController();
     super.dispose();
   }
@@ -332,6 +338,27 @@ class _DFCanvasState extends State<DFCanvas> {
 
   void _handleTransformChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _beginInteraction() {
+    if (!widget.interactionReductionEnabled) return;
+    _interactionRecovery?.cancel();
+    if (_isInteracting) return;
+    setState(() => _isInteracting = true);
+  }
+
+  void _endInteractionAfterDelay() {
+    if (!widget.interactionReductionEnabled || !_isInteracting) return;
+    _interactionRecovery?.cancel();
+    _interactionRecovery = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) setState(() => _isInteracting = false);
+    });
+  }
+
+  void _clearInteractionReduction() {
+    _interactionRecovery?.cancel();
+    _interactionRecovery = null;
+    if (_isInteracting) setState(() => _isInteracting = false);
   }
 
   void _startNodeDrag(PointerDownEvent event) {
@@ -364,6 +391,7 @@ class _DFCanvasState extends State<DFCanvas> {
       }
       _dragPointer = event.pointer;
       _pendingNodeDragPointer = null;
+      _beginInteraction();
     }
     if (_dragPointer != event.pointer || _lastDragPosition == null) return;
     final delta = event.position - _lastDragPosition!;
@@ -376,10 +404,12 @@ class _DFCanvasState extends State<DFCanvas> {
   }
 
   void _endNodeDrag(PointerEvent event) {
+    final wasDragging = _dragPointer == event.pointer;
     if (_dragPointer == event.pointer) {
       _dragPointer = null;
       _lastDragPosition = null;
     }
+    if (wasDragging) _endInteractionAfterDelay();
     if (_pendingNodeDragPointer == event.pointer) {
       _pendingNodeDragPointer = null;
       _lastDragPosition = null;
@@ -406,6 +436,7 @@ class _DFCanvasState extends State<DFCanvas> {
         _transformBeforeSpacePan == null) {
       return;
     }
+    _beginInteraction();
     final delta = event.position - _spacePanOrigin!;
     final transform = Matrix4.copy(_transformBeforeSpacePan!);
     transform.storage[12] += delta.dx;
@@ -418,6 +449,7 @@ class _DFCanvasState extends State<DFCanvas> {
     _spacePanPointer = null;
     _spacePanOrigin = null;
     _transformBeforeSpacePan = null;
+    _endInteractionAfterDelay();
   }
 
   double _canvasScale(Matrix4 transform) =>
@@ -435,6 +467,7 @@ class _DFCanvasState extends State<DFCanvas> {
 
     final initialScale = _canvasScale(initial);
     if (initialScale <= 0) return;
+    if (gestureScale != 1 || focalPoint != origin) _beginInteraction();
     final targetScale =
         (initialScale * gestureScale).clamp(0.1, 10.0).toDouble();
     final factor = targetScale / initialScale;
@@ -465,6 +498,7 @@ class _DFCanvasState extends State<DFCanvas> {
   void _endViewportGesture(ScaleEndDetails details) {
     _transformBeforeViewportGesture = null;
     _viewportGestureOrigin = null;
+    _endInteractionAfterDelay();
   }
 
   void _startTwoFingerViewportGesture(Offset focalPoint) {
@@ -483,6 +517,7 @@ class _DFCanvasState extends State<DFCanvas> {
     _twoFingerPinchActive = false;
     _transformBeforeViewportGesture = null;
     _viewportGestureOrigin = null;
+    _endInteractionAfterDelay();
   }
 
   Offset _viewportPositionOf(PointerEvent event) {
@@ -494,14 +529,18 @@ class _DFCanvasState extends State<DFCanvas> {
     if (event is! PointerScrollEvent || _spacePanPointer != null) return;
     final transform = Matrix4.copy(_controller.value);
     if (widget.wheelMode == CanvasWheelMode.scroll) {
+      if (event.scrollDelta == Offset.zero) return;
+      _beginInteraction();
       transform.storage[12] -= event.scrollDelta.dx;
       transform.storage[13] -= event.scrollDelta.dy;
       _controller.value = transform;
+      _endInteractionAfterDelay();
       return;
     }
     if (event.scrollDelta.dy == 0) return;
     final scale = _canvasScale(transform);
     if (scale <= 0) return;
+    _beginInteraction();
     final targetScale =
         (scale * math.exp(-event.scrollDelta.dy / 200)).clamp(0.1, 10.0);
     final factor = targetScale / scale;
@@ -513,6 +552,7 @@ class _DFCanvasState extends State<DFCanvas> {
     transform.storage[13] =
         focalPoint.dy - (focalPoint.dy - transform.storage[13]) * factor;
     _controller.value = transform;
+    _endInteractionAfterDelay();
   }
 
   @override
@@ -521,6 +561,10 @@ class _DFCanvasState extends State<DFCanvas> {
     if (oldWidget.controller != widget.controller) {
       _releaseController();
       _setController(widget.controller);
+    }
+    if (oldWidget.interactionReductionEnabled &&
+        !widget.interactionReductionEnabled) {
+      _clearInteractionReduction();
     }
     if (widget.fitOnInit &&
         !_fitted &&
@@ -725,7 +769,14 @@ class _DFCanvasState extends State<DFCanvas> {
                                             handleViewportPointerSignal:
                                                 _handleBackgroundPointerSignal,
                                           ),
-                                    child: node.child,
+                                    child: _isInteracting &&
+                                            widget.interactionReductionEnabled
+                                        ? TickerMode(
+                                            enabled: false,
+                                            child: IgnorePointer(
+                                                child: node.child),
+                                          )
+                                        : node.child,
                                   ),
                                   if (node.onDragUpdate != null)
                                     Positioned(

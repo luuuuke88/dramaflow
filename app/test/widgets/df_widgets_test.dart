@@ -564,6 +564,95 @@ void main() {
     expect(total.dy, closeTo(10, 0.1));
   });
 
+  testWidgets('DFCanvas interaction reduction blocks content for 150ms',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    final deltas = <Offset>[];
+    var taps = 0;
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        fitOnInit: false,
+        interactionReductionEnabled: true,
+        nodes: [
+          DFCanvasNode(
+            id: 'reduced-content',
+            position: const Offset(80, 80),
+            size: const Size(220, 120),
+            onDragUpdate: deltas.add,
+            child: GestureDetector(
+              key: const Key('reduced-node-content'),
+              onTap: () => taps++,
+              child: const ColoredBox(color: Colors.blue),
+            ),
+          ),
+        ],
+      ),
+    )));
+
+    await tester.drag(
+      find.byKey(const ValueKey('df-canvas-drag-reduced-content')),
+      const Offset(40, 20),
+    );
+    await tester.pump();
+
+    expect(deltas, isNotEmpty);
+    await tester.tap(
+      find.byKey(const Key('reduced-node-content')),
+      warnIfMissed: false,
+    );
+    expect(taps, 0);
+
+    await tester.pump(const Duration(milliseconds: 149));
+    await tester.tap(
+      find.byKey(const Key('reduced-node-content')),
+      warnIfMissed: false,
+    );
+    expect(taps, 0);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.tap(find.byKey(const Key('reduced-node-content')));
+    expect(taps, 1);
+  });
+
+  testWidgets('DFCanvas default keeps non-production content tappable',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    var taps = 0;
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        fitOnInit: false,
+        nodes: [
+          DFCanvasNode(
+            id: 'normal-content',
+            position: const Offset(80, 80),
+            size: const Size(220, 120),
+            onDragUpdate: (_) {},
+            child: GestureDetector(
+              key: const Key('normal-node-content'),
+              onTap: () => taps++,
+              child: const ColoredBox(color: Colors.blue),
+            ),
+          ),
+        ],
+      ),
+    )));
+
+    await tester.drag(
+      find.byKey(const ValueKey('df-canvas-drag-normal-content')),
+      const Offset(40, 20),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('normal-node-content')));
+
+    expect(taps, 1);
+  });
+
   testWidgets('DFCanvas title handle keeps scene delta at zoom below one',
       (tester) async {
     await setLogicalSize(tester, const Size(900, 600));

@@ -854,6 +854,11 @@ void main() {
     expect(engine.config.str('policy.confirmMoney'), '1');
     expect(engine.config.str('policy.confirmDestructive'), '1');
 
+    await tester.drag(
+      find.byKey(const Key('settings-section-scroll')),
+      const Offset(0, -260),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('花钱操作需确认'));
     await tester.pumpAndSettle();
     expect(engine.config.str('policy.confirmMoney'), '0');
@@ -883,6 +888,11 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.drag(
+      find.byKey(const Key('settings-section-scroll')),
+      const Offset(0, -220),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-canvas-wheel-scroll')));
     await tester.pump();
 
@@ -916,6 +926,70 @@ void main() {
     await tester.tap(zoom);
     await tester.pump();
     expect(container.read(canvasWheelModeProvider), CanvasWheelMode.zoom);
+  });
+
+  testWidgets('390dp 其他设置保存请求超时与画布拖动性能开关', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _selectSection(tester, '其他设置');
+
+    final timeout = find.byKey(const Key('settings-request-timeout'));
+    final interactionSwitch =
+        find.byKey(const Key('settings-canvas-interaction-switch'));
+    expect(timeout, findsOneWidget);
+    expect(interactionSwitch, findsOneWidget);
+    const viewport = Rect.fromLTWH(0, 0, 390, 760);
+    expect(tester.getRect(timeout).overlaps(viewport), isTrue);
+    expect(tester.getRect(interactionSwitch).overlaps(viewport), isTrue);
+
+    await tester.enterText(timeout, '42');
+    await tester.tap(interactionSwitch);
+    final save = find.byIcon(Icons.save_outlined);
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(engine.config.requestTimeout, const Duration(seconds: 42));
+    expect(engine.config.str('production.interacting'), '0');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _selectSection(tester, '其他设置');
+
+    final reloadedTimeout = tester
+        .widget<TextField>(find.byKey(const Key('settings-request-timeout')));
+    expect(reloadedTimeout.controller!.text, '42');
+    expect(
+      tester
+          .widget<SwitchListTile>(
+              find.byKey(const Key('settings-canvas-interaction-switch')))
+          .value,
+      isFalse,
+    );
+  });
+
+  testWidgets('其他设置拒绝小于十秒的请求超时', (tester) async {
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _selectSection(tester, '其他设置');
+
+    await tester.enterText(
+        find.byKey(const Key('settings-request-timeout')), '9');
+    final save = find.byIcon(Icons.save_outlined);
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(engine.config.requestTimeout, const Duration(seconds: 600));
+    expect(find.textContaining('至少为 10 秒'), findsOneWidget);
   });
 
   testWidgets('模型管理：从 API 拉取候选，未分类必须定 kind 才能加入，且默认禁用', (tester) async {

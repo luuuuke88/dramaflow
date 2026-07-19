@@ -2953,10 +2953,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsOtherChapterRegRestore => '恢复默认';
 
   @override
+  String get settingsOtherRequestTimeout => '请求超时';
+
+  @override
+  String get settingsOtherSeconds => '秒';
+
+  @override
+  String get settingsOtherInvalidTimeout => '请求超时至少为 10 秒';
+
+  @override
   String get settingsOtherEpisodeLength => '单集字数上限';
 
   @override
   String get settingsOtherBatchSize => '批量生成数量';
+
+  @override
+  String get settingsOtherCanvasInteraction => '制作画布拖动性能优化';
+
+  @override
+  String get settingsOtherCanvasInteractionHint =>
+      '拖动、平移或缩放时临时简化桌面制作画布；移动端仅保存此设置。';
 
   @override
   String get settingsOtherCanvasWheelMode => '画布滚轮行为';

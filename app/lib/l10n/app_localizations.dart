@@ -5770,6 +5770,24 @@ abstract class AppLocalizations {
   /// **'恢复默认'**
   String get settingsOtherChapterRegRestore;
 
+  /// No description provided for @settingsOtherRequestTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求超时'**
+  String get settingsOtherRequestTimeout;
+
+  /// No description provided for @settingsOtherSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'秒'**
+  String get settingsOtherSeconds;
+
+  /// No description provided for @settingsOtherInvalidTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求超时至少为 10 秒'**
+  String get settingsOtherInvalidTimeout;
+
   /// No description provided for @settingsOtherEpisodeLength.
   ///
   /// In zh, this message translates to:
@@ -5781,6 +5799,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'批量生成数量'**
   String get settingsOtherBatchSize;
+
+  /// No description provided for @settingsOtherCanvasInteraction.
+  ///
+  /// In zh, this message translates to:
+  /// **'制作画布拖动性能优化'**
+  String get settingsOtherCanvasInteraction;
+
+  /// No description provided for @settingsOtherCanvasInteractionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖动、平移或缩放时临时简化桌面制作画布；移动端仅保存此设置。'**
+  String get settingsOtherCanvasInteractionHint;
 
   /// No description provided for @settingsOtherCanvasWheelMode.
   ///

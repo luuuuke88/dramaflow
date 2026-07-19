@@ -83,7 +83,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final wheelMode = ref.watch(canvasWheelModeProvider);
-    final scripts = ref.watch(engineProvider).scripts(widget.projectId);
+    final engine = ref.watch(engineProvider);
+    final scripts = engine.scripts(widget.projectId);
+    final interactionReductionEnabled =
+        engine.config.str('production.interacting') != '0';
     if (scripts.isEmpty) {
       return Center(
         child: DFEmpty(
@@ -119,6 +122,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                     projectId: widget.projectId,
                     script: script,
                     wheelMode: wheelMode,
+                    interactionReductionEnabled: interactionReductionEnabled,
                     layoutTargetKey: _layoutGuideTarget,
                     canvasTargetKey: _canvasGuideTarget,
                   )
@@ -216,6 +220,7 @@ class _CanvasLayout extends StatefulWidget {
   final int projectId;
   final ScriptRow script;
   final CanvasWheelMode wheelMode;
+  final bool interactionReductionEnabled;
   final GlobalKey layoutTargetKey;
   final GlobalKey canvasTargetKey;
   const _CanvasLayout({
@@ -223,6 +228,7 @@ class _CanvasLayout extends StatefulWidget {
     required this.projectId,
     required this.script,
     required this.wheelMode,
+    required this.interactionReductionEnabled,
     required this.layoutTargetKey,
     required this.canvasTargetKey,
   });
@@ -283,6 +289,7 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
       controller: _canvasController,
       fitOnInit: true,
       wheelMode: widget.wheelMode,
+      interactionReductionEnabled: widget.interactionReductionEnabled,
       nodes: [
         DFCanvasNode(
           id: 'script',
