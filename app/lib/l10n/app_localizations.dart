@@ -5986,6 +5986,24 @@ abstract class AppLocalizations {
   /// **'全部'**
   String get taskFilterAll;
 
+  /// No description provided for @taskFilterProject.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目'**
+  String get taskFilterProject;
+
+  /// No description provided for @taskAllProjects.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部项目'**
+  String get taskAllProjects;
+
+  /// No description provided for @taskPageSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'每页'**
+  String get taskPageSize;
+
   /// No description provided for @taskDetailTitle.
   ///
   /// In zh, this message translates to:

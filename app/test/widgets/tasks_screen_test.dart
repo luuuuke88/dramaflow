@@ -109,6 +109,51 @@ void main() {
     expect(find.textContaining('状态:'), findsWidgets);
   });
 
+  testWidgets('历史默认跨项目展示，并可翻到下一页', (tester) async {
+    final secondProjectId =
+        engine.addProject(projectType: 'novel', name: '第二项目');
+    for (var index = 0; index < 12; index++) {
+      db.execute(
+        'INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) '
+        'VALUES (?,?,?,?,?)',
+        [
+          'event_generation',
+          'success',
+          secondProjectId,
+          '第二项目任务 ${index + 1}',
+          1700000010000 + index,
+        ],
+      );
+    }
+
+    await tester.pumpWidget(app());
+    await settle(tester);
+
+    expect(find.byKey(const ValueKey('task-project-filter')), findsOneWidget);
+    expect(find.textContaining('第二项目任务 12'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task-page-next')), findsOneWidget);
+    expect(find.text('共 15 条'), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('task-page-next')))
+          .onPressed,
+      isNotNull,
+    );
+
+    final scrollable = find.byType(Scrollable).first;
+    final scrollState = tester.state<ScrollableState>(scrollable);
+    expect(scrollState.position.maxScrollExtent, greaterThan(0));
+    await tester.drag(find.byType(ListView), const Offset(0, -800));
+    await settle(tester);
+    expect(scrollState.position.pixels, greaterThan(0));
+    await tester.tap(find.byKey(const ValueKey('task-page-next')));
+    await settle(tester);
+
+    expect(find.textContaining('第二项目任务 12'), findsNothing);
+    expect(find.textContaining('第二项目任务 2'), findsOneWidget);
+    expect(find.textContaining('任务筛选项目'), findsWidgets);
+  });
+
   testWidgets('任务中心本地化展示全部流水线任务类型', (tester) async {
     final classes = {
       'asset_prompt_polish': '素材提示词润色',
@@ -138,6 +183,29 @@ void main() {
     }
   });
 
+  testWidgets('刷新会重新读取跨项目历史任务', (tester) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+
+    db.execute(
+      'INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) '
+      'VALUES (?,?,?,?,?)',
+      [
+        'event_generation',
+        'success',
+        projectId,
+        '刷新后读取的任务',
+        1700000020000,
+      ],
+    );
+    expect(find.textContaining('刷新后读取的任务'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('task-history-refresh')));
+    await settle(tester);
+
+    expect(find.textContaining('刷新后读取的任务'), findsOneWidget);
+  });
+
   testWidgets('按状态筛选：仅失败时只剩素材提取行', (tester) async {
     await tester.pumpWidget(app());
     await settle(tester);
@@ -150,6 +218,33 @@ void main() {
 
     expect(find.text('素材提取'), findsOneWidget);
     expect(find.text('事件生成'), findsNothing);
+  });
+
+  testWidgets('按任务类型筛选并调整每页数量', (tester) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+
+    await tester.tap(find.byKey(const ValueKey('task-class-filter')));
+    await settle(tester);
+    await tester.tap(find.textContaining('任务类型: 事件生成').last);
+    await settle(tester);
+
+    expect(find.text('事件生成'), findsWidgets);
+    expect(find.text('素材提取'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('task-page-size')));
+    await settle(tester);
+    await tester.tap(find.text('25').last);
+    await settle(tester);
+
+    expect(
+      tester
+          .widget<DropdownButton<int>>(
+            find.byKey(const ValueKey('task-page-size')),
+          )
+          .value,
+      25,
+    );
   });
 
   testWidgets('点击任务行打开只读详情弹窗', (tester) async {
@@ -190,11 +285,11 @@ void main() {
     await settle(tester);
 
     expect(find.text('素材提取'), findsOneWidget);
-    expect(find.textContaining('第二项目分镜失败'), findsNothing);
+    expect(find.textContaining('第二项目分镜失败'), findsOneWidget);
 
-    await tester.tap(find.byType(DropdownButton<int>));
+    await tester.tap(find.byKey(const ValueKey('task-project-filter')));
     await settle(tester);
-    await tester.tap(find.text('第二项目').last);
+    await tester.tap(find.textContaining('第二项目').last);
     await settle(tester);
 
     expect(find.textContaining('第二项目分镜失败'), findsOneWidget);
@@ -206,6 +301,42 @@ void main() {
 
     expect(find.text('任务详情'), findsOneWidget);
     expect(find.text('第二项目分镜失败'), findsWidgets);
+  });
+
+  testWidgets('移动端任务中心：分页控件可达且能翻页', (tester) async {
+    final secondProjectId =
+        engine.addProject(projectType: 'novel', name: '移动分页项目');
+    for (var index = 0; index < 12; index++) {
+      db.execute(
+        'INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) '
+        'VALUES (?,?,?,?,?)',
+        [
+          'event_generation',
+          'success',
+          secondProjectId,
+          '移动分页任务 ${index + 1}',
+          1700000030000 + index,
+        ],
+      );
+    }
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await settle(tester);
+    expect(find.textContaining('移动分页任务 12'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -800));
+    await settle(tester);
+    await tester.drag(find.byType(ListView), const Offset(0, -240));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('task-page-next')));
+    await settle(tester);
+
+    expect(find.textContaining('移动分页任务 12'), findsNothing);
+    expect(find.textContaining('移动分页任务 2'), findsOneWidget);
   });
 
   testWidgets('移动端任务中心：失败任务可重试，待处理任务可取消', (tester) async {

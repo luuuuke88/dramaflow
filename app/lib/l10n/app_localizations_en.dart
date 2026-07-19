@@ -3177,6 +3177,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get taskFilterAll => 'All';
 
   @override
+  String get taskFilterProject => 'Project';
+
+  @override
+  String get taskAllProjects => 'All projects';
+
+  @override
+  String get taskPageSize => 'Per page';
+
+  @override
   String get taskDetailTitle => 'Task detail';
 
   @override

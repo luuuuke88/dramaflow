@@ -3068,6 +3068,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get taskFilterAll => '全部';
 
   @override
+  String get taskFilterProject => '项目';
+
+  @override
+  String get taskAllProjects => '全部项目';
+
+  @override
+  String get taskPageSize => '每页';
+
+  @override
   String get taskDetailTitle => '任务详情';
 
   @override

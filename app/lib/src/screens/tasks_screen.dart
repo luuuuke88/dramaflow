@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../engine/engine.dart';
 import '../engine/errors.dart';
@@ -13,34 +12,40 @@ import '../theme/theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
 
-final _selectedProjectProvider = StateProvider<int?>((ref) => null);
+const _kAllFilter = '__all__';
+const _kAllProjectId = -1;
 
 class TasksScreen extends ConsumerWidget {
   const TasksScreen({super.key});
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.read(activeJobsProvider.notifier).poke();
+    ref.read(jobsGenerationProvider.notifier).bump();
+    ref.invalidate(projectsProvider);
+    ref.invalidate(taskHistoryClassesProvider);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = ref.watch(activeJobsProvider);
     final projectsAsync = ref.watch(projectsProvider);
-    final selectedId = ref.watch(_selectedProjectProvider);
     final l10n = AppLocalizations.of(context);
-    final projects = projectsAsync.value ?? const [];
-    final effectiveId = selectedId != null &&
-            projects.any((project) => project.id == selectedId)
-        ? selectedId
-        : (projects.isEmpty ? null : projects.first.id);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.taskCenterTitle)),
+      appBar: AppBar(
+        title: Text(l10n.taskCenterTitle),
+        actions: [
+          IconButton(
+            key: const ValueKey('task-history-refresh'),
+            tooltip: l10n.commonRefresh,
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => _refresh(ref),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         color: context.df.primary,
-        onRefresh: () async {
-          ref.read(activeJobsProvider.notifier).poke();
-          ref.invalidate(projectsProvider);
-          if (effectiveId != null) {
-            ref.invalidate(projectJobsProvider(effectiveId));
-          }
-        },
+        onRefresh: () => _refresh(ref),
         child: PageContainer(
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -52,10 +57,7 @@ class TasksScreen extends ConsumerWidget {
                 emptyText: l10n.taskActiveEmpty,
               ),
               const SizedBox(height: 16),
-              _HistorySection(
-                projectsAsync: projectsAsync,
-                effectiveId: effectiveId,
-              ),
+              _HistorySection(projectsAsync: projectsAsync),
             ],
           ),
         ),
@@ -64,65 +66,72 @@ class TasksScreen extends ConsumerWidget {
   }
 }
 
-// 任务筛选（审计补齐）：任务类型 + 状态。客户端筛选，任务类型选项从当前行去重派生。
-const _kAllFilter = '__all__';
-
 class _HistorySection extends ConsumerStatefulWidget {
   final AsyncValue<List<ProjectRow>> projectsAsync;
-  final int? effectiveId;
 
-  const _HistorySection({
-    required this.projectsAsync,
-    required this.effectiveId,
-  });
+  const _HistorySection({required this.projectsAsync});
 
   @override
   ConsumerState<_HistorySection> createState() => _HistorySectionState();
 }
 
 class _HistorySectionState extends ConsumerState<_HistorySection> {
+  int? _selectedProjectId;
   String _classFilter = _kAllFilter;
   String _stateFilter = _kAllFilter;
+  int _page = 1;
+  int _limit = 10;
+
+  void _resetPage(VoidCallback update) {
+    setState(() {
+      update();
+      _page = 1;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final projectsAsync = widget.projectsAsync;
-    final effectiveId = widget.effectiveId;
     final projects = projectsAsync.value ?? const [];
     final l10n = AppLocalizations.of(context);
-    if (projectsAsync.isLoading && !projectsAsync.hasValue) {
-      return _TaskSection(
-          title: l10n.taskHistoryTitle, body: const _CenteredLoader());
-    }
-    if (projectsAsync.hasError && !projectsAsync.hasValue) {
-      return _TaskSection(
-        title: l10n.taskHistoryTitle,
-        body: ErrorCard(
-          message: projectsAsync.error.toString(),
-          onRetry: () => ref.invalidate(projectsProvider),
-        ),
-      );
-    }
-    if (effectiveId == null) {
-      return _TaskSection(
-        title: l10n.taskHistoryTitle,
-        emptyText: l10n.taskNoProjects,
-      );
-    }
-
-    final tasksAsync = ref.watch(projectJobsProvider(effectiveId));
+    final effectiveProjectId = _selectedProjectId != null &&
+            projects.any((project) => project.id == _selectedProjectId)
+        ? _selectedProjectId
+        : null;
+    final query = TaskHistoryQuery(
+      projectId: effectiveProjectId,
+      taskClass: _classFilter == _kAllFilter ? null : _classFilter,
+      state: _stateFilter == _kAllFilter ? null : _stateFilter,
+      page: _page,
+      limit: _limit,
+    );
+    final tasksAsync = ref.watch(taskHistoryProvider(query));
+    final classesAsync = ref.watch(taskHistoryClassesProvider);
     final projectPicker = DropdownButton<int>(
-      value: effectiveId,
+      key: const ValueKey('task-project-filter'),
+      isExpanded: true,
+      value: effectiveProjectId ?? _kAllProjectId,
       items: [
+        DropdownMenuItem<int>(
+          value: _kAllProjectId,
+          child: _FilterLabel(
+            '${l10n.taskFilterProject}: ${l10n.taskAllProjects}',
+          ),
+        ),
         for (final project in projects)
           DropdownMenuItem<int>(
             value: project.id,
-            child: Text(project.name ?? '#${project.id}'),
+            child: _FilterLabel(
+              '${l10n.taskFilterProject}: '
+              '${project.name ?? '#${project.id}'}',
+            ),
           ),
       ],
       onChanged: (id) {
         if (id != null) {
-          ref.read(_selectedProjectProvider.notifier).state = id;
+          _resetPage(() {
+            _selectedProjectId = id == _kAllProjectId ? null : id;
+          });
         }
       },
     );
@@ -139,49 +148,97 @@ class _HistorySectionState extends ConsumerState<_HistorySection> {
         trailing: projectPicker,
         body: ErrorCard(
           message: tasksAsync.error.toString(),
-          onRetry: () => ref.invalidate(projectJobsProvider(effectiveId)),
+          onRetry: () => ref.invalidate(taskHistoryProvider(query)),
         ),
       );
     }
 
-    final allTasks = tasksAsync.value ?? const <TasksRow>[];
+    final page = tasksAsync.value!;
     final classes = <String>{
-      for (final task in allTasks)
-        if (task.taskClass.isNotEmpty) task.taskClass,
+      ...?classesAsync.value,
+      if (_classFilter != _kAllFilter) _classFilter,
     }.toList()
       ..sort();
-    final states = <String>{
-      for (final task in allTasks) task.state,
-    }.toList()
-      ..sort();
-    // 当前筛选值已不在选项列表中时（如切换项目后），回退到"全部"。
-    final classValue =
-        classes.contains(_classFilter) ? _classFilter : _kAllFilter;
-    final stateValue =
-        states.contains(_stateFilter) ? _stateFilter : _kAllFilter;
-    final filtered = [
-      for (final task in allTasks)
-        if ((classValue == _kAllFilter || task.taskClass == classValue) &&
-            (stateValue == _kAllFilter || task.state == stateValue))
-          task,
-    ];
+    const states = ['pending', 'processing', 'success', 'failed', 'canceled'];
 
     return _TaskSection(
       title: l10n.taskHistoryTitle,
       trailing: projectPicker,
-      filters: allTasks.isEmpty
-          ? null
-          : _TaskFilters(
-              classes: classes,
-              states: states,
-              classValue: classValue,
-              stateValue: stateValue,
-              onClassChanged: (v) => setState(() => _classFilter = v),
-              onStateChanged: (v) => setState(() => _stateFilter = v),
-            ),
-      tasks: filtered,
-      emptyText:
-          allTasks.isEmpty ? l10n.taskHistoryEmpty : l10n.taskFilterEmpty,
+      filters: _TaskFilters(
+        classes: classes,
+        states: states,
+        classValue: _classFilter,
+        stateValue: _stateFilter,
+        onClassChanged: (v) => _resetPage(() => _classFilter = v),
+        onStateChanged: (v) => _resetPage(() => _stateFilter = v),
+      ),
+      tasks: page.items,
+      emptyText: query.projectId == null && page.total == 0
+          ? l10n.taskHistoryEmpty
+          : l10n.taskFilterEmpty,
+      footer: _TaskHistoryFooter(
+        page: page,
+        onLimitChanged: (limit) => _resetPage(() => _limit = limit),
+        onPageChanged: (targetPage) => setState(() => _page = targetPage),
+      ),
+    );
+  }
+}
+
+class _TaskHistoryFooter extends StatelessWidget {
+  final TaskHistoryPage page;
+  final ValueChanged<int> onLimitChanged;
+  final ValueChanged<int> onPageChanged;
+
+  const _TaskHistoryFooter({
+    required this.page,
+    required this.onLimitChanged,
+    required this.onPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(l10n.taskPageSize),
+          DropdownButton<int>(
+            key: const ValueKey('task-page-size'),
+            value: page.query.limit,
+            items: const [10, 25, 50]
+                .map((limit) => DropdownMenuItem(
+                      value: limit,
+                      child: Text('$limit'),
+                    ))
+                .toList(),
+            onChanged: (limit) {
+              if (limit != null) onLimitChanged(limit);
+            },
+          ),
+          Text('${page.query.page} / ${page.totalPages}'),
+          Text(l10n.dataTableTotal(page.total)),
+          IconButton(
+            key: const ValueKey('task-page-previous'),
+            tooltip: l10n.dataTablePrevPage,
+            icon: const Icon(Icons.chevron_left_rounded),
+            onPressed: page.hasPrevious
+                ? () => onPageChanged(page.query.page - 1)
+                : null,
+          ),
+          IconButton(
+            key: const ValueKey('task-page-next'),
+            tooltip: l10n.dataTableNextPage,
+            icon: const Icon(Icons.chevron_right_rounded),
+            onPressed:
+                page.hasNext ? () => onPageChanged(page.query.page + 1) : null,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -220,6 +277,7 @@ class _TaskFilters extends StatelessWidget {
               SizedBox(
                 width: filterWidth,
                 child: DropdownButton<String>(
+                  key: const ValueKey('task-class-filter'),
                   isExpanded: true,
                   value: classValue,
                   hint: Text(l10n.taskFilterClass),
@@ -246,6 +304,7 @@ class _TaskFilters extends StatelessWidget {
               SizedBox(
                 width: filterWidth,
                 child: DropdownButton<String>(
+                  key: const ValueKey('task-state-filter'),
                   isExpanded: true,
                   value: stateValue,
                   hint: Text(l10n.taskFilterState),
@@ -299,6 +358,7 @@ class _TaskSection extends StatelessWidget {
   final Widget? trailing;
   final Widget? body;
   final Widget? filters;
+  final Widget? footer;
 
   const _TaskSection({
     required this.title,
@@ -307,6 +367,7 @@ class _TaskSection extends StatelessWidget {
     this.trailing,
     this.body,
     this.filters,
+    this.footer,
   });
 
   @override
@@ -319,14 +380,32 @@ class _TaskSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(title,
-                      style: Theme.of(context).textTheme.titleMedium),
-                ),
-                if (trailing != null) trailing!,
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 560;
+                final titleWidget = Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                );
+                if (trailing == null) return titleWidget;
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      titleWidget,
+                      const SizedBox(height: 8),
+                      trailing!
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: titleWidget),
+                    const SizedBox(width: 16),
+                    SizedBox(width: 240, child: trailing!),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             if (filters != null) filters!,
@@ -342,6 +421,7 @@ class _TaskSection extends StatelessWidget {
               )
             else
               for (final task in tasks) _TaskTile(task: task),
+            if (footer != null) footer!,
           ],
         ),
       ),
@@ -366,7 +446,10 @@ class _TaskTile extends ConsumerWidget {
       subtitle: Text([
         if (task.describe?.isNotEmpty == true) task.describe!,
         if (task.attempt > 1) l10n.taskAttemptLabel(task.attempt),
-        if (task.projectId != null) l10n.taskProjectLabel(task.projectId!),
+        if (task.projectName?.isNotEmpty == true)
+          task.projectName!
+        else if (task.projectId != null)
+          l10n.taskProjectLabel(task.projectId!),
         if (task.startTime != null) _formatTime(task.startTime!),
         if (reason != null) reason,
       ].join(' · ')),
@@ -381,9 +464,7 @@ class _TaskTile extends ConsumerWidget {
               icon: const Icon(Icons.close_rounded),
               onPressed: () => runAction(context, ref, () async {
                 await ref.read(engineProvider).cancelJob(task.id);
-                if (task.projectId != null) {
-                  ref.invalidate(projectJobsProvider(task.projectId!));
-                }
+                ref.read(jobsGenerationProvider.notifier).bump();
               }, successMessage: l10n.taskCanceledMessage),
             ),
           if (task.state == 'failed' && task.supersededByTaskId == null)
@@ -392,9 +473,7 @@ class _TaskTile extends ConsumerWidget {
               icon: const Icon(Icons.refresh_rounded),
               onPressed: () => runAction(context, ref, () async {
                 await ref.read(engineProvider).retryJob(task.id);
-                if (task.projectId != null) {
-                  ref.invalidate(projectJobsProvider(task.projectId!));
-                }
+                ref.read(jobsGenerationProvider.notifier).bump();
               }, successMessage: l10n.taskRetryQueued),
             ),
         ],

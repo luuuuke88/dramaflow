@@ -3091,6 +3091,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get taskFilterAll => 'すべて';
 
   @override
+  String get taskFilterProject => 'プロジェクト';
+
+  @override
+  String get taskAllProjects => 'すべてのプロジェクト';
+
+  @override
+  String get taskPageSize => '表示件数';
+
+  @override
   String get taskDetailTitle => 'タスク詳細';
 
   @override
