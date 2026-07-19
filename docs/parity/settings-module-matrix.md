@@ -88,7 +88,7 @@ flutter test --concurrency=1 \
 1. 它们依赖浏览器 SPA、Electron 主进程或 Node/Vercel AI SDK 的特定运行时；
 2. DramaFlow 的单体原生架构没有相同的用户旅程，而不是简单地“还没做”。
 
-这不包括供应商 `baseUrl`、Keychain 凭据或云账号：这些具有原生用户价值，仍属于
+这不包括供应商 `baseUrl`、本地 SQLite 凭据或云账号：这些具有原生用户价值，仍属于
 供应商和配置工作，不能借 `requestConfig` / `loginConfig` 的结论跳过。
 
 ## 近期修复顺序

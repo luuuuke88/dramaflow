@@ -20,7 +20,7 @@ OpenAI 兼容编码器，但以 `chatBaseUrl` 为真实端点；图片只在该�
 
 | 范围 | ToonFlow 行为 | Flutter 对应目标 | 验证方式 |
 | --- | --- | --- | --- |
-| 供应商输入 | `apiKey`、`chatBaseUrl`、`imageBaseUrl`、`imageQuality`、`imageSize`、`imageTimeoutMs`，均可在设置页编辑 | 同名配置字段；密钥继续只进系统凭证仓，其余字段保存到供应商配置 | `provider_preset_create_test.dart` 读写往返；桌面/移动 widget 表单 |
+| 供应商输入 | `apiKey`、`chatBaseUrl`、`imageBaseUrl`、`imageQuality`、`imageSize`、`imageTimeoutMs`，均可在设置页编辑 | 同名配置字段；密钥存入本地 SQLite `o_secret`，其余字段保存到供应商配置 | `provider_preset_create_test.dart` 读写往返；桌面/移动 widget 表单 |
 | 文本 | `chatBaseUrl` 上的 OpenAI 兼容 chat model | 复用 OpenAI 文本、视觉、工具 JSON 编码器，解析时强制使用 `chatBaseUrl` | `ima2_gateway_test.dart`：旧 `baseUrl` 与 `chatBaseUrl` 不一致时仍命中后者 |
 | 图片模型 | 三个 `gpt-image-2-gpt-5.*` 显示模型；请求前去掉 `gpt-image-2-` 前缀 | 保留显示模型 ID；请求时传对应的 OAuth 模型后缀 | `ima2_gateway_test.dart` 断言模型转换 |
 | 图片请求 | `POST {imageBaseUrl}/api/generate`，JSON 含 `provider=oauth`、`mode=direct`、`format=png`、`moderation=low`、`n=1`、`references` | 同字段与相同默认值；参考图转 data URI，不走 `/images/edits` | `ima2_gateway_test.dart` 完整 JSON 与多参考断言 |

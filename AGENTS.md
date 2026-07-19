@@ -20,6 +20,16 @@
 7. 提交信息用 conventional commits；不要提交 build 产物
 8. 禁止运行 `server/` 下任何东西；禁止调用外部网络 API 做测试（测试用 fake/mock）
 
+## 供应商密钥策略
+
+- 供应商 API Key 固定经 `app/lib/src/engine/credentials.dart` 的
+  `DbCredentialStore` 存入本地 SQLite `o_secret` 表。这样不会触发 macOS
+  钥匙串授权，且 macOS/iOS/Android/Windows/Linux 行为一致。
+- **禁止**在未获 Luke 明确同意时恢复 `flutter_secure_storage`、系统钥匙串、
+  或自动迁移旧钥匙串密钥。
+- `o_secret` 不得进入配置导出、日志、测试快照或 git 提交；`clearAllData`
+  保留它以与供应商配置保持一致。
+
 ## 常用命令
 
 ```bash
