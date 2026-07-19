@@ -48,3 +48,25 @@ ToonFlow 点击第二步会令 `settingStore.activeMenu='agentConfog'`。该页�
 总清单 `W6E-CMP-HELLO-001` 保持**部分实现**，且原因已收敛为一个明确依赖：完整 Agent 配置页尚未复刻。二维码、GitHub Star 和撒花是 ToonFlow 的品牌/社区推广素材，不属于“制作短剧”的核心能力；它们不应驱动架构设计或让首次引导重新判缺失。
 
 完成 Agent 配置后，复验应包含：首次安装状态、已完成状态重启、桌面与 390dp 的第二步深链和返回、无模型时不阻断跳过，以及所有语言菜单项。视频生成仍只保留本地 fake gateway 验证，真实视频调用由用户最终确认。
+
+## 独立复验快照（2026-07-19）
+
+当前 `develop` 工作树重新执行了以下与首次引导直接相关的验证：
+
+```bash
+cd app
+flutter test --concurrency=1 \
+  test/engine/onboarding_test.dart \
+  test/widgets/first_run_guide_test.dart \
+  test/widgets/onboarding_router_test.dart
+flutter analyze \
+  lib/src/screens/first_run_guide.dart \
+  lib/src/app.dart \
+  test/widgets/first_run_guide_test.dart \
+  test/widgets/onboarding_router_test.dart
+```
+
+结果为 `5` 条测试全部通过，静态分析为 `No issues found`。这些用例在内存 SQLite、
+临时目录和假供应商环境中运行，没有写入任何真实凭证，也没有调用文本、图片、音频或
+视频服务。它们重新证明了当前欢迎、语言、跳过、引导深链和完成持久化的实现；不能替代
+完整 Agent 配置页的缺失项，因此本页和总清单仍保持“部分实现”。
