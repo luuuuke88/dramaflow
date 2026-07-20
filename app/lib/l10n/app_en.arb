@@ -39,6 +39,7 @@
   "errRegexInvalid": "Regular expression is invalid",
   "errNoChapters": "No chapters found",
   "errPlatformComposer": "Platform video composing failed",
+  "errDbTableClearForbidden": "This table cannot be cleared individually",
   "promptPanelTitle": "Prompts",
   "promptEventExtractionTitle": "Event extraction",
   "promptEventExtractionDescription": "Prompt for extracting structured events from novel chapters",
@@ -1138,6 +1139,30 @@
   "settingsStorageClearConfirmTitle": "Clear all data",
   "settingsStorageClearConfirmBody": "This deletes all projects, chapters, scripts, assets, tasks and media files and cannot be undone. Continue?",
   "settingsStorageClearDone": "Data cleared",
+  "settingsStorageClearTable": "Clear a table",
+  "settingsStorageClearTableTitle": "Choose a table to clear",
+  "settingsStorageClearTableDescription": "All records in the selected table will be permanently deleted. Providers, keys, and settings are not listed here.",
+  "settingsStorageClearTableEmpty": "There are no content tables that can be cleared individually",
+  "settingsStorageClearTableContinue": "Continue",
+  "settingsStorageClearTableConfirmTitle": "Clear {table}?",
+  "@settingsStorageClearTableConfirmTitle": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
+  "settingsStorageClearTableConfirmBody": "This will delete {count} records from {table} and cannot be undone. Continue?",
+  "@settingsStorageClearTableConfirmBody": {
+    "placeholders": {
+      "table": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "settingsStorageClearTableDone": "Cleared {table}",
+  "@settingsStorageClearTableDone": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
   "settingsAboutSection": "About",
   "settingsAboutTitle": "About DramaFlow",
   "settingsAboutAppName": "App name",

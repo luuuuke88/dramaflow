@@ -22,6 +22,7 @@ import '../theme/theme.dart';
 import '../theme/tokens.dart';
 import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
+import '../widgets/df_adaptive_dialog.dart';
 import '../widgets/shell.dart';
 import 'provider_preset_form.dart';
 import 'provider_preset_gallery.dart';
@@ -1302,6 +1303,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 label: Text(context.l10n.settingsStorageDbInfo),
               ),
               OutlinedButton.icon(
+                key: const Key('settings-storage-clear-table'),
+                onPressed: _clearSelectedTable,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.df.red,
+                  side:
+                      BorderSide(color: context.df.red.withValues(alpha: 0.5)),
+                ),
+                icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                label: Text(context.l10n.settingsStorageClearTable),
+              ),
+              OutlinedButton.icon(
                 onPressed: _clearAllData,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: context.df.red,
@@ -1528,6 +1540,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _invalidateConfig();
   }
 
+  Future<void> _clearSelectedTable() async {
+    final l10n = context.l10n;
+    final table = await showDFAdaptiveDialog<DbTableInfo>(
+      context,
+      title: l10n.settingsStorageClearTableTitle,
+      desktopWidthFactor: .4,
+      builder: (_) => _ClearTablePicker(
+        tables: ref.read(engineProvider).clearableDbTables(),
+      ),
+    );
+    if (!mounted || table == null) return;
+
+    final confirmed = await _confirm(
+      title: l10n.settingsStorageClearTableConfirmTitle(table.table),
+      message:
+          l10n.settingsStorageClearTableConfirmBody(table.table, table.rowCount),
+      confirmText: l10n.settingsStorageClearTable,
+      destructive: true,
+      confirmKey: const Key('settings-storage-clear-table-confirm'),
+    );
+    if (!mounted || !confirmed) return;
+
+    final completed = await runAction(
+      context,
+      ref,
+      () async => ref.read(engineProvider).clearTable(table.table),
+      successMessage: l10n.settingsStorageClearTableDone(table.table),
+    );
+    if (!completed || !mounted) return;
+    ref.invalidate(projectsProvider);
+  }
+
   // ---------- 6. 关于 ----------
 
   Widget _aboutCard() {
@@ -1679,6 +1723,97 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     return ok == true;
+  }
+}
+
+class _ClearTablePicker extends StatefulWidget {
+  final List<DbTableInfo> tables;
+
+  const _ClearTablePicker({required this.tables});
+
+  @override
+  State<_ClearTablePicker> createState() => _ClearTablePickerState();
+}
+
+class _ClearTablePickerState extends State<_ClearTablePicker> {
+  DbTableInfo? _selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Keep the selection action visible on small phones while giving the
+        // table list a comfortable, bounded height on desktop.
+        final listHeight = constraints.maxHeight.isFinite
+            ? (constraints.maxHeight - 166).clamp(96.0, 360.0).toDouble()
+            : 360.0;
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l10n.settingsStorageClearTableDescription,
+                style: TextStyle(color: context.df.textMid),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: listHeight,
+                child: widget.tables.isEmpty
+                    ? Center(
+                        child: Text(
+                          l10n.settingsStorageClearTableEmpty,
+                          style: TextStyle(color: context.df.textLo),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : RadioGroup<DbTableInfo>(
+                        groupValue: _selected,
+                        onChanged: (value) =>
+                            setState(() => _selected = value),
+                        child: ListView.separated(
+                          key: const Key('settings-storage-clear-table-list'),
+                          itemCount: widget.tables.length,
+                          separatorBuilder: (_, __) =>
+                              Divider(height: 1, color: context.df.stroke),
+                          itemBuilder: (context, index) {
+                            final table = widget.tables[index];
+                            return RadioListTile<DbTableInfo>(
+                              key: Key(
+                                  'settings-storage-clear-table-${table.table}'),
+                              value: table,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                table.table,
+                                style: const TextStyle(fontFamily: 'monospace'),
+                              ),
+                              subtitle: Text(
+                                '${table.rowCount}',
+                                style: TextStyle(color: context.df.textLo),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  key: const Key('settings-storage-clear-table-continue'),
+                  onPressed: _selected == null
+                      ? null
+                      : () => Navigator.of(context).pop(_selected),
+                  child: Text(l10n.settingsStorageClearTableContinue),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

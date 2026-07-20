@@ -251,6 +251,7 @@ String engineErrorText(BuildContext context, EngineException error) {
     errRegexInvalid => l10n.errRegexInvalid,
     errNoChapters => l10n.errNoChapters,
     errPlatformComposer => l10n.errPlatformComposer,
+    errDbTableClearForbidden => l10n.errDbTableClearForbidden,
     _ => error.message,
   };
 }

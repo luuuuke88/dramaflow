@@ -334,6 +334,12 @@ abstract class AppLocalizations {
   /// **'平台视频合成失败'**
   String get errPlatformComposer;
 
+  /// No description provided for @errDbTableClearForbidden.
+  ///
+  /// In zh, this message translates to:
+  /// **'该数据表不能单独清空'**
+  String get errDbTableClearForbidden;
+
   /// No description provided for @promptPanelTitle.
   ///
   /// In zh, this message translates to:
@@ -6021,6 +6027,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'数据已清空'**
   String get settingsStorageClearDone;
+
+  /// No description provided for @settingsStorageClearTable.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空指定表'**
+  String get settingsStorageClearTable;
+
+  /// No description provided for @settingsStorageClearTableTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择要清空的数据表'**
+  String get settingsStorageClearTableTitle;
+
+  /// No description provided for @settingsStorageClearTableDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'将永久删除选定表中的全部记录。供应商、密钥和设置不会显示在此列表中。'**
+  String get settingsStorageClearTableDescription;
+
+  /// No description provided for @settingsStorageClearTableEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有可单独清空的内容数据表'**
+  String get settingsStorageClearTableEmpty;
+
+  /// No description provided for @settingsStorageClearTableContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get settingsStorageClearTableContinue;
+
+  /// No description provided for @settingsStorageClearTableConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空 {table}？'**
+  String settingsStorageClearTableConfirmTitle(String table);
+
+  /// No description provided for @settingsStorageClearTableConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将删除 {table} 中的 {count} 条记录，且无法恢复。确定继续吗？'**
+  String settingsStorageClearTableConfirmBody(String table, int count);
+
+  /// No description provided for @settingsStorageClearTableDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清空 {table}'**
+  String settingsStorageClearTableDone(String table);
 
   /// No description provided for @settingsAboutSection.
   ///

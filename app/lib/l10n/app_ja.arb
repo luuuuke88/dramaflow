@@ -39,6 +39,7 @@
   "errRegexInvalid": "正規表現が無効です",
   "errNoChapters": "章が見つかりません",
   "errPlatformComposer": "プラットフォームの動画合成に失敗しました",
+  "errDbTableClearForbidden": "このテーブルは個別に消去できません",
   "promptPanelTitle": "プロンプト",
   "promptEventExtractionTitle": "イベント抽出",
   "promptEventExtractionDescription": "小説の章から構造化イベントを抽出するプロンプト",
@@ -1138,6 +1139,30 @@
   "settingsStorageClearConfirmTitle": "すべてのデータを消去",
   "settingsStorageClearConfirmBody": "この操作はすべてのプロジェクト・章・脚本・アセット・タスク・メディアファイルを削除し、元に戻せません。続行しますか？",
   "settingsStorageClearDone": "データを消去しました",
+  "settingsStorageClearTable": "テーブルを消去",
+  "settingsStorageClearTableTitle": "消去するテーブルを選択",
+  "settingsStorageClearTableDescription": "選択したテーブル内のすべてのレコードが完全に削除されます。プロバイダー、キー、設定はこの一覧に表示されません。",
+  "settingsStorageClearTableEmpty": "個別に消去できるコンテンツテーブルはありません",
+  "settingsStorageClearTableContinue": "続行",
+  "settingsStorageClearTableConfirmTitle": "{table} を消去しますか？",
+  "@settingsStorageClearTableConfirmTitle": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
+  "settingsStorageClearTableConfirmBody": "{table} の {count} 件のレコードを削除します。この操作は元に戻せません。続行しますか？",
+  "@settingsStorageClearTableConfirmBody": {
+    "placeholders": {
+      "table": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "settingsStorageClearTableDone": "{table} を消去しました",
+  "@settingsStorageClearTableDone": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
   "settingsAboutSection": "情報",
   "settingsAboutTitle": "DramaFlow について",
   "settingsAboutAppName": "アプリ名",

@@ -450,6 +450,94 @@ void main() {
     expect(find.text('o_project'), findsOneWidget);
   });
 
+  testWidgets('移动端设置页可选择并清空一张内容数据表', (tester) async {
+    engine.db.execute(
+      "INSERT INTO memories (id,name,content) VALUES ('m1','测试记忆','正文')",
+    );
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '存储与引擎');
+    final clearTable = find.byKey(const Key('settings-storage-clear-table'));
+    await tester.ensureVisible(clearTable);
+    await tester.pumpAndSettle();
+    await tester.tap(clearTable);
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择要清空的数据表'), findsOneWidget);
+    expect(find.byKey(const Key('settings-storage-clear-table-memories')),
+        findsOneWidget);
+    expect(find.text('o_secret'), findsNothing,
+        reason: '密钥表不能成为可清空候选');
+
+    await tester
+        .tap(find.byKey(const Key('settings-storage-clear-table-memories')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+        find.byKey(const Key('settings-storage-clear-table-continue')));
+    await tester.pumpAndSettle();
+    expect(find.text('清空 memories？'), findsOneWidget);
+
+    await tester
+        .tap(find.byKey(const Key('settings-storage-clear-table-confirm')));
+    await tester.pumpAndSettle();
+    expect(engine.db.select('SELECT COUNT(*) n FROM memories').single['n'], 0);
+  });
+
+  testWidgets('桌面端设置页可选择并清空一张内容数据表', (tester) async {
+    engine.db.execute(
+      "INSERT INTO memories (id,name,content) VALUES ('desktop-m1','桌面测试','正文')",
+    );
+
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '存储与引擎');
+    await tester.tap(find.byKey(const Key('settings-storage-clear-table')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择要清空的数据表'), findsOneWidget);
+    await tester
+        .tap(find.byKey(const Key('settings-storage-clear-table-memories')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+        find.byKey(const Key('settings-storage-clear-table-continue')));
+    await tester.pumpAndSettle();
+    expect(find.text('清空 memories？'), findsOneWidget);
+
+    await tester
+        .tap(find.byKey(const Key('settings-storage-clear-table-confirm')));
+    await tester.pumpAndSettle();
+    expect(engine.db.select('SELECT COUNT(*) n FROM memories').single['n'], 0);
+  });
+
+  testWidgets('低高度移动端的单表清空操作保持可达', (tester) async {
+    tester.view.physicalSize = const Size(390, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '存储与引擎');
+    final clearTable = find.byKey(const Key('settings-storage-clear-table'));
+    await tester.ensureVisible(clearTable);
+    await tester.pumpAndSettle();
+    await tester.tap(clearTable);
+    await tester.pumpAndSettle();
+
+    final continueButton =
+        find.byKey(const Key('settings-storage-clear-table-continue'));
+    expect(continueButton, findsOneWidget);
+    expect(tester.getRect(continueButton).bottom, lessThanOrEqualTo(480));
+  });
+
   testWidgets('移动端设置页显示导演规划和分镜表阶段', (tester) async {
     tester.view.physicalSize = const Size(390, 760);
     tester.view.devicePixelRatio = 1;

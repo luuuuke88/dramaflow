@@ -126,6 +126,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errPlatformComposer => '平台视频合成失败';
 
   @override
+  String get errDbTableClearForbidden => '该数据表不能单独清空';
+
+  @override
   String get promptPanelTitle => '提示词';
 
   @override
@@ -3087,6 +3090,37 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsStorageClearDone => '数据已清空';
+
+  @override
+  String get settingsStorageClearTable => '清空指定表';
+
+  @override
+  String get settingsStorageClearTableTitle => '选择要清空的数据表';
+
+  @override
+  String get settingsStorageClearTableDescription =>
+      '将永久删除选定表中的全部记录。供应商、密钥和设置不会显示在此列表中。';
+
+  @override
+  String get settingsStorageClearTableEmpty => '没有可单独清空的内容数据表';
+
+  @override
+  String get settingsStorageClearTableContinue => '继续';
+
+  @override
+  String settingsStorageClearTableConfirmTitle(String table) {
+    return '清空 $table？';
+  }
+
+  @override
+  String settingsStorageClearTableConfirmBody(String table, int count) {
+    return '将删除 $table 中的 $count 条记录，且无法恢复。确定继续吗？';
+  }
+
+  @override
+  String settingsStorageClearTableDone(String table) {
+    return '已清空 $table';
+  }
 
   @override
   String get settingsAboutSection => '关于';

@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'engine.dart';
+import 'errors.dart';
 
 /// 单张数据表的行数统计。
 class DbTableInfo {
@@ -25,8 +26,13 @@ extension DbAdminApi on Engine {
     'o_secret',
     'o_vendorConfig',
     'o_prompt',
+    'o_modelPrompt',
+    'o_modelPromptTemplate',
+    'o_agentDeploy',
     'o_user',
     'o_artStyle',
+    'o_skillList',
+    'o_skillAttribution',
     'sqlite_sequence',
   };
 
@@ -46,6 +52,31 @@ extension DbAdminApi on Engine {
           db.select('SELECT COUNT(*) n FROM "$table"').first['n'] as int,
         ),
     ];
+  }
+
+  /// 可由用户单独清空的内容表。供应商、凭证、模型绑定和编辑配置始终不在此列表中。
+  List<DbTableInfo> clearableDbTables() => [
+        for (final info in dbInfo())
+          if (!_preservedTables.contains(info.table)) info,
+      ];
+
+  /// 清空一张用户选定的内容表。表名必须来自 [clearableDbTables]，避免任意 SQL 或
+  /// 配置/凭证误删；完成后通知任务与数据观察者刷新。
+  void clearTable(String table) {
+    final allowed = clearableDbTables().map((info) => info.table).toSet();
+    if (!allowed.contains(table)) {
+      throw const EngineException(errDbTableClearForbidden);
+    }
+
+    db.execute('BEGIN');
+    try {
+      db.execute('DELETE FROM "$table"');
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+    queue.notifyChanged();
   }
 
   /// 清空全部内容数据并删除媒体文件，保留用户配置。清空在事务内完成，失败回滚。

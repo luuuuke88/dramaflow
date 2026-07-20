@@ -127,6 +127,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errPlatformComposer => 'Platform video composing failed';
 
   @override
+  String get errDbTableClearForbidden =>
+      'This table cannot be cleared individually';
+
+  @override
   String get promptPanelTitle => 'Prompts';
 
   @override
@@ -3196,6 +3200,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsStorageClearDone => 'Data cleared';
+
+  @override
+  String get settingsStorageClearTable => 'Clear a table';
+
+  @override
+  String get settingsStorageClearTableTitle => 'Choose a table to clear';
+
+  @override
+  String get settingsStorageClearTableDescription =>
+      'All records in the selected table will be permanently deleted. Providers, keys, and settings are not listed here.';
+
+  @override
+  String get settingsStorageClearTableEmpty =>
+      'There are no content tables that can be cleared individually';
+
+  @override
+  String get settingsStorageClearTableContinue => 'Continue';
+
+  @override
+  String settingsStorageClearTableConfirmTitle(String table) {
+    return 'Clear $table?';
+  }
+
+  @override
+  String settingsStorageClearTableConfirmBody(String table, int count) {
+    return 'This will delete $count records from $table and cannot be undone. Continue?';
+  }
+
+  @override
+  String settingsStorageClearTableDone(String table) {
+    return 'Cleared $table';
+  }
 
   @override
   String get settingsAboutSection => 'About';

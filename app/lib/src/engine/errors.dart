@@ -17,6 +17,7 @@ const errPlatformComposer = 'errPlatformComposer';
 const errTaskUnsupported = 'errTaskUnsupported';
 const errTaskActive = 'errTaskActive';
 const errManualInvalid = 'errManualInvalid';
+const errDbTableClearForbidden = 'errDbTableClearForbidden';
 
 class EngineException implements Exception {
   final String errKey;

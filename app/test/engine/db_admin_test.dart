@@ -4,6 +4,7 @@ import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/db_admin.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/novel.dart';
 import 'package:dramaflow/src/engine/novel_parse.dart';
@@ -109,6 +110,84 @@ void main() {
                 "SELECT COUNT(*) n FROM o_setting WHERE key LIKE 'binding.%'")
             .first['n'],
         bindingsBefore);
+  });
+
+  test('clearAllData 保留模型、提示词与画风配置', () {
+    db.execute(
+      "INSERT INTO o_agentDeploy (key,name,type,modelName,vendorId) "
+      "VALUES ('script_gen','剧本','text','gpt-5.5','azt')",
+    );
+    db.execute(
+      "INSERT INTO o_modelPromptTemplate "
+      "(path,name,kind,prompt,createTime,updateTime) "
+      "VALUES ('video/custom.md','自定义视频','video','x',1,1)",
+    );
+    db.execute(
+      "INSERT INTO o_artStyle (name,label,prompt) VALUES ('ink','水墨','水墨画')",
+    );
+
+    engine.clearAllData();
+
+    expect(db.select('SELECT COUNT(*) n FROM o_agentDeploy').single['n'], 1);
+    expect(
+      db.select('SELECT COUNT(*) n FROM o_modelPromptTemplate').single['n'],
+      1,
+    );
+    expect(db.select('SELECT COUNT(*) n FROM o_artStyle').single['n'], 1);
+  });
+
+  test('clearableDbTables 只列出可删除的内容表', () {
+    final tables = engine.clearableDbTables().map((row) => row.table).toSet();
+
+    expect(tables, containsAll(['o_project', 'o_novel', 'o_script']));
+    expect(
+      tables.intersection({
+        'o_secret',
+        'o_vendorConfig',
+        'o_setting',
+        'o_agentDeploy',
+        'o_modelPromptTemplate',
+        'o_artStyle',
+      }),
+      isEmpty,
+    );
+    expect(tables.every((table) => !table.startsWith('sqlite_')), isTrue);
+  });
+
+  test('clearTable 只删除选中的内容表', () {
+    db.execute(
+      "INSERT INTO o_secret (ref,value) "
+      "VALUES ('dramaflow.provider.azt.api-key','sk-keep-me')",
+    );
+
+    engine.clearTable('o_novel');
+
+    expect(db.select('SELECT COUNT(*) n FROM o_novel').single['n'], 0);
+    expect(db.select('SELECT COUNT(*) n FROM o_project').single['n'], 1);
+    expect(db.select('SELECT COUNT(*) n FROM o_script').single['n'], 1);
+    expect(
+      db
+          .select(
+              "SELECT value FROM o_secret WHERE ref='dramaflow.provider.azt.api-key'")
+          .single['value'],
+      'sk-keep-me',
+    );
+  });
+
+  test('clearTable 拒绝密钥、配置与任意表名', () {
+    for (final table in [
+      'o_secret',
+      'o_vendorConfig',
+      'o_agentDeploy',
+      'missing_table',
+      'o_novel; DELETE FROM o_secret',
+    ]) {
+      expect(
+        () => engine.clearTable(table),
+        throwsA(isA<EngineException>()),
+        reason: table,
+      );
+    }
   });
 
   test('dataDirPath 是媒体根目录的父目录', () {

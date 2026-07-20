@@ -39,6 +39,7 @@
   "errRegexInvalid": "正则表达式无效",
   "errNoChapters": "未找到章节",
   "errPlatformComposer": "平台视频合成失败",
+  "errDbTableClearForbidden": "该数据表不能单独清空",
   "promptPanelTitle": "提示词",
   "promptEventExtractionTitle": "事件提取",
   "promptEventExtractionDescription": "小说章节结构化事件提取提示词",
@@ -1369,6 +1370,30 @@
   "settingsStorageClearConfirmTitle": "清空所有数据",
   "settingsStorageClearConfirmBody": "此操作会删除全部项目、章节、剧本、资产、任务与媒体文件，且不可恢复。确定继续吗？",
   "settingsStorageClearDone": "数据已清空",
+  "settingsStorageClearTable": "清空指定表",
+  "settingsStorageClearTableTitle": "选择要清空的数据表",
+  "settingsStorageClearTableDescription": "将永久删除选定表中的全部记录。供应商、密钥和设置不会显示在此列表中。",
+  "settingsStorageClearTableEmpty": "没有可单独清空的内容数据表",
+  "settingsStorageClearTableContinue": "继续",
+  "settingsStorageClearTableConfirmTitle": "清空 {table}？",
+  "@settingsStorageClearTableConfirmTitle": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
+  "settingsStorageClearTableConfirmBody": "将删除 {table} 中的 {count} 条记录，且无法恢复。确定继续吗？",
+  "@settingsStorageClearTableConfirmBody": {
+    "placeholders": {
+      "table": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "settingsStorageClearTableDone": "已清空 {table}",
+  "@settingsStorageClearTableDone": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
   "settingsAboutSection": "关于",
   "settingsAboutTitle": "关于 DramaFlow",
   "settingsAboutAppName": "应用名称",

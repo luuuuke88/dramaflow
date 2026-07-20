@@ -126,6 +126,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errPlatformComposer => 'プラットフォームの動画合成に失敗しました';
 
   @override
+  String get errDbTableClearForbidden => 'このテーブルは個別に消去できません';
+
+  @override
   String get promptPanelTitle => 'プロンプト';
 
   @override
@@ -3110,6 +3113,37 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsStorageClearDone => 'データを消去しました';
+
+  @override
+  String get settingsStorageClearTable => 'テーブルを消去';
+
+  @override
+  String get settingsStorageClearTableTitle => '消去するテーブルを選択';
+
+  @override
+  String get settingsStorageClearTableDescription =>
+      '選択したテーブル内のすべてのレコードが完全に削除されます。プロバイダー、キー、設定はこの一覧に表示されません。';
+
+  @override
+  String get settingsStorageClearTableEmpty => '個別に消去できるコンテンツテーブルはありません';
+
+  @override
+  String get settingsStorageClearTableContinue => '続行';
+
+  @override
+  String settingsStorageClearTableConfirmTitle(String table) {
+    return '$table を消去しますか？';
+  }
+
+  @override
+  String settingsStorageClearTableConfirmBody(String table, int count) {
+    return '$table の $count 件のレコードを削除します。この操作は元に戻せません。続行しますか？';
+  }
+
+  @override
+  String settingsStorageClearTableDone(String table) {
+    return '$table を消去しました';
+  }
 
   @override
   String get settingsAboutSection => '情報';
