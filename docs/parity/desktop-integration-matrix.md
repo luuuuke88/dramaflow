@@ -9,7 +9,7 @@
 | 用户动作 | ToonFlow 1.1.8 | DramaFlow 当前实现 | 结论 |
 | --- | --- | --- | --- |
 | 数据目录无法写入时启动 | 先创建/写删测试文件；失败显示含目录与解决建议的原生警告，确认后退出 | `bootstrap()` 直接调用播种和 `Engine.boot()`；`Directory.createSync` / 打开 SQLite 的异常没有应用层捕获或说明窗口 | **缺失** |
-| 关闭 macOS 最后一个窗口 | `window-all-closed` 在 Darwin 不退出；Dock 激活时重建窗口 | `applicationShouldTerminateAfterLastWindowClosed` 返回 `true`，最后一个窗口关闭即退出进程 | **缺失** |
+| 关闭 macOS 最后一个窗口 | `window-all-closed` 在 Darwin 不退出；Dock 激活时重建窗口 | `AppDelegate` 保持进程存活；无可见窗口时，Dock/LaunchServices 重开会将原窗口带回前台 | **已验证等价** |
 | 点击侧栏反馈、GitHub | 使用 `shell.openExternal` 交给系统默认浏览器 | 两个侧栏入口通过 `url_launcher` 打开外部 URL | **已有但未完整验证** |
 | 点击 Agent 或其他 Markdown 中的外部链接 | 全局 Markdown 渲染器把链接交给 `handleLinkClick`，Electron 下以系统浏览器外开 | Agent 输出没有 Markdown 链接渲染/点击分发；仅两个硬编码侧栏入口可外开 | **部分实现** |
 | 原生标题栏、窗口最小化/缩放/拖动 | Electron 主动 `frame:false` 后自行补回这套控件 | 使用 macOS 原生窗口和系统红黄绿控制；用户完成同一窗口操作 | **不适用：不复制自绘替代层** |
@@ -26,7 +26,7 @@ Flutter 的启动链是 [`bootstrap_io.dart`](../../app/lib/src/bootstrap/bootst
 
 ToonFlow 的 [`build/main.js`](../../../Toonflow-app/build/main.js) 在 `window-all-closed` 中仅在非 Darwin 平台退出，并在 `activate` 时没有窗口便新建。这表达的是标准 macOS 应用约定：关最后一个窗口不等于退出应用，点击 Dock 图标会重开窗口。
 
-DramaFlow 的 [`AppDelegate.swift`](../../app/macos/Runner/AppDelegate.swift) 仍是 Flutter 模板的 `return true`，因此表现相反。这个差异不能用 widget 测试代替：需要在实际 macOS Debug/App 包中关闭最后一个窗口并从 Dock 重新激活，才能将 `W10-APPLIFECYCLE-DOCK-001` 由缺失改判。
+DramaFlow 的 [`AppDelegate.swift`](../../app/macos/Runner/AppDelegate.swift) 现在明确返回 `false`，并在 `applicationShouldHandleReopen` 中把不可见窗口重新置前、激活应用。这个边界没有引入窗口管理插件或改动 Flutter 引擎：它只采用 AppKit 已有的生命周期回调，保持原生窗口的红黄绿控制。
 
 另一个需要避免误读的细节是，ToonFlow 自绘标题栏的关闭按钮调用 `app.exit(0)`，这可能绕过它自己的 `before-quit` 清理钩子。这个原版内部矛盾不降低上述“正常关闭窗口时应保留 Dock 应用”的源码证据，也不构成把 DramaFlow 改成强制杀进程的理由。
 
@@ -49,7 +49,7 @@ DramaFlow 在 [`shell.dart`](../../app/lib/src/widgets/shell.dart) 中已经用 
 | 范围 | 原版证据 | Flutter 证据 | 当前可执行验证 |
 | --- | --- | --- | --- |
 | 数据目录保护 | `Toonflow-app/src/app.ts:22-47` | `app/lib/src/bootstrap/bootstrap_io.dart:22-41`、`app/lib/src/engine/engine.dart:586-613` | 正常播种：`flutter test test/bootstrap/bootstrap_io_test.dart`；不可写目录需以后加入受控集成测试 |
-| Dock 生命周期 | `Toonflow-app/build/main.js:251-258` | `app/macos/Runner/AppDelegate.swift:6-8` | macOS Debug 包人工关闭最后窗口、Dock 重开；当前没有可替代的 widget 证据 |
+| Dock 生命周期 | `Toonflow-app/build/main.js:251-258` | `app/macos/Runner/AppDelegate.swift:6-19`、`app/test/platform/macos_lifecycle_static_test.dart` | `flutter build macos --debug` 后启动隔离 App；关闭唯一窗口仍保留同一 PID；经 LaunchServices 重开后同一 PID 恢复窗口（2026-07-21） |
 | 外部链接 | `Toonflow-app/build/main.js:216-226`、`Toonflow-web/src/App.vue:55-115` | `app/lib/src/widgets/shell.dart:151-166` | 现有壳回归：`flutter test test/widgets/shell_test.dart`；链接动作专项测试仍缺 |
 
 这份矩阵对应总清单 `W10-BACKEND-LIFECYCLE-001`、`W10-BRIDGE-EXTERNALLINK-001`、`W10-APPLIFECYCLE-DOCK-001` 与 `W10-WINDOW-CHROME-001`。它不把 Electron 的后端启动、无边框窗口或私有协议误算成 Flutter 的待办，同时不掩盖在原生端仍应补齐的用户保护。
@@ -85,5 +85,10 @@ node tool/parity/check_no_orphans.js
 默认零副作用分支退出；没有调用文本、图片、音频或视频上游，更没有发起真实视频任务。
 
 本次尝试通过 macOS 可访问性树检查刚构建的应用时，系统处于锁屏状态，自动化无法解锁。
-因此这组命令不能作为新的可视化启动证据，也没有改变本页关于 Dock、启动错误边界和
-外部链接的缺口判定；它只重新证明当前代码可测试、可分析、可构建且审计库存未漂移。
+因此这组命令本身不能作为新的可视化启动证据；它只重新证明当前代码可测试、可分析、可构建且审计库存未漂移。
+
+## Dock 生命周期实机复验（2026-07-21）
+
+在隔离 worktree 的 Debug 包中启动 `dramaflow.app` 后，通过 macOS 可访问性树关闭唯一窗口。关闭后该 App 的 PID 仍存在、窗口列表为空；随后由 LaunchServices 对**同一 app bundle**执行重开，PID 未变化且窗口列表恢复为 `dramaflow`。这验证的是“关闭窗口不退出 → 重新激活恢复窗口”的完整系统路径，不依赖 Flutter widget 的模拟。
+
+对应静态契约测试是 `flutter test --concurrency=1 test/platform/macos_lifecycle_static_test.dart`；随后 `flutter build macos --debug` 成功。两项验证均未启动任何 AI 供应商，也没有提交、轮询或下载视频任务。`W10-APPLIFECYCLE-DOCK-001` 因此改判为**已验证等价**；数据目录错误边界和 Markdown 外部链接覆盖仍保留原有缺口结论。
