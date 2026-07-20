@@ -1937,6 +1937,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchSaveCandidateToAssets => 'Save to Assets';
 
   @override
+  String get workbenchDownloadCandidate => 'Save Candidate Video';
+
+  @override
+  String get workbenchDownloadSelectedVideos => 'Download Selected Videos';
+
+  @override
+  String get workbenchNoSelectedVideos =>
+      'No selected shots have downloadable videos';
+
+  @override
+  String workbenchExportedSelectedVideos(int count) {
+    return 'Exported $count videos';
+  }
+
+  @override
+  String workbenchCandidateVideoFileName(int videoId) {
+    return 'Candidate video $videoId.mp4';
+  }
+
+  @override
+  String get workbenchCandidatesZipFileName => 'Selected videos.zip';
+
+  @override
+  String workbenchExportedCandidates(int count) {
+    return 'Exported $count candidate videos';
+  }
+
+  @override
+  String get workbenchCandidateExportNothing =>
+      'No candidate videos are available to export';
+
+  @override
   String workbenchCandidateClipName(int videoId) {
     return 'Shot candidate #$videoId';
   }

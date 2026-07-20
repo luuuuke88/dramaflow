@@ -3,6 +3,7 @@
 // 每镜视频候选网格（生成/挑选/删除，同 P2/P3 多版本模式）+ 顶部"合成本集"。
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -60,6 +61,7 @@ class _WorkbenchPage extends ConsumerStatefulWidget {
 
 class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   bool _composing = false;
+  bool _exportingCheckedVideos = false;
   final Set<int> _checkedShotIds = {};
   final Set<int> _knownShotIds = {};
 
@@ -190,6 +192,49 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     _showWorkbenchSnackBar(context, l10n.workbenchClearSelectedTracksDone);
   }
 
+  Future<void> _downloadCheckedVideos(List<StoryboardRow> shots) async {
+    final engine = ref.read(engineProvider);
+    final videoIds = <int>{
+      for (final shot in shots)
+        if (_checkedShotIds.contains(shot.id) && shot.trackId != null)
+          if (engine.track(shot.trackId!)?.selectVideoId case final videoId?)
+            videoId,
+    };
+    final l10n = context.l10n;
+    if (videoIds.isEmpty) {
+      _showWorkbenchSnackBar(context, l10n.workbenchNoSelectedVideos);
+      return;
+    }
+    final location = await fs.getSaveLocation(
+      suggestedName: l10n.workbenchCandidatesZipFileName,
+      acceptedTypeGroups: const [
+        fs.XTypeGroup(label: 'zip', extensions: ['zip']),
+      ],
+    );
+    if (location == null || !mounted) return;
+    setState(() => _exportingCheckedVideos = true);
+    try {
+      final count = await engine.exportVideoCandidatesToFile(
+        videoIds,
+        location.path,
+      );
+      if (mounted) {
+        // 对齐 ToonFlow：一次批量下载完成后清空当前轨道勾选。
+        setState(_checkedShotIds.clear);
+        _showWorkbenchSnackBar(
+          context,
+          count == 0
+              ? l10n.workbenchNoSelectedVideos
+              : l10n.workbenchExportedSelectedVideos(count),
+        );
+      }
+    } catch (e) {
+      if (mounted) _showWorkbenchSnackBar(context, localizeError(context, e));
+    } finally {
+      if (mounted) setState(() => _exportingCheckedVideos = false);
+    }
+  }
+
   void _reorderShots(List<StoryboardRow> shots, int oldIndex, int newIndex) {
     if (oldIndex == newIndex) return;
     final targetIndex = newIndex.clamp(0, shots.length - 1);
@@ -298,6 +343,9 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
                   case _WorkbenchBatchAction.videos:
                     _generateChecked(shots);
                     break;
+                  case _WorkbenchBatchAction.download:
+                    _downloadCheckedVideos(shots);
+                    break;
                   case _WorkbenchBatchAction.clearTracks:
                     _clearCheckedTracks(shots);
                     break;
@@ -311,6 +359,10 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
                 PopupMenuItem(
                   value: _WorkbenchBatchAction.videos,
                   child: Text(l10n.workbenchGenerateAll),
+                ),
+                PopupMenuItem(
+                  value: _WorkbenchBatchAction.download,
+                  child: Text(l10n.workbenchDownloadSelectedVideos),
                 ),
                 PopupMenuItem(
                   value: _WorkbenchBatchAction.clearTracks,
@@ -335,6 +387,22 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
                   : () => _generateChecked(shots),
               icon: const Icon(Icons.movie_creation_outlined),
               label: Text(l10n.workbenchGenerateAll),
+            ),
+          if (shots.isNotEmpty && !compactActions)
+            TextButton.icon(
+              key: const ValueKey('workbench-download-selected-videos'),
+              style: toolbarTextButtonStyle,
+              onPressed: _checkedShotIds.isEmpty || _exportingCheckedVideos
+                  ? null
+                  : () => _downloadCheckedVideos(shots),
+              icon: _exportingCheckedVideos
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.folder_zip_outlined),
+              label: Text(l10n.workbenchDownloadSelectedVideos),
             ),
           if (shots.isNotEmpty && !compactActions)
             TextButton.icon(
@@ -440,7 +508,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   }
 }
 
-enum _WorkbenchBatchAction { prompts, videos, clearTracks }
+enum _WorkbenchBatchAction { prompts, videos, download, clearTracks }
 
 class _StandaloneTrackSection extends StatelessWidget {
   final List<VideoTrackRow> tracks;
@@ -3985,11 +4053,11 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
             if (track != null && track.candidates.isNotEmpty) ...[
               const SizedBox(height: 10),
               Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final v in track.candidates)
+                for (final video in track.candidates)
                   _VideoCandidateChip(
                     trackId: track.id,
-                    video: v,
-                    selected: v.id == track.selectVideoId,
+                    video: video,
+                    selected: video.id == track.selectVideoId,
                   ),
               ]),
             ],
@@ -4306,6 +4374,33 @@ class _VideoCandidateChip extends ConsumerWidget {
     }
   }
 
+  Future<void> _download(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
+    final location = await fs.getSaveLocation(
+      suggestedName: l10n.workbenchCandidateVideoFileName(video.id),
+      acceptedTypeGroups: const [
+        fs.XTypeGroup(label: 'MPEG-4 video', extensions: ['mp4']),
+      ],
+    );
+    if (location == null || !context.mounted) return;
+    try {
+      final copied = await ref
+          .read(engineProvider)
+          .exportVideoCandidateToFile(video.id, location.path);
+      if (!context.mounted) return;
+      _showWorkbenchSnackBar(
+        context,
+        copied
+            ? l10n.workbenchExportedCandidates(1)
+            : l10n.workbenchCandidateExportNothing,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        _showWorkbenchSnackBar(context, localizeError(context, e));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
@@ -4365,6 +4460,19 @@ class _VideoCandidateChip extends ConsumerWidget {
             tooltip: l10n.workbenchSaveCandidateToAssets,
             icon: Icon(Icons.library_add_outlined, size: 17, color: df.primary),
             onPressed: () => _saveToAssets(context, ref),
+          ),
+        if (canPlay)
+          IconButton(
+            key: ValueKey('workbench-candidate-download-${video.id}'),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 28),
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            tooltip: l10n.workbenchDownloadCandidate,
+            icon: Icon(Icons.download_outlined, size: 17, color: df.primary),
+            onPressed: () => _download(context, ref),
           ),
         // 选为正片（窄屏用图标避免候选 chip 横向溢出）。
         if (compact)

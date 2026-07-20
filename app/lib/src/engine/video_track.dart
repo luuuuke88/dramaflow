@@ -6,8 +6,10 @@
 // 状态枚举为 DB 中文字符串（逐字）：未生成/生成中/已完成/生成失败。
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 
+import 'package:archive/archive_io.dart';
 import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart' show Row;
 
@@ -27,6 +29,48 @@ const videoPromptGenerating = '生成中';
 const videoPromptDone = '已完成';
 const videoPromptFailed = '生成失败';
 const videoPromptGenerationTaskClass = 'video_prompt_generation';
+
+typedef _VideoCandidateExportEntry = ({String archivePath, String sourcePath});
+
+String _videoCandidateExportExtension(String relPath) {
+  final name = relPath.split('/').last.split('?').first;
+  final dot = name.lastIndexOf('.');
+  if (dot <= 0 || dot == name.length - 1) return 'mp4';
+  final extension = name.substring(dot + 1).toLowerCase();
+  return RegExp(r'^[a-z0-9]{1,10}$').hasMatch(extension) ? extension : 'mp4';
+}
+
+Future<int> _writeVideoCandidateExportArchive(
+  List<_VideoCandidateExportEntry> entries,
+  String targetPath,
+) async {
+  final encoder = ZipFileEncoder();
+  var count = 0;
+  try {
+    encoder.create(targetPath);
+    for (final entry in entries) {
+      final source = File(entry.sourcePath);
+      if (!source.existsSync()) continue;
+      await encoder.addFile(source, entry.archivePath);
+      count++;
+    }
+    await encoder.close();
+    if (count == 0) {
+      final target = File(targetPath);
+      if (target.existsSync()) target.deleteSync();
+    }
+    return count;
+  } catch (_) {
+    try {
+      await encoder.close();
+    } catch (_) {
+      // 保留原始异常，并尽力关闭 ZIP 流。
+    }
+    final target = File(targetPath);
+    if (target.existsSync()) target.deleteSync();
+    rethrow;
+  }
+}
 
 class VideoReferenceSource {
   final String sourceType;
@@ -1583,6 +1627,62 @@ extension VideoTrackApi on Engine {
       name: name?.trim().isNotEmpty == true ? name!.trim() : '镜头候选 #$videoId',
       relPath: rel,
     );
+  }
+
+  /// 返回当前可安全导出的已完成候选视频数量，不读取视频内容。
+  int videoCandidateExportFileCount(Set<int> videoIds) =>
+      _videoCandidateExportEntries(videoIds).length;
+
+  /// 将一个已完成的本地候选视频复制到用户选择的位置。
+  ///
+  /// 非本地、未完成或越出媒体根目录的候选不导出，也不会创建目标文件。
+  Future<bool> exportVideoCandidateToFile(
+    int videoId,
+    String targetPath,
+  ) async {
+    final entries = _videoCandidateExportEntries({videoId});
+    if (entries.isEmpty) return false;
+    final target = File(targetPath);
+    await target.parent.create(recursive: true);
+    await File(entries.single.sourcePath).copy(target.path);
+    return true;
+  }
+
+  /// 将选中的本地候选视频写入一个 ZIP 文件。
+  ///
+  /// ZIP 编码在独立 isolate 中流式读取，避免 UI isolate 同时持有所有视频字节。
+  /// 无可导出文件时不创建目标文件。
+  Future<int> exportVideoCandidatesToFile(
+    Set<int> videoIds,
+    String targetPath,
+  ) async {
+    final entries = _videoCandidateExportEntries(videoIds);
+    if (entries.isEmpty) return 0;
+    return Isolate.run(
+        () => _writeVideoCandidateExportArchive(entries, targetPath));
+  }
+
+  List<_VideoCandidateExportEntry> _videoCandidateExportEntries(
+      Set<int> videoIds) {
+    if (videoIds.isEmpty) return const [];
+    final rows = db.select(
+      'SELECT id,filePath FROM o_video '
+      'WHERE id IN (${_ph(videoIds.toList())}) AND state=? ORDER BY id ASC',
+      [...videoIds, vtDone],
+    );
+    final entries = <_VideoCandidateExportEntry>[];
+    for (final row in rows) {
+      final rel = row['filePath'] as String?;
+      if (rel == null || rel.isEmpty) continue;
+      final path = media.existingFilePath(rel);
+      if (path == null) continue;
+      final id = row['id'] as int;
+      entries.add((
+        sourcePath: path,
+        archivePath: '候选视频$id.${_videoCandidateExportExtension(rel)}',
+      ));
+    }
+    return entries;
   }
 
   void deleteVideo(int videoId) {

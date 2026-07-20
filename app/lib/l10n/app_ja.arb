@@ -699,6 +699,35 @@
   "workbenchPickClipTitle": "動画素材を選択",
   "workbenchNoClipAssets": "動画素材はまだありません",
   "workbenchSaveCandidateToAssets": "素材ライブラリに保存",
+  "workbenchDownloadCandidate": "候補動画を保存",
+  "workbenchDownloadSelectedVideos": "選択した動画をダウンロード",
+  "workbenchNoSelectedVideos": "選択したカットにダウンロード可能な動画がありません",
+  "workbenchExportedSelectedVideos": "{count} 件の動画を書き出しました",
+  "@workbenchExportedSelectedVideos": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchCandidateVideoFileName": "候補動画{videoId}.mp4",
+  "@workbenchCandidateVideoFileName": {
+    "placeholders": {
+      "videoId": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchCandidatesZipFileName": "選択した動画.zip",
+  "workbenchExportedCandidates": "{count} 件の候補動画を書き出しました",
+  "@workbenchExportedCandidates": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchCandidateExportNothing": "書き出せる候補動画がありません",
   "workbenchCandidateClipName": "ショット候補 #{videoId}",
   "@workbenchCandidateClipName": {
     "placeholders": {

@@ -1892,6 +1892,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchSaveCandidateToAssets => '素材ライブラリに保存';
 
   @override
+  String get workbenchDownloadCandidate => '候補動画を保存';
+
+  @override
+  String get workbenchDownloadSelectedVideos => '選択した動画をダウンロード';
+
+  @override
+  String get workbenchNoSelectedVideos => '選択したカットにダウンロード可能な動画がありません';
+
+  @override
+  String workbenchExportedSelectedVideos(int count) {
+    return '$count 件の動画を書き出しました';
+  }
+
+  @override
+  String workbenchCandidateVideoFileName(int videoId) {
+    return '候補動画$videoId.mp4';
+  }
+
+  @override
+  String get workbenchCandidatesZipFileName => '選択した動画.zip';
+
+  @override
+  String workbenchExportedCandidates(int count) {
+    return '$count 件の候補動画を書き出しました';
+  }
+
+  @override
+  String get workbenchCandidateExportNothing => '書き出せる候補動画がありません';
+
+  @override
   String workbenchCandidateClipName(int videoId) {
     return 'ショット候補 #$videoId';
   }

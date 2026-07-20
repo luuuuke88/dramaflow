@@ -826,6 +826,35 @@
   "workbenchPickClipTitle": "选择素材视频",
   "workbenchNoClipAssets": "素材库暂无视频素材",
   "workbenchSaveCandidateToAssets": "保存到素材库",
+  "workbenchDownloadCandidate": "另存候选视频",
+  "workbenchDownloadSelectedVideos": "下载已选视频",
+  "workbenchNoSelectedVideos": "已选镜头中没有可下载的视频",
+  "workbenchExportedSelectedVideos": "已导出 {count} 个视频",
+  "@workbenchExportedSelectedVideos": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchCandidateVideoFileName": "候选视频{videoId}.mp4",
+  "@workbenchCandidateVideoFileName": {
+    "placeholders": {
+      "videoId": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchCandidatesZipFileName": "已选视频.zip",
+  "workbenchExportedCandidates": "已导出 {count} 个候选视频",
+  "@workbenchExportedCandidates": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchCandidateExportNothing": "没有可导出的候选视频",
   "workbenchCandidateClipName": "镜头候选 #{videoId}",
   "@workbenchCandidateClipName": {
     "placeholders": {

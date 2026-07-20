@@ -3700,6 +3700,54 @@ abstract class AppLocalizations {
   /// **'保存到素材库'**
   String get workbenchSaveCandidateToAssets;
 
+  /// No description provided for @workbenchDownloadCandidate.
+  ///
+  /// In zh, this message translates to:
+  /// **'另存候选视频'**
+  String get workbenchDownloadCandidate;
+
+  /// No description provided for @workbenchDownloadSelectedVideos.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载已选视频'**
+  String get workbenchDownloadSelectedVideos;
+
+  /// No description provided for @workbenchNoSelectedVideos.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选镜头中没有可下载的视频'**
+  String get workbenchNoSelectedVideos;
+
+  /// No description provided for @workbenchExportedSelectedVideos.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导出 {count} 个视频'**
+  String workbenchExportedSelectedVideos(int count);
+
+  /// No description provided for @workbenchCandidateVideoFileName.
+  ///
+  /// In zh, this message translates to:
+  /// **'候选视频{videoId}.mp4'**
+  String workbenchCandidateVideoFileName(int videoId);
+
+  /// No description provided for @workbenchCandidatesZipFileName.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选视频.zip'**
+  String get workbenchCandidatesZipFileName;
+
+  /// No description provided for @workbenchExportedCandidates.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导出 {count} 个候选视频'**
+  String workbenchExportedCandidates(int count);
+
+  /// No description provided for @workbenchCandidateExportNothing.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有可导出的候选视频'**
+  String get workbenchCandidateExportNothing;
+
   /// No description provided for @workbenchCandidateClipName.
   ///
   /// In zh, this message translates to:

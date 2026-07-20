@@ -1876,6 +1876,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchSaveCandidateToAssets => '保存到素材库';
 
   @override
+  String get workbenchDownloadCandidate => '另存候选视频';
+
+  @override
+  String get workbenchDownloadSelectedVideos => '下载已选视频';
+
+  @override
+  String get workbenchNoSelectedVideos => '已选镜头中没有可下载的视频';
+
+  @override
+  String workbenchExportedSelectedVideos(int count) {
+    return '已导出 $count 个视频';
+  }
+
+  @override
+  String workbenchCandidateVideoFileName(int videoId) {
+    return '候选视频$videoId.mp4';
+  }
+
+  @override
+  String get workbenchCandidatesZipFileName => '已选视频.zip';
+
+  @override
+  String workbenchExportedCandidates(int count) {
+    return '已导出 $count 个候选视频';
+  }
+
+  @override
+  String get workbenchCandidateExportNothing => '没有可导出的候选视频';
+
+  @override
   String workbenchCandidateClipName(int videoId) {
     return '镜头候选 #$videoId';
   }

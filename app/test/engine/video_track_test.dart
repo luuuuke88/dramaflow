@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
@@ -1824,6 +1825,100 @@ END;
     engine.deleteVideo(videoId);
     expect(videoFile.existsSync(), isTrue,
         reason: '候选保存进素材库后，删除候选不能删除已入库 clip 文件');
+  });
+
+  test('exportVideoCandidatesToFile 只打包选中的已完成本地候选', () async {
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    const readyRel = 'p/export-ready.mp4';
+    const missingRel = 'p/export-missing.mp4';
+    File(engine.mediaAbsPath(readyRel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3, 4]);
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, readyRel, vtDone],
+    );
+    final readyId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, missingRel, vtDone],
+    );
+    final missingId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, 'p/running.mp4', vtGenerating],
+    );
+    final runningId = db.lastInsertRowId;
+
+    final target = p.join(dir.path, 'candidate-videos.zip');
+    expect(
+        engine.videoCandidateExportFileCount({readyId, missingId, runningId}),
+        1);
+    final count = await engine.exportVideoCandidatesToFile(
+      {readyId, missingId, runningId},
+      target,
+    );
+
+    expect(count, 1);
+    final archive = ZipDecoder().decodeBytes(File(target).readAsBytesSync());
+    expect(archive.files, hasLength(1));
+    expect(archive.files.single.name, '候选视频$readyId.mp4');
+    expect(archive.files.single.content, [1, 2, 3, 4]);
+  });
+
+  test('候选视频导出拒绝媒体目录外的路径，单文件导出也不创建目标', () async {
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    final outside = File(p.join(dir.path, 'outside', 'secret.mp4'))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([9, 9, 9]);
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, outside.path, vtDone],
+    );
+    final unsafeId = db.lastInsertRowId;
+
+    final zipTarget = p.join(dir.path, 'unsafe-candidates.zip');
+    final fileTarget = p.join(dir.path, 'unsafe-candidate.mp4');
+    expect(engine.videoCandidateExportFileCount({unsafeId}), 0);
+    expect(await engine.exportVideoCandidatesToFile({unsafeId}, zipTarget), 0);
+    expect(File(zipTarget).existsSync(), isFalse);
+    expect(
+        await engine.exportVideoCandidateToFile(unsafeId, fileTarget), isFalse);
+    expect(File(fileTarget).existsSync(), isFalse);
+  });
+
+  test('exportVideoCandidateToFile 将已完成候选复制到用户选择的位置', () async {
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    const rel = 'p/export-single.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([8, 6, 7, 5]);
+    db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, rel, vtDone],
+    );
+    final videoId = db.lastInsertRowId;
+
+    final target = p.join(dir.path, 'exports', 'candidate.mp4');
+    expect(await engine.exportVideoCandidateToFile(videoId, target), isTrue);
+    expect(File(target).readAsBytesSync(), [8, 6, 7, 5]);
   });
 
   test('deleteScripts 级联清除 o_videoTrack 行与视频磁盘文件（此前泄漏）', () async {

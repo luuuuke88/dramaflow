@@ -89,7 +89,7 @@ class _RecordingComposer implements VideoComposer {
 }
 
 class _PreviewSaveSelector extends FileSelectorPlatform {
-  final String path;
+  String path;
   int saveCalls = 0;
   List<XTypeGroup>? acceptedTypeGroups;
 
@@ -5966,6 +5966,70 @@ void main() {
     expect(clips, hasLength(1));
     expect(clips.single.filePath, rel);
     expect(find.textContaining('已保存到素材库'), findsWidgets);
+  });
+
+  testWidgets('候选视频可另存为本地 MP4，勾选镜头后导出所选正片 ZIP', (tester) async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '导出候选');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    const firstRel = 'p/export_candidate_1.mp4';
+    const secondRel = 'p/export_candidate_2.mp4';
+    for (final (rel, bytes) in [
+      (firstRel, <int>[1, 2, 3]),
+      (secondRel, <int>[4, 5, 6]),
+    ]) {
+      File(engine.mediaAbsPath(rel))
+        ..parent.createSync(recursive: true)
+        ..writeAsBytesSync(bytes);
+      engine.db.execute(
+        'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+        'VALUES (?,?,?,?,?)',
+        [projectId, scriptId, trackId, rel, vtDone],
+      );
+    }
+    final candidates = engine.track(trackId)!.candidates;
+    final firstId = candidates.first.id;
+    engine.selectVideo(trackId, firstId);
+    final output = p.join(dir.path, 'candidate-export.mp4');
+    final selector = _PreviewSaveSelector(output);
+    final originalSelector = FileSelectorPlatform.instance;
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester
+        .tap(find.byKey(ValueKey('workbench-candidate-download-$firstId')));
+    await tester.pump();
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(File(output).readAsBytesSync(), [1, 2, 3]);
+    expect(selector.acceptedTypeGroups?.single.extensions, ['mp4']);
+
+    final archive = p.join(dir.path, 'candidate-export.zip');
+    selector.path = archive;
+    await tester.tap(find.byKey(const ValueKey('workbench-batch-actions')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('下载已选视频'));
+    await tester.pump();
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(File(archive).existsSync(), isTrue);
+    expect(selector.acceptedTypeGroups?.single.extensions, ['zip']);
+    expect(
+      tester
+          .widget<Checkbox>(
+            find.byKey(ValueKey('workbench-shot-check-$sbId')),
+          )
+          .value,
+      isFalse,
+      reason: '对齐 ToonFlow：批量下载完成后清空镜头勾选',
+    );
   });
 
   testWidgets('候选删除按钮：可见删除图标 + 二次确认后调用 deleteVideo', (tester) async {

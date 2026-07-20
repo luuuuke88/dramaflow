@@ -699,6 +699,35 @@
   "workbenchPickClipTitle": "Choose Clip Asset",
   "workbenchNoClipAssets": "No video clip assets yet",
   "workbenchSaveCandidateToAssets": "Save to Assets",
+  "workbenchDownloadCandidate": "Save Candidate Video",
+  "workbenchDownloadSelectedVideos": "Download Selected Videos",
+  "workbenchNoSelectedVideos": "No selected shots have downloadable videos",
+  "workbenchExportedSelectedVideos": "Exported {count} videos",
+  "@workbenchExportedSelectedVideos": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchCandidateVideoFileName": "Candidate video {videoId}.mp4",
+  "@workbenchCandidateVideoFileName": {
+    "placeholders": {
+      "videoId": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchCandidatesZipFileName": "Selected videos.zip",
+  "workbenchExportedCandidates": "Exported {count} candidate videos",
+  "@workbenchExportedCandidates": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workbenchCandidateExportNothing": "No candidate videos are available to export",
   "workbenchCandidateClipName": "Shot candidate #{videoId}",
   "@workbenchCandidateClipName": {
     "placeholders": {
