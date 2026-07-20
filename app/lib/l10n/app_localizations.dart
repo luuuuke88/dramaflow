@@ -4300,6 +4300,18 @@ abstract class AppLocalizations {
   /// **'音频匹配任务已提交'**
   String get cornerScapeAudioMatchStarted;
 
+  /// No description provided for @cornerScapeAudioMatching.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频匹配中'**
+  String get cornerScapeAudioMatching;
+
+  /// No description provided for @cornerScapeAudioMatchFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频匹配失败'**
+  String get cornerScapeAudioMatchFailed;
+
   /// No description provided for @cornerScapeImageGenerationStarted.
   ///
   /// In zh, this message translates to:

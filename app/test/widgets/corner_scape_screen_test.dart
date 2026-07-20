@@ -411,6 +411,11 @@ void main() {
     final tasks = await engine.projectJobs(projectId);
     final task = tasks.singleWhere((job) => job.taskClass == 'audio_bind');
     expect(task.relatedObjectsJson['assetIds'], [role]);
+    expect(
+      engine.db.select('SELECT audioBindState FROM o_assets WHERE id=?',
+          [role]).single['audioBindState'],
+      stateGenerating,
+    );
   });
 
   testWidgets('快捷选择按提示词和图片状态选择并支持反选与清空', (tester) async {
@@ -639,6 +644,89 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.byKey(Key('cornerscape-detail-$done')), findsOneWidget);
+  });
+
+  testWidgets('390dp 卡片会呈现音频匹配中和失败状态，且失败资产仍可打开', (tester) async {
+    tester.view.physicalSize = const Size(390, 667);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final matching = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '匹配中的角色',
+      describe: '剑客',
+    );
+    final failed = engine.addAsset(
+      projectId: projectId,
+      type: 'scene',
+      name: '匹配失败的场景',
+      describe: '雪夜',
+    );
+    engine.db.execute(
+      'UPDATE o_assets SET audioBindState=? WHERE id IN (?,?)',
+      [stateGenerating, matching, failed],
+    );
+
+    await tester.pumpWidget(app(width: 390));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final scroll = find.byKey(const Key('cornerscape-scroll'));
+    await tester.dragUntilVisible(
+      find.byKey(Key('cornerscape-card-$matching')),
+      scroll,
+      const Offset(0, -100),
+    );
+    expect(find.text('音频匹配中'), findsOneWidget);
+    engine.db.execute(
+      'UPDATE o_assets SET audioBindState=? WHERE id=?',
+      [stateFailed, failed],
+    );
+    await tester.pumpWidget(app(width: 390));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.dragUntilVisible(
+      find.byKey(Key('cornerscape-card-$failed')),
+      scroll,
+      const Offset(0, -100),
+    );
+
+    expect(find.text('音频匹配失败'), findsOneWidget);
+    await tester.tap(find.byKey(Key('cornerscape-card-$failed')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.byKey(Key('cornerscape-detail-$failed')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('页面独立挂载时会随音频任务终态刷新卡片', (tester) async {
+    final role = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '异步失败角色',
+      describe: '剑客',
+    );
+    engine.addAsset(
+      projectId: projectId,
+      type: 'audio',
+      name: '候选音色',
+      describe: '',
+    );
+    engine.queue.start();
+
+    try {
+      await pumpDesktop(tester);
+      await tester.tap(find.byKey(Key('cornerscape-select-$role')));
+      await tester.tap(find.text('AI 匹配音频'));
+      await tester.pump();
+      expect(find.text('音频匹配中'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('音频匹配失败'), findsOneWidget,
+          reason: '不应依赖外层 Shell 的任务徽标订阅才能刷新卡片');
+    } finally {
+      engine.queue.dispose();
+    }
   });
 
   testWidgets('选择历史图会只更新当前图且历史数量不变，取消拒绝时任务保持等待，确认后标记为已取消', (tester) async {

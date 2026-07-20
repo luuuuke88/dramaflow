@@ -186,6 +186,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     }
     if (!mounted) return;
     engine.batchBindAudio(widget.projectId, ids);
+    ref.read(jobsGenerationProvider.notifier).bump();
     setState(_selected.clear);
     _toast(l10n.cornerScapeAudioMatchStarted);
   }
@@ -329,6 +330,8 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 订阅队列终态，确保页面独立挂载时也会刷新资产级匹配状态。
+    ref.watch(activeJobsProvider);
     ref.watch(jobsGenerationProvider);
     final engine = ref.watch(engineProvider);
     final assets = engine.cornerScapeAssets(widget.projectId);
@@ -678,6 +681,8 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     final generating = asset.imageState == stateGenerating;
     final done = asset.imageState == stateDone;
     final failed = asset.imageState == stateFailed;
+    final audioMatching = asset.audioBindState == stateGenerating;
+    final audioMatchFailed = asset.audioBindState == stateFailed;
     final selected = _selected.contains(asset.id);
     final filePath = asset.filePath;
     final activeTaskId =
@@ -728,8 +733,14 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
                     color: df.surfaceMuted,
                     child: _cardPreview(
                       item,
-                      status: status,
+                      status: audioMatching
+                          ? DFStatusTag(
+                              kind: DFStatusKind.processing,
+                              text: l10n.cornerScapeAudioMatching,
+                            )
+                          : status,
                       filePath: filePath,
+                      forceStatus: audioMatching,
                     ),
                   ),
                   if (done)
@@ -831,6 +842,14 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
                             label: audioName!,
                             tone: DFTagTone.primary,
                           ),
+                        if (audioMatchFailed)
+                          KeyedSubtree(
+                            key: Key('cornerscape-audio-state-${asset.id}'),
+                            child: DFTagChip(
+                              label: l10n.cornerScapeAudioMatchFailed,
+                              tone: DFTagTone.danger,
+                            ),
+                          ),
                       ],
                     ),
                     const Spacer(),
@@ -875,9 +894,12 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     CornerScapeAsset item, {
     required Widget status,
     required String? filePath,
+    required bool forceStatus,
   }) {
     final df = context.df;
-    if (item.asset.imageState == stateDone && filePath?.isNotEmpty == true) {
+    if (!forceStatus &&
+        item.asset.imageState == stateDone &&
+        filePath?.isNotEmpty == true) {
       return Image.file(
         File(ref.read(engineProvider).mediaAbsPath(filePath!)),
         fit: BoxFit.contain,

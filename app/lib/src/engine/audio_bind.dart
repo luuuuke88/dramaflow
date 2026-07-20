@@ -4,6 +4,7 @@
 // 复用 P2 的 tool-calling 模式。TTS 生成走素材中心的文本配音入口与 tts.dart。
 import 'package:dio/dio.dart';
 
+import 'assets.dart';
 import 'engine.dart';
 import 'errors.dart';
 import 'queue.dart';
@@ -182,6 +183,8 @@ extension AudioBindApi on Engine {
   /// LLM 批量匹配绑定（队列任务，text lane）。
   int batchBindAudio(int projectId, List<int> assetIds) {
     if (assetIds.isEmpty) return 0;
+    final targetIds = _audioBindTargetIds(projectId, assetIds);
+    _setAudioBindState(targetIds, stateGenerating);
     return queue.enqueue(
       projectId: projectId,
       taskClass: 'audio_bind',
@@ -191,62 +194,99 @@ extension AudioBindApi on Engine {
   }
 
   Future<void> _runAudioBind(TasksRow task, CancelToken token) async {
-    final related = task.relatedObjectsJson;
     final projectId = task.projectId ?? 0;
-    final assetIds = (related['assetIds'] as List? ??
-            related['roleIds'] as List? ??
-            const [])
-        .map((e) => (e as num).toInt())
-        .toList();
-    final pool = audioPool(projectId);
-    if (pool.isEmpty) {
-      throw EngineException(errPromptMissing, {'type': 'audioPool'});
-    }
-    if (assetIds.isEmpty) return;
-    final assets = db.select(
-      'SELECT id,name,describe,type FROM o_assets WHERE projectId=? '
-      'AND assetsId IS NULL AND type IN (?,?,?) '
-      'AND id IN (${_ph(assetIds)})',
-      [projectId, ..._bindableAssetTypes, ...assetIds],
-    );
-    if (assets.isEmpty) return;
-    final system = await getPrompt('audio_bind');
-    final assetsDesc = [
-      for (final asset in assets)
-        '资产ID:${asset['id']} 名称:${asset['name']} '
-            '描述:${asset['describe'] ?? ''} 类型:${asset['type']}',
-    ].join('\n');
-    final poolDesc = [
-      for (final a in pool) '音频ID:${a.id} 名称:${a.name}',
-    ].join('\n');
-    final user = '候选音频列表：\n$poolDesc\n\n待匹配资产：\n$assetsDesc';
-    final result = await gateway.generateToolJson(
-      system,
-      user,
-      stage: 'asset_extract',
-      toolName: 'resultTool',
-      schema: audioBindToolSchema,
-      cancelToken: token,
-    );
-    final matches = (result['matches'] as List? ?? const []).whereType<Map>();
-    if (matches.isEmpty) {
-      throw const EngineException(errLlmFormat, {'reason': 'empty matches'});
-    }
-    final poolIds = pool.map((a) => a.id).toSet();
-    final allowedAssetIds = assets.map((asset) => asset['id'] as int).toSet();
-    for (final m in matches) {
-      final assetId = (((m['assetId'] ?? m['roleId']) as num?) ?? 0).toInt();
-      final audioId = ((m['audioAssetId'] as num?) ?? 0).toInt();
-      if (!allowedAssetIds.contains(assetId) || !poolIds.contains(audioId)) {
-        continue;
+    final targetIds = _audioBindTargetIds(projectId, _relatedAssetIds(task));
+    if (targetIds.isEmpty) return;
+
+    try {
+      final pool = audioPool(projectId);
+      if (pool.isEmpty) {
+        throw EngineException(errPromptMissing, {'type': 'audioPool'});
       }
-      bindAssetAudio(assetId, audioId);
+      final assets = db.select(
+        'SELECT id,name,describe,type FROM o_assets WHERE projectId=? '
+        'AND assetsId IS NULL AND type IN (?,?,?) '
+        'AND id IN (${_ph(targetIds)})',
+        [projectId, ..._bindableAssetTypes, ...targetIds],
+      );
+      final system = await getPrompt('audio_bind');
+      final assetsDesc = [
+        for (final asset in assets)
+          '资产ID:${asset['id']} 名称:${asset['name']} '
+              '描述:${asset['describe'] ?? ''} 类型:${asset['type']}',
+      ].join('\n');
+      final poolDesc = [
+        for (final a in pool) '音频ID:${a.id} 名称:${a.name}',
+      ].join('\n');
+      final user = '候选音频列表：\n$poolDesc\n\n待匹配资产：\n$assetsDesc';
+      final result = await gateway.generateToolJson(
+        system,
+        user,
+        stage: 'asset_extract',
+        toolName: 'resultTool',
+        schema: audioBindToolSchema,
+        cancelToken: token,
+      );
+      final matches = (result['matches'] as List? ?? const []).whereType<Map>();
+      if (matches.isEmpty) {
+        throw const EngineException(errLlmFormat, {'reason': 'empty matches'});
+      }
+      final poolIds = pool.map((a) => a.id).toSet();
+      final allowedAssetIds = assets.map((asset) => asset['id'] as int).toSet();
+      for (final m in matches) {
+        final assetId = (((m['assetId'] ?? m['roleId']) as num?) ?? 0).toInt();
+        final audioId = ((m['audioAssetId'] as num?) ?? 0).toInt();
+        if (!allowedAssetIds.contains(assetId) || !poolIds.contains(audioId)) {
+          continue;
+        }
+        bindAssetAudio(assetId, audioId);
+      }
+      // ToonFlow 的逐项 resultTool 即使没有选中候选，也会让该资产从
+      // “生成中”进入终态；当前批量 tool 结果复用这一可见语义。
+      _setAudioBindState(targetIds, stateDone, onlyIfGenerating: true);
+    } catch (_) {
+      _setAudioBindState(targetIds, stateFailed, onlyIfGenerating: true);
+      rethrow;
     }
   }
 
   void _recoverAudioBind(TasksRow task) {
-    // 绑定动作本身是幂等覆盖写入，中断不会留下半绑定的脏状态，任务本身标记失败
-    // 供用户重试即可（不需要额外实体状态补偿——与 storyboard_generate 的中断
-    // 恢复策略一致）。
+    final projectId = task.projectId ?? 0;
+    final targetIds = _audioBindTargetIds(projectId, _relatedAssetIds(task));
+    _setAudioBindState(targetIds, stateFailed, onlyIfGenerating: true);
+  }
+
+  List<int> _relatedAssetIds(TasksRow task) {
+    final related = task.relatedObjectsJson;
+    final raw =
+        related['assetIds'] as List? ?? related['roleIds'] as List? ?? const [];
+    return raw.whereType<num>().map((id) => id.toInt()).toSet().toList();
+  }
+
+  List<int> _audioBindTargetIds(int projectId, Iterable<int> assetIds) {
+    final ids = assetIds.toSet().toList();
+    if (ids.isEmpty) return const [];
+    return db
+        .select(
+          'SELECT id FROM o_assets WHERE projectId=? AND assetsId IS NULL '
+          'AND type IN (?,?,?) AND id IN (${_ph(ids)}) ORDER BY id',
+          [projectId, ..._bindableAssetTypes, ...ids],
+        )
+        .map((row) => row['id'] as int)
+        .toList();
+  }
+
+  void _setAudioBindState(
+    Iterable<int> assetIds,
+    String state, {
+    bool onlyIfGenerating = false,
+  }) {
+    final ids = assetIds.toSet().toList();
+    if (ids.isEmpty) return;
+    db.execute(
+      'UPDATE o_assets SET audioBindState=? WHERE id IN (${_ph(ids)})'
+      '${onlyIfGenerating ? ' AND audioBindState=?' : ''}',
+      [state, ...ids, if (onlyIfGenerating) stateGenerating],
+    );
   }
 }

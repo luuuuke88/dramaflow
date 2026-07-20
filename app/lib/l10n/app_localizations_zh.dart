@@ -2184,6 +2184,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cornerScapeAudioMatchStarted => '音频匹配任务已提交';
 
   @override
+  String get cornerScapeAudioMatching => '音频匹配中';
+
+  @override
+  String get cornerScapeAudioMatchFailed => '音频匹配失败';
+
+  @override
   String get cornerScapeImageGenerationStarted => '图片生成任务已提交';
 
   @override

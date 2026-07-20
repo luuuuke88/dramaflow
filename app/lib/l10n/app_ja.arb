@@ -827,6 +827,8 @@
   "cornerScapePromptDone": "プロンプト生成が完了しました",
   "cornerScapePromptFailed": "プロンプト生成に失敗しました",
   "cornerScapeAudioMatchStarted": "音声マッチングタスクを送信しました",
+  "cornerScapeAudioMatching": "音声をマッチング中",
+  "cornerScapeAudioMatchFailed": "音声マッチングに失敗しました",
   "cornerScapeImageGenerationStarted": "画像生成タスクを送信しました",
   "cornerScapeNoPreviewImages": "選択したアセットにプレビュー画像がありません",
   "cornerScapePreviewTitle": "アセット画像プレビュー",

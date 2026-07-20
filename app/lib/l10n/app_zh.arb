@@ -954,6 +954,8 @@
   "cornerScapePromptDone": "提示词生成完成",
   "cornerScapePromptFailed": "提示词生成失败",
   "cornerScapeAudioMatchStarted": "音频匹配任务已提交",
+  "cornerScapeAudioMatching": "音频匹配中",
+  "cornerScapeAudioMatchFailed": "音频匹配失败",
   "cornerScapeImageGenerationStarted": "图片生成任务已提交",
   "cornerScapeNoPreviewImages": "所选资产暂无可预览图片",
   "cornerScapePreviewTitle": "资产图片预览",

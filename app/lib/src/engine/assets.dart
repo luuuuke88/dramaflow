@@ -53,6 +53,7 @@ class AssetRow {
   final int? startTime;
   final String? promptState;
   final String? promptErrorReason;
+  final String? audioBindState;
   final String? filePath; // 选中图（o_image via imageId）
   final String? imageState;
   final int? flowId; // 节点式图片编辑器画布（o_imageFlow.id）
@@ -71,6 +72,7 @@ class AssetRow {
     required this.startTime,
     required this.promptState,
     required this.promptErrorReason,
+    required this.audioBindState,
     required this.filePath,
     required this.imageState,
     required this.flowId,
@@ -141,6 +143,7 @@ extension AssetsApi on Engine {
         startTime: r['startTime'] as int?,
         promptState: r['promptState'] as String?,
         promptErrorReason: r['promptErrorReason'] as String?,
+        audioBindState: r['audioBindState']?.toString(),
         filePath: r['filePath'] as String?,
         imageState: r['imageState'] as String?,
         flowId: r['flowId'] as int?,

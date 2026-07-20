@@ -275,6 +275,65 @@ void main() {
         bindings.firstWhere((b) => b.roleId == role2).audioAssetId, audioOld);
   });
 
+  test('批量音频匹配为选中资产呈现开始、完成状态', () async {
+    final role = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: '剑客');
+    final scene = engine.addAsset(
+        projectId: projectId, type: 'scene', name: '山门', describe: '雪夜');
+    final ignoredAudio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '候选音频', describe: '');
+
+    gateway.toolResult = (_) => {
+          'matches': [
+            {'assetId': role, 'audioAssetId': ignoredAudio},
+          ],
+        };
+    final taskId =
+        engine.batchBindAudio(projectId, [role, scene, ignoredAudio]);
+
+    expect(_audioBindState(db, role), stateGenerating);
+    expect(_audioBindState(db, scene), stateGenerating);
+    expect(_audioBindState(db, ignoredAudio), isNull, reason: '音频池本身不是可匹配目标');
+
+    await waitTask(taskId);
+    expect(_audioBindState(db, role), stateDone);
+    expect(_audioBindState(db, scene), stateDone,
+        reason: '原版每个资产的匹配调用结束后都会进入终态');
+  });
+
+  test('批量音频匹配失败和冷启动恢复会终结资产匹配状态', () async {
+    final role = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林朝雪', describe: '剑客');
+    final taskId = engine.batchBindAudio(projectId, [role]);
+    expect(_audioBindState(db, role), stateGenerating);
+
+    await waitTask(taskId, expectState: 'failed');
+    expect(_audioBindState(db, role), stateFailed);
+
+    final audio = engine.addAsset(
+        projectId: projectId, type: 'audio', name: '低音男声', describe: '');
+    gateway.toolResult = (_) => {
+          'matches': [
+            {'assetId': role, 'audioAssetId': audio},
+          ],
+        };
+    final interruptedTaskId = engine.batchBindAudio(projectId, [role]);
+    expect(_audioBindState(db, role), stateGenerating);
+    db.execute(
+      "UPDATE o_tasks SET state='processing' WHERE id=?",
+      [interruptedTaskId],
+    );
+
+    engine.queue.recoverOnColdStart();
+
+    expect(
+      db.select('SELECT state FROM o_tasks WHERE id=?',
+          [interruptedTaskId]).single['state'],
+      'failed',
+    );
+    expect(_audioBindState(db, role), stateFailed);
+  });
+
   test('批量 LLM 使用新 assetIds 绑定场景和道具，提示包含资产类型', () async {
     final scene = engine.addAsset(
         projectId: projectId, type: 'scene', name: '山门', describe: '雪夜');
@@ -445,3 +504,7 @@ int _linkCount(Database db, int assetId) => db.select(
 int? _linkedAudio(Database db, int assetId) => db.select(
     'SELECT assetsAudioId FROM o_assetsRole2Audio WHERE assetsRoleId=?',
     [assetId]).firstOrNull?['assetsAudioId'] as int?;
+
+String? _audioBindState(Database db, int assetId) => db.select(
+    'SELECT audioBindState FROM o_assets WHERE id=?',
+    [assetId]).single['audioBindState'] as String?;

@@ -827,6 +827,8 @@
   "cornerScapePromptDone": "Prompt generation completed",
   "cornerScapePromptFailed": "Prompt generation failed",
   "cornerScapeAudioMatchStarted": "Audio matching task submitted",
+  "cornerScapeAudioMatching": "Matching audio",
+  "cornerScapeAudioMatchFailed": "Audio matching failed",
   "cornerScapeImageGenerationStarted": "Image generation task submitted",
   "cornerScapeNoPreviewImages": "Selected assets have no preview images",
   "cornerScapePreviewTitle": "Asset image preview",

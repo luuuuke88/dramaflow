@@ -2252,6 +2252,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cornerScapeAudioMatchStarted => 'Audio matching task submitted';
 
   @override
+  String get cornerScapeAudioMatching => 'Matching audio';
+
+  @override
+  String get cornerScapeAudioMatchFailed => 'Audio matching failed';
+
+  @override
   String get cornerScapeImageGenerationStarted =>
       'Image generation task submitted';
 

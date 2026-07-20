@@ -2200,6 +2200,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cornerScapeAudioMatchStarted => '音声マッチングタスクを送信しました';
 
   @override
+  String get cornerScapeAudioMatching => '音声をマッチング中';
+
+  @override
+  String get cornerScapeAudioMatchFailed => '音声マッチングに失敗しました';
+
+  @override
   String get cornerScapeImageGenerationStarted => '画像生成タスクを送信しました';
 
   @override
