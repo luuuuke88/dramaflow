@@ -157,13 +157,36 @@ void main() {
     );
   });
 
+  test('导演手册按稳定目录 ID 拒绝重复新建', () {
+    final data = {for (final key in directorManualKeys) key: '$key 内容'};
+    engine.saveDirectorManual(
+      name: '第一版导演手册',
+      pack: 'custom_director',
+      data: data,
+    );
+
+    expect(
+      () => engine.saveDirectorManual(
+        name: '第二版导演手册',
+        pack: 'custom_director',
+        data: data,
+      ),
+      throwsA(
+        isA<EngineException>()
+            .having((error) => error.errKey, 'errKey', 'errManualExists'),
+      ),
+    );
+    expect(engine.directorManuals().single.name, '第一版导演手册');
+  });
+
   test('默认手册在没有 meta 时使用 README 首行作为显示名', () {
     final visualDir = Directory(p.join(
       dir.path,
       'skills',
       'art_skills',
       'default_visual',
-    ))..createSync(recursive: true);
+    ))
+      ..createSync(recursive: true);
     File(p.join(visualDir.path, 'README.md'))
         .writeAsStringSync('# --国风新潮--\n后续说明');
 
@@ -172,7 +195,8 @@ void main() {
       'skills',
       'story_skills',
       'default_director',
-    ))..createSync(recursive: true);
+    ))
+      ..createSync(recursive: true);
     File(p.join(directorDir.path, 'README.md'))
         .writeAsStringSync('# --历史史诗--\n后续说明');
 
