@@ -81,6 +81,7 @@ void main() {
     engine.saveVisualManual(
       name: 'A 改名',
       pack: pack.pack,
+      overwriteExisting: true,
       keepImages: [pack.images.first],
       data: visualData(),
     );
@@ -88,6 +89,57 @@ void main() {
     expect(updated.pack, pack.pack);
     expect(updated.name, 'A 改名');
     expect(updated.images, hasLength(1));
+  });
+
+  test('pack 是稳定目录 ID，重复新建不覆盖已有内容', () {
+    engine.saveVisualManual(
+      name: '第一版',
+      pack: 'custom_visual',
+      data: visualData(),
+    );
+
+    expect(
+      () => engine.saveVisualManual(
+        name: '第二版',
+        pack: 'custom_visual',
+        data: visualData(),
+      ),
+      throwsA(
+        isA<EngineException>()
+            .having((error) => error.errKey, 'errKey', 'errManualExists'),
+      ),
+    );
+
+    final saved = engine.visualManuals().single;
+    expect(saved.pack, 'custom_visual');
+    expect(saved.name, '第一版');
+  });
+
+  test('空稳定目录 ID 继续从名称派生目录', () {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      pack: '   ',
+      data: visualData(),
+    );
+
+    expect(engine.visualManuals().single.pack, sanitizePackName('国风水墨'));
+  });
+
+  test('只有明确覆盖时才会写入既有稳定目录', () {
+    engine.saveVisualManual(
+      name: '第一版',
+      pack: 'custom_visual',
+      data: visualData(),
+    );
+
+    engine.saveVisualManual(
+      name: '编辑后的版本',
+      pack: 'custom_visual',
+      overwriteExisting: true,
+      data: visualData(),
+    );
+
+    expect(engine.visualManuals().single.name, '编辑后的版本');
   });
 
   test('导演手册独立命名空间与键集校验', () {

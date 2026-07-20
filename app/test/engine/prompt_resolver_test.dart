@@ -136,6 +136,7 @@ void main() {
     engine.saveVisualManual(
       name: 'Ink',
       pack: 'ink_pack',
+      overwriteExisting: true,
       data: const {'director_storyboard': 'VISUAL EDITED'},
     );
     final edited = engine.resolvePrompt(

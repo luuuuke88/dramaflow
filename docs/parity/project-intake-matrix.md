@@ -1,6 +1,6 @@
 # 项目创建向导对照
 
-更新时间：2026-07-19
+更新时间：2026-07-21
 
 基线：ToonFlow 1.1.8 的 `Toonflow-web/src/views/project/components/projectDialog.vue`，以及项目列表页 `Toonflow-web/src/views/project/index.vue`。
 
@@ -16,7 +16,7 @@ Flutter 已承接双栏表单、项目字段存储、视觉/导演手册画廊�
 | 项目类型 | 可选择“基于小说原文”或“基于剧本”，`projectDialog.vue:16-20` | `novel` / `script` 下拉，`project_dialog.dart:198-210` | 已承接 |
 | 模型与视频模式 | 图片、视频模型各有选择器；视频模型变化后刷新可选模式，`projectDialog.vue:28-47` | `ModelSelect` 按 `image` / `video` 过滤；模型 capability 驱动模式选择，`project_dialog.dart:69-86,221-288` | 已承接 |
 | 无模型引导 | 原版选择器为空时展示“去设置”动作，点击直接打开供应商配置，`Toonflow-web/src/components/modelSelect.vue:24-31,158-162` | `ModelSelect` 空列表显示设置图标和“去设置”，`model_select.dart:63-84`；项目向导关闭自身后路由到 `/settings?section=providers`，`project_dialog.dart:156-161`。桌面和 390dp 回归均覆盖 | 已验证 |
-| 视觉/导演手册 | 画廊选中、创建、编辑、删除、封面预览，`projectDialog.vue:60-131` | `ManualGallery` 选中、创建、编辑、删除均接到本地引擎，`project_dialog.dart:299-337` | 已承接 |
+| 视觉/导演手册 | 画廊选中、创建、编辑、删除、封面预览；新建时可填写固定目录名，后端先检查同目录并拒绝覆盖；编辑时目录名锁定，`projectDialog.vue:60-131,432-460`、`addVisualManual.ts`、`addDirectorManual.ts` | `ManualGallery` 选中、创建、编辑、删除均接到本地引擎；`ManualEditor` 新建时可编辑稳定目录 ID、编辑时只读，`manual_editor.dart`；`manuals.dart` 默认拒绝既有目录，只有编辑入口显式 `overwriteExisting` 才写入 | 已验证 |
 | 字段持久化 | 确认时将 11 个表单字段提交给 add/edit，`projectDialog.vue:432-460` | 新建与编辑均将 11 项传给 `Engine.addProject/editProject`，`project_dialog.dart:108-150`；引擎 CRUD 回归覆盖，`app/test/engine/projects_test.dart:36-90` | 已承接 |
 | 保存前校验 | 原版依序拒绝：名称、题材、图片模型、视频模型、视觉手册、导演手册、视频比例、简介、图片清晰度、视频模式，`projectDialog.vue:421-431` | `firstMissingProjectIntakeField()` 以相同顺序检查十项，`project_dialog.dart:20-62`；保存时显示本地化首个错误并保持对话框打开，`:108-152`。纯函数回归覆盖十项顺序，桌面向导回归覆盖名称与题材拦截 | 已验证 |
 | 打开项目保护 | 项目卡片被点击时，原版先检查 image/video binding 非空且该模型仍可由启用供应商解析；不满足时提示并打开编辑，`Toonflow-web/src/views/project/index.vue:92-121` | `Engine.projectModelsAvailable()` 只解析本地已启用绑定，`engine.dart:995-1011`；`_openProject()` 阻断失效绑定、提示并打开编辑，`project_list_screen.dart:33-52`。引擎回归覆盖禁用模型，widget 回归覆盖失效项目不路由 | 已验证 |
@@ -24,8 +24,8 @@ Flutter 已承接双栏表单、项目字段存储、视觉/导演手册画廊�
 
 ## 跨端验证现状
 
-- 桌面：`app/test/widgets/project_page_test.dart` 覆盖空态、有效模型卡片打开、失效模型阻断并进入编辑、无模型直达供应商设置、鼠标悬停编辑删除、手册编辑入口和十项校验的前两步；`app/test/widgets/project_intake_validation_test.dart` 覆盖十项固定顺序。
-- 移动端：同文件以 390×760 点选全套字段、滚动至两类手册并保存；失效图片/视频绑定同样只能打开编辑，无模型可直达供应商设置，另覆盖触控场景的编辑删除与平板宽度。
+- 桌面：`app/test/widgets/project_page_test.dart` 覆盖空态、有效模型卡片打开、失效模型阻断并进入编辑、无模型直达供应商设置、鼠标悬停编辑删除、手册编辑入口和十项校验的前两步；`app/test/widgets/project_intake_validation_test.dart` 覆盖十项固定顺序；`manual_editor_test.dart` 覆盖新建目录 ID 可编辑、已有包目录 ID 锁定。
+- 移动端：同文件以 390×760 点选全套字段、滚动至两类手册并保存；失效图片/视频绑定同样只能打开编辑，无模型可直达供应商设置，另覆盖触控场景的编辑删除与平板宽度。手册编辑器会用全屏形态展示相同的目录 ID 规则。
 - 这些回归使用内存 SQLite、本地模型记录和假网关；只验证字段、绑定解析和路由阻断，不调用文本、图像或视频供应商。
 
 ## 数据完整性复验
@@ -92,6 +92,12 @@ flutter test --concurrency=1 \
 
 结果：26 项通过。测试使用内存 SQLite、临时文件和假网关，未调用真实文本、图像或视频供应商。
 这项证据只确认视觉手册的解析、溯源和失败保护；视频生成仍按项目约束留给你进行真实验收。
+
+### 手册目录标识与重复保护（2026-07-21）
+
+原版的新增视觉/导演手册接口在写入前检查 `skills/{art_skills,story_skills}/<目录名>`；目录已经存在则拒绝，编辑只会写回原目录。Flutter 现以 `pack` 作为同一稳定目录 ID：新建可在名称字段下编辑该值，未手动填写时由名称派生；同目录新建返回 `errManualExists`，不会改动既有 `meta.json` 或 Markdown。编辑表单只读显示既有目录，并明确传入 `overwriteExisting: true`，因此改名和内容更新仍写回原目录，而不会因显示名变化另建一包。
+
+`app/test/engine/manuals_test.dart` 覆盖显式目录新建、重复拒绝、原内容保留和仅编辑允许覆写；`app/test/widgets/manual_editor_test.dart` 覆盖桌面新建可编辑与编辑锁定，并复用移动端全屏编辑器。`prompt_resolver_test.dart` 也以显式编辑标识更新既有视觉包，确保提示词版本变化仍走受控编辑路径。全部使用临时目录、内存 SQLite 和假网关，不调用供应商。
 
 ## 后续实施边界
 

@@ -658,6 +658,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errManualInvalid => 'Invalid manual data';
 
   @override
+  String get errManualExists => 'This manual directory ID already exists';
+
+  @override
+  String get manualDirectoryId => 'Manual Directory ID';
+
+  @override
+  String get manualDirectoryIdHint => 'For example: ancient_chinese';
+
+  @override
+  String get manualDirectoryIdCreateHint =>
+      'Must be unique and cannot be changed later';
+
+  @override
+  String get manualDirectoryIdLockedHint =>
+      'The existing directory ID is locked while editing';
+
+  @override
   String get novelImportText => 'Import Text';
 
   @override

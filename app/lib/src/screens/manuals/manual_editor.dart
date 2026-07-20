@@ -1,5 +1,5 @@
-// 手册编辑器（照抄视觉/导演手册对话框）：名称 + 封面多图上传 + 多 Tab MD 输入。
-// 校验照抄：名称必填 / 封面必传 / 全 tab 非空。
+// 手册编辑器（照抄视觉/导演手册对话框）：名称、稳定目录 ID、封面多图上传 + 多 Tab MD 输入。
+// 校验照抄：名称必填 / 封面必传 / 全 tab 非空；目录 ID 仅可在新建时设置。
 // 补充：支持从 .docx/.md 文件导入正文填充当前标签。
 import 'dart:convert';
 import 'dart:io';
@@ -55,6 +55,9 @@ class _ManualEditor extends StatefulWidget {
 class _ManualEditorState extends State<_ManualEditor> {
   late final TextEditingController _name =
       TextEditingController(text: widget.existing?.name ?? '');
+  late final TextEditingController _pack = TextEditingController(
+    text: widget.existing?.pack ?? '',
+  );
   late final List<String> _keys =
       widget.kind == 'visual' ? visualManualKeys : directorManualKeys;
   late final Map<String, TextEditingController> _tabs = {
@@ -64,6 +67,7 @@ class _ManualEditorState extends State<_ManualEditor> {
   final List<String> _keepImages = [];
   final List<({String name, String base64})> _newImages = [];
   bool _saving = false;
+  bool _packManuallyEdited = false;
 
   bool get _isVisual => widget.kind == 'visual';
 
@@ -76,6 +80,7 @@ class _ManualEditorState extends State<_ManualEditor> {
   @override
   void dispose() {
     _name.dispose();
+    _pack.dispose();
     for (final c in _tabs.values) {
       c.dispose();
     }
@@ -146,7 +151,8 @@ class _ManualEditorState extends State<_ManualEditor> {
       if (_isVisual) {
         engine.saveVisualManual(
           name: _name.text,
-          pack: widget.existing?.pack,
+          pack: _pack.text,
+          overwriteExisting: widget.existing != null,
           keepImages: _keepImages,
           imageBytesBase64: [for (final img in _newImages) img.base64],
           data: data,
@@ -154,7 +160,8 @@ class _ManualEditorState extends State<_ManualEditor> {
       } else {
         engine.saveDirectorManual(
           name: _name.text,
-          pack: widget.existing?.pack,
+          pack: _pack.text,
+          overwriteExisting: widget.existing != null,
           keepImages: _keepImages,
           imageBytesBase64: [for (final img in _newImages) img.base64],
           data: data,
@@ -227,6 +234,11 @@ class _ManualEditorState extends State<_ManualEditor> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               TextField(
                 controller: _name,
+                onChanged: (value) {
+                  if (widget.existing == null && !_packManuallyEdited) {
+                    _pack.text = sanitizePackName(value);
+                  }
+                },
                 decoration: InputDecoration(
                   labelText: _isVisual
                       ? l10n.projectDialogVisualManualName
@@ -234,6 +246,20 @@ class _ManualEditorState extends State<_ManualEditor> {
                   hintText: _isVisual
                       ? l10n.projectDialogVisualManualNamePh
                       : l10n.projectDialogDirectorManualNamePh,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('manual-pack-id-input'),
+                controller: _pack,
+                enabled: widget.existing == null,
+                onChanged: (_) => _packManuallyEdited = true,
+                decoration: InputDecoration(
+                  labelText: l10n.manualDirectoryId,
+                  hintText: l10n.manualDirectoryIdHint,
+                  helperText: widget.existing == null
+                      ? l10n.manualDirectoryIdCreateHint
+                      : l10n.manualDirectoryIdLockedHint,
                 ),
               ),
               const SizedBox(height: 14),

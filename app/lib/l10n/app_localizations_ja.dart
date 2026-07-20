@@ -645,6 +645,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errManualInvalid => 'マニュアルデータが無効です';
 
   @override
+  String get errManualExists => 'このマニュアルのディレクトリ ID は既に存在します';
+
+  @override
+  String get manualDirectoryId => 'マニュアルのディレクトリ ID';
+
+  @override
+  String get manualDirectoryIdHint => '例: ancient_chinese';
+
+  @override
+  String get manualDirectoryIdCreateHint => '一意である必要があり、作成後は変更できません';
+
+  @override
+  String get manualDirectoryIdLockedHint => '編集中は既存のディレクトリ ID が固定されます';
+
+  @override
   String get novelImportText => '原文をインポート';
 
   @override

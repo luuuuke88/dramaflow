@@ -639,6 +639,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errManualInvalid => '手册数据无效';
 
   @override
+  String get errManualExists => '该手册目录 ID 已存在';
+
+  @override
+  String get manualDirectoryId => '手册目录 ID';
+
+  @override
+  String get manualDirectoryIdHint => '例如：ancient_chinese';
+
+  @override
+  String get manualDirectoryIdCreateHint => '创建后不可修改，必须唯一';
+
+  @override
+  String get manualDirectoryIdLockedHint => '编辑时保持原目录 ID';
+
+  @override
   String get novelImportText => '导入原文';
 
   @override

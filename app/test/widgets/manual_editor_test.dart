@@ -82,6 +82,17 @@ void main() {
                       showManualEditor(context, ref, kind: 'visual'),
                   child: const Text('打开视觉手册'),
                 ),
+                FilledButton(
+                  onPressed: engine.visualManuals().isEmpty
+                      ? null
+                      : () => showManualEditor(
+                            context,
+                            ref,
+                            kind: 'visual',
+                            existing: engine.visualManuals().single,
+                          ),
+                  child: const Text('编辑视觉手册'),
+                ),
               ]),
             ),
           ),
@@ -167,6 +178,41 @@ void main() {
         find.widgetWithText(FilledButton, '保存').hitTestable(), findsOneWidget,
         reason: '移动端滚动编辑器的保存操作必须始终可达');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('新建手册可填写稳定目录 ID，编辑时目录 ID 锁定', (tester) async {
+    engine.saveVisualManual(
+      name: '已有视觉',
+      pack: 'existing_visual',
+      data: {for (final key in visualManualKeys) key: key},
+    );
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('打开视觉手册'));
+    await tester.pumpAndSettle();
+    final newPackField = tester.widget<TextField>(
+      find.byKey(const Key('manual-pack-id-input')),
+    );
+    expect(newPackField.enabled, isTrue);
+    await tester.enterText(
+      find.byKey(const Key('manual-pack-id-input')),
+      'new_visual',
+    );
+    expect(find.text('new_visual'), findsOneWidget);
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('编辑视觉手册'));
+    await tester.pumpAndSettle();
+    final existingPackField = tester.widget<TextField>(
+      find.byKey(const Key('manual-pack-id-input')),
+    );
+    expect(existingPackField.controller!.text, 'existing_visual');
+    expect(existingPackField.enabled, isFalse);
   });
 }
 

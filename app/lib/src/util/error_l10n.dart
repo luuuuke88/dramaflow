@@ -23,6 +23,7 @@ String localizeErrKey(AppLocalizations l10n, EngineException e) =>
       errTaskUnsupported => l10n.errTaskUnsupported,
       errTaskActive => l10n.errTaskActive,
       errManualInvalid => l10n.errManualInvalid,
+      errManualExists => l10n.errManualExists,
       _ => e.errKey,
     };
 

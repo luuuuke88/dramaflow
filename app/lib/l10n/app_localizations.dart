@@ -1312,6 +1312,36 @@ abstract class AppLocalizations {
   /// **'手册数据无效'**
   String get errManualInvalid;
 
+  /// No description provided for @errManualExists.
+  ///
+  /// In zh, this message translates to:
+  /// **'该手册目录 ID 已存在'**
+  String get errManualExists;
+
+  /// No description provided for @manualDirectoryId.
+  ///
+  /// In zh, this message translates to:
+  /// **'手册目录 ID'**
+  String get manualDirectoryId;
+
+  /// No description provided for @manualDirectoryIdHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：ancient_chinese'**
+  String get manualDirectoryIdHint;
+
+  /// No description provided for @manualDirectoryIdCreateHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建后不可修改，必须唯一'**
+  String get manualDirectoryIdCreateHint;
+
+  /// No description provided for @manualDirectoryIdLockedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑时保持原目录 ID'**
+  String get manualDirectoryIdLockedHint;
+
   /// No description provided for @novelImportText.
   ///
   /// In zh, this message translates to:

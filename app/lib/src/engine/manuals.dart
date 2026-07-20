@@ -70,6 +70,7 @@ extension ManualsApi on Engine {
   void saveVisualManual({
     required String name,
     String? pack,
+    bool overwriteExisting = false,
     List<String> imageBytesBase64 = const [],
     List<String> keepImages = const [],
     required Map<String, String> data,
@@ -77,6 +78,7 @@ extension ManualsApi on Engine {
       _save('art_skills', visualManualKeys,
           name: name,
           pack: pack,
+          overwriteExisting: overwriteExisting,
           imageBytesBase64: imageBytesBase64,
           keepImages: keepImages,
           data: data);
@@ -84,6 +86,7 @@ extension ManualsApi on Engine {
   void saveDirectorManual({
     required String name,
     String? pack,
+    bool overwriteExisting = false,
     List<String> imageBytesBase64 = const [],
     List<String> keepImages = const [],
     required Map<String, String> data,
@@ -91,6 +94,7 @@ extension ManualsApi on Engine {
       _save('story_skills', directorManualKeys,
           name: name,
           pack: pack,
+          overwriteExisting: overwriteExisting,
           imageBytesBase64: imageBytesBase64,
           keepImages: keepImages,
           data: data);
@@ -150,6 +154,7 @@ extension ManualsApi on Engine {
     List<String> validKeys, {
     required String name,
     String? pack,
+    required bool overwriteExisting,
     required List<String> imageBytesBase64,
     required List<String> keepImages,
     required Map<String, String> data,
@@ -162,13 +167,25 @@ extension ManualsApi on Engine {
         throw EngineException(errManualInvalid, {'reason': 'key', 'key': key});
       }
     }
-    final packName =
-        (pack == null || pack.isEmpty) ? sanitizePackName(name) : pack;
-    if (packName.isEmpty) {
+    final suppliedPack = pack?.trim();
+    final packName = suppliedPack == null || suppliedPack.isEmpty
+        ? sanitizePackName(name)
+        : suppliedPack;
+    if (packName.isEmpty ||
+        packName == '.' ||
+        packName == '..' ||
+        packName.contains('/') ||
+        packName.contains('\\')) {
       throw const EngineException(errManualInvalid, {'reason': 'pack'});
     }
-    final dir = Directory(p.join(skillsRoot, kind, packName))
-      ..createSync(recursive: true);
+    final dir = Directory(p.join(skillsRoot, kind, packName));
+    if (overwriteExisting && !dir.existsSync()) {
+      throw const EngineException(errManualInvalid, {'reason': 'pack'});
+    }
+    if (!overwriteExisting && dir.existsSync()) {
+      throw const EngineException(errManualExists);
+    }
+    dir.createSync(recursive: true);
     File(p.join(dir.path, 'meta.json'))
         .writeAsStringSync(jsonEncode({'name': name.trim()}));
     for (final entry in data.entries) {
