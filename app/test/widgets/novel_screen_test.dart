@@ -88,7 +88,7 @@ void main() {
         ),
       );
 
-  testWidgets('勾选章节后「生成事件」按钮为选中章节入队 event_generation 任务', (tester) async {
+  testWidgets('勾选章节后「事件分析」按钮为选中章节入队 event_generation 任务', (tester) async {
     final ids = seed(3);
     // 先把三章都标记为已完成，便于断言仅选中章节被重置为「生成中」。
     db.execute('UPDATE o_novel SET eventState=1');
@@ -99,9 +99,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // 未勾选时按钮禁用，无任务入队。
-    final genButton = find.widgetWithText(FilledButton, '生成事件');
+    final genButton = find.widgetWithText(OutlinedButton, '事件分析');
     expect(genButton, findsOneWidget);
-    expect(tester.widget<FilledButton>(genButton).onPressed, isNull);
+    expect(tester.widget<OutlinedButton>(genButton).onPressed, isNull);
 
     // 勾选前两章（复选框列的第 0 个是全选，行复选框依次跟随）。
     final checkboxes = find.byType(Checkbox);
@@ -112,7 +112,7 @@ void main() {
 
     expect(db.select("SELECT COUNT(*) n FROM o_tasks").first['n'], 0);
 
-    await tester.tap(find.widgetWithText(FilledButton, '生成事件 (2)'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '事件分析 (2)'));
     await tester.pump();
 
     final tasks = db.select(
@@ -169,35 +169,9 @@ void main() {
     expect(find.textContaining('入山'), findsOneWidget);
   });
 
-  testWidgets('移动端小说页：选中章节可打开事件分析并展示分析结果', (tester) async {
+  testWidgets('移动端小说页只保留原版事件分析入口并为选中章节入队', (tester) async {
     final ids = seed(2);
-    db.execute(
-      'UPDATE o_novel SET eventState=1, event=CASE id '
-      'WHEN ? THEN ? WHEN ? THEN ? END WHERE id IN (?,?)',
-      [
-        ids[0],
-        '危机降临|黑衣人压境，掌门示警',
-        ids[1],
-        '少年入山|少年进入山门，云海剑光出现',
-        ids[0],
-        ids[1],
-      ],
-    );
-    final seeded = engine.novels(projectId).data;
-    expect(seeded.map((r) => r.event), [
-      '危机降临|黑衣人压境，掌门示警',
-      '少年入山|少年进入山门，云海剑光出现',
-    ]);
-    var seenSystem = '';
-    var seenUser = '';
-    var seenStage = '';
-    gateway.textHandler = (system, user, stage) {
-      seenSystem = system;
-      seenUser = user;
-      seenStage = stage;
-      return '[{"chapterIndex":1,"analysis":"危机强，适合保留为开场钩子"},'
-          '{"chapterIndex":2,"analysis":"视觉信息明确，可衔接主角入门"}]';
-    };
+    db.execute('UPDATE o_novel SET eventState=1');
 
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
@@ -207,32 +181,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
+    expect(find.byType(TabBar), findsNothing,
+        reason: '原版小说页没有事件列表 Tab');
+    expect(find.text('生成事件'), findsNothing,
+        reason: '原版只有「事件分析」这一项批量事件生成入口');
+
     await tester.tap(find.textContaining('章1').first);
     await tester.pump();
     await tester.tap(find.textContaining('章2').first);
     await tester.pump();
 
     await tester.tap(find.widgetWithText(OutlinedButton, '事件分析 (2)'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-
-    final startButton = find.widgetWithText(FilledButton, '开始分析');
-    expect(startButton, findsOneWidget);
-    await tester.ensureVisible(startButton);
-    await tester.tap(startButton);
     await tester.pump();
-    await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(FilledButton, '开始分析'), findsNothing);
-    expect(seenStage, 'event_extract');
-    expect(seenSystem, contains('短剧改编分析助手'));
-    expect(seenUser, contains('危机降临'));
-    expect(seenUser, contains('少年入山'));
-    expect(find.textContaining('第1章'), findsOneWidget);
-    expect(find.text('危机强，适合保留为开场钩子'), findsOneWidget);
-    expect(find.text('视觉信息明确，可衔接主角入门'), findsOneWidget);
+    final tasks = db.select(
+        "SELECT relatedObjects FROM o_tasks WHERE taskClass='event_generation'");
+    expect(tasks, hasLength(1));
+    final related = tasks.single['relatedObjects'] as String;
+    expect(related, contains('${ids[0]}'));
+    expect(related, contains('${ids[1]}'));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('事件生成中禁用章节的编辑和删除操作', (tester) async {
+    seed(1);
+    db.execute('UPDATE o_novel SET eventState=0');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1400));
+    // 生成中状态含持续动画，固定推进一帧即可验证操作禁用状态。
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final edit = find.widgetWithText(TextButton, '编辑');
+    final delete = find.widgetWithText(TextButton, '删除');
+    expect(edit, findsOneWidget);
+    expect(delete, findsOneWidget);
+    expect(tester.widget<TextButton>(edit).onPressed, isNull);
+    expect(tester.widget<TextButton>(delete).onPressed, isNull);
   });
 
   testWidgets('移动端小说页：卡片展示章节内容预览，点击「查看详情」走全屏弹窗而非小弹窗', (tester) async {
@@ -269,7 +257,7 @@ void main() {
 
   testWidgets('桌面端编辑章节会更新名称、事件和正文并刷新列表', (tester) async {
     final id = seed(1).single;
-    db.execute('UPDATE o_novel SET event=? WHERE id=?', ['旧事件', id]);
+    db.execute('UPDATE o_novel SET eventState=1, event=? WHERE id=?', ['旧事件', id]);
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -298,6 +286,7 @@ void main() {
 
   testWidgets('移动端编辑章节以全屏表单呈现，取消不会写入修改', (tester) async {
     final id = seed(1).single;
+    db.execute('UPDATE o_novel SET eventState=1 WHERE id=?', [id]);
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

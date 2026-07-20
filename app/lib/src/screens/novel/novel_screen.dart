@@ -1,6 +1,6 @@
 // 章节管理页（照抄 views/novel/index.vue）：
 // 工具栏【导入原文｜批量删除+数｜事件分析+数 ‖ 搜索】+ 章节表（复选/序号/卷/章节名/
-// 章节内容截断+查看详情/事件三态/操作）+ 分页；事件列表为页内第二 Tab。
+// 章节内容截断+查看详情/事件三态/操作）+ 分页。
 // 数据刷新：watch 队列事件（jobsGeneration），无轮询。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,8 +18,6 @@ import '../../widgets/df_search_field.dart';
 import '../../widgets/df_status_tag.dart';
 import '../../widgets/policy_confirm.dart';
 import 'edit_novel_dialog.dart';
-import 'event_analysis_view.dart';
-import 'event_tab.dart';
 import 'import_novel_dialog.dart';
 
 const _previewMaxLength = 80;
@@ -113,32 +111,6 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
     _toast(l10n.novelEventGeneratingHint);
   }
 
-  Future<void> _eventAnalysis() async {
-    final l10n = context.l10n;
-    if (_selected.isEmpty) {
-      _toast(l10n.novelImportMsgSelectChapters);
-      return;
-    }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l10n.novelMsgEventAnalysisHeader),
-        content: Text(l10n.novelMsgEventAnalysisBody('${_selected.length}')),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: Text(l10n.commonCancel)),
-          FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: Text(l10n.commonConfirm)),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    await showEventAnalysisView(context, ref,
-        projectId: widget.projectId, novelIds: _selectedIds);
-  }
-
   void _showDetail(String title, String content) {
     showDFAdaptiveDialog<void>(
       context,
@@ -222,21 +194,26 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
       ]);
     }
 
-    Widget operationCell(NovelRow row) =>
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          TextButton(
-            onPressed: () async {
-              final saved = await showEditNovelDialog(context, ref, row: row);
-              if (saved == true) setState(() {});
-            },
-            child: Text(l10n.novelEdit, style: const TextStyle(fontSize: 13)),
-          ),
-          TextButton(
-            onPressed: () => _deleteOne(row),
-            child: Text(l10n.novelDelete,
-                style: TextStyle(fontSize: 13, color: df.danger)),
-          ),
-        ]);
+    Widget operationCell(NovelRow row) {
+      final isGenerating = row.eventState == 0;
+      return Row(mainAxisSize: MainAxisSize.min, children: [
+        TextButton(
+          onPressed: isGenerating
+              ? null
+              : () async {
+                  final saved =
+                      await showEditNovelDialog(context, ref, row: row);
+                  if (saved == true) setState(() {});
+                },
+          child: Text(l10n.novelEdit, style: const TextStyle(fontSize: 13)),
+        ),
+        TextButton(
+          onPressed: isGenerating ? null : () => _deleteOne(row),
+          child: Text(l10n.novelDelete,
+              style: TextStyle(fontSize: 13, color: df.danger)),
+        ),
+      ]);
+    }
 
     return Column(children: [
       Padding(
@@ -277,16 +254,9 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
                   ? l10n.novelBatchDelete
                   : '${l10n.novelBatchDelete} (${_selected.length})'),
             ),
-            FilledButton.icon(
+            OutlinedButton.icon(
               onPressed: _selected.isEmpty ? null : _generateSelectedEvents,
               icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-              label: Text(_selected.isEmpty
-                  ? l10n.novelGenerateSelectedEvents
-                  : '${l10n.novelGenerateSelectedEvents} (${_selected.length})'),
-            ),
-            OutlinedButton.icon(
-              onPressed: _eventAnalysis,
-              icon: const Icon(Icons.analytics_outlined, size: 18),
               label: Text(_selected.isEmpty
                   ? l10n.novelEventAnalysis
                   : '${l10n.novelEventAnalysis} (${_selected.length})'),
@@ -389,29 +359,6 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return DefaultTabController(
-      length: 2,
-      child: Column(children: [
-        Container(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.only(left: 12),
-          child: TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [
-              Tab(text: l10n.menuNovel),
-              Tab(text: l10n.novelColEvent),
-            ],
-          ),
-        ),
-        Expanded(
-          child: TabBarView(children: [
-            _chaptersTab(),
-            EventTab(projectId: widget.projectId),
-          ]),
-        ),
-      ]),
-    );
+    return _chaptersTab();
   }
 }
