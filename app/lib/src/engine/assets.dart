@@ -997,6 +997,65 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
     );
   }
 
+  /// 制作 Agent 的衍生资产批量出图：先按父/子描述生成衍生提示词，
+  /// 再将父资产当前图片作为参考图生成子资产图片。
+  ///
+  /// 这是 ToonFlow production/assets/batchGenerateAssetsImage 的专用路径，
+  /// 不与资产中心的普通批量生图混用。
+  int generateDerivedAssetImages(
+    int projectId,
+    List<int> assetIds, {
+    int concurrentCount = 5,
+  }) {
+    if (assetIds.isEmpty) return 0;
+    final project = db.select(
+      'SELECT imageModel,imageQuality FROM o_project WHERE id=?',
+      [projectId],
+    ).firstOrNull;
+    if (project == null) return 0;
+    final assets = db.select(
+      'SELECT id,type FROM o_assets '
+      'WHERE projectId=? AND assetsId IS NOT NULL '
+      'AND id IN (${_ph(assetIds)})',
+      [projectId, ...assetIds],
+    );
+    if (assets.isEmpty) return 0;
+
+    final resolution = project['imageQuality'] as String?;
+    final model = project['imageModel'] as String?;
+    final payload = <Map<String, Object?>>[];
+    for (final asset in assets) {
+      final assetId = asset['id'] as int;
+      db.execute(
+        'INSERT INTO o_image (assetsId,type,state,resolution,model) '
+        'VALUES (?,?,?,?,?)',
+        [assetId, asset['type'], stateGenerating, resolution, model],
+      );
+      final imageId = db.lastInsertRowId;
+      db.execute(
+          'UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetId]);
+      payload.add({
+        'assetsId': assetId,
+        'imageId': imageId,
+        'derived': true,
+      });
+    }
+    return queue.enqueue(
+      projectId: projectId,
+      taskClass: 'asset_image_generation',
+      describe: '衍生资产图片生成',
+      relatedObjects: {
+        'kind': 'derivedAsset',
+        'items': payload,
+        'ids': [for (final item in payload) item['assetsId']],
+        'concurrentCount': concurrentCount,
+        if (resolution != null && resolution.isNotEmpty)
+          'resolution': resolution,
+        if (model != null && model.isNotEmpty) 'model': model,
+      },
+    );
+  }
+
   /// Creates fresh placeholders for unfinished items in a failed image task.
   /// The caller owns the savepoint that also inserts the replacement task.
   Map<String, dynamic> prepareAssetImageRetry(TasksRow task) {
@@ -1081,16 +1140,76 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
         final row = db.select(
             'SELECT * FROM o_assets WHERE id=?', [assetsId]).firstOrNull;
         if (row == null) continue;
-        String? refPath;
+        String? temporaryRefPath;
         try {
+          final isDerived = item['derived'] == true;
+          final referencePaths = <String>[];
           final b64 = item['refImageBase64'] as String?;
+          if (isDerived) {
+            final parentId = row['assetsId'] as int?;
+            final parent = parentId == null
+                ? null
+                : db.select(
+                    'SELECT a.describe, i.filePath FROM o_assets a '
+                    'LEFT JOIN o_image i ON i.id=a.imageId WHERE a.id=?',
+                    [parentId],
+                  ).firstOrNull;
+            final cfg = _typeConfigs[row['type'] as String?];
+            if (cfg == null) {
+              throw EngineException(
+                  errTaskUnsupported, {'type': row['type'] as String? ?? ''});
+            }
+            final prompt = resolvePrompt(
+              projectId: projectId,
+              basePromptKey: 'asset_prompt_polish',
+              visualSection: cfg.manualKeyDerivative,
+            );
+            final result = await gateway.generateText(
+              prompt.system,
+              '父级资产描述: ${parent?['describe'] as String? ?? '无详细描述'}\n'
+              '当前资产描述: ${row['describe'] as String? ?? '无详细描述'}',
+              stage: 'asset_extract',
+              cancelToken: token,
+            );
+            final derivedPrompt = result.content.trim();
+            db.execute('UPDATE o_assets SET prompt=? WHERE id=?',
+                [derivedPrompt, assetsId]);
+            final parentRel = parent?['filePath'] as String?;
+            if (parentRel != null) {
+              final parentPath = media.existingFilePath(parentRel);
+              if (parentPath != null) referencePaths.add(parentPath);
+            }
+            final rel = await gateway.generateImage(
+              derivedPrompt,
+              '$projectId',
+              stage: 'asset_image',
+              cancelToken: token,
+              referenceAbsPaths: referencePaths,
+              quality: resolution,
+              modelOverride: modelOverride,
+            );
+            if (token.isCancelled) return;
+            final imageState = db.select('SELECT state FROM o_image WHERE id=?',
+                [imageId]).firstOrNull?['state'] as String?;
+            if (imageState != stateGenerating) return;
+            db.execute(
+              'UPDATE o_image SET state=?, filePath=?, errorReason=NULL '
+              'WHERE id=? AND state=?',
+              [stateDone, rel, imageId, stateGenerating],
+            );
+            db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
+                [imageId, assetsId]);
+            success++;
+            continue;
+          }
           if (b64 != null && b64.isNotEmpty) {
             final raw =
                 b64.contains(',') ? b64.substring(b64.indexOf(',') + 1) : b64;
             final tmp =
                 File('${Directory.systemTemp.path}/df_ref_$imageId.png');
             tmp.writeAsBytesSync(base64Decode(raw));
-            refPath = tmp.path;
+            temporaryRefPath = tmp.path;
+            referencePaths.add(temporaryRefPath);
           }
           final user = _imageUserPrompt(
             (row['type'] as String?) ?? '',
@@ -1103,7 +1222,7 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
             '$projectId',
             stage: 'asset_image',
             cancelToken: token,
-            referenceAbsPaths: refPath == null ? const [] : [refPath],
+            referenceAbsPaths: referencePaths,
             quality: resolution,
             modelOverride: modelOverride,
           );
@@ -1132,8 +1251,8 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
             [stateFailed, ex.toReasonJson(), imageId],
           );
         } finally {
-          if (refPath != null) {
-            final f = File(refPath);
+          if (temporaryRefPath != null) {
+            final f = File(temporaryRefPath);
             if (f.existsSync()) f.deleteSync();
           }
         }

@@ -1224,6 +1224,67 @@ void main() {
     engine.queue.recoverOnColdStart();
     expect(engine.assetImages(a).single.state, stateFailed);
   });
+
+  test('派生资产批量出图：父子描述生成提示词并以父图作参考', () async {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      data: const {'art_character_derivative': 'VISUAL DERIVATIVE'},
+    );
+    final parent = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸',
+      describe: '青衣剑修，长发束冠',
+    );
+    engine.saveAssetImage(
+      assetsId: parent,
+      projectId: projectId,
+      base64Image: base64Encode([1, 2, 3, 4]),
+      type: 'role',
+    );
+    final child = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸-战损',
+      describe: '衣衫破损，左臂带血',
+      parentAssetsId: parent,
+    );
+    String? promptSystem;
+    String? promptUser;
+    String? imagePrompt;
+    gateway.textHandler = (system, user) {
+      promptSystem = system;
+      promptUser = user;
+      return '国风动画，青衣剑修战损状态，保持人物一致性';
+    };
+    gateway.imageHandler = (prompt, _) {
+      imagePrompt = prompt;
+      return 'p/derived.png';
+    };
+
+    final taskId = engine.generateDerivedAssetImages(
+      projectId,
+      [child],
+      concurrentCount: 1,
+    );
+
+    expect(taskId, greaterThan(0));
+    await waitTask(taskId);
+    expect(promptSystem, contains('VISUAL DERIVATIVE'));
+    expect(promptUser, contains('父级资产描述: 青衣剑修，长发束冠'));
+    expect(promptUser, contains('当前资产描述: 衣衫破损，左臂带血'));
+    expect(imagePrompt, '国风动画，青衣剑修战损状态，保持人物一致性');
+    expect(engine.assetImages(child).single.filePath, 'p/derived.png');
+    expect(
+      db.select(
+          'SELECT prompt FROM o_assets WHERE id=?', [child]).single['prompt'],
+      '国风动画，青衣剑修战损状态，保持人物一致性',
+    );
+    expect(gateway.referenceCalls, hasLength(1));
+    expect(gateway.referenceCalls.single, hasLength(1));
+    expect(File(gateway.referenceCalls.single.single).readAsBytesSync(),
+        [1, 2, 3, 4]);
+  });
 }
 
 class _Gateway implements ProviderGateway {
@@ -1231,6 +1292,7 @@ class _Gateway implements ProviderGateway {
   String Function(String prompt, String projectId)? imageHandler;
   Future<String> Function(String prompt, String projectId)? imageFutureHandler;
   Completer<String>? pendingImage;
+  final List<List<String>> referenceCalls = [];
 
   @override
   Future<TextResult> generateText(String system, String user,
@@ -1250,6 +1312,7 @@ class _Gateway implements ProviderGateway {
       String? quality,
       String? modelOverride}) async {
     expect(stage, 'asset_image');
+    referenceCalls.add(referenceAbsPaths);
     await Future<void>.delayed(const Duration(milliseconds: 5));
     if (imageFutureHandler case final handler?) {
       return handler(prompt, projectId);

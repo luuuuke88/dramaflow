@@ -41,7 +41,7 @@ void main() {
   });
 
   group('assistant_skills', () {
-    test('13 个内置动作自动播种为可开关技能', () {
+    test('14 个内置动作自动播种为可开关技能', () {
       final skills = engine.assistantSkills();
       final toolIds = skills
           .where((s) => s.type == assistantToolSkillType)
@@ -49,8 +49,9 @@ void main() {
           .toSet();
       expect(toolIds, contains('get_status'));
       expect(toolIds, contains('generate_scripts'));
+      expect(toolIds, contains('generate_derived_assets'));
       expect(toolIds, contains('generate_videos'));
-      expect(toolIds, hasLength(13));
+      expect(toolIds, hasLength(14));
       expect(skills.every((s) => s.enabled), isTrue, reason: '默认全启用');
     });
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dramaflow/src/engine/assistant_actions.dart';
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -48,9 +49,9 @@ void main() {
   });
 
   group('assistantActions 注册表', () {
-    test('13 个动作齐全且金钱/破坏标记正确', () {
+    test('14 个动作齐全且金钱/破坏标记正确', () {
       final actions = assistantActions();
-      expect(actions, hasLength(13));
+      expect(actions, hasLength(14));
       final byName = {for (final a in actions) a.name: a};
       expect(
           byName.keys,
@@ -61,6 +62,7 @@ void main() {
             'extract_assets',
             'generate_storyboards',
             'generate_shot_images',
+            'generate_derived_assets',
             'generate_videos',
             'bind_audio',
             'compose_episode',
@@ -79,6 +81,9 @@ void main() {
       expect(byName['note_save']!.destructive, isFalse);
       expect(byName['generate_events']!.taskClass, 'event_generation');
       expect(byName['generate_scripts']!.taskClass, 'script_generation');
+      expect(byName['generate_derived_assets']!.costsMoney, isTrue);
+      expect(byName['generate_derived_assets']!.taskClass,
+          'asset_image_generation');
       expect(byName['generate_videos']!.taskClass, 'video_generation');
     });
   });
@@ -233,6 +238,40 @@ void main() {
           await runAssistantAction(engine, projectId, 'get_status', const {});
       expect(summary, contains('章节'));
       expect(summary, contains('剧本'));
+    });
+
+    test('generate_derived_assets 只提交指定衍生资产的图片任务', () async {
+      final parent = engine.addAsset(
+        projectId: projectId,
+        type: 'role',
+        name: '林逸',
+        describe: '主角',
+      );
+      final child = engine.addAsset(
+        projectId: projectId,
+        type: 'role',
+        name: '林逸-战损',
+        describe: '战损造型',
+        parentAssetsId: parent,
+      );
+
+      final result = await runAssistantAction(
+        engine,
+        projectId,
+        'generate_derived_assets',
+        {
+          'assetIds': [child]
+        },
+      );
+
+      expect(result, contains('1 个衍生资产'));
+      final task = db.select(
+        "SELECT taskClass,relatedObjects FROM o_tasks WHERE projectId=?",
+        [projectId],
+      ).single;
+      expect(task['taskClass'], 'asset_image_generation');
+      expect(task['relatedObjects'] as String, contains('derivedAsset'));
+      expect(task['relatedObjects'] as String, contains('$child'));
     });
 
     test('generate_videos uses the same local preflight as the workbench',

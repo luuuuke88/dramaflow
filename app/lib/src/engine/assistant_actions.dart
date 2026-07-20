@@ -3,6 +3,7 @@
 // （pipeline_policy）与对话循环（assistant_chat）做统一判定。
 // 描述文案面向 LLM（工具说明），与 UI l10n 无关，保持中文。
 import 'audio_bind.dart';
+import 'assets.dart';
 import 'compose_episode.dart';
 import 'engine.dart';
 import 'errors.dart';
@@ -81,6 +82,13 @@ List<AssistantAction> assistantActions() => const [
         },
         costsMoney: true,
         taskClass: 'storyboard_image_generation',
+      ),
+      AssistantAction(
+        name: 'generate_derived_assets',
+        description: '为指定衍生资产生成图片：先按父资产与子资产描述生成提示词，再用父资产当前图片作参考。必须传入衍生资产 IDs。',
+        schema: {'assetIds': _idArraySchema},
+        costsMoney: true,
+        taskClass: 'asset_image_generation',
       ),
       AssistantAction(
         name: 'generate_videos',
@@ -272,6 +280,12 @@ Future<String> runAssistantAction(
       final taskId = engine.batchGenerateStoryboardImages(projectId, ids,
           compulsory: true);
       return '已提交首帧图生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
+    case 'generate_derived_assets':
+      final ids = _intList(args['assetIds']);
+      if (ids == null) return '缺少衍生资产 assetIds 参数。';
+      final taskId = engine.generateDerivedAssetImages(projectId, ids);
+      if (taskId == 0) return '没有可生成的衍生资产。';
+      return '已提交衍生资产图片生成任务（任务 #$taskId），涉及 ${ids.length} 个衍生资产。';
     case 'generate_videos':
       final scriptId = _intOf(args['scriptId']);
       if (scriptId == null) return '缺少 scriptId 参数。';

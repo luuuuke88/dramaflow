@@ -263,13 +263,20 @@ void main() {
     await tester.tap(find.text('技能'));
     await tester.pumpAndSettle();
 
-    expect(find.text('generate_events'), findsOneWidget);
     expect(find.text('style-note'), findsOneWidget);
     expect(find.textContaining('自定义 JS'), findsNothing);
     expect(find.textContaining('新增自定义技能'), findsNothing);
 
-    await tester.tap(
-        find.byKey(const ValueKey('assistant-skill-toggle-generate_events')));
+    final generateEventsToggle =
+        find.byKey(const ValueKey('assistant-skill-toggle-generate_events'));
+    await tester.scrollUntilVisible(
+      generateEventsToggle,
+      160,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('generate_events'), findsOneWidget);
+    expect(find.text('generate_derived_assets'), findsOneWidget);
+    await tester.tap(generateEventsToggle);
     await tester.pumpAndSettle();
     final skill =
         engine.assistantSkills().singleWhere((s) => s.id == 'generate_events');
