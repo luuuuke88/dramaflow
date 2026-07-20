@@ -357,6 +357,41 @@ void main() {
     expect(find.text('establishing-shot'), findsOneWidget);
   });
 
+  testWidgets('移动端 390px：素材文件选择后落盘并刷新列表', (tester) async {
+    final originalSelector = FileSelectorPlatform.instance;
+    final selector = _AudioFileSelector([
+      XFile.fromData(Uint8List.fromList(const [3, 1, 4]),
+          path: 'mobile-cut.mp4'),
+    ]);
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(width: 390));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('素材'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '新增素材').first);
+    await tester.pumpAndSettle();
+
+    final pick = find.widgetWithText(OutlinedButton, '选择文件');
+    expect(pick.hitTestable(), findsOneWidget);
+    await tester.tap(pick);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    expect(selector.openFileCalls, 1);
+    final clip = engine.getAssets(projectId, type: 'clip').data.single;
+    expect(clip.name, 'mobile-cut');
+    expect(File(engine.mediaAbsPath(clip.filePath!)).readAsBytesSync(),
+        const [3, 1, 4]);
+    expect(find.text('mobile-cut'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('桌面端音频上传区可拖入 audio/* 文件并保存', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;
