@@ -320,6 +320,43 @@ void main() {
     expect(parent.sonAssets.single.filePath, endsWith('.wav'));
   });
 
+  testWidgets('素材 tab：文件选择后落盘并刷新素材列表', (tester) async {
+    final originalSelector = FileSelectorPlatform.instance;
+    final selector = _AudioFileSelector([
+      XFile.fromData(Uint8List.fromList(const [7, 4, 2, 9]),
+          path: 'establishing-shot.mov'),
+    ]);
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('素材'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '新增素材').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '选择文件'));
+    await tester.pumpAndSettle();
+    expect(selector.openFileCalls, 1);
+    expect(find.text('establishing-shot.mov'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    final clip = engine.getAssets(projectId, type: 'clip').data.single;
+    expect(clip.name, 'establishing-shot');
+    expect(clip.filePath, endsWith('.mov'));
+    expect(
+      File(engine.mediaAbsPath(clip.filePath!)).readAsBytesSync(),
+      const [7, 4, 2, 9],
+    );
+    expect(find.text('establishing-shot'), findsOneWidget);
+  });
+
   testWidgets('桌面端音频上传区可拖入 audio/* 文件并保存', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;
