@@ -37,7 +37,7 @@
 
 | 编号 | Flutter 当前行为 | 原版基线 | 判定与后续位置 |
 | --- | --- | --- | --- |
-| NE-04 | `events.dart` 在每章事件生成成功后额外写入 `o_event/o_eventChapter`，并保留事件查询、删除、汇总 API | `generateEvents.ts:17-36` 只写 `o_novel.event/eventState/errorReason`；两张事件表在 1.1.8 的可达流程中没有写入方 | **未收口**。这不是小说页入口差异，但会产生原版没有的持久化数据，并可能被剧本选择器/助手内部 API 使用；总表 `W9A-DBTABLE-EVENT-001` 保持“部分实现”，后续按其独立任务审计。 |
+| NE-04 | `events.dart` 在每章事件生成成功后额外写入 `o_event/o_eventChapter`，并保留事件查询、删除、汇总 API | `generateEvents.ts:17-36` 只写 `o_novel.event/eventState/errorReason`；两张事件表在 1.1.8 的可达流程中没有写入方 | **未收口**。这不是小说页入口差异，但会产生原版没有的持久化数据，并仍被助手内部 API 使用；剧本页选择器已于 2026-07-21 删除。总表 `W9A-DBTABLE-EVENT-001` 保持“部分实现”，后续按其独立任务审计。 |
 
 ## 自动化证据
 

@@ -103,8 +103,8 @@ void main() {
       config: EngineConfig(db, isMobile: false),
       queueTick: const Duration(milliseconds: 10),
     );
-    // 本文件断言的是「事件生成剧本」入队/落库的业务逻辑，不是确认闸弹窗本身
-    // （闸本身已由 policy_confirm_test.dart 覆盖）；关闸避免每个用例都要多点一次确认。
+    // 本文件不覆盖统一确认闸（由 policy_confirm_test.dart 负责）；关闸让
+    // 资产提取等页面动作不必在每个用例额外点击确认。
     engine.config.update({'policy.confirmMoney': '0'});
     db.execute(
       "INSERT INTO o_prompt (name,type,data,useData) VALUES "
@@ -507,64 +507,37 @@ void main() {
         isNull);
   });
 
-  testWidgets('移动端剧本页：从事件选择并生成剧本', (tester) async {
-    tester.view.physicalSize = const Size(390, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
+  testWidgets('剧本页在移动与桌面端都不暴露从事件生成剧本入口', (tester) async {
     db.execute(
       "INSERT INTO o_novel (projectId,chapterIndex,reel,chapter,chapterData,eventState,event) "
       "VALUES (?,1,'正文卷','雪夜','山门雪夜',1,'事件一')",
       [projectId],
     );
     final novelId = db.select('SELECT id FROM o_novel').first['id'] as int;
-    db.execute(
-      "INSERT INTO o_event (name,detail,createTime) VALUES "
-      "('雪夜破门','| 第1章 雪夜 | 林朝雪 | 黑衣人破门 | 强 | 高 | 50秒 | 冲突 |',1)",
-    );
+    db.execute("INSERT INTO o_event (name,detail,createTime) VALUES ('雪夜破门','详情',1)");
     final eventId = db.select('SELECT id FROM o_event').first['id'] as int;
     db.execute(
       'INSERT INTO o_eventChapter (eventId,novelId) VALUES (?,?)',
       [eventId, novelId],
     );
-    gateway.textResult = (system, user, stage) {
-      expect(system, '剧本生成系统词');
-      expect(stage, 'script_gen');
-      expect(user, contains('雪夜破门'));
-      return '{"episodes":[{"title":"雪夜破门","synopsis":"黑衣人破门","scenes":[{"location":"山门","timeOfDay":"夜","action":"黑衣人撞开山门","dialogues":[{"speaker":"林朝雪","line":"谁敢闯山门？"}]}]}]}';
-    };
 
-    await tester.pumpWidget(app(390));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+    for (final width in [390.0, 1400.0]) {
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(app(width));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('事件生成剧本'));
-    await tester.pumpAndSettle();
-    expect(find.text('选择事件生成剧本'), findsOneWidget);
-    expect(find.text('雪夜破门'), findsOneWidget);
-
-    await tester.tap(find.byType(Checkbox).last);
-    await tester.pumpAndSettle();
-    final generateButton = find.widgetWithText(FilledButton, '生成剧本');
-    expect(tester.widget<FilledButton>(generateButton).onPressed, isNotNull);
-    await tester.tap(generateButton);
-    await tester.pumpAndSettle();
-
-    await tester.runAsync(() async {
-      final deadline = DateTime.now().add(const Duration(seconds: 5));
-      while (DateTime.now().isBefore(deadline)) {
-        if (engine.scripts(projectId).isNotEmpty) break;
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-      }
-    });
-    await tester.pumpAndSettle();
-
-    final scripts = engine.scripts(projectId);
-    final taskRows =
-        db.select('SELECT taskClass,state,reason FROM o_tasks ORDER BY id');
-    expect(scripts.map((s) => s.name), ['雪夜破门'], reason: 'tasks=$taskRows');
-    expect(scripts.single.content, contains('林朝雪：谁敢闯山门？'));
-    expect(find.text('雪夜破门'), findsOneWidget);
+      expect(find.text('事件生成剧本'), findsNothing,
+          reason: 'ToonFlow 1.1.8 的 /script 页面没有事件选择或生成入口');
+      expect(find.text('选择事件生成剧本'), findsNothing);
+      expect(
+          db
+              .select("SELECT COUNT(*) n FROM o_tasks WHERE taskClass='script_generation'")
+              .single['n'],
+          0);
+      expect(tester.takeException(), isNull);
+    }
+    addTearDown(tester.view.reset);
   });
 
   testWidgets('移动端剧本页：编辑已有剧本并落库刷新', (tester) async {
