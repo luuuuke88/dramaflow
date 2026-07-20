@@ -1566,6 +1566,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productionNodeAssetsTitle => 'アセット';
 
   @override
+  String get productionAssetOriginal => '元アセット';
+
+  @override
+  String get productionAssetDerived => '派生アセット';
+
+  @override
+  String get productionNoDerivedAssets => '派生アセットはありません';
+
+  @override
+  String get productionDerivedAssetDeleteConfirm => 'この派生アセットを削除すると復元できません。';
+
+  @override
   String get productionNodeStoryboardTableTitle => '絵コンテ表';
 
   @override

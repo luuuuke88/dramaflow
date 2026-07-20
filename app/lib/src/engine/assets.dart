@@ -56,6 +56,7 @@ class AssetRow {
   final String? audioBindState;
   final String? filePath; // 选中图（o_image via imageId）
   final String? imageState;
+  final String? imageErrorReason;
   final int? flowId; // 节点式图片编辑器画布（o_imageFlow.id）
   final List<AssetRow> sonAssets;
 
@@ -75,6 +76,7 @@ class AssetRow {
     required this.audioBindState,
     required this.filePath,
     required this.imageState,
+    required this.imageErrorReason,
     required this.flowId,
     this.sonAssets = const [],
   });
@@ -146,12 +148,13 @@ extension AssetsApi on Engine {
         audioBindState: r['audioBindState']?.toString(),
         filePath: r['filePath'] as String?,
         imageState: r['imageState'] as String?,
+        imageErrorReason: r['imageErrorReason'] as String?,
         flowId: r['flowId'] as int?,
         sonAssets: sons,
       );
 
   static const _assetSelect = '''
-SELECT a.*, i.filePath filePath, i.state imageState
+SELECT a.*, i.filePath filePath, i.state imageState, i.errorReason imageErrorReason
 FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
 ''';
 
@@ -214,11 +217,29 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
   /// 按 id 批量取资产（跨类型），供制作画布资产节点展示关联资产缩略图。
   List<AssetRow> assetsByIds(List<int> ids) {
     if (ids.isEmpty) return const [];
-    final rows = db.select(
+    final parents = db.select(
       '$_assetSelect WHERE a.id IN (${_ph(ids)})',
       ids,
     );
-    return [for (final r in rows) _assetFromRow(r)];
+    if (parents.isEmpty) return const [];
+    final parentIds = [for (final parent in parents) parent['id'] as int];
+    final children = db.select(
+      '$_assetSelect WHERE a.assetsId IN (${_ph(parentIds)}) ORDER BY a.id',
+      parentIds,
+    );
+    final childrenByParent = <int, List<AssetRow>>{};
+    for (final child in children) {
+      childrenByParent
+          .putIfAbsent(child['assetsId'] as int, () => [])
+          .add(_assetFromRow(child));
+    }
+    return [
+      for (final parent in parents)
+        _assetFromRow(
+          parent,
+          sons: childrenByParent[parent['id'] as int] ?? const [],
+        ),
+    ];
   }
 
   List<AssetImageRow> assetImages(int assetsId) {

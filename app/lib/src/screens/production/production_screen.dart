@@ -21,6 +21,7 @@ import '../../state/canvas_wheel_mode.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
+import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_canvas.dart';
@@ -798,36 +799,240 @@ class _ScriptNodeEditorState extends ConsumerState<_ScriptNodeEditor> {
   }
 }
 
-class _AssetsNode extends ConsumerWidget {
+class _AssetsNode extends ConsumerStatefulWidget {
   final int projectId;
   final ScriptRow script;
   const _AssetsNode({required this.projectId, required this.script});
 
-  /// 点击资产卡打开节点式编辑器（画布语境下的专属入口，区别于素材管理页的
-  /// 简单生图对话框——照抄 ToonFlow：production 画布的 assets 节点点击资产
-  /// 打开 editImage，assets/index.vue 列表页才用 generateImage 简版）。
-  void _openEditor(BuildContext context, WidgetRef ref, AssetRow asset) {
+  @override
+  ConsumerState<_AssetsNode> createState() => _AssetsNodeState();
+}
+
+class _AssetsNodeState extends ConsumerState<_AssetsNode> {
+  /// ToonFlow 的 production/assets 节点只让衍生资产进入 editImage，原始资产
+  /// 始终作为参考图和层级起点。
+  void _openDerivedEditor(
+    BuildContext context,
+    AssetRow original,
+    AssetRow derived,
+  ) {
     showImageFlowEditor(
       context,
       ref,
-      projectId: projectId,
-      flowId: asset.flowId,
-      scriptId: script.id,
+      projectId: widget.projectId,
+      flowId: derived.flowId,
+      scriptId: widget.script.id,
       seedReferenceRelPaths:
-          asset.filePath != null ? [asset.filePath!] : const [],
+          original.filePath != null ? [original.filePath!] : const [],
+      initialGeneratedRel: derived.filePath,
+      initialGeneratedPrompt: derived.prompt ?? '',
       onApply: (rel, flowId) {
         ref
             .read(engineProvider)
-            .attachAssetImage(asset.id, rel, flowId: flowId);
+            .attachAssetImage(derived.id, rel, flowId: flowId);
+        if (mounted) setState(() {});
       },
     );
   }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Future<void> _deleteDerived(BuildContext context, AssetRow derived) async {
+    final l10n = context.l10n;
+    final confirmed = await showDFAdaptiveDialog<bool>(
+      context,
+      title: l10n.commonDelete,
+      desktopWidthFactor: .36,
+      builder: (dialogContext) => Padding(
+        padding: const EdgeInsets.all(DFTokens.s20),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(l10n.productionDerivedAssetDeleteConfirm),
+          const SizedBox(height: DFTokens.s16),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(l10n.commonCancel),
+            ),
+            const SizedBox(width: DFTokens.s8),
+            FilledButton(
+              key: const ValueKey('production-derived-delete-confirm'),
+              style: FilledButton.styleFrom(backgroundColor: context.df.danger),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(l10n.commonDelete),
+            ),
+          ]),
+        ]),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    ref.read(engineProvider).deleteAssets([derived.id]);
+    setState(() {});
+  }
+
+  Widget _thumbnail(BuildContext context, AssetRow asset) {
+    final df = context.df;
+    final l10n = context.l10n;
+    if (asset.filePath != null) {
+      return Image.file(
+        File(ref.read(engineProvider).mediaAbsPath(asset.filePath!)),
+        fit: BoxFit.cover,
+        errorBuilder: (c, e, s) =>
+            Icon(Icons.broken_image_outlined, size: 20, color: df.textTertiary),
+      );
+    }
+    if (asset.imageState == stateGenerating) {
+      return const Center(
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    if (asset.imageState == stateFailed) {
+      final reason = localizeReason(l10n, asset.imageErrorReason) ??
+          l10n.assetsGenGenFailed;
+      return Tooltip(
+        message: reason,
+        child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.error_outline, size: 20, color: df.danger),
+            const SizedBox(height: 2),
+            Text(l10n.assetsGenGenFailed,
+                style: TextStyle(fontSize: 10, color: df.danger)),
+          ]),
+        ),
+      );
+    }
+    return Icon(Icons.image_outlined, size: 20, color: df.textTertiary);
+  }
+
+  Widget _tag(BuildContext context, String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(text,
+            style: TextStyle(fontSize: 10, color: color, height: 1.2)),
+      );
+
+  Widget _parentRow(BuildContext context, AssetRow original) {
     final l10n = context.l10n;
     final df = context.df;
-    final ids = script.relatedAssets.map((a) => a.id).toList();
+    return Container(
+      key: ValueKey('production-asset-parent-${original.id}'),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: df.surfaceMuted,
+        border: Border(left: BorderSide(color: df.primary, width: 2)),
+      ),
+      child: Row(children: [
+        SizedBox(
+          width: 54,
+          height: 54,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: ColoredBox(
+                color: df.surface, child: _thumbnail(context, original)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(
+                child: Text(original.name ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(width: 6),
+              _tag(context, l10n.productionAssetOriginal, df.primary),
+            ]),
+            if ((original.describe ?? '').isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Text(original.describe!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10, color: df.textTertiary)),
+            ],
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _derivedRow(
+      BuildContext context, AssetRow original, AssetRow derived) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return SizedBox(
+      key: ValueKey('production-derived-${derived.id}'),
+      width: 168,
+      child: InkWell(
+        onTap: () => _openDerivedEditor(context, original, derived),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 0, 4),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              width: 50,
+              height: 50,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: ColoredBox(
+                    color: df.surfaceMuted,
+                    child: _thumbnail(context, derived)),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(derived.name ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w600)),
+                      ),
+                      IconButton(
+                        key:
+                            ValueKey('production-derived-delete-${derived.id}'),
+                        tooltip: l10n.commonDelete,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                            width: 28, height: 28),
+                        onPressed: () => _deleteDerived(context, derived),
+                        icon: Icon(Icons.delete_outline,
+                            size: 16, color: df.danger),
+                      ),
+                    ]),
+                    _tag(context, l10n.productionAssetDerived, df.warning),
+                    if ((derived.describe ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(derived.describe!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              TextStyle(fontSize: 10, color: df.textTertiary)),
+                    ],
+                  ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final ids = widget.script.relatedAssets.map((a) => a.id).toList();
     final assets = ref.watch(engineProvider).assetsByIds(ids);
     return _NodeFrame(
       title: l10n.productionNodeAssetsTitle,
@@ -838,44 +1043,44 @@ class _AssetsNode extends ConsumerWidget {
               ? Center(
                   child: Text(l10n.scriptAddNoAssets,
                       style: TextStyle(fontSize: 11, color: df.textTertiary)))
-              : GridView.builder(
+              : ListView.separated(
                   padding: const EdgeInsets.all(10),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 6,
-                      mainAxisSpacing: 6),
                   itemCount: assets.length,
+                  separatorBuilder: (_, __) =>
+                      Divider(height: 20, color: df.stroke),
                   itemBuilder: (c, i) {
-                    final a = assets[i];
-                    return GestureDetector(
-                      onTap: () => _openEditor(context, ref, a),
-                      child: Column(children: [
-                        Expanded(
-                          child: Container(
-                            width: double.infinity,
-                            clipBehavior: Clip.antiAlias,
-                            decoration: BoxDecoration(
-                                color: df.surfaceMuted,
-                                borderRadius: BorderRadius.circular(6)),
-                            child: a.filePath != null
-                                ? Image.file(
-                                    File(ref
-                                        .read(engineProvider)
-                                        .mediaAbsPath(a.filePath!)),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (c, e, s) => Icon(
-                                        Icons.broken_image_outlined,
-                                        size: 18,
-                                        color: df.textTertiary))
-                                : Icon(Icons.image_outlined,
-                                    size: 18, color: df.textTertiary),
-                          ),
+                    final original = assets[i];
+                    final derived = original.sonAssets;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _parentRow(context, original),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 22, top: 4),
+                          child: Icon(Icons.arrow_downward_rounded,
+                              size: 16, color: df.textTertiary),
                         ),
-                        Text(a.name ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 10)),
-                      ]),
+                        if (derived.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 28, top: 2),
+                            child: Text(l10n.productionNoDerivedAssets,
+                                style: TextStyle(
+                                    fontSize: 11, color: df.textTertiary)),
+                          )
+                        else
+                          SizedBox(
+                            height: 84,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.only(left: 20),
+                              itemCount: derived.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 10),
+                              itemBuilder: (_, j) =>
+                                  _derivedRow(context, original, derived[j]),
+                            ),
+                          ),
+                      ],
                     );
                   },
                 ),

@@ -88,6 +88,8 @@ Future<void> showImageFlowEditor(
   int? flowId,
   int? scriptId,
   List<String> seedReferenceRelPaths = const [],
+  String? initialGeneratedRel,
+  String initialGeneratedPrompt = '',
   required void Function(String rel, int flowId) onApply,
 }) {
   return Navigator.of(context, rootNavigator: true).push(
@@ -98,6 +100,8 @@ Future<void> showImageFlowEditor(
         flowId: flowId,
         scriptId: scriptId,
         seedReferenceRelPaths: seedReferenceRelPaths,
+        initialGeneratedRel: initialGeneratedRel,
+        initialGeneratedPrompt: initialGeneratedPrompt,
         onApply: onApply,
         ref: ref,
       ),
@@ -110,6 +114,8 @@ class _ImageFlowEditorPage extends StatefulWidget {
   final int? flowId;
   final int? scriptId;
   final List<String> seedReferenceRelPaths;
+  final String? initialGeneratedRel;
+  final String initialGeneratedPrompt;
   final void Function(String rel, int flowId) onApply;
   final WidgetRef ref;
   const _ImageFlowEditorPage({
@@ -117,6 +123,8 @@ class _ImageFlowEditorPage extends StatefulWidget {
     required this.flowId,
     required this.scriptId,
     required this.seedReferenceRelPaths,
+    required this.initialGeneratedRel,
+    required this.initialGeneratedPrompt,
     required this.onApply,
     required this.ref,
   });
@@ -190,6 +198,9 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
         id: genId,
         type: 'generated',
         position: const Offset(400, 40),
+        prompt: widget.initialGeneratedPrompt,
+        generatedRel: widget.initialGeneratedRel,
+        state: widget.initialGeneratedRel == null ? 'idle' : 'done',
         model: _defaultModel,
         ratio: _defaultRatio,
         quality: _defaultQuality,

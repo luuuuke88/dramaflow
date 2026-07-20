@@ -1601,6 +1601,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get productionNodeAssetsTitle => 'Assets';
 
   @override
+  String get productionAssetOriginal => 'Original';
+
+  @override
+  String get productionAssetDerived => 'Derived';
+
+  @override
+  String get productionNoDerivedAssets => 'No derived assets';
+
+  @override
+  String get productionDerivedAssetDeleteConfirm =>
+      'This derived asset cannot be restored after deletion.';
+
+  @override
   String get productionNodeStoryboardTableTitle => 'Storyboard Table';
 
   @override

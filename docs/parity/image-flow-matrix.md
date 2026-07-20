@@ -14,23 +14,22 @@ DramaFlow 的图片流编辑器核心并不弱：节点和边可以保存/恢复
 图像网关；自动布局会稳定重排为 LR 层级并适配视口，关闭前会确认且回写已有
 流程。同时还额外具备重绘和局部重绘。
 
-但**制作画布的资产派生模型没有复刻**：
+2026-07-21 已补齐制作画布资产派生闭环：节点会将 `o_assets.assetsId` 关系读取为
+“原始资产 → 衍生资产”分组；原始资产只承担层级起点和参考图角色，点击衍生项才
+进入图片流。若衍生项尚没有历史 `flowId`，编辑器会同时装入父图参考和已有衍生图
+结果；若已有 flow，则照常从保存的节点/边恢复。应用结果只回写该衍生资产，删除也
+只删除该子项并走确认与图片流生命周期清理。
 
-- ToonFlow 在资产节点中显示“原始资产 → 派生资产”关系。点击派生资产才打开
-  编辑器，应用结果回写到那个派生资产；派生资产可独立删除。
-- DramaFlow 把资产节点简化为原始资产网格。点击原始资产打开编辑器，应用结果
-  作为原始资产的一张新图片版本写回。没有派生资产卡、独立删除路径或同一原始
-  资产下的派生分支。
-
-因此，不能用“能编辑图片”覆盖“资产派生已等价”。两者的数据层级、画布可见结构
-和删除语义都不同。
+这里**不添加手工“新建衍生资产”按钮**：原版资产节点同样只展示、编辑和删除已有
+子项，创建由 Production Agent 的 `add_deriveAsset` 工具完成。这条 Agent 能力与
+批量派生出图仍在各自的清单项中独立验收，不能因为节点 UI 已对齐而提前判绿。
 
 ## 基线与实现位置
 
 | 范围 | ToonFlow | DramaFlow |
 | --- | --- | --- |
-| 资产节点 | `Toonflow-web/src/views/production/node/assets.vue:8-75, 103-160` | `app/lib/src/screens/production/production_screen.dart:662-746` |
-| 图片流容器 | `.../components/editImage/index.vue:14-59,145-323` | `app/lib/src/screens/production/image_flow_editor.dart:128-285,589-625,959-1017` |
+| 资产节点 | `Toonflow-web/src/views/production/node/assets.vue:8-75, 103-160` | `app/lib/src/screens/production/production_screen.dart:801-1059` |
+| 图片流容器 | `.../components/editImage/index.vue:14-59,145-323` | `app/lib/src/screens/production/image_flow_editor.dart:84-210,589-625,959-1017` |
 | 上传节点 | `.../editImage/uploadNode.vue:3-47,100-124` | `image_flow_editor.dart:363-464,628-686` |
 | 生成节点 | `.../editImage/generatedNode.vue:23-205` | `image_flow_editor.dart:466-586,804-956` |
 | 流数据 | `/production/editImage/*` 路由 + `o_imageFlow` | `app/lib/src/engine/image_flow.dart:76-142` |
@@ -39,9 +38,9 @@ DramaFlow 的图片流编辑器核心并不弱：节点和边可以保存/恢复
 
 | 用户动作 | ToonFlow 当前行为 | DramaFlow 当前行为 | 判定 |
 | --- | --- | --- | --- |
-| 在资产节点浏览资产 | 原始资产卡与派生资产卡按父子关系同屏展示，分别呈现未生成、生成中、失败、完成 | 仅原始资产三列网格；显示其当前选中图片 | 部分实现 |
-| 编辑派生资产 | 点击派生资产，以原始资产为参考图初始化图片流；应用结果回写派生资产 URL 和 flowId | 点击原始资产，以其当前图为参考；应用后向同一原始资产追加图片版本并选中 | 缺失：不是同一资产关系 |
-| 删除派生资产 | 派生卡有独立删除确认，删除该子资产 | 只能从资产中心删除资产或删除图片版本；画布中没有派生卡 | 缺失 |
+| 在资产节点浏览资产 | 原始资产卡与派生资产卡按父子关系同屏展示，分别呈现未生成、生成中、失败、完成 | `assetsByIds` 读取直接子项，节点按原始资产分组显示衍生横向条；无子项有明确空态，生成中与无图均有稳定缩略图占位 | 已验证等价 |
+| 编辑派生资产 | 点击派生资产，以原始资产为参考图初始化图片流；应用结果回写派生资产 URL 和 flowId | 只允许点击衍生项；父图作为上传参考，已有衍生图/提示词作为生成结果种子，应用结果经 `attachAssetImage(derived.id)` 回写子项与 flowId | 已验证等价 |
+| 删除派生资产 | 派生卡有独立删除确认，删除该子资产 | 衍生项有独立图标与确认；仅对该子 id 调用 `deleteAssets`，复用已验证的关联/图片流清理 | 已验证等价 |
 | 流图保存/恢复 | 保存或更新 `o_imageFlow.flowData`，载入后恢复节点、边、位置 | `saveImageFlow/getImageFlow` 等价保存/恢复 | 已验证等价 |
 | 图片流节点拖动 | VueFlow 默认允许拖动节点；生成节点展开的 `.parameter` 以 `@wheel.stop @mousedown.stop` 防止表单区域触发节点移动或画布滚轮操作 | `DFCanvasDragRegion` 让上传节点整卡、生成节点标题/图片区移动节点；生成参数区以 `movesNode:false` 保留输入手势且不改节点/视口坐标。普通卡片区域会将滚轮信号透传给画布，参数区则有回归保证继续拦截，和原版的两种区域语义一致。 | 已验证等价 |
 | 连线同步参考 | 所有入边来源图同步到生成节点 `references`，阻止自连/重复/反向重复 | 上传和已生成节点都可作来源、生成节点可作目标；同步所有入边来源，拦截自连、同向与反向重复。桌面和 390dp 均已保存回归。 | 已验证等价 |
@@ -63,13 +62,10 @@ flutter test --concurrency=1 \
   test/widgets/production_screen_test.dart
 ```
 
-结果：**51 项通过**。覆盖流图往返、全参考图传递、原始资产图片版本回写、
-上传与生成节点三来源、上传参考图直接采用、生成节点直接设结果再采用、分镜
-选择、生成节点接续为下一节点参考、反向重复连线拒绝、连线删除、关闭确认的
-已有流回写与新图零落库、LR 自动布局与视口适配、重绘、局部重绘、桌面/390dp
-图片流节点拖动与位置持久化、参数区手势隔离、桌面画布入口和 390px 移动端参数保存。
-测试图像调用均为 fake gateway，本地临时图片仅用于组件渲染；没有调用真实图像
-或视频供应商。
+本轮额外锁定了三条节点级回归：引擎查询不丢失子项；桌面父/子层级、已有结果种子、
+编辑与删除确认可完整走通；390dp 的资产 Tab 同样可见且没有布局异常。下方命令实际
+通过 **78 项测试**，`flutter analyze` 为零问题。测试图像调用均为 fake gateway，
+本地临时图片仅用于组件渲染；没有调用真实图像或视频供应商。
 
 ## 删除生命周期复验（2026-07-19）
 
@@ -92,11 +88,18 @@ cd app
 flutter test --concurrency=1 test/engine/assets_test.dart test/engine/storyboard_test.dart test/engine/scripts_test.dart test/engine/projects_test.dart
 ```
 
-## 实施边界
+## 验收记录（2026-07-21）
 
-图片流编辑器本身已经对齐；剩余缺口只有资产派生模型，补齐时应单独设计：
+```sh
+cd app
+flutter test --concurrency=1 \
+  test/engine/image_flow_test.dart \
+  test/engine/assets_test.dart \
+  test/widgets/image_flow_editor_test.dart \
+  test/widgets/production_screen_test.dart
+flutter analyze
+```
 
-1. **资产派生模型**：先决定派生资产如何创建、显示、删除、关联原始资产和
-   `flowId`，再改画布节点。不能只在原始资产上堆更多图片版本。
-关联总清单：`W6B-NODE-ASSETS-001`、`W6C-EDIT-CANVAS-001`、
-`W6C-EDIT-UPLOAD-001`、`W6C-EDIT-GENERATED-001`。
+此批次没有真实供应商调用，也没有提交、轮询或下载任何视频。剩余相关功能只剩
+`W7B-ASSETS-GEN-001` 的“父图自动参考 + 子资产批量派生出图”合并任务；它与本页
+已经验收的手工图片流编辑不是同一用户动作。

@@ -107,6 +107,32 @@ void main() {
     expect(engine.assetImages(parent).single.selected, isTrue);
   });
 
+  test('制作画布资产查询保留关联原始资产的派生子项', () {
+    final parent = engine.addAsset(
+        projectId: projectId, type: 'role', name: '林逸', describe: '主角');
+    final derived = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸-战损',
+      describe: '战损造型',
+      parentAssetsId: parent,
+    );
+    engine.saveAssetImage(
+      assetsId: derived,
+      projectId: projectId,
+      base64Image: base64Encode([4, 5, 6]),
+      type: 'role',
+    );
+
+    final rows = engine.assetsByIds([parent]);
+
+    expect(rows, hasLength(1));
+    expect(rows.single.id, parent);
+    expect(rows.single.sonAssets, hasLength(1));
+    expect(rows.single.sonAssets.single.id, derived);
+    expect(rows.single.sonAssets.single.filePath, isNotNull);
+  });
+
   test('cornerScapeAssets 默认返回三类父资产、排除音频子资产并保留全部历史图', () {
     final role = engine.addAsset(
       projectId: projectId,

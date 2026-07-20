@@ -3082,6 +3082,30 @@ abstract class AppLocalizations {
   /// **'资产'**
   String get productionNodeAssetsTitle;
 
+  /// No description provided for @productionAssetOriginal.
+  ///
+  /// In zh, this message translates to:
+  /// **'原始资产'**
+  String get productionAssetOriginal;
+
+  /// No description provided for @productionAssetDerived.
+  ///
+  /// In zh, this message translates to:
+  /// **'衍生资产'**
+  String get productionAssetDerived;
+
+  /// No description provided for @productionNoDerivedAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无衍生资产'**
+  String get productionNoDerivedAssets;
+
+  /// No description provided for @productionDerivedAssetDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除该衍生资产后无法恢复。'**
+  String get productionDerivedAssetDeleteConfirm;
+
   /// No description provided for @productionNodeStoryboardTableTitle.
   ///
   /// In zh, this message translates to:

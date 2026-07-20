@@ -302,21 +302,148 @@ void main() {
     expect(reset.dx, closeTo(before.dx, 0.1));
   });
 
-  testWidgets('点击资产节点卡片打开节点式图片编辑器', (tester) async {
+  testWidgets('桌面资产节点按原始与衍生层级展示，衍生项进入图片编辑器', (tester) async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: 'x');
-    final assetId = engine.addAsset(
+    final originalId = engine.addAsset(
         projectId: projectId, type: 'role', name: '林朝雪', describe: 'x');
-    engine.updateScript(scriptId, assets: [assetId]);
+    final derivedId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪-雨夜',
+      describe: '战损造型',
+      prompt: '雨夜战损造型',
+      parentAssetsId: originalId,
+    );
+    engine.saveAssetImage(
+      assetsId: originalId,
+      projectId: projectId,
+      base64Image: 'AQID',
+      type: 'role',
+    );
+    engine.saveAssetImage(
+      assetsId: derivedId,
+      projectId: projectId,
+      base64Image: 'BAUG',
+      type: 'role',
+    );
+    engine.updateScript(scriptId, assets: [originalId]);
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(app(1400));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('林朝雪'));
+    expect(find.byKey(ValueKey('production-asset-parent-$originalId')),
+        findsOneWidget);
+    expect(find.text('原始资产'), findsOneWidget);
+    expect(
+        find.byKey(ValueKey('production-derived-$derivedId')), findsOneWidget);
+    expect(find.text('衍生资产'), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('production-derived-$derivedId')));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, '图片生成'), findsOneWidget);
+
+    final generatedTitle = find.descendant(
+      of: find.byType(GestureDetector),
+      matching: find.text('图片生成'),
+    );
+    await tester.tap(generatedTitle.last, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    final apply = find.byKey(const ValueKey('image-flow-apply-g1'));
+    expect(apply, findsOneWidget);
+    expect(tester.widget<FilledButton>(apply).onPressed, isNotNull,
+        reason: '原版会把已有衍生图作为结果节点，进入编辑器后可直接采用');
+  });
+
+  testWidgets('桌面资产节点删除衍生项须确认且仅移除该子项', (tester) async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    final originalId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '谢危', describe: 'x');
+    final derivedId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '谢危-朝服',
+      describe: '礼服版本',
+      parentAssetsId: originalId,
+    );
+    engine.updateScript(scriptId, assets: [originalId]);
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    await tester
+        .tap(find.byKey(ValueKey('production-derived-delete-$derivedId')));
+    await tester.pumpAndSettle();
+    expect(find.text('删除该衍生资产后无法恢复。'), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('production-derived-delete-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(engine.assetsByIds([originalId]).single.sonAssets, isEmpty);
+    expect(find.text('谢危-朝服'), findsNothing);
+  });
+
+  testWidgets('桌面资产节点为失败的衍生图显示失败态与原因提示', (tester) async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    final originalId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '姜梨', describe: 'x');
+    final derivedId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '姜梨-雪夜',
+      describe: '失败版本',
+      parentAssetsId: originalId,
+    );
+    engine.db.execute(
+      'INSERT INTO o_image (assetsId,state,errorReason,type) VALUES (?,?,?,?)',
+      [derivedId, stateFailed, '{"key":"errNetwork","params":{}}', 'role'],
+    );
+    engine.db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
+        [engine.db.lastInsertRowId, derivedId]);
+    engine.updateScript(scriptId, assets: [originalId]);
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    expect(find.text('生成失败'), findsOneWidget);
+    expect(find.byTooltip('网络请求失败'), findsOneWidget);
+  });
+
+  testWidgets('390dp 资产节点保留原始与衍生资产层级且没有布局异常', (tester) async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    final originalId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '沈璃', describe: 'x');
+    final derivedId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '沈璃-战甲',
+      describe: '披甲版本',
+      parentAssetsId: originalId,
+    );
+    engine.updateScript(scriptId, assets: [originalId]);
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(390));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(Tab, '资产'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(ValueKey('production-asset-parent-$originalId')),
+        findsOneWidget);
+    expect(
+        find.byKey(ValueKey('production-derived-$derivedId')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('移动端：Tab 切换代替画布', (tester) async {
@@ -395,8 +522,8 @@ void main() {
     expect(find.text('S1'), findsOneWidget);
     expect(find.text('S2'), findsOneWidget);
     expect(find.byTooltip('合成本集'), findsOneWidget);
-    expect(
-        find.byKey(const ValueKey('workbench-compose-compact')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workbench-compose-compact')),
+        findsOneWidget);
   });
 
   testWidgets('移动端离线主链：工作台可直接合成本集', (tester) async {
@@ -415,8 +542,7 @@ void main() {
     await tester.tap(find.text('打开工作台'));
     await tester.pumpAndSettle();
 
-    await tester.tap(
-        find.byKey(const ValueKey('workbench-compose-compact')));
+    await tester.tap(find.byKey(const ValueKey('workbench-compose-compact')));
     await tester.pumpAndSettle();
 
     expect(find.text('合成成功'), findsOneWidget);

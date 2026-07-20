@@ -1554,6 +1554,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get productionNodeAssetsTitle => '资产';
 
   @override
+  String get productionAssetOriginal => '原始资产';
+
+  @override
+  String get productionAssetDerived => '衍生资产';
+
+  @override
+  String get productionNoDerivedAssets => '暂无衍生资产';
+
+  @override
+  String get productionDerivedAssetDeleteConfirm => '删除该衍生资产后无法恢复。';
+
+  @override
   String get productionNodeStoryboardTableTitle => '分镜表';
 
   @override
