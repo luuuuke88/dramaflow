@@ -546,6 +546,121 @@ void main() {
     expect(find.text('已删除连线'), findsOneWidget);
   });
 
+  testWidgets('生成节点可作为参考源连接到下一个生成节点', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final generatedRel = engine.media.saveImage(_pngBytes, '$projectId');
+    final flowId = engine.saveImageFlow([
+      ImageFlowNode(
+        id: 'g1',
+        type: 'generated',
+        x: 400,
+        y: 40,
+        data: {'generatedImage': generatedRel},
+      ),
+      const ImageFlowNode(
+        id: 'g2',
+        type: 'generated',
+        x: 400,
+        y: 300,
+        data: {},
+      ),
+    ], const []);
+    await tester.pumpWidget(host(flowId: flowId));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('image-flow-source-g1')));
+    await tester.tap(find.byKey(const Key('image-flow-target-g2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+
+    final data = engine.getImageFlow(flowId);
+    expect(
+      data.edges.any((edge) => edge.source == 'g1' && edge.target == 'g2'),
+      isTrue,
+    );
+    final secondGenerated = data.nodes.firstWhere((node) => node.id == 'g2');
+    expect(secondGenerated.data['references'], [
+      {'image': generatedRel}
+    ]);
+  });
+
+  testWidgets('图片流拒绝与既有边方向相反的重复连线', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host(seedRefs: const ['p/source.png']));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, '生成节点'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('image-flow-source-g1')));
+    await tester.tap(find.byKey(const Key('image-flow-target-g2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('image-flow-source-g2')));
+    await tester.tap(find.byKey(const Key('image-flow-target-g1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+
+    final flowId = engine.db
+        .select('SELECT id FROM o_imageFlow ORDER BY id DESC LIMIT 1')
+        .single['id'] as int;
+    final generatedEdges = engine
+        .getImageFlow(flowId)
+        .edges
+        .where((edge) =>
+            (edge.source == 'g1' && edge.target == 'g2') ||
+            (edge.source == 'g2' && edge.target == 'g1'))
+        .toList();
+    expect(generatedEdges, hasLength(1));
+    expect(
+      generatedEdges.single,
+      isA<ImageFlowEdge>()
+          .having((edge) => edge.source, 'source', 'g1')
+          .having((edge) => edge.target, 'target', 'g2'),
+    );
+  });
+
+  testWidgets('移动端 390px：生成节点可作为下一节点的参考源', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+        host(size: const Size(390, 900), seedRefs: const ['p/source.png']));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, '生成节点'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('image-flow-source-g1')).hitTestable(),
+        findsOneWidget);
+    expect(find.byKey(const Key('image-flow-target-g2')).hitTestable(),
+        findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('image-flow-source-g1')));
+    await tester.tap(find.byKey(const Key('image-flow-target-g2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+
+    final flowId = engine.db
+        .select('SELECT id FROM o_imageFlow ORDER BY id DESC LIMIT 1')
+        .single['id'] as int;
+    expect(
+      engine
+          .getImageFlow(flowId)
+          .edges
+          .any((edge) => edge.source == 'g1' && edge.target == 'g2'),
+      isTrue,
+    );
+  });
+
   testWidgets('已生成节点可重绘：当前结果作为参考图并传递修改意见', (tester) async {
     tester.view.physicalSize = const Size(1400, 1000);
     tester.view.devicePixelRatio = 1;

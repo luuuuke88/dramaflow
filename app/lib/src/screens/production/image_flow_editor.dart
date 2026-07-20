@@ -344,8 +344,9 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
       setState(() => _connectingFrom = null);
       return;
     }
-    final duplicate =
-        _edges.any((e) => e.source == sourceId && e.target == node.id);
+    final duplicate = _edges.any((e) =>
+        (e.source == sourceId && e.target == node.id) ||
+        (e.source == node.id && e.target == sourceId));
     if (duplicate || node.type != 'generated') {
       _toast(l10n.productionEditImageInvalidConnection);
       setState(() => _connectingFrom = null);
@@ -679,6 +680,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
             _HandleDot(
               onTap: () => _handleHandleTap(node, isSource: true),
               active: _connectingFrom == node.id,
+              key: Key('image-flow-source-${node.id}'),
             ),
           ]),
         ),
@@ -789,6 +791,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                 _HandleDot(
                   onTap: () => _handleHandleTap(node, isSource: false),
                   active: false,
+                  key: Key('image-flow-target-${node.id}'),
                 ),
                 Expanded(
                   child: Container(
@@ -808,6 +811,11 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                       ),
                     ]),
                   ),
+                ),
+                _HandleDot(
+                  onTap: () => _handleHandleTap(node, isSource: true),
+                  active: _connectingFrom == node.id,
+                  key: Key('image-flow-source-${node.id}'),
                 ),
               ]),
               Container(
@@ -1362,7 +1370,7 @@ class _MaskPainter extends CustomPainter {
 class _HandleDot extends StatelessWidget {
   final VoidCallback onTap;
   final bool active;
-  const _HandleDot({required this.onTap, required this.active});
+  const _HandleDot({super.key, required this.onTap, required this.active});
 
   @override
   Widget build(BuildContext context) {
