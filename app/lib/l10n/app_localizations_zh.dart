@@ -3839,4 +3839,20 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get onboardingLanguageJa => '日语';
+
+  @override
+  String get bootstrapFailureTitle => '无法打开本地工作区';
+
+  @override
+  String get bootstrapFailureMessage =>
+      'DramaFlow 无法创建或读取本机工作区。请检查磁盘空间和目录权限后重试。';
+
+  @override
+  String get bootstrapFailureDirectory => '工作区目录';
+
+  @override
+  String get bootstrapFailureRetry => '重试';
+
+  @override
+  String get bootstrapFailureExit => '退出应用';
 }

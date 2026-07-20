@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:dramaflow/src/bootstrap/bootstrap_io.dart';
+import 'package:dramaflow/src/bootstrap/startup_failure_app.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -18,6 +19,38 @@ class _ZipBundle extends CachingAssetBundle {
 }
 
 void main() {
+  test('启动装配器公开可测的数据目录边界', () {
+    final source =
+        File('lib/src/bootstrap/bootstrap_io.dart').readAsStringSync();
+
+    expect(source, contains('Future<Widget> buildDramaFlowApp({'));
+    expect(source, contains('String? dataDirectory'));
+    expect(source,
+        contains('StartupFailure(cause: error, dataDirectory: dataDir)'));
+  });
+
+  test('真实本地目录创建失败会保留失败目录供启动页展示', () async {
+    final dir = Directory.systemTemp.createTempSync('dramaflow-startup-');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    final blocker = File(p.join(dir.path, 'not-a-directory'))
+      ..writeAsStringSync('block');
+    final emptyZip = _ZipBundle(ZipEncoder().encode(Archive()));
+    final target = p.join(blocker.path, 'dramaflow');
+
+    await expectLater(
+      buildDramaFlowApp(dataDirectory: target, bundle: emptyZip),
+      throwsA(
+        isA<StartupFailure>().having(
+          (failure) => failure.dataDirectory,
+          'dataDirectory',
+          target,
+        ),
+      ),
+    );
+  });
+
   test('默认手册按文件补齐，不覆盖用户已有包或编辑', () async {
     final dir = Directory.systemTemp.createTempSync('dramaflow-skill-seed-');
     addTearDown(() {

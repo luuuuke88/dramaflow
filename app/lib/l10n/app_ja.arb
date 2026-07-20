@@ -1490,5 +1490,10 @@
   "onboardingLanguage": "言語を変更",
   "onboardingLanguageZh": "簡体字中国語",
   "onboardingLanguageEn": "英語",
-  "onboardingLanguageJa": "日本語"
+  "onboardingLanguageJa": "日本語",
+  "bootstrapFailureTitle": "ローカルワークスペースを開けません",
+  "bootstrapFailureMessage": "DramaFlow はこの端末のワークスペースを作成または読み取れません。空き容量とフォルダ権限を確認して、もう一度お試しください。",
+  "bootstrapFailureDirectory": "ワークスペースのフォルダ",
+  "bootstrapFailureRetry": "再試行",
+  "bootstrapFailureExit": "アプリを終了"
 }

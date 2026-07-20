@@ -3965,4 +3965,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingLanguageJa => 'Japanese';
+
+  @override
+  String get bootstrapFailureTitle => 'Can\'t open the local workspace';
+
+  @override
+  String get bootstrapFailureMessage =>
+      'DramaFlow couldn\'t create or read this device\'s workspace. Check available storage and folder permissions, then try again.';
+
+  @override
+  String get bootstrapFailureDirectory => 'Workspace folder';
+
+  @override
+  String get bootstrapFailureRetry => 'Retry';
+
+  @override
+  String get bootstrapFailureExit => 'Quit app';
 }

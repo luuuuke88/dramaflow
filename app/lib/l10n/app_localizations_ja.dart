@@ -3868,4 +3868,20 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get onboardingLanguageJa => '日本語';
+
+  @override
+  String get bootstrapFailureTitle => 'ローカルワークスペースを開けません';
+
+  @override
+  String get bootstrapFailureMessage =>
+      'DramaFlow はこの端末のワークスペースを作成または読み取れません。空き容量とフォルダ権限を確認して、もう一度お試しください。';
+
+  @override
+  String get bootstrapFailureDirectory => 'ワークスペースのフォルダ';
+
+  @override
+  String get bootstrapFailureRetry => '再試行';
+
+  @override
+  String get bootstrapFailureExit => 'アプリを終了';
 }

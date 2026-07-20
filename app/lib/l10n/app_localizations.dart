@@ -7455,6 +7455,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'日语'**
   String get onboardingLanguageJa;
+
+  /// No description provided for @bootstrapFailureTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开本地工作区'**
+  String get bootstrapFailureTitle;
+
+  /// No description provided for @bootstrapFailureMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'DramaFlow 无法创建或读取本机工作区。请检查磁盘空间和目录权限后重试。'**
+  String get bootstrapFailureMessage;
+
+  /// No description provided for @bootstrapFailureDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作区目录'**
+  String get bootstrapFailureDirectory;
+
+  /// No description provided for @bootstrapFailureRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get bootstrapFailureRetry;
+
+  /// No description provided for @bootstrapFailureExit.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出应用'**
+  String get bootstrapFailureExit;
 }
 
 class _AppLocalizationsDelegate

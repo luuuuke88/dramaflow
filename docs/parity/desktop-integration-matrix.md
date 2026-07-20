@@ -8,7 +8,7 @@
 
 | 用户动作 | ToonFlow 1.1.8 | DramaFlow 当前实现 | 结论 |
 | --- | --- | --- | --- |
-| 数据目录无法写入时启动 | 先创建/写删测试文件；失败显示含目录与解决建议的原生警告，确认后退出 | `bootstrap()` 直接调用播种和 `Engine.boot()`；`Directory.createSync` / 打开 SQLite 的异常没有应用层捕获或说明窗口 | **缺失** |
+| 数据目录无法写入时启动 | 先创建/写删测试文件；失败显示含目录与解决建议的原生警告，确认后退出 | `bootstrap()` 接住目录、播种、SQLite 与引擎启动异常，换到无 Engine 的本地化失败页；显示目录并可重试，macOS 可退出 | **部分实现** |
 | 关闭 macOS 最后一个窗口 | `window-all-closed` 在 Darwin 不退出；Dock 激活时重建窗口 | `AppDelegate` 保持进程存活；无可见窗口时，Dock/LaunchServices 重开会将原窗口带回前台 | **已验证等价** |
 | 点击侧栏反馈、GitHub | 使用 `shell.openExternal` 交给系统默认浏览器 | 两个侧栏入口通过 `url_launcher` 打开外部 URL | **已有但未完整验证** |
 | 点击 Agent 或其他 Markdown 中的外部链接 | 全局 Markdown 渲染器把链接交给 `handleLinkClick`，Electron 下以系统浏览器外开 | Agent 输出没有 Markdown 链接渲染/点击分发；仅两个硬编码侧栏入口可外开 | **部分实现** |
@@ -18,9 +18,9 @@
 
 原版在 [`src/app.ts`](../../../Toonflow-app/src/app.ts) 的 `checkPermissions()` 中，应用后端开始前就会验证用户数据目录。失败时它显示“权限不足”窗口，文本包含实际目录和处理建议。这一行为不依赖浏览器页面，属于桌面用户的明确保护。
 
-Flutter 的启动链是 [`bootstrap_io.dart`](../../app/lib/src/bootstrap/bootstrap_io.dart) 的 `bootstrap()` → [`engine.dart`](../../app/lib/src/engine/engine.dart) 的 `Engine.boot()`。它在 `runApp` 之前同步创建目录、播种文件和打开 SQLite；此路径没有 `try/catch`、错误页或退出策略。现有 [`bootstrap_io_test.dart`](../../app/test/bootstrap/bootstrap_io_test.dart) 只证明正常播种时不会覆盖用户文件，不能证明只读目录或数据库无法打开时用户能看懂发生了什么。
+Flutter 的启动链是 [`bootstrap_io.dart`](../../app/lib/src/bootstrap/bootstrap_io.dart) 的 `bootstrap()` → `buildDramaFlowApp()` → [`engine.dart`](../../app/lib/src/engine/engine.dart) 的 `Engine.boot()`。现在无论目录创建、资源播种、SQLite 打开还是引擎初始化失败，外层都会换成 [`startup_failure_app.dart`](../../app/lib/src/bootstrap/startup_failure_app.dart) 的无引擎失败页；页面展示已知工作区目录、提供重试，并仅在 macOS 显示退出应用。错误日志仅保留异常类型，避免把文件内容或凭据带入日志。
 
-因此总清单的 `W10-BACKEND-LIFECYCLE-001` 保持**缺失**。将来修复应只建立一个可测试的启动错误边界：保留异常的原始原因和数据目录，向桌面/移动用户显示可理解的失败页或原生对话框，并提供明确退出/重试路径。它不应模仿 Express、Electron `dialog` 或 `app.quit()` 的内部实现。
+真实文件系统夹具已把“父路径是普通文件”传入装配器，确认目录创建失败会带着目标目录进入失败页；390dp widget 回归也验证了目录可见、重试可点。`W10-BACKEND-LIFECYCLE-001` 因此降为**部分实现**。仍未等价的部分是原版独立写删预检、iOS/Android 的退出语义，以及没有独立 Node 后端时无从对应的异步 shutdown；这些保留为后续跨端验收项。
 
 ## macOS 的关闭与重新打开
 
@@ -48,7 +48,7 @@ DramaFlow 在 [`shell.dart`](../../app/lib/src/widgets/shell.dart) 中已经用 
 
 | 范围 | 原版证据 | Flutter 证据 | 当前可执行验证 |
 | --- | --- | --- | --- |
-| 数据目录保护 | `Toonflow-app/src/app.ts:22-47` | `app/lib/src/bootstrap/bootstrap_io.dart:22-41`、`app/lib/src/engine/engine.dart:586-613` | 正常播种：`flutter test test/bootstrap/bootstrap_io_test.dart`；不可写目录需以后加入受控集成测试 |
+| 数据目录保护 | `Toonflow-app/src/app.ts:22-47` | `app/lib/src/bootstrap/bootstrap_io.dart`、`app/lib/src/bootstrap/startup_failure_app.dart` | `bootstrap_io_test.dart` 真实不可建目录夹具；`bootstrap_failure_test.dart` 验证异常接管与 390dp 重试；不启动供应商 |
 | Dock 生命周期 | `Toonflow-app/build/main.js:251-258` | `app/macos/Runner/AppDelegate.swift:6-19`、`app/test/platform/macos_lifecycle_static_test.dart` | `flutter build macos --debug` 后启动隔离 App；关闭唯一窗口仍保留同一 PID；经 LaunchServices 重开后同一 PID 恢复窗口（2026-07-21） |
 | 外部链接 | `Toonflow-app/build/main.js:216-226`、`Toonflow-web/src/App.vue:55-115` | `app/lib/src/widgets/shell.dart:151-166` | 现有壳回归：`flutter test test/widgets/shell_test.dart`；链接动作专项测试仍缺 |
 

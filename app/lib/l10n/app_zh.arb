@@ -1721,5 +1721,10 @@
   "onboardingLanguage": "切换语言",
   "onboardingLanguageZh": "简体中文",
   "onboardingLanguageEn": "英语",
-  "onboardingLanguageJa": "日语"
+  "onboardingLanguageJa": "日语",
+  "bootstrapFailureTitle": "无法打开本地工作区",
+  "bootstrapFailureMessage": "DramaFlow 无法创建或读取本机工作区。请检查磁盘空间和目录权限后重试。",
+  "bootstrapFailureDirectory": "工作区目录",
+  "bootstrapFailureRetry": "重试",
+  "bootstrapFailureExit": "退出应用"
 }

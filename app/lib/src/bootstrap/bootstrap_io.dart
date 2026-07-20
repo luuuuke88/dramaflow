@@ -13,32 +13,72 @@ import '../engine/compose.dart';
 import '../engine/engine.dart';
 import '../platform/avfoundation_composer.dart';
 import '../state/providers.dart';
+import 'startup_failure_app.dart';
 
 const _defaultSkillsZipAsset =
     'assets/default_skills/toonflow_default_skills.zip';
 const _defaultPromptsZipAsset =
     'assets/default_prompts/toonflow_model_prompts.zip';
 
-Future<void> bootstrap() async {
+typedef StartupAppBuilder = Future<Widget> Function();
+typedef StartupAppRunner = void Function(Widget app);
+
+Future<void> bootstrap({
+  StartupAppBuilder? appBuilder,
+  StartupAppRunner? runAppOverride,
+}) async {
   WidgetsFlutterBinding.ensureInitialized();
-  final docs = await getApplicationDocumentsDirectory();
-  final dataDir = p.join(docs.path, 'dramaflow');
-  await seedBundledDefaultSkills(dataDir);
-  await seedBundledModelPrompts(dataDir);
-  final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-  final videoComposer =
-      !kIsWeb && (Platform.isMacOS || Platform.isIOS || Platform.isAndroid)
-          ? const AVFoundationComposer()
-          : const UnsupportedComposer();
-  final engine = await Engine.boot(
-    dataDir: dataDir,
-    isMobile: isMobile,
-    composer: videoComposer,
-  );
-  runApp(ProviderScope(
-    overrides: [engineProvider.overrideWithValue(engine)],
-    child: DramaFlowApp(initialOnboardingComplete: engine.onboardingCompleted),
-  ));
+  final attach = runAppOverride ?? runApp;
+
+  Future<void> start() async {
+    try {
+      attach(await (appBuilder ?? buildDramaFlowApp)());
+    } catch (error, _) {
+      final failure =
+          error is StartupFailure ? error : StartupFailure(cause: error);
+      debugPrint('DramaFlow startup failed: ${failure.cause.runtimeType}');
+      attach(StartupFailureApp(
+        failure: failure,
+        onRetry: start,
+        onExit: Platform.isMacOS ? () => exit(1) : null,
+      ));
+    }
+  }
+
+  await start();
+}
+
+Future<Widget> buildDramaFlowApp({
+  String? dataDirectory,
+  AssetBundle? bundle,
+}) async {
+  var dataDir = dataDirectory;
+  try {
+    if (dataDir == null) {
+      final docs = await getApplicationDocumentsDirectory();
+      dataDir = p.join(docs.path, 'dramaflow');
+    }
+    await seedBundledDefaultSkills(dataDir, bundle: bundle);
+    await seedBundledModelPrompts(dataDir, bundle: bundle);
+    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final videoComposer =
+        !kIsWeb && (Platform.isMacOS || Platform.isIOS || Platform.isAndroid)
+            ? const AVFoundationComposer()
+            : const UnsupportedComposer();
+    final engine = await Engine.boot(
+      dataDir: dataDir,
+      isMobile: isMobile,
+      composer: videoComposer,
+    );
+    return ProviderScope(
+      overrides: [engineProvider.overrideWithValue(engine)],
+      child: DramaFlowApp(
+        initialOnboardingComplete: engine.onboardingCompleted,
+      ),
+    );
+  } catch (error) {
+    throw StartupFailure(cause: error, dataDirectory: dataDir);
+  }
 }
 
 /// Copy bundled ToonFlow default visual/director manual files when absent.
