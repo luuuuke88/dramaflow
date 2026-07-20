@@ -1797,6 +1797,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchOpen => 'Open Workbench';
 
   @override
+  String get imageActionCopy => 'Copy image';
+
+  @override
+  String get imageActionSave => 'Save image as';
+
+  @override
+  String get imageActionCopied => 'Image copied to clipboard';
+
+  @override
+  String get imageActionCopyFailed => 'Could not copy image';
+
+  @override
+  String get imageActionSaveFailed => 'Could not save image';
+
+  @override
   String get workbenchAddStandaloneTrack => 'Add video track';
 
   @override

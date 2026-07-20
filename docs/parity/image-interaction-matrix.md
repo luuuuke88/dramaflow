@@ -9,15 +9,17 @@
 | 动作 | ToonFlow 1.1.8 | DramaFlow 当前实现 | 结论 |
 | --- | --- | --- | --- |
 | 放大查看单图 | 图片悬浮工具条点预览，交给 `t-image-viewer` | 分镜“预览全部”打开整屏 PageView，支持左右切换、双指/滚轮缩放和缺图占位 | **部分等价**：分镜首帧场景更完整，但不是每个图片位置都有同一工具条 |
-| 复制图片到剪贴板 | 将跨域图片绘制到 canvas，再写入 `ClipboardItem` | 没有图片二进制复制入口或适配层 | **缺失** |
-| 单张另存为 | fetch blob 后触发浏览器下载；CORS 失败时新窗口打开 | 分镜页有“导出全部”到用户选择目录，按 `S01.*` 命名；没有对任意单张图片的另存为动作 | **部分实现** |
-| 在资产、分镜、图片编辑器、工作台参考图上复用 | 同一个 `ImageTools` 组件被资产节点、分镜、海报、图片编辑器和视频参考选择器复用 | 预览/导出分散在分镜画廊、图片编辑器和各页面的本地文件路径中 | **部分实现** |
+| 复制图片到剪贴板 | 将跨域图片绘制到 canvas，再写入 `ClipboardItem` | [`AssetImagePreviewPage`](../../app/lib/src/widgets/asset_image_preview.dart) 将本地 PNG 原样交给平台剪贴板，JPEG 等其他可解码图片转成 PNG 后复制；成功/失败均有本地化反馈 | **部分实现**：共享预览入口已可复制，尚未挂到每一张内嵌缩略图的悬浮层 |
+| 单张另存为 | fetch blob 后触发浏览器下载；CORS 失败时新窗口打开 | 全屏预览的“另存此图”复用 `file_selector` 系统保存面板，以原文件名和原始字节写出；分镜页仍保留“导出全部” | **部分实现**：单图另存已可达，但不等于所有原版图片位置都已接线 |
+| 在资产、分镜、图片编辑器、工作台参考图上复用 | 同一个 `ImageTools` 组件被资产节点、分镜、海报、图片编辑器和视频参考选择器复用 | 本地图片走同一 `showAssetImagePreview` 时都会获得复制/另存/缩放；当前调用者包括通用本地媒体预览、画风库、塑角造景和资产生成候选 | **部分实现**：基础动作已共享，资产节点、分镜格、图片流节点和工作台参考缩略图仍缺原版同位工具条 |
 
 原版的 [`imageTools.vue`](../../../Toonflow-web/src/components/imageTools.vue) 是纯浏览器补偿层：图片来自 HTTP URL，所以复制要经 canvas，下载要经 fetch/blob。它实际挂载在资产节点、分镜节点、海报、图片编辑器生成节点和工作台参考图等多个位置。
 
-DramaFlow 的 [`storyboard_gallery.dart`](../../app/lib/src/screens/production/storyboard_gallery.dart) 已提供合适的原生图片查看体验；[`storyboard_canvas_node.dart`](../../app/lib/src/screens/production/storyboard_canvas_node.dart) 也有“导出全部”。`storyboard_canvas_node_test.dart` 验证整屏画廊包含所有镜头和无图片时不弹出系统导出面板。它们不能证明任意图片均可复制或另存为，因此总表的 `W6E-CMP-IMGTOOLS-001` 保持**部分实现**。
+DramaFlow 的 [`asset_image_preview.dart`](../../app/lib/src/widgets/asset_image_preview.dart) 现为共享的原生动作层：全屏缩放预览右上角始终提供“复制图片 / 另存此图 / 关闭”三个固定尺寸图标；桌面与移动端共用同一安全区布局。复制遵循原生插件的 PNG 输入要求：PNG 直接复制，JPEG 等可解码源图在内存中转成 PNG；另存交给系统保存面板并保留原文件名、原始字节与格式，不搬用浏览器的 CORS 失败回退。`asset_image_preview_test.dart` 用 JPEG fixture 验证剪贴板转 PNG、用预览页动作验证读取源路径并把原路径交给另存适配器；没有调用图片或视频供应商。
 
-未来如需补齐，应做一个小型、平台安全的图片动作适配层：对本地文件提供“复制图片”和“导出此图”，桌面显示图标工具条、移动端放入长按/更多菜单。它应只接受应用媒体目录内的文件，不使用网页式 CORS 回退，也不为每个页面各写一套文件复制逻辑。
+[`storyboard_gallery.dart`](../../app/lib/src/screens/production/storyboard_gallery.dart) 仍提供分镜序列的专用查看体验；[`storyboard_canvas_node.dart`](../../app/lib/src/screens/production/storyboard_canvas_node.dart) 仍有“导出全部”。这次没有假装它们已经自动拥有逐格工具条：原版 `ImageTools` 在资产节点、分镜节点、图片编辑器和工作台参考选择器的就地悬浮入口，Flutter 还需要逐处接到共享预览或同一动作层。因此总表的 `W6E-CMP-IMGTOOLS-001` 保持**部分实现**。
+
+后续补齐只需让尚未接线的图片入口调用既有动作层：桌面可以在原地显示紧凑图标，移动端应以点按预览或“更多”入口抵达同一页面。任何新入口都必须只接受应用媒体目录内的普通文件，不使用网页式 CORS 回退，也不为每个页面复制一套文件读取或保存逻辑。
 
 ## 提示词里的参考素材
 
@@ -37,6 +39,7 @@ Flutter 选择了结构化表达：[`image_flow_editor.dart`](../../app/lib/src/
 
 | 验收 | 当前证据 | 尚缺证据 |
 | --- | --- | --- |
+| 共享全屏预览的复制与另存 | `app/test/widgets/asset_image_preview_test.dart`：JPEG fixture 转 PNG 后交给复制适配器，预览页把源路径交给另存适配器 | macOS/iOS/Android 真实系统剪贴板和保存面板属于最终人工验收；不涉及供应商 |
 | 整屏查看和批量导出空态 | `app/test/widgets/storyboard_canvas_node_test.dart` | 已有图片时系统目录选择、逐文件复制与移动端分享出口 |
 | 图片流多参考 | `app/test/engine/image_flow_test.dart` | 不测试真实图像供应商 |
 | 视频草稿参考角色/数量 | `app/test/widgets/workbench_screen_test.dart` | 不测试真实视频生成、轮询或下载 |

@@ -1754,6 +1754,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchOpen => 'ワークベンチを開く';
 
   @override
+  String get imageActionCopy => '画像をコピー';
+
+  @override
+  String get imageActionSave => '画像を別名で保存';
+
+  @override
+  String get imageActionCopied => '画像をクリップボードにコピーしました';
+
+  @override
+  String get imageActionCopyFailed => '画像をコピーできませんでした';
+
+  @override
+  String get imageActionSaveFailed => '画像を保存できませんでした';
+
+  @override
   String get workbenchAddStandaloneTrack => '動画トラックを追加';
 
   @override

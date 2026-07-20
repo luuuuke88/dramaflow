@@ -27,6 +27,8 @@ dependencies:
   crypto: ^3.0.7
   image: ^4.8.0
   url_launcher: ^6.3.2
+  # ToonFlow ImageTools 要求复制 PNG 到系统剪贴板；Flutter SDK 本身仅覆盖纯文本。
+  clipboard: ^3.0.14
   # 视频播放 + 音频试听：media_kit 单包覆盖 macOS（主目标，内置 libmpv）/Windows/Linux/
   # iOS/Android，避开 video_player_avfoundation 在桌面端的历史缺口，且同时支持音频，
   # 无需再引入 just_audio/audioplayers。见 workbench_screen.dart / corner_scape_screen.dart。

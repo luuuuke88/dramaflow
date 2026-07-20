@@ -1739,6 +1739,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchOpen => '打开工作台';
 
   @override
+  String get imageActionCopy => '复制图片';
+
+  @override
+  String get imageActionSave => '另存此图';
+
+  @override
+  String get imageActionCopied => '图片已复制到剪贴板';
+
+  @override
+  String get imageActionCopyFailed => '复制图片失败';
+
+  @override
+  String get imageActionSaveFailed => '另存图片失败';
+
+  @override
   String get workbenchAddStandaloneTrack => '添加视频轨';
 
   @override

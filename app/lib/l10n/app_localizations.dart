@@ -3436,6 +3436,36 @@ abstract class AppLocalizations {
   /// **'打开工作台'**
   String get workbenchOpen;
 
+  /// No description provided for @imageActionCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制图片'**
+  String get imageActionCopy;
+
+  /// No description provided for @imageActionSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'另存此图'**
+  String get imageActionSave;
+
+  /// No description provided for @imageActionCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片已复制到剪贴板'**
+  String get imageActionCopied;
+
+  /// No description provided for @imageActionCopyFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制图片失败'**
+  String get imageActionCopyFailed;
+
+  /// No description provided for @imageActionSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'另存图片失败'**
+  String get imageActionSaveFailed;
+
   /// No description provided for @workbenchAddStandaloneTrack.
   ///
   /// In zh, this message translates to:
