@@ -1310,6 +1310,8 @@
   "imageEditorNoStoryboardImages": "分镜暂无已生成首帧图",
   "imageEditorRemoveEdge": "删除该连线",
   "imageEditorEdgeRemoved": "已删除连线",
+  "imageEditorCloseConfirmTitle": "关闭图片编辑器？",
+  "imageEditorCloseConfirmBody": "关闭后，已有图片流结构会自动保存。",
   "workbenchPlayVideo": "播放",
   "workbenchVideoLoadFailed": "视频加载失败",
   "workbenchDeleteCandidate": "删除候选",

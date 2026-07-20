@@ -131,6 +131,8 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
   String? _connectingFrom;
   int _seq = 0;
   int? _flowId;
+  final _canvasController = DFCanvasController();
+  var _allowRoutePop = false;
 
   // 生成参数默认值（对齐 ToonFlow onMounted：model=project.imageModel、
   // quality=project.imageQuality、ratio=project.videoRatio ?? '16:9'）。
@@ -240,6 +242,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
 
   @override
   void dispose() {
+    _canvasController.dispose();
     for (final n in _nodes) {
       n.promptCtl.dispose();
     }
@@ -261,6 +264,79 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// 对齐 ToonFlow 的 LR 自动布局：按入边层级稳定排序，异常循环图也保证可见。
+  void _autoLayout() {
+    if (_nodes.isEmpty) return;
+    final nodeIds = [for (final node in _nodes) node.id];
+    final knownIds = nodeIds.toSet();
+    final indegree = {for (final id in nodeIds) id: 0};
+    final outgoing = {for (final id in nodeIds) id: <String>[]};
+    for (final edge in _edges) {
+      if (!knownIds.contains(edge.source) || !knownIds.contains(edge.target)) {
+        continue;
+      }
+      indegree[edge.target] = indegree[edge.target]! + 1;
+      outgoing[edge.source]!.add(edge.target);
+    }
+
+    final remaining = nodeIds.toSet();
+    final ranks = <String, int>{};
+    while (remaining.isNotEmpty) {
+      final id = nodeIds.firstWhere(
+        (candidate) =>
+            remaining.contains(candidate) && indegree[candidate] == 0,
+        orElse: () => nodeIds.firstWhere(remaining.contains),
+      );
+      remaining.remove(id);
+      final rank = ranks[id] ?? 0;
+      for (final target in outgoing[id]!) {
+        if (!remaining.contains(target)) continue;
+        final nextRank = rank + 1;
+        if ((ranks[target] ?? 0) < nextRank) ranks[target] = nextRank;
+        indegree[target] = indegree[target]! - 1;
+      }
+    }
+
+    setState(() {
+      final nextYByRank = <int, double>{};
+      for (final node in _nodes) {
+        final rank = ranks[node.id] ?? 0;
+        final y = nextYByRank[rank] ?? 40;
+        node.position = Offset(40 + rank * (_nodeWidth + 120), y);
+        nextYByRank[rank] = y + _nodeSize(node).height + 80;
+      }
+    });
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _canvasController.fitView());
+  }
+
+  Future<void> _requestClose() async {
+    if (_allowRoutePop) return;
+    final l10n = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.imageEditorCloseConfirmTitle),
+        content: Text(l10n.imageEditorCloseConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.commonConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    // ToonFlow 只在已有 flowId 时关闭前回写；新图未显式保存时不创建空记录。
+    if (_flowId != null) _save(notify: false);
+    _allowRoutePop = true;
+    if (mounted) Navigator.of(context).pop();
   }
 
   void _addUploadNode() {
@@ -587,7 +663,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     }
   }
 
-  void _save() {
+  void _save({bool notify = true}) {
     final imageNodes = [
       for (final n in _nodes)
         ImageFlowNode(
@@ -616,13 +692,14 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     ];
     _flowId =
         _engine.saveImageFlow(imageNodes, imageEdges, existingFlowId: _flowId);
-    _toast(context.l10n.assetsGenImageSaved);
+    if (notify) _toast(context.l10n.assetsGenImageSaved);
   }
 
   void _apply(_NodeVM node) {
     if (node.generatedRel == null) return;
     _save();
     widget.onApply(node.generatedRel!, _flowId!);
+    _allowRoutePop = true;
     Navigator.of(context).pop();
   }
 
@@ -979,57 +1056,93 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final compact = MediaQuery.sizeOf(context).width < 600;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.productionEditImageImageGeneration),
-        actions: [
-          TextButton.icon(
-            onPressed: _addUploadNode,
-            icon: const Icon(Icons.add_photo_alternate_outlined),
-            label: Text(l10n.productionEditImageUpload),
+    return PopScope(
+      canPop: _allowRoutePop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_requestClose());
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            key: const Key('image-flow-close'),
+            onPressed: _requestClose,
+            icon: const Icon(Icons.close),
+            tooltip: l10n.commonClose,
           ),
-          TextButton.icon(
-            onPressed: _addGeneratedNode,
-            icon: const Icon(Icons.auto_fix_high_outlined),
-            label: Text(l10n.productionEditImageGenerate),
-          ),
-          IconButton(
+          title: Text(l10n.productionEditImageImageGeneration),
+          actions: [
+            if (compact)
+              IconButton(
+                key: const Key('image-flow-add-upload'),
+                onPressed: _addUploadNode,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                tooltip: l10n.productionEditImageUpload,
+              )
+            else
+              TextButton.icon(
+                onPressed: _addUploadNode,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: Text(l10n.productionEditImageUpload),
+              ),
+            if (compact)
+              IconButton(
+                key: const Key('image-flow-add-generated'),
+                onPressed: _addGeneratedNode,
+                icon: const Icon(Icons.auto_fix_high_outlined),
+                tooltip: l10n.productionEditImageGenerate,
+              )
+            else
+              TextButton.icon(
+                onPressed: _addGeneratedNode,
+                icon: const Icon(Icons.auto_fix_high_outlined),
+                label: Text(l10n.productionEditImageGenerate),
+              ),
+            IconButton(
+              key: const Key('image-flow-auto-layout'),
+              onPressed: _autoLayout,
+              icon: const Icon(Icons.account_tree_outlined),
+              tooltip: l10n.productionAutoLayout,
+            ),
+            IconButton(
               onPressed: _save,
               icon: const Icon(Icons.save_outlined),
-              tooltip: l10n.commonSave),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: DFCanvas(
-        nodes: [
-          for (final n in _nodes)
-            DFCanvasNode(
-              id: n.id,
-              position: n.position,
-              size: _nodeSize(n),
-              onDragUpdate: (delta) => setState(() => n.position += delta),
-              child: n.type == 'upload'
-                  ? DFCanvasDragRegion(child: _uploadNodeWidget(n))
-                  : _generatedNodeWidget(n),
+              tooltip: l10n.commonSave,
             ),
-          // 每条连线中点放一个 × 手柄，点击删除该连线（对齐 ToonFlow removeLine）。
-          for (final e in _edges)
-            if (_edgeMidpoint(e) case final mid?)
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: DFCanvas(
+          controller: _canvasController,
+          nodes: [
+            for (final n in _nodes)
               DFCanvasNode(
-                id: 'edgeDel_${e.id}',
-                position: mid - const Offset(11, 11),
-                size: const Size(22, 22),
-                child: _EdgeDeleteDot(
-                  tooltip: l10n.imageEditorRemoveEdge,
-                  onTap: () => _removeEdge(e.id),
-                ),
+                id: n.id,
+                position: n.position,
+                size: _nodeSize(n),
+                onDragUpdate: (delta) => setState(() => n.position += delta),
+                child: n.type == 'upload'
+                    ? DFCanvasDragRegion(child: _uploadNodeWidget(n))
+                    : _generatedNodeWidget(n),
               ),
-        ],
-        edges: [
-          for (final e in _edges)
-            DFCanvasEdge(sourceId: e.source, targetId: e.target),
-        ],
-        fitOnInit: compact,
+            // 每条连线中点放一个 × 手柄，点击删除该连线（对齐 ToonFlow removeLine）。
+            for (final e in _edges)
+              if (_edgeMidpoint(e) case final mid?)
+                DFCanvasNode(
+                  id: 'edgeDel_${e.id}',
+                  position: mid - const Offset(11, 11),
+                  size: const Size(22, 22),
+                  child: _EdgeDeleteDot(
+                    tooltip: l10n.imageEditorRemoveEdge,
+                    onTap: () => _removeEdge(e.id),
+                  ),
+                ),
+          ],
+          edges: [
+            for (final e in _edges)
+              DFCanvasEdge(sourceId: e.source, targetId: e.target),
+          ],
+          fitOnInit: compact,
+        ),
       ),
     );
   }

@@ -1086,6 +1086,8 @@
   "imageEditorNoStoryboardImages": "絵コンテに生成済みの初期フレームがありません",
   "imageEditorRemoveEdge": "この接続を削除",
   "imageEditorEdgeRemoved": "接続を削除しました",
+  "imageEditorCloseConfirmTitle": "画像エディターを閉じますか？",
+  "imageEditorCloseConfirmBody": "閉じると、既存の画像フロー構造は自動的に保存されます。",
   "workbenchPlayVideo": "再生",
   "workbenchVideoLoadFailed": "動画の読み込みに失敗しました",
   "workbenchDeleteCandidate": "候補を削除",

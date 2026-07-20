@@ -2971,6 +2971,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorEdgeRemoved => '接続を削除しました';
 
   @override
+  String get imageEditorCloseConfirmTitle => '画像エディターを閉じますか？';
+
+  @override
+  String get imageEditorCloseConfirmBody => '閉じると、既存の画像フロー構造は自動的に保存されます。';
+
+  @override
   String get workbenchPlayVideo => '再生';
 
   @override

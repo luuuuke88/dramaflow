@@ -2948,6 +2948,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorEdgeRemoved => '已删除连线';
 
   @override
+  String get imageEditorCloseConfirmTitle => '关闭图片编辑器？';
+
+  @override
+  String get imageEditorCloseConfirmBody => '关闭后，已有图片流结构会自动保存。';
+
+  @override
   String get workbenchPlayVideo => '播放';
 
   @override

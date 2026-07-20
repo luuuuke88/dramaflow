@@ -636,7 +636,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(TextButton, '生成节点'));
+    await tester.tap(find.byKey(const Key('image-flow-add-generated')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('image-flow-source-g1')).hitTestable(),
         findsOneWidget);
@@ -659,6 +659,113 @@ void main() {
           .any((edge) => edge.source == 'g1' && edge.target == 'g2'),
       isTrue,
     );
+  });
+
+  testWidgets('图片流自动布局按连线重排为从左到右的层级', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final flowId = engine.saveImageFlow(const [
+      ImageFlowNode(id: 'g1', type: 'generated', x: 800, y: 500, data: {}),
+      ImageFlowNode(id: 'g2', type: 'generated', x: 40, y: 40, data: {}),
+    ], const [
+      ImageFlowEdge(id: 'e1', source: 'g1', target: 'g2'),
+    ]);
+    await tester.pumpWidget(host(flowId: flowId));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('image-flow-auto-layout')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+
+    final data = engine.getImageFlow(flowId);
+    final first = data.nodes.firstWhere((node) => node.id == 'g1');
+    final second = data.nodes.firstWhere((node) => node.id == 'g2');
+    expect(first.x, lessThan(second.x));
+    expect(
+      find.byKey(const Key('image-flow-target-g2')).hitTestable(),
+      findsOneWidget,
+      reason: '重新布局后目标节点必须仍适配在当前视口内',
+    );
+  });
+
+  testWidgets('移动端 390px：自动布局入口可用并保存 LR 层级', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final flowId = engine.saveImageFlow(const [
+      ImageFlowNode(id: 'g1', type: 'generated', x: 800, y: 500, data: {}),
+      ImageFlowNode(id: 'g2', type: 'generated', x: 40, y: 40, data: {}),
+    ], const [
+      ImageFlowEdge(id: 'e1', source: 'g1', target: 'g2'),
+    ]);
+    await tester.pumpWidget(host(flowId: flowId, size: const Size(390, 900)));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final layoutButton = find.byKey(const Key('image-flow-auto-layout'));
+    expect(layoutButton.hitTestable(), findsOneWidget);
+    await tester.tap(layoutButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+
+    final data = engine.getImageFlow(flowId);
+    final first = data.nodes.firstWhere((node) => node.id == 'g1');
+    final second = data.nodes.firstWhere((node) => node.id == 'g2');
+    expect(first.x, lessThan(second.x));
+    expect(find.byKey(const Key('image-flow-target-g2')).hitTestable(),
+        findsOneWidget);
+  });
+
+  testWidgets('关闭已有图片流时确认并保存当前节点结构', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final flowId = engine.saveImageFlow(const [
+      ImageFlowNode(id: 'g1', type: 'generated', x: 400, y: 40, data: {}),
+    ], const []);
+    await tester.pumpWidget(host(flowId: flowId));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '生成节点'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('image-flow-close')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+
+    await tester.tap(find.byKey(const Key('image-flow-close')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('open'), findsOneWidget);
+    expect(engine.getImageFlow(flowId).nodes, hasLength(2));
+  });
+
+  testWidgets('移动端 390px：关闭新图片流确认后不创建空记录', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+        host(size: const Size(390, 900), seedRefs: const ['p/source.png']));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('image-flow-close')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('open'), findsOneWidget);
+    expect(engine.db.select('SELECT id FROM o_imageFlow'), isEmpty);
   });
 
   testWidgets('已生成节点可重绘：当前结果作为参考图并传递修改意见', (tester) async {

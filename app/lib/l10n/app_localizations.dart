@@ -5752,6 +5752,18 @@ abstract class AppLocalizations {
   /// **'已删除连线'**
   String get imageEditorEdgeRemoved;
 
+  /// No description provided for @imageEditorCloseConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭图片编辑器？'**
+  String get imageEditorCloseConfirmTitle;
+
+  /// No description provided for @imageEditorCloseConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭后，已有图片流结构会自动保存。'**
+  String get imageEditorCloseConfirmBody;
+
   /// No description provided for @workbenchPlayVideo.
   ///
   /// In zh, this message translates to:

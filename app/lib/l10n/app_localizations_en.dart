@@ -3054,6 +3054,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageEditorEdgeRemoved => 'Connection removed';
 
   @override
+  String get imageEditorCloseConfirmTitle => 'Close image editor?';
+
+  @override
+  String get imageEditorCloseConfirmBody =>
+      'Closing saves the structure of an existing image flow.';
+
+  @override
   String get workbenchPlayVideo => 'Play';
 
   @override

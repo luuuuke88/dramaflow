@@ -1086,6 +1086,8 @@
   "imageEditorNoStoryboardImages": "No generated storyboard frames yet",
   "imageEditorRemoveEdge": "Remove this connection",
   "imageEditorEdgeRemoved": "Connection removed",
+  "imageEditorCloseConfirmTitle": "Close image editor?",
+  "imageEditorCloseConfirmBody": "Closing saves the structure of an existing image flow.",
   "workbenchPlayVideo": "Play",
   "workbenchVideoLoadFailed": "Failed to load video",
   "workbenchDeleteCandidate": "Delete candidate",
