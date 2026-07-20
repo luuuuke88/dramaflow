@@ -110,6 +110,7 @@ void main() {
     int? scriptId,
     List<String> seedRefs = const [],
     Size size = const Size(1400, 1000),
+    void Function(String rel, int flowId)? onApply,
   }) {
     return ProviderScope(
       overrides: [engineProvider.overrideWithValue(engine)],
@@ -131,7 +132,7 @@ void main() {
                     flowId: flowId,
                     scriptId: scriptId,
                     seedReferenceRelPaths: seedRefs,
-                    onApply: (_, __) {},
+                    onApply: onApply ?? (_, __) {},
                   ),
                   child: const Text('open'),
                 ),
@@ -249,7 +250,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 点保存（AppBar 保存图标）。
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     // 从引擎回读最新 flow，校验 generated 节点 data。
@@ -288,7 +289,7 @@ void main() {
       const Offset(60, 30),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     final saved = engine.getImageFlow(flowId);
@@ -321,7 +322,7 @@ void main() {
     expect(imagePlaceholder.hitTestable(), findsOneWidget);
     await tester.drag(imagePlaceholder, const Offset(30, 20));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     final saved = engine.getImageFlow(flowId);
@@ -352,7 +353,7 @@ void main() {
     final prompt = find.byType(TextField).first;
     await tester.drag(prompt, const Offset(50, 0));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     final saved = engine.getImageFlow(flowId);
@@ -414,6 +415,85 @@ void main() {
     expect(find.text('林朝雪'), findsNothing);
   });
 
+  testWidgets('上传节点可直接采用已有参考图并保存当前流程', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final sourceRel = seedUploadRel();
+    String? appliedRel;
+    int? appliedFlowId;
+    await tester.pumpWidget(host(
+      seedRefs: [sourceRel],
+      onApply: (rel, flowId) {
+        appliedRel = rel;
+        appliedFlowId = flowId;
+      },
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('image-flow-apply-u0')));
+    await tester.pumpAndSettle();
+
+    expect(appliedRel, sourceRel);
+    expect(appliedFlowId, isNotNull);
+    expect(engine.getImageFlow(appliedFlowId!).nodes, isNotEmpty);
+    expect(find.text('open'), findsOneWidget);
+  });
+
+  testWidgets('移动端 390px：上传节点可直接采用参考图', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final sourceRel = seedUploadRel();
+    String? appliedRel;
+    await tester.pumpWidget(host(
+      size: const Size(390, 900),
+      seedRefs: [sourceRel],
+      onApply: (rel, _) => appliedRel = rel,
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final apply = find.byKey(const Key('image-flow-apply-u0'));
+    expect(apply.hitTestable(), findsOneWidget);
+    await tester.tap(apply);
+    await tester.pumpAndSettle();
+
+    expect(appliedRel, sourceRel);
+    expect(find.text('open'), findsOneWidget);
+  });
+
+  testWidgets('生成节点可从素材库直接设为结果后采用', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final assetId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '直接采用图', describe: 'x');
+    final assetRel = engine.media.saveImage(_pngBytes, '$projectId');
+    engine.attachAssetImage(assetId, assetRel);
+    String? appliedRel;
+    await tester.pumpWidget(host(
+      seedRefs: [seedUploadRel()],
+      onApply: (rel, _) => appliedRel = rel,
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('image-flow-seed-g1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('从素材库选择'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('直接采用图'));
+    await tester.pumpAndSettle();
+    await expandGeneratedNode(tester);
+    await tester.tap(find.byKey(const Key('image-flow-apply-g1')));
+    await tester.pumpAndSettle();
+
+    expect(appliedRel, assetRel);
+    expect(find.text('open'), findsOneWidget);
+  });
+
   testWidgets('移动端 390px：生成节点首屏可操作，素材参考与生成参数可保存', (tester) async {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
@@ -467,7 +547,7 @@ void main() {
     await tester.tap(find.text('2K').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     final rows =
@@ -574,7 +654,7 @@ void main() {
     await tester.tap(find.byKey(const Key('image-flow-source-g1')));
     await tester.tap(find.byKey(const Key('image-flow-target-g2')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     final data = engine.getImageFlow(flowId);
@@ -605,7 +685,7 @@ void main() {
     await tester.tap(find.byKey(const Key('image-flow-source-g2')));
     await tester.tap(find.byKey(const Key('image-flow-target-g1')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     final flowId = engine.db
@@ -646,7 +726,7 @@ void main() {
     await tester.tap(find.byKey(const Key('image-flow-source-g1')));
     await tester.tap(find.byKey(const Key('image-flow-target-g2')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     final flowId = engine.db
@@ -677,7 +757,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('image-flow-auto-layout')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     final data = engine.getImageFlow(flowId);
@@ -709,7 +789,7 @@ void main() {
     expect(layoutButton.hitTestable(), findsOneWidget);
     await tester.tap(layoutButton);
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.tap(find.byKey(const Key('image-flow-save')));
     await tester.pumpAndSettle();
 
     final data = engine.getImageFlow(flowId);

@@ -27,11 +27,11 @@ import '../../widgets/df_canvas.dart';
 import '../../widgets/common.dart';
 
 const _nodeWidth = 260.0;
-// upload 节点含头部(≈32)+图片(160)+手柄行(≈36)约 228，故折叠高留足余量避免溢出。
-const _nodeCollapsedHeight = 236.0;
+// upload 节点含头部、图片、带“直接采用”操作的手柄行，留出稳定余量避免溢出。
+const _nodeCollapsedHeight = 244.0;
 // 选中态展开后要容纳：参考图缩略图 + prompt + 三个参数选择器 + 操作按钮，
 // 故较未选中态更高（对齐 ToonFlow generatedNode 展开的 .parameter 面板）。
-const _nodeExpandedHeight = 560.0;
+const _nodeExpandedHeight = 576.0;
 
 // 画幅/清晰度为静态枚举（对齐 ToonFlow t-option 硬编码值）。
 const _ratioOptions = ['16:9', '9:16', '1:1'];
@@ -437,9 +437,8 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     });
   }
 
-  /// upload 节点选图：先选来源（本地文件 / 素材库 / 分镜），再取对应图片。
-  /// 对齐 ToonFlow editImage 上传节点的多来源选图（本地上传之外还可引用已有资产/分镜图）。
-  Future<void> _pickUploadImage(_NodeVM node) async {
+  /// 从三个来源取一张本地可访问图片。上传节点和生成节点共用此选择入口。
+  Future<String?> _pickImageRel() async {
     final l10n = context.l10n;
     final source = await showModalBottomSheet<String>(
       context: context,
@@ -463,34 +462,52 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
         ]),
       ),
     );
-    if (!mounted || source == null) return;
+    if (!mounted || source == null) return null;
     switch (source) {
       case 'local':
-        await _pickLocalImage(node);
+        return _pickLocalImage();
       case 'assets':
-        await _pickFromLibrary(node, fromStoryboard: false);
+        return _pickFromLibrary(fromStoryboard: false);
       case 'storyboard':
-        await _pickFromLibrary(node, fromStoryboard: true);
+        return _pickFromLibrary(fromStoryboard: true);
     }
+    return null;
   }
 
-  Future<void> _pickLocalImage(_NodeVM node) async {
-    final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(
-          label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
-    ]);
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
-    final saved = _engine.saveFlowUploadImage(widget.projectId, bytes);
+  /// upload 节点选图：本地、素材库、分镜均可作为参考图。
+  Future<void> _pickUploadImage(_NodeVM node) async {
+    final rel = await _pickImageRel();
+    if (!mounted || rel == null) return;
     setState(() {
-      node.imageRel = saved;
+      node.imageRel = rel;
       _syncReferences();
     });
   }
 
-  /// 从素材库或分镜里挑一张已生成图片作为参考（返回其相对路径）。
-  Future<void> _pickFromLibrary(_NodeVM node,
-      {required bool fromStoryboard}) async {
+  /// ToonFlow generatedNode 也支持不经生成，直接把选中的图作为结果。
+  Future<void> _seedGeneratedImage(_NodeVM node) async {
+    final rel = await _pickImageRel();
+    if (!mounted || rel == null) return;
+    setState(() {
+      node.generatedRel = rel;
+      node.state = 'done';
+      node.errorText = null;
+      _syncReferences();
+    });
+  }
+
+  Future<String?> _pickLocalImage() async {
+    final file = await openFile(acceptedTypeGroups: [
+      const XTypeGroup(
+          label: 'image', extensions: ['png', 'jpg', 'jpeg', 'webp'])
+    ]);
+    if (file == null) return null;
+    final bytes = await file.readAsBytes();
+    return _engine.saveFlowUploadImage(widget.projectId, bytes);
+  }
+
+  /// 从素材库或分镜里挑一张已生成图片，返回其相对路径。
+  Future<String?> _pickFromLibrary({required bool fromStoryboard}) async {
     final items = fromStoryboard ? _storyboardImageItems() : _assetImageItems();
     final rel = await showDFAdaptiveDialog<String>(
       context,
@@ -504,11 +521,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
             : context.l10n.imageEditorNoAssetsImages,
       ),
     );
-    if (!mounted || rel == null) return;
-    setState(() {
-      node.imageRel = rel;
-      _syncReferences();
-    });
+    return rel;
   }
 
   /// 素材库已选中图（跨 role/scene/tool；仅返回有 filePath 者）。
@@ -695,13 +708,15 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     if (notify) _toast(context.l10n.assetsGenImageSaved);
   }
 
-  void _apply(_NodeVM node) {
-    if (node.generatedRel == null) return;
+  void _applyRel(String? rel) {
+    if (rel == null) return;
     _save();
-    widget.onApply(node.generatedRel!, _flowId!);
+    widget.onApply(rel, _flowId!);
     _allowRoutePop = true;
     Navigator.of(context).pop();
   }
+
+  void _apply(_NodeVM node) => _applyRel(node.generatedRel);
 
   Widget _uploadNodeWidget(_NodeVM node) {
     final df = context.df;
@@ -753,7 +768,16 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
         ),
         Padding(
           padding: const EdgeInsets.all(6),
-          child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          child: Row(children: [
+            if (node.imageRel != null)
+              IconButton(
+                key: Key('image-flow-apply-${node.id}'),
+                onPressed: () => _applyRel(node.imageRel),
+                icon: const Icon(Icons.save_outlined, size: 18),
+                tooltip: l10n.commonSave,
+                visualDensity: VisualDensity.compact,
+              ),
+            const Spacer(),
             _HandleDot(
               onTap: () => _handleHandleTap(node, isSource: true),
               active: _connectingFrom == node.id,
@@ -895,41 +919,60 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                   key: Key('image-flow-source-${node.id}'),
                 ),
               ]),
-              Container(
+              SizedBox(
                 width: _nodeWidth,
                 height: 160,
-                color: df.surfaceMuted,
-                child: switch (node.state) {
-                  'generating' => Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2)),
-                            const SizedBox(height: 6),
-                            Text(l10n.productionEditImageGenerating,
-                                style: TextStyle(
-                                    fontSize: 11, color: df.textTertiary)),
-                          ]),
+                child: Stack(children: [
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: df.surfaceMuted,
+                      child: switch (node.state) {
+                        'generating' => Center(
+                            child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2)),
+                                  const SizedBox(height: 6),
+                                  Text(l10n.productionEditImageGenerating,
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: df.textTertiary)),
+                                ]),
+                          ),
+                        'done' when node.generatedRel != null => Image.file(
+                            File(_engine.mediaAbsPath(node.generatedRel!)),
+                            fit: BoxFit.cover,
+                            errorBuilder: (c, e, s) => Icon(
+                                Icons.broken_image_outlined,
+                                color: df.textTertiary)),
+                        'failed' => Center(
+                            child: Tooltip(
+                              message: node.errorText ?? '',
+                              child:
+                                  Icon(Icons.error_outline, color: df.danger),
+                            ),
+                          ),
+                        _ => Icon(Icons.image_not_supported_outlined,
+                            color: df.textTertiary),
+                      },
                     ),
-                  'done' when node.generatedRel != null => Image.file(
-                      File(_engine.mediaAbsPath(node.generatedRel!)),
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => Icon(
-                          Icons.broken_image_outlined,
-                          color: df.textTertiary)),
-                  'failed' => Center(
-                      child: Tooltip(
-                        message: node.errorText ?? '',
-                        child: Icon(Icons.error_outline, color: df.danger),
-                      ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: IconButton(
+                      key: Key('image-flow-seed-${node.id}'),
+                      onPressed: () => _seedGeneratedImage(node),
+                      icon: const Icon(Icons.upload_file_outlined, size: 18),
+                      tooltip: l10n.productionEditImageUpload,
+                      visualDensity: VisualDensity.compact,
                     ),
-                  _ => Icon(Icons.image_not_supported_outlined,
-                      color: df.textTertiary),
-                },
+                  ),
+                ]),
               ),
             ]),
           ),
@@ -1010,6 +1053,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: FilledButton(
+                        key: Key('image-flow-apply-${node.id}'),
                         onPressed: node.generatedRel == null
                             ? null
                             : () => _apply(node),
@@ -1104,6 +1148,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
               tooltip: l10n.productionAutoLayout,
             ),
             IconButton(
+              key: const Key('image-flow-save'),
               onPressed: _save,
               icon: const Icon(Icons.save_outlined),
               tooltip: l10n.commonSave,
