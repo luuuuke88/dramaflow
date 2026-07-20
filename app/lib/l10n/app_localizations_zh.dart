@@ -1739,6 +1739,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchOpen => '打开工作台';
 
   @override
+  String get workbenchAddStandaloneTrack => '添加视频轨';
+
+  @override
+  String get workbenchStandaloneTracks => '独立视频轨';
+
+  @override
+  String get workbenchDeleteStandaloneTrackConfirm => '删除此视频轨及其候选视频？';
+
+  @override
   String get workbenchGenerateVideo => '生成视频';
 
   @override

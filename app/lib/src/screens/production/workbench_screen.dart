@@ -200,16 +200,56 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     setState(() {});
   }
 
+  void _addStandaloneTrack() {
+    final engine = ref.read(engineProvider);
+    final durations = engine
+        .videoCapabilitiesForProject(widget.projectId)
+        ?.durations
+        .toList()
+      ?..sort();
+    if (durations == null || durations.isEmpty) return;
+    engine.createStandaloneVideoTrack(
+      projectId: widget.projectId,
+      scriptId: widget.scriptId,
+      duration: durations.first,
+    );
+    setState(() {});
+  }
+
+  Future<void> _deleteStandaloneTrack(int trackId) async {
+    final ok = await showDFAdaptiveDialog<bool>(
+      context,
+      title: context.l10n.commonDelete,
+      desktopWidthFactor: .36,
+      builder: (c) => _ConfirmActionBody(
+        message: context.l10n.workbenchDeleteStandaloneTrackConfirm,
+        confirmLabel: context.l10n.commonDelete,
+        onCancel: () => Navigator.pop(c, false),
+        onConfirm: () => Navigator.pop(c, true),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    ref.read(engineProvider).deleteVideoTrack(trackId);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final compactActions = MediaQuery.sizeOf(context).width < 1100;
     ref.watch(activeJobsProvider);
     ref.watch(jobsGenerationProvider);
-    final shots = ref.watch(engineProvider).storyboards(widget.scriptId);
+    final engine = ref.watch(engineProvider);
+    final shots = engine.storyboards(widget.scriptId);
+    final standaloneTracks =
+        engine.standaloneVideoTracks(widget.projectId, widget.scriptId);
+    final standaloneTrackEnabled = engine
+            .videoCapabilitiesForProject(widget.projectId)
+            ?.durations
+            .isNotEmpty ==
+        true;
     _syncCheckedShots(shots);
-    final missing = ref
-        .watch(engineProvider)
+    final missing = engine
         .orderedSelectedVideoPaths(widget.scriptId)
         .where((p) => p == null || p.isEmpty)
         .length;
@@ -226,6 +266,12 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       appBar: AppBar(
         title: Text(l10n.workbenchTitle),
         actions: [
+          IconButton(
+            key: const ValueKey('workbench-add-standalone-track'),
+            tooltip: l10n.workbenchAddStandaloneTrack,
+            onPressed: standaloneTrackEnabled ? _addStandaloneTrack : null,
+            icon: const Icon(Icons.add_to_queue_outlined),
+          ),
           IconButton(
             key: const ValueKey('workbench-quick-preview'),
             tooltip: l10n.workbenchQuickPreview,
@@ -340,45 +386,53 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
             ),
         ],
       ),
-      body: shots.isEmpty
+      body: shots.isEmpty && standaloneTracks.isEmpty
           ? Center(child: DFEmpty(text: l10n.workbenchNoShots))
           : Column(
               children: [
-                _TimelineOverview(projectId: widget.projectId, shots: shots),
-                Expanded(
-                  child: ReorderableListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    buildDefaultDragHandles: false,
-                    onReorderItem: (oldIndex, newIndex) =>
-                        _reorderShots(shots, oldIndex, newIndex),
-                    itemCount: shots.length,
-                    itemBuilder: (c, i) {
-                      final shot = shots[i];
-                      return Padding(
-                        key: ValueKey('workbench-shot-item-${shot.id}'),
-                        padding: EdgeInsets.only(
-                            bottom: i == shots.length - 1 ? 0 : 12),
-                        child: _ShotRow(
-                          projectId: widget.projectId,
-                          shot: shot,
-                          index: i,
-                          selected: _checkedShotIds.contains(shot.id),
-                          onSelected: (value) =>
-                              _toggleShotSelection(shot.id, value),
-                          dragHandle: ReorderableDragStartListener(
-                            key:
-                                ValueKey('workbench-reorder-handle-${shot.id}'),
-                            index: i,
-                            child: Tooltip(
-                              message: l10n.workbenchReorderShot,
-                              child: Icon(Icons.drag_indicator_rounded,
-                                  color: context.df.textTertiary),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+                if (standaloneTracks.isNotEmpty)
+                  _StandaloneTrackSection(
+                    tracks: standaloneTracks,
+                    onDelete: _deleteStandaloneTrack,
                   ),
+                if (shots.isNotEmpty)
+                  _TimelineOverview(projectId: widget.projectId, shots: shots),
+                Expanded(
+                  child: shots.isEmpty
+                      ? Center(child: DFEmpty(text: l10n.workbenchNoShots))
+                      : ReorderableListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          buildDefaultDragHandles: false,
+                          onReorderItem: (oldIndex, newIndex) =>
+                              _reorderShots(shots, oldIndex, newIndex),
+                          itemCount: shots.length,
+                          itemBuilder: (c, i) {
+                            final shot = shots[i];
+                            return Padding(
+                              key: ValueKey('workbench-shot-item-${shot.id}'),
+                              padding: EdgeInsets.only(
+                                  bottom: i == shots.length - 1 ? 0 : 12),
+                              child: _ShotRow(
+                                projectId: widget.projectId,
+                                shot: shot,
+                                index: i,
+                                selected: _checkedShotIds.contains(shot.id),
+                                onSelected: (value) =>
+                                    _toggleShotSelection(shot.id, value),
+                                dragHandle: ReorderableDragStartListener(
+                                  key: ValueKey(
+                                      'workbench-reorder-handle-${shot.id}'),
+                                  index: i,
+                                  child: Tooltip(
+                                    message: l10n.workbenchReorderShot,
+                                    child: Icon(Icons.drag_indicator_rounded,
+                                        color: context.df.textTertiary),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
@@ -387,6 +441,94 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
 }
 
 enum _WorkbenchBatchAction { prompts, videos, clearTracks }
+
+class _StandaloneTrackSection extends StatelessWidget {
+  final List<VideoTrackRow> tracks;
+  final ValueChanged<int> onDelete;
+
+  const _StandaloneTrackSection({
+    required this.tracks,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final l10n = context.l10n;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      decoration: BoxDecoration(
+        color: df.surfaceMuted,
+        border: Border(bottom: BorderSide(color: df.stroke)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(l10n.workbenchStandaloneTracks,
+            style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            for (var index = 0; index < tracks.length; index++) ...[
+              _StandaloneTrackCard(
+                track: tracks[index],
+                index: index,
+                onDelete: () => onDelete(tracks[index].id),
+              ),
+              if (index < tracks.length - 1) const SizedBox(width: 8),
+            ],
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _StandaloneTrackCard extends StatelessWidget {
+  final VideoTrackRow track;
+  final int index;
+  final VoidCallback onDelete;
+
+  const _StandaloneTrackCard({
+    required this.track,
+    required this.index,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    return Container(
+      key: ValueKey('workbench-standalone-track-${track.id}'),
+      width: 170,
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      decoration: BoxDecoration(
+        color: df.surface,
+        border: Border.all(color: df.stroke),
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+      ),
+      child: Row(children: [
+        Icon(Icons.video_library_outlined, color: df.textTertiary, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            '#${index + 1}  ${track.duration ?? '-'}s',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+        ),
+        IconButton(
+          key: ValueKey('workbench-delete-standalone-track-${track.id}'),
+          tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+          visualDensity: VisualDensity.compact,
+          onPressed: onDelete,
+          icon: const Icon(Icons.close_rounded, size: 18),
+        ),
+      ]),
+    );
+  }
+}
 
 class _ConfirmActionBody extends StatelessWidget {
   final String message;

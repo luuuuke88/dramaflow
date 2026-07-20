@@ -283,6 +283,58 @@ void main() {
     expect(find.text('暂无分镜，请先在「制作」的分镜节点生成'), findsOneWidget);
   });
 
+  testWidgets('工作台可创建独立视频轨，窄屏入口仍可操作', (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final addTrack =
+        find.byKey(const ValueKey('workbench-add-standalone-track'));
+    expect(addTrack, findsOneWidget);
+    await tester.tap(addTrack);
+    await tester.pumpAndSettle();
+
+    final tracks = engine.standaloneVideoTracks(projectId, scriptId);
+    expect(tracks, hasLength(1));
+    expect(tracks.single.duration, 5);
+    expect(
+        find.byKey(ValueKey('workbench-standalone-track-${tracks.single.id}')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('独立视频轨删除需确认且不影响分镜轨', (tester) async {
+    final storyboardId =
+        engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final storyboardTrackId = engine.ensureTrackForStoryboard(storyboardId);
+    final standaloneTrackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(
+        ValueKey('workbench-delete-standalone-track-$standaloneTrackId')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除此视频轨及其候选视频？'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(engine.track(standaloneTrackId), isNull);
+    expect(engine.track(storyboardTrackId), isNotNull);
+    expect(engine.storyboards(scriptId).single.trackId, storyboardTrackId);
+  });
+
   testWidgets('有分镜时渲染镜头行+合成按钮显示缺口提示', (tester) async {
     engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
     await tester.pumpWidget(app());

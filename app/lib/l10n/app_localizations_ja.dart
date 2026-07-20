@@ -1754,6 +1754,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchOpen => 'ワークベンチを開く';
 
   @override
+  String get workbenchAddStandaloneTrack => '動画トラックを追加';
+
+  @override
+  String get workbenchStandaloneTracks => '独立動画トラック';
+
+  @override
+  String get workbenchDeleteStandaloneTrackConfirm => 'この動画トラックと候補動画を削除しますか？';
+
+  @override
   String get workbenchGenerateVideo => '動画を生成';
 
   @override

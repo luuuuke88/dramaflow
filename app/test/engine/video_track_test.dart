@@ -148,6 +148,59 @@ void main() {
     expect(engine.track(trackId)!.state, vtNotGenerated);
   });
 
+  test('新建独立视频轨不绑定分镜，并保留创建时长', () {
+    final storyboardId =
+        engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+
+    final track = engine.track(trackId)!;
+    expect(track.projectId, projectId);
+    expect(track.scriptId, scriptId);
+    expect(track.duration, 5);
+    expect(track.state, vtNotGenerated);
+    expect(
+        engine
+            .storyboards(scriptId)
+            .singleWhere((s) => s.id == storyboardId)
+            .trackId,
+        isNull,
+        reason: '独立轨不能被伪装成分镜轨');
+  });
+
+  test('独立视频轨列表按创建顺序显示，且不混入分镜轨', () {
+    final storyboardId =
+        engine.addStoryboard(projectId: projectId, scriptId: scriptId);
+    final storyboardTrackId = engine.ensureTrackForStoryboard(storyboardId);
+    final first = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    final second = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 10,
+    );
+
+    expect(
+      engine
+          .standaloneVideoTracks(projectId, scriptId)
+          .map((track) => track.id),
+      [first, second],
+    );
+    expect(
+      engine
+          .standaloneVideoTracks(projectId, scriptId)
+          .any((track) => track.id == storyboardTrackId),
+      isFalse,
+    );
+  });
+
   test('generateVideoPrompt 同步生成并写入轨道', () async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '少年拔剑');

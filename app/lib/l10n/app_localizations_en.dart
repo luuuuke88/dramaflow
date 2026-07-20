@@ -1797,6 +1797,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchOpen => 'Open Workbench';
 
   @override
+  String get workbenchAddStandaloneTrack => 'Add video track';
+
+  @override
+  String get workbenchStandaloneTracks => 'Standalone video tracks';
+
+  @override
+  String get workbenchDeleteStandaloneTrackConfirm =>
+      'Delete this video track and its candidate videos?';
+
+  @override
   String get workbenchGenerateVideo => 'Generate Video';
 
   @override

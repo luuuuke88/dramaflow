@@ -217,11 +217,43 @@ extension VideoTrackApi on Engine {
     return trackId;
   }
 
+  /// 新建不关联任何分镜的视频轨。此行为对应 ToonFlow 工作台的“添加轨道”，
+  /// 仅记录项目、剧本与用户选择的时长；分镜轨仍必须经 [ensureTrackForStoryboard]
+  /// 显式绑定，不能混用。
+  int createStandaloneVideoTrack({
+    required int projectId,
+    required int scriptId,
+    int? duration,
+  }) {
+    db.execute(
+      'INSERT INTO o_videoTrack (projectId,scriptId,duration,state) '
+      'VALUES (?,?,?,?)',
+      [projectId, scriptId, duration, vtNotGenerated],
+    );
+    return db.lastInsertRowId;
+  }
+
   VideoTrackRow? track(int trackId) {
     final row = db
         .select('SELECT * FROM o_videoTrack WHERE id=?', [trackId]).firstOrNull;
     if (row == null) return null;
     return _trackFromRow(row);
+  }
+
+  /// 工作台里不挂靠分镜的轨道。按 SQLite 自增 ID 维持原版的创建顺序；
+  /// 已被分镜引用的轨道仍由分镜列表负责呈现，避免同一轨道重复出现。
+  List<VideoTrackRow> standaloneVideoTracks(int projectId, int scriptId) {
+    return db
+        .select(
+          'SELECT v.* FROM o_videoTrack v '
+          'WHERE v.projectId=? AND v.scriptId=? '
+          'AND NOT EXISTS ('
+          'SELECT 1 FROM o_storyboard s WHERE s.trackId=v.id'
+          ') ORDER BY v.id',
+          [projectId, scriptId],
+        )
+        .map(_trackFromRow)
+        .toList(growable: false);
   }
 
   VideoTrackRow _trackFromRow(Row row) {

@@ -3436,6 +3436,24 @@ abstract class AppLocalizations {
   /// **'打开工作台'**
   String get workbenchOpen;
 
+  /// No description provided for @workbenchAddStandaloneTrack.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加视频轨'**
+  String get workbenchAddStandaloneTrack;
+
+  /// No description provided for @workbenchStandaloneTracks.
+  ///
+  /// In zh, this message translates to:
+  /// **'独立视频轨'**
+  String get workbenchStandaloneTracks;
+
+  /// No description provided for @workbenchDeleteStandaloneTrackConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除此视频轨及其候选视频？'**
+  String get workbenchDeleteStandaloneTrackConfirm;
+
   /// No description provided for @workbenchGenerateVideo.
   ///
   /// In zh, this message translates to:
