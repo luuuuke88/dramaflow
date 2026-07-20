@@ -100,6 +100,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
   late String? _directorManual = widget.existing?.directorManual;
   List<String> _videoModes = const [];
   bool _saving = false;
+  String? _validationMessage;
 
   List<ManualPack> _visuals = const [];
   List<ManualPack> _directors = const [];
@@ -190,10 +191,13 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
       mode: _mode,
     );
     if (missing != null) {
-      _toast(_intakeError(l10n, missing));
+      setState(() => _validationMessage = _intakeError(l10n, missing));
       return;
     }
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _validationMessage = null;
+    });
     try {
       final engine = ref.read(engineProvider);
       if (widget.existing == null) {
@@ -388,7 +392,10 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
         addLabel: l10n.projectDialogNewVisualManual,
         packs: _visuals,
         selectedPackId: _artStyle,
-        onSelect: (p) => setState(() => _artStyle = p?.pack),
+        onSelect: (p) => setState(() {
+          _artStyle = p?.pack;
+          _validationMessage = null;
+        }),
         onCreate: () async {
           final saved = await showManualEditor(context, ref, kind: 'visual');
           if (saved == true) _reloadManuals();
@@ -406,7 +413,10 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
         addLabel: l10n.projectDialogAddDirectorManual,
         packs: _directors,
         selectedPackId: _directorManual,
-        onSelect: (p) => setState(() => _directorManual = p?.pack),
+        onSelect: (p) => setState(() {
+          _directorManual = p?.pack;
+          _validationMessage = null;
+        }),
         onCreate: () async {
           final saved = await showManualEditor(context, ref, kind: 'director');
           if (saved == true) _reloadManuals();
@@ -451,6 +461,18 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
           }),
         ),
       ),
+      if (_validationMessage != null)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Semantics(
+            liveRegion: true,
+            child: Text(
+              _validationMessage!,
+              key: const Key('project-intake-validation-error'),
+              style: TextStyle(color: context.df.danger),
+            ),
+          ),
+        ),
       Padding(
         padding: const EdgeInsets.all(16),
         child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [

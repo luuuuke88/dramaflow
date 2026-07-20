@@ -312,7 +312,15 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(SnackBar, '请输入项目名称'), findsOneWidget);
+    expect(find.byKey(const Key('project-intake-validation-error')),
+        findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+              find.byKey(const Key('project-intake-validation-error')))
+          .data,
+      '请输入项目名称',
+    );
   });
 
   testWidgets('新建对话框：名称后按原版顺序拦住缺少题材', (tester) async {
@@ -328,7 +336,15 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(SnackBar, '请输入小说类型'), findsOneWidget);
+    expect(find.byKey(const Key('project-intake-validation-error')),
+        findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+              find.byKey(const Key('project-intake-validation-error')))
+          .data,
+      '请输入小说类型',
+    );
     expect(engine.projects(), isEmpty);
     expect(find.text('项目类型'), findsOneWidget, reason: '校验失败必须留在项目向导，而不是静默关闭');
   });
@@ -487,6 +503,19 @@ void main() {
     await _chooseDropdown(tester, '请选择模式', 'fast');
     await _chooseDropdown(tester, '16:9', '9:16');
 
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('project-intake-validation-error')),
+        findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+              find.byKey(const Key('project-intake-validation-error')))
+          .data,
+      '请选择项目视觉手册',
+    );
+    expect(engine.projects(), isEmpty);
+
     await tester.scrollUntilVisible(
       find.text('国风视觉'),
       260,
@@ -494,6 +523,18 @@ void main() {
     );
     await tester.tap(_manualCard('国风视觉'));
     await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('project-intake-validation-error')),
+        findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+              find.byKey(const Key('project-intake-validation-error')))
+          .data,
+      '请选择项目导演手册',
+    );
+    expect(engine.projects(), isEmpty);
     await tester.scrollUntilVisible(
       find.text('悬疑导演'),
       260,
