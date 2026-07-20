@@ -6,12 +6,13 @@
 // 缩放滑块为会话内状态（不做跨会话持久化，MVP 简化，行为不影响功能完整性）。
 import 'dart:io';
 
-import 'package:file_selector/file_selector.dart';
+import 'package:file_selector/file_selector.dart' as fs;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 
 import '../../engine/production_dependencies.dart';
+import '../../engine/engine.dart';
 import '../../engine/script_plan.dart';
 import '../../engine/storyboard.dart';
 import '../../engine/storyboard_table.dart';
@@ -20,6 +21,7 @@ import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
+import '../../util/storyboard_contact_sheet.dart';
 import '../../widgets/policy_confirm.dart';
 import 'image_flow_editor.dart';
 import 'storyboard_gallery.dart';
@@ -137,58 +139,73 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
     _toast(context.l10n.productionStoryboardGenerate);
   }
 
-  /// 整屏预览全部分镜首帧图（对齐 ToonFlow preview-all）。未生成图片的分镜显示占位。
-  void _previewAll(List<StoryboardRow> rows) {
+  /// 整屏预览全部有效首帧（对齐 ToonFlow previewImage 的单张 JPEG 网格）。
+  Future<void> _previewAll(List<StoryboardRow> rows) async {
     final engine = ref.read(engineProvider);
-    final items = <StoryboardPreviewItem>[
-      for (final (i, row) in rows.indexed)
-        StoryboardPreviewItem(
-          shotNumber: i + 1,
-          absPath: (row.filePath == null || row.filePath!.isEmpty)
-              ? null
-              : engine.mediaAbsPath(row.filePath!),
-        ),
-    ];
-    showStoryboardGallery(context, items: items);
+    final paths = _storyboardImagePaths(engine, rows);
+    final sheet =
+        await compute(buildStoryboardPreviewContactSheetFromPaths, paths);
+    if (!mounted) return;
+    if (sheet == null) {
+      _toast(context.l10n.storyboardExportNoImages);
+      return;
+    }
+    await showStoryboardContactSheetPreview(
+      context,
+      bytes: sheet.bytes,
+      onDownload: _downloadAll,
+    );
   }
 
-  /// 批量导出首帧图到用户选择的文件夹，按镜头序号命名（S01.png…，对齐 downPreviewImage）。
+  /// 导出单张原尺寸 PNG 网格（对齐 ToonFlow downPreviewImage）。
   Future<void> _downloadAll() async {
     final l10n = context.l10n;
     final engine = ref.read(engineProvider);
-    final images = engine.storyboardImagePaths(widget.scriptId);
-    if (images.isEmpty) {
+    final rows = engine.storyboards(widget.scriptId);
+    final paths = _storyboardImagePaths(engine, rows);
+    if (paths.isEmpty) {
       _toast(l10n.storyboardExportNoImages);
       return;
     }
-    final String? dir;
     try {
-      dir = await getDirectoryPath();
-    } catch (e) {
+      final sheet =
+          await compute(buildStoryboardExportContactSheetFromPaths, paths);
       if (!mounted) return;
-      _toast(l10n.storyboardExportFailed('$e'));
-      return;
-    }
-    if (!mounted || dir == null) return;
-    var exported = 0;
-    try {
-      for (final img in images) {
-        final src = File(img.absPath);
-        if (!src.existsSync()) continue;
-        final ext = p.extension(img.absPath);
-        final name =
-            'S${img.shotNumber.toString().padLeft(2, '0')}${ext.isEmpty ? '.png' : ext}';
-        src.copySync(p.join(dir, name));
-        exported++;
+      if (sheet == null) {
+        _toast(l10n.storyboardExportNoImages);
+        return;
       }
+      final fileName =
+          'storyboardImagePreview-${DateTime.now().millisecondsSinceEpoch}.png';
+      final location = await fs.getSaveLocation(
+        suggestedName: fileName,
+        acceptedTypeGroups: const [
+          fs.XTypeGroup(label: 'png', extensions: ['png']),
+        ],
+      );
+      if (location == null) return;
+      await fs.XFile.fromData(
+        sheet.bytes,
+        mimeType: sheet.mimeType,
+        name: fileName,
+      ).saveTo(location.path);
+      if (!mounted) return;
+      _toast(l10n.storyboardExportSuccess('${sheet.imageCount}'));
     } catch (e) {
       if (!mounted) return;
       _toast(l10n.storyboardExportFailed('$e'));
-      return;
     }
-    if (!mounted) return;
-    _toast(l10n.storyboardExportSuccess('$exported'));
   }
+
+  List<String> _storyboardImagePaths(
+    Engine engine,
+    List<StoryboardRow> rows,
+  ) =>
+      [
+        for (final row in rows)
+          if (row.filePath != null && row.filePath!.isNotEmpty)
+            engine.mediaAbsPath(row.filePath!),
+      ];
 
   Future<void> _editRow(StoryboardRow row) async {
     final l10n = context.l10n;
