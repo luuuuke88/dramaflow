@@ -23,6 +23,19 @@ const _defaultPromptsZipAsset =
 typedef StartupAppBuilder = Future<Widget> Function();
 typedef StartupAppRunner = void Function(Widget app);
 
+/// Verifies that the local app-data directory can be created and written before
+/// startup touches bundled assets or SQLite.
+Future<void> verifyDataDirectoryWritable(String dataDir) async {
+  final directory = Directory(dataDir);
+  await directory.create(recursive: true);
+  final probe = File(p.join(
+    dataDir,
+    '.dramaflow-access-test-${DateTime.now().microsecondsSinceEpoch}',
+  ));
+  await probe.writeAsString('ok');
+  await probe.delete();
+}
+
 Future<void> bootstrap({
   StartupAppBuilder? appBuilder,
   StartupAppRunner? runAppOverride,
@@ -58,6 +71,7 @@ Future<Widget> buildDramaFlowApp({
       final docs = await getApplicationDocumentsDirectory();
       dataDir = p.join(docs.path, 'dramaflow');
     }
+    await verifyDataDirectoryWritable(dataDir);
     await seedBundledDefaultSkills(dataDir, bundle: bundle);
     await seedBundledModelPrompts(dataDir, bundle: bundle);
     final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);

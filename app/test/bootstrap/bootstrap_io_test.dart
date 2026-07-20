@@ -18,6 +18,12 @@ class _ZipBundle extends CachingAssetBundle {
   Future<ByteData> load(String key) async => zip;
 }
 
+class _FailingBundle extends CachingAssetBundle {
+  @override
+  Future<ByteData> load(String key) =>
+      Future<ByteData>.error(StateError('bundled resource should not be read'));
+}
+
 void main() {
   test('启动装配器公开可测的数据目录边界', () {
     final source =
@@ -49,6 +55,42 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('数据目录不可写时先于内置资源读取失败', () async {
+    final dir = Directory.systemTemp.createTempSync('dramaflow-preflight-');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    final blocker = File(p.join(dir.path, 'not-a-directory'))
+      ..writeAsStringSync('block');
+    final target = p.join(blocker.path, 'dramaflow');
+
+    await expectLater(
+      buildDramaFlowApp(dataDirectory: target, bundle: _FailingBundle()),
+      throwsA(
+        isA<StartupFailure>()
+            .having((failure) => failure.dataDirectory, 'dataDirectory', target)
+            .having(
+              (failure) => failure.cause,
+              'cause',
+              isA<FileSystemException>(),
+            ),
+      ),
+    );
+  });
+
+  test('可写目录预检不留下探针文件', () async {
+    final dir = Directory.systemTemp.createTempSync('dramaflow-preflight-ok-');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    final target = p.join(dir.path, 'data');
+
+    await verifyDataDirectoryWritable(target);
+
+    expect(Directory(target).existsSync(), isTrue);
+    expect(Directory(target).listSync(), isEmpty);
   });
 
   test('默认手册按文件补齐，不覆盖用户已有包或编辑', () async {
