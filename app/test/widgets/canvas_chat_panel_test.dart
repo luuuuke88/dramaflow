@@ -13,6 +13,7 @@ import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/screens/production/canvas_chat_panel.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
+import 'package:dramaflow/src/widgets/external_link_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,6 +105,27 @@ void main() {
     expect(
       engine.assistantMessages(projectId, family: assistantFamilyProduction),
       hasLength(2),
+    );
+  });
+
+  testWidgets('制作 Agent 回复中的 Markdown 链接可由统一链接组件渲染', (tester) async {
+    gateway.turns.add(
+      const AgentTurnResult.text('请看[镜头说明](https://example.com/shot-guide)。'),
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '查看镜头说明');
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ExternalLinkText &&
+            widget.text.contains('https://example.com/shot-guide'),
+      ),
+      findsOneWidget,
     );
   });
 

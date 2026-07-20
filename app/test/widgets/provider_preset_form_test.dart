@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/api/models.dart';
 import 'package:dramaflow/src/engine/config.dart';
@@ -56,6 +58,16 @@ void main() {
           ),
         ),
       );
+
+  test('预设申请 Key 的网页链接复用安全外链出口', () {
+    final source =
+        File('lib/src/screens/provider_preset_form.dart').readAsStringSync();
+
+    expect(
+        source, contains('openExternalUri(Uri.parse(widget.preset.keyUrl))'));
+    expect(
+        source, isNot(contains('launchUrl(Uri.parse(widget.preset.keyUrl))')));
+  });
 
   testWidgets('预填正确：BaseURL/模型清单来自目录，Key 框遮蔽可切换', (tester) async {
     tester.view.physicalSize = const Size(390, 760);

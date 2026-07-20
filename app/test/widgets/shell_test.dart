@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/queue.dart';
@@ -78,6 +80,14 @@ const _scriptProject = ProjectRow(
 );
 
 void main() {
+  test('侧栏外链统一经安全外链出口打开', () {
+    final source = File('lib/src/widgets/shell.dart').readAsStringSync();
+
+    expect(source, contains('openExternalUri(Uri.parse(_feedbackUrl))'));
+    expect(source, contains('openExternalUri(Uri.parse(_githubUrl))'));
+    expect(source, isNot(contains('launchUrl(Uri.parse(_feedbackUrl))')));
+  });
+
   testWidgets('桌面壳：细侧栏 + 顶栏，未选项目时项目菜单禁用', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;

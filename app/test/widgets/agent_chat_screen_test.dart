@@ -16,6 +16,7 @@ import 'package:dramaflow/src/screens/agent/agent_chat_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
 import 'package:dramaflow/src/widgets/shell.dart';
+import 'package:dramaflow/src/widgets/external_link_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -160,6 +161,27 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     expect(find.text('自动连跑'), findsOneWidget);
+  });
+
+  testWidgets('剧本 Agent 回复中的外部链接由安全链接文本承载', (tester) async {
+    gateway.turns.add(
+      const AgentTurnResult.text('参考 https://example.com/script-guide'),
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '给我参考资料');
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ExternalLinkText &&
+            widget.text.contains('https://example.com/script-guide'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('助手默认页只显示对话，高级面板按需打开管理功能', (tester) async {

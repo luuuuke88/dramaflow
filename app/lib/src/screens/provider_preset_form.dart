@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
 
@@ -12,6 +13,7 @@ import '../state/providers.dart';
 import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
 import '../widgets/df_adaptive_dialog.dart';
+import '../widgets/external_link_text.dart';
 
 /// 预设预填表单。返回 true = 创建或编辑成功。
 Future<bool> showProviderPresetForm(
@@ -229,7 +231,8 @@ class _PresetFormBodyState extends ConsumerState<_PresetFormBody> {
             child: TextButton.icon(
               icon: const Icon(Icons.open_in_new, size: 16),
               label: Text(l10n.presetOpenPlatform),
-              onPressed: () => launchUrl(Uri.parse(widget.preset.keyUrl)),
+              onPressed: () =>
+                  unawaited(openExternalUri(Uri.parse(widget.preset.keyUrl))),
             ),
           ),
           if (!_isEditing) ...[

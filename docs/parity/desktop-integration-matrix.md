@@ -10,8 +10,8 @@
 | --- | --- | --- | --- |
 | 数据目录无法写入时启动 | 先创建/写删测试文件；失败显示含目录与解决建议的原生警告，确认后退出 | `bootstrap()` 接住目录、播种、SQLite 与引擎启动异常，换到无 Engine 的本地化失败页；显示目录并可重试，macOS 可退出 | **部分实现** |
 | 关闭 macOS 最后一个窗口 | `window-all-closed` 在 Darwin 不退出；Dock 激活时重建窗口 | `AppDelegate` 保持进程存活；无可见窗口时，Dock/LaunchServices 重开会将原窗口带回前台 | **已验证等价** |
-| 点击侧栏反馈、GitHub | 使用 `shell.openExternal` 交给系统默认浏览器 | 两个侧栏入口通过 `url_launcher` 打开外部 URL | **已有但未完整验证** |
-| 点击 Agent 或其他 Markdown 中的外部链接 | 全局 Markdown 渲染器把链接交给 `handleLinkClick`，Electron 下以系统浏览器外开 | Agent 输出没有 Markdown 链接渲染/点击分发；仅两个硬编码侧栏入口可外开 | **部分实现** |
+| 点击侧栏反馈、GitHub | 使用 `shell.openExternal` 交给系统默认浏览器 | 两个侧栏入口经受测的 `openExternalUri` 使用系统浏览器打开 | **已验证等价** |
+| 点击 Agent 或其他 Markdown 中的外部链接 | 全局 Markdown 渲染器把链接交给 `handleLinkClick`，Electron 下以系统浏览器外开 | 两个 Agent 入口支持裸 `https` 与 `[标签](https://...)`；其他 Markdown 文本尚未全局接线 | **部分实现** |
 | 原生标题栏、窗口最小化/缩放/拖动 | Electron 主动 `frame:false` 后自行补回这套控件 | 使用 macOS 原生窗口和系统红黄绿控制；用户完成同一窗口操作 | **不适用：不复制自绘替代层** |
 
 ## 启动失败不是“引擎内部异常”
@@ -30,17 +30,15 @@ DramaFlow 的 [`AppDelegate.swift`](../../app/macos/Runner/AppDelegate.swift) �
 
 另一个需要避免误读的细节是，ToonFlow 自绘标题栏的关闭按钮调用 `app.exit(0)`，这可能绕过它自己的 `before-quit` 清理钩子。这个原版内部矛盾不降低上述“正常关闭窗口时应保留 Dock 应用”的源码证据，也不构成把 DramaFlow 改成强制杀进程的理由。
 
-## 外部链接：机制存在，覆盖范围不够
+## 外部链接：安全出口已收敛，Markdown 覆盖仍有边界
 
 ToonFlow 的 [`App.vue`](../../../Toonflow-web/src/App.vue) 重写了全局 Markdown 的链接渲染：每个链接被注入 `handleLinkClick`，Electron 下通过 `openurlwithbrowser` 交给 `shell.openExternal`。设置更新、API Key 申请、反馈、GitHub 和 Agent 富文本链接都走同一出口。
 
-DramaFlow 在 [`shell.dart`](../../app/lib/src/widgets/shell.dart) 中已经用 `url_launcher` 接了“反馈/问题”和“跳转 GitHub”，语义正确，但 [`shell_test.dart`](../../app/test/widgets/shell_test.dart) 尚未驱动点击并断言平台调用；Agent 聊天页也没有 Markdown 链接渲染。因此 `W10-BRIDGE-EXTERNALLINK-001` 只能保持**部分实现**。
+DramaFlow 现在由 [`external_link_text.dart`](../../app/lib/src/widgets/external_link_text.dart) 提供唯一的网页外链出口：只有带有效 ASCII 主机名的 `http/https` URI 可到达 `url_launcher` 的 `LaunchMode.externalApplication`，其余 scheme、空主机和伪 URL 均继续按普通文本展示。该组件识别裸链接与 `[标签](https://...)` 两种 Agent 常见回复形式，并在组件销毁时释放手势识别器。
 
-后续修复的最小边界是：
+已接线的入口是侧栏的反馈/GitHub、剧本 Agent、制作画布 Agent 和供应商预设“申请 Key”；`settings_screen.dart` 的 `Uri.file(dataDir)` 仍是特意独立的系统文件夹动作，不混进网页 scheme 白名单。`external_link_text_test.dart` 覆盖安全识别、危险文本不升级和点击注入打开器；两个 Agent widget 回归覆盖各自的回复入口；侧栏与预设表单的静态契约回归锁定统一出口。全部只使用假网关、内存 SQLite 和注入打开器，不会发出网页、模型或视频请求。
 
-1. 把应用文本中的外部 URL 收敛到一个受测试的 `openExternalUri` 适配层，拒绝非安全 scheme；
-2. 用真正的 Markdown 富文本组件或链接识别器让 Agent 回复中的 `https` 链接可点击外开；
-3. 为桌面和窄屏分别覆盖链接动作的可达性。无需建立 Electron 风格的自定义 URI 协议。
+`W10-BRIDGE-EXTERNALLINK-001` 仍是**部分实现**：ToonFlow 把拦截器挂在全局 Markdown 渲染器，覆盖更新日志、重新安装说明和全部 Markdown 预览；DramaFlow 尚无通用 Markdown 富文本渲染层，且应用内更新页本身也未实现。因此不能以 Agent 已可点击链接冒充全局覆盖。
 
 侧栏目前仍指向上游 `HBAI-Ltd/Toonflow-app` 及其 issues。它不影响“能否调用系统浏览器”的功能结论，但品牌和反馈地址应在发布前按许可证/产品决定统一替换，不能悄悄当作 DramaFlow 的正式反馈渠道。
 
@@ -50,7 +48,7 @@ DramaFlow 在 [`shell.dart`](../../app/lib/src/widgets/shell.dart) 中已经用 
 | --- | --- | --- | --- |
 | 数据目录保护 | `Toonflow-app/src/app.ts:22-47` | `app/lib/src/bootstrap/bootstrap_io.dart`、`app/lib/src/bootstrap/startup_failure_app.dart` | `bootstrap_io_test.dart` 真实不可建目录夹具；`bootstrap_failure_test.dart` 验证异常接管与 390dp 重试；不启动供应商 |
 | Dock 生命周期 | `Toonflow-app/build/main.js:251-258` | `app/macos/Runner/AppDelegate.swift:6-19`、`app/test/platform/macos_lifecycle_static_test.dart` | `flutter build macos --debug` 后启动隔离 App；关闭唯一窗口仍保留同一 PID；经 LaunchServices 重开后同一 PID 恢复窗口（2026-07-21） |
-| 外部链接 | `Toonflow-app/build/main.js:216-226`、`Toonflow-web/src/App.vue:55-115` | `app/lib/src/widgets/shell.dart:151-166` | 现有壳回归：`flutter test test/widgets/shell_test.dart`；链接动作专项测试仍缺 |
+| 外部链接 | `Toonflow-app/build/main.js:216-226`、`Toonflow-web/src/App.vue:55-115` | `external_link_text.dart`、`shell.dart`、两个 Agent 面板、`provider_preset_form.dart` | `external_link_text_test.dart`（安全 scheme+点击）；`shell_test.dart`、`agent_chat_screen_test.dart`、`canvas_chat_panel_test.dart`、`provider_preset_form_test.dart`（入口接线）；全为离线测试 |
 
 这份矩阵对应总清单 `W10-BACKEND-LIFECYCLE-001`、`W10-BRIDGE-EXTERNALLINK-001`、`W10-APPLIFECYCLE-DOCK-001` 与 `W10-WINDOW-CHROME-001`。它不把 Electron 的后端启动、无边框窗口或私有协议误算成 Flutter 的待办，同时不掩盖在原生端仍应补齐的用户保护。
 
@@ -64,7 +62,7 @@ DramaFlow 在 [`shell.dart`](../../app/lib/src/widgets/shell.dart) 中已经用 
 构建仍报告 `media_kit_libs_macos_video` 和 `media_kit_video` 尚未支持 Swift Package
 Manager；当前 Flutter 仅给出未来兼容性警告，未阻塞 CocoaPods Debug 构建。该烟雾验证
 只证明当前应用可编译和呈现首个真实界面，不替代本页尚未完成的不可写数据目录错误边界、
-Dock 生命周期、外部链接覆盖或视频供应商人工验收。
+Dock 生命周期、Markdown 全局外链覆盖或视频供应商人工验收。
 
 ## 独立复验快照（2026-07-19）
 
@@ -91,4 +89,4 @@ node tool/parity/check_no_orphans.js
 
 在隔离 worktree 的 Debug 包中启动 `dramaflow.app` 后，通过 macOS 可访问性树关闭唯一窗口。关闭后该 App 的 PID 仍存在、窗口列表为空；随后由 LaunchServices 对**同一 app bundle**执行重开，PID 未变化且窗口列表恢复为 `dramaflow`。这验证的是“关闭窗口不退出 → 重新激活恢复窗口”的完整系统路径，不依赖 Flutter widget 的模拟。
 
-对应静态契约测试是 `flutter test --concurrency=1 test/platform/macos_lifecycle_static_test.dart`；随后 `flutter build macos --debug` 成功。两项验证均未启动任何 AI 供应商，也没有提交、轮询或下载视频任务。`W10-APPLIFECYCLE-DOCK-001` 因此改判为**已验证等价**；数据目录错误边界和 Markdown 外部链接覆盖仍保留原有缺口结论。
+对应静态契约测试是 `flutter test --concurrency=1 test/platform/macos_lifecycle_static_test.dart`；随后 `flutter build macos --debug` 成功。两项验证均未启动任何 AI 供应商，也没有提交、轮询或下载视频任务。`W10-APPLIFECYCLE-DOCK-001` 因此改判为**已验证等价**；数据目录错误边界和 Markdown 全局外链覆盖仍保留原有缺口结论。

@@ -16,6 +16,7 @@ import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/external_link_text.dart';
 import '../../widgets/policy_confirm.dart';
 
 class AgentChatScreen extends ConsumerStatefulWidget {
@@ -537,8 +538,8 @@ class _AssistantMessageBubble extends StatelessWidget {
           color: isUser ? df.primary : df.surfaceMuted,
           borderRadius: BorderRadius.circular(DFTokens.radiusCard),
         ),
-        child: Text(
-          _assistantDisplayText(context, message.content),
+        child: ExternalLinkText(
+          text: _assistantDisplayText(context, message.content),
           style: TextStyle(
             fontSize: 13,
             color: isUser ? Colors.white : df.textPrimary,

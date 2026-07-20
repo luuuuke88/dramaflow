@@ -2,16 +2,18 @@
 // 桌面 ≥840：左侧细图标栏（Logo/我的项目/任务中心 + 底部反馈·设置·GitHub）
 //           + 顶栏 50px（项目名 | 项目内菜单右对齐）+ 圆角内容区。
 // 移动 <840：底部导航（项目/任务/设置），项目内子页由顶部横向 Tab 承接。
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../engine/engine.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
 import '../util/l10n_ext.dart';
+import 'external_link_text.dart';
 
 const _githubUrl = 'https://github.com/HBAI-Ltd/Toonflow-app';
 const _feedbackUrl = 'https://github.com/HBAI-Ltd/Toonflow-app/issues';
@@ -151,7 +153,7 @@ class _SideBar extends ConsumerWidget {
         _SideIcon(
           tooltip: context.l10n.menuFeedbackQuestions,
           icon: Icons.feedback_outlined,
-          onTap: () => launchUrl(Uri.parse(_feedbackUrl)),
+          onTap: () => unawaited(openExternalUri(Uri.parse(_feedbackUrl))),
         ),
         _SideIcon(
           tooltip: context.l10n.menuSettings,
@@ -162,7 +164,7 @@ class _SideBar extends ConsumerWidget {
         _SideIcon(
           tooltip: context.l10n.menuJumpGithub,
           icon: Icons.code_rounded,
-          onTap: () => launchUrl(Uri.parse(_githubUrl)),
+          onTap: () => unawaited(openExternalUri(Uri.parse(_githubUrl))),
         ),
       ]),
     );

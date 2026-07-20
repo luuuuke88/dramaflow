@@ -11,6 +11,7 @@ import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
+import '../../widgets/external_link_text.dart';
 
 /// 画布内嵌的 Agent 对话面板。可作为桌面右侧滑出面板的内容，也可作为移动端
 /// 全屏对话页的 body。头部提供关闭、模式切换、清空记忆入口。
@@ -387,8 +388,8 @@ class _MessageBubble extends StatelessWidget {
           color: isUser ? df.primary : df.surfaceMuted,
           borderRadius: BorderRadius.circular(DFTokens.radiusCard),
         ),
-        child: Text(
-          _assistantDisplayText(context, message.content),
+        child: ExternalLinkText(
+          text: _assistantDisplayText(context, message.content),
           style: TextStyle(
               fontSize: 13, color: isUser ? Colors.white : df.textPrimary),
         ),
