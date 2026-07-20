@@ -127,7 +127,7 @@ void main() {
   }
 
   Future<void> selectImageModel(WidgetTester tester) async {
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.byKey(const Key('model-select-field-image')).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text(_imageModelLabel).last);
     await tester.pump();
@@ -212,7 +212,7 @@ void main() {
       expect(find.text('已选 1 项'), findsOneWidget);
 
       await tester.ensureVisible(
-        find.byType(DropdownButtonFormField<String>),
+        find.byKey(const Key('model-select-field-image')),
       );
       await tester.pumpAndSettle();
       await selectImageModel(tester);
@@ -1363,7 +1363,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: modelField,
-        matching: find.byType(DropdownButtonFormField<String>),
+        matching: find.byKey(const Key('model-select-field-image')),
       ),
     );
     await tester.pumpAndSettle();
@@ -1419,7 +1419,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: modelField,
-        matching: find.byType(DropdownButtonFormField<String>),
+        matching: find.byKey(const Key('model-select-field-image')),
       ),
     );
     await tester.pumpAndSettle();
@@ -1470,7 +1470,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: modelField,
-        matching: find.byType(DropdownButtonFormField<String>),
+        matching: find.byKey(const Key('model-select-field-image')),
       ),
     );
     await tester.pumpAndSettle();

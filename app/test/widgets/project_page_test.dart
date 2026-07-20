@@ -743,9 +743,17 @@ Future<void> _chooseDropdown(
       (widget) => widget is DropdownButtonFormField<String>,
     ),
   );
-  await tester.tap(field.first);
+  final modelField = find.ancestor(
+    of: find.text(closedLabel).first,
+    matching: find.byType(InkWell),
+  );
+  await tester.tap(field.evaluate().isNotEmpty ? field.first : modelField.first);
   await tester.pumpAndSettle();
-  await tester.tap(find.text(optionLabel).last);
+  final exactOption = find.text(optionLabel);
+  final menuOption = exactOption.evaluate().isNotEmpty
+      ? exactOption.last
+      : find.text(optionLabel.split(' · ').last).last;
+  await tester.tap(menuOption);
   await tester.pumpAndSettle();
 }
 
