@@ -145,6 +145,37 @@ void main() {
     expect(ids, isNotEmpty);
   });
 
+  test('novelEventState 仅返回请求集合中的终态章节', () {
+    db.execute(
+      "INSERT INTO o_novel "
+      "(projectId,chapterIndex,chapter,event,eventState,errorReason) VALUES "
+      "(?,1,'生成中',NULL,0,NULL),"
+      "(?,2,'已完成','事件完成',1,NULL),"
+      "(?,3,'失败',NULL,-1,'请求失败'),"
+      "(?,4,'其他章节','不应返回',1,NULL)",
+      [projectId, projectId, projectId, projectId],
+    );
+    final requestedIds = db
+        .select(
+          "SELECT id FROM o_novel WHERE projectId=? AND chapter IN ('生成中','已完成','失败') "
+          'ORDER BY chapterIndex',
+          [projectId],
+        )
+        .map((row) => row['id'] as int)
+        .toList();
+
+    final rows = engine.novelEventState(requestedIds);
+
+    expect(
+      rows,
+      unorderedMatches([
+        (id: requestedIds[1], event: '事件完成', eventState: 1, errorReason: null),
+        (id: requestedIds[2], event: null, eventState: -1, errorReason: '请求失败'),
+      ]),
+    );
+    expect(engine.novelEventState(const []), isEmpty);
+  });
+
   test('events 分页 JOIN 返回章节号数组', () async {
     gateway.script = (user) {
       final idx = RegExp(r'章节数：(\d+)').firstMatch(user)!.group(1);
