@@ -5730,6 +5730,104 @@ void main() {
     expect(draft.references.single.sourceId, otherStoryboardId);
   });
 
+  testWidgets('视频参数选择音频父资产会加入全部子样本参考', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['multi_reference'],
+                'references': {'image': 0, 'video': 0, 'audio': 2},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '音频多参考镜头',
+    );
+    final audioParentId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '双样本音色',
+      sex: '女',
+      describe: '',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '第一句',
+          name: '样本一',
+          describe: '',
+          existingImageId: null,
+        ),
+        (
+          base64: base64Encode([4, 5, 6]),
+          ext: 'mp3',
+          prompt: '第二句',
+          name: '样本二',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+    final childIds = engine
+        .getAssets(projectId, type: 'audio', limit: 10)
+        .data
+        .singleWhere((asset) => asset.id == audioParentId)
+        .sonAssets
+        .map((asset) => asset.id)
+        .toSet();
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-add-reference')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-source-assets')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('asset-picker-item-$audioParentId')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('video-request-save')));
+    await tester.pumpAndSettle();
+
+    final trackId = engine
+        .storyboards(scriptId)
+        .singleWhere((storyboard) => storyboard.id == storyboardId)
+        .trackId!;
+    final draft = engine.videoRequestForTrack(trackId);
+    expect(draft.references, hasLength(2));
+    expect(
+      draft.references.map((reference) => reference.sourceId).toSet(),
+      childIds,
+    );
+  });
+
   testWidgets('视频参数弹窗选择项目角色时自动携带其绑定音频参考', (tester) async {
     engine.db.execute(
       'UPDATE o_vendorConfig SET models=? WHERE id=?',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/assets.dart';
 import '../../engine/engine.dart';
 import '../../engine/video_request.dart';
 import '../../engine/video_track.dart';
@@ -416,8 +417,20 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
       title: context.l10n.videoRequestPickFromAssets,
     );
     if (!mounted || ids == null || ids.isEmpty) return;
+    // 原版 assetsCheck 选中音频父资产时会返回该父项的全部样本；视频多参考
+    // 需要保留这个展开语义，不能退化成仅取第一条可用样本。
+    final selectedAssets = widget.engine.assetsByIds(ids);
+    final expandedIds = <int>[
+      for (final asset in selectedAssets)
+        if (asset.type == 'audio' &&
+            asset.assetsId == null &&
+            asset.sonAssets.isNotEmpty)
+          ...asset.sonAssets.map((child) => child.id)
+        else
+          asset.id,
+    ];
     final picked = [
-      for (final id in ids)
+      for (final id in expandedIds)
         if (_assetCandidateForId(id) case final candidate?) candidate,
     ];
     if (picked.isEmpty) return;
