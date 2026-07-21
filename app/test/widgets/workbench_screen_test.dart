@@ -1519,6 +1519,64 @@ void main() {
     expect(find.textContaining('L3 · 1900ms'), findsOneWidget);
   });
 
+  testWidgets('桌面工作台选中素材层后可在固定属性面板修改名称', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/inspector_overlay.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 4, 5]);
+    final assetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '原始片段',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: assetId,
+    );
+
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipId')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$clipId')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-inspector-name-input')),
+      '修订片头',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-inspector-save')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(engine.timelineClips(scriptId).single.name, '修订片头');
+
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipId')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$clipId')),
+      findsNothing,
+    );
+  });
+
   testWidgets('工作台素材层按时间起点拉开可视间距', (tester) async {
     engine.addStoryboard(
       projectId: projectId,

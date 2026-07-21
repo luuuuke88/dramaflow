@@ -95,6 +95,24 @@ void main() {
     expect(otherLane.durationMs, 500);
   });
 
+  test('updateTimelineClip 可保存用户编辑后的片段名称', () {
+    final assetId = clipAsset('p/rename_clip.mp4', '原素材名');
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: assetId,
+    );
+
+    engine.updateTimelineClip(
+      clipId: clipId,
+      lane: 1,
+      startMs: 0,
+      name: '片头标题',
+    );
+
+    expect(engine.timelineClips(scriptId).single.name, '片头标题');
+  });
+
   test('deleteTimelineClipRipple 删除素材层并将同轨后续片段前移', () {
     final clipA = clipAsset('p/ripple_a.mp4', 'A');
     final clipB = clipAsset('p/ripple_b.mp4', 'B');

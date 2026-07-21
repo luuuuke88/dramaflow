@@ -224,6 +224,7 @@ extension TimelineClipApi on Engine {
     required int startMs,
     int? durationMs,
     double? opacity,
+    String? name,
   }) {
     final normalizedLane = lane < 1 ? 1 : lane;
     final normalizedStart = startMs < 0 ? 0 : startMs;
@@ -233,9 +234,11 @@ extension TimelineClipApi on Engine {
         opacity == null ? null : _normalizeTimelineClipOpacity(opacity);
     db.execute(
       'UPDATE o_timelineClip '
-      'SET lane=?, startMs=?, durationMs=?, opacity=COALESCE(?, opacity, ?) '
+      'SET name=COALESCE(?, name), lane=?, startMs=?, durationMs=?, '
+      'opacity=COALESCE(?, opacity, ?) '
       'WHERE id=?',
       [
+        name?.trim(),
         normalizedLane,
         normalizedStart,
         normalizedDuration,
