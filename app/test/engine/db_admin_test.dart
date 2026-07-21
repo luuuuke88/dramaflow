@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dramaflow/src/engine/assets.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/db_admin.dart';
@@ -188,6 +189,257 @@ void main() {
         reason: table,
       );
     }
+  });
+
+  test('clearTable(o_script) 级联清理分镜/视频/视频轨与磁盘文件，不留孤儿行', () {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '二', content: 'y');
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '主角',
+      describe: '',
+    );
+    db.execute(
+      'INSERT INTO o_scriptAssets (assetId,scriptId) VALUES (?,?)',
+      [assetId, scriptId],
+    );
+
+    final storyboardRel = engine.media.saveImage([1, 2, 3], '$projectId');
+    db.execute(
+      'INSERT INTO o_storyboard (projectId,scriptId,filePath,"index",state) '
+      "VALUES (?,?,?,1,'done')",
+      [projectId, scriptId, storyboardRel],
+    );
+    final storyboardId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?)',
+      [assetId, storyboardId],
+    );
+
+    db.execute(
+      "INSERT INTO o_videoTrack (projectId,scriptId,state) VALUES (?,?,'idle')",
+      [projectId, scriptId],
+    );
+    final trackId = db.lastInsertRowId;
+    final videoRel = engine.media.saveVideo([4, 5, 6], '$projectId');
+    db.execute(
+      "INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) "
+      "VALUES (?,?,?,?,'done')",
+      [projectId, scriptId, trackId, videoRel],
+    );
+
+    expect(File(engine.media.absPath(storyboardRel)).existsSync(), isTrue);
+    expect(File(engine.media.absPath(videoRel)).existsSync(), isTrue);
+
+    engine.clearTable('o_script');
+
+    expect(db.select('SELECT COUNT(*) n FROM o_script').single['n'], 0);
+    expect(
+      db.select('SELECT COUNT(*) n FROM o_storyboard WHERE scriptId=?',
+          [scriptId]).single['n'],
+      0,
+    );
+    expect(
+      db.select(
+          'SELECT COUNT(*) n FROM o_assets2Storyboard WHERE storyboardId=?',
+          [storyboardId]).single['n'],
+      0,
+    );
+    expect(
+      db.select('SELECT COUNT(*) n FROM o_video WHERE scriptId=?',
+          [scriptId]).single['n'],
+      0,
+    );
+    expect(
+      db.select('SELECT COUNT(*) n FROM o_videoTrack WHERE scriptId=?',
+          [scriptId]).single['n'],
+      0,
+    );
+    expect(
+      db.select('SELECT COUNT(*) n FROM o_scriptAssets WHERE scriptId=?',
+          [scriptId]).single['n'],
+      0,
+    );
+    expect(File(engine.media.absPath(storyboardRel)).existsSync(), isFalse);
+    expect(File(engine.media.absPath(videoRel)).existsSync(), isFalse);
+    // o_assets 不是 o_script 的子孙表：清空 o_script 不该连累素材库本身。
+    expect(
+      db.select(
+          'SELECT COUNT(*) n FROM o_assets WHERE id=?', [assetId]).single['n'],
+      1,
+    );
+  });
+
+  test('clearTable(o_novel) 级联清理事件关联，不留孤儿事件行', () {
+    final novelId = db.select('SELECT id FROM o_novel WHERE projectId=?',
+        [projectId]).single['id'] as int;
+    db.execute(
+        "INSERT INTO o_event (name,detail,createTime) VALUES ('冲突','x',0)");
+    final eventId = db.lastInsertRowId;
+    db.execute(
+      'INSERT INTO o_eventChapter (eventId,novelId) VALUES (?,?)',
+      [eventId, novelId],
+    );
+
+    engine.clearTable('o_novel');
+
+    expect(db.select('SELECT COUNT(*) n FROM o_novel').single['n'], 0);
+    expect(
+      db.select('SELECT COUNT(*) n FROM o_eventChapter WHERE novelId=?',
+          [novelId]).single['n'],
+      0,
+    );
+    // 这条事件唯一挂靠的章节没了，应随之清理，不留下再也查不到的孤儿事件行
+    // （events() 对 o_novel 是 INNER JOIN，孤儿行会从事件列表里彻底消失）。
+    expect(
+      db.select(
+          'SELECT COUNT(*) n FROM o_event WHERE id=?', [eventId]).single['n'],
+      0,
+    );
+    expect(db.select('SELECT COUNT(*) n FROM o_project').single['n'], 1);
+    expect(db.select('SELECT COUNT(*) n FROM o_script').single['n'], 1);
+  });
+
+  test('clearTable(o_project) 级联清理全部子孙数据并删除项目媒体目录', () {
+    final novelId = db.select('SELECT id FROM o_novel WHERE projectId=?',
+        [projectId]).single['id'] as int;
+    final rel = engine.media.saveImage([9, 9, 9], '$projectId');
+    db.execute(
+      'INSERT INTO o_storyboard (projectId,filePath,"index",state) '
+      "VALUES (?,?,1,'done')",
+      [projectId, rel],
+    );
+    expect(
+        Directory(p.dirname(engine.media.absPath(rel))).existsSync(), isTrue);
+
+    engine.clearTable('o_project');
+
+    expect(db.select('SELECT COUNT(*) n FROM o_project').single['n'], 0);
+    expect(db.select('SELECT COUNT(*) n FROM o_novel').single['n'], 0);
+    expect(db.select('SELECT COUNT(*) n FROM o_script').single['n'], 0);
+    expect(
+      db.select('SELECT COUNT(*) n FROM o_storyboard WHERE projectId=?',
+          [projectId]).single['n'],
+      0,
+    );
+    expect(File(engine.media.absPath(rel)).existsSync(), isFalse);
+    expect(
+      db.select('SELECT COUNT(*) n FROM o_eventChapter WHERE novelId=?',
+          [novelId]).single['n'],
+      0,
+    );
+  });
+
+  test('clearTable(o_image) 清空图片表时同步清空 o_assets.imageId 并删除磁盘文件', () {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '主角',
+      describe: '',
+    );
+    final rel = engine.media.saveImage([1, 2, 3], '$projectId');
+    db.execute(
+      "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,'role','done')",
+      [assetId, rel],
+    );
+    final imageId = db.lastInsertRowId;
+    db.execute('UPDATE o_assets SET imageId=? WHERE id=?', [imageId, assetId]);
+    expect(File(engine.media.absPath(rel)).existsSync(), isTrue);
+
+    engine.clearTable('o_image');
+
+    expect(db.select('SELECT COUNT(*) n FROM o_image').single['n'], 0);
+    expect(File(engine.media.absPath(rel)).existsSync(), isFalse);
+    // 资产行本身还在（o_assets 不是 o_image 的子孙表），但不能留一个指向
+    // 已删行的 imageId 孤儿引用。
+    final assetRow =
+        db.select('SELECT imageId FROM o_assets WHERE id=?', [assetId]).single;
+    expect(assetRow['imageId'], isNull);
+  });
+
+  test('clearTable(o_tasks) 清空任务表时同步删除私有载荷文件', () {
+    db.execute(
+      "INSERT INTO o_tasks (projectId,state,taskClass,describe,startTime) "
+      "VALUES (?,'pending','video_generation','x',0)",
+      [projectId],
+    );
+    final taskId = db.lastInsertRowId;
+    engine.writeTaskPrivatePayload(taskId, '{"secret":true}');
+    expect(engine.readTaskPrivatePayload(taskId), isNotNull);
+
+    engine.clearTable('o_tasks');
+
+    expect(db.select('SELECT COUNT(*) n FROM o_tasks').single['n'], 0);
+    expect(engine.readTaskPrivatePayload(taskId), isNull);
+  });
+
+  test('clearTable(o_video) 逐条复用 deleteVideo：删除磁盘文件并清空视频轨引用', () {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '三', content: 'z');
+    db.execute(
+      "INSERT INTO o_videoTrack (projectId,scriptId,state) VALUES (?,?,'idle')",
+      [projectId, scriptId],
+    );
+    final trackId = db.lastInsertRowId;
+    final rel = engine.media.saveVideo([1, 2, 3], '$projectId');
+    db.execute(
+      "INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) "
+      "VALUES (?,?,?,?,'done')",
+      [projectId, scriptId, trackId, rel],
+    );
+    final videoId = db.lastInsertRowId;
+    db.execute(
+      'UPDATE o_videoTrack SET videoId=?, selectVideoId=? WHERE id=?',
+      [videoId, videoId, trackId],
+    );
+
+    engine.clearTable('o_video');
+
+    expect(db.select('SELECT COUNT(*) n FROM o_video').single['n'], 0);
+    expect(File(engine.media.absPath(rel)).existsSync(), isFalse);
+    // deleteVideo 会顺带清空引用它的轨道指针；o_video 不是 o_videoTrack 的父表，
+    // 清空前者不该删掉后者的行，只应该清掉指向已删视频的孤儿指针。
+    final trackRow = db.select(
+        'SELECT videoId,selectVideoId FROM o_videoTrack WHERE id=?',
+        [trackId]).single;
+    expect(trackRow['videoId'], isNull);
+    expect(trackRow['selectVideoId'], isNull);
+    expect(db.select('SELECT COUNT(*) n FROM o_videoTrack').single['n'], 1);
+  });
+
+  test('clearTable(o_videoTrack) 逐条复用 deleteVideoTrack：级联删除候选视频与磁盘文件', () {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '四', content: 'w');
+    db.execute(
+      "INSERT INTO o_videoTrack (projectId,scriptId,state) VALUES (?,?,'idle')",
+      [projectId, scriptId],
+    );
+    final trackId = db.lastInsertRowId;
+    final rel = engine.media.saveVideo([7, 8, 9], '$projectId');
+    db.execute(
+      "INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) "
+      "VALUES (?,?,?,?,'done')",
+      [projectId, scriptId, trackId, rel],
+    );
+
+    engine.clearTable('o_videoTrack');
+
+    expect(db.select('SELECT COUNT(*) n FROM o_videoTrack').single['n'], 0);
+    expect(
+      db.select('SELECT COUNT(*) n FROM o_video WHERE videoTrackId=?',
+          [trackId]).single['n'],
+      0,
+    );
+    expect(File(engine.media.absPath(rel)).existsSync(), isFalse);
+  });
+
+  test('tableClearCascades 标出尚未接入级联清理的表', () {
+    expect(engine.tableClearCascades('o_novel'), isTrue);
+    expect(engine.tableClearCascades('o_script'), isTrue);
+    expect(engine.tableClearCascades('o_project'), isTrue);
+    expect(engine.tableClearCascades('o_assets'), isTrue);
+    expect(engine.tableClearCascades('o_imageFlow'), isFalse);
   });
 
   test('dataDirPath 是媒体根目录的父目录', () {

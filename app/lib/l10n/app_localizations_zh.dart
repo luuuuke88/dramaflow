@@ -3285,6 +3285,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String settingsStorageClearTableNoCascadeWarning(String table) {
+    return '注意：$table 尚未接入级联清理，仅会删除这张表自身。关联表中的孤儿记录和磁盘上的媒体文件不会被一并清理。';
+  }
+
+  @override
   String settingsStorageClearTableDone(String table) {
     return '已清空 $table';
   }

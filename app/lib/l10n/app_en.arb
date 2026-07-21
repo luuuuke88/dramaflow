@@ -1245,6 +1245,12 @@
       "count": { "type": "int" }
     }
   },
+  "settingsStorageClearTableNoCascadeWarning": "Note: {table} does not have cascading cleanup yet, so only this table itself will be cleared. Orphan rows in related tables and media files on disk will not be cleaned up.",
+  "@settingsStorageClearTableNoCascadeWarning": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
   "settingsStorageClearTableDone": "Cleared {table}",
   "@settingsStorageClearTableDone": {
     "placeholders": {

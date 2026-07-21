@@ -3403,6 +3403,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String settingsStorageClearTableNoCascadeWarning(String table) {
+    return 'Note: $table does not have cascading cleanup yet, so only this table itself will be cleared. Orphan rows in related tables and media files on disk will not be cleaned up.';
+  }
+
+  @override
   String settingsStorageClearTableDone(String table) {
     return 'Cleared $table';
   }

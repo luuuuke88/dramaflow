@@ -1476,6 +1476,12 @@
       "count": { "type": "int" }
     }
   },
+  "settingsStorageClearTableNoCascadeWarning": "注意：{table} 尚未接入级联清理，仅会删除这张表自身。关联表中的孤儿记录和磁盘上的媒体文件不会被一并清理。",
+  "@settingsStorageClearTableNoCascadeWarning": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
   "settingsStorageClearTableDone": "已清空 {table}",
   "@settingsStorageClearTableDone": {
     "placeholders": {

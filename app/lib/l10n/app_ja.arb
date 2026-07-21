@@ -1245,6 +1245,12 @@
       "count": { "type": "int" }
     }
   },
+  "settingsStorageClearTableNoCascadeWarning": "注意：{table} はまだ連鎖削除に対応していないため、このテーブル自体のみが削除されます。関連テーブルの孤立レコードやディスク上のメディアファイルは削除されません。",
+  "@settingsStorageClearTableNoCascadeWarning": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
   "settingsStorageClearTableDone": "{table} を消去しました",
   "@settingsStorageClearTableDone": {
     "placeholders": {

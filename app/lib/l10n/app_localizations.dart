@@ -6383,6 +6383,12 @@ abstract class AppLocalizations {
   /// **'将删除 {table} 中的 {count} 条记录，且无法恢复。确定继续吗？'**
   String settingsStorageClearTableConfirmBody(String table, int count);
 
+  /// No description provided for @settingsStorageClearTableNoCascadeWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'注意：{table} 尚未接入级联清理，仅会删除这张表自身。关联表中的孤儿记录和磁盘上的媒体文件不会被一并清理。'**
+  String settingsStorageClearTableNoCascadeWarning(String table);
+
   /// No description provided for @settingsStorageClearTableDone.
   ///
   /// In zh, this message translates to:

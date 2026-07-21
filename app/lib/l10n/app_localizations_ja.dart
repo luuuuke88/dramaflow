@@ -3308,6 +3308,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String settingsStorageClearTableNoCascadeWarning(String table) {
+    return '注意：$table はまだ連鎖削除に対応していないため、このテーブル自体のみが削除されます。関連テーブルの孤立レコードやディスク上のメディアファイルは削除されません。';
+  }
+
+  @override
   String settingsStorageClearTableDone(String table) {
     return '$table を消去しました';
   }
