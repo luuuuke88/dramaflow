@@ -655,10 +655,67 @@ void main() {
     expect(MediaQuery.textScalerOf(shotContext).scale(16), 22);
 
     final checkboxKey = ValueKey('workbench-shot-check-$storyboardId');
-    expect(tester.widget<Checkbox>(find.byKey(checkboxKey)).value, isTrue);
+    expect(tester.widget<Checkbox>(find.byKey(checkboxKey)).value, isFalse);
     await tester.tap(find.byKey(checkboxKey));
     await tester.pumpAndSettle();
-    expect(tester.widget<Checkbox>(find.byKey(checkboxKey)).value, isFalse);
+    expect(tester.widget<Checkbox>(find.byKey(checkboxKey)).value, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('视频生成轨道默认不勾选，全选可同步所有镜头', (tester) async {
+    final first = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '第一镜');
+    final second = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '第二镜');
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.generate));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final selectAll = find.byKey(const ValueKey('workbench-select-all-tracks'));
+    expect(selectAll, findsOneWidget);
+    expect(tester.widget<Checkbox>(selectAll).value, isFalse);
+    expect(
+      tester
+          .widget<Checkbox>(find.byKey(ValueKey('workbench-shot-check-$first')))
+          .value,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<Checkbox>(
+              find.byKey(ValueKey('workbench-shot-check-$second')))
+          .value,
+      isFalse,
+    );
+
+    await tester.tap(selectAll);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Checkbox>(selectAll).value, isTrue);
+    expect(
+      tester
+          .widget<Checkbox>(find.byKey(ValueKey('workbench-shot-check-$first')))
+          .value,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<Checkbox>(
+              find.byKey(ValueKey('workbench-shot-check-$second')))
+          .value,
+      isTrue,
+    );
+
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$first')));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Checkbox>(selectAll).value, isNull);
+    expect(find.text('已选 1 段'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -5405,7 +5462,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s1')));
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s2')));
     await tester.pumpAndSettle();
     await tapWorkbenchBatchAction(tester, '全部生成视频');
 
@@ -5418,6 +5475,11 @@ void main() {
         jsonDecode(task['relatedObjects'] as String) as Map<String, dynamic>;
     final trackIds =
         (related['trackIds'] as List).map((e) => (e as num).toInt()).toList();
+    expect(
+      engine.storyboards(scriptId).singleWhere((s) => s.id == s1).trackId,
+      isNull,
+      reason: '未勾选镜头不应因批量提交被懒建视频轨',
+    );
     expect(trackIds, [
       engine.storyboards(scriptId).singleWhere((s) => s.id == s2).trackId,
     ]);
@@ -5439,7 +5501,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s1')));
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s2')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('workbench-batch-actions')));
     await tester.pumpAndSettle();
@@ -6462,6 +6524,9 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$sbId')));
+    await tester.pumpAndSettle();
+
     await tester
         .tap(find.byKey(ValueKey('workbench-candidate-download-$firstId')));
     await tester.pump();
@@ -6600,7 +6665,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s2')));
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s1')));
     await tester.pumpAndSettle();
     await tapWorkbenchBatchAction(tester, '清空已选轨道');
     await tester.pumpAndSettle();
@@ -6660,7 +6725,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s2')));
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$s1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();

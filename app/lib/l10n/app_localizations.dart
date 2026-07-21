@@ -3652,6 +3652,18 @@ abstract class AppLocalizations {
   /// **'全部生成运镜提示词'**
   String get workbenchGenerateAllPrompts;
 
+  /// No description provided for @workbenchTrackSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选视频轨'**
+  String get workbenchTrackSelectAll;
+
+  /// No description provided for @workbenchTrackSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {count} 段'**
+  String workbenchTrackSelected(int count);
+
   /// No description provided for @workbenchPromptBatchStarted.
   ///
   /// In zh, this message translates to:

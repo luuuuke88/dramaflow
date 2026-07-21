@@ -684,6 +684,15 @@
   "videoRequestPickFromStoryboard": "Choose from storyboards",
   "workbenchGenerateAll": "Generate All Videos",
   "workbenchGenerateAllPrompts": "Generate All Motion Prompts",
+  "workbenchTrackSelectAll": "Select all video tracks",
+  "workbenchTrackSelected": "{count} selected",
+  "@workbenchTrackSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchPromptBatchStarted": "Started generating {count} motion prompts",
   "@workbenchPromptBatchStarted": {
     "placeholders": {

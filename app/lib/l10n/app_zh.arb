@@ -804,6 +804,15 @@
   "videoRequestPickFromStoryboard": "从分镜选择",
   "workbenchGenerateAll": "全部生成视频",
   "workbenchGenerateAllPrompts": "全部生成运镜提示词",
+  "workbenchTrackSelectAll": "全选视频轨",
+  "workbenchTrackSelected": "已选 {count} 段",
+  "@workbenchTrackSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchPromptBatchStarted": "已开始生成 {count} 条运镜提示词",
   "@workbenchPromptBatchStarted": {
     "placeholders": {

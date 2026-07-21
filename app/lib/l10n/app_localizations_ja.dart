@@ -1863,6 +1863,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchGenerateAllPrompts => 'すべてカメラワーク生成';
 
   @override
+  String get workbenchTrackSelectAll => 'すべての動画トラックを選択';
+
+  @override
+  String workbenchTrackSelected(int count) {
+    return '$count 件選択中';
+  }
+
+  @override
   String workbenchPromptBatchStarted(int count) {
     return '$count 件のカメラワークプロンプト生成を開始しました';
   }

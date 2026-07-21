@@ -81,7 +81,6 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   bool _composing = false;
   bool _exportingCheckedVideos = false;
   final Set<int> _checkedShotIds = {};
-  final Set<int> _knownShotIds = {};
   late WorkbenchTab _activeTab;
 
   @override
@@ -114,12 +113,6 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   void _syncCheckedShots(List<StoryboardRow> shots) {
     final currentIds = {for (final shot in shots) shot.id};
     _checkedShotIds.removeWhere((id) => !currentIds.contains(id));
-    _knownShotIds.removeWhere((id) => !currentIds.contains(id));
-    for (final id in currentIds) {
-      if (_knownShotIds.add(id)) {
-        _checkedShotIds.add(id);
-      }
-    }
   }
 
   void _toggleShotSelection(int shotId, bool selected) {
@@ -128,6 +121,18 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
         _checkedShotIds.add(shotId);
       } else {
         _checkedShotIds.remove(shotId);
+      }
+    });
+  }
+
+  void _toggleAllShotSelection(List<StoryboardRow> shots) {
+    final shouldSelectAll =
+        shots.any((shot) => !_checkedShotIds.contains(shot.id));
+    setState(() {
+      if (shouldSelectAll) {
+        _checkedShotIds.addAll(shots.map((shot) => shot.id));
+      } else {
+        _checkedShotIds.clear();
       }
     });
   }
@@ -321,8 +326,35 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     if (shots.isEmpty && standaloneTracks.isEmpty) {
       return Center(child: DFEmpty(text: l10n.workbenchNoShots));
     }
+    final selectedCount =
+        shots.where((shot) => _checkedShotIds.contains(shot.id)).length;
+    final selectAllValue = selectedCount == 0
+        ? false
+        : selectedCount == shots.length
+            ? true
+            : null;
     return Column(
       children: [
+        if (shots.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Row(children: [
+              Checkbox(
+                key: const ValueKey('workbench-select-all-tracks'),
+                value: selectAllValue,
+                tristate: true,
+                onChanged: (_) => _toggleAllShotSelection(shots),
+              ),
+              Text(l10n.workbenchTrackSelectAll),
+              if (selectedCount > 0) ...[
+                const SizedBox(width: 8),
+                Text(
+                  l10n.workbenchTrackSelected(selectedCount),
+                  style: TextStyle(color: context.df.textSecondary),
+                ),
+              ],
+            ]),
+          ),
         if (standaloneTracks.isNotEmpty)
           _StandaloneTrackSection(
             tracks: standaloneTracks,

@@ -1907,6 +1907,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchGenerateAllPrompts => 'Generate All Motion Prompts';
 
   @override
+  String get workbenchTrackSelectAll => 'Select all video tracks';
+
+  @override
+  String workbenchTrackSelected(int count) {
+    return '$count selected';
+  }
+
+  @override
   String workbenchPromptBatchStarted(int count) {
     return 'Started generating $count motion prompts';
   }

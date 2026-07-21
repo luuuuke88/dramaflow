@@ -684,6 +684,15 @@
   "videoRequestPickFromStoryboard": "絵コンテから選択",
   "workbenchGenerateAll": "すべて動画生成",
   "workbenchGenerateAllPrompts": "すべてカメラワーク生成",
+  "workbenchTrackSelectAll": "すべての動画トラックを選択",
+  "workbenchTrackSelected": "{count} 件選択中",
+  "@workbenchTrackSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "workbenchPromptBatchStarted": "{count} 件のカメラワークプロンプト生成を開始しました",
   "@workbenchPromptBatchStarted": {
     "placeholders": {

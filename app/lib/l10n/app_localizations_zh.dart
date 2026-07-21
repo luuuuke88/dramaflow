@@ -1847,6 +1847,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchGenerateAllPrompts => '全部生成运镜提示词';
 
   @override
+  String get workbenchTrackSelectAll => '全选视频轨';
+
+  @override
+  String workbenchTrackSelected(int count) {
+    return '已选 $count 段';
+  }
+
+  @override
   String workbenchPromptBatchStarted(int count) {
     return '已开始生成 $count 条运镜提示词';
   }
