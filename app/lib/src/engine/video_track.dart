@@ -1328,6 +1328,11 @@ extension VideoTrackApi on Engine {
 
     var success = 0;
     EngineException? firstFailure;
+    // 目标候选视频行在 worker 处理它之前就被删除（典型场景：用户在生成过程中
+    // 删除了整条轨道）。这不是"跳过=成功"，必须和真正的失败一样被统计，
+    // 否则一批全被删光时 success==0 且 firstFailure==null，函数正常返回，
+    // 整个任务被静默判定为"完成"。
+    var deletedMidFlight = 0;
     var cursor = 0;
 
     Future<void> worker() async {
@@ -1338,7 +1343,10 @@ extension VideoTrackApi on Engine {
         final candidate = db.select(
             'SELECT * FROM o_video WHERE id=? AND projectId=?',
             [videoId, projectId]).firstOrNull;
-        if (candidate == null) continue;
+        if (candidate == null) {
+          deletedMidFlight++;
+          continue;
+        }
         final trackId = candidate['videoTrackId'] as int?;
         if (trackId == null || !trackIds.contains(trackId)) continue;
         try {
@@ -1371,6 +1379,12 @@ extension VideoTrackApi on Engine {
         [for (var w = 0; w < min(concurrent, trackIds.length); w++) worker()]);
     if (token.isCancelled) throw const EngineException(errCanceled);
     if (success == 0 && firstFailure != null) throw firstFailure!;
+    if (success == 0 && deletedMidFlight > 0) {
+      throw EngineException(
+        errVideoTargetDeleted,
+        {'count': '$deletedMidFlight'},
+      );
+    }
   }
 
   Future<bool> _runVideoCandidate(

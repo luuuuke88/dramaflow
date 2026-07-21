@@ -117,6 +117,7 @@
   "promptRestored": "提示词已恢复默认",
   "errTaskUnsupported": "不支持的任务类型",
   "errTaskActive": "所选镜头已有正在生成的任务",
+  "errVideoTargetDeleted": "生成目标在处理过程中被删除",
   "shellSelectProject": "请选择项目",
   "shellComingSoon": "本区域随 {batch} 批次交付",
   "@shellComingSoon": {
@@ -836,6 +837,7 @@
   "workbenchClearSelectedTracksConfirm": "将清空已勾选镜头的视频轨道与候选视频，分镜本身会保留。",
   "workbenchClearTracksAction": "清空",
   "workbenchClearSelectedTracksDone": "已清空已选轨道",
+  "workbenchTrackGeneratingCannotDelete": "该轨道正在生成中，请先取消或等待完成",
   "workbenchCompose": "合成本集",
   "workbenchComposing": "合成中...",
   "workbenchComposeSuccess": "合成成功",

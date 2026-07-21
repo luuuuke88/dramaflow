@@ -16,6 +16,7 @@ const errNoChapters = 'errNoChapters';
 const errPlatformComposer = 'errPlatformComposer';
 const errTaskUnsupported = 'errTaskUnsupported';
 const errTaskActive = 'errTaskActive';
+const errVideoTargetDeleted = 'errVideoTargetDeleted';
 const errManualInvalid = 'errManualInvalid';
 const errManualExists = 'errManualExists';
 const errDbTableClearForbidden = 'errDbTableClearForbidden';

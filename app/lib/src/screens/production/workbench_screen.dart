@@ -202,6 +202,19 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     ];
     if (selected.isEmpty) return;
     final l10n = context.l10n;
+    final engine = ref.read(engineProvider);
+    // 生成中的轨道不能被静默清空：video_track.dart 的生成 worker 发现候选
+    // 视频行已被删除时只会 continue，既不计入 success 也不计入
+    // firstFailure，会导致整批生成任务被误判为"成功"。在此拦住，而不是
+    // 删完之后才发现任务撒了谎。
+    final hasActiveGeneration = selected.any(
+      (shot) => engine.track(shot.trackId!)?.state == vtGenerating,
+    );
+    if (hasActiveGeneration) {
+      _showWorkbenchSnackBar(
+          context, l10n.workbenchTrackGeneratingCannotDelete);
+      return;
+    }
     final ok = await showDFAdaptiveDialog<bool>(
       context,
       title: l10n.workbenchClearSelectedTracks,
@@ -214,7 +227,6 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
       ),
     );
     if (ok != true || !mounted) return;
-    final engine = ref.read(engineProvider);
     for (final shot in selected) {
       final trackId = shot.trackId;
       if (trackId != null) engine.deleteVideoTrack(trackId);
@@ -293,19 +305,27 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   }
 
   Future<void> _deleteStandaloneTrack(int trackId) async {
+    final l10n = context.l10n;
+    final engine = ref.read(engineProvider);
+    // 同 _clearCheckedTracks：生成中的轨道先拦住，不能删完才让任务静默"成功"。
+    if (engine.track(trackId)?.state == vtGenerating) {
+      _showWorkbenchSnackBar(
+          context, l10n.workbenchTrackGeneratingCannotDelete);
+      return;
+    }
     final ok = await showDFAdaptiveDialog<bool>(
       context,
-      title: context.l10n.commonDelete,
+      title: l10n.commonDelete,
       desktopWidthFactor: .36,
       builder: (c) => _ConfirmActionBody(
-        message: context.l10n.workbenchDeleteStandaloneTrackConfirm,
-        confirmLabel: context.l10n.commonDelete,
+        message: l10n.workbenchDeleteStandaloneTrackConfirm,
+        confirmLabel: l10n.commonDelete,
         onCancel: () => Navigator.pop(c, false),
         onConfirm: () => Navigator.pop(c, true),
       ),
     );
     if (ok != true || !mounted) return;
-    ref.read(engineProvider).deleteVideoTrack(trackId);
+    engine.deleteVideoTrack(trackId);
     setState(() {
       if (_activeStandaloneTrackId == trackId) {
         _activeStandaloneTrackId = null;
@@ -537,6 +557,10 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
                   ),
                   PopupMenuItem(
                     value: _WorkbenchBatchAction.download,
+                    // 与宽屏 workbench-download-selected-videos 按钮的
+                    // onPressed 判断保持一致：导出进行中禁用这一项，
+                    // 避免窄屏用户重复点出第二次并发导出。
+                    enabled: !_exportingCheckedVideos,
                     child: Text(l10n.workbenchDownloadSelectedVideos),
                   ),
                   PopupMenuItem(
@@ -1362,6 +1386,9 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       _selectedClipIds
         ..clear()
         ..addAll(duplicateIds);
+      // 复制后画面上高亮的是新片段，检查器必须跟着指向新片段，否则仍绑定
+      // 源片段——用户以为在编辑新片段，保存时实际改的是源片段。
+      _inspectedClipId = duplicateIds.isEmpty ? null : duplicateIds.last;
     });
   }
 
@@ -1388,6 +1415,8 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       _selectedClipIds
         ..clear()
         ..addAll(duplicateIds);
+      // 同 _duplicateSelectedClipLayers：检查器必须跟着新复制出的片段走。
+      _inspectedClipId = duplicateIds.isEmpty ? null : duplicateIds.last;
     });
   }
 
@@ -1473,6 +1502,8 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       _selectedClipIds
         ..clear()
         ..addAll(duplicateIds);
+      // 同 _duplicateSelectedClipLayers：检查器必须跟着新复制出的片段走。
+      _inspectedClipId = duplicateIds.isEmpty ? null : duplicateIds.last;
     });
   }
 
@@ -1699,14 +1730,28 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     if (_selectedClipIds.isEmpty) return;
     final engine = ref.read(engineProvider);
     engine.deleteTimelineClips(_selectedClipIds.toList());
-    setState(_selectedClipIds.clear);
+    setState(() {
+      // 与单个删除路径（_deleteClipLayer）保持一致：被删片段若正是检查器
+      // 绑定的对象，必须一并清空，否则检查器会悬挂指向一个已不存在的片段。
+      if (_inspectedClipId != null &&
+          _selectedClipIds.contains(_inspectedClipId)) {
+        _inspectedClipId = null;
+      }
+      _selectedClipIds.clear();
+    });
   }
 
   void _rippleDeleteSelectedClipLayers() {
     if (_selectedClipIds.isEmpty) return;
     final engine = ref.read(engineProvider);
     engine.deleteTimelineClipsRipple(_selectedClipIds.toList());
-    setState(_selectedClipIds.clear);
+    setState(() {
+      if (_inspectedClipId != null &&
+          _selectedClipIds.contains(_inspectedClipId)) {
+        _inspectedClipId = null;
+      }
+      _selectedClipIds.clear();
+    });
   }
 
   Future<void> _addClipLayer() async {

@@ -2358,6 +2358,35 @@ END;
     expect(videoFile.existsSync(), isFalse);
   });
 
+  test('生成任务处理前轨道被删除，不能被静默判定为成功', () async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: 'x');
+    db.execute(
+        "UPDATE o_storyboard SET filePath='p/frame.png' WHERE id=?", [sbId]);
+    writeMedia('p/frame.png');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+
+    final taskId = engine.batchGenerateVideos(projectId, [sbId]);
+    // 队列 tick 有 10ms 延迟；本行与上一行之间没有任何 await，保证在 worker
+    // 处理这条候选之前同步删除轨道，复现"生成中被删除 → worker 发现候选行
+    // 已不存在只 continue（既不计入 success 也不计入 firstFailure）→
+    // success==0 且 firstFailure==null → 函数正常返回 → 任务被静默判定
+    // 为完成"。
+    engine.deleteVideoTrack(trackId);
+
+    await waitTask(taskId, expectState: 'failed');
+
+    final reason = db
+        .select('SELECT reason FROM o_tasks WHERE id=?', [taskId])
+        .single['reason'] as String?;
+    expect(
+      EngineException.fromReasonJson(reason)?.errKey,
+      errVideoTargetDeleted,
+    );
+    expect(gateway.submitCount, 0,
+        reason: '目标在 worker 处理前已被删除，不应该真的去调用上游生成');
+  });
+
   test('attachClipToTrack 从素材库 clip 创建候选并保护源素材文件', () {
     final sbId = engine.addStoryboard(projectId: projectId, scriptId: scriptId);
     final trackId = engine.ensureTrackForStoryboard(sbId);

@@ -382,6 +382,34 @@ void main() {
     expect(engine.storyboards(scriptId).single.trackId, storyboardTrackId);
   });
 
+  testWidgets('独立视频轨生成中时删除入口会被拦截并提示', (tester) async {
+    final standaloneTrackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    // 直接把轨道状态置为生成中，等价于一次真实生成任务正在跑（不需要真的
+    // 跑完整条生成流水线）。
+    engine.db.execute(
+      'UPDATE o_videoTrack SET state=? WHERE id=?',
+      [vtGenerating, standaloneTrackId],
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(
+        ValueKey('workbench-delete-standalone-track-$standaloneTrackId')));
+    await tester.pumpAndSettle();
+
+    // 生成中应该被直接拦截，不会走到确认弹窗。
+    expect(find.text('删除此视频轨及其候选视频？'), findsNothing);
+    expect(find.text('该轨道正在生成中，请先取消或等待完成'), findsOneWidget);
+    expect(engine.track(standaloneTrackId), isNotNull,
+        reason: '生成中的轨道不应被删除');
+  });
+
   testWidgets('独立视频轨选中后可编辑提示词并打开视频参数', (tester) async {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
@@ -1673,6 +1701,67 @@ void main() {
     );
   });
 
+  testWidgets('检查器面板打字未保存时，无关重建不能吃掉正在输入的内容', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/inspector_no_clobber.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 4, 5]);
+    final assetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '原始片段',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: assetId,
+    );
+
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipId')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$clipId')),
+      findsOneWidget,
+    );
+
+    // 在名称框打字但先不保存。
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-inspector-name-input')),
+      '正在输入未保存',
+    );
+    await tester.pump();
+
+    // 触发同一个 _TimelineOverviewState 的无关重建：在播放头 ms 输入框里
+    // 打字，每个字符都会 setState()，但被检查器绑定的片段在数据库里
+    // 没有任何变化。engine.timelineClips() 每次都返回全新的 TimelineClipRow
+    // 实例，若靠引用相等判断"片段变了没"，这里会被误判为变了，从而用数据库
+    // 旧值覆盖用户刚输入、还没保存的名称。
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '500',
+    );
+    await tester.pump();
+
+    expect(find.text('正在输入未保存'), findsOneWidget,
+        reason: '无关重建不应冲掉用户尚未保存的输入');
+    expect(engine.timelineClips(scriptId).single.name, '原始片段',
+        reason: '用户还没点保存，数据库应仍是旧名称');
+  });
+
   testWidgets('工作台素材层按时间起点拉开可视间距', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
@@ -2795,6 +2884,81 @@ void main() {
         findsOneWidget);
     expect(find.byKey(ValueKey('workbench-timeline-clip-${copiedB.id}')),
         findsOneWidget);
+  });
+
+  testWidgets('复制所选后检查器跟随新片段，保存改的是新片段而不是源片段', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/duplicate_inspector_follow.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([7, 8, 9]);
+    final assetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '源片段',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: assetId,
+    );
+
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipId')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$clipId')),
+      findsOneWidget,
+      reason: '前置：检查器先绑定源片段 A',
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-duplicate-selected')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(2));
+    final duplicateId = clips.singleWhere((c) => c.id != clipId).id;
+
+    // 画面上高亮的是新复制出的片段，检查器必须跟着走，不能还停在源片段 A。
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$duplicateId')),
+      findsOneWidget,
+      reason: '复制后检查器应绑定新片段',
+    );
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$clipId')),
+      findsNothing,
+      reason: '复制后检查器不应再绑定源片段 A',
+    );
+
+    // 走一次真实保存流程：断言被改的是新片段，源片段 A 的名字不受影响。
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-inspector-name-input')),
+      '改名新片段',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-inspector-save')),
+    );
+    await tester.pumpAndSettle();
+
+    final afterSave = engine.timelineClips(scriptId);
+    expect(afterSave.singleWhere((c) => c.id == duplicateId).name, '改名新片段');
+    expect(afterSave.singleWhere((c) => c.id == clipId).name, '源片段',
+        reason: '保存不应改到源片段 A');
   });
 
   testWidgets('工作台可选中多个素材层并对齐到播放头', (tester) async {
@@ -6912,6 +7076,54 @@ void main() {
       isFalse,
       reason: '对齐 ToonFlow：批量下载完成后清空镜头勾选',
     );
+  });
+
+  testWidgets('窄屏批量下载菜单项在导出进行中禁止重复点出第二次导出', (tester) async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '窄屏防重入下载');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    const rel = 'p/compact_export_guard.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    engine.db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, rel, vtDone],
+    );
+    final videoId = engine.track(trackId)!.candidates.single.id;
+    engine.selectVideo(trackId, videoId);
+
+    final archive = p.join(dir.path, 'compact-export-guard.zip');
+    final selector = _PreviewSaveSelector(archive);
+    final originalSelector = FileSelectorPlatform.instance;
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$sbId')));
+    await tester.pumpAndSettle();
+
+    // 第一次点击：开始导出。真正的 ZIP 编码在独立 isolate 里跑，这里只
+    // pump 一帧，故意不等它跑完，制造"导出进行中"的窗口。
+    await tapWorkbenchBatchAction(tester, '下载已选视频');
+
+    // 导出仍在进行中时立刻重新打开窄屏批量菜单再点一次同一项：修复前
+    // 窄屏菜单项没有判断 _exportingCheckedVideos，会真的触发第二次并发
+    // 导出；修复后该项应处于禁用状态，点击没有任何效果。
+    await tapWorkbenchBatchAction(tester, '下载已选视频');
+
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+
+    expect(File(archive).existsSync(), isTrue);
+    expect(selector.saveCalls, 1,
+        reason: '导出进行中重复点击不应该真的发起第二次并发导出');
   });
 
   testWidgets('候选删除按钮：可见删除图标 + 二次确认后调用 deleteVideo', (tester) async {

@@ -282,6 +282,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'A selected shot already has an active generation task';
 
   @override
+  String get errVideoTargetDeleted =>
+      'The generation target was deleted while processing';
+
+  @override
   String get shellSelectProject => 'Select a project';
 
   @override
@@ -1950,6 +1954,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get workbenchClearSelectedTracksDone => 'Selected tracks cleared';
 
   @override
+  String get workbenchTrackGeneratingCannotDelete =>
+      'This track is currently generating. Cancel or wait for it to finish first.';
+
+  @override
   String get workbenchCompose => 'Compose Episode';
 
   @override
@@ -2669,7 +2677,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String agentSkillsScanSummary(
-      int added, int updated, int missing, int invalid) {
+    int added,
+    int updated,
+    int missing,
+    int invalid,
+  ) {
     return 'Scan complete: $added added, $updated updated, $missing missing, $invalid invalid';
   }
 
