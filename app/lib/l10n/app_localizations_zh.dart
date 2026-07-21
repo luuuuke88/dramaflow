@@ -4062,7 +4062,20 @@ class AppLocalizationsZh extends AppLocalizations {
       'DramaFlow 无法创建或读取本机工作区。请检查磁盘空间和目录权限后重试。';
 
   @override
+  String get bootstrapFailureTitleGeneric => '启动时发生意外错误';
+
+  @override
+  String get bootstrapFailureMessageGeneric =>
+      'DramaFlow 启动失败，原因可能不是磁盘空间或权限问题，重试未必能解决。请展开下方详细信息查看具体错误，需要时可联系支持或手动检查本机数据。';
+
+  @override
   String get bootstrapFailureDirectory => '工作区目录';
+
+  @override
+  String get bootstrapFailureShowDetails => '详细信息';
+
+  @override
+  String get bootstrapFailureHideDetails => '收起详细信息';
 
   @override
   String get bootstrapFailureRetry => '重试';

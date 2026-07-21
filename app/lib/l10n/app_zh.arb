@@ -1852,7 +1852,11 @@
   "onboardingLanguageJa": "日语",
   "bootstrapFailureTitle": "无法打开本地工作区",
   "bootstrapFailureMessage": "DramaFlow 无法创建或读取本机工作区。请检查磁盘空间和目录权限后重试。",
+  "bootstrapFailureTitleGeneric": "启动时发生意外错误",
+  "bootstrapFailureMessageGeneric": "DramaFlow 启动失败，原因可能不是磁盘空间或权限问题，重试未必能解决。请展开下方详细信息查看具体错误，需要时可联系支持或手动检查本机数据。",
   "bootstrapFailureDirectory": "工作区目录",
+  "bootstrapFailureShowDetails": "详细信息",
+  "bootstrapFailureHideDetails": "收起详细信息",
   "bootstrapFailureRetry": "重试",
   "bootstrapFailureExit": "退出应用"
 }

@@ -7853,11 +7853,35 @@ abstract class AppLocalizations {
   /// **'DramaFlow 无法创建或读取本机工作区。请检查磁盘空间和目录权限后重试。'**
   String get bootstrapFailureMessage;
 
+  /// No description provided for @bootstrapFailureTitleGeneric.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动时发生意外错误'**
+  String get bootstrapFailureTitleGeneric;
+
+  /// No description provided for @bootstrapFailureMessageGeneric.
+  ///
+  /// In zh, this message translates to:
+  /// **'DramaFlow 启动失败，原因可能不是磁盘空间或权限问题，重试未必能解决。请展开下方详细信息查看具体错误，需要时可联系支持或手动检查本机数据。'**
+  String get bootstrapFailureMessageGeneric;
+
   /// No description provided for @bootstrapFailureDirectory.
   ///
   /// In zh, this message translates to:
   /// **'工作区目录'**
   String get bootstrapFailureDirectory;
+
+  /// No description provided for @bootstrapFailureShowDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'详细信息'**
+  String get bootstrapFailureShowDetails;
+
+  /// No description provided for @bootstrapFailureHideDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起详细信息'**
+  String get bootstrapFailureHideDetails;
 
   /// No description provided for @bootstrapFailureRetry.
   ///

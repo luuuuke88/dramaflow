@@ -4198,7 +4198,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'DramaFlow couldn\'t create or read this device\'s workspace. Check available storage and folder permissions, then try again.';
 
   @override
+  String get bootstrapFailureTitleGeneric => 'Unexpected error during startup';
+
+  @override
+  String get bootstrapFailureMessageGeneric =>
+      'DramaFlow failed to start, and the cause may not be storage space or permissions, so retrying might not help. Expand the details below for the exact error, and contact support or check this device\'s data manually if needed.';
+
+  @override
   String get bootstrapFailureDirectory => 'Workspace folder';
+
+  @override
+  String get bootstrapFailureShowDetails => 'Show details';
+
+  @override
+  String get bootstrapFailureHideDetails => 'Hide details';
 
   @override
   String get bootstrapFailureRetry => 'Retry';

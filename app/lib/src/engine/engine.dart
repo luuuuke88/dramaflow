@@ -592,34 +592,48 @@ description: 专注于从剧本内容中提取所使用的资产（角色、场�
   }) async {
     Directory(dataDir).createSync(recursive: true);
     final db = openEngineDb(path.join(dataDir, 'dramaflow.sqlite'));
-    final config = EngineConfig(db, isMobile: isMobile);
-    _seedDefaults(db, config, isMobile: isMobile);
-    _seedBundledModelPromptRows(db, dataDir);
-    migrateLegacyModelPromptTemplates(db);
-    final credentials = credentialStore ?? DbCredentialStore(db);
-    await _migrateLegacyProviderCredentials(db, credentials);
-    await _recoverProvisioningProviders(db, credentials);
-    final media = MediaStore(path.join(dataDir, 'media'));
-    final engine = Engine(
-      db: db,
-      media: media,
-      gateway: HttpProviderGateway(db, config, media, credentials: credentials),
-      config: config,
-      credentials: credentials,
-      composer: composer,
-    );
-    engine.installNovelEventPipeline();
-    engine.installScriptPipeline();
-    engine.installScriptPlanPipeline();
-    engine.installStoryboardTablePipeline();
-    engine.installAssetPipeline();
-    engine.installStoryboardPipeline();
-    engine.installVideoTrackPipeline();
-    engine.installAudioBindPipeline();
-    engine.queue.recoverOnColdStart();
-    engine.recoverOrphanedManualVideoPrompts();
-    engine.queue.start();
-    return engine;
+    // openEngineDb() 成功之后的任何失败都必须先关闭这个已经打开的原生 sqlite
+    // 句柄再往外抛异常，否则调用方（buildDramaFlowApp）只会把异常包装成
+    // StartupFailure 展示重试按钮，句柄本身没人能关——启动失败恢复页支持
+    // 同一进程内反复点重试之后，这类泄漏会随重试次数累积。
+    Engine? engine;
+    try {
+      final config = EngineConfig(db, isMobile: isMobile);
+      _seedDefaults(db, config, isMobile: isMobile);
+      _seedBundledModelPromptRows(db, dataDir);
+      migrateLegacyModelPromptTemplates(db);
+      final credentials = credentialStore ?? DbCredentialStore(db);
+      await _migrateLegacyProviderCredentials(db, credentials);
+      await _recoverProvisioningProviders(db, credentials);
+      final media = MediaStore(path.join(dataDir, 'media'));
+      engine = Engine(
+        db: db,
+        media: media,
+        gateway:
+            HttpProviderGateway(db, config, media, credentials: credentials),
+        config: config,
+        credentials: credentials,
+        composer: composer,
+      );
+      engine.installNovelEventPipeline();
+      engine.installScriptPipeline();
+      engine.installScriptPlanPipeline();
+      engine.installStoryboardTablePipeline();
+      engine.installAssetPipeline();
+      engine.installStoryboardPipeline();
+      engine.installVideoTrackPipeline();
+      engine.installAudioBindPipeline();
+      engine.queue.recoverOnColdStart();
+      engine.recoverOrphanedManualVideoPrompts();
+      engine.queue.start();
+      return engine;
+    } catch (_) {
+      // engine 已经构造出来的话，先停掉队列的定时器/订阅，再关 db，顺序与
+      // 现有测试 tearDown 的 engine.dispose(); db.close(); 一致。
+      engine?.dispose();
+      db.close();
+      rethrow;
+    }
   }
 
   static void _seedDefaults(

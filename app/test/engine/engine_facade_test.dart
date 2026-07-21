@@ -97,6 +97,53 @@ void main() {
     expect(credentials.accessCount, 0);
   });
 
+  test(
+      'boot() 在 openEngineDb 成功之后失败时会关闭已打开的 db 句柄（任务 3：'
+      '启动失败恢复页支持同一进程内反复重试，漏关句柄会随重试次数累积泄漏）', () async {
+    final dataDir = p.join(dir.path, 'boot-internal-failure');
+
+    // 先正常 boot 一次，落地 schema 与默认供应商行。
+    final first = await bootForTest(dataDir);
+    first.dispose();
+    first.db.close();
+
+    // 直接改底层文件，往一个供应商的 inputValues 里塞一个遗留 apiKey 字段——
+    // 这会让第二次 boot 时 _migrateLegacyProviderCredentials 真正调用一次
+    // credentials.write()，而不是像全新 boot 那样完全不碰凭据存储
+    // （即上面 'fresh desktop boot does not touch credential storage' 覆盖的路径）。
+    final dbPath = p.join(dataDir, 'dramaflow.sqlite');
+    final raw = sqlite3.open(dbPath);
+    final providerId = raw
+        .select('SELECT id FROM o_vendorConfig LIMIT 1')
+        .single['id'] as String;
+    raw.execute(
+      'UPDATE o_vendorConfig SET inputValues=? WHERE id=?',
+      [
+        jsonEncode({'apiKey': 'sk-legacy'}),
+        providerId
+      ],
+    );
+    raw.close();
+
+    // openEngineDb() 本身这次会成功（schema 已是当前版本），
+    // 失败发生在 Engine 构造之前的 _migrateLegacyProviderCredentials 里——
+    // 精确命中 Engine.boot() 新增的 catch (_) { engine?.dispose(); db.close(); }
+    // 分支（此时 engine 还是 null，走的是纯 db.close() 那一半）。
+    await expectLater(
+      bootForTest(dataDir, credentials: _UnavailableCredentialStore()),
+      throwsA(isA<StateError>()),
+    );
+
+    // 如果失败路径漏关 db，同一个文件立刻重新打开在不少平台上会因为残留的
+    // 独占锁而失败或挂起；这里断言可以立刻正常重开并读到未受影响的数据。
+    final reopened = openEngineDb(dbPath);
+    addTearDown(reopened.close);
+    expect(
+      reopened.select('SELECT COUNT(*) n FROM o_vendorConfig').single['n'],
+      greaterThan(0),
+    );
+  });
+
   test('provider list stays readable when credential storage is unavailable',
       () async {
     final credentials = _UnavailableCredentialStore();
