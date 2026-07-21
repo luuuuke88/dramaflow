@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
@@ -48,6 +49,28 @@ class _Gateway implements ProviderGateway {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// 回合结果可手动 Completer 卡住的网关：用于模拟"请求飞行中"（发出后未 resolve）
+/// 的状态，验证 UI 在这期间的行为（Bug 1 清空按钮门控、Bug 3 家族级发送态）。
+class _PendingGateway implements ProviderGateway {
+  final List<Completer<AgentTurnResult>> completers = [];
+
+  @override
+  Future<AgentTurnResult> generateAgentTurn(
+    String system,
+    List<Map<String, String>> messages,
+    List<AgentToolDef> tools, {
+    required String stage,
+    CancelToken? cancelToken,
+  }) {
+    final completer = Completer<AgentTurnResult>();
+    completers.add(completer);
+    return completer.future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _SkillFileSelector extends FileSelectorPlatform {
   final XFile file;
   _SkillFileSelector(this.file);
@@ -82,6 +105,53 @@ $body
 Future<void> _openAssistantAdvanced(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('assistant-advanced-button')));
   await tester.pumpAndSettle();
+}
+
+/// 独立于外层 setUp 的 Engine+DB+项目，绑定 [_PendingGateway]，用于需要真正
+/// "卡住飞行中请求"的场景（Bug 1 清空按钮门控、Bug 3 家族级发送态隔离）。
+/// 自带 addTearDown 清理，调用方不需要额外处理。
+class _FlightHarness {
+  final Engine engine;
+  final _PendingGateway gateway;
+  final int projectId;
+  _FlightHarness(this.engine, this.gateway, this.projectId);
+}
+
+Future<_FlightHarness> _pumpFlightAgentChat(
+  WidgetTester tester, {
+  String projectName = '飞行测试',
+}) async {
+  final flightDir =
+      Directory.systemTemp.createTempSync('dramaflow-agentchat-flight-');
+  final flightDb = openEngineDb(':memory:');
+  final pendingGateway = _PendingGateway();
+  final flightEngine = Engine(
+    db: flightDb,
+    media: MediaStore(p.join(flightDir.path, 'media')),
+    gateway: pendingGateway,
+    config: EngineConfig(flightDb, isMobile: false),
+  );
+  addTearDown(() {
+    flightEngine.dispose();
+    flightDb.close();
+    if (flightDir.existsSync()) flightDir.deleteSync(recursive: true);
+  });
+  final flightProjectId =
+      flightEngine.addProject(projectType: 'novel', name: projectName);
+
+  await tester.pumpWidget(ProviderScope(
+    overrides: [engineProvider.overrideWithValue(flightEngine)],
+    child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+      locale: const Locale('zh'),
+      theme: buildTheme(Brightness.light),
+      home: AgentChatScreen(projectId: flightProjectId),
+    ),
+  ));
+  await tester.pumpAndSettle();
+
+  return _FlightHarness(flightEngine, pendingGateway, flightProjectId);
 }
 
 void main() {
@@ -591,5 +661,34 @@ description: 移动端构图
     await tester.tap(find.byKey(const ValueKey('assistant-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('部署'), findsOneWidget);
+  });
+
+  testWidgets('请求飞行期间清空记忆按钮禁用，和发送按钮的约束保持一致（Bug 1 UI 配合防护）',
+      (tester) async {
+    final flight = await _pumpFlightAgentChat(tester);
+    final clearButtonFinder =
+        find.byKey(const ValueKey('assistant-clear-memory-button'));
+
+    expect(
+      tester.widget<IconButton>(clearButtonFinder).onPressed,
+      isNotNull,
+      reason: '空闲状态下清空按钮应可点击',
+    );
+
+    await tester.enterText(find.byType(TextField), '你好');
+    await tester.tap(find.text('发送'));
+    await tester.pump(); // 应用 setState(_sending = true)；请求本身仍卡在 completer 上。
+
+    expect(flight.gateway.completers, hasLength(1));
+    expect(
+      tester.widget<IconButton>(clearButtonFinder).onPressed,
+      isNull,
+      reason: '发送中应禁用清空入口，和发送按钮 _sending ? null : _send 的约束保持一致',
+    );
+
+    // 放行飞行请求，恢复到空闲态，同时验证按钮重新可用（收尾，避免遗留挂起的 Future）。
+    flight.gateway.completers.single.complete(const AgentTurnResult.text('完成'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<IconButton>(clearButtonFinder).onPressed, isNotNull);
   });
 }

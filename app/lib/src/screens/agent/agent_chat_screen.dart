@@ -169,9 +169,14 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
         ),
       ),
       IconButton(
+        key: const ValueKey('assistant-clear-memory-button'),
         tooltip: l10n.agentChatClearMemory,
         icon: const Icon(Icons.delete_sweep_outlined),
-        onPressed: _clearChat,
+        // 和发送按钮（_sending ? null : _send）保持一致的约束：请求飞行期间
+        // 禁用清空入口。真正堵住"清空被飞行请求复活"竞态的是引擎层的会话代际号
+        // （assistant_chat.dart _driveAssistantLoop），这里只是配合防护——不能
+        // 保证清空入口只有这一个 UI 路径，但至少让这条已知路径更难触发竞态。
+        onPressed: _sending ? null : _clearChat,
       ),
       const SizedBox(width: 8),
     ];
