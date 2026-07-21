@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/assets.dart';
+import 'package:dramaflow/src/engine/audio_bind.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -326,6 +327,69 @@ void main() {
         isNot(contains('p/candidate-unrelated.png')));
     expect(candidates.every((candidate) => candidate.localPath.startsWith('/')),
         isFalse);
+  });
+
+  test('videoReferenceCandidates 暴露关联资产已绑定的本地音频参考', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '角色有绑定配音的镜头',
+    );
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+    );
+    engine.db.execute(
+      'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?)',
+      [roleId, storyboardId],
+    );
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '林朝雪音色',
+      sex: '女',
+      describe: '清冷',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3, 4]),
+          ext: 'mp3',
+          prompt: '角色台词样本',
+          name: '林朝雪音色样本',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+    engine.bindAssetAudio(roleId, audioId);
+    engine.addAudioAssets(
+      projectId: projectId,
+      name: '不相关音色',
+      sex: '男',
+      describe: '',
+      items: [
+        (
+          base64: base64Encode([5, 6, 7]),
+          ext: 'mp3',
+          prompt: '不相关',
+          name: '不相关样本',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+
+    final candidates = engine.videoReferenceCandidates(projectId, storyboardId);
+    final audio = candidates.singleWhere(
+      (candidate) => candidate.source.sourceType == 'audio',
+    );
+
+    expect(audio.source.sourceId, audioId);
+    expect(audio.source.mediaType, 'audio');
+    expect(audio.source.role, 'reference_audio');
+    expect(audio.label, '林朝雪音色');
+    expect(audio.localPath, startsWith('$projectId/'));
+    expect(audio.localPath, endsWith('.mp3'));
   });
 
   test('batchGenerateVideos rejects unsupported controls before enqueue', () {

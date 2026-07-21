@@ -393,7 +393,7 @@ extension VideoTrackApi on Engine {
       required String? localPath,
     }) {
       if (localPath == null || localPath.isEmpty) return;
-      if (!File(media.absPath(localPath)).existsSync()) return;
+      if (media.existingFilePath(localPath) == null) return;
       rows.add(VideoReferenceCandidate(
         source: VideoReferenceSource(
           sourceType: sourceType,
@@ -442,6 +442,31 @@ extension VideoTrackApi on Engine {
         role: role,
         label: row['name'] as String? ?? '',
         localPath: row['filePath'] as String?,
+      );
+    }
+    // ToonFlow 会把分镜关联资产（及其父资产）绑定的音频加入当前镜头参考。
+    // 音频文件通常落在父音色资产的子样本上，故解析由专用回退逻辑完成。
+    for (final row in db.select(
+      'SELECT DISTINCT audio.id audioId,audio.name audioName '
+      'FROM o_assets2Storyboard link '
+      'JOIN o_assets linked ON linked.id=link.assetId '
+      'JOIN o_assetsRole2Audio audioLink ON '
+      '(audioLink.assetsRoleId=linked.id OR '
+      'audioLink.assetsRoleId=linked.assetsId) '
+      'JOIN o_assets audio ON audio.id=audioLink.assetsAudioId '
+      "AND audio.projectId=? AND audio.type='audio' AND audio.assetsId IS NULL "
+      'WHERE link.storyboardId=? AND linked.projectId=? '
+      'ORDER BY audio.id',
+      [projectId, storyboardId, projectId],
+    )) {
+      final audioId = row['audioId'] as int;
+      add(
+        sourceType: 'audio',
+        sourceId: audioId,
+        mediaType: 'audio',
+        role: 'reference_audio',
+        label: row['audioName'] as String? ?? '',
+        localPath: _audioAssetReferencePath(projectId, audioId),
       );
     }
     for (final row in db.select(
@@ -541,21 +566,40 @@ extension VideoTrackApi on Engine {
           [source.sourceId, projectId],
         ).firstOrNull?['filePath'] as String?;
       case 'audio':
-        localPath = db.select(
-          'SELECT i.filePath FROM o_assets a JOIN o_image i ON i.id=a.imageId '
-          "WHERE a.id=? AND a.projectId=? AND i.filePath IS NOT NULL AND trim(i.filePath)<>''",
-          [source.sourceId, projectId],
-        ).firstOrNull?['filePath'] as String?;
+        localPath = _audioAssetReferencePath(projectId, source.sourceId);
       default:
         break;
     }
     if (localPath == null || localPath.isEmpty) {
       throw EngineException(errPromptMissing, {'type': 'videoReference'});
     }
-    if (!File(media.absPath(localPath)).existsSync()) {
+    if (media.existingFilePath(localPath) == null) {
       throw EngineException(errFileType, {'type': 'videoReference'});
     }
     return localPath;
+  }
+
+  /// 音频父资产可直接持有文件，也可把文件放在子样本上；两个数据形态都要能
+  /// 作为视频参考。返回值始终是相对媒体路径，缺失或不安全时返回 null。
+  String? _audioAssetReferencePath(int projectId, int audioAssetId) {
+    final own = db.select(
+      'SELECT i.filePath FROM o_assets a JOIN o_image i ON i.id=a.imageId '
+      "WHERE a.id=? AND a.projectId=? AND a.type='audio' "
+      "AND i.filePath IS NOT NULL AND trim(i.filePath)<>''",
+      [audioAssetId, projectId],
+    ).firstOrNull?['filePath'] as String?;
+    if (own != null && media.existingFilePath(own) != null) return own;
+    final child = db.select(
+      'SELECT i.filePath FROM o_assets child '
+      'JOIN o_image i ON i.id=child.imageId '
+      "WHERE child.assetsId=? AND child.projectId=? AND child.type='audio' "
+      "AND i.filePath IS NOT NULL AND trim(i.filePath)<>'' "
+      'ORDER BY child.id LIMIT 1',
+      [audioAssetId, projectId],
+    ).firstOrNull?['filePath'] as String?;
+    return child != null && media.existingFilePath(child) != null
+        ? child
+        : null;
   }
 
   VideoRequestDraft _videoRequestDefaults(int? storyboardId, Row project) {

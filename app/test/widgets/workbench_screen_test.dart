@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/assets.dart';
+import 'package:dramaflow/src/engine/audio_bind.dart';
 import 'package:dramaflow/src/engine/compose.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
@@ -5525,6 +5526,101 @@ void main() {
     );
     expect(request.mode, VideoMode.multiReference);
     expect(request.references.single.role, 'reference_image');
+  });
+
+  testWidgets('视频参数弹窗可选择分镜关联角色的绑定音频参考', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['multi_reference'],
+                'references': {'image': 2, 'video': 0, 'audio': 1},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '带角色音色参考的镜头',
+    );
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林朝雪',
+      describe: '',
+    );
+    engine.db.execute(
+      'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?)',
+      [roleId, storyboardId],
+    );
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '林朝雪音色',
+      sex: '女',
+      describe: '',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '台词样本',
+          name: '样本',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+    engine.bindAssetAudio(roleId, audioId);
+
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(ValueKey('workbench-video-params-$storyboardId')));
+    await tester.pumpAndSettle();
+
+    final audioReference =
+        find.byKey(ValueKey('video-request-reference-audio-$audioId'));
+    expect(audioReference, findsOneWidget);
+    await tester.tap(audioReference);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('video-request-save')));
+    await tester.pumpAndSettle();
+
+    final trackId = engine
+        .storyboards(scriptId)
+        .singleWhere((storyboard) => storyboard.id == storyboardId)
+        .trackId!;
+    final draft = engine.videoRequestForTrack(trackId);
+    expect(draft.references, hasLength(1));
+    expect(draft.references.single.sourceType, 'audio');
+    expect(draft.references.single.sourceId, audioId);
+    expect(draft.references.single.role, 'reference_audio');
+    final request = engine.buildVideoRequest(
+      projectId: projectId,
+      storyboardId: storyboardId,
+      trackId: trackId,
+    );
+    expect(request.references.single.mediaType, 'audio');
+    expect(request.references.single.role, 'reference_audio');
   });
 
   testWidgets('桌面工作台为纯文生模型隐藏参考素材和供应商音频', (tester) async {
