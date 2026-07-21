@@ -1311,6 +1311,84 @@ void main() {
     expect(File(gateway.referenceCalls.single.single).readAsBytesSync(),
         [1, 2, 3, 4]);
   });
+
+  test('派生资产生成中被删除：不残留卡死的生成中态，同批次其余资产仍能写回', () async {
+    // 回归 Bug 2 引擎层调查：_runImageGeneration 的 worker() 在发现目标
+    // o_image 行已不是 generating 态（含"行已被删除"）时曾用 `return;`
+    // 而非 `continue;` 退出——`return` 退出的是整个 worker 函数而非当前
+    // 循环项，导致同一 worker 后续排队的其它资产被"饿死"，永远卡在生成中，
+    // 而任务本身仍会上报成功。此测试验证修复后同批次其余资产不受影响。
+    engine.saveVisualManual(
+      name: '国风水墨',
+      data: const {'art_character_derivative': 'VISUAL DERIVATIVE'},
+    );
+    final parent = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸',
+      describe: '青衣剑修，长发束冠',
+    );
+    engine.saveAssetImage(
+      assetsId: parent,
+      projectId: projectId,
+      base64Image: base64Encode([1, 2, 3, 4]),
+      type: 'role',
+    );
+    final childA = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸-战损',
+      describe: '衣衫破损，左臂带血',
+      parentAssetsId: parent,
+    );
+    final childB = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '林逸-侧影',
+      describe: '月下侧影',
+      parentAssetsId: parent,
+    );
+    gateway.textHandler = (system, user) => '衍生提示词';
+    final pendingImage = Completer<String>();
+    gateway.pendingImage = pendingImage;
+
+    // concurrentCount=1：单 worker 顺序处理 childA→childB。
+    final taskId = engine.generateDerivedAssetImages(
+      projectId,
+      [childA, childB],
+      concurrentCount: 1,
+    );
+    final task = (await engine.projectJobs(projectId))
+        .singleWhere((job) => job.id == taskId);
+    final items = (task.relatedObjectsJson['items'] as List).cast<Map>();
+    final imageIdA =
+        items.firstWhere((i) => i['assetsId'] == childA)['imageId'] as int;
+    final imageIdB =
+        items.firstWhere((i) => i['assetsId'] == childB)['imageId'] as int;
+
+    await waitForTaskState(taskId, 'processing');
+    // 生成中删除 childA：级联删掉它 generating 态的 o_image 行，
+    // 模拟用户在派生资产卡片生成过程中点了删除。
+    engine.deleteAssets([childA]);
+
+    pendingImage.complete('p/late.png');
+    await waitTask(taskId);
+
+    // childA 的 o_image 行应保持"已删除"，不能被写回逻辑复活/留下孤儿行。
+    expect(db.select('SELECT * FROM o_image WHERE id=?', [imageIdA]),
+        isEmpty);
+    expect(engine.assetsByIds([childA]), isEmpty);
+    // 关键断言：childB 不应被 childA 的删除"饿死"——它应正常写回完成，
+    // 而不是永远卡在生成中态（即便任务已经上报 success）。
+    final imageB = db
+        .select('SELECT * FROM o_image WHERE id=?', [imageIdB])
+        .single;
+    expect(imageB['state'], stateDone,
+        reason: '同批次内其它资产不应因为前一个资产被删除而被饿死在生成中态');
+    expect(imageB['filePath'], 'p/late.png');
+    expect(gateway.referenceCalls, hasLength(2),
+        reason: 'childB 的生成请求应该被正常发出，不能因 childA 被删除而跳过');
+  });
 }
 
 class _Gateway implements ProviderGateway {

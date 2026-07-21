@@ -1635,6 +1635,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This derived asset cannot be restored after deletion.';
 
   @override
+  String get productionDerivedAssetDeleteGeneratingConfirm =>
+      'This derived asset is still generating an image. Deleting it now will interrupt the generation and cannot be undone. Delete anyway?';
+
+  @override
   String get productionNodeStoryboardTableTitle => 'Storyboard Table';
 
   @override

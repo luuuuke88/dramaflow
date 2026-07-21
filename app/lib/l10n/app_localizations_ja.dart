@@ -1599,6 +1599,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productionDerivedAssetDeleteConfirm => 'この派生アセットを削除すると復元できません。';
 
   @override
+  String get productionDerivedAssetDeleteGeneratingConfirm =>
+      'この派生アセットは画像を生成中です。削除すると生成が中断され、元に戻せません。削除を続行しますか？';
+
+  @override
   String get productionNodeStoryboardTableTitle => '絵コンテ表';
 
   @override

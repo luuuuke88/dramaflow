@@ -388,6 +388,64 @@ void main() {
     expect(find.text('谢危-朝服'), findsNothing);
   });
 
+  testWidgets('桌面资产节点删除生成中的衍生项需要生成中专属提示（Bug 2 回归）', (tester) async {
+    // 对照 _thumbnail 已经对 imageState == stateGenerating 显示转圈，
+    // 删除入口此前无任何区别地直接弹通用确认——这里验证生成中态会换成
+    // 明确提示会中断生成的专属文案，而不是和普通删除共用同一句话。
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: 'x');
+    final originalId = engine.addAsset(
+        projectId: projectId, type: 'role', name: '沈知微', describe: 'x');
+    final derivedId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '沈知微-夜行',
+      describe: '生成中版本',
+      parentAssetsId: originalId,
+    );
+    engine.db.execute(
+      'INSERT INTO o_image (assetsId,state,type) VALUES (?,?,?)',
+      [derivedId, stateGenerating, 'role'],
+    );
+    engine.db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
+        [engine.db.lastInsertRowId, derivedId]);
+    engine.updateScript(scriptId, assets: [originalId]);
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // 生成中缩略图含不确定态 CircularProgressIndicator，会一直调度新帧，
+    // 此处不能用 pumpAndSettle（永远不会 settle），改用有界 pump（对齐本文件
+    // corner_scape 系测试处理常驻动画时的既有写法）。
+    await tester.pumpWidget(app(1400));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    // 缩略图与 _thumbnail 一致显示生成中转圈。
+    expect(find.byType(CircularProgressIndicator), findsWidgets);
+
+    await tester
+        .tap(find.byKey(ValueKey('production-derived-delete-$derivedId')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(
+      find.byKey(const ValueKey('production-derived-delete-generating-warn')),
+      findsOneWidget,
+    );
+    expect(find.text('该衍生资产正在生成图片，删除将中断本次生成且无法恢复，确定要删除吗？'),
+        findsOneWidget);
+    // 不能和普通（非生成中）删除共用同一句无区别的文案。
+    expect(find.text('删除该衍生资产后无法恢复。'), findsNothing);
+
+    // 明确二次确认后仍然允许删除（不是硬性拦截，只是要求用户看清后果）。
+    await tester.tap(find.byKey(ValueKey('production-derived-delete-confirm')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(engine.assetsByIds([originalId]).single.sonAssets, isEmpty);
+    expect(find.text('沈知微-夜行'), findsNothing);
+  });
+
   testWidgets('桌面资产节点为失败的衍生图显示失败态与原因提示', (tester) async {
     final scriptId =
         engine.addScript(projectId: projectId, name: '第一集', content: 'x');

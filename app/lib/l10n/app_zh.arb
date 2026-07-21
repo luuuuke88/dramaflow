@@ -693,6 +693,7 @@
   "productionAssetDerived": "衍生资产",
   "productionNoDerivedAssets": "暂无衍生资产",
   "productionDerivedAssetDeleteConfirm": "删除该衍生资产后无法恢复。",
+  "productionDerivedAssetDeleteGeneratingConfirm": "该衍生资产正在生成图片，删除将中断本次生成且无法恢复，确定要删除吗？",
   "productionNodeStoryboardTableTitle": "分镜表",
   "productionNodeStoryboardTitle": "分镜",
   "productionNodeWorkbenchTitle": "工作台",

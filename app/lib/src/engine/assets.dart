@@ -1235,7 +1235,10 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
             if (token.isCancelled) return;
             final imageState = db.select('SELECT state FROM o_image WHERE id=?',
                 [imageId]).firstOrNull?['state'] as String?;
-            if (imageState != stateGenerating) return;
+            // 目标行已不是 generating（含已被删除，此时 firstOrNull 为 null）：
+            // 只应跳过当前这一项，不能 return——那会把整个 worker() 提前退出，
+            // 饿死同一 worker 队列里排在后面、原本仍然合法的其它资产。
+            if (imageState != stateGenerating) continue;
             db.execute(
               'UPDATE o_image SET state=?, filePath=?, errorReason=NULL '
               'WHERE id=? AND state=?',
@@ -1273,7 +1276,9 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
           if (token.isCancelled) return;
           final imageState = db.select('SELECT state FROM o_image WHERE id=?',
               [imageId]).firstOrNull?['state'] as String?;
-          if (imageState != stateGenerating) return;
+          // 同上：目标行已不是 generating 时只跳过当前项，不能提前退出整个
+          // worker()，否则会饿死同一 worker 后续排队的其它资产。
+          if (imageState != stateGenerating) continue;
           db.execute(
             'UPDATE o_image SET state=?, filePath=?, errorReason=NULL '
             'WHERE id=? AND state=?',

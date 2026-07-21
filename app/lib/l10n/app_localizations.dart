@@ -3148,6 +3148,12 @@ abstract class AppLocalizations {
   /// **'删除该衍生资产后无法恢复。'**
   String get productionDerivedAssetDeleteConfirm;
 
+  /// No description provided for @productionDerivedAssetDeleteGeneratingConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'该衍生资产正在生成图片，删除将中断本次生成且无法恢复，确定要删除吗？'**
+  String get productionDerivedAssetDeleteGeneratingConfirm;
+
   /// No description provided for @productionNodeStoryboardTableTitle.
   ///
   /// In zh, this message translates to:

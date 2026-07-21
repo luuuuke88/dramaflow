@@ -1587,6 +1587,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get productionDerivedAssetDeleteConfirm => '删除该衍生资产后无法恢复。';
 
   @override
+  String get productionDerivedAssetDeleteGeneratingConfirm =>
+      '该衍生资产正在生成图片，删除将中断本次生成且无法恢复，确定要删除吗？';
+
+  @override
   String get productionNodeStoryboardTableTitle => '分镜表';
 
   @override

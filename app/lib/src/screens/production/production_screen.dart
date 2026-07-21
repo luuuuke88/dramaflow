@@ -837,6 +837,11 @@ class _AssetsNodeState extends ConsumerState<_AssetsNode> {
 
   Future<void> _deleteDerived(BuildContext context, AssetRow derived) async {
     final l10n = context.l10n;
+    // 生成中的派生资产删除会中断后台出图任务：与 _thumbnail 的转圈态呼应，
+    // 弹窗需要单独提示这一后果，不能和普通删除用同一句无区别的文案
+    // （引擎层 _runImageGeneration 已对"写回时目标行已被删除"做了防御，
+    // 详见 assets_test.dart「派生资产生成中被删除」，此处仅是 UI 侧提示）。
+    final isGenerating = derived.imageState == stateGenerating;
     final confirmed = await showDFAdaptiveDialog<bool>(
       context,
       title: l10n.commonDelete,
@@ -844,7 +849,23 @@ class _AssetsNodeState extends ConsumerState<_AssetsNode> {
       builder: (dialogContext) => Padding(
         padding: const EdgeInsets.all(DFTokens.s20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(l10n.productionDerivedAssetDeleteConfirm),
+          if (isGenerating)
+            Row(
+              key: const ValueKey('production-derived-delete-generating-warn'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    size: 18, color: context.df.warning),
+                const SizedBox(width: DFTokens.s8),
+                Expanded(
+                  child: Text(
+                    l10n.productionDerivedAssetDeleteGeneratingConfirm,
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(l10n.productionDerivedAssetDeleteConfirm),
           const SizedBox(height: DFTokens.s16),
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             TextButton(
