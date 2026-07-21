@@ -349,6 +349,53 @@ void main() {
     expect(find.text('项目类型'), findsOneWidget, reason: '校验失败必须留在项目向导，而不是静默关闭');
   });
 
+  testWidgets('新建对话框：改动任意必填字段都会立刻清除校验提示，不必等下次点保存', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('新建项目').first);
+    await tester.pumpAndSettle();
+
+    // 名称文本框：此前只有画风/导演手册两个选择器会清提示，其余字段
+    // （包括名称本身）要等下次点保存才刷新。
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('project-intake-validation-error')),
+        findsOneWidget,
+        reason: '先触发一次校验提示');
+
+    await tester.enterText(find.byType(TextField).at(0), '新名称');
+    await tester.pump();
+    expect(
+        find.byKey(const Key('project-intake-validation-error')), findsNothing,
+        reason: '修改名称输入框应立刻清掉提示');
+
+    // 简介文本框：同样是此前未覆盖的必填字段。
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('project-intake-validation-error')),
+        findsOneWidget);
+    await tester.enterText(find.byType(TextField).at(2), '简介内容');
+    await tester.pump();
+    expect(
+        find.byKey(const Key('project-intake-validation-error')), findsNothing,
+        reason: '修改简介输入框应立刻清掉提示');
+
+    // 画质下拉框：验证非文本输入控件（DropdownButtonFormField）的 onChanged
+    // 也接上了同样的清除逻辑，而不只是 TextField。
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('project-intake-validation-error')),
+        findsOneWidget);
+    await _chooseDropdown(tester, '1K', '2K');
+    expect(
+        find.byKey(const Key('project-intake-validation-error')), findsNothing,
+        reason: '修改画质下拉框应立刻清掉提示（即便画质本身不是当前缺失项）');
+  });
+
   testWidgets('项目对话框的手册画廊可打开视觉手册编辑器', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
