@@ -208,10 +208,17 @@
   "projectMsgDirectorManualUpdated": "Director's Manual updated",
   "projectMsgDirectorManualAdded": "Director's Manual added",
   "projectMsgDirectorManual": "Please select Project Director's Manual",
+  "projectEmptySubtitle": "Configure basic info and AI visual manuals to start your AI short drama creation",
+  "taskCenterSubtitle": "View active AI generation tasks and task history",
+  "settingsSubtitle": "Manage AI model providers, model bindings, prompts, and appearance",
+  "settingsThemeTitle": "Display Theme",
+  "settingsThemeSubtitle": "Choose the visual theme style for DramaFlow",
+  "settingsLanguageSubtitle": "Select display language for the application interface",
   "projectMsgModelProviderDisabled": "The video model or picture model supplier is not enabled or there is no model supplier, please configure it first",
   "projectTypeNovel": "Based on the original novel",
   "projectTypeScript": "Based on novel script",
   "commonEdit": "Edit",
+  "commonPreview": "Preview",
   "manualTabReadme": "README",
   "manualTabPrefix": "Prefix",
   "manualTabCharacter": "Character",
@@ -1099,6 +1106,21 @@
       }
     }
   },
+  "settingsChatTest": "Chat test",
+  "settingsChatTestTitle": "Chat test · {name}",
+  "@settingsChatTestTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsChatTestInputHint": "Type a message, press Enter to send",
+  "settingsChatTestEmptyHint": "Send a message to see the model's real reply",
+  "settingsFetchModels": "Fetch models",
+  "settingsFetchModelsNoneFound": "No new models found",
+  "settingsFetchModelsTitle": "Choose models to add",
+  "settingsFetchModelsAdd": "Add selected",
   "settingsDeleteProviderTitle": "Delete provider",
   "settingsDeleteProviderMessage": "Delete “{name}”? If it is bound to any stage, the engine will reject the deletion.",
   "@settingsDeleteProviderMessage": {

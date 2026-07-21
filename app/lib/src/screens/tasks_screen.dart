@@ -11,7 +11,6 @@ import '../engine/queue.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
 import '../widgets/common.dart';
-import '../widgets/shell.dart';
 
 final _selectedProjectProvider = StateProvider<int?>((ref) => null);
 
@@ -30,35 +29,89 @@ class TasksScreen extends ConsumerWidget {
         ? selectedId
         : (projects.isEmpty ? null : projects.first.id);
 
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.taskCenterTitle)),
-      body: RefreshIndicator(
-        color: context.df.primary,
-        onRefresh: () async {
-          ref.read(activeJobsProvider.notifier).poke();
-          ref.invalidate(projectsProvider);
-          if (effectiveId != null) {
-            ref.invalidate(projectJobsProvider(effectiveId));
-          }
-        },
-        child: PageContainer(
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(vertical: 16),
+    final df = context.df;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 36, 40, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              _TaskSection(
-                title: l10n.taskActiveTitle,
-                tasks: active,
-                emptyText: l10n.taskActiveEmpty,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          l10n.taskCenterTitle,
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: df.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${active.length}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: df.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.taskCenterSubtitle,
+                      style: TextStyle(fontSize: 14, color: df.textSecondary),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              _HistorySection(
-                projectsAsync: projectsAsync,
-                effectiveId: effectiveId,
+              IconButton(
+                tooltip: l10n.commonRefresh,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                onPressed: () {
+                  ref.read(activeJobsProvider.notifier).poke();
+                  ref.invalidate(projectsProvider);
+                  if (effectiveId != null) {
+                    ref.invalidate(projectJobsProvider(effectiveId));
+                  }
+                },
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 28),
+          Expanded(
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 32),
+              children: [
+                _TaskSection(
+                  title: l10n.taskActiveTitle,
+                  tasks: active,
+                  emptyText: l10n.taskActiveEmpty,
+                ),
+                const SizedBox(height: 20),
+                _HistorySection(
+                  projectsAsync: projectsAsync,
+                  effectiveId: effectiveId,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

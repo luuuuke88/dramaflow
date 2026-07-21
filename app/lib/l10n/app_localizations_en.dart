@@ -85,6 +85,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get projectEmpty => 'No projects yet';
 
   @override
+  String get projectEmptySubtitle =>
+      'Configure basic info and AI visual manuals to start your AI short drama creation';
+
+  @override
+  String get taskCenterSubtitle =>
+      'View active AI generation tasks and task history';
+
+  @override
+  String get settingsSubtitle =>
+      'Manage AI model providers, model bindings, prompts, and appearance';
+
+  @override
+  String get settingsThemeTitle => 'Display Theme';
+
+  @override
+  String get settingsThemeSubtitle =>
+      'Choose the visual theme style for DramaFlow';
+
+  @override
+  String get settingsLanguageSubtitle =>
+      'Select display language for the application interface';
+
+  @override
   String get projectUntitled => 'Untitled project';
 
   @override
@@ -544,6 +567,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonEdit => 'Edit';
+
+  @override
+  String get commonPreview => 'Preview';
 
   @override
   String get manualTabReadme => 'README';
@@ -3133,6 +3159,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String settingsProviderTestTitle(String name) {
     return 'Test connection · $name';
   }
+
+  @override
+  String get settingsChatTest => 'Chat test';
+
+  @override
+  String settingsChatTestTitle(String name) {
+    return 'Chat test · $name';
+  }
+
+  @override
+  String get settingsChatTestInputHint => 'Type a message, press Enter to send';
+
+  @override
+  String get settingsChatTestEmptyHint =>
+      'Send a message to see the model\'s real reply';
+
+  @override
+  String get settingsFetchModels => 'Fetch models';
+
+  @override
+  String get settingsFetchModelsNoneFound => 'No new models found';
+
+  @override
+  String get settingsFetchModelsTitle => 'Choose models to add';
+
+  @override
+  String get settingsFetchModelsAdd => 'Add selected';
 
   @override
   String get settingsDeleteProviderTitle => 'Delete provider';

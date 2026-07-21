@@ -2,18 +2,20 @@
 // 桌面 ≥840：左侧细图标栏（Logo/我的项目/任务中心 + 底部反馈·设置·GitHub）
 //           + 顶栏 50px（项目名 | 项目内菜单右对齐）+ 圆角内容区。
 // 移动 <840：底部导航（项目/任务/设置），项目内子页由顶部横向 Tab 承接。
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../engine/engine.dart';
+import '../screens/project/project_dialog.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
 import '../util/l10n_ext.dart';
 
-const _githubUrl = 'https://github.com/HBAI-Ltd/Toonflow-app';
 const _feedbackUrl = 'https://github.com/HBAI-Ltd/Toonflow-app/issues';
 
 /// 项目内菜单定义（顺序照抄 ToonFlow workbench 顶栏）。P1-P5 全部批次已交付，
@@ -84,32 +86,28 @@ class _DesktopShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final df = context.df;
+    final inProject = path.startsWith('/p/');
+
     return Scaffold(
       backgroundColor: df.bg,
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(children: [
-          _SideBar(path: path),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(children: [
-              _TopBar(path: path, project: project),
-              const SizedBox(height: 10),
-              Expanded(
-                child: Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: df.surface,
-                    borderRadius: BorderRadius.circular(DFTokens.radiusShell),
-                    border: Border.all(color: df.stroke),
-                  ),
-                  child: child,
-                ),
+      body: Row(children: [
+        // 满版大气侧边栏（全高连贯布局，无零碎内缩外边距框）
+        _SideBar(path: path),
+        // 主内容画布（通透满版无缩进）
+        Expanded(
+          child: Column(children: [
+            // 仅在点进具体项目（/p/:pid/...）时展示顶栏
+            if (inProject) _TopBar(path: path, project: project),
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                color: df.bg,
+                child: child,
               ),
-            ]),
-          ),
-        ]),
-      ),
+            ),
+          ]),
+        ),
+      ]),
     );
   }
 }
@@ -123,53 +121,58 @@ class _SideBar extends ConsumerWidget {
     final df = context.df;
     final activeCount = ref.watch(activeJobsProvider).length;
 
+    final isProject = path == '/' || path.startsWith('/p/');
+    final isTasks = path.startsWith('/tasks');
+    final isSettings = path.startsWith('/settings');
+
     return Container(
       width: 76,
       decoration: BoxDecoration(
         color: df.surface,
-        borderRadius: BorderRadius.circular(DFTokens.radiusShell),
-        border: Border.all(color: df.stroke),
+        border: Border(
+          right: BorderSide(
+            color: df.stroke.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20),
       child: Column(children: [
         const DFLogo(),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
+        // 核心导航区
         _SideIcon(
           tooltip: context.l10n.menuMyProject,
-          icon: Icons.folder_outlined,
-          selected: path == '/' || path.startsWith('/p/'),
+          icon: Icons.grid_view_rounded,
+          selected: isProject,
           onTap: () => context.go('/'),
         ),
         _SideIcon(
           tooltip: context.l10n.menuTaskCenter,
-          icon: Icons.view_list_outlined,
-          selected: path.startsWith('/tasks'),
+          icon: Icons.view_stream_rounded,
+          selected: isTasks,
           badgeCount: activeCount,
           onTap: () => context.go('/tasks'),
         ),
         const Spacer(),
-        _SideIcon(
-          tooltip: context.l10n.menuFeedbackQuestions,
-          icon: Icons.feedback_outlined,
-          onTap: () => launchUrl(Uri.parse(_feedbackUrl)),
-        ),
+        // 下方系统操作区：【设置】与【反馈】
         _SideIcon(
           tooltip: context.l10n.menuSettings,
-          icon: Icons.settings_outlined,
-          selected: path.startsWith('/settings'),
+          icon: Icons.settings_rounded,
+          selected: isSettings,
           onTap: () => context.go('/settings'),
         ),
         _SideIcon(
-          tooltip: context.l10n.menuJumpGithub,
-          icon: Icons.code_rounded,
-          onTap: () => launchUrl(Uri.parse(_githubUrl)),
+          tooltip: context.l10n.menuFeedbackQuestions,
+          icon: Icons.help_outline_rounded,
+          onTap: () => launchUrl(Uri.parse(_feedbackUrl)),
         ),
       ]),
     );
   }
 }
 
-class _SideIcon extends StatelessWidget {
+class _SideIcon extends StatefulWidget {
   final String tooltip;
   final IconData icon;
   final bool selected;
@@ -183,27 +186,72 @@ class _SideIcon extends StatelessWidget {
       this.onTap});
 
   @override
+  State<_SideIcon> createState() => _SideIconState();
+}
+
+class _SideIconState extends State<_SideIcon> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
     final df = context.df;
+    final isSelected = widget.selected;
+
+    final targetColor = isSelected
+        ? df.primary
+        : (_hover ? df.primary.withValues(alpha: 0.85) : df.textSecondary);
+
     final iconWidget = Badge(
-      isLabelVisible: badgeCount > 0,
-      label: Text('$badgeCount'),
+      isLabelVisible: widget.badgeCount > 0,
+      label: Text('${widget.badgeCount}'),
       backgroundColor: df.accent,
-      child: Icon(icon,
-          size: 22, color: selected ? df.primary : df.textSecondary),
+      child: AnimatedScale(
+        scale: _hover ? 1.12 : (isSelected ? 1.05 : 1.0),
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        child: Icon(
+          widget.icon,
+          size: 21,
+          color: targetColor,
+        ),
+      ),
     );
+
     return Tooltip(
-      message: tooltip,
+      message: widget.tooltip,
       waitDuration: const Duration(milliseconds: 300),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Material(
-          color: selected ? df.primarySubtle : Colors.transparent,
-          borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-            onTap: onTap,
-            child: SizedBox(width: 44, height: 44, child: iconWidget),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  iconWidget,
+                  if (isSelected)
+                    Positioned(
+                      left: 0,
+                      child: Container(
+                        width: 3.5,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: df.primary,
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(3),
+                            bottomRight: Radius.circular(3),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -219,31 +267,89 @@ class _TopBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final df = context.df;
-    return SizedBox(
-      height: 50,
-      child: Row(children: [
-        Expanded(
-          child: Text(
-            project?.name ?? context.l10n.shellSelectProject,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: project == null ? df.textTertiary : df.textPrimary,
-            ),
+    final visibleMenus = _visibleProjectMenus(project);
+
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        color: df.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: df.stroke.withValues(alpha: 0.35),
+            width: 1,
           ),
         ),
-        for (final menu in _visibleProjectMenus(project)) ...[
-          if (menu.path == 'assets')
-            Container(
-              width: 1,
-              height: 22,
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              color: df.stroke,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Row(children: [
+        // 左上角当前项目 Switcher Pill（大气大号按键）
+        Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: df.surfaceMuted,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: df.stroke.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                project != null
+                    ? Icons.movie_creation_outlined
+                    : Icons.auto_awesome_mosaic_outlined,
+                size: 18,
+                color: project != null ? df.primary : df.textTertiary,
+              ),
+              const SizedBox(width: 10),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 240),
+                child: Text(
+                  project?.name ?? context.l10n.shellSelectProject,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: project == null ? df.textTertiary : df.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: df.textSecondary,
+              ),
+            ],
+          ),
+        ),
+        const Spacer(),
+        // 右上角项目功能 Segmented 选项卡（大气舒展布局）
+        if (visibleMenus.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: df.surfaceMuted.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: df.stroke.withValues(alpha: 0.4)),
             ),
-          _TopMenuButton(menu: menu, path: path, project: project),
-        ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final menu in visibleMenus) ...[
+                  if (menu.path == 'assets')
+                    Container(
+                      width: 1,
+                      height: 20,
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      color: df.stroke.withValues(alpha: 0.5),
+                    ),
+                  _TopMenuButton(menu: menu, path: path, project: project),
+                ],
+              ],
+            ),
+          ),
       ]),
     );
   }
@@ -262,46 +368,118 @@ class _TopMenuButton extends ConsumerWidget {
   const _TopMenuButton(
       {required this.menu, required this.path, required this.project});
 
+  void _handleTap(BuildContext context, WidgetRef ref) async {
+    if (project != null) {
+      context.go('/p/${project!.id}/${menu.path}');
+      return;
+    }
+    final projects = ref.read(engineProvider).projects();
+    if (projects.isNotEmpty) {
+      final target = projects.first;
+      ref.read(currentProjectProvider.notifier).select(target);
+      if (context.mounted) context.go('/p/${target.id}/${menu.path}');
+    } else {
+      final created = await showProjectDialog(context);
+      if (created == true && context.mounted) {
+        final newProjects = ref.read(engineProvider).projects();
+        if (newProjects.isNotEmpty) {
+          final target = newProjects.first;
+          ref.read(currentProjectProvider.notifier).select(target);
+          if (context.mounted) context.go('/p/${target.id}/${menu.path}');
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final df = context.df;
-    final enabled = project != null;
-    final selected =
-        project != null && path.startsWith('/p/${project!.id}/${menu.path}');
+    final menuFullPath = project != null ? '/p/${project!.id}/${menu.path}' : '';
+    final selected = project != null &&
+        (path == menuFullPath || path.startsWith('$menuFullPath/'));
+    return _NavPill(
+      selected: selected,
+      label: menu.label(context),
+      icon: menu.icon,
+      onTap: () => _handleTap(context, ref),
+    );
+  }
+}
 
-    final button = Material(
-      color: selected ? df.primarySubtle : Colors.transparent,
-      borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-        onTap: enabled
-            ? () => context.go('/p/${project!.id}/${menu.path}')
-            : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(menu.icon,
-                size: 18,
-                color: !enabled
-                    ? df.textTertiary
-                    : (selected ? df.primary : df.textSecondary)),
-            const SizedBox(width: 6),
-            Text(
-              menu.label(context),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: !enabled
-                    ? df.textTertiary
-                    : (selected ? df.primary : df.textPrimary),
-              ),
+/// 纯视觉 hover 药丸按钮，不持有任何路由 context
+class _NavPill extends StatefulWidget {
+  final bool selected;
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _NavPill({
+    required this.selected,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  State<_NavPill> createState() => _NavPillState();
+}
+
+class _NavPillState extends State<_NavPill> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final isSelected = widget.selected;
+    final Color fg = isSelected
+        ? df.primary
+        : (_hover ? df.primary : df.textSecondary);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? df.surface
+                : (_hover ? df.surfaceMuted : Colors.transparent),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: isSelected
+                  ? df.stroke.withValues(alpha: 0.5)
+                  : Colors.transparent,
+              width: 1,
             ),
-          ]),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 6,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, size: 16, color: fg),
+              const SizedBox(width: 6),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: fg,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
-    return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2), child: button);
   }
 }
 
@@ -431,28 +609,64 @@ class _MobileTabChip extends StatelessWidget {
   }
 }
 
-/// 品牌 Logo（墨青→琥珀渐变）。
+/// 品牌 Logo："层叠分镜"：三张错位旋转的圆角卡片代表小说→分镜→成片的流水线，
+/// 最前一张卡片上嵌入播放三角。纯代码绘制，跟随主题 primary/accent 自动换色。
 class DFLogo extends StatelessWidget {
   const DFLogo({super.key});
 
   @override
   Widget build(BuildContext context) {
     final df = context.df;
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [df.primary, df.accent],
-        ),
-        borderRadius: BorderRadius.circular(9),
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: CustomPaint(
+        painter: _DFLogoPainter(primary: df.primary, accent: df.accent),
       ),
-      child: Icon(Icons.play_arrow_rounded,
-          color: Theme.of(context).colorScheme.onPrimary, size: 24),
     );
   }
+}
+
+class _DFLogoPainter extends CustomPainter {
+  final Color primary;
+  final Color accent;
+  const _DFLogoPainter({required this.primary, required this.accent});
+
+  static const _squareRect = Rect.fromLTWH(9, 9, 22, 22);
+  static final _rrect =
+      RRect.fromRectAndRadius(_squareRect, const Radius.circular(6.5));
+  static final _triangle = Path()
+    ..moveTo(17.3, 14.6)
+    ..lineTo(26, 20)
+    ..lineTo(17.3, 25.4)
+    ..close();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+
+    void withRotation(double degrees, void Function() draw) {
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(degrees * math.pi / 180);
+      canvas.translate(-center.dx, -center.dy);
+      draw();
+      canvas.restore();
+    }
+
+    withRotation(-14, () => canvas.drawRRect(
+        _rrect, Paint()..color = primary.withValues(alpha: 0.28)));
+    withRotation(7, () => canvas.drawRRect(
+        _rrect, Paint()..color = primary.withValues(alpha: 0.55)));
+    withRotation(-2, () {
+      canvas.drawRRect(_rrect, Paint()..color = primary);
+      canvas.drawPath(_triangle, Paint()..color = accent);
+    });
+  }
+
+  @override
+  bool shouldRepaint(covariant _DFLogoPainter oldDelegate) =>
+      oldDelegate.primary != primary || oldDelegate.accent != accent;
 }
 
 /// 页面级内容容器：统一最大宽度与内边距，避免超宽屏内容拉满。

@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:sqlite3/sqlite3.dart';
 import '../config.dart';
 import '../credentials.dart';
+import '../errors.dart';
 import '../media.dart';
 import 'openai_text.dart';
 import 'openai_vision.dart';
@@ -318,6 +319,49 @@ class HttpProviderGateway
     await openaiGenerateText(dio, model, '', '只回复OK', cancelToken: cancelToken);
     sw.stop();
     return sw.elapsedMilliseconds;
+  }
+
+  /// 对话测试：设置页"对话测试"弹窗专用，发送完整多轮历史并返回真实文本回复
+  /// （不落库、不占用阶段绑定，仅供人工核对连通性与回复质量）。
+  Future<String> chatTestModel(
+    ResolvedModel model,
+    List<Map<String, String>> messages, {
+    CancelToken? cancelToken,
+  }) async {
+    final result = await openaiGenerateAgentTurn(
+        dio, model, '', messages, const [],
+        cancelToken: cancelToken);
+    return result.text ?? '';
+  }
+
+  /// 拉取供应商可用模型 ID 列表（GET {baseUrl}/models，OpenAI 兼容协议），
+  /// 供"模型管理"里的"拉取模型"辅助操作使用，不影响已保存的模型配置。
+  Future<List<String>> fetchModelIds(String baseUrl, String apiKey,
+      {CancelToken? cancelToken}) async {
+    final base = baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final res = await dio.get(
+      '$base/models',
+      options: Options(
+        headers: apiKey.isEmpty
+            ? const <String, String>{}
+            : {'Authorization': 'Bearer $apiKey'},
+        sendTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+        validateStatus: (s) => s != null && s < 400,
+      ),
+      cancelToken: cancelToken,
+    );
+    final data = res.data;
+    final list = data is Map ? data['data'] : null;
+    if (list is! List) {
+      throw EngineException(errLlmFormat, {'message': '$data'});
+    }
+    final ids = <String>{
+      for (final item in list)
+        if (item is Map && item['id'] is String) item['id'] as String,
+    }.toList()
+      ..sort();
+    return ids;
   }
 
   /// 图片模型连通测试：真实生成一张极简图并计时，随后清理测试产物。

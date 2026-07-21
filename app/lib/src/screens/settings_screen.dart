@@ -13,22 +13,10 @@ import '../engine/db_admin.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
+import '../util/error_l10n.dart';
 import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
-
-Color? _lightAppBarBackground(BuildContext context) =>
-    Theme.of(context).brightness == Brightness.light
-        ? context.df.surface
-        : null;
-
-PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
-  if (Theme.of(context).brightness != Brightness.light) return null;
-  return PreferredSize(
-    preferredSize: const Size.fromHeight(1),
-    child: Container(height: 1, color: context.df.stroke),
-  );
-}
 
 // 应用版本（对齐 pubspec version；package_info_plus 未引入，引擎版本另经 health 展示）。
 const _appVersion = '0.1.0';
@@ -240,49 +228,68 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 900;
     final l10n = context.l10n;
+    final df = context.df;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: _lightAppBarBackground(context),
-        bottom: _lightAppBarBottom(context),
-        title: Text(l10n.settingsTitle),
-        actions: [
-          IconButton(
-            tooltip: l10n.commonRefresh,
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _invalidateConfig,
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: PageContainer(
-        maxWidth: 1240,
-        child: wide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: _SideNav(
-                      selected: _section,
-                      onSelected: _selectSection,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 36, 40, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.settingsTitle,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(child: _sectionBody()),
-                ],
-              )
-            : Column(
-                children: [
-                  const SizedBox(height: 12),
-                  _TopSectionTabs(
-                    selected: _section,
-                    onSelected: _selectSection,
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(child: _sectionBody()),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.settingsSubtitle,
+                      style: TextStyle(fontSize: 14, color: df.textSecondary),
+                    ),
+                  ],
+                ),
               ),
+              IconButton(
+                tooltip: l10n.commonRefresh,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                onPressed: _invalidateConfig,
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
+          Expanded(
+            child: wide
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SideNav(
+                        selected: _section,
+                        onSelected: _selectSection,
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(child: _sectionBody()),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      _TopSectionTabs(
+                        selected: _section,
+                        onSelected: _selectSection,
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(child: _sectionBody()),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -291,19 +298,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return ListView(
       children: [
         const SizedBox(height: 16),
-        switch (_section) {
-          _SettingsSection.appearance => Column(children: [
-              _appearanceCard(),
-              const SizedBox(height: 12),
-              _languageCard(),
-            ]),
-          _SettingsSection.providers => _providersPanel(),
-          _SettingsSection.bindings => _bindingsPanel(),
-          _SettingsSection.prompts => _promptsPanel(),
-          _SettingsSection.other => _otherPanel(),
-          _SettingsSection.storage => _storageCard(),
-          _SettingsSection.about => _aboutCard(),
-        },
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 120),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey(_section),
+            child: switch (_section) {
+              _SettingsSection.appearance => _appearanceCard(),
+              _SettingsSection.providers => _providersPanel(),
+              _SettingsSection.bindings => _bindingsPanel(),
+              _SettingsSection.prompts => _promptsPanel(),
+              _SettingsSection.other => _otherPanel(),
+              _SettingsSection.storage => _storageCard(),
+              _SettingsSection.about => _aboutCard(),
+            },
+          ),
+        ),
         const SizedBox(height: 40),
       ],
     );
@@ -313,77 +330,148 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _appearanceCard() {
     final themeMode = ref.watch(themeModeProvider);
+    final locale = ref.watch(localeProvider);
     final l10n = context.l10n;
+    final df = context.df;
+    final currentLocale = locale?.languageCode ?? '';
+
     return _SettingsCard(
       title: l10n.settingsAppearanceSection,
-      child: SegmentedButton<ThemeMode>(
-        showSelectedIcon: false,
-        style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? context.df.primaryDim
-                : context.df.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.settingsThemeTitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: df.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.settingsThemeSubtitle,
+                      style: TextStyle(fontSize: 12, color: df.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
+              SegmentedButton<ThemeMode>(
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? df.primary.withValues(alpha: 0.1)
+                        : df.surface,
+                  ),
+                  foregroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? df.primary
+                        : df.textSecondary,
+                  ),
+                  side: WidgetStateProperty.all(
+                    BorderSide(color: df.stroke.withValues(alpha: 0.6)),
+                  ),
+                ),
+                segments: [
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    icon: const Icon(Icons.light_mode_outlined, size: 16),
+                    label: Text(l10n.settingsThemeLight),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    icon: const Icon(Icons.dark_mode_outlined, size: 16),
+                    label: Text(l10n.settingsThemeDark),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    icon: const Icon(Icons.brightness_auto_outlined, size: 16),
+                    label: Text(l10n.settingsThemeSystem),
+                  ),
+                ],
+                selected: {themeMode},
+                onSelectionChanged: (selected) {
+                  final next = selected.single;
+                  if (next == themeMode) return;
+                  runAction(context, ref, () async {
+                    await ref
+                        .read(themeModeProvider.notifier)
+                        .setThemeMode(next);
+                  }, successMessage: l10n.settingsThemeUpdated);
+                },
+              ),
+            ],
           ),
-          foregroundColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? context.df.primary
-                : context.df.textMid,
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Divider(height: 1, color: df.stroke.withValues(alpha: 0.4)),
           ),
-          side: WidgetStateProperty.all(BorderSide(color: context.df.stroke)),
-        ),
-        segments: [
-          ButtonSegment(
-            value: ThemeMode.light,
-            icon: const Icon(Icons.light_mode_outlined, size: 18),
-            label: Text(l10n.settingsThemeLight),
-          ),
-          ButtonSegment(
-            value: ThemeMode.dark,
-            icon: const Icon(Icons.dark_mode_outlined, size: 18),
-            label: Text(l10n.settingsThemeDark),
-          ),
-          ButtonSegment(
-            value: ThemeMode.system,
-            icon: const Icon(Icons.brightness_auto_outlined, size: 18),
-            label: Text(l10n.settingsThemeSystem),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.settingsLanguage,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: df.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.settingsLanguageSubtitle,
+                      style: TextStyle(fontSize: 12, color: df.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
+              SegmentedButton<String>(
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? df.primary.withValues(alpha: 0.1)
+                        : df.surface,
+                  ),
+                  foregroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? df.primary
+                        : df.textSecondary,
+                  ),
+                  side: WidgetStateProperty.all(
+                    BorderSide(color: df.stroke.withValues(alpha: 0.6)),
+                  ),
+                ),
+                segments: [
+                  ButtonSegment(value: '', label: Text(l10n.localeSystem)),
+                  ButtonSegment(value: 'zh', label: Text(l10n.localeChinese)),
+                  const ButtonSegment(value: 'en', label: Text('English')),
+                  ButtonSegment(value: 'ja', label: Text(l10n.localeJapanese)),
+                ],
+                selected: {currentLocale},
+                onSelectionChanged: (selected) {
+                  final next = selected.single;
+                  if (next == currentLocale) return;
+                  runAction(context, ref, () async {
+                    await ref
+                        .read(localeProvider.notifier)
+                        .setLocale(next.isEmpty ? null : Locale(next));
+                  }, successMessage: l10n.settingsLanguage);
+                },
+              ),
+            ],
           ),
         ],
-        selected: {themeMode},
-        onSelectionChanged: (selected) {
-          final next = selected.single;
-          if (next == themeMode) return;
-          runAction(context, ref, () async {
-            await ref.read(themeModeProvider.notifier).setThemeMode(next);
-          }, successMessage: l10n.settingsThemeUpdated);
-        },
-      ),
-    );
-  }
-
-  Widget _languageCard() {
-    final locale = ref.watch(localeProvider);
-    final l10n = AppLocalizations.of(context);
-    final current = locale?.languageCode ?? '';
-    return _SettingsCard(
-      title: l10n.settingsLanguage,
-      child: SegmentedButton<String>(
-        showSelectedIcon: false,
-        segments: [
-          ButtonSegment(value: '', label: Text(l10n.localeSystem)),
-          ButtonSegment(value: 'zh', label: Text(l10n.localeChinese)),
-          const ButtonSegment(value: 'en', label: Text('English')),
-          ButtonSegment(value: 'ja', label: Text(l10n.localeJapanese)),
-        ],
-        selected: {current},
-        onSelectionChanged: (selected) {
-          final next = selected.single;
-          if (next == current) return;
-          runAction(context, ref, () async {
-            await ref
-                .read(localeProvider.notifier)
-                .setLocale(next.isEmpty ? null : Locale(next));
-          }, successMessage: l10n.settingsLanguage);
-        },
       ),
     );
   }
@@ -430,6 +518,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         onEdit: () => _openEditProviderDialog(provider),
                         onManageModels: () => _openModelsEditor(provider),
                         onTest: () => _testProvider(provider),
+                        onChatTest: () => _chatTestProvider(provider),
                         onDelete: () => _deleteProvider(provider),
                         onEnabledChanged: (enabled) =>
                             _setProviderEnabled(provider, enabled),
@@ -445,6 +534,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onEdit: _openEditProviderDialog,
                 onManageModels: _openModelsEditor,
                 onTest: _testProvider,
+                onChatTest: _chatTestProvider,
                 onDelete: _deleteProvider,
                 onEnabledChanged: _setProviderEnabled,
               );
@@ -635,6 +725,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _chatTestProvider(ProviderInfo provider) async {
+    List<ProviderModelInfo>? models;
+    await runAction(context, ref, () async {
+      models = await ref.read(engineProvider).listProviderModels(provider.id);
+    });
+    if (!mounted || models == null) return;
+
+    // 对话测试仅支持文本模型：能真正来回聊，而不只是量个耗时。
+    final textModels =
+        models!.where((model) => model.enabled && model.kind == 'text').toList();
+    if (textModels.isEmpty) {
+      await runAction(context, ref, () async {
+        throw EngineException(context.l10n.settingsProviderTestNoModel);
+      });
+      return;
+    }
+
+    final selected = textModels.length == 1
+        ? textModels.first
+        : await _chooseTestModel(provider, textModels);
+    if (!mounted || selected == null) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ChatTestDialog(
+        providerId: provider.id,
+        providerName: provider.name,
+        modelId: selected.modelId,
       ),
     );
   }
@@ -1420,14 +1542,22 @@ class _SideNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final df = context.df;
     return Container(
-      width: 216,
+      width: 240,
       decoration: BoxDecoration(
-        color: context.df.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: context.df.stroke),
+        color: df.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: df.stroke.withValues(alpha: 0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1443,7 +1573,7 @@ class _SideNav extends StatelessWidget {
   }
 }
 
-class _SideNavItem extends StatelessWidget {
+class _SideNavItem extends StatefulWidget {
   final _SettingsSection section;
   final bool selected;
   final VoidCallback onTap;
@@ -1455,29 +1585,78 @@ class _SideNavItem extends StatelessWidget {
   });
 
   @override
+  State<_SideNavItem> createState() => _SideNavItemState();
+}
+
+class _SideNavItemState extends State<_SideNavItem> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    final color = selected ? context.df.primary : context.df.textMid;
+    final df = context.df;
+    final isSelected = widget.selected;
+    final color = isSelected
+        ? df.primary
+        : (_hover ? df.primary : df.textSecondary);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Material(
-        color: selected ? context.df.primaryDim : Colors.transparent,
-        borderRadius: BorderRadius.circular(7),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(7),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            child: Row(
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? df.primary.withValues(alpha: 0.1)
+                  : (_hover ? df.surfaceMuted : Colors.transparent),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected
+                    ? df.primary.withValues(alpha: 0.25)
+                    : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Stack(
+              alignment: Alignment.centerLeft,
               children: [
-                Icon(_sectionIcons[section], size: 19, color: color),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _sectionLabel(context.l10n, section),
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                if (isSelected)
+                  Positioned(
+                    left: 0,
+                    top: 10,
+                    bottom: 10,
+                    child: Container(
+                      width: 3.5,
+                      decoration: BoxDecoration(
+                        color: df.primary,
+                        borderRadius: const BorderRadius.only(
+                          topRight: Radius.circular(3),
+                          bottomRight: Radius.circular(3),
+                        ),
+                      ),
                     ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      Icon(_sectionIcons[widget.section],
+                          size: 19, color: color),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _sectionLabel(context.l10n, widget.section),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1502,26 +1681,49 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(title,
-                      style: Theme.of(context).textTheme.titleMedium),
-                ),
-                if (trailing != null) trailing!,
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
-            child,
-          ],
+    final df = context.df;
+    return Container(
+      decoration: BoxDecoration(
+        color: df.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: df.stroke.withValues(alpha: 0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
+                  if (trailing != null) trailing!,
+                ],
+              ),
+              const SizedBox(height: 16),
+              Divider(height: 1, color: df.stroke.withValues(alpha: 0.4)),
+              const SizedBox(height: 20),
+              child,
+            ],
+          ),
         ),
       ),
     );
@@ -1535,6 +1737,7 @@ class _ProviderTable extends StatelessWidget {
   final ValueChanged<ProviderInfo> onEdit;
   final ValueChanged<ProviderInfo> onManageModels;
   final ValueChanged<ProviderInfo> onTest;
+  final ValueChanged<ProviderInfo> onChatTest;
   final ValueChanged<ProviderInfo> onDelete;
   final void Function(ProviderInfo provider, bool enabled) onEnabledChanged;
 
@@ -1545,6 +1748,7 @@ class _ProviderTable extends StatelessWidget {
     required this.onEdit,
     required this.onManageModels,
     required this.onTest,
+    required this.onChatTest,
     required this.onDelete,
     required this.onEnabledChanged,
   });
@@ -1568,6 +1772,7 @@ class _ProviderTable extends StatelessWidget {
               onEdit: () => onEdit(provider),
               onManageModels: () => onManageModels(provider),
               onTest: () => onTest(provider),
+              onChatTest: () => onChatTest(provider),
               onDelete: () => onDelete(provider),
               onEnabledChanged: (enabled) =>
                   onEnabledChanged(provider, enabled),
@@ -1596,7 +1801,7 @@ class _ProviderTableHeader extends StatelessWidget {
           _HeaderFlexCell(flex: 24, label: l10n.settingsProviderColumnBaseUrl),
           _HeaderCell(width: 92, label: l10n.commonEnabled),
           _HeaderCell(width: 72, label: l10n.commonModel),
-          _HeaderCell(width: 184, label: l10n.commonActions),
+          _HeaderCell(width: 220, label: l10n.commonActions),
         ],
       ),
     );
@@ -1609,6 +1814,7 @@ class _ProviderTableRow extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onManageModels;
   final VoidCallback onTest;
+  final VoidCallback onChatTest;
   final VoidCallback onDelete;
   final ValueChanged<bool> onEnabledChanged;
 
@@ -1619,6 +1825,7 @@ class _ProviderTableRow extends StatelessWidget {
     required this.onEdit,
     required this.onManageModels,
     required this.onTest,
+    required this.onChatTest,
     required this.onDelete,
     required this.onEnabledChanged,
   });
@@ -1677,15 +1884,222 @@ class _ProviderTableRow extends StatelessWidget {
             ),
           ),
           _FixedCell(
-            width: 184,
+            width: 220,
             child: _ProviderActions(
               onEdit: onEdit,
               onManageModels: onManageModels,
               onTest: onTest,
+              onChatTest: onChatTest,
               onDelete: onDelete,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatTestDialog extends ConsumerStatefulWidget {
+  final String providerId;
+  final String providerName;
+  final String modelId;
+
+  const _ChatTestDialog({
+    required this.providerId,
+    required this.providerName,
+    required this.modelId,
+  });
+
+  @override
+  ConsumerState<_ChatTestDialog> createState() => _ChatTestDialogState();
+}
+
+class _ChatTestDialogState extends ConsumerState<_ChatTestDialog> {
+  final _input = TextEditingController();
+  final _scroll = ScrollController();
+  final List<Map<String, String>> _messages = [];
+  bool _sending = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _input.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  Future<void> _send() async {
+    final text = _input.text.trim();
+    if (text.isEmpty || _sending) return;
+    _input.clear();
+    setState(() {
+      _messages.add({'role': 'user', 'content': text});
+      _sending = true;
+      _error = null;
+    });
+    _scrollToBottom();
+    try {
+      final reply = await ref.read(engineProvider).chatTestModel(
+            widget.providerId,
+            widget.modelId,
+            List<Map<String, String>>.from(_messages),
+          );
+      if (!mounted) return;
+      setState(() {
+        _messages.add({'role': 'assistant', 'content': reply});
+        _sending = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = localizeError(context, e);
+        _sending = false;
+      });
+    }
+    _scrollToBottom();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return Dialog(
+      child: SizedBox(
+        width: 480,
+        height: 560,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.settingsChatTestTitle(widget.providerName),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: df.textHi,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.commonClose,
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: df.stroke),
+            Expanded(
+              child: _messages.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          l10n.settingsChatTestEmptyHint,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: df.textLo),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        final isUser = message['role'] == 'user';
+                        return Align(
+                          alignment: isUser
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(12),
+                            constraints: const BoxConstraints(maxWidth: 360),
+                            decoration: BoxDecoration(
+                              color: isUser ? df.primary : df.surfaceMuted,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              message['content'] ?? '',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isUser ? Colors.white : df.textPrimary,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            if (_sending)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(l10n.agentChatThinking,
+                        style: TextStyle(color: df.textLo, fontSize: 12)),
+                  ],
+                ),
+              ),
+            if (_error != null)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: df.red, fontSize: 12),
+                ),
+              ),
+            Divider(height: 1, color: df.stroke),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _input,
+                      minLines: 1,
+                      maxLines: 4,
+                      enabled: !_sending,
+                      onSubmitted: (_) => _send(),
+                      decoration: InputDecoration(
+                        hintText: l10n.settingsChatTestInputHint,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _sending ? null : _send,
+                    child: Text(l10n.agentChatSend),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1697,6 +2111,7 @@ class _ProviderCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onManageModels;
   final VoidCallback onTest;
+  final VoidCallback onChatTest;
   final VoidCallback onDelete;
   final ValueChanged<bool> onEnabledChanged;
 
@@ -1707,6 +2122,7 @@ class _ProviderCard extends StatelessWidget {
     required this.onEdit,
     required this.onManageModels,
     required this.onTest,
+    required this.onChatTest,
     required this.onDelete,
     required this.onEnabledChanged,
   });
@@ -1768,6 +2184,11 @@ class _ProviderCard extends StatelessWidget {
                 tooltip: context.l10n.settingsTestConnection,
                 icon: Icons.network_check_rounded,
                 onPressed: onTest,
+              ),
+              _SmallIconButton(
+                tooltip: context.l10n.settingsChatTest,
+                icon: Icons.chat_bubble_outline_rounded,
+                onPressed: onChatTest,
               ),
               _SmallIconButton(
                 tooltip: context.l10n.commonDelete,
@@ -1902,12 +2323,14 @@ class _ProviderActions extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onManageModels;
   final VoidCallback onTest;
+  final VoidCallback onChatTest;
   final VoidCallback onDelete;
 
   const _ProviderActions({
     required this.onEdit,
     required this.onManageModels,
     required this.onTest,
+    required this.onChatTest,
     required this.onDelete,
   });
 
@@ -1929,6 +2352,11 @@ class _ProviderActions extends StatelessWidget {
           tooltip: context.l10n.settingsTestConnection,
           icon: Icons.network_check_rounded,
           onPressed: onTest,
+        ),
+        _SmallIconButton(
+          tooltip: context.l10n.settingsChatTest,
+          icon: Icons.chat_bubble_outline_rounded,
+          onPressed: onChatTest,
         ),
         _SmallIconButton(
           tooltip: context.l10n.commonDelete,
@@ -2128,6 +2556,61 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
   }
 }
 
+class _FetchedModelsDialog extends StatefulWidget {
+  final List<String> modelIds;
+
+  const _FetchedModelsDialog({required this.modelIds});
+
+  @override
+  State<_FetchedModelsDialog> createState() => _FetchedModelsDialogState();
+}
+
+class _FetchedModelsDialogState extends State<_FetchedModelsDialog> {
+  late final Set<String> _selected = {...widget.modelIds};
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.settingsFetchModelsTitle),
+      content: SizedBox(
+        width: 420,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 420),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final id in widget.modelIds)
+                CheckboxListTile(
+                  value: _selected.contains(id),
+                  title: Text(id),
+                  dense: true,
+                  onChanged: (checked) => setState(() {
+                    if (checked == true) {
+                      _selected.add(id);
+                    } else {
+                      _selected.remove(id);
+                    }
+                  }),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_selected),
+          child: Text(l10n.settingsFetchModelsAdd),
+        ),
+      ],
+    );
+  }
+}
+
 class _ProviderModelsEditor extends ConsumerStatefulWidget {
   final ProviderInfo provider;
   final List<ProviderModelInfo> models;
@@ -2168,6 +2651,38 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
   void _removeModel(_ModelDraft draft) {
     setState(() => _drafts.remove(draft));
     draft.dispose();
+  }
+
+  Future<void> _fetchModels() async {
+    final l10n = context.l10n;
+    List<String>? fetched;
+    await runAction(context, ref, () async {
+      fetched =
+          await ref.read(engineProvider).fetchProviderModels(widget.provider.id);
+    });
+    if (!mounted || fetched == null) return;
+
+    final existingIds =
+        _drafts.map((draft) => draft.modelId.text.trim()).toSet();
+    final newIds = fetched!.where((id) => !existingIds.contains(id)).toList();
+    if (newIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.settingsFetchModelsNoneFound)),
+      );
+      return;
+    }
+
+    final selected = await showDialog<Set<String>>(
+      context: context,
+      builder: (_) => _FetchedModelsDialog(modelIds: newIds),
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+
+    setState(() {
+      for (final id in selected) {
+        _drafts.add(_ModelDraft.discovered(id));
+      }
+    });
   }
 
   Future<void> _save() async {
@@ -2225,6 +2740,12 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
       appBar: AppBar(
         title: Text(l10n.settingsModelManagementTitle(widget.provider.name)),
         actions: [
+          TextButton.icon(
+            onPressed: _fetchModels,
+            icon: const Icon(Icons.cloud_sync_outlined, size: 18),
+            label: Text(l10n.settingsFetchModels),
+          ),
+          const SizedBox(width: 8),
           TextButton.icon(
             onPressed: _addModel,
             icon: const Icon(Icons.add_rounded, size: 18),
@@ -2337,6 +2858,16 @@ class _ModelDraft {
         id: '',
         modelId: TextEditingController(),
         label: TextEditingController(),
+        kind: 'text',
+        capabilities: <String, dynamic>{},
+        enabled: true,
+      );
+
+  /// 从"拉取模型"结果创建：默认文本模型、默认启用，用户可在表格里改类型/能力。
+  factory _ModelDraft.discovered(String modelId) => _ModelDraft(
+        id: '',
+        modelId: TextEditingController(text: modelId),
+        label: TextEditingController(text: modelId),
         kind: 'text',
         capabilities: <String, dynamic>{},
         enabled: true,

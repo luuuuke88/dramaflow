@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../engine/engine.dart';
+import '../../engine/manuals.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -88,38 +89,88 @@ class ProjectListScreen extends ConsumerWidget {
     final df = context.df;
     final projects = ref.watch(projectsProvider);
     final stats = ref.watch(projectStatsProvider);
+    final visualStyleNames = {
+      for (final pack in ref.watch(engineProvider).visualManuals())
+        pack.pack: pack.name,
+    };
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
+      padding: const EdgeInsets.fromLTRB(40, 36, 40, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(l10n.projectTitle,
-                  style:
-                      DFTokens.display24w700.copyWith(color: df.textPrimary)),
-              const SizedBox(height: 4),
-              Text(l10n.projectSubtitle,
-                  style: TextStyle(fontSize: 13, color: df.textSecondary)),
+              Row(
+                children: [
+                  Text(
+                    l10n.projectTitle,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: df.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${projects.length}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: df.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                l10n.projectSubtitle,
+                style: TextStyle(fontSize: 14, color: df.textSecondary),
+              ),
             ]),
           ),
           FilledButton.icon(
             onPressed: () => _edit(context, ref),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(l10n.projectNewProject),
+            icon: const Icon(Icons.add, size: 20),
+            label: Text(
+              l10n.projectNewProject,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
           ),
         ]),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
         Expanded(
           child: projects.isEmpty
               ? Center(
                   child: DFEmpty(
                     text: l10n.projectEmpty,
+                    description: l10n.projectEmptySubtitle,
                     action: FilledButton.icon(
                       onPressed: () => _edit(context, ref),
                       icon: const Icon(Icons.add, size: 18),
                       label: Text(l10n.projectNewProject),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
                   ),
                 )
@@ -141,6 +192,7 @@ class ProjectListScreen extends ConsumerWidget {
                     itemBuilder: (c, i) => _ProjectCard(
                       project: projects[i],
                       stats: stats[projects[i].id] ?? const ProjectStats(),
+                      styleLabel: visualStyleNames[projects[i].artStyle],
                       onOpen: () => _openProject(context, ref, projects[i]),
                       onEdit: () => _edit(context, ref, existing: projects[i]),
                       onDelete: () => _delete(context, ref, projects[i]),
@@ -156,12 +208,14 @@ class ProjectListScreen extends ConsumerWidget {
 class _ProjectCard extends StatefulWidget {
   final ProjectRow project;
   final ProjectStats stats;
+  final String? styleLabel;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   const _ProjectCard(
       {required this.project,
       required this.stats,
+      required this.styleLabel,
       required this.onOpen,
       required this.onEdit,
       required this.onDelete});
@@ -218,7 +272,7 @@ class _ProjectCardState extends State<_ProjectCard> {
             ]),
             const SizedBox(height: 8),
             if ((p.artStyle ?? '').isNotEmpty)
-              _RoundTag(text: p.artStyle!, color: df.accent),
+              _RoundTag(text: widget.styleLabel ?? p.artStyle!, color: df.accent),
             const SizedBox(height: 6),
             Expanded(
               child: Text(

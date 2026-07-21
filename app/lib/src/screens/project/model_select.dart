@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/models.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
+import '../../widgets/df_select.dart';
 
 class ModelOption {
   final String value; // providerId:modelId
@@ -59,19 +60,12 @@ class ModelSelect extends ConsumerWidget {
           style: TextStyle(color: df.danger, fontSize: 12)),
       data: (items) {
         final valid = items.any((o) => o.value == value) ? value : null;
-        return DropdownButtonFormField<String>(
-          initialValue: valid,
-          isExpanded: true,
-          hint: Text(hint,
-              style: TextStyle(color: df.textTertiary, fontSize: 13)),
+        return DFSelect<String>(
+          value: valid,
+          hint: hint,
           items: [
             for (final o in items)
-              DropdownMenuItem(
-                value: o.value,
-                child: Text(o.label,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13)),
-              ),
+              DFSelectItem(value: o.value, label: o.label),
           ],
           onChanged: (v) => onChanged(
               v == null ? null : items.firstWhere((o) => o.value == v)),

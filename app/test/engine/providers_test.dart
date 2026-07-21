@@ -9,9 +9,11 @@ import 'package:test/test.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/credentials.dart';
+import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/util.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/engine/video_request.dart';
 
 class FakeAdapter implements HttpClientAdapter {
@@ -248,6 +250,181 @@ void main() {
       final body = adapter.requests.single.data as Map;
       expect(body, isNot(contains('tools')));
       expect(body, isNot(contains('tool_choice')));
+    });
+  });
+
+  group('chatTestModel', () {
+    test('发送完整多轮历史且不带 tools/tool_choice，返回真实回复文本', () async {
+      final adapter = FakeAdapter((o) => jsonBody({
+            'choices': [
+              {
+                'message': {'content': '你好，我在的'}
+              }
+            ],
+          }));
+      bindModel('script_gen', 'text');
+      final resolved =
+          await resolveModelById(db, credentials, 'p1', 'm1');
+
+      final reply = await gw(adapter).chatTestModel(resolved, const [
+        {'role': 'user', 'content': '在吗'},
+      ]);
+
+      expect(reply, '你好，我在的');
+      final body = adapter.requests.single.data as Map;
+      expect(body, isNot(contains('tools')));
+      expect(body, isNot(contains('tool_choice')));
+      final messages = body['messages'] as List;
+      expect(messages.last, {'role': 'user', 'content': '在吗'});
+    });
+
+    test('模型未返回文字内容时抛 EngineException（与 generateAgentTurn 行为一致）',
+        () async {
+      final adapter = FakeAdapter((o) => jsonBody({
+            'choices': [
+              {
+                'message': {'content': ''}
+              }
+            ],
+          }));
+      bindModel('script_gen', 'text');
+      final resolved =
+          await resolveModelById(db, credentials, 'p1', 'm1');
+
+      expect(
+        () => gw(adapter).chatTestModel(resolved, const [
+          {'role': 'user', 'content': 'hi'},
+        ]),
+        throwsA(isA<EngineException>()),
+      );
+    });
+  });
+
+  group('fetchModelIds', () {
+    test('解析 data[].id，去重排序，未配置 key 时不带 Authorization', () async {
+      final adapter = FakeAdapter((o) => jsonBody({
+            'object': 'list',
+            'data': [
+              {'id': 'gpt-5.5', 'object': 'model'},
+              {'id': 'gpt-5.4', 'object': 'model'},
+              {'id': 'gpt-5.5', 'object': 'model'},
+            ],
+          }));
+
+      final ids = await gw(adapter)
+          .fetchModelIds('http://127.0.0.1:8787/v1', '');
+
+      expect(ids, ['gpt-5.4', 'gpt-5.5']);
+      expect(adapter.requests.single.path, endsWith('/models'));
+      expect(
+          adapter.requests.single.headers, isNot(contains('Authorization')));
+    });
+
+    test('带 key 时发送 Authorization', () async {
+      final adapter = FakeAdapter((o) => jsonBody({'data': []}));
+      await gw(adapter)
+          .fetchModelIds('http://127.0.0.1:8787/v1', 'local-secret');
+      expect(adapter.requests.single.headers['Authorization'],
+          'Bearer local-secret');
+    });
+
+    test('响应不是预期格式时抛 EngineException', () async {
+      final adapter = FakeAdapter((o) => jsonBody({'oops': true}));
+      expect(
+        () => gw(adapter).fetchModelIds('http://127.0.0.1:8787/v1', ''),
+        throwsA(isA<EngineException>()),
+      );
+    });
+  });
+
+  group('Engine.fetchProviderModels', () {
+    test('未配置请求地址时抛 EngineException', () async {
+      db.execute(
+          'INSERT OR REPLACE INTO o_vendorConfig (id,enable,inputValues,models) VALUES (?,?,?,?)',
+          ['p1', 1, jsonEncode({'name': 'p1'}), '[]']);
+      final engine = Engine(
+        db: db,
+        media: media,
+        gateway: gw(FakeAdapter((o) => jsonBody({}))),
+        config: config,
+        credentials: credentials,
+      );
+      addTearDown(engine.dispose);
+
+      expect(() => engine.fetchProviderModels('p1'),
+          throwsA(isA<EngineException>()));
+    });
+
+    test('成功时透传供应商 baseUrl/apiKey 并返回模型 id 列表', () async {
+      bindModel('script_gen', 'text',
+          apiKey: 'local-secret', baseUrl: 'http://127.0.0.1:8787/v1');
+      final adapter = FakeAdapter((o) => jsonBody({
+            'data': [
+              {'id': 'gpt-5.6-sol'},
+              {'id': 'gpt-5.5'},
+            ],
+          }));
+      final engine = Engine(
+        db: db,
+        media: media,
+        gateway: gw(adapter),
+        config: config,
+        credentials: credentials,
+      );
+      addTearDown(engine.dispose);
+
+      final ids = await engine.fetchProviderModels('p1');
+
+      expect(ids, ['gpt-5.5', 'gpt-5.6-sol']);
+      expect(adapter.requests.single.path, 'http://127.0.0.1:8787/v1/models');
+      expect(adapter.requests.single.headers['Authorization'],
+          'Bearer local-secret');
+    });
+  });
+
+  group('Engine.chatTestModel', () {
+    test('拒绝非文本模型', () async {
+      bindModel('script_gen', 'image', modelId: 'img1');
+      final engine = Engine(
+        db: db,
+        media: media,
+        gateway: gw(FakeAdapter((o) => jsonBody({}))),
+        config: config,
+        credentials: credentials,
+      );
+      addTearDown(engine.dispose);
+
+      expect(
+        () => engine.chatTestModel('p1', 'img1', const [
+          {'role': 'user', 'content': 'hi'}
+        ]),
+        throwsA(isA<EngineException>()),
+      );
+    });
+
+    test('文本模型：透传完整历史并返回真实回复', () async {
+      bindModel('script_gen', 'text');
+      final adapter = FakeAdapter((o) => jsonBody({
+            'choices': [
+              {
+                'message': {'content': '收到，继续'}
+              }
+            ],
+          }));
+      final engine = Engine(
+        db: db,
+        media: media,
+        gateway: gw(adapter),
+        config: config,
+        credentials: credentials,
+      );
+      addTearDown(engine.dispose);
+
+      final reply = await engine.chatTestModel('p1', 'm1', const [
+        {'role': 'user', 'content': '在吗'},
+      ]);
+
+      expect(reply, '收到，继续');
     });
   });
 

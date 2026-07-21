@@ -31,34 +31,116 @@ final _router = GoRouter(
     ShellRoute(
       builder: (context, state, child) => AppShell(child: child),
       routes: [
-        GoRoute(path: '/', builder: (c, s) => const ProjectListScreen()),
-        GoRoute(path: '/tasks', builder: (c, s) => const TasksScreen()),
-        GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
+        GoRoute(
+          path: '/',
+          pageBuilder: (c, s) =>
+              const NoTransitionPage<void>(child: ProjectListScreen()),
+        ),
+        GoRoute(
+          path: '/tasks',
+          pageBuilder: (c, s) =>
+              const NoTransitionPage<void>(child: TasksScreen()),
+        ),
+        GoRoute(
+          path: '/settings',
+          pageBuilder: (c, s) =>
+              const NoTransitionPage<void>(child: SettingsScreen()),
+        ),
         // 项目内分区（对应 ToonFlow /novel /scriptAgent /script /cornerScape /production /assets）
         GoRoute(
-            path: '/p/:pid/novel',
-            builder: (c, s) =>
-                NovelScreen(projectId: int.parse(s.pathParameters['pid']!))),
+          path: '/p/:pid/novel',
+          pageBuilder: (c, s) => CustomTransitionPage<void>(
+            key: s.pageKey,
+            child: NovelScreen(projectId: int.parse(s.pathParameters['pid']!)),
+            transitionDuration: const Duration(milliseconds: 100),
+            reverseTransitionDuration: const Duration(milliseconds: 100),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                child: child,
+              );
+            },
+          ),
+        ),
         GoRoute(
-            path: '/p/:pid/script',
-            builder: (c, s) =>
-                ScriptScreen(projectId: int.parse(s.pathParameters['pid']!))),
+          path: '/p/:pid/script',
+          pageBuilder: (c, s) => CustomTransitionPage<void>(
+            key: s.pageKey,
+            child: ScriptScreen(projectId: int.parse(s.pathParameters['pid']!)),
+            transitionDuration: const Duration(milliseconds: 100),
+            reverseTransitionDuration: const Duration(milliseconds: 100),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                child: child,
+              );
+            },
+          ),
+        ),
         GoRoute(
-            path: '/p/:pid/scriptAgent',
-            builder: (c, s) => AgentChatScreen(
-                projectId: int.parse(s.pathParameters['pid']!))),
+          path: '/p/:pid/scriptAgent',
+          pageBuilder: (c, s) => CustomTransitionPage<void>(
+            key: s.pageKey,
+            child: AgentChatScreen(
+                projectId: int.parse(s.pathParameters['pid']!)),
+            transitionDuration: const Duration(milliseconds: 100),
+            reverseTransitionDuration: const Duration(milliseconds: 100),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                child: child,
+              );
+            },
+          ),
+        ),
         GoRoute(
-            path: '/p/:pid/cornerScape',
-            builder: (c, s) => CornerScapeScreen(
-                projectId: int.parse(s.pathParameters['pid']!))),
+          path: '/p/:pid/cornerScape',
+          pageBuilder: (c, s) => CustomTransitionPage<void>(
+            key: s.pageKey,
+            child: CornerScapeScreen(
+                projectId: int.parse(s.pathParameters['pid']!)),
+            transitionDuration: const Duration(milliseconds: 100),
+            reverseTransitionDuration: const Duration(milliseconds: 100),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                child: child,
+              );
+            },
+          ),
+        ),
         GoRoute(
-            path: '/p/:pid/production',
-            builder: (c, s) => ProductionScreen(
-                projectId: int.parse(s.pathParameters['pid']!))),
+          path: '/p/:pid/production',
+          pageBuilder: (c, s) => CustomTransitionPage<void>(
+            key: s.pageKey,
+            child: ProductionScreen(
+                projectId: int.parse(s.pathParameters['pid']!)),
+            transitionDuration: const Duration(milliseconds: 100),
+            reverseTransitionDuration: const Duration(milliseconds: 100),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                child: child,
+              );
+            },
+          ),
+        ),
         GoRoute(
-            path: '/p/:pid/assets',
-            builder: (c, s) =>
-                AssetsScreen(projectId: int.parse(s.pathParameters['pid']!))),
+          path: '/p/:pid/assets',
+          pageBuilder: (c, s) => CustomTransitionPage<void>(
+            key: s.pageKey,
+            child:
+                AssetsScreen(projectId: int.parse(s.pathParameters['pid']!)),
+            transitionDuration: const Duration(milliseconds: 100),
+            reverseTransitionDuration: const Duration(milliseconds: 100),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                child: child,
+              );
+            },
+          ),
+        ),
       ],
     ),
   ],

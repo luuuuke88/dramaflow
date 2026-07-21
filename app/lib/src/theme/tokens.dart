@@ -209,27 +209,32 @@ abstract final class DFTokens {
   static const display24w700 = TextStyle(
     fontSize: 24,
     fontWeight: FontWeight.w700,
-    height: 1.5,
+    height: 1.35,
+    letterSpacing: -0.4,
   );
   static const title20w700 = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.w700,
-    height: 1.5,
+    height: 1.4,
+    letterSpacing: -0.3,
   );
   static const section16w600 = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    height: 1.5,
+    height: 1.45,
+    letterSpacing: -0.2,
   );
   static const body14 = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w400,
-    height: 1.5,
+    height: 1.55,
+    letterSpacing: 0.15,
   );
   static const caption12 = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w400,
     height: 1.5,
+    letterSpacing: 0.2,
   );
 
   static const tabularFigures = <FontFeature>[FontFeature.tabularFigures()];

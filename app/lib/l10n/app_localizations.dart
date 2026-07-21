@@ -250,6 +250,42 @@ abstract class AppLocalizations {
   /// **'暂无项目'**
   String get projectEmpty;
 
+  /// No description provided for @projectEmptySubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置基本信息与 AI 视觉手册，开启全流程短剧创作'**
+  String get projectEmptySubtitle;
+
+  /// No description provided for @taskCenterSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看正在运行的 AI 生成任务与历史生成记录'**
+  String get taskCenterSubtitle;
+
+  /// No description provided for @settingsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理 AI 模型供应商、模型绑定、提示词预设与应用外观'**
+  String get settingsSubtitle;
+
+  /// No description provided for @settingsThemeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示主题'**
+  String get settingsThemeTitle;
+
+  /// No description provided for @settingsThemeSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择 DramaFlow 的外观视觉主题风格'**
+  String get settingsThemeSubtitle;
+
+  /// No description provided for @settingsLanguageSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置界面的显示语言选项'**
+  String get settingsLanguageSubtitle;
+
   /// No description provided for @projectUntitled.
   ///
   /// In zh, this message translates to:
@@ -1101,6 +1137,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'编辑'**
   String get commonEdit;
+
+  /// No description provided for @commonPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get commonPreview;
 
   /// No description provided for @manualTabReadme.
   ///
@@ -5931,6 +5973,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'测试连通 · {name}'**
   String settingsProviderTestTitle(String name);
+
+  /// No description provided for @settingsChatTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话测试'**
+  String get settingsChatTest;
+
+  /// No description provided for @settingsChatTestTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话测试 · {name}'**
+  String settingsChatTestTitle(String name);
+
+  /// No description provided for @settingsChatTestInputHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入一条消息，回车发送'**
+  String get settingsChatTestInputHint;
+
+  /// No description provided for @settingsChatTestEmptyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'发一条消息，看看模型的真实回复'**
+  String get settingsChatTestEmptyHint;
+
+  /// No description provided for @settingsFetchModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'拉取模型'**
+  String get settingsFetchModels;
+
+  /// No description provided for @settingsFetchModelsNoneFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有发现新模型'**
+  String get settingsFetchModelsNoneFound;
+
+  /// No description provided for @settingsFetchModelsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择要添加的模型'**
+  String get settingsFetchModelsTitle;
+
+  /// No description provided for @settingsFetchModelsAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加所选'**
+  String get settingsFetchModelsAdd;
 
   /// No description provided for @settingsDeleteProviderTitle.
   ///

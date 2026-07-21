@@ -84,6 +84,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get projectEmpty => '暂无项目';
 
   @override
+  String get projectEmptySubtitle => '配置基本信息与 AI 视觉手册，开启全流程短剧创作';
+
+  @override
+  String get taskCenterSubtitle => '查看正在运行的 AI 生成任务与历史生成记录';
+
+  @override
+  String get settingsSubtitle => '管理 AI 模型供应商、模型绑定、提示词预设与应用外观';
+
+  @override
+  String get settingsThemeTitle => '显示主题';
+
+  @override
+  String get settingsThemeSubtitle => '选择 DramaFlow 的外观视觉主题风格';
+
+  @override
+  String get settingsLanguageSubtitle => '设置界面的显示语言选项';
+
+  @override
   String get projectUntitled => '未命名项目';
 
   @override
@@ -528,6 +546,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get commonEdit => '编辑';
+
+  @override
+  String get commonPreview => '预览';
 
   @override
   String get manualTabReadme => 'README';
@@ -3035,6 +3056,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String settingsProviderTestTitle(String name) {
     return '测试连通 · $name';
   }
+
+  @override
+  String get settingsChatTest => '对话测试';
+
+  @override
+  String settingsChatTestTitle(String name) {
+    return '对话测试 · $name';
+  }
+
+  @override
+  String get settingsChatTestInputHint => '输入一条消息，回车发送';
+
+  @override
+  String get settingsChatTestEmptyHint => '发一条消息，看看模型的真实回复';
+
+  @override
+  String get settingsFetchModels => '拉取模型';
+
+  @override
+  String get settingsFetchModelsNoneFound => '没有发现新模型';
+
+  @override
+  String get settingsFetchModelsTitle => '选择要添加的模型';
+
+  @override
+  String get settingsFetchModelsAdd => '添加所选';
 
   @override
   String get settingsDeleteProviderTitle => '删除供应商';

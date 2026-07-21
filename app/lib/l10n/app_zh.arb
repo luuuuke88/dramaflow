@@ -25,6 +25,12 @@
   "projectCreate": "创建",
   "projectCreated": "项目已创建",
   "projectEmpty": "暂无项目",
+  "projectEmptySubtitle": "配置基本信息与 AI 视觉手册，开启全流程短剧创作",
+  "taskCenterSubtitle": "查看正在运行的 AI 生成任务与历史生成记录",
+  "settingsSubtitle": "管理 AI 模型供应商、模型绑定、提示词预设与应用外观",
+  "settingsThemeTitle": "显示主题",
+  "settingsThemeSubtitle": "选择 DramaFlow 的外观视觉主题风格",
+  "settingsLanguageSubtitle": "设置界面的显示语言选项",
   "projectUntitled": "未命名项目",
   "errProviderMissing": "供应商缺失或已停用",
   "errModelMissing": "模型缺失或未绑定",
@@ -233,6 +239,7 @@
   "projectTypeNovel": "基于小说原文",
   "projectTypeScript": "基于小说剧本",
   "commonEdit": "编辑",
+  "commonPreview": "预览",
   "manualTabReadme": "README",
   "manualTabPrefix": "前缀",
   "manualTabCharacter": "角色",
@@ -1330,6 +1337,21 @@
       }
     }
   },
+  "settingsChatTest": "对话测试",
+  "settingsChatTestTitle": "对话测试 · {name}",
+  "@settingsChatTestTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsChatTestInputHint": "输入一条消息，回车发送",
+  "settingsChatTestEmptyHint": "发一条消息，看看模型的真实回复",
+  "settingsFetchModels": "拉取模型",
+  "settingsFetchModelsNoneFound": "没有发现新模型",
+  "settingsFetchModelsTitle": "选择要添加的模型",
+  "settingsFetchModelsAdd": "添加所选",
   "settingsDeleteProviderTitle": "删除供应商",
   "settingsDeleteProviderMessage": "确定删除“{name}”吗？如果供应商已被环节绑定，引擎会拒绝删除。",
   "@settingsDeleteProviderMessage": {

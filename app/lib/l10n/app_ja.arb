@@ -212,6 +212,7 @@
   "projectTypeNovel": "原作小説に基づいて",
   "projectTypeScript": "小説の脚本に基づく",
   "commonEdit": "編集",
+  "commonPreview": "プレビュー",
   "manualTabReadme": "README",
   "manualTabPrefix": "プレフィックス",
   "manualTabCharacter": "キャラクター",
@@ -1099,6 +1100,21 @@
       }
     }
   },
+  "settingsChatTest": "会話テスト",
+  "settingsChatTestTitle": "会話テスト · {name}",
+  "@settingsChatTestTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsChatTestInputHint": "メッセージを入力し、Enterで送信",
+  "settingsChatTestEmptyHint": "メッセージを送って、モデルの実際の返信を確認しましょう",
+  "settingsFetchModels": "モデルを取得",
+  "settingsFetchModelsNoneFound": "新しいモデルは見つかりませんでした",
+  "settingsFetchModelsTitle": "追加するモデルを選択",
+  "settingsFetchModelsAdd": "選択したものを追加",
   "settingsDeleteProviderTitle": "プロバイダーを削除",
   "settingsDeleteProviderMessage": "“{name}”を削除しますか？ステージに割り当てられている場合、エンジンは削除を拒否します。",
   "@settingsDeleteProviderMessage": {

@@ -48,6 +48,28 @@ class _RecordingHttpGateway extends HttpProviderGateway {
     calls.add('video:${model.modelId}');
     return 33;
   }
+
+  final chatMessages = <List<Map<String, String>>>[];
+
+  @override
+  Future<String> chatTestModel(
+    ResolvedModel model,
+    List<Map<String, String>> messages, {
+    CancelToken? cancelToken,
+  }) async {
+    calls.add('chat:${model.modelId}');
+    chatMessages.add(messages);
+    return '模型说：${messages.last['content']}';
+  }
+
+  List<String> fetchedModelIds = const [];
+
+  @override
+  Future<List<String>> fetchModelIds(String baseUrl, String apiKey,
+      {CancelToken? cancelToken}) async {
+    calls.add('fetch:$baseUrl');
+    return fetchedModelIds;
+  }
 }
 
 class _FailingFileSelector extends FileSelectorPlatform {
@@ -547,6 +569,131 @@ void main() {
       'image:local-image',
       'video:local-video',
     ]);
+  });
+
+  testWidgets('移动端设置页：对话测试可以来回聊并看到真实回复', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    final media = MediaStore(p.join(dir.path, 'media'));
+    final config = EngineConfig(db, isMobile: true);
+    final gateway = _RecordingHttpGateway(db, config, media);
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: gateway,
+      config: config,
+    );
+    final provider = await engine.createProvider(
+      name: 'Local Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'local-text',
+        'label': '本地文本',
+        'kind': 'text',
+        'enabled': true,
+      },
+    ]);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('对话测试').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('对话测试 · Local Gateway'), findsOneWidget);
+    expect(find.text('发一条消息，看看模型的真实回复'), findsOneWidget);
+
+    final inputField = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(inputField, '在吗');
+    await tester.tap(find.descendant(
+      of: find.byType(Dialog),
+      matching: find.text('发送'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('在吗'), findsOneWidget);
+    expect(find.text('模型说：在吗'), findsOneWidget);
+    expect(gateway.calls, ['chat:local-text']);
+    expect(gateway.chatMessages.single, [
+      {'role': 'user', 'content': '在吗'},
+    ]);
+  });
+
+  testWidgets('移动端设置页：拉取模型可勾选新发现的模型并追加到列表', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    final media = MediaStore(p.join(dir.path, 'media'));
+    final config = EngineConfig(db, isMobile: true);
+    final gateway = _RecordingHttpGateway(db, config, media)
+      ..fetchedModelIds = const ['gpt-5.5', 'gpt-5.6-sol'];
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: gateway,
+      config: config,
+    );
+    final provider = await engine.createProvider(
+      name: 'Local Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'gpt-5.5',
+        'label': 'gpt-5.5',
+        'kind': 'text',
+        'enabled': true,
+      },
+    ]);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('模型管理').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('拉取模型'));
+    await tester.pumpAndSettle();
+
+    // 已存在的 gpt-5.5 不应再被列出，只有新发现的 gpt-5.6-sol 可勾选。
+    final dialogFinder = find.byType(AlertDialog);
+    expect(find.text('选择要添加的模型'), findsOneWidget);
+    expect(
+      find.descendant(of: dialogFinder, matching: find.text('gpt-5.6-sol')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialogFinder, matching: find.text('gpt-5.5')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('添加所选'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, 'gpt-5.6-sol'), findsWidgets);
+    expect(gateway.calls, ['fetch:http://127.0.0.1:8787/v1']);
+
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final models = await engine.listProviderModels(provider.id);
+    expect(models.map((m) => m.modelId), containsAll(['gpt-5.5', 'gpt-5.6-sol']));
   });
 
   testWidgets('移动端设置页：清空数据确认只清内容保留配置', (tester) async {
