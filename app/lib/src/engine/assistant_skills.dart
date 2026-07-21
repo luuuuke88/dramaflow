@@ -179,15 +179,15 @@ extension AssistantSkillsApi on Engine {
     required String skillName,
   }) {
     final skill = _enabledMarkdownSkill(skillName);
-    final active = activatedAssistantSkillIds(projectId, family: family)
-      ..add(skill.id);
-    _saveActivatedAssistantSkillIds(projectId, family: family, ids: active);
-
     final parsed = parseAssistantSkillMarkdown(
       readManagedAssistantSkill(skill.id),
       fallbackName: skill.id,
     );
     final resources = _managedSkillResourcePaths(skill.id);
+    final active = activatedAssistantSkillIds(projectId, family: family)
+      ..add(skill.id);
+    _saveActivatedAssistantSkillIds(projectId, family: family, ids: active);
+
     final resourcesText = resources.isEmpty ? '无' : resources.join('、');
     return '已激活技能「${skill.name}」。\n\n${parsed.body}\n\n可读取资源：$resourcesText';
   }

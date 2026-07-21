@@ -295,6 +295,27 @@ void main() {
           {skill.id},
         );
       });
+
+      test('技能正文缺失时激活失败且不写入陈旧会话状态', () {
+        final skill = importSkill('camera_guide', '运镜规范', '镜头规则');
+        File(engine.managedAssistantSkillPath(skill.id)).deleteSync();
+
+        expect(
+          () => engine.activateAssistantSkill(
+            projectId,
+            family: assistantFamilyScript,
+            skillName: skill.id,
+          ),
+          throwsA(isA<EngineException>()),
+        );
+        expect(
+          engine.activatedAssistantSkillIds(
+            projectId,
+            family: assistantFamilyScript,
+          ),
+          isEmpty,
+        );
+      });
     });
   });
 
