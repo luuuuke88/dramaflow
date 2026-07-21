@@ -1861,6 +1861,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get videoRequestPickFromStoryboard => '絵コンテから選択';
 
   @override
+  String get videoRequestAssetUnavailable =>
+      'この素材はまだ生成済みファイルがないため、参照として使用できません。';
+
+  @override
   String get workbenchGenerateAll => 'すべて動画生成';
 
   @override

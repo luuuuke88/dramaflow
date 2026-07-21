@@ -1905,6 +1905,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get videoRequestPickFromStoryboard => 'Choose from storyboards';
 
   @override
+  String get videoRequestAssetUnavailable =>
+      'This asset doesn\'t have a generated file yet, so it can\'t be used as a reference.';
+
+  @override
   String get workbenchGenerateAll => 'Generate All Videos';
 
   @override

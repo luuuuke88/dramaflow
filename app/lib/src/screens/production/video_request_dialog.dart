@@ -68,6 +68,11 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
   late bool _generateAudio;
   VideoReferenceCandidate? _lastFrame;
   final Set<String> _multiReferenceKeys = {};
+  // 配音父资产在候选快照里只出现一次（见 videoReferenceCandidates 去重），
+  // 但选中父资产仍需把每条录音样本单独写成参考。样本本身不在
+  // widget.candidates 里，所以在这里按需为它们现造候选，供 _allCandidates/
+  // _candidateForKey 统一解析（选取时、保存时、重新打开弹窗回填时都要用到）。
+  final List<VideoReferenceCandidate> _extraCandidates = [];
 
   List<VideoMode> get _modes => widget.capabilities.modes.toList()
     ..sort((left, right) => left.wireValue.compareTo(right.wireValue));
@@ -88,6 +93,7 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
     for (final candidate in [
       ...widget.candidates,
       ...widget.storyboardCandidates,
+      ..._extraCandidates,
     ]) {
       if (keys.add(_candidateKey(candidate))) yield candidate;
     }
@@ -143,6 +149,51 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
         _multiReferenceKeys.add(_candidateKey(candidate));
       }
     }
+    // 已保存的引用里可能有配音样本子资产（选中父资产时展开写入的），它们不在
+    // widget.candidates 快照里。重新打开弹窗时按需现造候选，否则这些样本会在
+    // 编辑态里“凭空消失”，下次保存还会把它们从引用列表里悄悄丢掉。
+    final knownKeys = _allCandidates.map(_candidateKey).toSet();
+    for (final reference in widget.initial.references) {
+      if (reference.sourceType != 'audio' ||
+          reference.role != 'reference_audio') {
+        continue;
+      }
+      if (knownKeys.contains('audio:${reference.sourceId}')) continue;
+      final sample =
+          widget.engine.assetsByIds([reference.sourceId]).firstOrNull;
+      if (sample == null) continue;
+      final candidate = _resolveAudioSampleCandidate(sample);
+      if (candidate != null) _multiReferenceKeys.add(_candidateKey(candidate));
+    }
+  }
+
+  /// 为配音录音样本现造一个可参考候选（样本不在 widget.candidates 快照里）。
+  /// 找不到文件时返回 null，调用方据此计入“未落盘/不可用”。
+  VideoReferenceCandidate? _audioSampleCandidate(AssetRow sample) {
+    final path = sample.filePath;
+    if (path == null || path.isEmpty) return null;
+    if (widget.engine.media.existingFilePath(path) == null) return null;
+    return VideoReferenceCandidate(
+      source: VideoReferenceSource(
+        sourceType: 'audio',
+        sourceId: sample.id,
+        mediaType: 'audio',
+        role: 'reference_audio',
+      ),
+      label: sample.name ?? '',
+      localPath: path,
+    );
+  }
+
+  /// 构建并登记样本候选，令其此后也能被 _allCandidates/_candidateForKey 解析到。
+  VideoReferenceCandidate? _resolveAudioSampleCandidate(AssetRow sample) {
+    final candidate = _audioSampleCandidate(sample);
+    if (candidate == null) return null;
+    final key = _candidateKey(candidate);
+    if (_extraCandidates.every((existing) => _candidateKey(existing) != key)) {
+      _extraCandidates.add(candidate);
+    }
+    return candidate;
   }
 
   @override
@@ -418,21 +469,36 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
     );
     if (!mounted || ids == null || ids.isEmpty) return;
     // 原版 assetsCheck 选中音频父资产时会返回该父项的全部样本；视频多参考
-    // 需要保留这个展开语义，不能退化成仅取第一条可用样本。
+    // 需要保留这个展开语义，不能退化成仅取第一条可用样本。样本本身不在
+    // widget.candidates 快照里（同一音色只保留父资产一条候选），所以现造
+    // 候选并登记到 _extraCandidates，而不是退化成按 id 在快照里查找。
     final selectedAssets = widget.engine.assetsByIds(ids);
-    final expandedIds = <int>[
-      for (final asset in selectedAssets)
-        if (asset.type == 'audio' &&
-            asset.assetsId == null &&
-            asset.sonAssets.isNotEmpty)
-          ...asset.sonAssets.map((child) => child.id)
-        else
-          asset.id,
-    ];
-    final picked = [
-      for (final id in expandedIds)
-        if (_assetCandidateForId(id) case final candidate?) candidate,
-    ];
+    var expectedCount = 0;
+    final picked = <VideoReferenceCandidate>[];
+    for (final asset in selectedAssets) {
+      if (asset.type == 'audio' &&
+          asset.assetsId == null &&
+          asset.sonAssets.isNotEmpty) {
+        for (final sample in asset.sonAssets) {
+          expectedCount++;
+          final candidate = _resolveAudioSampleCandidate(sample);
+          if (candidate != null) picked.add(candidate);
+        }
+        continue;
+      }
+      expectedCount++;
+      final candidate = _assetCandidateForId(asset.id);
+      if (candidate != null) picked.add(candidate);
+    }
+    // 素材库选择器不按落盘状态过滤（getAssets/assetSelectionItems 对其他调用方
+    // 仍需保留无过滤语义），用户可能选中还没有生成完成文件的素材。这类 id 解析
+    // 不出候选，此前会被静默丢弃、零提示；现在必须明确告知用户，不能让"确认"
+    // 看起来生效却什么也没发生。
+    if (picked.length < expectedCount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.videoRequestAssetUnavailable)),
+      );
+    }
     if (picked.isEmpty) return;
     setState(() {
       for (final candidate in picked) {

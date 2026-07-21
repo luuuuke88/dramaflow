@@ -535,7 +535,11 @@ extension VideoTrackApi on Engine {
         sourceType: 'asset',
         sourceId: row['id'] as int,
         mediaType: mediaType,
-        role: mediaType == 'video' ? 'reference_video' : 'reference_image',
+        role: switch (mediaType) {
+          'audio' => 'reference_audio',
+          'video' => 'reference_video',
+          _ => 'reference_image',
+        },
         label: row['name'] as String? ?? '',
         localPath: row['filePath'] as String?,
         boundAudioSourceIds: _boundAudioAssetIds(
@@ -546,7 +550,7 @@ extension VideoTrackApi on Engine {
     }
     for (final row in db.select(
       "SELECT id,name FROM o_assets WHERE projectId=? AND type='audio' "
-      'ORDER BY id',
+      'AND assetsId IS NULL ORDER BY id',
       [projectId],
     )) {
       final audioId = row['id'] as int;
@@ -719,11 +723,13 @@ extension VideoTrackApi on Engine {
 
   List<int> _boundAudioAssetIds(int projectId, int assetId) => db
       .select(
-        'SELECT DISTINCT audio.id FROM o_assetsRole2Audio link '
+        'SELECT DISTINCT audio.id FROM o_assets target '
+        'JOIN o_assetsRole2Audio link ON '
+        '(link.assetsRoleId=target.id OR link.assetsRoleId=target.assetsId) '
         'JOIN o_assets audio ON audio.id=link.assetsAudioId '
         "AND audio.projectId=? AND audio.type='audio' AND audio.assetsId IS NULL "
-        'WHERE link.assetsRoleId=? ORDER BY audio.id',
-        [projectId, assetId],
+        'WHERE target.id=? AND target.projectId=? ORDER BY audio.id',
+        [projectId, assetId, projectId],
       )
       .map((row) => row['id'] as int)
       .toList(growable: false);

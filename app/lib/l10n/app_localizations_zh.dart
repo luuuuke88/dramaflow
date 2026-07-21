@@ -1845,6 +1845,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get videoRequestPickFromStoryboard => '从分镜选择';
 
   @override
+  String get videoRequestAssetUnavailable => '该素材还没有生成完成的文件，暂时无法作为参考。';
+
+  @override
   String get workbenchGenerateAll => '全部生成视频';
 
   @override

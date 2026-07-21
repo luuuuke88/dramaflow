@@ -556,6 +556,68 @@ void main() {
     expect(audio.localPath, endsWith('.mp3'));
   });
 
+  test('videoReferenceCandidates 子资产候选可继承父级角色绑定的配音', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '角色有换装子资产的镜头',
+    );
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '有换装的角色',
+      describe: '',
+    );
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '角色音色',
+      sex: '女',
+      describe: '',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '样本',
+          name: '样本',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+    engine.bindAssetAudio(roleId, audioId);
+
+    final childId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '换装子资产',
+      describe: '',
+      parentAssetsId: roleId,
+    );
+    writeMedia('p/child-outfit.png');
+    db.execute(
+      "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,'image','已完成')",
+      [childId, 'p/child-outfit.png'],
+    );
+    db.execute(
+      'UPDATE o_assets SET imageId=? WHERE id=?',
+      [db.lastInsertRowId, childId],
+    );
+
+    final candidates =
+        engine.videoReferenceCandidates(projectId, storyboardId);
+    final childCandidate = candidates.firstWhere(
+      (candidate) =>
+          candidate.source.sourceType == 'asset' &&
+          candidate.source.sourceId == childId,
+    );
+
+    expect(
+      childCandidate.boundAudioSourceIds,
+      contains(audioId),
+      reason: '子资产作为候选时应继承父级角色绑定的配音，而不是查出空列表',
+    );
+  });
+
   test('videoReferenceCandidates 也列出项目中未关联当前分镜的可用素材', () {
     final storyboardId = engine.addStoryboard(
       projectId: projectId,
@@ -616,6 +678,60 @@ void main() {
           candidate.source.mediaType == 'audio'),
       isTrue,
     );
+  });
+
+  test('videoReferenceCandidates 配音候选按父资产聚合，不为每条录音样本重复', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '配音资产有多条录音样本的镜头',
+    );
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '多样本音色',
+      sex: '女',
+      describe: '',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '样本一',
+          name: '样本一',
+          describe: '',
+          existingImageId: null,
+        ),
+        (
+          base64: base64Encode([4, 5, 6]),
+          ext: 'mp3',
+          prompt: '样本二',
+          name: '样本二',
+          describe: '',
+          existingImageId: null,
+        ),
+        (
+          base64: base64Encode([7, 8, 9]),
+          ext: 'mp3',
+          prompt: '样本三',
+          name: '样本三',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+
+    final candidates =
+        engine.videoReferenceCandidates(projectId, storyboardId);
+    final audioCandidates = candidates
+        .where((candidate) => candidate.source.mediaType == 'audio')
+        .toList();
+
+    expect(
+      audioCandidates,
+      hasLength(1),
+      reason: '父资产与每条录音子样本不应各自拆成独立候选，同一音色只应出现一次',
+    );
+    expect(audioCandidates.single.source.sourceId, audioId);
+    expect(audioCandidates.single.source.sourceType, 'audio');
   });
 
   test('videoReferenceCandidates 按片段扩展名分类并保留可选子资产', () {
@@ -681,6 +797,37 @@ void main() {
           candidate.source.sourceId == childId &&
           candidate.source.mediaType == 'image'),
       isTrue,
+    );
+  });
+
+  test('videoReferenceCandidates 音频扩展名的素材库片段归类为 reference_audio 角色', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '项目素材库里混入音频片段的镜头',
+    );
+    final audioClipId = engine.uploadClip(
+      projectId: projectId,
+      type: 'clip',
+      name: '素材库音频片段',
+      bytes: [1, 2, 3],
+      ext: 'mp3',
+    );
+
+    final candidates =
+        engine.videoReferenceCandidates(projectId, storyboardId);
+    final clipCandidate = candidates.firstWhere(
+      (candidate) =>
+          candidate.source.sourceType == 'asset' &&
+          candidate.source.sourceId == audioClipId,
+    );
+
+    expect(clipCandidate.source.mediaType, 'audio');
+    expect(
+      clipCandidate.source.role,
+      'reference_audio',
+      reason: 'mediaType 为 audio 的素材库候选必须归为 reference_audio，'
+          '不能被二元表达式误判成 reference_image',
     );
   });
 
