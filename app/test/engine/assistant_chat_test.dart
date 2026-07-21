@@ -206,6 +206,13 @@ void main() {
 
     expect(gateway.callCount, 2);
     expect(gateway.lastMessages.last['content'], contains('skillMissing'));
+    // Bug 2 回归：失败的技能工具调用必须存成 assistant role（走本地化渲染、
+    // 不被 UI 标成"已执行”），不能是 tool role（对照 _runAssistantActionAndAppend
+    // 失败分支的既有写法）。
+    final failure = engine
+        .assistantMessages(projectId, family: assistantFamilyProduction)
+        .singleWhere((m) => m.toolName == 'read_skill_file');
+    expect(failure.role, assistantRoleAssistant);
   });
 
   test('连续技能工具最多执行三次，不挤占业务动作上限', () async {
@@ -225,13 +232,13 @@ void main() {
     );
 
     expect(gateway.callCount, 3);
-    expect(
-      engine
-          .assistantMessages(projectId, family: assistantFamilyScript)
-          .last
-          .content,
-      contains('assistantSkillToolLimit'),
-    );
+    final limitMessage =
+        engine.assistantMessages(projectId, family: assistantFamilyScript).last;
+    expect(limitMessage.content, contains('assistantSkillToolLimit'));
+    // Bug 2 回归：跳数超限是失败/中止提示，不是一次成功执行的技能结果，role
+    // 必须是 assistant（走本地化渲染），不能是 tool（会被 UI 原样显示 JSON
+    // 并标成"已执行"）。
+    expect(limitMessage.role, assistantRoleAssistant);
   });
 
   test('family 由入口传入并互相隔离', () async {

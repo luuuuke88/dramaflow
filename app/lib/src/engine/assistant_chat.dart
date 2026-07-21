@@ -241,8 +241,11 @@ extension AssistantChatApi on Engine {
         if (_assistantSessionStale(projectId, family, epoch)) return;
         contextToolHops++;
         if (contextToolHops >= _maxSkillContextToolHops) {
+          // role 用 assistant 而不是 tool：这是失败/中止提示，不是一次成功执行
+          // 的技能结果，要走 _assistantDisplayText 的本地化渲染路径，也不能被
+          // UI 误标成"已执行"（见 _AssistantMessageBubble 的 isTool 分支）。
           messages.add(AssistantMessage(
-            role: assistantRoleTool,
+            role: assistantRoleAssistant,
             content: _errorContent(const EngineException(
               errLlmFormat,
               {'reason': 'assistantSkillToolLimit'},
@@ -425,11 +428,15 @@ extension AssistantChatApi on Engine {
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
     } catch (e) {
+      // role 用 assistant 而不是 tool：对照 _runAssistantActionAndAppend 失败
+      // 分支的既有写法（同文件上方）。失败结果如果留在 tool role，UI 会直接
+      // Text(message.content) 展示未本地化的原始 JSON，还会被 isTool 分支标成
+      // "已执行"——这两者都只对真正成功执行的结果成立。
       final ex = e is EngineException
           ? e
           : EngineException(errLlmFormat, {'message': '$e'});
       messages.add(AssistantMessage(
-        role: assistantRoleTool,
+        role: assistantRoleAssistant,
         content: _errorContent(ex),
         toolName: toolName,
         createdAt: DateTime.now().millisecondsSinceEpoch,

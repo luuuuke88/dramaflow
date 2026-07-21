@@ -691,4 +691,31 @@ description: 移动端构图
     await tester.pumpAndSettle();
     expect(tester.widget<IconButton>(clearButtonFinder).onPressed, isNotNull);
   });
+
+  testWidgets('技能工具调用失败时气泡显示本地化文案而不是原始 JSON，且不标"已执行"（Bug 2 回归）',
+      (tester) async {
+    // 激活一个不存在的技能：activateAssistantSkill 会抛 errLlmFormat/skillMissing，
+    // 走 _runAssistantSkillToolAndAppend 的 catch 分支。
+    gateway.turns.add(
+      const AgentTurnResult.tool(
+        'activate_skill',
+        {'skillName': 'does_not_exist'},
+      ),
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '帮我用一下运镜技能');
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+
+    // 不能是未本地化的原始 JSON/错误码字符串。
+    expect(find.textContaining('errKey'), findsNothing);
+    expect(find.textContaining('skillMissing'), findsNothing);
+    // 不能被误标成"已执行"（那是成功执行结果专属的标题/样式）。
+    expect(find.textContaining('已执行'), findsNothing);
+    expect(find.byIcon(Icons.bolt), findsNothing);
+    // 应该展示 errLlmFormat 对应的本地化通用文案。
+    expect(find.text('模型输出格式无效'), findsOneWidget);
+  });
 }
