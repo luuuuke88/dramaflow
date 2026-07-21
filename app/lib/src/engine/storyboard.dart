@@ -445,6 +445,13 @@ extension StoryboardApi on Engine {
       final f = File(media.absPath(row['filePath'] as String));
       if (f.existsSync()) f.deleteSync();
     }
+    for (final row in db.select(
+      'SELECT audioPath FROM o_storyboard WHERE id IN ($ph) AND audioPath IS NOT NULL',
+      ids,
+    )) {
+      final f = File(media.absPath(row['audioPath'] as String));
+      if (f.existsSync()) f.deleteSync();
+    }
     db.execute(
         'DELETE FROM o_assets2Storyboard WHERE storyboardId IN ($ph)', ids);
     db.execute('DELETE FROM o_storyboard WHERE id IN ($ph)', ids);

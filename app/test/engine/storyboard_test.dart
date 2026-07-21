@@ -276,6 +276,28 @@ void main() {
         reason: 'ToonFlow removeFrame 会删除只属于该镜头的空轨');
   });
 
+  test('删除分镜会清理磁盘上的配音音频文件', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '待删除镜头',
+    );
+    const audioRel = '1/storyboard_audio_demo.mp3';
+    final audioFile = File(engine.mediaAbsPath(audioRel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3, 4]);
+    db.execute(
+      'UPDATE o_storyboard SET audioPath=? WHERE id=?',
+      [audioRel, storyboardId],
+    );
+    expect(audioFile.existsSync(), isTrue);
+
+    engine.deleteStoryboards([storyboardId]);
+
+    expect(audioFile.existsSync(), isFalse,
+        reason: '删除分镜需一并清理已生成的配音文件，避免磁盘泄漏');
+  });
+
   test('前插语义：insertAfterIndex=目标index-1 使新镜头排到目标之前', () {
     final s1 = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '镜头1');
