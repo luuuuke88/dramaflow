@@ -682,6 +682,7 @@
   "videoRequestAddReference": "参照素材を追加",
   "videoRequestPickFromAssets": "素材ライブラリから選択",
   "videoRequestPickFromStoryboard": "絵コンテから選択",
+  "videoRequestAssetUnavailable": "この素材はまだ生成済みファイルがないため、参照として使用できません。",
   "workbenchGenerateAll": "すべて動画生成",
   "workbenchGenerateAllPrompts": "すべてカメラワーク生成",
   "workbenchTrackSelectAll": "すべての動画トラックを選択",

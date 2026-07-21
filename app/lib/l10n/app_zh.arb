@@ -802,6 +802,7 @@
   "videoRequestAddReference": "添加参考素材",
   "videoRequestPickFromAssets": "从素材库选择",
   "videoRequestPickFromStoryboard": "从分镜选择",
+  "videoRequestAssetUnavailable": "该素材还没有生成完成的文件，暂时无法作为参考。",
   "workbenchGenerateAll": "全部生成视频",
   "workbenchGenerateAllPrompts": "全部生成运镜提示词",
   "workbenchTrackSelectAll": "全选视频轨",

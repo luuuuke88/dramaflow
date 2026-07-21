@@ -3640,6 +3640,12 @@ abstract class AppLocalizations {
   /// **'从分镜选择'**
   String get videoRequestPickFromStoryboard;
 
+  /// No description provided for @videoRequestAssetUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'该素材还没有生成完成的文件，暂时无法作为参考。'**
+  String get videoRequestAssetUnavailable;
+
   /// No description provided for @workbenchGenerateAll.
   ///
   /// In zh, this message translates to:

@@ -682,6 +682,7 @@
   "videoRequestAddReference": "Add reference media",
   "videoRequestPickFromAssets": "Choose from assets",
   "videoRequestPickFromStoryboard": "Choose from storyboards",
+  "videoRequestAssetUnavailable": "This asset doesn't have a generated file yet, so it can't be used as a reference.",
   "workbenchGenerateAll": "Generate All Videos",
   "workbenchGenerateAllPrompts": "Generate All Motion Prompts",
   "workbenchTrackSelectAll": "Select all video tracks",

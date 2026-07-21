@@ -5910,6 +5910,90 @@ void main() {
     expect(draft.references.single.mediaType, 'image');
   });
 
+  testWidgets('视频参数弹窗选择未落盘素材会提示且不写入无效参考', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['multi_reference'],
+                'references': {'image': 1, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '素材库里混入未生成完成素材的镜头',
+    );
+    // 没有调用 saveAssetImage：这个角色资产没有 imageId，也没有落盘文件。
+    // getAssets/assetSelectionItems 不按落盘状态过滤，选择器仍会展示它；
+    // 但 videoReferenceCandidates 的快照会把它排除在候选之外。
+    final pendingRoleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '还没生成完成的角色',
+      describe: '',
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-add-reference')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-source-assets')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('asset-picker-item-$pendingRoleId')),
+      findsOneWidget,
+      reason: '素材选择器目前不按落盘状态过滤，未生成完成的素材仍会出现在候选列表里',
+    );
+    await tester
+        .tap(find.byKey(ValueKey('asset-picker-item-$pendingRoleId')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.text('该素材还没有生成完成的文件，暂时无法作为参考。'),
+      ),
+      findsOneWidget,
+      reason: '选中未落盘素材必须给出明确提示，不能静默丢弃',
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+              find.byKey(const ValueKey('video-request-save')))
+          .onPressed,
+      isNull,
+      reason: '未落盘素材不能被当成有效参考选中，保存按钮应保持禁用',
+    );
+  });
+
   testWidgets('视频参数可从同剧集分镜选择图片参考', (tester) async {
     engine.db.execute(
       'UPDATE o_vendorConfig SET models=? WHERE id=?',
@@ -6087,6 +6171,124 @@ void main() {
     expect(
       draft.references.map((reference) => reference.sourceId).toSet(),
       childIds,
+    );
+  });
+
+  testWidgets('视频参数弹窗重新打开时保留此前展开写入的配音样本引用', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['multi_reference'],
+                'references': {'image': 0, 'video': 0, 'audio': 2},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '重新打开仍需保留配音样本引用的镜头',
+    );
+    final audioParentId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '需要保留的音色',
+      sex: '女',
+      describe: '',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '第一句',
+          name: '样本一',
+          describe: '',
+          existingImageId: null,
+        ),
+        (
+          base64: base64Encode([4, 5, 6]),
+          ext: 'mp3',
+          prompt: '第二句',
+          name: '样本二',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+    final childIds = engine
+        .getAssets(projectId, type: 'audio', limit: 10)
+        .data
+        .singleWhere((asset) => asset.id == audioParentId)
+        .sonAssets
+        .map((asset) => asset.id)
+        .toSet();
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-add-reference')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-source-assets')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('asset-picker-item-$audioParentId')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('video-request-save')));
+    await tester.pumpAndSettle();
+
+    final trackId = engine
+        .storyboards(scriptId)
+        .singleWhere((storyboard) => storyboard.id == storyboardId)
+        .trackId!;
+    expect(engine.videoRequestForTrack(trackId).references, hasLength(2));
+
+    // 重新打开同一条视频参数弹窗，什么都不改直接再次保存。
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(
+              find.byKey(const ValueKey('video-request-save')))
+          .onPressed,
+      isNotNull,
+      reason: '重新打开弹窗时应识别出此前展开写入的配音样本引用，保存按钮不应因此被禁用',
+    );
+    await tester.tap(find.byKey(const ValueKey('video-request-save')));
+    await tester.pumpAndSettle();
+
+    final draftAfterReopen = engine.videoRequestForTrack(trackId);
+    expect(
+      draftAfterReopen.references
+          .map((reference) => reference.sourceId)
+          .toSet(),
+      childIds,
+      reason: '重新打开弹窗后直接保存，此前展开写入的配音样本引用不能被悄悄丢弃',
     );
   });
 
