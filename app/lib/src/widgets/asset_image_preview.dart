@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:clipboard/clipboard.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as image_codec;
 import 'package:path/path.dart' as p;
@@ -30,6 +30,13 @@ class ImagePreviewActions {
 /// Native clipboard plugins accept PNG bytes. Keep an already-PNG source
 /// untouched; other local image formats are decoded once and encoded for the
 /// platform clipboard.
+///
+/// Local files aren't guaranteed to actually be PNG-encoded even when named
+/// `.png` (see `MediaStore.saveImage`, which writes upstream bytes as-is), so
+/// the decode/encode branch below is a real, CPU-bound possibility, not a
+/// rare edge case. Callers must invoke this via `compute()` (see `_copy`
+/// below) instead of calling it inline on the UI isolate — same pattern as
+/// `buildStoryboardContactSheet` in storyboard_contact_sheet.dart.
 Uint8List imageBytesForClipboard(Uint8List source) {
   const pngSignature = <int>[137, 80, 78, 71, 13, 10, 26, 10];
   if (source.length >= pngSignature.length) {
@@ -90,7 +97,11 @@ class AssetImagePreviewPage extends StatelessWidget {
     final l10n = context.l10n;
     try {
       final source = await actions.readImageBytes(absPath);
-      await actions.copyImageBytes(imageBytesForClipboard(source));
+      // decodeImage/encodePng inside imageBytesForClipboard are CPU-bound;
+      // run them on a background isolate so a non-PNG source can't jank the
+      // UI thread while copying.
+      final clipboardBytes = await compute(imageBytesForClipboard, source);
+      await actions.copyImageBytes(clipboardBytes);
       if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(l10n.imageActionCopied)));
