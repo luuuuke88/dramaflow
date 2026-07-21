@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'assistant_actions.dart';
+import 'assistant_session_epoch.dart';
 import 'assistant_skills.dart';
 import 'engine.dart';
 import 'errors.dart';
@@ -99,6 +100,9 @@ extension AssistantChatApi on Engine {
     required String family,
     required bool autoMode,
   }) async {
+    // 记下发起这次请求时的代际号：如果在下面的多轮循环飞行期间用户清空了
+    // 会话，代际号会变，循环内的回写会自己识别过期并放弃（见 _driveAssistantLoop）。
+    final epoch = assistantSessionEpoch(projectId, family);
     final messages = List<AssistantMessage>.from(
       assistantMessages(projectId, family: family),
     )..add(AssistantMessage(
@@ -106,13 +110,14 @@ extension AssistantChatApi on Engine {
         content: text,
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
-    _saveAssistantMessages(projectId, family, messages);
+    _saveAssistantMessages(projectId, family, messages, epoch: epoch);
     await _driveAssistantLoop(
       projectId,
       family: family,
       messages: messages,
       autoMode: autoMode,
       remainingTurns: autoMode ? _maxAutoTurns : 1,
+      epoch: epoch,
     );
   }
 
@@ -121,6 +126,7 @@ extension AssistantChatApi on Engine {
     required String family,
     required bool approve,
   }) async {
+    final epoch = assistantSessionEpoch(projectId, family);
     final messages = List<AssistantMessage>.from(
       assistantMessages(projectId, family: family),
     );
@@ -131,7 +137,7 @@ extension AssistantChatApi on Engine {
     messages[index] = pending.copyWith(
       confirmStatus: approve ? 'approved' : 'rejected',
     );
-    _saveAssistantMessages(projectId, family, messages);
+    _saveAssistantMessages(projectId, family, messages, epoch: epoch);
     if (!approve) return;
 
     final payload = pending.pendingArgs ?? const {};
@@ -150,6 +156,7 @@ extension AssistantChatApi on Engine {
       toolName: toolName,
       args: args,
       addMoneyNotice: false,
+      epoch: epoch,
     );
     if (ran && autoMode && remainingTurns > 0) {
       await _driveAssistantLoop(
@@ -158,11 +165,16 @@ extension AssistantChatApi on Engine {
         messages: messages,
         autoMode: true,
         remainingTurns: remainingTurns,
+        epoch: epoch,
       );
     }
   }
 
   void clearAssistantChat(int projectId, {required String family}) {
+    // 递增代际号，让任何飞行中的 _driveAssistantLoop（见下方）在下一次要往数据库
+    // 回写之前发现自己已经过期并放弃——否则该请求完成后仍会用内存里的旧
+    // messages 列表把这里删掉的行重新 INSERT 回去。
+    bumpAssistantSessionEpoch(projectId, family);
     db.execute(
       'DELETE FROM o_agentWorkData WHERE projectId=? '
       'AND episodesId IS NULL AND key=?',
@@ -191,6 +203,7 @@ extension AssistantChatApi on Engine {
     required List<AssistantMessage> messages,
     required bool autoMode,
     required int remainingTurns,
+    required int epoch,
   }) async {
     var actionTurns = 0;
     var contextToolHops = 0;
@@ -201,13 +214,17 @@ extension AssistantChatApi on Engine {
         stage: stage,
         messages: messages,
       );
+      // gateway 调用是循环里唯一真正会让出控制权的等待点：如果清空聊天发生在
+      // 这次等待期间，代际号已经变了——立刻停止，既不再回写，也不再继续下一轮
+      // （避免飞行中的旧请求在用户清空后又提交新的动作/花钱任务）。
+      if (_assistantSessionStale(projectId, family, epoch)) return;
       if (!result.isToolCall) {
         messages.add(AssistantMessage(
           role: assistantRoleAssistant,
           content: result.text ?? '',
           createdAt: DateTime.now().millisecondsSinceEpoch,
         ));
-        _saveAssistantMessages(projectId, family, messages);
+        _saveAssistantMessages(projectId, family, messages, epoch: epoch);
         return;
       }
 
@@ -219,7 +236,9 @@ extension AssistantChatApi on Engine {
           messages: messages,
           toolName: toolName,
           args: result.toolArgs ?? const {},
+          epoch: epoch,
         );
+        if (_assistantSessionStale(projectId, family, epoch)) return;
         contextToolHops++;
         if (contextToolHops >= _maxSkillContextToolHops) {
           messages.add(AssistantMessage(
@@ -231,7 +250,7 @@ extension AssistantChatApi on Engine {
             toolName: toolName,
             createdAt: DateTime.now().millisecondsSinceEpoch,
           ));
-          _saveAssistantMessages(projectId, family, messages);
+          _saveAssistantMessages(projectId, family, messages, epoch: epoch);
           return;
         }
         continue;
@@ -247,7 +266,7 @@ extension AssistantChatApi on Engine {
           )),
           createdAt: DateTime.now().millisecondsSinceEpoch,
         ));
-        _saveAssistantMessages(projectId, family, messages);
+        _saveAssistantMessages(projectId, family, messages, epoch: epoch);
         return;
       }
       final args = normalizeActionArgs(
@@ -278,7 +297,7 @@ extension AssistantChatApi on Engine {
           confirmStatus: 'pending',
           createdAt: DateTime.now().millisecondsSinceEpoch,
         ));
-        _saveAssistantMessages(projectId, family, messages);
+        _saveAssistantMessages(projectId, family, messages, epoch: epoch);
         return;
       }
 
@@ -289,8 +308,12 @@ extension AssistantChatApi on Engine {
         toolName: action.name,
         args: args,
         addMoneyNotice: autoMode && action.costsMoney,
+        epoch: epoch,
       );
       if (!ran || !autoMode) return;
+      // runAssistantAction 也可能真正挂起（例如涉及 I/O 的动作）；同一个道理，
+      // 恢复后先确认代际号仍然是自己发起时记下的那个，否则不再继续下一轮。
+      if (_assistantSessionStale(projectId, family, epoch)) return;
     }
   }
 
@@ -326,6 +349,7 @@ extension AssistantChatApi on Engine {
     required String toolName,
     required Map<String, dynamic> args,
     required bool addMoneyNotice,
+    required int epoch,
   }) async {
     if (addMoneyNotice) {
       messages.add(AssistantMessage(
@@ -345,7 +369,7 @@ extension AssistantChatApi on Engine {
         toolName: toolName,
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
-      _saveAssistantMessages(projectId, family, messages);
+      _saveAssistantMessages(projectId, family, messages, epoch: epoch);
       return true;
     } catch (e) {
       final ex = e is EngineException
@@ -356,7 +380,7 @@ extension AssistantChatApi on Engine {
         content: _errorContent(ex),
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
-      _saveAssistantMessages(projectId, family, messages);
+      _saveAssistantMessages(projectId, family, messages, epoch: epoch);
       return false;
     }
   }
@@ -367,7 +391,11 @@ extension AssistantChatApi on Engine {
     required List<AssistantMessage> messages,
     required String toolName,
     required Map<String, dynamic> args,
+    required int epoch,
   }) async {
+    // 会话已经被清空：既不要激活/读取技能（会把已清空的激活状态重新写回去），
+    // 也不要在下面追加消息，直接放弃这次工具调用。
+    if (_assistantSessionStale(projectId, family, epoch)) return;
     try {
       final skillName = args['skillName'];
       if (skillName is! String || skillName.trim().isEmpty) {
@@ -407,7 +435,7 @@ extension AssistantChatApi on Engine {
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
     }
-    _saveAssistantMessages(projectId, family, messages);
+    _saveAssistantMessages(projectId, family, messages, epoch: epoch);
   }
 
   String _readAssistantSkillFileTool(
@@ -430,8 +458,13 @@ extension AssistantChatApi on Engine {
   void _saveAssistantMessages(
     int projectId,
     String family,
-    List<AssistantMessage> messages,
-  ) {
+    List<AssistantMessage> messages, {
+    required int epoch,
+  }) {
+    // 回写前的最后一道闸：如果调用方发起时记下的代际号已经跟不上"当下"，说明
+    // 中途发生过清空，这次回写整体作废（宁可丢弃这轮结果，也不能把已清空的
+    // 会话复活）。
+    if (_assistantSessionStale(projectId, family, epoch)) return;
     final key = _assistantChatKey(family);
     final data = jsonEncode([for (final message in messages) message.toJson()]);
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -508,6 +541,12 @@ extension AssistantChatApi on Engine {
     ];
   }
 }
+
+/// 代际号比对：true 表示这个 projectId+family 的助手会话在 [epoch] 之后被
+/// 清空过（clearAssistantChat / clearActivatedAssistantSkills），调用方应放弃
+/// 手上这次回写并停止继续。
+bool _assistantSessionStale(int projectId, String family, int epoch) =>
+    assistantSessionEpoch(projectId, family) != epoch;
 
 String _assistantChatKey(String family) => 'assistantChat:$family';
 

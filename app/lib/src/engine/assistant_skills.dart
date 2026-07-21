@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'assistant_actions.dart';
+import 'assistant_session_epoch.dart';
 import 'assistant_skill_library.dart';
 import 'engine.dart';
 import 'errors.dart';
@@ -211,6 +212,10 @@ extension AssistantSkillsApi on Engine {
     int projectId, {
     required String family,
   }) {
+    // 先让代际号失效，再删行：确保任何飞行中的 activateAssistantSkill 调用
+    // （见 assistant_chat.dart _runAssistantSkillToolAndAppend）事后写回时能
+    // 认出自己已经过期，不会把这次清空复活。
+    bumpAssistantSessionEpoch(projectId, family);
     db.execute(
       'DELETE FROM o_agentWorkData WHERE projectId=? '
       'AND episodesId IS NULL AND key=?',
