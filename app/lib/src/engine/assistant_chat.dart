@@ -18,6 +18,7 @@ const assistantFamilyProduction = 'production';
 const _scriptAssistantStage = 'scriptAgent';
 const _productionAssistantStage = 'productionAgent';
 const _maxAutoTurns = 5;
+const _maxSkillContextToolHops = 3;
 
 class AssistantMessage {
   final String role;
@@ -167,6 +168,7 @@ extension AssistantChatApi on Engine {
       'AND episodesId IS NULL AND key=?',
       [projectId, _assistantChatKey(family)],
     );
+    clearActivatedAssistantSkills(projectId, family: family);
   }
 
   bool assistantAutoMode() {
@@ -190,7 +192,9 @@ extension AssistantChatApi on Engine {
     required bool autoMode,
     required int remainingTurns,
   }) async {
-    for (var turn = 0; turn < remainingTurns; turn++) {
+    var actionTurns = 0;
+    var contextToolHops = 0;
+    while (actionTurns < remainingTurns) {
       final stage = _assistantStage(family);
       final result = await _nextAssistantTurn(
         family: family,
@@ -207,7 +211,33 @@ extension AssistantChatApi on Engine {
         return;
       }
 
-      final action = _assistantActionByName(result.toolName!);
+      final toolName = result.toolName!;
+      if (_isAssistantSkillTool(toolName)) {
+        await _runAssistantSkillToolAndAppend(
+          projectId,
+          family: family,
+          messages: messages,
+          toolName: toolName,
+          args: result.toolArgs ?? const {},
+        );
+        contextToolHops++;
+        if (contextToolHops >= _maxSkillContextToolHops) {
+          messages.add(AssistantMessage(
+            role: assistantRoleTool,
+            content: _errorContent(const EngineException(
+              errLlmFormat,
+              {'reason': 'assistantSkillToolLimit'},
+            )),
+            toolName: toolName,
+            createdAt: DateTime.now().millisecondsSinceEpoch,
+          ));
+          _saveAssistantMessages(projectId, family, messages);
+          return;
+        }
+        continue;
+      }
+
+      final action = _assistantActionByName(toolName);
       if (action == null) {
         messages.add(AssistantMessage(
           role: assistantRoleAssistant,
@@ -230,6 +260,7 @@ extension AssistantChatApi on Engine {
         destructiveKey: action.destructive ? action.name : null,
         autoMode: autoMode,
       );
+      actionTurns++;
       if (verdict != PolicyVerdict.allow) {
         messages.add(AssistantMessage(
           role: assistantRoleConfirm,
@@ -242,7 +273,7 @@ extension AssistantChatApi on Engine {
             'toolName': action.name,
             'args': args,
             'autoMode': autoMode,
-            'remainingTurns': remainingTurns - turn - 1,
+            'remainingTurns': remainingTurns - actionTurns,
           },
           confirmStatus: 'pending',
           createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -330,6 +361,72 @@ extension AssistantChatApi on Engine {
     }
   }
 
+  Future<void> _runAssistantSkillToolAndAppend(
+    int projectId, {
+    required String family,
+    required List<AssistantMessage> messages,
+    required String toolName,
+    required Map<String, dynamic> args,
+  }) async {
+    try {
+      final skillName = args['skillName'];
+      if (skillName is! String || skillName.trim().isEmpty) {
+        throw const EngineException(errLlmFormat, {'reason': 'skillMissing'});
+      }
+      final content = switch (toolName) {
+        'activate_skill' => activateAssistantSkill(
+            projectId,
+            family: family,
+            skillName: skillName,
+          ),
+        'read_skill_file' => _readAssistantSkillFileTool(
+            projectId,
+            family: family,
+            skillName: skillName,
+            relativePath: args['relativePath'],
+          ),
+        _ => throw const EngineException(
+            errLlmFormat,
+            {'reason': 'unknownAssistantAction'},
+          ),
+      };
+      messages.add(AssistantMessage(
+        role: assistantRoleTool,
+        content: content,
+        toolName: toolName,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+      ));
+    } catch (e) {
+      final ex = e is EngineException
+          ? e
+          : EngineException(errLlmFormat, {'message': '$e'});
+      messages.add(AssistantMessage(
+        role: assistantRoleTool,
+        content: _errorContent(ex),
+        toolName: toolName,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+      ));
+    }
+    _saveAssistantMessages(projectId, family, messages);
+  }
+
+  String _readAssistantSkillFileTool(
+    int projectId, {
+    required String family,
+    required String skillName,
+    required Object? relativePath,
+  }) {
+    if (relativePath is! String || relativePath.trim().isEmpty) {
+      throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
+    }
+    return readActivatedAssistantSkillFile(
+      projectId,
+      family: family,
+      skillName: skillName,
+      relativePath: relativePath,
+    );
+  }
+
   void _saveAssistantMessages(
     int projectId,
     String family,
@@ -358,6 +455,7 @@ extension AssistantChatApi on Engine {
   }
 
   String _assistantSystemPrompt(String family) {
+    final skillCatalog = assistantSkillCatalog();
     final lines = <String>[
       '你是短剧制作助手，只能帮助推进当前 DramaFlow/ToonFlow 风格短剧流水线。',
       '不要执行脚本代码，不要输出 ES 查询 DSL，不要发明未注册工具。',
@@ -366,7 +464,7 @@ extension AssistantChatApi on Engine {
       else
         '当前入口是剧本助手，优先处理章节事件、剧本和资产提取。',
       '可用工具必须按 schema 调用；不确定时先调用 get_status。',
-      ...assistantSkillContexts(),
+      if (skillCatalog.isNotEmpty) _assistantSkillCatalogPrompt(skillCatalog),
     ];
     return lines.join('\n\n');
   }
@@ -374,6 +472,29 @@ extension AssistantChatApi on Engine {
   List<AgentToolDef> _assistantToolDefs() {
     final enabled = enabledAssistantActionNames();
     return [
+      const AgentToolDef(
+        name: 'activate_skill',
+        description: '按名称加载已启用技能的完整说明和资源清单。',
+        schema: {
+          'type': 'object',
+          'properties': {
+            'skillName': {'type': 'string'},
+          },
+          'required': ['skillName'],
+        },
+      ),
+      const AgentToolDef(
+        name: 'read_skill_file',
+        description: '读取当前会话已激活技能包内的一个资源文件。',
+        schema: {
+          'type': 'object',
+          'properties': {
+            'skillName': {'type': 'string'},
+            'relativePath': {'type': 'string'},
+          },
+          'required': ['skillName', 'relativePath'],
+        },
+      ),
       for (final action in assistantActions())
         if (enabled.contains(action.name))
           AgentToolDef(
@@ -399,6 +520,18 @@ AssistantAction? _assistantActionByName(String name) {
     if (action.name == name) return action;
   }
   return null;
+}
+
+bool _isAssistantSkillTool(String name) =>
+    name == 'activate_skill' || name == 'read_skill_file';
+
+String _assistantSkillCatalogPrompt(List<AssistantSkillCatalogEntry> skills) {
+  final entries = [
+    for (final skill in skills) '- ${skill.name}: ${skill.description}',
+  ];
+  return '<available_skills>\n${entries.join('\n')}\n</available_skills>\n'
+      '当任务匹配某项技能时，先调用 activate_skill；'
+      '只有已激活技能可以调用 read_skill_file。';
 }
 
 List<Map<String, String>> _assistantHistory(List<AssistantMessage> messages) =>

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dramaflow/src/engine/assistant_chat.dart';
+import 'package:dramaflow/src/engine/assistant_skills.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
@@ -71,6 +72,29 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
+  AssistantSkill importSkill(String name, String description, String body) {
+    final file = File(p.join(dir.path, '$name.md'))
+      ..writeAsStringSync(
+        '---\nname: $name\ndescription: $description\n---\n$body',
+      );
+    return engine.saveMarkdownAssistantSkill(filePath: file.path);
+  }
+
+  AssistantSkill importSkillPackage(
+    String name, {
+    required String body,
+    required String resource,
+  }) {
+    final package = Directory(p.join(dir.path, '$name-package'))
+      ..createSync();
+    final entry = File(p.join(package.path, 'SKILL.md'))
+      ..writeAsStringSync(
+        '---\nname: $name\ndescription: 运镜规范\n---\n$body',
+      );
+    File(p.join(package.path, resource)).writeAsStringSync('资源：$resource');
+    return engine.saveMarkdownAssistantSkill(filePath: entry.path);
+  }
+
   test('assistantMessages 持久化用户和助手文本，并暴露启用动作工具面', () async {
     gateway.turns = [const AgentTurnResult.text('我来帮你推进流程。')];
 
@@ -90,6 +114,100 @@ void main() {
     expect(gateway.stages.single, 'scriptAgent');
     expect(gateway.lastTools.map((tool) => tool.name), contains('get_status'));
     expect(gateway.lastSystem, contains('短剧制作助手'));
+  });
+
+  test('技能正文不进入初始 system prompt，目录和两个工具可见', () async {
+    importSkill('camera_guide', '运镜规范', '不可预先泄露的正文');
+    gateway.turns = const [AgentTurnResult.text('收到')];
+
+    await engine.sendAssistantMessage(
+      projectId,
+      '帮我规划镜头',
+      family: assistantFamilyScript,
+      autoMode: false,
+    );
+
+    expect(gateway.lastSystem, contains('camera_guide'));
+    expect(gateway.lastSystem, isNot(contains('不可预先泄露的正文')));
+    expect(
+      gateway.lastTools.map((tool) => tool.name),
+      containsAll(['activate_skill', 'read_skill_file']),
+    );
+  });
+
+  test('manual 会话在激活后自动继续一次并将正文作为工具结果回传', () async {
+    importSkill('camera_guide', '运镜规范', '先建立空间关系');
+    gateway.turns = const [
+      AgentTurnResult.tool('activate_skill', {'skillName': 'camera_guide'}),
+      AgentTurnResult.text('我会按空间关系设计镜头。'),
+    ];
+
+    await engine.sendAssistantMessage(
+      projectId,
+      '规划镜头',
+      family: assistantFamilyScript,
+      autoMode: false,
+    );
+
+    expect(gateway.callCount, 2);
+    expect(gateway.lastMessages.last['content'], contains('先建立空间关系'));
+    expect(
+      engine
+          .assistantMessages(projectId, family: assistantFamilyScript)
+          .map((message) => message.role),
+      ['user', 'tool', 'assistant'],
+    );
+  });
+
+  test('未激活资源读取以工具错误回传，不能绕过当前会话边界', () async {
+    importSkillPackage(
+      'camera_guide',
+      body: '规则',
+      resource: 'notes.md',
+    );
+    gateway.turns = const [
+      AgentTurnResult.tool('read_skill_file', {
+        'skillName': 'camera_guide',
+        'relativePath': 'notes.md',
+      }),
+      AgentTurnResult.text('请先激活技能。'),
+    ];
+
+    await engine.sendAssistantMessage(
+      projectId,
+      '读取资源',
+      family: assistantFamilyProduction,
+      autoMode: false,
+    );
+
+    expect(gateway.callCount, 2);
+    expect(gateway.lastMessages.last['content'], contains('skillMissing'));
+  });
+
+  test('连续技能工具最多执行三次，不挤占业务动作上限', () async {
+    importSkill('camera_guide', '运镜规范', '规则');
+    gateway.turns = const [
+      AgentTurnResult.tool('activate_skill', {'skillName': 'camera_guide'}),
+      AgentTurnResult.tool('activate_skill', {'skillName': 'camera_guide'}),
+      AgentTurnResult.tool('activate_skill', {'skillName': 'camera_guide'}),
+      AgentTurnResult.text('不应继续到这一轮'),
+    ];
+
+    await engine.sendAssistantMessage(
+      projectId,
+      '读取技能',
+      family: assistantFamilyScript,
+      autoMode: false,
+    );
+
+    expect(gateway.callCount, 3);
+    expect(
+      engine
+          .assistantMessages(projectId, family: assistantFamilyScript)
+          .last
+          .content,
+      contains('assistantSkillToolLimit'),
+    );
   });
 
   test('family 由入口传入并互相隔离', () async {
@@ -242,9 +360,22 @@ void main() {
     expect(engine.assistantAutoMode(), isTrue);
 
     gateway.turns = const [AgentTurnResult.text('x')];
+    importSkill('camera_guide', '运镜规范', '规则');
+    engine.activateAssistantSkill(
+      projectId,
+      family: assistantFamilyScript,
+      skillName: 'camera_guide',
+    );
     engine.clearAssistantChat(projectId, family: assistantFamilyScript);
     expect(
       engine.assistantMessages(projectId, family: assistantFamilyScript),
+      isEmpty,
+    );
+    expect(
+      engine.activatedAssistantSkillIds(
+        projectId,
+        family: assistantFamilyScript,
+      ),
       isEmpty,
     );
   });
