@@ -546,7 +546,7 @@ extension VideoTrackApi on Engine {
     }
     for (final row in db.select(
       "SELECT id,name FROM o_assets WHERE projectId=? AND type='audio' "
-      'ORDER BY id',
+      'AND assetsId IS NULL ORDER BY id',
       [projectId],
     )) {
       final audioId = row['id'] as int;

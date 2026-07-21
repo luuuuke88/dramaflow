@@ -618,6 +618,60 @@ void main() {
     );
   });
 
+  test('videoReferenceCandidates 配音候选按父资产聚合，不为每条录音样本重复', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '配音资产有多条录音样本的镜头',
+    );
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '多样本音色',
+      sex: '女',
+      describe: '',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '样本一',
+          name: '样本一',
+          describe: '',
+          existingImageId: null,
+        ),
+        (
+          base64: base64Encode([4, 5, 6]),
+          ext: 'mp3',
+          prompt: '样本二',
+          name: '样本二',
+          describe: '',
+          existingImageId: null,
+        ),
+        (
+          base64: base64Encode([7, 8, 9]),
+          ext: 'mp3',
+          prompt: '样本三',
+          name: '样本三',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+
+    final candidates =
+        engine.videoReferenceCandidates(projectId, storyboardId);
+    final audioCandidates = candidates
+        .where((candidate) => candidate.source.mediaType == 'audio')
+        .toList();
+
+    expect(
+      audioCandidates,
+      hasLength(1),
+      reason: '父资产与每条录音子样本不应各自拆成独立候选，同一音色只应出现一次',
+    );
+    expect(audioCandidates.single.source.sourceId, audioId);
+    expect(audioCandidates.single.source.sourceType, 'audio');
+  });
+
   test('videoReferenceCandidates 按片段扩展名分类并保留可选子资产', () {
     final storyboardId = engine.addStoryboard(
       projectId: projectId,
