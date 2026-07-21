@@ -535,7 +535,11 @@ extension VideoTrackApi on Engine {
         sourceType: 'asset',
         sourceId: row['id'] as int,
         mediaType: mediaType,
-        role: mediaType == 'video' ? 'reference_video' : 'reference_image',
+        role: switch (mediaType) {
+          'audio' => 'reference_audio',
+          'video' => 'reference_video',
+          _ => 'reference_image',
+        },
         label: row['name'] as String? ?? '',
         localPath: row['filePath'] as String?,
         boundAudioSourceIds: _boundAudioAssetIds(

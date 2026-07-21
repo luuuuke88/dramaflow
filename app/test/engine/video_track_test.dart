@@ -800,6 +800,37 @@ void main() {
     );
   });
 
+  test('videoReferenceCandidates 音频扩展名的素材库片段归类为 reference_audio 角色', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '项目素材库里混入音频片段的镜头',
+    );
+    final audioClipId = engine.uploadClip(
+      projectId: projectId,
+      type: 'clip',
+      name: '素材库音频片段',
+      bytes: [1, 2, 3],
+      ext: 'mp3',
+    );
+
+    final candidates =
+        engine.videoReferenceCandidates(projectId, storyboardId);
+    final clipCandidate = candidates.firstWhere(
+      (candidate) =>
+          candidate.source.sourceType == 'asset' &&
+          candidate.source.sourceId == audioClipId,
+    );
+
+    expect(clipCandidate.source.mediaType, 'audio');
+    expect(
+      clipCandidate.source.role,
+      'reference_audio',
+      reason: 'mediaType 为 audio 的素材库候选必须归为 reference_audio，'
+          '不能被二元表达式误判成 reference_image',
+    );
+  });
+
   test('batchGenerateVideos rejects unsupported controls before enqueue', () {
     configureVideoModel();
     final sbId = engine.addStoryboard(
