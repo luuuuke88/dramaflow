@@ -41,12 +41,23 @@ Future<void> showVideoPlayerDialog(
     showLocalMediaPreview(context,
         absPath: absPath, kind: LocalMediaKind.video);
 
-Future<void> showWorkbench(BuildContext context, WidgetRef ref,
-    {required int projectId, required int scriptId}) {
+enum WorkbenchTab { preview, generate, edit }
+
+Future<void> showWorkbench(
+  BuildContext context,
+  WidgetRef ref, {
+  required int projectId,
+  required int scriptId,
+  WorkbenchTab initialTab = WorkbenchTab.preview,
+}) {
   return Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (c) => _WorkbenchPage(projectId: projectId, scriptId: scriptId),
+      builder: (c) => _WorkbenchPage(
+        projectId: projectId,
+        scriptId: scriptId,
+        initialTab: initialTab,
+      ),
     ),
   );
 }
@@ -54,7 +65,13 @@ Future<void> showWorkbench(BuildContext context, WidgetRef ref,
 class _WorkbenchPage extends ConsumerStatefulWidget {
   final int projectId;
   final int scriptId;
-  const _WorkbenchPage({required this.projectId, required this.scriptId});
+  final WorkbenchTab initialTab;
+
+  const _WorkbenchPage({
+    required this.projectId,
+    required this.scriptId,
+    required this.initialTab,
+  });
 
   @override
   ConsumerState<_WorkbenchPage> createState() => _WorkbenchPageState();
@@ -65,6 +82,13 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   bool _exportingCheckedVideos = false;
   final Set<int> _checkedShotIds = {};
   final Set<int> _knownShotIds = {};
+  late WorkbenchTab _activeTab;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeTab = widget.initialTab;
+  }
 
   Future<void> _compose() async {
     final l10n = context.l10n;
@@ -279,10 +303,101 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     setState(() {});
   }
 
+  String _projectVideoRatio(Engine engine) {
+    for (final project in engine.projects()) {
+      if (project.id == widget.projectId) {
+        final ratio = project.videoRatio?.trim();
+        return ratio == null || ratio.isEmpty ? '16:9' : ratio;
+      }
+    }
+    return '16:9';
+  }
+
+  Widget _buildGenerateSurface(
+    List<StoryboardRow> shots,
+    List<VideoTrackRow> standaloneTracks,
+  ) {
+    final l10n = context.l10n;
+    if (shots.isEmpty && standaloneTracks.isEmpty) {
+      return Center(child: DFEmpty(text: l10n.workbenchNoShots));
+    }
+    return Column(
+      children: [
+        if (standaloneTracks.isNotEmpty)
+          _StandaloneTrackSection(
+            tracks: standaloneTracks,
+            onDelete: _deleteStandaloneTrack,
+          ),
+        if (shots.isNotEmpty)
+          _TimelineOverview(projectId: widget.projectId, shots: shots),
+        Expanded(
+          child: shots.isEmpty
+              ? Center(child: DFEmpty(text: l10n.workbenchNoShots))
+              : ReorderableListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  buildDefaultDragHandles: false,
+                  onReorderItem: (oldIndex, newIndex) =>
+                      _reorderShots(shots, oldIndex, newIndex),
+                  itemCount: shots.length,
+                  itemBuilder: (c, i) {
+                    final shot = shots[i];
+                    return Padding(
+                      key: ValueKey('workbench-shot-item-${shot.id}'),
+                      padding: EdgeInsets.only(
+                          bottom: i == shots.length - 1 ? 0 : 12),
+                      child: _ShotRow(
+                        projectId: widget.projectId,
+                        shot: shot,
+                        index: i,
+                        selected: _checkedShotIds.contains(shot.id),
+                        onSelected: (value) =>
+                            _toggleShotSelection(shot.id, value),
+                        dragHandle: ReorderableDragStartListener(
+                          key: ValueKey('workbench-reorder-handle-${shot.id}'),
+                          index: i,
+                          child: Tooltip(
+                            message: l10n.workbenchReorderShot,
+                            child: Icon(Icons.drag_indicator_rounded,
+                                color: context.df.textTertiary),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditSurface(
+    List<StoryboardRow> shots,
+    List<VideoTrackRow> standaloneTracks,
+  ) {
+    if (shots.isEmpty && standaloneTracks.isEmpty) {
+      return Center(child: DFEmpty(text: context.l10n.workbenchNoShots));
+    }
+    return SingleChildScrollView(
+      key: const ValueKey('workbench-edit-scroll'),
+      child: Column(
+        children: [
+          if (standaloneTracks.isNotEmpty)
+            _StandaloneTrackSection(
+              tracks: standaloneTracks,
+              onDelete: _deleteStandaloneTrack,
+            ),
+          if (shots.isNotEmpty)
+            _TimelineOverview(projectId: widget.projectId, shots: shots),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final compactActions = MediaQuery.sizeOf(context).width < 1100;
+    final showGenerationActions = _activeTab == WorkbenchTab.generate;
     ref.watch(activeJobsProvider);
     ref.watch(jobsGenerationProvider);
     final engine = ref.watch(engineProvider);
@@ -310,206 +425,272 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.workbenchTitle),
+        titleSpacing: 0,
+        title: SizedBox(
+          width: 144,
+          child: _WorkbenchSurfaceTabs(
+            selected: _activeTab,
+            onSelected: (tab) => setState(() => _activeTab = tab),
+            previewLabel: l10n.workbenchQuickPreview,
+            generateLabel: l10n.workbenchGenerateVideo,
+            editLabel: l10n.workbenchTimelineOverview,
+          ),
+        ),
         actions: [
           IconButton(
             key: const ValueKey('workbench-add-standalone-track'),
             tooltip: l10n.workbenchAddStandaloneTrack,
-            onPressed: standaloneTrackEnabled ? _addStandaloneTrack : null,
+            onPressed:
+                _activeTab == WorkbenchTab.preview || !standaloneTrackEnabled
+                    ? null
+                    : _addStandaloneTrack,
             icon: const Icon(Icons.add_to_queue_outlined),
           ),
-          IconButton(
-            key: const ValueKey('workbench-quick-preview'),
-            tooltip: l10n.workbenchQuickPreview,
-            onPressed: shots.isEmpty
-                ? null
-                : () => showWorkbenchQuickPreview(
-                      context,
-                      ref,
-                      projectId: widget.projectId,
-                      scriptId: widget.scriptId,
-                    ),
-            icon: const Icon(Icons.visibility_outlined),
-          ),
-          if (shots.isNotEmpty && compactActions)
-            PopupMenuButton<_WorkbenchBatchAction>(
-              key: const ValueKey('workbench-batch-actions'),
-              enabled: _checkedShotIds.isNotEmpty,
-              icon: const Icon(Icons.more_horiz_rounded),
-              onSelected: (action) {
-                switch (action) {
-                  case _WorkbenchBatchAction.prompts:
-                    _generateCheckedPrompts(shots);
-                    break;
-                  case _WorkbenchBatchAction.videos:
-                    _generateChecked(shots);
-                    break;
-                  case _WorkbenchBatchAction.download:
-                    _downloadCheckedVideos(shots);
-                    break;
-                  case _WorkbenchBatchAction.clearTracks:
-                    _clearCheckedTracks(shots);
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: _WorkbenchBatchAction.prompts,
-                  child: Text(l10n.workbenchGenerateAllPrompts),
-                ),
-                PopupMenuItem(
-                  value: _WorkbenchBatchAction.videos,
-                  child: Text(l10n.workbenchGenerateAll),
-                ),
-                PopupMenuItem(
-                  value: _WorkbenchBatchAction.download,
-                  child: Text(l10n.workbenchDownloadSelectedVideos),
-                ),
-                PopupMenuItem(
-                  value: _WorkbenchBatchAction.clearTracks,
-                  child: Text(l10n.workbenchClearSelectedTracks),
-                ),
-              ],
-            ),
-          if (shots.isNotEmpty && !compactActions)
-            TextButton.icon(
-              style: toolbarTextButtonStyle,
-              onPressed: _checkedShotIds.isEmpty
-                  ? null
-                  : () => _generateCheckedPrompts(shots),
-              icon: const Icon(Icons.auto_awesome_outlined),
-              label: Text(l10n.workbenchGenerateAllPrompts),
-            ),
-          if (shots.isNotEmpty && !compactActions)
-            TextButton.icon(
-              style: toolbarTextButtonStyle,
-              onPressed: _checkedShotIds.isEmpty
-                  ? null
-                  : () => _generateChecked(shots),
-              icon: const Icon(Icons.movie_creation_outlined),
-              label: Text(l10n.workbenchGenerateAll),
-            ),
-          if (shots.isNotEmpty && !compactActions)
-            TextButton.icon(
-              key: const ValueKey('workbench-download-selected-videos'),
-              style: toolbarTextButtonStyle,
-              onPressed: _checkedShotIds.isEmpty || _exportingCheckedVideos
-                  ? null
-                  : () => _downloadCheckedVideos(shots),
-              icon: _exportingCheckedVideos
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.folder_zip_outlined),
-              label: Text(l10n.workbenchDownloadSelectedVideos),
-            ),
-          if (shots.isNotEmpty && !compactActions)
-            TextButton.icon(
-              style: toolbarTextButtonStyle,
-              onPressed: _checkedShotIds.isEmpty
-                  ? null
-                  : () => _clearCheckedTracks(shots),
-              icon: const Icon(Icons.layers_clear_outlined),
-              label: Text(l10n.workbenchClearSelectedTracks),
-            ),
-          if (compactActions)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: IconButton(
-                key: const ValueKey('workbench-compose-compact'),
-                tooltip: _composing
-                    ? l10n.workbenchComposing
-                    : missing > 0
-                        ? '${l10n.workbenchCompose} (${l10n.workbenchComposeMissing(('$missing'))})'
-                        : l10n.workbenchCompose,
-                onPressed: _composing || shots.isEmpty ? null : _compose,
-                icon: _composing
+          if (showGenerationActions) ...[
+            if (shots.isNotEmpty && compactActions)
+              PopupMenuButton<_WorkbenchBatchAction>(
+                key: const ValueKey('workbench-batch-actions'),
+                enabled: _checkedShotIds.isNotEmpty,
+                icon: const Icon(Icons.more_horiz_rounded),
+                onSelected: (action) {
+                  switch (action) {
+                    case _WorkbenchBatchAction.prompts:
+                      _generateCheckedPrompts(shots);
+                      break;
+                    case _WorkbenchBatchAction.videos:
+                      _generateChecked(shots);
+                      break;
+                    case _WorkbenchBatchAction.download:
+                      _downloadCheckedVideos(shots);
+                      break;
+                    case _WorkbenchBatchAction.clearTracks:
+                      _clearCheckedTracks(shots);
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _WorkbenchBatchAction.prompts,
+                    child: Text(l10n.workbenchGenerateAllPrompts),
+                  ),
+                  PopupMenuItem(
+                    value: _WorkbenchBatchAction.videos,
+                    child: Text(l10n.workbenchGenerateAll),
+                  ),
+                  PopupMenuItem(
+                    value: _WorkbenchBatchAction.download,
+                    child: Text(l10n.workbenchDownloadSelectedVideos),
+                  ),
+                  PopupMenuItem(
+                    value: _WorkbenchBatchAction.clearTracks,
+                    child: Text(l10n.workbenchClearSelectedTracks),
+                  ),
+                ],
+              ),
+            if (shots.isNotEmpty && !compactActions)
+              TextButton.icon(
+                style: toolbarTextButtonStyle,
+                onPressed: _checkedShotIds.isEmpty
+                    ? null
+                    : () => _generateCheckedPrompts(shots),
+                icon: const Icon(Icons.auto_awesome_outlined),
+                label: Text(l10n.workbenchGenerateAllPrompts),
+              ),
+            if (shots.isNotEmpty && !compactActions)
+              TextButton.icon(
+                style: toolbarTextButtonStyle,
+                onPressed: _checkedShotIds.isEmpty
+                    ? null
+                    : () => _generateChecked(shots),
+                icon: const Icon(Icons.movie_creation_outlined),
+                label: Text(l10n.workbenchGenerateAll),
+              ),
+            if (shots.isNotEmpty && !compactActions)
+              TextButton.icon(
+                key: const ValueKey('workbench-download-selected-videos'),
+                style: toolbarTextButtonStyle,
+                onPressed: _checkedShotIds.isEmpty || _exportingCheckedVideos
+                    ? null
+                    : () => _downloadCheckedVideos(shots),
+                icon: _exportingCheckedVideos
                     ? const SizedBox(
                         width: 14,
                         height: 14,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.movie_filter_outlined),
+                    : const Icon(Icons.folder_zip_outlined),
+                label: Text(l10n.workbenchDownloadSelectedVideos),
               ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: FilledButton.icon(
-                style: toolbarFilledButtonStyle,
-                onPressed: _composing || shots.isEmpty ? null : _compose,
-                icon: _composing
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.movie_filter_outlined, size: 18),
-                label: Text(_composing
-                    ? l10n.workbenchComposing
-                    : missing > 0
-                        ? '${l10n.workbenchCompose} (${l10n.workbenchComposeMissing(('$missing'))})'
-                        : l10n.workbenchCompose),
+            if (shots.isNotEmpty && !compactActions)
+              TextButton.icon(
+                style: toolbarTextButtonStyle,
+                onPressed: _checkedShotIds.isEmpty
+                    ? null
+                    : () => _clearCheckedTracks(shots),
+                icon: const Icon(Icons.layers_clear_outlined),
+                label: Text(l10n.workbenchClearSelectedTracks),
               ),
-            ),
+            if (compactActions)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: IconButton(
+                  key: const ValueKey('workbench-compose-compact'),
+                  tooltip: _composing
+                      ? l10n.workbenchComposing
+                      : missing > 0
+                          ? '${l10n.workbenchCompose} (${l10n.workbenchComposeMissing(('$missing'))})'
+                          : l10n.workbenchCompose,
+                  onPressed: _composing || shots.isEmpty ? null : _compose,
+                  icon: _composing
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.movie_filter_outlined),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: FilledButton.icon(
+                  style: toolbarFilledButtonStyle,
+                  onPressed: _composing || shots.isEmpty ? null : _compose,
+                  icon: _composing
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.movie_filter_outlined, size: 18),
+                  label: Text(_composing
+                      ? l10n.workbenchComposing
+                      : missing > 0
+                          ? '${l10n.workbenchCompose} (${l10n.workbenchComposeMissing(('$missing'))})'
+                          : l10n.workbenchCompose),
+                ),
+              ),
+          ],
         ],
       ),
-      body: shots.isEmpty && standaloneTracks.isEmpty
-          ? Center(child: DFEmpty(text: l10n.workbenchNoShots))
-          : Column(
-              children: [
-                if (standaloneTracks.isNotEmpty)
-                  _StandaloneTrackSection(
-                    tracks: standaloneTracks,
-                    onDelete: _deleteStandaloneTrack,
-                  ),
-                if (shots.isNotEmpty)
-                  _TimelineOverview(projectId: widget.projectId, shots: shots),
-                Expanded(
-                  child: shots.isEmpty
-                      ? Center(child: DFEmpty(text: l10n.workbenchNoShots))
-                      : ReorderableListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          buildDefaultDragHandles: false,
-                          onReorderItem: (oldIndex, newIndex) =>
-                              _reorderShots(shots, oldIndex, newIndex),
-                          itemCount: shots.length,
-                          itemBuilder: (c, i) {
-                            final shot = shots[i];
-                            return Padding(
-                              key: ValueKey('workbench-shot-item-${shot.id}'),
-                              padding: EdgeInsets.only(
-                                  bottom: i == shots.length - 1 ? 0 : 12),
-                              child: _ShotRow(
-                                projectId: widget.projectId,
-                                shot: shot,
-                                index: i,
-                                selected: _checkedShotIds.contains(shot.id),
-                                onSelected: (value) =>
-                                    _toggleShotSelection(shot.id, value),
-                                dragHandle: ReorderableDragStartListener(
-                                  key: ValueKey(
-                                      'workbench-reorder-handle-${shot.id}'),
-                                  index: i,
-                                  child: Tooltip(
-                                    message: l10n.workbenchReorderShot,
-                                    child: Icon(Icons.drag_indicator_rounded,
-                                        color: context.df.textTertiary),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+      body: switch (_activeTab) {
+        WorkbenchTab.preview => WorkbenchQuickPreviewPage(
+            projectId: widget.projectId,
+            scriptId: widget.scriptId,
+            embedded: true,
+            videoRatio: _projectVideoRatio(engine),
+          ),
+        WorkbenchTab.generate => _buildGenerateSurface(shots, standaloneTracks),
+        WorkbenchTab.edit => _buildEditSurface(shots, standaloneTracks),
+      },
     );
   }
 }
 
 enum _WorkbenchBatchAction { prompts, videos, download, clearTracks }
+
+class _WorkbenchSurfaceTabs extends StatelessWidget {
+  final WorkbenchTab selected;
+  final ValueChanged<WorkbenchTab> onSelected;
+  final String previewLabel;
+  final String generateLabel;
+  final String editLabel;
+
+  const _WorkbenchSurfaceTabs({
+    required this.selected,
+    required this.onSelected,
+    required this.previewLabel,
+    required this.generateLabel,
+    required this.editLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: df.surface,
+      ),
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: Row(
+          children: [
+            _WorkbenchSurfaceTab(
+              key: const ValueKey('workbench-quick-preview'),
+              tab: WorkbenchTab.preview,
+              selected: selected,
+              label: previewLabel,
+              icon: Icons.visibility_outlined,
+              onSelected: onSelected,
+            ),
+            _WorkbenchSurfaceTab(
+              key: const ValueKey('workbench-tab-generate'),
+              tab: WorkbenchTab.generate,
+              selected: selected,
+              label: generateLabel,
+              icon: Icons.movie_creation_outlined,
+              onSelected: onSelected,
+            ),
+            _WorkbenchSurfaceTab(
+              key: const ValueKey('workbench-tab-edit'),
+              tab: WorkbenchTab.edit,
+              selected: selected,
+              label: editLabel,
+              icon: Icons.edit_outlined,
+              onSelected: onSelected,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkbenchSurfaceTab extends StatelessWidget {
+  final WorkbenchTab tab;
+  final WorkbenchTab selected;
+  final String label;
+  final IconData icon;
+  final ValueChanged<WorkbenchTab> onSelected;
+
+  const _WorkbenchSurfaceTab({
+    super.key,
+    required this.tab,
+    required this.selected,
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = tab == selected;
+    final df = context.df;
+    return Expanded(
+      child: Tooltip(
+        message: label,
+        child: Semantics(
+          button: true,
+          selected: isSelected,
+          label: label,
+          child: InkWell(
+            onTap: () => onSelected(tab),
+            child: SizedBox(
+              height: kToolbarHeight,
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: 21,
+                  color: isSelected ? df.primary : df.textTertiary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _StandaloneTrackSection extends StatelessWidget {
   final List<VideoTrackRow> tracks;

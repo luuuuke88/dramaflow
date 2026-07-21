@@ -36,11 +36,15 @@ Future<void> showWorkbenchQuickPreview(
 class WorkbenchQuickPreviewPage extends ConsumerStatefulWidget {
   final int projectId;
   final int scriptId;
+  final bool embedded;
+  final String videoRatio;
 
   const WorkbenchQuickPreviewPage({
     super.key,
     required this.projectId,
     required this.scriptId,
+    this.embedded = false,
+    this.videoRatio = '16:9',
   });
 
   @override
@@ -186,45 +190,52 @@ class _WorkbenchQuickPreviewPageState
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final body = _shots.isEmpty
+        ? Center(child: Text(l10n.workbenchNoShots))
+        : AnimatedBuilder(
+            animation: _timeline,
+            builder: (context, _) => LayoutBuilder(
+              builder: (context, constraints) {
+                final stage = _buildStage(context);
+                final details = _buildDetails(context);
+                final compact = constraints.maxWidth < 840;
+                return SingleChildScrollView(
+                  key: const ValueKey('workbench-preview-scroll'),
+                  padding: const EdgeInsets.all(DFTokens.s16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (compact) ...[
+                        stage,
+                        const SizedBox(height: DFTokens.s16),
+                        details,
+                      ] else
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 7, child: stage),
+                            const SizedBox(width: DFTokens.s20),
+                            Expanded(flex: 3, child: details),
+                          ],
+                        ),
+                      const SizedBox(height: DFTokens.s20),
+                      _buildShotControls(context),
+                    ],
+                  ),
+                );
+              },
+            ),
+          );
+    if (widget.embedded) {
+      return KeyedSubtree(
+        key: const ValueKey('workbench-preview-embedded'),
+        child: body,
+      );
+    }
     return Scaffold(
       key: const ValueKey('workbench-preview-page'),
       appBar: AppBar(title: Text(l10n.workbenchQuickPreview)),
-      body: _shots.isEmpty
-          ? Center(child: Text(l10n.workbenchNoShots))
-          : AnimatedBuilder(
-              animation: _timeline,
-              builder: (context, _) => LayoutBuilder(
-                builder: (context, constraints) {
-                  final stage = _buildStage(context);
-                  final details = _buildDetails(context);
-                  final compact = constraints.maxWidth < 840;
-                  return SingleChildScrollView(
-                    key: const ValueKey('workbench-preview-scroll'),
-                    padding: const EdgeInsets.all(DFTokens.s16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (compact) ...[
-                          stage,
-                          const SizedBox(height: DFTokens.s16),
-                          details,
-                        ] else
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(flex: 7, child: stage),
-                              const SizedBox(width: DFTokens.s20),
-                              Expanded(flex: 3, child: details),
-                            ],
-                          ),
-                        const SizedBox(height: DFTokens.s20),
-                        _buildShotControls(context),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
+      body: body,
     );
   }
 
@@ -235,7 +246,8 @@ class _WorkbenchQuickPreviewPageState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AspectRatio(
-          aspectRatio: 16 / 9,
+          key: ValueKey('workbench-preview-stage-${widget.videoRatio}'),
+          aspectRatio: _aspectRatioFor(widget.videoRatio),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: df.surfaceMuted,
@@ -310,6 +322,12 @@ class _WorkbenchQuickPreviewPageState
       ],
     );
   }
+
+  double _aspectRatioFor(String ratio) => switch (ratio.trim()) {
+        '1:1' => 1,
+        '9:16' => 9 / 16,
+        _ => 16 / 9,
+      };
 
   Widget _buildSegments(BuildContext context) {
     final df = context.df;

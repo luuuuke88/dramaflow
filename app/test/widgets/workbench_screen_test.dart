@@ -179,7 +179,10 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
-  Widget app({Locale locale = const Locale('zh')}) {
+  Widget app({
+    Locale locale = const Locale('zh'),
+    WorkbenchTab initialTab = WorkbenchTab.generate,
+  }) {
     final router = GoRouter(initialLocation: '/', routes: [
       GoRoute(
         path: '/',
@@ -187,8 +190,13 @@ void main() {
           body: Builder(builder: (innerContext) {
             return Consumer(builder: (context, ref, _) {
               return ElevatedButton(
-                onPressed: () => showWorkbench(innerContext, ref,
-                    projectId: projectId, scriptId: scriptId),
+                onPressed: () => showWorkbench(
+                  innerContext,
+                  ref,
+                  projectId: projectId,
+                  scriptId: scriptId,
+                  initialTab: initialTab,
+                ),
                 child: const Text('open'),
               );
             });
@@ -216,8 +224,13 @@ void main() {
           body: Builder(builder: (innerContext) {
             return Consumer(builder: (context, ref, _) {
               return ElevatedButton(
-                onPressed: () => showWorkbench(innerContext, ref,
-                    projectId: projectId, scriptId: scriptId),
+                onPressed: () => showWorkbench(
+                  innerContext,
+                  ref,
+                  projectId: projectId,
+                  scriptId: scriptId,
+                  initialTab: WorkbenchTab.generate,
+                ),
                 child: const Text('open'),
               );
             });
@@ -282,6 +295,37 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.text('暂无分镜，请先在「制作」的分镜节点生成'), findsOneWidget);
+  });
+
+  testWidgets('工作台默认预览并可在三项工作面间切换，预览沿用项目画幅', (tester) async {
+    engine.editProject(projectId, videoRatio: '9:16');
+    engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
+
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.preview));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(
+        find.byKey(const ValueKey('workbench-quick-preview')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('workbench-tab-generate')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workbench-tab-edit')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('workbench-preview-embedded')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('workbench-preview-stage-9:16')),
+        findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('workbench-tab-generate')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('workbench-shot-item-1')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('workbench-tab-edit')));
+    await tester.pumpAndSettle();
+    expect(
+        find.byKey(const ValueKey('workbench-timeline-media')), findsOneWidget);
   });
 
   testWidgets('工作台可创建独立视频轨，窄屏入口仍可操作', (tester) async {
@@ -424,8 +468,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('workbench-quick-preview')));
     await tester.pumpAndSettle();
 
-    expect(
-        find.byKey(const ValueKey('workbench-preview-page')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workbench-preview-embedded')),
+        findsOneWidget);
     expect(find.textContaining('镜头一描述'), findsOneWidget);
     expect(find.text('林朝雪（角色）'), findsOneWidget);
     expect(find.text('雪夜山门，月光照剑。'), findsOneWidget);
