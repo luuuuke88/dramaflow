@@ -23,6 +23,24 @@ class ManagedAssistantSkill {
   });
 }
 
+/// 技能包内可被技能管理页浏览的 Markdown 文件。
+///
+/// `relativePath` 始终相对 `<skills>/<skillId>/`，`displayPath` 仅用于稳定排序和
+/// UI 展示，不能作为文件系统路径直接使用。
+class ManagedSkillLibraryFile {
+  final String skillId;
+  final String relativePath;
+  final String displayPath;
+  final bool isEntry;
+
+  const ManagedSkillLibraryFile({
+    required this.skillId,
+    required this.relativePath,
+    required this.displayPath,
+    required this.isEntry,
+  });
+}
+
 class AssistantSkillScanIssue {
   final String id;
   final String path;
@@ -191,6 +209,78 @@ extension AssistantSkillLibraryApi on Engine {
     );
   }
 
+  /// 返回托管包内的既有 Markdown 文件，不会把资源注册为独立技能。
+  List<ManagedSkillLibraryFile> managedSkillLibraryFiles() {
+    final files = <ManagedSkillLibraryFile>[];
+    final rows = db.select(
+      'SELECT id,path FROM o_skillList WHERE type=? ORDER BY id ASC',
+      [managedMarkdownAssistantSkillType],
+    );
+    for (final row in rows) {
+      final skillId = row['id'] as String;
+      final entry = _managedFile(row['path'] as String?);
+      final packageRoot = entry.parent.resolveSymbolicLinksSync();
+      for (final entity in Directory(packageRoot)
+          .listSync(recursive: true, followLinks: false)) {
+        if (entity is! File ||
+            FileSystemEntity.typeSync(entity.path, followLinks: false) !=
+                FileSystemEntityType.file ||
+            p.extension(entity.path).toLowerCase() != '.md') {
+          continue;
+        }
+        String resolved;
+        try {
+          resolved = entity.resolveSymbolicLinksSync();
+        } on FileSystemException {
+          continue;
+        }
+        if (!p.isWithin(packageRoot, resolved)) continue;
+        final relative =
+            p.relative(resolved, from: packageRoot).replaceAll('\\', '/');
+        files.add(ManagedSkillLibraryFile(
+          skillId: skillId,
+          relativePath: relative,
+          displayPath: '$skillId/$relative',
+          isEntry: relative == 'SKILL.md',
+        ));
+      }
+    }
+    files.sort((a, b) => a.displayPath.compareTo(b.displayPath));
+    return files;
+  }
+
+  /// Agent 和管理页共用的受限资源读取边界。
+  ///
+  /// 此 API 特意不限制扩展名：激活后的 Agent 仍可读取包内普通参考资源。
+  String readManagedAssistantSkillResource(String id, String relativePath) {
+    return _managedSkillResourceFile(id, relativePath).readAsStringSync();
+  }
+
+  /// 管理页只允许浏览 Markdown 文件。
+  String readManagedSkillLibraryFile(String id, String relativePath) {
+    _requireMarkdownSkillPath(relativePath);
+    return readManagedAssistantSkillResource(id, relativePath);
+  }
+
+  /// 写入已有的托管 Markdown 文件，不允许借此新建资源或离开技能包。
+  void saveManagedSkillLibraryFile(
+    String id,
+    String relativePath,
+    String content,
+  ) {
+    final safe = _requireMarkdownSkillPath(relativePath);
+    if (safe == 'SKILL.md') {
+      saveManagedAssistantSkill(id, content);
+      return;
+    }
+    final file = _managedSkillResourceFile(id, safe);
+    final temporary = File(
+      '${file.path}.${DateTime.now().microsecondsSinceEpoch}.tmp',
+    );
+    temporary.writeAsStringSync(content);
+    temporary.renameSync(file.path);
+  }
+
   /// 将应用技能根中的 Markdown 文件与 o_skillList 对账，不删除任何用户记录。
   AssistantSkillScanResult scanMarkdownAssistantSkills() {
     final rootPath =
@@ -322,6 +412,45 @@ extension AssistantSkillLibraryApi on Engine {
     }
     return File(resolved);
   }
+
+  File _managedSkillResourceFile(String id, String relativePath) {
+    final root =
+        File(managedAssistantSkillPath(id)).parent.resolveSymbolicLinksSync();
+    final safe = _normalizeManagedSkillRelativePath(relativePath);
+    final target = p.normalize(p.absolute(root, safe));
+    if (target == root || !p.isWithin(root, target)) {
+      throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
+    }
+    if (FileSystemEntity.typeSync(target, followLinks: false) !=
+        FileSystemEntityType.file) {
+      throw const EngineException(errLlmFormat, {'reason': 'skillMissing'});
+    }
+    final resolved = File(target).resolveSymbolicLinksSync();
+    if (!p.isWithin(root, resolved)) {
+      throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
+    }
+    return File(resolved);
+  }
+}
+
+String _requireMarkdownSkillPath(String value) {
+  final safe = _normalizeManagedSkillRelativePath(value);
+  if (p.extension(safe).toLowerCase() != '.md') {
+    throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
+  }
+  return safe;
+}
+
+String _normalizeManagedSkillRelativePath(String value) {
+  final trimmed = value.trim().replaceAll('\\', '/');
+  if (trimmed.isEmpty || p.isAbsolute(trimmed)) {
+    throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
+  }
+  final normalized = p.posix.normalize(trimmed);
+  if (normalized == '.' || normalized == '..' || normalized.startsWith('../')) {
+    throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
+  }
+  return normalized;
 }
 
 String? _canonicalExistingFilePath(String path) {

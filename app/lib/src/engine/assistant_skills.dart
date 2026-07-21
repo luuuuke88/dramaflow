@@ -204,7 +204,7 @@ extension AssistantSkillsApi on Engine {
         .contains(skill.id)) {
       throw const EngineException(errLlmFormat, {'reason': 'skillMissing'});
     }
-    return _readManagedSkillResource(skill.id, relativePath);
+    return readManagedAssistantSkillResource(skill.id, relativePath);
   }
 
   void clearActivatedAssistantSkills(
@@ -220,7 +220,7 @@ extension AssistantSkillsApi on Engine {
 
   /// 读取 markdown 技能自身目录内的资源文件（路径穿越防护）。
   String readAssistantSkillFile(String id, String relativePath) {
-    return _readManagedSkillResource(id, relativePath);
+    return readManagedAssistantSkillResource(id, relativePath);
   }
 
   /// 启用的 markdown 技能正文（注入系统提示词）；文件缺失的技能跳过（尽力而为）。
@@ -285,8 +285,8 @@ extension AssistantSkillsApi on Engine {
   }
 
   List<String> _managedSkillResourcePaths(String id) {
-    final root = File(managedAssistantSkillPath(id)).parent
-        .resolveSymbolicLinksSync();
+    final root =
+        File(managedAssistantSkillPath(id)).parent.resolveSymbolicLinksSync();
     final resources = <String>[];
     for (final entity
         in Directory(root).listSync(recursive: true, followLinks: false)) {
@@ -303,38 +303,7 @@ extension AssistantSkillsApi on Engine {
     resources.sort();
     return resources;
   }
-
-  String _readManagedSkillResource(String id, String relativePath) {
-    final root = File(managedAssistantSkillPath(id)).parent
-        .resolveSymbolicLinksSync();
-    final safe = _normalizeSkillRelativePath(relativePath);
-    final target = p.normalize(p.absolute(root, safe));
-    if (target == root || !p.isWithin(root, target)) {
-      throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
-    }
-    if (FileSystemEntity.typeSync(target, followLinks: false) !=
-        FileSystemEntityType.file) {
-      throw const EngineException(errLlmFormat, {'reason': 'skillMissing'});
-    }
-    final resolved = File(target).resolveSymbolicLinksSync();
-    if (!p.isWithin(root, resolved)) {
-      throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
-    }
-    return File(resolved).readAsStringSync();
-  }
 }
 
 String _assistantSkillActivationKey(String family) =>
     'assistantSkillActivation:${family.trim()}';
-
-String _normalizeSkillRelativePath(String value) {
-  final trimmed = value.trim().replaceAll('\\', '/');
-  if (trimmed.isEmpty || p.isAbsolute(trimmed)) {
-    throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
-  }
-  final normalized = p.posix.normalize(trimmed);
-  if (normalized == '.' || normalized == '..' || normalized.startsWith('../')) {
-    throw const EngineException(errLlmFormat, {'reason': 'skillPathUnsafe'});
-  }
-  return normalized;
-}

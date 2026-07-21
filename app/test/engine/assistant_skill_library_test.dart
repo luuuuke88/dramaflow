@@ -203,4 +203,93 @@ name: camera_guide
     expect(result.invalid.map((item) => item.path), contains(skill.path));
     expect(result.missing.map((item) => item.id), isNot(contains(skill.id)));
   });
+
+  group('managed skill library files', () {
+    ManagedAssistantSkill importPackage(String id) {
+      final sourceDir = Directory(p.join(dir.path, 'picked-$id'))..createSync();
+      final source = File(p.join(sourceDir.path, 'SKILL.md'))
+        ..writeAsStringSync('''---
+name: $id
+description: 初版
+---
+技能正文
+''');
+      return engine.importMarkdownAssistantSkill(source.path);
+    }
+
+    test('递归列出稳定排序的托管 Markdown，忽略二进制和符号链接', () {
+      final skill = importPackage('camera_guide');
+      final root = File(engine.managedAssistantSkillPath(skill.id)).parent;
+      File(p.join(root.path, 'notes.md')).writeAsStringSync('笔记');
+      Directory(p.join(root.path, 'references')).createSync();
+      File(p.join(root.path, 'references', 'shot-list.md'))
+          .writeAsStringSync('镜头');
+      File(p.join(root.path, 'photo.png')).writeAsBytesSync([0]);
+      final outside = File(p.join(dir.path, 'outside.md'))
+        ..writeAsStringSync('外部');
+      Link(p.join(root.path, 'escape.md')).createSync(outside.path);
+
+      expect(
+          engine.managedSkillLibraryFiles().map((file) => file.displayPath), [
+        'camera_guide/SKILL.md',
+        'camera_guide/notes.md',
+        'camera_guide/references/shot-list.md',
+      ]);
+    });
+
+    test('入口编辑同步元数据，资源编辑只替换同包既有 Markdown', () {
+      final skill = importPackage('camera_guide');
+      final root = File(engine.managedAssistantSkillPath(skill.id)).parent;
+      File(p.join(root.path, 'notes.md')).writeAsStringSync('旧资源');
+      final before = db.select(
+          'SELECT name,description,md5 FROM o_skillList WHERE id=?',
+          [skill.id]).single;
+
+      engine.saveManagedSkillLibraryFile(skill.id, 'notes.md', '新资源');
+      expect(engine.readManagedSkillLibraryFile(skill.id, 'notes.md'), '新资源');
+      expect(
+        db.select('SELECT name,description,md5 FROM o_skillList WHERE id=?',
+            [skill.id]).single,
+        before,
+      );
+
+      engine.saveManagedSkillLibraryFile(skill.id, 'SKILL.md', '''---
+name: camera_guide
+description: 新说明
+---
+新正文
+''');
+      expect(
+        engine
+            .assistantSkills()
+            .singleWhere((item) => item.id == skill.id)
+            .description,
+        '新说明',
+      );
+    });
+
+    test('资源读写拒绝路径逃逸、链接和不存在的 Markdown', () {
+      final skill = importPackage('camera_guide');
+      final root = File(engine.managedAssistantSkillPath(skill.id)).parent;
+      final outside = File(p.join(dir.path, 'outside.md'))
+        ..writeAsStringSync('外部');
+      Link(p.join(root.path, 'escape.md')).createSync(outside.path);
+
+      for (final path in [
+        '../outside.md',
+        '/tmp/outside.md',
+        'new.md',
+        'escape.md'
+      ]) {
+        expect(
+          () => engine.saveManagedSkillLibraryFile(skill.id, path, 'x'),
+          throwsA(isA<EngineException>()),
+        );
+        expect(
+          () => engine.readManagedSkillLibraryFile(skill.id, path),
+          throwsA(isA<EngineException>()),
+        );
+      }
+    });
+  });
 }
