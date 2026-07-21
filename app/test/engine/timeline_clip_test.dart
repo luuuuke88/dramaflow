@@ -1071,4 +1071,31 @@ void main() {
     expect(clips.singleWhere((c) => c.id == clipIdB).startMs, 1900);
     expect(clips.singleWhere((c) => c.id == clipIdC).startMs, 800);
   });
+
+  test('TimelineClipRow 按字段值判等，两个独立实例内容相同即相等', () {
+    TimelineClipRow build({int startMs = 100}) => TimelineClipRow(
+          id: 1,
+          projectId: 2,
+          scriptId: 3,
+          assetId: 4,
+          name: '片段',
+          filePath: 'p/x.mp4',
+          lane: 1,
+          startMs: startMs,
+          durationMs: 500,
+          opacity: 1,
+        );
+
+    // engine.timelineClips() 每次查询都会构造全新实例；工作台检查器面板
+    // 靠 == 判断"片段是否变了"来决定要不要用数据库值覆盖用户正在编辑的
+    // 输入框，若退化为引用相等，任何无关重建都会被误判为"变了"。
+    final a = build();
+    final b = build();
+    expect(identical(a, b), isFalse, reason: '前置：确认是两个独立实例');
+    expect(a, equals(b));
+    expect(a.hashCode, b.hashCode);
+
+    final changed = build(startMs: 200);
+    expect(a, isNot(equals(changed)));
+  });
 }

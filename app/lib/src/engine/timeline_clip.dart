@@ -33,6 +33,40 @@ class TimelineClipRow {
     required this.durationMs,
     required this.opacity,
   });
+
+  // 值相等而非引用相等：engine.timelineClips() 每次调用都返回全新实例，
+  // 依赖默认引用相等会让任何无关重建都被判定为"片段变了"（见工作台检查器
+  // 面板 _syncFromClip 的 didUpdateWidget 判断）。全仓库确认无代码依赖
+  // TimelineClipRow 的引用相等语义（未用作 Map/Set key）。
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is TimelineClipRow &&
+        other.id == id &&
+        other.projectId == projectId &&
+        other.scriptId == scriptId &&
+        other.assetId == assetId &&
+        other.name == name &&
+        other.filePath == filePath &&
+        other.lane == lane &&
+        other.startMs == startMs &&
+        other.durationMs == durationMs &&
+        other.opacity == opacity;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        projectId,
+        scriptId,
+        assetId,
+        name,
+        filePath,
+        lane,
+        startMs,
+        durationMs,
+        opacity,
+      );
 }
 
 extension TimelineClipApi on Engine {

@@ -1673,6 +1673,67 @@ void main() {
     );
   });
 
+  testWidgets('检查器面板打字未保存时，无关重建不能吃掉正在输入的内容', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/inspector_no_clobber.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([3, 4, 5]);
+    final assetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '原始片段',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: assetId,
+    );
+
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipId')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$clipId')),
+      findsOneWidget,
+    );
+
+    // 在名称框打字但先不保存。
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-inspector-name-input')),
+      '正在输入未保存',
+    );
+    await tester.pump();
+
+    // 触发同一个 _TimelineOverviewState 的无关重建：在播放头 ms 输入框里
+    // 打字，每个字符都会 setState()，但被检查器绑定的片段在数据库里
+    // 没有任何变化。engine.timelineClips() 每次都返回全新的 TimelineClipRow
+    // 实例，若靠引用相等判断"片段变了没"，这里会被误判为变了，从而用数据库
+    // 旧值覆盖用户刚输入、还没保存的名称。
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-playhead-input')),
+      '500',
+    );
+    await tester.pump();
+
+    expect(find.text('正在输入未保存'), findsOneWidget,
+        reason: '无关重建不应冲掉用户尚未保存的输入');
+    expect(engine.timelineClips(scriptId).single.name, '原始片段',
+        reason: '用户还没点保存，数据库应仍是旧名称');
+  });
+
   testWidgets('工作台素材层按时间起点拉开可视间距', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
