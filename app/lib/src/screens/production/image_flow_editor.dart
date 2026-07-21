@@ -22,9 +22,9 @@ import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
-import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_canvas.dart';
 import '../../widgets/common.dart';
+import '../script/asset_picker.dart';
 import 'storyboard_image_picker.dart';
 
 const _nodeWidth = 260.0;
@@ -529,32 +529,19 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
       );
       return selected?.firstOrNull?.localPath;
     }
-    final items = _assetImageItems();
-    final rel = await showDFAdaptiveDialog<String>(
+    // ToonFlow 的图片流从“素材库”入口复用全项目资产选择器；不在此处
+    // 复制一份只含角色/场景/道具的旧网格，以便片段和派生资产也能被选中。
+    final selected = await showAssetPicker(
       context,
+      widget.ref,
+      projectId: widget.projectId,
+      initial: const [],
+      types: const {'role', 'scene', 'tool', 'clip', 'audio'},
+      multiple: false,
       title: context.l10n.imageEditorPickImageTitle,
-      desktopWidthFactor: 0.6,
-      builder: (_) => _LibraryPicker(
-        engine: _engine,
-        items: items,
-        emptyText: context.l10n.imageEditorNoAssetsImages,
-      ),
     );
-    return rel;
-  }
-
-  /// 素材库已选中图（跨 role/scene/tool；仅返回有 filePath 者）。
-  List<_PickItem> _assetImageItems() {
-    final out = <_PickItem>[];
-    for (final type in const ['role', 'scene', 'tool']) {
-      final res = _engine.getAssets(widget.projectId, type: type, limit: 999);
-      for (final a in res.data) {
-        if (a.filePath != null && a.filePath!.isNotEmpty) {
-          out.add(_PickItem(rel: a.filePath!, label: a.name ?? ''));
-        }
-      }
-    }
-    return out;
+    if (selected == null || selected.isEmpty) return null;
+    return _engine.assetsByIds(selected).firstOrNull?.filePath;
   }
 
   /// 本剧集已生成首帧图的分镜（按镜头序号编号）。
@@ -1596,76 +1583,6 @@ class _EdgeDeleteDot extends StatelessWidget {
           ),
           child: Icon(Icons.close, size: 12, color: df.surface),
         ),
-      ),
-    );
-  }
-}
-
-/// 素材/分镜选图项（相对路径 + 展示名）。
-class _PickItem {
-  final String rel;
-  final String label;
-  const _PickItem({required this.rel, required this.label});
-}
-
-/// 素材库 / 分镜选图网格（点击某项返回其相对路径给调用方）。
-class _LibraryPicker extends StatelessWidget {
-  final Engine engine;
-  final List<_PickItem> items;
-  final String emptyText;
-  const _LibraryPicker({
-    required this.engine,
-    required this.items,
-    required this.emptyText,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final df = context.df;
-    if (items.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(DFTokens.s24),
-        child: Center(
-          child: Text(emptyText,
-              style: TextStyle(fontSize: 13, color: df.textTertiary)),
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.all(DFTokens.s12),
-      child: GridView.builder(
-        shrinkWrap: true,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4, crossAxisSpacing: 8, mainAxisSpacing: 8),
-        itemCount: items.length,
-        itemBuilder: (c, i) {
-          final it = items[i];
-          return InkWell(
-            onTap: () => Navigator.of(context).pop(it.rel),
-            borderRadius: BorderRadius.circular(6),
-            child: Column(children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                      color: df.surfaceMuted,
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Image.file(
-                    File(engine.mediaAbsPath(it.rel)),
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => Icon(Icons.broken_image_outlined,
-                        color: df.textTertiary),
-                  ),
-                ),
-              ),
-              Text(it.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10)),
-            ]),
-          );
-        },
       ),
     );
   }

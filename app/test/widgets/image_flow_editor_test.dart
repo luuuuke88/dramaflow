@@ -406,13 +406,51 @@ void main() {
     await tester.tap(find.text('从素材库选择'));
     await tester.pumpAndSettle();
 
-    // 选图对话框列出资产名，点击选择。
+    // 统一素材选择器列出资产名；单选后仍须显式确认（对齐原版素材选择弹窗）。
     expect(find.text('选择参考图'), findsWidgets);
     expect(find.text('林朝雪'), findsOneWidget);
     await tester.tap(find.text('林朝雪'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
     // 对话框关闭（不再有资产名）。
     expect(find.text('林朝雪'), findsNothing);
+  });
+
+  testWidgets('图片流素材库复用完整资产选择器并可采用图片片段', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final clipId = engine.uploadClip(
+      projectId: projectId,
+      name: '素材库图片片段',
+      bytes: _pngBytes,
+      ext: 'png',
+    );
+    final clipRel = engine.getAssets(projectId, type: 'clip').data.single.filePath!;
+    String? appliedRel;
+    await tester.pumpWidget(host(
+      seedRefs: [seedUploadRel()],
+      onApply: (rel, _) => appliedRel = rel,
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(uploadImageTap().first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('从素材库选择'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('asset-picker-search')), findsOneWidget);
+    expect(find.byKey(ValueKey('asset-picker-item-$clipId')), findsOneWidget);
+    await tester.tap(find.byKey(ValueKey('asset-picker-item-$clipId')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('image-flow-apply-u0')));
+    await tester.pumpAndSettle();
+
+    expect(appliedRel, clipRel);
   });
 
   testWidgets('上传节点可直接采用已有参考图并保存当前流程', (tester) async {
@@ -486,6 +524,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('直接采用图'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
     await expandGeneratedNode(tester);
     await tester.tap(find.byKey(const Key('image-flow-apply-g1')));
     await tester.pumpAndSettle();
@@ -525,6 +565,8 @@ void main() {
     await tester.tap(find.text('从素材库选择'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('林朝雪'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
     await tester.pumpAndSettle();
 
     await tester.tap(generatedTitle.hitTestable());
