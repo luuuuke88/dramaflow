@@ -148,16 +148,21 @@ void main() {
 
     expect(find.text('预览全部'), findsOneWidget);
     await tester.tap(find.text('预览全部'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 100)),
-    );
     await tester.pump();
+    // compute() 合成耗时随系统负载浮动，固定 100ms 延迟在负载高时会在
+    // isolate 完成前提前 pump，导致偶发找不到预览 widget；改为轮询等待。
+    final preview = find.byKey(const Key('storyboard-contact-sheet-preview'));
+    for (var i = 0; i < 50 && preview.evaluate().isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+    }
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
 
-    expect(find.byKey(const Key('storyboard-contact-sheet-preview')),
-        findsOneWidget);
+    expect(preview, findsOneWidget);
     expect(find.byType(InteractiveViewer), findsOneWidget);
     final viewer = tester.widget<InteractiveViewer>(
       find.byType(InteractiveViewer),
