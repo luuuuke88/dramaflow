@@ -328,8 +328,6 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
             tracks: standaloneTracks,
             onDelete: _deleteStandaloneTrack,
           ),
-        if (shots.isNotEmpty)
-          _TimelineOverview(projectId: widget.projectId, shots: shots),
         Expanded(
           child: shots.isEmpty
               ? Center(child: DFEmpty(text: l10n.workbenchNoShots))

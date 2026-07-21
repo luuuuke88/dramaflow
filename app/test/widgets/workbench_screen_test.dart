@@ -321,6 +321,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('workbench-tab-generate')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('workbench-shot-item-1')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('workbench-timeline-media')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('workbench-tab-edit')));
     await tester.pumpAndSettle();
@@ -704,7 +706,7 @@ void main() {
     );
     engine.bindStoryboardAudio(storyboardId: s2, audioAssetId: audioId);
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -745,7 +747,7 @@ void main() {
       relPath: rel,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -803,7 +805,7 @@ void main() {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -885,7 +887,7 @@ void main() {
       durationMs: 1000,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -957,7 +959,7 @@ void main() {
       durationMs: 1000,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1049,7 +1051,7 @@ void main() {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1130,7 +1132,7 @@ void main() {
       durationMs: 1000,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1217,7 +1219,7 @@ void main() {
       durationMs: 1000,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1304,7 +1306,7 @@ void main() {
       durationMs: 1000,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1391,7 +1393,7 @@ void main() {
       durationMs: 600,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1443,7 +1445,7 @@ void main() {
       durationMs: 1200,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1502,7 +1504,7 @@ void main() {
       durationMs: 1000,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1558,7 +1560,7 @@ void main() {
       durationMs: 1000,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1598,7 +1600,7 @@ void main() {
       durationMs: 1200,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1668,7 +1670,7 @@ void main() {
       durationMs: 800,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1722,7 +1724,7 @@ void main() {
       durationMs: 1200,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1768,7 +1770,7 @@ void main() {
       durationMs: 1200,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1837,7 +1839,7 @@ void main() {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -1912,7 +1914,7 @@ void main() {
       durationMs: 1000,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2011,7 +2013,7 @@ void main() {
       durationMs: 400,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2091,7 +2093,7 @@ void main() {
       durationMs: 800,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2179,7 +2181,7 @@ void main() {
       durationMs: 400,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2276,7 +2278,7 @@ void main() {
       durationMs: 500,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2381,7 +2383,7 @@ void main() {
       durationMs: 400,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2466,7 +2468,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2540,7 +2542,7 @@ void main() {
       durationMs: 500,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2643,7 +2645,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2743,7 +2745,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2843,7 +2845,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -2943,7 +2945,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -3077,7 +3079,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -3206,7 +3208,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -3318,7 +3320,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -3427,7 +3429,7 @@ void main() {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -3524,7 +3526,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -3634,7 +3636,7 @@ void main() {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -3767,7 +3769,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -3880,7 +3882,7 @@ void main() {
       durationMs: 300,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -3989,7 +3991,7 @@ void main() {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4086,7 +4088,7 @@ void main() {
       durationMs: 500,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4153,7 +4155,7 @@ void main() {
       durationMs: 500,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4221,7 +4223,7 @@ void main() {
       durationMs: 500,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4309,7 +4311,7 @@ void main() {
       durationMs: 400,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4378,7 +4380,7 @@ void main() {
       durationMs: 800,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4458,7 +4460,7 @@ void main() {
       durationMs: 700,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4539,7 +4541,7 @@ void main() {
       durationMs: 700,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4615,7 +4617,7 @@ void main() {
       durationMs: 800,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4674,7 +4676,7 @@ void main() {
       durationMs: 800,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4720,7 +4722,7 @@ void main() {
       durationMs: 500,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4784,7 +4786,7 @@ void main() {
       durationMs: 800,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4862,7 +4864,7 @@ void main() {
       durationMs: 500,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4923,7 +4925,7 @@ void main() {
       durationMs: 700,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -4983,7 +4985,7 @@ void main() {
       durationMs: 900,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -5052,7 +5054,7 @@ void main() {
       durationMs: 400,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -5133,7 +5135,7 @@ void main() {
       durationMs: 400,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -5218,7 +5220,7 @@ void main() {
       durationMs: 400,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -5289,7 +5291,7 @@ void main() {
       durationMs: 800,
     );
 
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -5346,7 +5348,7 @@ void main() {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();

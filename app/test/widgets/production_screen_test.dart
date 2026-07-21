@@ -493,6 +493,8 @@ void main() {
     expect(find.text('2 / 2'), findsOneWidget);
     await tester.tap(find.text('打开工作台'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-tab-generate')));
+    await tester.pumpAndSettle();
     expect(find.text('S1'), findsOneWidget);
     expect(find.text('S2'), findsOneWidget);
     expect(find.text('镜头配音'), findsWidgets);
@@ -519,6 +521,8 @@ void main() {
 
     await tester.tap(find.text('打开工作台'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-tab-generate')));
+    await tester.pumpAndSettle();
     expect(find.text('S1'), findsOneWidget);
     expect(find.text('S2'), findsOneWidget);
     expect(find.byTooltip('合成本集'), findsOneWidget);
@@ -540,6 +544,8 @@ void main() {
     await tester.tap(find.widgetWithText(Tab, '工作台'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('打开工作台'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workbench-tab-generate')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('workbench-compose-compact')));
