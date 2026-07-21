@@ -46,6 +46,36 @@ void main() {
     expect(img.decodeJpg(sheet.bytes), isNotNull);
   });
 
+  test('完整导出对超大源图同样有宽度上限，避免内存占用失控', () {
+    final sheet = buildStoryboardContactSheet(
+      [(shotNumber: 1, bytes: png(4096, 2048, img.ColorRgb8(20, 20, 220)))],
+      mode: StoryboardContactSheetMode.export,
+    );
+
+    expect(sheet, isNotNull);
+    expect(sheet!.imageCount, 1);
+    // 4096 原图必须被降采样，不能直接怼进合成画布；2048 是导出上限，
+    // 高度按原图宽高比例联动缩小到一半（2048）。
+    expect(sheet.width, lessThan(4096));
+    expect(sheet.width, 2048);
+    expect(sheet.height, 1024);
+    final decoded = img.decodePng(sheet.bytes);
+    expect(decoded, isNotNull);
+    expect(decoded!.width, 2048);
+    expect(decoded.height, 1024);
+  });
+
+  test('完整导出不对上限以内的源图做任何缩放', () {
+    final sheet = buildStoryboardContactSheet(
+      [(shotNumber: 1, bytes: png(1600, 900, img.ColorRgb8(20, 20, 220)))],
+      mode: StoryboardContactSheetMode.export,
+    );
+
+    expect(sheet, isNotNull);
+    expect(sheet!.width, 1600);
+    expect(sheet.height, 900);
+  });
+
   test('标签背景按 ToonFlow 的 fontSize 公式计算高度', () {
     final sheet = buildStoryboardContactSheet(
       [(shotNumber: 1, bytes: png(100, 100, img.ColorRgb8(255, 255, 255)))],

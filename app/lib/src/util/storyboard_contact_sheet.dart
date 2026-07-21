@@ -27,7 +27,9 @@ class StoryboardContactSheet {
 /// 按 ToonFlow `previewImage` / `downPreviewImage` 的规则合成首帧联系表。
 ///
 /// 无效图片会被跳过；有效图片保留传入顺序、每行最多五列。预览模式在布局前
-/// 把每张图片的宽度限制为 512px，完整导出不缩放。标签序号使用调用方传入的
+/// 把每张图片的宽度限制为 512px；完整导出保留更多细节，但同样有上限
+/// （[_exportMaxWidth]），避免个别超大源图（比如模型直出的高分辨率图）在
+/// 拼接多张图时把内存占用推到不可控的量级。标签序号使用调用方传入的
 /// `shotNumber`（应为该分镜在完整分镜列表里的真实序号），不是过滤掉未生成
 /// 分镜之后、在这个子集里重新计数的下标——否则联系表标签会跟画布网格编号
 /// 错位，指错分镜。
@@ -35,6 +37,9 @@ StoryboardContactSheet? buildStoryboardContactSheet(
   Iterable<({int shotNumber, Uint8List bytes})> sources, {
   required StoryboardContactSheetMode mode,
 }) {
+  final maxWidth = mode == StoryboardContactSheetMode.preview
+      ? _previewMaxWidth
+      : _exportMaxWidth;
   final images = <({int shotNumber, img.Image image})>[];
   for (final source in sources) {
     try {
@@ -44,9 +49,8 @@ StoryboardContactSheet? buildStoryboardContactSheet(
       }
       images.add((
         shotNumber: source.shotNumber,
-        image: mode == StoryboardContactSheetMode.preview &&
-                decoded.width > _previewMaxWidth
-            ? img.copyResize(decoded, width: _previewMaxWidth)
+        image: decoded.width > maxWidth
+            ? img.copyResize(decoded, width: maxWidth)
             : decoded,
       ));
     } catch (_) {
@@ -147,6 +151,10 @@ List<({int shotNumber, Uint8List bytes})> _readImageFiles(
 
 const _maxColumns = 5;
 const _previewMaxWidth = 512;
+// 导出保留比预览更多细节，但仍需要一个硬上限：分镜数量多时，未加界的原图
+// 宽度会让合成画布和中间解码缓冲区的内存占用线性失控。2048px 足以覆盖当前
+// 常见的生成分辨率（多数在 1024～2048 之间），超过时才降采样。
+const _exportMaxWidth = 2048;
 
 void _drawShotLabel(
   img.Image canvas,
