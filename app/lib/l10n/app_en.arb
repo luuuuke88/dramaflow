@@ -962,6 +962,7 @@
   "agentDeployGroupProductionAgent": "Production Agent",
   "agentDeployGroupPipeline": "Pipeline",
   "agentSkillsBuiltinTitle": "Built-in skills",
+  "agentSkillsFiles": "Skill files",
   "agentSkillsEditableHint": "Skill definitions are stored locally in o_skillList. You can edit descriptions and enable or disable skills; tool names stay fixed so Task Center records remain traceable and retryable.",
   "agentSkillsImport": "Import Markdown",
   "agentSkillsScan": "Rescan",

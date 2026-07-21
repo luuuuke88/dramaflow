@@ -1,5 +1,6 @@
 // 精简助手页：默认只承载工作流对话；保留的管理能力收进高级面板。
 // 被砍功能（custom JS 执行、监督 Agent、RAG 设置）不再从 UI 暴露。
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:file_selector/file_selector.dart';
@@ -826,11 +827,64 @@ class _AssistantSkillsPane extends ConsumerStatefulWidget {
       _AssistantSkillsPaneState();
 }
 
+class _SkillTreeNode {
+  final String label;
+  final String path;
+  final ManagedSkillLibraryFile? file;
+  final List<_SkillTreeNode> children;
+
+  const _SkillTreeNode({
+    required this.label,
+    required this.path,
+    this.file,
+    this.children = const [],
+  });
+
+  bool get isFile => file != null;
+
+  static List<_SkillTreeNode> fromFiles(List<ManagedSkillLibraryFile> files) {
+    final roots = SplayTreeMap<String, _MutableSkillTreeNode>();
+    for (final file in files) {
+      final parts = file.displayPath.split('/');
+      var children = roots;
+      final pathParts = <String>[];
+      for (var index = 0; index < parts.length; index++) {
+        final part = parts[index];
+        pathParts.add(part);
+        final node = children.putIfAbsent(
+          part,
+          () => _MutableSkillTreeNode(part, pathParts.join('/')),
+        );
+        if (index == parts.length - 1) node.file = file;
+        children = node.children;
+      }
+    }
+    return roots.values.map((node) => node.freeze()).toList();
+  }
+}
+
+class _MutableSkillTreeNode {
+  final String label;
+  final String path;
+  final SplayTreeMap<String, _MutableSkillTreeNode> children = SplayTreeMap();
+  ManagedSkillLibraryFile? file;
+
+  _MutableSkillTreeNode(this.label, this.path);
+
+  _SkillTreeNode freeze() => _SkillTreeNode(
+        label: label,
+        path: path,
+        file: file,
+        children: children.values.map((child) => child.freeze()).toList(),
+      );
+}
+
 class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
   final TextEditingController _search = TextEditingController();
   final TextEditingController _editor = TextEditingController();
   String _query = '';
-  String? _selectedId;
+  String? _selectedDisplayPath;
+  String _directoryPath = '';
   bool _editing = false;
 
   @override
@@ -840,14 +894,13 @@ class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
     super.dispose();
   }
 
-  List<AssistantSkill> _skills() {
-    final skills = [...ref.read(engineProvider).assistantSkills()]
-      ..sort((a, b) {
-        final aMarkdown = a.type == markdownAssistantSkillType;
-        final bMarkdown = b.type == markdownAssistantSkillType;
-        if (aMarkdown != bMarkdown) return aMarkdown ? -1 : 1;
-        return a.id.compareTo(b.id);
-      });
+  List<AssistantSkill> _builtinSkills() {
+    final skills = ref
+        .read(engineProvider)
+        .assistantSkills()
+        .where((skill) => skill.type != markdownAssistantSkillType)
+        .toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return skills;
     return skills
@@ -858,10 +911,18 @@ class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
         .toList();
   }
 
-  void _select(AssistantSkill skill) {
-    if (skill.type != markdownAssistantSkillType) return;
+  List<ManagedSkillLibraryFile> _files() {
+    final files = ref.read(engineProvider).managedSkillLibraryFiles();
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return files;
+    return files
+        .where((file) => file.displayPath.toLowerCase().contains(query))
+        .toList();
+  }
+
+  void _select(ManagedSkillLibraryFile file) {
     setState(() {
-      _selectedId = skill.id;
+      _selectedDisplayPath = file.displayPath;
       _editing = false;
     });
   }
@@ -883,7 +944,8 @@ class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
           ref.read(engineProvider).importMarkdownAssistantSkill(file.path);
       if (!mounted) return;
       setState(() {
-        _selectedId = imported.id;
+        _selectedDisplayPath = '${imported.id}/SKILL.md';
+        _directoryPath = imported.id;
         _editing = false;
       });
       _toast(context.l10n.agentSkillsImported);
@@ -903,21 +965,24 @@ class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
     setState(() {});
   }
 
-  void _startEdit(AssistantSkill skill) {
+  void _startEdit(ManagedSkillLibraryFile file) {
     try {
-      _editor.text =
-          ref.read(engineProvider).readManagedAssistantSkill(skill.id);
+      _editor.text = ref
+          .read(engineProvider)
+          .readManagedSkillLibraryFile(file.skillId, file.relativePath);
       setState(() => _editing = true);
     } catch (error) {
       _toast(localizeError(context, error), error: true);
     }
   }
 
-  void _saveEdit(AssistantSkill skill) {
+  void _saveEdit(ManagedSkillLibraryFile file) {
     try {
-      ref
-          .read(engineProvider)
-          .saveManagedAssistantSkill(skill.id, _editor.text);
+      ref.read(engineProvider).saveManagedSkillLibraryFile(
+            file.skillId,
+            file.relativePath,
+            _editor.text,
+          );
       setState(() => _editing = false);
       _toast(context.l10n.agentSkillsSaved);
     } catch (error) {
@@ -928,12 +993,14 @@ class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
   @override
   Widget build(BuildContext context) {
     ref.watch(engineProvider);
-    final skills = _skills();
+    final files = _files();
+    final builtinSkills = _builtinSkills();
     final df = context.df;
-    final selected =
-        skills.where((skill) => skill.id == _selectedId).firstOrNull;
+    final selected = files
+        .where((file) => file.displayPath == _selectedDisplayPath)
+        .firstOrNull;
     final compact = MediaQuery.sizeOf(context).width < 840;
-    final list = _buildList(context, skills);
+    final list = _buildList(context, files, builtinSkills, compact: compact);
     if (compact && selected != null) {
       return _buildDetail(context, selected, compact: true);
     }
@@ -951,10 +1018,19 @@ class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
     ]);
   }
 
-  Widget _buildList(BuildContext context, List<AssistantSkill> skills) {
+  Widget _buildList(
+    BuildContext context,
+    List<ManagedSkillLibraryFile> files,
+    List<AssistantSkill> builtinSkills, {
+    required bool compact,
+  }) {
     final engine = ref.read(engineProvider);
     final l10n = context.l10n;
     final df = context.df;
+    final roots = _SkillTreeNode.fromFiles(files);
+    final searching = _query.trim().isNotEmpty;
+    final nodes =
+        compact && !searching ? _childrenAtPath(roots, _directoryPath) : roots;
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
@@ -992,51 +1068,134 @@ class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
       ),
       const SizedBox(height: 8),
       Expanded(
-        child: ListView.builder(
+        child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-          itemCount: skills.length,
-          itemBuilder: (context, index) {
-            final skill = skills[index];
-            final markdown = skill.type == markdownAssistantSkillType;
-            return Card(
-              color: skill.id == _selectedId ? df.surfaceMuted : null,
-              margin: const EdgeInsets.only(bottom: 6),
-              child: ListTile(
-                onTap: markdown ? () => _select(skill) : null,
-                leading: Icon(markdown
-                    ? Icons.article_outlined
-                    : Icons.build_circle_outlined),
-                title: Text(skill.name,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text(
-                  skill.description.isEmpty ? skill.id : skill.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: Switch(
-                  key: ValueKey('assistant-skill-toggle-${skill.id}'),
-                  value: skill.enabled,
-                  onChanged: (value) {
-                    engine.updateAssistantSkill(skill.id, enabled: value);
-                    setState(() {});
-                  },
+          children: [
+            if (files.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
+                child: Text(
+                  l10n.agentSkillsFiles,
+                  style: DFTokens.body14.copyWith(color: df.textSecondary),
                 ),
               ),
-            );
-          },
+              if (searching)
+                for (final file in files)
+                  _fileTile(context, file, fullPath: true)
+              else
+                for (final node in nodes)
+                  _treeNode(context, node, compact: compact),
+            ],
+            if (builtinSkills.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 16, 4, 4),
+                child: Text(
+                  l10n.agentSkillsBuiltinTitle,
+                  style: DFTokens.body14.copyWith(color: df.textSecondary),
+                ),
+              ),
+              for (final skill in builtinSkills)
+                Card(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  child: ListTile(
+                    leading: const Icon(Icons.build_circle_outlined),
+                    title: Text(skill.name,
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(
+                      skill.description.isEmpty ? skill.id : skill.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: Switch(
+                      key: ValueKey('assistant-skill-toggle-${skill.id}'),
+                      value: skill.enabled,
+                      onChanged: (value) {
+                        engine.updateAssistantSkill(skill.id, enabled: value);
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                ),
+            ],
+          ],
         ),
       ),
     ]);
   }
 
-  Widget _buildDetail(BuildContext context, AssistantSkill skill,
+  List<_SkillTreeNode> _childrenAtPath(
+    List<_SkillTreeNode> roots,
+    String path,
+  ) {
+    if (path.isEmpty) return roots;
+    List<_SkillTreeNode> nodes = roots;
+    for (final part in path.split('/')) {
+      final current = nodes.where((node) => node.label == part).firstOrNull;
+      if (current == null) return roots;
+      nodes = current.children;
+    }
+    return nodes;
+  }
+
+  String _parentDirectoryPath(String path) {
+    final separator = path.lastIndexOf('/');
+    return separator == -1 ? '' : path.substring(0, separator);
+  }
+
+  Widget _treeNode(
+    BuildContext context,
+    _SkillTreeNode node, {
+    required bool compact,
+  }) {
+    if (node.isFile) return _fileTile(context, node.file!);
+    if (compact) {
+      return ListTile(
+        key: ValueKey('skill-tree-directory-${node.path}'),
+        leading: const Icon(Icons.folder_outlined),
+        title: Text(node.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => setState(() => _directoryPath = node.path),
+      );
+    }
+    return ExpansionTile(
+      key: ValueKey('skill-tree-toggle-${node.path}'),
+      leading: const Icon(Icons.folder_outlined),
+      title: Text(node.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      children: [
+        for (final child in node.children)
+          _treeNode(context, child, compact: false),
+      ],
+    );
+  }
+
+  Widget _fileTile(
+    BuildContext context,
+    ManagedSkillLibraryFile file, {
+    bool fullPath = false,
+  }) {
+    final selected = file.displayPath == _selectedDisplayPath;
+    return ListTile(
+      key: ValueKey('skill-tree-file-${file.displayPath}'),
+      selected: selected,
+      leading: const Icon(Icons.article_outlined),
+      title: Text(
+        fullPath ? file.displayPath : file.relativePath.split('/').last,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onTap: () => _select(file),
+    );
+  }
+
+  Widget _buildDetail(BuildContext context, ManagedSkillLibraryFile file,
       {bool compact = false}) {
     final engine = ref.read(engineProvider);
     final l10n = context.l10n;
     final df = context.df;
     String content;
     try {
-      content = engine.readManagedAssistantSkill(skill.id);
+      content =
+          engine.readManagedSkillLibraryFile(file.skillId, file.relativePath);
     } catch (_) {
       content = '';
     }
@@ -1050,29 +1209,30 @@ class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
               tooltip: l10n.agentSkillsBack,
               icon: const Icon(Icons.arrow_back),
               onPressed: () => setState(() {
-                _selectedId = null;
+                _directoryPath = _parentDirectoryPath(_directoryPath);
+                _selectedDisplayPath = null;
                 _editing = false;
               }),
             ),
           Expanded(
-            child: Text(skill.name,
+            child: Text(file.relativePath,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: DFTokens.section16w600.copyWith(color: df.textPrimary)),
           ),
           if (!_editing)
             IconButton(
-              key: ValueKey('assistant-skill-edit-${skill.id}'),
+              key: const ValueKey('assistant-skill-file-edit'),
               tooltip: l10n.agentSkillsEdit,
               icon: const Icon(Icons.edit_outlined),
-              onPressed: () => _startEdit(skill),
+              onPressed: () => _startEdit(file),
             ),
           if (_editing)
             IconButton(
-              key: ValueKey('assistant-skill-save-${skill.id}'),
+              key: const ValueKey('assistant-skill-file-save'),
               tooltip: l10n.agentSkillsSave,
               icon: const Icon(Icons.save_outlined),
-              onPressed: () => _saveEdit(skill),
+              onPressed: () => _saveEdit(file),
             ),
         ]),
       ),

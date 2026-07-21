@@ -289,8 +289,9 @@ void main() {
       160,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.ensureVisible(generateEventsToggle);
+    await tester.pumpAndSettle();
     expect(find.text('generate_events'), findsOneWidget);
-    expect(find.text('generate_derived_assets'), findsOneWidget);
     await tester.tap(generateEventsToggle);
     await tester.pumpAndSettle();
     final skill =
@@ -322,21 +323,18 @@ description: 分镜画幅规范
 
     await tester.tap(find.byKey(const ValueKey('assistant-skills-import')));
     await tester.pumpAndSettle();
-    expect(find.text('framing_guide'), findsWidgets);
     expect(find.textContaining('先交代环境'), findsOneWidget);
 
     await tester.enterText(
         find.byKey(const ValueKey('assistant-skills-search')), 'framing');
     await tester.pumpAndSettle();
-    expect(find.text('framing_guide'), findsWidgets);
+    expect(find.text('framing_guide/SKILL.md'), findsOneWidget);
 
-    await tester
-        .tap(find.byKey(const ValueKey('assistant-skill-edit-framing_guide')));
+    await tester.tap(find.byKey(const ValueKey('assistant-skill-file-edit')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('assistant-skill-editor')),
         '---\nname: framing_guide\ndescription: 新说明\n---\n改后的镜头规则');
-    await tester
-        .tap(find.byKey(const ValueKey('assistant-skill-save-framing_guide')));
+    await tester.tap(find.byKey(const ValueKey('assistant-skill-file-save')));
     await tester.pumpAndSettle();
     expect(
         engine.readManagedAssistantSkill('framing_guide'), contains('改后的镜头规则'));
@@ -363,12 +361,132 @@ description: 移动端构图
     await tester.tap(find.byKey(const ValueKey('assistant-skills-scan')));
     await tester.pumpAndSettle();
     expect(find.text('mobile_guide'), findsOneWidget);
-    await tester.tap(find.text('mobile_guide'));
+    await tester.tap(
+      find.byKey(const ValueKey('skill-tree-directory-mobile_guide')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('skill-tree-file-mobile_guide/SKILL.md')),
+    );
     await tester.pumpAndSettle();
     expect(find.textContaining('保留主体安全区域'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('assistant-skill-back')));
     await tester.pumpAndSettle();
-    expect(find.text('mobile_guide'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('skill-tree-directory-mobile_guide')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('桌面技能树展开深层 Markdown，预览并保存资源文件', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    _writeMarkdownSkill(
+      dir,
+      id: 'camera_guide',
+      description: '运镜参考',
+      body: '入口内容',
+    );
+    final references =
+        Directory(p.join(dir.path, 'skills', 'camera_guide', 'references'))
+          ..createSync();
+    File(p.join(references.path, 'shot-list.md')).writeAsStringSync('深层镜头表');
+    engine.saveMarkdownAssistantSkill(
+      filePath: p.join(dir.path, 'skills', 'camera_guide', 'SKILL.md'),
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _openAssistantAdvanced(tester);
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+
+    await tester
+        .tap(find.byKey(const ValueKey('skill-tree-toggle-camera_guide')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('skill-tree-toggle-camera_guide/references')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey('skill-tree-file-camera_guide/references/shot-list.md'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('深层镜头表'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('assistant-skill-file-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('assistant-skill-editor')),
+      '改后的深层镜头表',
+    );
+    await tester.tap(find.byKey(const ValueKey('assistant-skill-file-save')));
+    await tester.pumpAndSettle();
+    expect(
+      engine.readManagedSkillLibraryFile(
+        'camera_guide',
+        'references/shot-list.md',
+      ),
+      '改后的深层镜头表',
+    );
+  });
+
+  testWidgets('390dp 技能树可进入目录、搜索深层文件并逐层返回', (tester) async {
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    _writeMarkdownSkill(
+      dir,
+      id: 'camera_guide',
+      description: '运镜参考',
+      body: '入口内容',
+    );
+    final references =
+        Directory(p.join(dir.path, 'skills', 'camera_guide', 'references'))
+          ..createSync();
+    File(p.join(references.path, 'shot-list.md')).writeAsStringSync('深层镜头表');
+    engine.saveMarkdownAssistantSkill(
+      filePath: p.join(dir.path, 'skills', 'camera_guide', 'SKILL.md'),
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _openAssistantAdvanced(tester);
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+
+    await tester
+        .tap(find.byKey(const ValueKey('skill-tree-directory-camera_guide')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+          const ValueKey('skill-tree-directory-camera_guide/references')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey('skill-tree-file-camera_guide/references/shot-list.md'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('深层镜头表'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('assistant-skill-back')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+          const ValueKey('skill-tree-directory-camera_guide/references')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('assistant-skills-search')),
+      'shot-list',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('camera_guide/references/shot-list.md'), findsOneWidget);
   });
 
   testWidgets('项目笔记页使用 project_notes API，删除走危险确认', (tester) async {

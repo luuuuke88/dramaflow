@@ -2523,6 +2523,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentSkillsBuiltinTitle => '内置技能';
 
   @override
+  String get agentSkillsFiles => '技能文件';
+
+  @override
   String get agentSkillsEditableHint =>
       '技能定义保存在本地 o_skillList，可编辑说明与启停状态；工具名保持固定，确保任务中心可追踪、可重试。';
 

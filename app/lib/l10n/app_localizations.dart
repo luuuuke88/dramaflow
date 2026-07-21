@@ -4942,6 +4942,12 @@ abstract class AppLocalizations {
   /// **'内置技能'**
   String get agentSkillsBuiltinTitle;
 
+  /// No description provided for @agentSkillsFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能文件'**
+  String get agentSkillsFiles;
+
   /// No description provided for @agentSkillsEditableHint.
   ///
   /// In zh, this message translates to:

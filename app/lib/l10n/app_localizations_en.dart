@@ -2617,6 +2617,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentSkillsBuiltinTitle => 'Built-in skills';
 
   @override
+  String get agentSkillsFiles => 'Skill files';
+
+  @override
   String get agentSkillsEditableHint =>
       'Skill definitions are stored locally in o_skillList. You can edit descriptions and enable or disable skills; tool names stay fixed so Task Center records remain traceable and retryable.';
 

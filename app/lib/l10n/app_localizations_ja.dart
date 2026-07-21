@@ -2541,6 +2541,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentSkillsBuiltinTitle => '組み込み技能';
 
   @override
+  String get agentSkillsFiles => '技能ファイル';
+
+  @override
   String get agentSkillsEditableHint =>
       '技能定義はローカルの o_skillList に保存されます。説明と有効状態を編集できます。ツール名は固定され、タスクセンターの記録を追跡・再試行できる状態に保ちます。';
 
