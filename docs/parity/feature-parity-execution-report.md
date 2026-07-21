@@ -66,8 +66,9 @@
 后端或打包 bundle 注册的路由，不能把这条失效请求当功能复刻。Flutter 改为只扫描应用自有
 `dataDir/skills/<id>/SKILL.md`：新增、更新、丢失和无效 frontmatter 都有精确本地对账，
 包内 Markdown 保持资源身份；桌面及 390dp 界面均可触发并显示统计；没有伪进度、HTTP
-路由或供应商调用。`W6D-SKILL-001` 仍是部分实现：单 Markdown 的导入/搜索/预览/编辑
-保存已完成，但原版目录树与目录包导入尚未实现。
+路由或供应商调用。`W6D-SKILL-001` 已验证等价：应用自有技能包以相对路径目录树展示，
+桌面可递归展开，390dp 可逐层进入/返回，深层 Markdown 可搜索、预览和受限保存。原版此页
+没有目录导入、ZIP、任意外部路径或创建/删除/重命名动作，Flutter 也没有搭车新增这些能力。
 完整边界见 [`skill-runtime-matrix.md`](skill-runtime-matrix.md)。
 
 ### 审计更正：Agent 按需技能协议
