@@ -720,6 +720,63 @@ void main() {
     expect(scrollController.value.storage[13], closeTo(60, 0.1));
   });
 
+  testWidgets(
+      'DFCanvas 节点内嵌套 ListView 滚轮去重后优先于画布(Bug 1 附带问题验证)',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    final controller = TransformationController();
+    final scrollController = ScrollController();
+    addTearDown(scrollController.dispose);
+
+    // 复刻 production_screen.dart _AssetsNode 的真实结构:整节点包一层
+    // DFCanvasViewportSignalRegion(把滚轮交还给画布)，内部是一个未做任何特殊
+    // 处理的普通 ListView——和真实代码一样，完全依赖 ListView 自带的
+    // Scrollable 通过 PointerSignalResolver 参与去重。评审指出:画布这边一旦
+    // 也改成走 resolver，二者应该正常互斥；这里实际跑一遍而不是假设。
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        nodes: [
+          DFCanvasNode(
+            id: 'assets-like',
+            position: const Offset(180, 160),
+            size: const Size(240, 200),
+            onDragUpdate: (_) {},
+            child: DFCanvasViewportSignalRegion(
+              child: ListView.builder(
+                key: const ValueKey('assets-like-list'),
+                controller: scrollController,
+                itemCount: 30,
+                itemBuilder: (context, i) => SizedBox(
+                  height: 40,
+                  child: ColoredBox(
+                    color: i.isEven ? Colors.blue : Colors.blue.shade200,
+                    child: Text('item $i'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    )));
+
+    final listPoint =
+        tester.getCenter(find.byKey(const ValueKey('assets-like-list')));
+    final pointer = TestPointer(1, PointerDeviceKind.mouse);
+    pointer.hover(listPoint);
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, 100)));
+    await tester.pump();
+
+    // 列表内容优先响应滚轮:滚动位置改变。
+    expect(scrollController.offset, greaterThan(0));
+    // 画布矩阵完全不受影响——既没有跟着平移也没有跟着缩放。
+    expect(controller.value, Matrix4.identity());
+  });
+
   testWidgets('DFCanvas title handle moves a node in scene coordinates',
       (tester) async {
     await setLogicalSize(tester, const Size(900, 600));
