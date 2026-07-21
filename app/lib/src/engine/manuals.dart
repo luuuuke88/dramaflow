@@ -168,14 +168,16 @@ extension ManualsApi on Engine {
       }
     }
     final suppliedPack = pack?.trim();
-    final packName = suppliedPack == null || suppliedPack.isEmpty
-        ? sanitizePackName(name)
-        : suppliedPack;
-    if (packName.isEmpty ||
-        packName == '.' ||
-        packName == '..' ||
-        packName.contains('/') ||
-        packName.contains('\\')) {
+    // 手填的目录 ID 也要过 sanitizePackName：引擎侧此前只挡 . / .. / 斜杠
+    // 反斜杠，像 : * ? " < > | 这些 Windows 非法文件名字符会被原样传给
+    // Directory(...).createSync()，抛出的 FileSystemException 只能走 '$e'
+    // 兜底、不是本地化提示。和"由名称自动派生"的取值走同一套清洗，
+    // 不接受比自动派生更宽的字符集（未发现任何设计文档要求手填字段例外）。
+    final packName = sanitizePackName(
+      suppliedPack == null || suppliedPack.isEmpty ? name : suppliedPack,
+    );
+    // sanitizePackName 不处理纯点号：拦掉会被解析成当前/上级目录的取值。
+    if (packName.isEmpty || packName == '.' || packName == '..') {
       throw const EngineException(errManualInvalid, {'reason': 'pack'});
     }
     final dir = Directory(p.join(skillsRoot, kind, packName));

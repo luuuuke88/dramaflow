@@ -115,6 +115,35 @@ void main() {
     expect(saved.name, '第一版');
   });
 
+  test('手填稳定目录 ID 中的非法字符会被清洗，而不是原样传给文件系统', () {
+    engine.saveVisualManual(
+      name: '国风水墨',
+      pack: 'bad:pack*name?',
+      data: visualData(),
+    );
+
+    final pack = engine.visualManuals().single;
+    expect(pack.pack, sanitizePackName('bad:pack*name?'));
+    expect(pack.pack, isNot(contains(':')));
+    expect(pack.pack, isNot(contains('*')));
+    expect(pack.pack, isNot(contains('?')));
+  });
+
+  test('手填稳定目录 ID 全部是非法字符时按无效目录报错，而不是抛裸文件系统异常', () {
+    expect(
+      () => engine.saveVisualManual(
+        name: '国风水墨',
+        pack: '..',
+        data: visualData(),
+      ),
+      throwsA(
+        isA<EngineException>()
+            .having((error) => error.errKey, 'errKey', errManualInvalid),
+      ),
+    );
+    expect(engine.visualManuals(), isEmpty);
+  });
+
   test('空稳定目录 ID 继续从名称派生目录', () {
     engine.saveVisualManual(
       name: '国风水墨',
