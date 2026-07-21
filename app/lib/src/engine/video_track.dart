@@ -390,6 +390,32 @@ extension VideoTrackApi on Engine {
   List<VideoReferenceCandidate> videoReferenceCandidates(
     int projectId,
     int storyboardId,
+  ) =>
+      _videoReferenceCandidates(projectId, storyboardId);
+
+  /// 独立轨没有默认首帧或分镜关联资产，只返回可由用户显式挑选的项目素材。
+  List<VideoReferenceCandidate> videoReferenceCandidatesForTrack(
+    int projectId,
+    int trackId,
+  ) {
+    final row = db.select(
+      'SELECT projectId FROM o_videoTrack WHERE id=?',
+      [trackId],
+    ).firstOrNull;
+    if (row == null || row['projectId'] != projectId) {
+      throw EngineException(errPromptMissing, {'type': 'videoTrack'});
+    }
+    final storyboardId = db.select(
+      'SELECT id FROM o_storyboard WHERE trackId=? AND projectId=? '
+      'ORDER BY id LIMIT 1',
+      [trackId, projectId],
+    ).firstOrNull?['id'] as int?;
+    return _videoReferenceCandidates(projectId, storyboardId);
+  }
+
+  List<VideoReferenceCandidate> _videoReferenceCandidates(
+    int projectId,
+    int? storyboardId,
   ) {
     final rows = <VideoReferenceCandidate>[];
     final sourceKeys = <String>{};
@@ -419,74 +445,76 @@ extension VideoTrackApi on Engine {
       ));
     }
 
-    final storyboard = db.select(
-      'SELECT id,filePath FROM o_storyboard WHERE id=? AND projectId=?',
-      [storyboardId, projectId],
-    ).firstOrNull;
-    if (storyboard != null) {
-      add(
-        sourceType: 'storyboard',
-        sourceId: storyboard['id'] as int,
-        mediaType: 'image',
-        role: 'first_frame',
-        label: 'Storyboard $storyboardId',
-        localPath: storyboard['filePath'] as String?,
-      );
-    }
-    for (final row in db.select(
-      'SELECT a.id,a.name,a.type,i.filePath FROM o_assets2Storyboard l '
-      'JOIN o_assets a ON a.id=l.assetId '
-      'JOIN o_image i ON i.id=a.imageId WHERE l.storyboardId=? AND a.projectId=? '
-      "AND i.filePath IS NOT NULL AND trim(i.filePath)<>''",
-      [storyboardId, projectId],
-    )) {
-      final type = row['type'] as String? ?? '';
-      final mediaType = _assetReferenceMediaType(
-        type,
-        row['filePath'] as String?,
-      );
-      final role = switch (mediaType) {
-        'audio' => 'reference_audio',
-        'video' => 'reference_video',
-        _ => 'reference_image',
-      };
-      add(
-        sourceType: 'asset',
-        sourceId: row['id'] as int,
-        mediaType: mediaType,
-        role: role,
-        label: row['name'] as String? ?? '',
-        localPath: row['filePath'] as String?,
-        boundAudioSourceIds: _boundAudioAssetIds(
-          projectId,
-          row['id'] as int,
-        ),
-      );
-    }
-    // ToonFlow 会把分镜关联资产（及其父资产）绑定的音频加入当前镜头参考。
-    // 音频文件通常落在父音色资产的子样本上，故解析由专用回退逻辑完成。
-    for (final row in db.select(
-      'SELECT DISTINCT audio.id audioId,audio.name audioName '
-      'FROM o_assets2Storyboard link '
-      'JOIN o_assets linked ON linked.id=link.assetId '
-      'JOIN o_assetsRole2Audio audioLink ON '
-      '(audioLink.assetsRoleId=linked.id OR '
-      'audioLink.assetsRoleId=linked.assetsId) '
-      'JOIN o_assets audio ON audio.id=audioLink.assetsAudioId '
-      "AND audio.projectId=? AND audio.type='audio' AND audio.assetsId IS NULL "
-      'WHERE link.storyboardId=? AND linked.projectId=? '
-      'ORDER BY audio.id',
-      [projectId, storyboardId, projectId],
-    )) {
-      final audioId = row['audioId'] as int;
-      add(
-        sourceType: 'audio',
-        sourceId: audioId,
-        mediaType: 'audio',
-        role: 'reference_audio',
-        label: row['audioName'] as String? ?? '',
-        localPath: _audioAssetReferencePath(projectId, audioId),
-      );
+    if (storyboardId != null) {
+      final storyboard = db.select(
+        'SELECT id,filePath FROM o_storyboard WHERE id=? AND projectId=?',
+        [storyboardId, projectId],
+      ).firstOrNull;
+      if (storyboard != null) {
+        add(
+          sourceType: 'storyboard',
+          sourceId: storyboard['id'] as int,
+          mediaType: 'image',
+          role: 'first_frame',
+          label: 'Storyboard $storyboardId',
+          localPath: storyboard['filePath'] as String?,
+        );
+      }
+      for (final row in db.select(
+        'SELECT a.id,a.name,a.type,i.filePath FROM o_assets2Storyboard l '
+        'JOIN o_assets a ON a.id=l.assetId '
+        'JOIN o_image i ON i.id=a.imageId WHERE l.storyboardId=? AND a.projectId=? '
+        "AND i.filePath IS NOT NULL AND trim(i.filePath)<>''",
+        [storyboardId, projectId],
+      )) {
+        final type = row['type'] as String? ?? '';
+        final mediaType = _assetReferenceMediaType(
+          type,
+          row['filePath'] as String?,
+        );
+        final role = switch (mediaType) {
+          'audio' => 'reference_audio',
+          'video' => 'reference_video',
+          _ => 'reference_image',
+        };
+        add(
+          sourceType: 'asset',
+          sourceId: row['id'] as int,
+          mediaType: mediaType,
+          role: role,
+          label: row['name'] as String? ?? '',
+          localPath: row['filePath'] as String?,
+          boundAudioSourceIds: _boundAudioAssetIds(
+            projectId,
+            row['id'] as int,
+          ),
+        );
+      }
+      // ToonFlow 会把分镜关联资产（及其父资产）绑定的音频加入当前镜头参考。
+      // 音频文件通常落在父音色资产的子样本上，故解析由专用回退逻辑完成。
+      for (final row in db.select(
+        'SELECT DISTINCT audio.id audioId,audio.name audioName '
+        'FROM o_assets2Storyboard link '
+        'JOIN o_assets linked ON linked.id=link.assetId '
+        'JOIN o_assetsRole2Audio audioLink ON '
+        '(audioLink.assetsRoleId=linked.id OR '
+        'audioLink.assetsRoleId=linked.assetsId) '
+        'JOIN o_assets audio ON audio.id=audioLink.assetsAudioId '
+        "AND audio.projectId=? AND audio.type='audio' AND audio.assetsId IS NULL "
+        'WHERE link.storyboardId=? AND linked.projectId=? '
+        'ORDER BY audio.id',
+        [projectId, storyboardId, projectId],
+      )) {
+        final audioId = row['audioId'] as int;
+        add(
+          sourceType: 'audio',
+          sourceId: audioId,
+          mediaType: 'audio',
+          role: 'reference_audio',
+          label: row['audioName'] as String? ?? '',
+          localPath: _audioAssetReferencePath(projectId, audioId),
+        );
+      }
     }
     // 原版工作台可从项目完整素材库补充参考，而不局限于当前分镜已关联资产。
     // 已关联项先写入，sourceKeys 会令其在候选列表中保持靠前。
@@ -558,19 +586,44 @@ extension VideoTrackApi on Engine {
     required int storyboardId,
     required int trackId,
   }) {
-    final project = db
-        .select('SELECT * FROM o_project WHERE id=?', [projectId]).firstOrNull;
-    if (project == null) {
-      throw EngineException(errPromptMissing, {'type': 'project'});
-    }
     final storyboard = db.select(
-        'SELECT projectId,trackId,prompt FROM o_storyboard WHERE id=?',
+        'SELECT projectId,trackId FROM o_storyboard WHERE id=?',
         [storyboardId]).firstOrNull;
     if (storyboard == null ||
         storyboard['projectId'] != projectId ||
         storyboard['trackId'] != trackId) {
       throw EngineException(errPromptMissing, {'type': 'storyboard'});
     }
+    return buildVideoRequestForTrack(
+      projectId: projectId,
+      trackId: trackId,
+    );
+  }
+
+  /// 构建任意视频轨的生成请求。分镜轨会以分镜正文作为空提示词的后备；
+  /// 独立轨没有该后备，必须使用轨道上已保存的提示词。
+  VideoGenerationRequest buildVideoRequestForTrack({
+    required int projectId,
+    required int trackId,
+  }) {
+    final project = db
+        .select('SELECT * FROM o_project WHERE id=?', [projectId]).firstOrNull;
+    if (project == null) {
+      throw EngineException(errPromptMissing, {'type': 'project'});
+    }
+    final trackRow = db.select(
+      'SELECT projectId,prompt FROM o_videoTrack WHERE id=?',
+      [trackId],
+    ).firstOrNull;
+    if (trackRow == null || trackRow['projectId'] != projectId) {
+      throw EngineException(errPromptMissing, {'type': 'videoTrack'});
+    }
+    final storyboard = db.select(
+      'SELECT id,prompt FROM o_storyboard WHERE trackId=? AND projectId=? '
+      'ORDER BY id LIMIT 1',
+      [trackId, projectId],
+    ).firstOrNull;
+    final storyboardId = storyboard?['id'] as int?;
     final capabilities = _videoCapabilities(project);
     if (capabilities == null) {
       throw const EngineException(
@@ -582,7 +635,7 @@ extension VideoTrackApi on Engine {
       mode: draft.mode,
       prompt: (track(trackId)?.prompt?.trim().isNotEmpty ?? false)
           ? track(trackId)!.prompt!.trim()
-          : (storyboard['prompt'] as String? ?? '').trim(),
+          : (storyboard?['prompt'] as String? ?? '').trim(),
       references: [
         for (final source in draft.references)
           VideoReference(
@@ -1188,16 +1241,39 @@ extension VideoTrackApi on Engine {
     final trackIds = [
       for (final sbId in storyboardIds) ensureTrackForStoryboard(sbId),
     ];
+    return batchGenerateVideoTracks(
+      projectId,
+      trackIds,
+      concurrentCount: concurrentCount,
+    );
+  }
+
+  /// 以既有轨道直接提交视频生成。分镜轨与独立轨共用这一条队列路径：
+  /// 前者由 [batchGenerateVideos] 懒建并转入，后者无需伪造分镜即可使用。
+  int batchGenerateVideoTracks(int projectId, List<int> trackIds,
+      {int concurrentCount = 2}) {
+    final uniqueTrackIds = <int>{...trackIds}.toList(growable: false);
+    if (uniqueTrackIds.isEmpty) return 0;
+    final ownedTrackIds = db
+        .select(
+          'SELECT id FROM o_videoTrack WHERE projectId=? '
+          'AND id IN (${_ph(uniqueTrackIds)})',
+          [projectId, ...uniqueTrackIds],
+        )
+        .map((row) => row['id'] as int)
+        .toSet();
+    if (ownedTrackIds.length != uniqueTrackIds.length) {
+      throw EngineException(errPromptMissing, {'type': 'videoTrack'});
+    }
     final requests = <int, VideoGenerationRequest>{
-      for (var index = 0; index < storyboardIds.length; index++)
-        trackIds[index]: buildVideoRequest(
+      for (final trackId in uniqueTrackIds)
+        trackId: buildVideoRequestForTrack(
           projectId: projectId,
-          storyboardId: storyboardIds[index],
-          trackId: trackIds[index],
+          trackId: trackId,
         ),
     };
     final candidateIds = <int>[];
-    for (final trackId in trackIds) {
+    for (final trackId in uniqueTrackIds) {
       final request = requests[trackId]!;
       final trackRow = db.select(
           'SELECT scriptId FROM o_videoTrack WHERE id=?', [trackId]).first;
@@ -1219,8 +1295,8 @@ extension VideoTrackApi on Engine {
       candidateIds.add(db.lastInsertRowId);
     }
     db.execute(
-      'UPDATE o_videoTrack SET state=? WHERE id IN (${_ph(trackIds)})',
-      [vtGenerating, ...trackIds],
+      'UPDATE o_videoTrack SET state=? WHERE id IN (${_ph(uniqueTrackIds)})',
+      [vtGenerating, ...uniqueTrackIds],
     );
     return queue.enqueue(
       projectId: projectId,
@@ -1228,9 +1304,9 @@ extension VideoTrackApi on Engine {
       describe: '视频生成',
       relatedObjects: {
         'kind': 'videoTrack',
-        'trackIds': trackIds,
+        'trackIds': uniqueTrackIds,
         'videoIds': candidateIds,
-        'concurrentCount': concurrentCount,
+        'concurrentCount': concurrentCount.clamp(1, 8),
       },
       model: requests.values.first.modelBinding,
     );
@@ -1303,15 +1379,8 @@ extension VideoTrackApi on Engine {
     var upstreamTaskId = candidate['upstreamTaskId'] as String? ?? '';
 
     if (submissionState == 'prepared') {
-      final storyboardId = db.select(
-          'SELECT id FROM o_storyboard WHERE trackId=? LIMIT 1',
-          [trackId]).firstOrNull?['id'] as int?;
-      if (storyboardId == null) {
-        throw EngineException(errPromptMissing, {'type': 'storyboard'});
-      }
-      final request = buildVideoRequest(
+      final request = buildVideoRequestForTrack(
         projectId: projectId,
-        storyboardId: storyboardId,
         trackId: trackId,
       );
       final storedFingerprint =
@@ -1491,16 +1560,9 @@ extension VideoTrackApi on Engine {
       );
 
   int _createRetryVideoCandidate(int projectId, int trackId) {
-    final storyboardId = db.select(
-      'SELECT id FROM o_storyboard WHERE trackId=? AND projectId=? LIMIT 1',
-      [trackId, projectId],
-    ).firstOrNull?['id'] as int?;
-    if (storyboardId == null) {
-      throw EngineException(errPromptMissing, {'type': 'storyboard:$trackId'});
-    }
-    final request = buildVideoRequest(
+    // 失败重试与初次提交共用按轨道建请求路径，独立轨不应被强行要求关联分镜。
+    final request = buildVideoRequestForTrack(
       projectId: projectId,
-      storyboardId: storyboardId,
       trackId: trackId,
     );
     final scriptId = db.select(

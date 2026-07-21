@@ -81,6 +81,7 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
   bool _composing = false;
   bool _exportingCheckedVideos = false;
   final Set<int> _checkedShotIds = {};
+  int? _activeStandaloneTrackId;
   late WorkbenchTab _activeTab;
 
   @override
@@ -305,7 +306,15 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     );
     if (ok != true || !mounted) return;
     ref.read(engineProvider).deleteVideoTrack(trackId);
-    setState(() {});
+    setState(() {
+      if (_activeStandaloneTrackId == trackId) {
+        _activeStandaloneTrackId = null;
+      }
+    });
+  }
+
+  void _selectStandaloneTrack(int trackId) {
+    setState(() => _activeStandaloneTrackId = trackId);
   }
 
   String _projectVideoRatio(Engine engine) {
@@ -328,6 +337,11 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
     }
     final selectedCount =
         shots.where((shot) => _checkedShotIds.contains(shot.id)).length;
+    final activeStandaloneTrack = _activeStandaloneTrackId == null
+        ? null
+        : standaloneTracks
+            .where((track) => track.id == _activeStandaloneTrackId)
+            .firstOrNull;
     final selectAllValue = selectedCount == 0
         ? false
         : selectedCount == shots.length
@@ -358,7 +372,19 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
         if (standaloneTracks.isNotEmpty)
           _StandaloneTrackSection(
             tracks: standaloneTracks,
+            activeTrackId: _activeStandaloneTrackId,
+            onSelect: _selectStandaloneTrack,
             onDelete: _deleteStandaloneTrack,
+          ),
+        if (activeStandaloneTrack != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _StandaloneTrackEditor(
+              projectId: widget.projectId,
+              scriptId: widget.scriptId,
+              track: activeStandaloneTrack,
+              onChanged: () => setState(() {}),
+            ),
           ),
         Expanded(
           child: shots.isEmpty
@@ -414,6 +440,8 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
           if (standaloneTracks.isNotEmpty)
             _StandaloneTrackSection(
               tracks: standaloneTracks,
+              activeTrackId: _activeStandaloneTrackId,
+              onSelect: _selectStandaloneTrack,
               onDelete: _deleteStandaloneTrack,
             ),
           if (shots.isNotEmpty)
@@ -724,10 +752,14 @@ class _WorkbenchSurfaceTab extends StatelessWidget {
 
 class _StandaloneTrackSection extends StatelessWidget {
   final List<VideoTrackRow> tracks;
+  final int? activeTrackId;
+  final ValueChanged<int> onSelect;
   final ValueChanged<int> onDelete;
 
   const _StandaloneTrackSection({
     required this.tracks,
+    required this.activeTrackId,
+    required this.onSelect,
     required this.onDelete,
   });
 
@@ -753,6 +785,8 @@ class _StandaloneTrackSection extends StatelessWidget {
               _StandaloneTrackCard(
                 track: tracks[index],
                 index: index,
+                selected: tracks[index].id == activeTrackId,
+                onSelect: () => onSelect(tracks[index].id),
                 onDelete: () => onDelete(tracks[index].id),
               ),
               if (index < tracks.length - 1) const SizedBox(width: 8),
@@ -764,47 +798,394 @@ class _StandaloneTrackSection extends StatelessWidget {
   }
 }
 
-class _StandaloneTrackCard extends StatelessWidget {
+class _StandaloneTrackCard extends ConsumerWidget {
   final VideoTrackRow track;
   final int index;
+  final bool selected;
+  final VoidCallback onSelect;
   final VoidCallback onDelete;
 
   const _StandaloneTrackCard({
     required this.track,
     required this.index,
+    required this.selected,
+    required this.onSelect,
     required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final df = context.df;
+    final engine = ref.watch(engineProvider);
+    final draft = engine.videoRequestForTrack(track.id);
+    final selectedSources = draft.references
+        .map((source) =>
+            '${source.sourceType}:${source.sourceId}:${source.mediaType}')
+        .toSet();
+    final selectedReferences = engine
+        .videoReferenceCandidatesForTrack(track.projectId, track.id)
+        .where((candidate) => selectedSources.contains(
+              '${candidate.source.sourceType}:${candidate.source.sourceId}:'
+              '${candidate.source.mediaType}',
+            ))
+        .toList(growable: false);
+    final selectedVideo = track.selectVideoId != null;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '#${index + 1}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey('workbench-standalone-track-${track.id}'),
+          onTap: onSelect,
+          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+          child: Container(
+            width: 170,
+            height: 104,
+            decoration: BoxDecoration(
+              color: selected ? df.primarySubtle : df.surface,
+              border: Border.all(color: selected ? df.primary : df.stroke),
+              borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+            ),
+            child: Stack(children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(DFTokens.radiusCard - 1),
+                  child: _StandaloneTrackPreview(
+                    engine: engine,
+                    hasSelectedVideo: selectedVideo,
+                    references: selectedReferences,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 6,
+                bottom: 6,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.56),
+                    borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+                  ),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    child: Text(
+                      '#${index + 1}  ${track.duration ?? '-'}s',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Colors.white,
+                          ),
+                    ),
+                  ),
+                ),
+              ),
+              if (selectedVideo)
+                Positioned(
+                  right: 6,
+                  bottom: 6,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: df.success.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(DFTokens.radiusChip),
+                    ),
+                    child: const Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      child: Icon(Icons.check_rounded,
+                          size: 13, color: Colors.white),
+                    ),
+                  ),
+                ),
+              Positioned(
+                top: 2,
+                right: 2,
+                child: IconButton(
+                  key: ValueKey('workbench-delete-standalone-track-${track.id}'),
+                  tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+                  visualDensity: VisualDensity.compact,
+                  color: Colors.white,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black.withValues(alpha: 0.45),
+                  ),
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.close_rounded, size: 16),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StandaloneTrackPreview extends StatelessWidget {
+  final Engine engine;
+  final bool hasSelectedVideo;
+  final List<VideoReferenceCandidate> references;
+
+  const _StandaloneTrackPreview({
+    required this.engine,
+    required this.hasSelectedVideo,
+    required this.references,
   });
 
   @override
   Widget build(BuildContext context) {
     final df = context.df;
+    if (hasSelectedVideo) {
+      // 原版用浏览器 canvas 截首帧；原生端尚无轻量抽帧服务时按其失败回退显示视频占位。
+      return ColoredBox(
+        color: df.surfaceMuted,
+        child: Center(
+          child: Icon(Icons.play_circle_outline_rounded,
+              size: 30, color: df.textTertiary),
+        ),
+      );
+    }
+    if (references.isEmpty) {
+      return ColoredBox(
+        color: df.surfaceMuted,
+        child: Center(
+          child: Icon(Icons.video_library_outlined,
+              size: 28, color: df.textTertiary),
+        ),
+      );
+    }
+    return Row(
+      children: [
+        for (final reference in references.take(4))
+          Expanded(
+            child: _StandaloneReferenceThumbnail(
+              engine: engine,
+              reference: reference,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _StandaloneReferenceThumbnail extends StatelessWidget {
+  final Engine engine;
+  final VideoReferenceCandidate reference;
+
+  const _StandaloneReferenceThumbnail({
+    required this.engine,
+    required this.reference,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    if (reference.source.mediaType == 'image') {
+      return Image.file(
+        File(engine.mediaAbsPath(reference.localPath)),
+        key: ValueKey(
+          'workbench-standalone-reference-'
+          '${reference.source.sourceType}-${reference.source.sourceId}',
+        ),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => ColoredBox(
+          color: df.surfaceMuted,
+          child: Icon(Icons.broken_image_outlined, color: df.textTertiary),
+        ),
+      );
+    }
+    final icon = reference.source.mediaType == 'audio'
+        ? Icons.volume_up_outlined
+        : Icons.play_circle_outline_rounded;
+    return ColoredBox(
+      color: df.surfaceMuted,
+      child: Center(child: Icon(icon, size: 22, color: df.textTertiary)),
+    );
+  }
+}
+
+/// 独立轨没有分镜正文可作为上下文，但其参数、参考素材和候选视频与分镜轨共用
+/// 同一套视频请求模型。这里保留一个紧凑编辑面板，避免用户必须伪造分镜才能生成。
+class _StandaloneTrackEditor extends ConsumerStatefulWidget {
+  final int projectId;
+  final int scriptId;
+  final VideoTrackRow track;
+  final VoidCallback onChanged;
+
+  const _StandaloneTrackEditor({
+    required this.projectId,
+    required this.scriptId,
+    required this.track,
+    required this.onChanged,
+  });
+
+  @override
+  ConsumerState<_StandaloneTrackEditor> createState() =>
+      _StandaloneTrackEditorState();
+}
+
+class _StandaloneTrackEditorState
+    extends ConsumerState<_StandaloneTrackEditor> {
+  Future<void> _editPrompt() async {
+    final l10n = context.l10n;
+    final saved = await showDFAdaptiveDialog<String>(
+      context,
+      title: l10n.workbenchEditPromptTitle,
+      desktopWidthFactor: 0.42,
+      builder: (c) => _TextEditDialog(
+        initial: widget.track.prompt ?? '',
+        hint: l10n.workbenchPromptFieldHint,
+        multiline: true,
+      ),
+    );
+    if (saved == null || !mounted) return;
+    ref.read(engineProvider).updateVideoPrompt(widget.track.id, saved.trim());
+    widget.onChanged();
+  }
+
+  Future<void> _editVideoRequest() async {
+    final engine = ref.read(engineProvider);
+    final capabilities = engine.videoCapabilitiesForProject(widget.projectId);
+    if (capabilities == null || capabilities.modes.isEmpty) {
+      if (mounted) {
+        _showWorkbenchSnackBar(
+          context,
+          context.l10n.workbenchVideoParametersUnavailable,
+        );
+      }
+      return;
+    }
+    final saved = await showVideoRequestDialog(
+      context,
+      initial: engine.videoRequestForTrack(widget.track.id),
+      capabilities: capabilities,
+      candidates: engine.videoReferenceCandidatesForTrack(
+        widget.projectId,
+        widget.track.id,
+      ),
+      storyboardCandidates: [
+        for (final storyboard in engine.storyboards(widget.scriptId))
+          if (storyboard.filePath case final path? when path.isNotEmpty)
+            if (engine.media.existingFilePath(path) != null)
+              VideoReferenceCandidate(
+                source: VideoReferenceSource(
+                  sourceType: 'storyboard',
+                  sourceId: storyboard.id,
+                  mediaType: 'image',
+                  role: 'reference_image',
+                ),
+                label: 'P${storyboard.index + 1}',
+                localPath: path,
+              ),
+      ],
+      engine: engine,
+      ref: ref,
+      projectId: widget.projectId,
+    );
+    if (saved == null || !mounted) return;
+    engine.updateVideoRequest(widget.track.id, saved);
+    widget.onChanged();
+  }
+
+  Future<void> _generate() async {
+    final engine = ref.read(engineProvider);
+    if (!await confirmPolicyAction(
+      context,
+      engine.config,
+      taskClass: 'video_generation',
+      description: context.l10n.workbenchGenerateVideo,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    try {
+      engine.batchGenerateVideoTracks(widget.projectId, [widget.track.id]);
+      widget.onChanged();
+      _showWorkbenchSnackBar(context, context.l10n.workbenchGenerateVideo);
+    } catch (error) {
+      if (mounted) _showWorkbenchSnackBar(context, localizeError(context, error));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    final engine = ref.watch(engineProvider);
+    final track = engine.track(widget.track.id) ?? widget.track;
+    final prompt = track.prompt?.trim() ?? '';
     return Container(
-      key: ValueKey('workbench-standalone-track-${track.id}'),
-      width: 170,
-      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      key: ValueKey('workbench-standalone-track-editor-${track.id}'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: df.surface,
-        border: Border.all(color: df.stroke),
+        border: Border.all(color: df.primary.withValues(alpha: 0.55)),
         borderRadius: BorderRadius.circular(DFTokens.radiusCard),
       ),
-      child: Row(children: [
-        Icon(Icons.video_library_outlined, color: df.textTertiary, size: 18),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            '#${index + 1}  ${track.duration ?? '-'}s',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.video_library_outlined, size: 18, color: df.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${l10n.workbenchStandaloneTracks} #${track.id}',
+              style: Theme.of(context).textTheme.labelLarge,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            key: ValueKey('workbench-standalone-track-params-${track.id}'),
+            tooltip: l10n.workbenchVideoParameters,
+            visualDensity: VisualDensity.compact,
+            onPressed: _editVideoRequest,
+            icon: const Icon(Icons.tune_rounded, size: 18),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        InkWell(
+          key: ValueKey('workbench-standalone-track-edit-prompt-${track.id}'),
+          onTap: _editPrompt,
+          borderRadius: BorderRadius.circular(DFTokens.radiusControl),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                child: Text(
+                  prompt.isEmpty ? l10n.workbenchPromptEmpty : prompt,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: df.textSecondary),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.edit_outlined, size: 15, color: df.textTertiary),
+            ]),
           ),
         ),
-        IconButton(
-          key: ValueKey('workbench-delete-standalone-track-${track.id}'),
-          tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
-          visualDensity: VisualDensity.compact,
-          onPressed: onDelete,
-          icon: const Icon(Icons.close_rounded, size: 18),
-        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          FilledButton.icon(
+            key: ValueKey('workbench-standalone-track-generate-${track.id}'),
+            onPressed: _generate,
+            icon: const Icon(Icons.videocam_outlined, size: 14),
+            label: Text(
+              l10n.workbenchGenerateVideo,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ]),
+        if (track.candidates.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final video in track.candidates)
+              _VideoCandidateChip(
+                trackId: track.id,
+                video: video,
+                selected: video.id == track.selectVideoId,
+              ),
+          ]),
+        ],
       ]),
     );
   }

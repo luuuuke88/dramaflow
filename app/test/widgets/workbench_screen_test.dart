@@ -382,6 +382,102 @@ void main() {
     expect(engine.storyboards(scriptId).single.trackId, storyboardTrackId);
   });
 
+  testWidgets('独立视频轨选中后可编辑提示词并打开视频参数', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-standalone-track-$trackId')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(ValueKey('workbench-standalone-track-editor-$trackId')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(ValueKey('workbench-standalone-track-edit-prompt-$trackId')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-text-edit-input')),
+      '独立轨的修仙动作镜头',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    expect(engine.track(trackId)!.prompt, '独立轨的修仙动作镜头');
+
+    await tester.tap(
+      find.byKey(ValueKey('workbench-standalone-track-params-$trackId')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('视频参数'), findsOneWidget);
+  });
+
+  testWidgets('独立视频轨优先显示已选图片参考而非空轨占位', (tester) async {
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '独立轨参考角色',
+      describe: '',
+    );
+    engine.saveAssetImage(
+      assetsId: assetId,
+      projectId: projectId,
+      base64Image: base64Encode(base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLKSAAAAABJRU5ErkJggg==',
+      )),
+      type: 'role',
+    );
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    engine.updateVideoRequest(
+      trackId,
+      VideoRequestDraft(
+        version: 1,
+        mode: VideoMode.firstFrame,
+        references: [
+          VideoReferenceSource(
+            sourceType: 'asset',
+            sourceId: assetId,
+            mediaType: 'image',
+            role: 'first_frame',
+          ),
+        ],
+        duration: 5,
+        resolution: '720p',
+        ratio: '16:9',
+        generateAudio: false,
+      ),
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(
+        ValueKey('workbench-standalone-reference-asset-$assetId'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('有分镜时渲染镜头行+合成按钮显示缺口提示', (tester) async {
     engine.addStoryboard(projectId: projectId, scriptId: scriptId, prompt: 'x');
     await tester.pumpWidget(app());

@@ -51,7 +51,9 @@ class VideoGenerationRequest {
   final String ratio;
   final bool generateAudio;
   final int projectId;
-  final int storyboardId;
+
+  /// 独立视频轨不属于任何分镜；此时仅使用轨道的提示词和参考素材。
+  final int? storyboardId;
   final int videoTrackId;
 
   VideoGenerationRequest({

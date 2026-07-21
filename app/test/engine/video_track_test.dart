@@ -280,6 +280,159 @@ void main() {
         ['p/first.png', 'p/last.png']);
   });
 
+  test('独立视频轨可用已保存参数构建纯文本请求而不伪造分镜', () {
+    configureVideoModel(modelId: 'test-video');
+    db.execute(
+      "UPDATE o_vendorConfig SET models=? WHERE id='volcengine'",
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['text'],
+                'references': {'image': 0, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+      ],
+    );
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    engine.updateVideoPrompt(trackId, '山巅人物御剑穿云');
+    engine.updateVideoRequest(
+      trackId,
+      VideoRequestDraft(
+        version: 1,
+        mode: VideoMode.text,
+        references: const [],
+        duration: 5,
+        resolution: '720p',
+        ratio: '16:9',
+        generateAudio: false,
+      ),
+    );
+
+    final request = engine.buildVideoRequestForTrack(
+      projectId: projectId,
+      trackId: trackId,
+    );
+
+    expect(request.storyboardId, isNull);
+    expect(request.prompt, '山巅人物御剑穿云');
+    expect(request.mode, VideoMode.text);
+    expect(request.references, isEmpty);
+  });
+
+  test('独立视频轨可直接入同一视频队列而不绑定分镜', () {
+    configureVideoModel(modelId: 'test-video');
+    db.execute(
+      "UPDATE o_vendorConfig SET models=? WHERE id='volcengine'",
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['text'],
+                'references': {'image': 0, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+      ],
+    );
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    engine.updateVideoPrompt(trackId, '剑客穿过云海');
+    engine.updateVideoRequest(
+      trackId,
+      VideoRequestDraft(
+        version: 1,
+        mode: VideoMode.text,
+        references: const [],
+        duration: 5,
+        resolution: '720p',
+        ratio: '16:9',
+        generateAudio: false,
+      ),
+    );
+
+    final taskId = engine.batchGenerateVideoTracks(projectId, [trackId]);
+
+    final candidate = engine.track(trackId)!.candidates.single;
+    expect(taskId, greaterThan(0));
+    expect(candidate.videoTrackId, trackId);
+    expect(candidate.state, vtGenerating);
+    expect(
+      db.select('SELECT scriptId FROM o_video WHERE id=?',
+          [candidate.id]).single['scriptId'],
+      scriptId,
+    );
+  });
+
+  test('独立视频轨可从项目素材库选择参考而不带入分镜首帧', () {
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '不应自动成为独立轨参考的分镜',
+    );
+    writeMedia('p/storyboard-only.png');
+    db.execute(
+      "UPDATE o_storyboard SET filePath='p/storyboard-only.png' WHERE id=?",
+      [storyboardId],
+    );
+    final assetId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '独立轨角色参考',
+      describe: '',
+    );
+    writeMedia('p/standalone-reference.png');
+    db.execute(
+      "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,'image','已完成')",
+      [assetId, 'p/standalone-reference.png'],
+    );
+    db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
+        [db.lastInsertRowId, assetId]);
+
+    final candidates =
+        engine.videoReferenceCandidatesForTrack(projectId, trackId);
+
+    expect(
+      candidates.map((candidate) => candidate.localPath),
+      contains('p/standalone-reference.png'),
+    );
+    expect(
+      candidates.map((candidate) => candidate.localPath),
+      isNot(contains('p/storyboard-only.png')),
+    );
+  });
+
   test('videoReferenceCandidates 优先当前镜头素材并保留项目素材候选', () {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '参考素材');
@@ -793,6 +946,90 @@ void main() {
     expect(old['state'], vtFailed);
     expect(old['upstreamTaskId'], 'upstream-failed');
     expect(engine.track(trackId)!.selectVideoId, retryVideoId);
+  });
+
+  test('retry terminal failed standalone candidate does not require a storyboard',
+      () async {
+    configureVideoModel();
+    db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['text'],
+                'references': {'image': 0, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9', '9:16'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    writeMedia('p/retry-standalone.mp4');
+    final trackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    engine.updateVideoPrompt(trackId, '独立轨重试镜头');
+    final request = engine.buildVideoRequestForTrack(
+      projectId: projectId,
+      trackId: trackId,
+    );
+    db.execute(
+      "INSERT INTO o_video (projectId,scriptId,videoTrackId,state,submissionState,modelBinding,requestFingerprint,upstreamTaskId,upstreamState) "
+      "VALUES (?,?,?,?, 'accepted', ?, ?, 'upstream-failed', 'failed')",
+      [
+        projectId,
+        scriptId,
+        trackId,
+        vtFailed,
+        request.modelBinding,
+        request.fingerprint(),
+      ],
+    );
+    final oldVideoId = db.lastInsertRowId;
+    db.execute(
+      "INSERT INTO o_tasks (projectId,state,taskClass,reason,relatedObjects) "
+      "VALUES (?,'failed','video_generation',?,?)",
+      [
+        projectId,
+        const EngineException(errNetwork).toReasonJson(),
+        jsonEncode({
+          'trackIds': [trackId],
+          'videoIds': [oldVideoId],
+        }),
+      ],
+    );
+    final failedTaskId = db.lastInsertRowId;
+    gateway.submitHandler = (received) {
+      expect(received.storyboardId, isNull);
+      expect(received.prompt, '独立轨重试镜头');
+      return const VideoSubmission('upstream-standalone-retry');
+    };
+    gateway.pollHandler = (upstreamTaskId, _, __) {
+      expect(upstreamTaskId, 'upstream-standalone-retry');
+      return const VideoPollResult(
+        upstreamState: 'succeeded',
+        localVideoPath: 'p/retry-standalone.mp4',
+      );
+    };
+
+    final retryId = await engine.retryJob(failedTaskId);
+    await waitTask(retryId);
+
+    expect(gateway.submitCount, 1);
+    expect(gateway.pollCount, 1);
+    expect(engine.track(trackId)!.state, vtDone);
   });
 
   test('retry prepared candidate rebuilds a corrected current request',

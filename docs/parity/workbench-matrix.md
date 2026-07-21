@@ -20,10 +20,12 @@ DramaFlow 已有一套比原版更重的本地时间线编辑能力：素材层�
 普通文件，并在独立 isolate 流式写目标 ZIP。桌面为预览与信息两栏，低于 840dp 收敛
 为可滚动单列；390dp 回归覆盖缩略图、选择与导出入口。
 
-原版的**新增独立视频轨**也已经闭合：DramaFlow 从工作台顶栏按当前视频模型的首个
-可用时长创建一条不关联分镜的轨道；独立轨按创建顺序横列展示，可经确认删除，并且
-不会被并入分镜合成顺序。候选视频的单个另存与按勾选镜头批量 ZIP 已闭合；自由 NLE
-的实时画布预览仍是独立未闭合项。
+原版的**独立视频轨**现在已有完整的基础生成闭环：DramaFlow 从工作台顶栏按当前视频
+模型的首个可用时长创建一条不关联分镜的轨道；卡片可选中、按原版优先级展示已选视频
+占位或已选参考素材，可经确认删除，并且不会被并入分镜合成顺序。活动轨可编辑提示词、
+选择模型允许的参考素材与参数，再进入同一条视频提交、轮询、冷启动恢复和失败重试路径。
+候选视频的单个另存与按勾选镜头批量 ZIP 已闭合；自由 NLE 的实时画布预览仍是独立
+未闭合项。
 
 快速预览不是成片播放器，也不需要视频供应商或实时渲染。本次实现严格保持这个
 边界：没有新增视频提交、轮询、下载或合成逻辑。
@@ -34,7 +36,7 @@ DramaFlow 已有一套比原版更重的本地时间线编辑能力：素材层�
 | --- | --- | --- |
 | 工作台外壳 | `Toonflow-web/src/views/production/components/workbench/index.vue:16-45, 70-88` | `app/lib/src/screens/production/workbench_screen.dart`（`WorkbenchTab`、顶栏三工作面、项目画幅解析） |
 | 快速预览 | `.../workbench/preview.vue:7-166, 211-445` | `workbench_preview.dart`（首帧预览/控制/信息/选择导出）、`workbench_preview_controller.dart`（纯时间轴）、`storyboard.dart`（本地 ZIP） |
-| 轨道增加与删除 | `.../generate/components/track.vue:161-209`；`Toonflow-app/src/routes/production/workbench/{addTrack,deleteTrack}.ts` | `app/lib/src/engine/video_track.dart:175-199,1222-1243` |
+| 轨道增加、选中与删除 | `.../generate/components/track.vue:20-64,155-209`；`Toonflow-app/src/routes/production/workbench/{addTrack,deleteTrack}.ts` | `app/lib/src/engine/video_track.dart`（独立轨创建/请求/提交/重试）；`workbench_screen.dart`（活动轨卡片与编辑面板） |
 | 批量运镜提示词 | `Toonflow-app/src/routes/production/workbench/batchGeneratePrompt.ts:92-207`；`checkVideoPrompt.ts:17-24` | `video_track.dart:639-739,1231-1244`、`workbench_screen.dart:134-159,200-205,3761-3774` |
 | 时间线与候选 | `.../editVideo/index.vue`、`.../generate/components/video.vue` | `workbench_screen.dart`、`timeline_clip.dart`、`video_track.dart` |
 
@@ -47,6 +49,8 @@ DramaFlow 已有一套比原版更重的本地时间线编辑能力：素材层�
 | 查看本镜信息 | 显示时长、关联资产和图片提示词；模板也尝试显示描述，但当前接口遗漏该字段，实际总是空态 | 预览侧栏显示时长、关联角色/场景/道具、图片提示词及本地 `videoDesc` | 已验证等价 |
 | 重排分镜 | 拖动只改前端临时列表；原版“恢复排序”初始化有缺陷 | 拖动后持久化 `o_storyboard.index`，合成顺序随之变化 | 覆盖可用行为 |
 | 新建视频轨 | 从模型默认时长创建独立 `o_videoTrack`，不要求关联分镜 | 顶栏图标从当前视频能力取首个可用时长创建独立轨；横列按创建顺序显示、可确认删除；不改写 `storyboard.trackId` | 已验证等价 |
+| 选中独立轨并审阅缩略图 | 点击轨道切换活动轨；优先显示已选视频首帧，首帧抽取失败时显示视频占位；没有已选视频时显示已选参考素材 | 点击卡片切换活动独立轨；图片参考直接显示本地缩略图，音频/视频参考显示类型占位；已选视频因尚无原生抽帧服务显示视频占位 | 部分实现：选择、参考缩略图和原版抽帧失败回退已验证；尚未提供视频首帧抽取 |
+| 编辑独立轨并生成 | 活动轨可编辑提示词、参考素材、模式/时长/分辨率/音频参数，然后提交视频 | 活动独立轨复用 `video_request_dialog.dart` 和结构化引用模型；提示词、模型参数与参考素材均落 `o_videoTrack`，提交、轮询、冷启动恢复及终态失败重试不要求伪造分镜 | 已验证等价：不含原版“AI 自动写提示词”入口，当前要求用户手动填写独立轨提示词 |
 | 删除视频轨 | 删除轨道并清空关联分镜的 `trackId` | 删除轨道、清候选视频文件并清空关联 | 已验证等价 |
 | 勾选并批量生成 | 初始不勾选轨道；可全选、单选并显示已选数量。勾选后，提示词任务即时返回、逐轨显示生成中/完成/失败；视频另走批量任务 | 初始不勾选镜头轨道；全选控件在部分选择时显示半选态，批量命令只读取显式勾选项。提示词即时入文本车道任务、逐轨显示状态；视频另走批量任务 | 已验证等价 |
 | 候选管理 | 浏览、选中、播放、删除、单个下载和批量 ZIP 下载 | 浏览、选中、播放、删除、保存为 clip 素材、单个另存和按勾选镜头批量 ZIP | 已验证等价 |
@@ -62,7 +66,10 @@ DramaFlow 保留 `ensureTrackForStoryboard` 作为分镜懒建路径，并新增
 `createStandaloneVideoTrack`：只写入 `projectId`、`scriptId`、`duration` 和初始状态，
 绝不回填 `o_storyboard.trackId`。`standaloneVideoTracks` 使用 `NOT EXISTS` 排除已有
 分镜引用的轨道，确保同一轨不会在独立区与分镜列表重复出现；删除仍复用同一条
-`deleteVideoTrack` 级联清理路径。
+`deleteVideoTrack` 级联清理路径。`buildVideoRequestForTrack`、
+`batchGenerateVideoTracks` 与 `_createRetryVideoCandidate` 则统一按轨道构建请求：分镜轨
+可回退使用分镜正文，独立轨必须使用自己保存的提示词。因此独立轨在首次提交、已接受
+任务冷启动恢复和终态失败重试时都不会被错误要求补一个分镜。
 
 ## 快速预览的数据边界
 
@@ -114,8 +121,11 @@ cd .. && node tool/parity/check_no_orphans.js
 git diff --check
 ```
 
-全量 976 条离线回归通过，`flutter analyze` 为零 issue，macOS Debug 构建成功，库存检查为
-538/538。证据覆盖纯时间轴跨镜/边界定位、选中且存在的本地首帧 ZIP 内容、绝对路径/`..`/
+本批收口已重新执行全量 `982` 条离线回归，`flutter analyze` 为零 issue，macOS Debug 构建
+成功，库存检查为 `538/538`。当前定向证据覆盖独立轨的无分镜请求、入队、项目素材参考、
+失败后重试、390dp 提示词与参数编辑，以及已选图片参考缩略图；所有用例使用 fake gateway
+和临时本地媒体。既有证据还覆盖
+纯时间轴跨镜/边界定位、选中且存在的本地首帧 ZIP 内容、绝对路径/`..`/
 符号链接拒绝、桌面入口及 390dp 缩略图/选择/导出入口，并覆盖 1024dp 英文工具栏、缺失
 资产图降级和后台运镜提示词的逐轨成功/失败、取消竞态、手工编辑/单镜替代、重复收费拒绝、
 清轨竞态、冷启动恢复和失败 Tooltip。视频相关用例仅使用 Dart fake gateway、本地假媒体和
@@ -123,13 +133,13 @@ git diff --check
 
 ## 后续实施边界
 
-这份审计不再把快速预览、三工作面外壳、项目预览画幅或独立建轨列为缺口。后续的
+这份审计不再把快速预览、三工作面外壳、项目预览画幅、独立建轨或独立轨手工生成列为缺口。后续的
 工作台缺口是：
 
 - 剪辑工作面：接入可真实预览时间线层的画布与可控导出路径；不能用静态比例框冒充
   `editVideo` 的实时画布。
-- 独立轨道生成：原版可为活动独立轨编辑参考素材、提示词并提交生成；Flutter 现已复刻
-  新增/显示/删除和不进入分镜合成的行为，但尚未让独立轨进入独立的参考素材与生成面板。
+- 独立轨道缩略图与提示词：原版会异步截取已选视频首帧，且可通过 AI 为独立轨生成提示词。
+  Flutter 当前使用可靠的视频占位回退，并要求用户手工填写独立轨提示词；两项仍未闭合。
 
 总清单对应项：`W6B-WORKBENCH-SHELL-001`、`W6B-WORKBENCH-PREVIEW-001`、
 `W6B-GEN-TRACK-001`、`W6B-GEN-CANDIDATE-001`、`W6B-EDITVIDEO-*`。
