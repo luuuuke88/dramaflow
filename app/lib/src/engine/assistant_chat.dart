@@ -218,6 +218,10 @@ extension AssistantChatApi on Engine {
       // 这次等待期间，代际号已经变了——立刻停止，既不再回写，也不再继续下一轮
       // （避免飞行中的旧请求在用户清空后又提交新的动作/花钱任务）。
       if (_assistantSessionStale(projectId, family, epoch)) return;
+      if (result is _AssistantStop) {
+        _saveAssistantMessages(projectId, family, messages, epoch: epoch);
+        return;
+      }
       if (!result.isToolCall) {
         messages.add(AssistantMessage(
           role: assistantRoleAssistant,
@@ -600,10 +604,7 @@ String _errorContent(EngineException ex) => jsonEncode({
       if (ex.errParams.isNotEmpty) 'params': ex.errParams,
     });
 
+// Distinct type from AgentTurnResult so callers can't mistake an already-appended error for a text answer.
 class _AssistantStop {
   const _AssistantStop();
-
-  bool get isToolCall => false;
-
-  String? get text => null;
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -7,6 +8,7 @@ import 'package:dramaflow/src/engine/assistant_skills.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
+import 'package:dramaflow/src/engine/errors.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/novel.dart';
 import 'package:dramaflow/src/engine/novel_parse.dart';
@@ -24,6 +26,7 @@ class _Gateway implements ProviderGateway {
   List<String> stages = const [];
   String lastSystem = '';
   int callCount = 0;
+  Object? failWith;
 
   @override
   Future<AgentTurnResult> generateAgentTurn(
@@ -33,6 +36,9 @@ class _Gateway implements ProviderGateway {
     required String stage,
     CancelToken? cancelToken,
   }) async {
+    if (failWith != null) {
+      throw failWith!;
+    }
     lastSystem = system;
     lastMessages = [for (final message in messages) Map.of(message)];
     lastTools = List<AgentToolDef>.from(tools);
@@ -138,6 +144,25 @@ void main() {
     expect(gateway.stages.single, 'scriptAgent');
     expect(gateway.lastTools.map((tool) => tool.name), contains('get_status'));
     expect(gateway.lastSystem, contains('短剧制作助手'));
+  });
+
+  test('网关报错时只追加一条错误消息，不会再补一条空气泡', () async {
+    gateway.failWith = Exception('网关连接失败');
+
+    await engine.sendAssistantMessage(
+      projectId,
+      '你好',
+      family: assistantFamilyScript,
+      autoMode: false,
+    );
+
+    final messages = engine.assistantMessages(
+      projectId,
+      family: assistantFamilyScript,
+    );
+    expect(messages.map((m) => m.role), ['user', 'assistant']);
+    final decoded = jsonDecode(messages.last.content) as Map;
+    expect(decoded['errKey'], errLlmFormat);
   });
 
   test('技能正文不进入初始 system prompt，目录和两个工具可见', () async {
