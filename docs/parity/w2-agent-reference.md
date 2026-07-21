@@ -62,6 +62,23 @@ single-item tuning, and batch tuning in `agentConfog.vue`. Flutter has no
 The passing tests prove this current behavior is stable on desktop and at a
 390 px mobile entry, not that the omitted original controls are equivalent.
 
+### Managed skill-library refresh — 2026-07-21
+
+`f430c17` added a real application-owned Markdown skill workspace without
+changing the Agent activation contract. `assistant_skill_library.dart` now
+copies an imported skill into `dataDir/skills/<id>/SKILL.md`, preserves sibling
+resources, rejects path escape and external legacy rows, and reconciles only
+package entry files. `_AssistantSkillsPane` exposes import, scan, search,
+preview and edit/save on desktop and 390dp layouts. The focused library,
+deployment and Agent-page suites passed, followed by the full Flutter suite,
+`flutter analyze`, macOS debug build and the 538/538 parity-inventory check.
+All evidence used temporary files, in-memory SQLite and fake gateways.
+
+This closes file management and reliable rescan only. It does **not** expose
+`activate_skill` or `read_skill_file` to the model, does not restrict skills by
+Agent family or stage, and does not change the current all-enabled-bodies
+system-prompt injection.
+
 ---
 
 ## 1. ToonFlow's actual Agent architecture
@@ -129,14 +146,23 @@ DramaFlow replaced the whole system with a **single flat tool-calling loop share
 - **Real generation triggers, ported and tested** (map to genuine pipeline enqueues): `generate_events`, `generate_scripts`, `extract_assets`, `generate_storyboards`, `generate_shot_images`, `generate_videos`, `bind_audio`, `compose_episode`, `write_script` (`assistant_actions.dart:222-310`). Test evidence: `app/test/engine/assistant_chat_test.dart:74-250`, `assistant_actions_test.dart:136-176`, `canvas_chat_panel_test.dart:86-182`.
 - **Read-only / notes**: `get_status` (:220), `note_save`/`note_search`/`note_delete` (:311-330).
 - **Working infra**: money/destructive **confirm gate** via `pipeline_policy.checkAction` (`assistant_chat.dart:227-252`, `confirmPendingAssistantAction:118-162`), tested; message persistence + family isolation in `o_agentWorkData[key=assistantChat:family]` single JSON blob (`assistantMessages:74-93`; row `W7F-AGENT-MEM-READ-001` = **已验证等价**); clear-all chat (`clearAssistantChat:164-170`, = `type=all`, tested).
-- **Skill parsing infra faithfully ported**: `assistant_skills.dart:199-301` reproduces ToonFlow's folded/literal-block frontmatter algorithm; `readAssistantSkillFile:148-168` reproduces the path-traversal guard — both tested (`W8-AGENTUTIL-SKILLS-001`).
+- **Skill parsing and managed-file infra**: `assistant_skill_library.dart` now owns
+  folded/literal frontmatter parsing, application-owned file copying and a
+  canonical-path workspace; `assistant_skills.dart:126-140` keeps the guarded
+  resource reader. Focused engine and desktop/390dp widget tests cover import,
+  source deletion, resource copying, scan reconciliation and path escape
+  rejection. This is stronger file management, not Agent activation parity.
 
 ### 2.3 What is NOT there at all
 
 - **Sub-agent delegation architecture** — no concept of nested agent invocation; the loop has one flat registry (`W8-AGENTTOOL-PRODUCTION-001`, `W8-AGENTTOOL-SCRIPTAGENT-001`). `assistant_stage_registry.dart:1-3` notes the old 15 multi-layer sub-agent stages were cut per spec §2.
 - **Live canvas read/write tools** — no `get_flowData`/`add_deriveAsset`/`add_flowData_storyboard` equivalents; no in-dialogue derive-asset CRUD or storyboard-panel insertion (`W8-AGENTTOOL-PRODUCTION-001`).
 - **Vector / 3-tier memory** — **缺失** (`W8-AGENTUTIL-MEMORY-001`). `_assistantHistory` (`assistant_chat.dart:404-417`) linearly replays the entire message list every turn (no summary, no window, no retrieval). `project_notes.dart:1-108` is an explicit **downgrade rename** of "长期记忆": it reuses the `memories` table with `type='note'`, **abandons the embedding column**, and its `searchProjectNotes` (:68-91) is **lexical** (char bi-gram×2 + substring×3 + token×1), not semantic. The file header (`:4`) forbids re-attaching the old vector module. No ONNX/transformers/cosine/deepRetrieve code exists in `app/lib` (only dead l10n strings remain).
-- **On-demand skill activation** — skills are **blanket-injected**. `assistantSkillContexts` (`assistant_skills.dart:171-184`) concatenates **all** enabled markdown skill bodies into every system prompt (`assistant_chat.dart:369`). `readAssistantSkillFile` exists but is **unreachable** — it is not in `_assistantToolDefs`; only tests call it (`W8-AGENTUTIL-SKILLS-001`).
+- **On-demand skill activation** — skills are **blanket-injected**. `assistantSkillContexts`
+  (`assistant_skills.dart:142-159`) concatenates **all** enabled managed Markdown
+  bodies into every system prompt (`assistant_chat.dart:369`).
+  `readAssistantSkillFile` exists but is **unreachable** — it is not in
+  `_assistantToolDefs`; only engine tests call it (`W8-AGENTUTIL-SKILLS-001`).
 - **The 13 sub-agent skill files' methodology content** — the decision/supervision/execution skill bodies (6-stage pipeline constants, R1–R4 red-lines, 大三角/矛盾四级阶梯, 付费点比例, etc.) are entirely absent; where DramaFlow keeps same-named workspace slots (`director_plan`/`storyboard_table`/`storyboard_gen` in `script_plan.dart`/`storyboard_table.dart`/`storyboard.dart`), the default seed prompts are single-paragraph generic instructions (`engine.dart:592-614`), not the methodology (`W9C-PRODSKILL-CORE-001`, `-PIPELINE-001`, `-SCRIPTSKILL-CORE-001`, `-TECHNIQUE-001`, all **缺失**).
 - **Per-token streaming, `stop`/abort, think-level (0–3)** — none (`W7F-SOCKET-AGENT-001`). Chat is request→wait→whole render.
 - **Typed rich message segments** — none. ToonFlow `useChat.ts` accepts `text` and `markdown` content blocks, keeps `thinking` blocks before normal content and collapses them by default; the two Agent runners publish reasoning start/delta/end into those blocks. DramaFlow persists one `String` per message and `_AssistantMessageBubble` renders it with plain `Text`; Markdown lists/code/links are not rendered, and an Agent reply URL cannot open in the system browser. This is distinct from merely adding a stream transport: W2 must retain segment type, streaming/complete state and safe external-link handling across desktop and mobile.
@@ -171,8 +197,14 @@ Each chunk: what it is · why it matters (user-observable) · size · natural st
 ### Chunk C — On-demand skill activation (activate_skill / read_skill_file)  ·  **MEDIUM**
 - **What**: change skill delivery from blanket-inject to tool-call-gated. Expose the already-ported `readAssistantSkillFile` and a new `activate_skill` in `_assistantToolDefs`, give the system prompt a name+description skill catalogue, dedupe per conversation.
 - **Why**: avoids system-prompt bloat / token waste; lets specialized (art/director) skills load only when a task matches, so sub-agent output professionalizes on demand; illegal-path reads are rejected without breaking the dialogue.
-- **Size**: MEDIUM — the hard parts (frontmatter parsing, path-traversal guard) are **already faithfully ported and tested** in `assistant_skills.dart:148-168,199-301`; the change is the **injection mechanism** (blanket → tool-gated) plus the catalogue prompt and dedupe set. Naturally couples with A (skills mount per sub-agent).
-- **Start**: `assistant_skills.dart:171-184` (replace `assistantSkillContexts` injection) + `assistant_chat.dart:369,374-388` (tool defs).
+- **Size**: MEDIUM — the hard file-boundary pieces (frontmatter parsing, canonical
+  workspace, package-resource copying and path-traversal guard) are now ported
+  and tested in `assistant_skill_library.dart` plus `assistant_skills.dart:126-159`.
+  The remaining change is the **injection mechanism** (blanket → tool-gated),
+  catalogue prompt and per-conversation dedupe set. Naturally couples with A
+  when skills mount per sub-agent.
+- **Start**: `assistant_skills.dart:142-159` (replace `assistantSkillContexts`
+  injection) + `assistant_chat.dart:360-388` (system prompt and tool defs).
 - **Rows**: `W8-AGENTUTIL-SKILLS-001` (部分).
 
 ### Chunk D — Live canvas read/write tools  ·  **MEDIUM–LARGE**

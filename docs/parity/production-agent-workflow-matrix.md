@@ -32,7 +32,7 @@
 | Agent 直接插入分镜面板，保持当前画布更新 | `tools.ts:243-299` 的 `add_flowData_storyboard`；`productionAgent.ts:46-99` 的 XML 回写 | Flutter `storyboard.dart`/`storyboard_canvas_node.dart` 有独立的分镜持久化和节点 UI；Agent 只有 `generate_storyboards` 入队动作 | **部分**：分镜节点存在，Agent 直接写回缺失 |
 | Agent 可触发衍生资产、首帧图并显示进度 | `tools.ts:183-241`；页面对资产/分镜状态轮询 | Flutter `assistant_actions.dart:244-286` 能提交资产提取、分镜和首帧图任务；任务中心和节点各自显示状态 | **部分**：任务触发与状态展示存在，但没有原版的当前画布工具语义 |
 | 7 个执行/监督子 Agent 与专属 skill | `src/agents/productionAgent/index.ts:197-374` | `assistant_chat.dart:360-388` 是通用单层 prompt + 统一工具表；`assistant_skills.dart:1-5` 明确旧子 Agent seeds 未迁入 | **缺失** |
-| 风格/导演 skill 按需激活 | `productionAgent/index.ts:377-490`；执行子 Agent 按职责获取不同 skill 目录 | Flutter 只会把全部启用 Markdown skill 拼进通用系统提示词 | **缺失** |
+| 风格/导演 skill 按需激活 | `productionAgent/index.ts:377-490`；执行子 Agent 按职责获取不同 skill 目录 | Flutter 有应用自有的受限 Markdown 技能工作区和资源读取 API，但仍把全部启用正文拼进通用 system prompt，未向模型暴露 `activate_skill` / `read_skill_file`，也不按执行职责筛选 | **缺失** |
 
 ## Flutter 已有且应复用的底座
 

@@ -48,7 +48,8 @@ Script Agent 则持久化 `storySkeleton`、`adaptationStrategy`，并把剧本�
 - `assistant_chat.dart`：按项目和家族隔离的消息持久化、模型工具调用、自动模式上限。
 - `pipeline_policy.dart`：同一确认闸覆盖助手和页面的付费/破坏操作。
 - `assistant_deploy.dart`：`scriptAgent` 模型部署配置。
-- `assistant_skills.dart`：Markdown frontmatter 解析及文件路径边界保护。
+- `assistant_skill_library.dart` + `assistant_skills.dart`：应用自有 Markdown 技能工作区、
+  frontmatter 解析、资源路径边界保护与跨端导入/编辑；仍未变成 Script Agent 的按需工具。
 - `scripts.dart` 和 Script 页面：`o_script` 的现有 CRUD、导入、批量添加和资产提取。
 
 ## 不能误判为已完成的替代物
