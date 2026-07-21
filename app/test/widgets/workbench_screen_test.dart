@@ -6876,6 +6876,54 @@ void main() {
     );
   });
 
+  testWidgets('窄屏批量下载菜单项在导出进行中禁止重复点出第二次导出', (tester) async {
+    final sbId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: '窄屏防重入下载');
+    final trackId = engine.ensureTrackForStoryboard(sbId);
+    const rel = 'p/compact_export_guard.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    engine.db.execute(
+      'INSERT INTO o_video (projectId,scriptId,videoTrackId,filePath,state) '
+      'VALUES (?,?,?,?,?)',
+      [projectId, scriptId, trackId, rel, vtDone],
+    );
+    final videoId = engine.track(trackId)!.candidates.single.id;
+    engine.selectVideo(trackId, videoId);
+
+    final archive = p.join(dir.path, 'compact-export-guard.zip');
+    final selector = _PreviewSaveSelector(archive);
+    final originalSelector = FileSelectorPlatform.instance;
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ValueKey('workbench-shot-check-$sbId')));
+    await tester.pumpAndSettle();
+
+    // 第一次点击：开始导出。真正的 ZIP 编码在独立 isolate 里跑，这里只
+    // pump 一帧，故意不等它跑完，制造"导出进行中"的窗口。
+    await tapWorkbenchBatchAction(tester, '下载已选视频');
+
+    // 导出仍在进行中时立刻重新打开窄屏批量菜单再点一次同一项：修复前
+    // 窄屏菜单项没有判断 _exportingCheckedVideos，会真的触发第二次并发
+    // 导出；修复后该项应处于禁用状态，点击没有任何效果。
+    await tapWorkbenchBatchAction(tester, '下载已选视频');
+
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+
+    expect(File(archive).existsSync(), isTrue);
+    expect(selector.saveCalls, 1,
+        reason: '导出进行中重复点击不应该真的发起第二次并发导出');
+  });
+
   testWidgets('候选删除按钮：可见删除图标 + 二次确认后调用 deleteVideo', (tester) async {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: 'x');

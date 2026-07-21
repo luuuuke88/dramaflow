@@ -557,6 +557,10 @@ class _WorkbenchPageState extends ConsumerState<_WorkbenchPage> {
                   ),
                   PopupMenuItem(
                     value: _WorkbenchBatchAction.download,
+                    // 与宽屏 workbench-download-selected-videos 按钮的
+                    // onPressed 判断保持一致：导出进行中禁用这一项，
+                    // 避免窄屏用户重复点出第二次并发导出。
+                    enabled: !_exportingCheckedVideos,
                     child: Text(l10n.workbenchDownloadSelectedVideos),
                   ),
                   PopupMenuItem(
