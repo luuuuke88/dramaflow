@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/production_dependencies.dart';
-import '../../engine/engine.dart';
 import '../../engine/script_plan.dart';
 import '../../engine/storyboard.dart';
 import '../../engine/storyboard_table.dart';
@@ -140,11 +139,12 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
   }
 
   /// 整屏预览全部有效首帧（对齐 ToonFlow previewImage 的单张 JPEG 网格）。
-  Future<void> _previewAll(List<StoryboardRow> rows) async {
+  Future<void> _previewAll() async {
     final engine = ref.read(engineProvider);
-    final paths = _storyboardImagePaths(engine, rows);
-    final sheet =
-        await compute(buildStoryboardPreviewContactSheetFromPaths, paths);
+    final sheet = await compute(
+      buildStoryboardPreviewContactSheetFromPaths,
+      engine.storyboardImagePaths(widget.scriptId),
+    );
     if (!mounted) return;
     if (sheet == null) {
       _toast(context.l10n.storyboardExportNoImages);
@@ -161,8 +161,7 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
   Future<void> _downloadAll() async {
     final l10n = context.l10n;
     final engine = ref.read(engineProvider);
-    final rows = engine.storyboards(widget.scriptId);
-    final paths = _storyboardImagePaths(engine, rows);
+    final paths = engine.storyboardImagePaths(widget.scriptId);
     if (paths.isEmpty) {
       _toast(l10n.storyboardExportNoImages);
       return;
@@ -196,16 +195,6 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
       _toast(l10n.storyboardExportFailed('$e'));
     }
   }
-
-  List<String> _storyboardImagePaths(
-    Engine engine,
-    List<StoryboardRow> rows,
-  ) =>
-      [
-        for (final row in rows)
-          if (row.filePath != null && row.filePath!.isNotEmpty)
-            engine.mediaAbsPath(row.filePath!),
-      ];
 
   Future<void> _editRow(StoryboardRow row) async {
     final l10n = context.l10n;
@@ -568,7 +557,7 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
                   style: const TextStyle(fontSize: 12)),
             ),
             OutlinedButton.icon(
-              onPressed: () => _previewAll(rows),
+              onPressed: _previewAll,
               icon: const Icon(Icons.photo_library_outlined, size: 14),
               label: Text(l10n.storyboardPreviewAll,
                   style: const TextStyle(fontSize: 12)),
