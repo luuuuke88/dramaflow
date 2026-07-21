@@ -2,11 +2,13 @@
 // 被砍功能（custom JS 执行、监督 Agent、RAG 设置）不再从 UI 暴露。
 import 'dart:convert';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/assistant_chat.dart';
 import '../../engine/assistant_deploy.dart';
+import '../../engine/assistant_skill_library.dart';
 import '../../engine/assistant_skills.dart';
 import '../../engine/errors.dart';
 import '../../engine/project_notes.dart';
@@ -816,56 +818,287 @@ class _DeployEditBodyState extends ConsumerState<_DeployEditBody> {
   }
 }
 
-class _AssistantSkillsPane extends ConsumerWidget {
+class _AssistantSkillsPane extends ConsumerStatefulWidget {
   const _AssistantSkillsPane();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final engine = ref.watch(engineProvider);
-    final skills = [...engine.assistantSkills()]..sort((a, b) {
+  ConsumerState<_AssistantSkillsPane> createState() =>
+      _AssistantSkillsPaneState();
+}
+
+class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
+  final TextEditingController _search = TextEditingController();
+  final TextEditingController _editor = TextEditingController();
+  String _query = '';
+  String? _selectedId;
+  bool _editing = false;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    _editor.dispose();
+    super.dispose();
+  }
+
+  List<AssistantSkill> _skills() {
+    final skills = [...ref.read(engineProvider).assistantSkills()]
+      ..sort((a, b) {
         final aMarkdown = a.type == markdownAssistantSkillType;
         final bMarkdown = b.type == markdownAssistantSkillType;
         if (aMarkdown != bMarkdown) return aMarkdown ? -1 : 1;
         return a.id.compareTo(b.id);
       });
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return skills;
+    return skills
+        .where((skill) =>
+            skill.id.toLowerCase().contains(query) ||
+            skill.name.toLowerCase().contains(query) ||
+            skill.description.toLowerCase().contains(query))
+        .toList();
+  }
+
+  void _select(AssistantSkill skill) {
+    if (skill.type != markdownAssistantSkillType) return;
+    setState(() {
+      _selectedId = skill.id;
+      _editing = false;
+    });
+  }
+
+  void _toast(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: error ? context.df.danger : null,
+    ));
+  }
+
+  Future<void> _importSkill() async {
+    final file = await openFile(acceptedTypeGroups: const [
+      XTypeGroup(label: 'Markdown', extensions: ['md']),
+    ]);
+    if (file == null || !mounted) return;
+    try {
+      final imported =
+          ref.read(engineProvider).importMarkdownAssistantSkill(file.path);
+      if (!mounted) return;
+      setState(() {
+        _selectedId = imported.id;
+        _editing = false;
+      });
+      _toast(context.l10n.agentSkillsImported);
+    } catch (error) {
+      if (mounted) _toast(localizeError(context, error), error: true);
+    }
+  }
+
+  void _scanSkills() {
+    final result = ref.read(engineProvider).scanMarkdownAssistantSkills();
+    _toast(context.l10n.agentSkillsScanSummary(
+      result.added.length,
+      result.updated.length,
+      result.missing.length,
+      result.invalid.length,
+    ));
+    setState(() {});
+  }
+
+  void _startEdit(AssistantSkill skill) {
+    try {
+      _editor.text =
+          ref.read(engineProvider).readManagedAssistantSkill(skill.id);
+      setState(() => _editing = true);
+    } catch (error) {
+      _toast(localizeError(context, error), error: true);
+    }
+  }
+
+  void _saveEdit(AssistantSkill skill) {
+    try {
+      ref
+          .read(engineProvider)
+          .saveManagedAssistantSkill(skill.id, _editor.text);
+      setState(() => _editing = false);
+      _toast(context.l10n.agentSkillsSaved);
+    } catch (error) {
+      _toast(localizeError(context, error), error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(engineProvider);
+    final skills = _skills();
+    final df = context.df;
+    final selected =
+        skills.where((skill) => skill.id == _selectedId).firstOrNull;
+    final compact = MediaQuery.sizeOf(context).width < 840;
+    final list = _buildList(context, skills);
+    if (compact && selected != null) {
+      return _buildDetail(context, selected, compact: true);
+    }
+    if (compact) return list;
+    return Row(children: [
+      SizedBox(width: 300, child: list),
+      VerticalDivider(width: 1, color: df.stroke),
+      Expanded(
+        child: selected == null
+            ? Center(
+                child: Icon(Icons.article_outlined, color: df.textTertiary),
+              )
+            : _buildDetail(context, selected),
+      ),
+    ]);
+  }
+
+  Widget _buildList(BuildContext context, List<AssistantSkill> skills) {
+    final engine = ref.read(engineProvider);
     final l10n = context.l10n;
     final df = context.df;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(l10n.agentSkillsBuiltinTitle,
-            style: DFTokens.section16w600.copyWith(color: df.textPrimary)),
-        const SizedBox(height: 6),
-        Text(l10n.agentSkillsEditableHint,
-            style: TextStyle(fontSize: 12, color: df.textSecondary)),
-        const SizedBox(height: 12),
-        for (final skill in skills)
-          Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ListTile(
-              title: Text(skill.name),
-              subtitle: Text(
-                skill.description.isEmpty ? skill.id : skill.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              leading: Icon(
-                skill.type == markdownAssistantSkillType
-                    ? Icons.article_outlined
-                    : Icons.build_circle_outlined,
-              ),
-              trailing: Switch(
-                key: ValueKey('assistant-skill-toggle-${skill.id}'),
-                value: skill.enabled,
-                onChanged: (value) {
-                  engine.updateAssistantSkill(skill.id, enabled: value);
-                  ref.invalidate(engineProvider);
-                },
-              ),
-            ),
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+        child: Row(children: [
+          Expanded(
+            child: Text(l10n.agentTabSkills,
+                style: DFTokens.section16w600.copyWith(color: df.textPrimary)),
           ),
-      ],
-    );
+          IconButton(
+            key: const ValueKey('assistant-skills-import'),
+            tooltip: l10n.agentSkillsImport,
+            icon: const Icon(Icons.file_upload_outlined),
+            onPressed: _importSkill,
+          ),
+          IconButton(
+            key: const ValueKey('assistant-skills-scan'),
+            tooltip: l10n.agentSkillsScan,
+            icon: const Icon(Icons.sync_rounded),
+            onPressed: _scanSkills,
+          ),
+        ]),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: TextField(
+          key: const ValueKey('assistant-skills-search'),
+          controller: _search,
+          onChanged: (value) => setState(() => _query = value),
+          decoration: InputDecoration(
+            hintText: l10n.agentSkillsSearch,
+            prefixIcon: const Icon(Icons.search),
+            isDense: true,
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Expanded(
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          itemCount: skills.length,
+          itemBuilder: (context, index) {
+            final skill = skills[index];
+            final markdown = skill.type == markdownAssistantSkillType;
+            return Card(
+              color: skill.id == _selectedId ? df.surfaceMuted : null,
+              margin: const EdgeInsets.only(bottom: 6),
+              child: ListTile(
+                onTap: markdown ? () => _select(skill) : null,
+                leading: Icon(markdown
+                    ? Icons.article_outlined
+                    : Icons.build_circle_outlined),
+                title: Text(skill.name,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  skill.description.isEmpty ? skill.id : skill.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Switch(
+                  key: ValueKey('assistant-skill-toggle-${skill.id}'),
+                  value: skill.enabled,
+                  onChanged: (value) {
+                    engine.updateAssistantSkill(skill.id, enabled: value);
+                    setState(() {});
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildDetail(BuildContext context, AssistantSkill skill,
+      {bool compact = false}) {
+    final engine = ref.read(engineProvider);
+    final l10n = context.l10n;
+    final df = context.df;
+    String content;
+    try {
+      content = engine.readManagedAssistantSkill(skill.id);
+    } catch (_) {
+      content = '';
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+        child: Row(children: [
+          if (compact)
+            IconButton(
+              key: const ValueKey('assistant-skill-back'),
+              tooltip: l10n.agentSkillsBack,
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => setState(() {
+                _selectedId = null;
+                _editing = false;
+              }),
+            ),
+          Expanded(
+            child: Text(skill.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: DFTokens.section16w600.copyWith(color: df.textPrimary)),
+          ),
+          if (!_editing)
+            IconButton(
+              key: ValueKey('assistant-skill-edit-${skill.id}'),
+              tooltip: l10n.agentSkillsEdit,
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => _startEdit(skill),
+            ),
+          if (_editing)
+            IconButton(
+              key: ValueKey('assistant-skill-save-${skill.id}'),
+              tooltip: l10n.agentSkillsSave,
+              icon: const Icon(Icons.save_outlined),
+              onPressed: () => _saveEdit(skill),
+            ),
+        ]),
+      ),
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: _editing
+              ? TextField(
+                  key: const ValueKey('assistant-skill-editor'),
+                  controller: _editor,
+                  expands: true,
+                  maxLines: null,
+                  minLines: null,
+                  textAlignVertical: TextAlignVertical.top,
+                  decoration:
+                      const InputDecoration(border: OutlineInputBorder()),
+                )
+              : SingleChildScrollView(
+                  child: SelectableText(
+                    content,
+                    style: const TextStyle(fontSize: 13, height: 1.5),
+                  ),
+                ),
+        ),
+      ),
+    ]);
   }
 }
 

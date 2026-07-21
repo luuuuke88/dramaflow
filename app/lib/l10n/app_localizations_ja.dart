@@ -2545,6 +2545,39 @@ class AppLocalizationsJa extends AppLocalizations {
       '技能定義はローカルの o_skillList に保存されます。説明と有効状態を編集できます。ツール名は固定され、タスクセンターの記録を追跡・再試行できる状態に保ちます。';
 
   @override
+  String get agentSkillsImport => 'Markdown を読み込む';
+
+  @override
+  String get agentSkillsScan => '再スキャン';
+
+  @override
+  String get agentSkillsSearch => '技能を検索';
+
+  @override
+  String get agentSkillsPreview => '内容プレビュー';
+
+  @override
+  String get agentSkillsEdit => '内容を編集';
+
+  @override
+  String get agentSkillsSave => '内容を保存';
+
+  @override
+  String get agentSkillsBack => '技能一覧に戻る';
+
+  @override
+  String get agentSkillsImported => '技能を読み込みました';
+
+  @override
+  String get agentSkillsSaved => '技能内容を保存しました';
+
+  @override
+  String agentSkillsScanSummary(
+      int added, int updated, int missing, int invalid) {
+    return 'スキャン完了：追加 $added、更新 $updated、不足 $missing、無効 $invalid';
+  }
+
+  @override
   String get agentSkillAttributionFilter => '技能スコープ';
 
   @override

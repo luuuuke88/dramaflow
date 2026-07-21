@@ -963,6 +963,24 @@
   "agentDeployGroupPipeline": "Pipeline",
   "agentSkillsBuiltinTitle": "Built-in skills",
   "agentSkillsEditableHint": "Skill definitions are stored locally in o_skillList. You can edit descriptions and enable or disable skills; tool names stay fixed so Task Center records remain traceable and retryable.",
+  "agentSkillsImport": "Import Markdown",
+  "agentSkillsScan": "Rescan",
+  "agentSkillsSearch": "Search skills",
+  "agentSkillsPreview": "Content preview",
+  "agentSkillsEdit": "Edit content",
+  "agentSkillsSave": "Save content",
+  "agentSkillsBack": "Back to skills",
+  "agentSkillsImported": "Skill imported",
+  "agentSkillsSaved": "Skill content saved",
+  "agentSkillsScanSummary": "Scan complete: {added} added, {updated} updated, {missing} missing, {invalid} invalid",
+  "@agentSkillsScanSummary": {
+    "placeholders": {
+      "added": {"type": "int"},
+      "updated": {"type": "int"},
+      "missing": {"type": "int"},
+      "invalid": {"type": "int"}
+    }
+  },
   "agentSkillAttributionFilter": "Skill scope",
   "agentSkillAttributionAll": "All skills",
   "agentSkillAttributionScriptDecision": "Script decision",

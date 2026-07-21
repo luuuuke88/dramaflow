@@ -1118,6 +1118,24 @@
   "agentDeployGroupPipeline": "流水线",
   "agentSkillsBuiltinTitle": "内置技能",
   "agentSkillsEditableHint": "技能定义保存在本地 o_skillList，可编辑说明与启停状态；工具名保持固定，确保任务中心可追踪、可重试。",
+  "agentSkillsImport": "导入 Markdown",
+  "agentSkillsScan": "重扫",
+  "agentSkillsSearch": "搜索技能",
+  "agentSkillsPreview": "内容预览",
+  "agentSkillsEdit": "编辑内容",
+  "agentSkillsSave": "保存内容",
+  "agentSkillsBack": "返回技能列表",
+  "agentSkillsImported": "技能已导入",
+  "agentSkillsSaved": "技能内容已保存",
+  "agentSkillsScanSummary": "扫描完成：新增 {added}，更新 {updated}，丢失 {missing}，无效 {invalid}",
+  "@agentSkillsScanSummary": {
+    "placeholders": {
+      "added": {"type": "int"},
+      "updated": {"type": "int"},
+      "missing": {"type": "int"},
+      "invalid": {"type": "int"}
+    }
+  },
   "agentSkillAttributionFilter": "技能归属",
   "agentSkillAttributionAll": "全部技能",
   "agentSkillAttributionScriptDecision": "剧本决策",

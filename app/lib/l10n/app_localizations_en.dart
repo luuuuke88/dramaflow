@@ -2621,6 +2621,39 @@ class AppLocalizationsEn extends AppLocalizations {
       'Skill definitions are stored locally in o_skillList. You can edit descriptions and enable or disable skills; tool names stay fixed so Task Center records remain traceable and retryable.';
 
   @override
+  String get agentSkillsImport => 'Import Markdown';
+
+  @override
+  String get agentSkillsScan => 'Rescan';
+
+  @override
+  String get agentSkillsSearch => 'Search skills';
+
+  @override
+  String get agentSkillsPreview => 'Content preview';
+
+  @override
+  String get agentSkillsEdit => 'Edit content';
+
+  @override
+  String get agentSkillsSave => 'Save content';
+
+  @override
+  String get agentSkillsBack => 'Back to skills';
+
+  @override
+  String get agentSkillsImported => 'Skill imported';
+
+  @override
+  String get agentSkillsSaved => 'Skill content saved';
+
+  @override
+  String agentSkillsScanSummary(
+      int added, int updated, int missing, int invalid) {
+    return 'Scan complete: $added added, $updated updated, $missing missing, $invalid invalid';
+  }
+
+  @override
   String get agentSkillAttributionFilter => 'Skill scope';
 
   @override

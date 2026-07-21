@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:dramaflow/src/engine/assistant_chat.dart';
 import 'package:dramaflow/src/engine/assistant_deploy.dart';
+import 'package:dramaflow/src/engine/assistant_skill_library.dart';
 import 'package:dramaflow/src/engine/assistant_skills.dart';
 import 'package:dramaflow/src/engine/config.dart';
 import 'package:dramaflow/src/engine/db.dart';
@@ -20,6 +21,7 @@ import 'package:dramaflow/src/widgets/external_link_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 
@@ -44,6 +46,19 @@ class _Gateway implements ProviderGateway {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SkillFileSelector extends FileSelectorPlatform {
+  final XFile file;
+  _SkillFileSelector(this.file);
+
+  @override
+  Future<XFile?> openFile({
+    List<XTypeGroup>? acceptedTypeGroups,
+    String? initialDirectory,
+    String? confirmButtonText,
+  }) async =>
+      file;
 }
 
 void _writeMarkdownSkill(
@@ -281,6 +296,79 @@ void main() {
     final skill =
         engine.assistantSkills().singleWhere((s) => s.id == 'generate_events');
     expect(skill.enabled, isFalse);
+  });
+
+  testWidgets('桌面技能页可导入、搜索、预览并编辑托管 Markdown', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final sourceDir = Directory(p.join(dir.path, 'picked-skill'))..createSync();
+    final source = File(p.join(sourceDir.path, 'SKILL.md'))
+      ..writeAsStringSync('''---
+name: framing_guide
+description: 分镜画幅规范
+---
+镜头必须先交代环境，再推进主体。
+''');
+    final originalSelector = FileSelectorPlatform.instance;
+    FileSelectorPlatform.instance = _SkillFileSelector(XFile(source.path));
+    addTearDown(() => FileSelectorPlatform.instance = originalSelector);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _openAssistantAdvanced(tester);
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('assistant-skills-import')));
+    await tester.pumpAndSettle();
+    expect(find.text('framing_guide'), findsWidgets);
+    expect(find.textContaining('先交代环境'), findsOneWidget);
+
+    await tester.enterText(
+        find.byKey(const ValueKey('assistant-skills-search')), 'framing');
+    await tester.pumpAndSettle();
+    expect(find.text('framing_guide'), findsWidgets);
+
+    await tester
+        .tap(find.byKey(const ValueKey('assistant-skill-edit-framing_guide')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('assistant-skill-editor')),
+        '---\nname: framing_guide\ndescription: 新说明\n---\n改后的镜头规则');
+    await tester
+        .tap(find.byKey(const ValueKey('assistant-skill-save-framing_guide')));
+    await tester.pumpAndSettle();
+    expect(
+        engine.readManagedAssistantSkill('framing_guide'), contains('改后的镜头规则'));
+  });
+
+  testWidgets('390dp 技能页可重扫并从 Markdown 详情返回列表', (tester) async {
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final skillDir = Directory(p.join(dir.path, 'skills', 'mobile_guide'))
+      ..createSync(recursive: true);
+    File(p.join(skillDir.path, 'SKILL.md')).writeAsStringSync('''---
+name: mobile_guide
+description: 移动端构图
+---
+保留主体安全区域。
+''');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await _openAssistantAdvanced(tester);
+    await tester.tap(find.text('技能'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('assistant-skills-scan')));
+    await tester.pumpAndSettle();
+    expect(find.text('mobile_guide'), findsOneWidget);
+    await tester.tap(find.text('mobile_guide'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('保留主体安全区域'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('assistant-skill-back')));
+    await tester.pumpAndSettle();
+    expect(find.text('mobile_guide'), findsOneWidget);
   });
 
   testWidgets('项目笔记页使用 project_notes API，删除走危险确认', (tester) async {

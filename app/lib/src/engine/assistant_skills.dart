@@ -8,11 +8,12 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'assistant_actions.dart';
+import 'assistant_skill_library.dart';
 import 'engine.dart';
 import 'errors.dart';
 
 const assistantToolSkillType = 'builtin-agent';
-const markdownAssistantSkillType = 'markdown-agent';
+const markdownAssistantSkillType = managedMarkdownAssistantSkillType;
 
 class AssistantSkill {
   final String id;
@@ -31,19 +32,6 @@ class AssistantSkill {
   });
 }
 
-class ParsedAssistantSkillMarkdown {
-  final String id;
-  final String name;
-  final String description;
-  final String body;
-  const ParsedAssistantSkillMarkdown({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.body,
-  });
-}
-
 extension AssistantSkillsApi on Engine {
   void _ensureAssistantSkillsSeeded() {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -55,8 +43,18 @@ extension AssistantSkillsApi on Engine {
         'INSERT INTO o_skillList '
         '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
         'VALUES (?,?,?,?,?,?,?,?,?,?)',
-        [action.name, action.name, action.description, 1,
-         assistantToolSkillType, now, now, '', '', ''],
+        [
+          action.name,
+          action.name,
+          action.description,
+          1,
+          assistantToolSkillType,
+          now,
+          now,
+          '',
+          '',
+          ''
+        ],
       );
     }
   }
@@ -120,40 +118,14 @@ extension AssistantSkillsApi on Engine {
     required String filePath,
     bool enabled = true,
   }) {
-    final parsed = parseAssistantSkillFile(filePath);
-    final now = DateTime.now().millisecondsSinceEpoch;
-    db.execute(
-      'INSERT OR REPLACE INTO o_skillList '
-      '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
-      'VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [
-        parsed.id,
-        parsed.name,
-        parsed.description,
-        enabled ? 1 : 0,
-        markdownAssistantSkillType,
-        db.select('SELECT createTime FROM o_skillList WHERE id=?',
-                [parsed.id]).firstOrNull?['createTime'] as int? ??
-            now,
-        now,
-        filePath,
-        '',
-        '',
-      ],
-    );
-    return assistantSkills().singleWhere((s) => s.id == parsed.id);
+    final managed = importMarkdownAssistantSkill(filePath);
+    if (!enabled) updateAssistantSkill(managed.id, enabled: false);
+    return assistantSkills().singleWhere((s) => s.id == managed.id);
   }
 
   /// 读取 markdown 技能自身目录内的资源文件（路径穿越防护）。
   String readAssistantSkillFile(String id, String relativePath) {
-    final row = db.select(
-      'SELECT path FROM o_skillList WHERE id=? AND type=?',
-      [id, markdownAssistantSkillType],
-    ).firstOrNull;
-    final skillPath = row?['path'] as String? ?? '';
-    if (skillPath.isEmpty) {
-      throw const EngineException(errLlmFormat, {'reason': 'skillMissing'});
-    }
+    final skillPath = managedAssistantSkillPath(id);
     final root = p.normalize(p.absolute(File(skillPath).parent.path));
     final safe = _normalizeSkillRelativePath(relativePath);
     final target = p.normalize(p.absolute(root, safe));
@@ -173,7 +145,10 @@ extension AssistantSkillsApi on Engine {
     for (final skill in assistantSkills()) {
       if (skill.type != markdownAssistantSkillType || !skill.enabled) continue;
       try {
-        final parsed = parseAssistantSkillFile(skill.path);
+        final parsed = parseAssistantSkillMarkdown(
+          readManagedAssistantSkill(skill.id),
+          fallbackName: skill.id,
+        );
         if (parsed.body.isEmpty) continue;
         contexts.add('【技能：${skill.name}】\n${parsed.body}');
       } on EngineException {
@@ -182,54 +157,6 @@ extension AssistantSkillsApi on Engine {
     }
     return contexts;
   }
-}
-
-ParsedAssistantSkillMarkdown parseAssistantSkillFile(String filePath) {
-  final file = File(filePath);
-  if (!file.existsSync()) {
-    throw EngineException(errLlmFormat, {'reason': 'skillFileMissing:$filePath'});
-  }
-  final fallback = p.basename(file.path).toLowerCase() == 'skill.md'
-      ? p.basenameWithoutExtension(file.parent.path)
-      : p.basenameWithoutExtension(file.path);
-  return parseAssistantSkillMarkdown(file.readAsStringSync(),
-      fallbackName: fallback);
-}
-
-ParsedAssistantSkillMarkdown parseAssistantSkillMarkdown(
-  String markdown, {
-  required String fallbackName,
-}) {
-  final lines = markdown.replaceAll('\r\n', '\n').split('\n');
-  var frontmatter = <String, String>{};
-  var bodyStart = 0;
-  if (lines.isNotEmpty && lines.first.trim() == '---') {
-    for (var i = 1; i < lines.length; i++) {
-      if (lines[i].trim() == '---') {
-        frontmatter = _parseSkillFrontmatter(lines.sublist(1, i));
-        bodyStart = i + 1;
-        break;
-      }
-    }
-  }
-  final rawName = (frontmatter['name'] ?? fallbackName).trim();
-  final id = _normalizeAssistantSkillId(rawName);
-  final description = (frontmatter['description'] ?? '').trim();
-  final body = lines.sublist(bodyStart).join('\n').trim();
-  return ParsedAssistantSkillMarkdown(
-    id: id,
-    name: rawName.isEmpty ? id : rawName,
-    description: description,
-    body: body,
-  );
-}
-
-String _normalizeAssistantSkillId(String value) {
-  final normalized = value.trim();
-  if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_.-]*$').hasMatch(normalized)) {
-    throw const EngineException(errLlmFormat, {'reason': 'skillIdInvalid'});
-  }
-  return normalized;
 }
 
 String _normalizeSkillRelativePath(String value) {
@@ -243,60 +170,3 @@ String _normalizeSkillRelativePath(String value) {
   }
   return normalized;
 }
-
-Map<String, String> _parseSkillFrontmatter(List<String> lines) {
-  final values = <String, String>{};
-  for (var i = 0; i < lines.length;) {
-    final line = lines[i];
-    final trimmed = line.trim();
-    if (trimmed.isEmpty || trimmed.startsWith('#')) {
-      i++;
-      continue;
-    }
-    final match = RegExp(r'^([A-Za-z0-9_-]+)\s*:\s*(.*)$').firstMatch(line);
-    if (match == null) {
-      i++;
-      continue;
-    }
-    final key = match.group(1)!.trim();
-    final rawValue = match.group(2)!.trim();
-    i++;
-    if (key.isEmpty) continue;
-    if (RegExp(r'^[>|][+-]?[0-9]*$').hasMatch(rawValue)) {
-      final folded = rawValue.startsWith('>');
-      final blockLines = <String>[];
-      int? blockIndent;
-      while (i < lines.length) {
-        final current = lines[i];
-        if (current.trim().isEmpty) {
-          if (blockIndent != null) blockLines.add('');
-          i++;
-          continue;
-        }
-        final currentIndent =
-            RegExp(r'^\s*').firstMatch(current)!.group(0)!.length;
-        blockIndent ??= currentIndent;
-        if (currentIndent < blockIndent) break;
-        blockLines.add(current.substring(blockIndent));
-        i++;
-      }
-      final joined = blockLines.join('\n').trim();
-      values[key] = folded
-          ? joined
-              .replaceAll(RegExp(r'\n{2,}'), '\n\n')
-              .replaceAllMapped(
-                RegExp(r'([^\n])\n([^\n])'),
-                (m) => '${m.group(1)} ${m.group(2)}',
-              )
-              .trim()
-          : joined;
-      continue;
-    }
-    values[key] = rawValue.replaceFirstMapped(
-      RegExp(r'''^(['"])([\s\S]*)\1$'''),
-      (m) => m.group(2)!,
-    );
-  }
-  return values;
-}
-

@@ -72,7 +72,7 @@ void main() {
       expect(engine.assistantSkills().any((s) => s.id == 'legacy_js'), isFalse);
     });
 
-    test('markdown 技能导入/正文注入/文件缺失时静默跳过', () {
+    test('markdown 技能导入后独立于被删除的源文件', () {
       final f = File(p.join(dir.path, 'style_guide.md'))
         ..writeAsStringSync('---\nname: style_guide\ndescription: 画风指南\n---\n'
             '所有画面统一水墨风。');
@@ -84,18 +84,48 @@ void main() {
       expect(contexts.single, contains('style_guide'));
 
       f.deleteSync();
-      expect(engine.assistantSkillContexts(), isEmpty, reason: '文件被删后跳过，不抛异常');
+      expect(engine.assistantSkillContexts().single, contains('水墨'),
+          reason: '应用工作区副本不能依赖用户原始文件继续存在');
     });
 
-    test('readAssistantSkillFile 拒绝路径穿越', () {
+    test('技能包资源随 SKILL.md 导入且拒绝路径穿越', () {
       final skillDir = Directory(p.join(dir.path, 'pack'))..createSync();
       final f = File(p.join(skillDir.path, 'skill.md'))
         ..writeAsStringSync('---\nname: pack\n---\nbody');
       File(p.join(skillDir.path, 'extra.md')).writeAsStringSync('资源内容');
       engine.saveMarkdownAssistantSkill(filePath: f.path);
 
+      f.deleteSync();
+      File(p.join(skillDir.path, 'extra.md')).deleteSync();
+
       expect(engine.readAssistantSkillFile('pack', 'extra.md'), '资源内容');
       expect(() => engine.readAssistantSkillFile('pack', '../../etc/passwd'),
+          throwsA(isA<EngineException>()));
+    });
+
+    test('遗留外部路径技能不再进入上下文或读取资源', () {
+      final external = File(p.join(dir.path, 'external.md'))
+        ..writeAsStringSync('---\nname: legacy_external\n---\n不得读取');
+      db.execute(
+        'INSERT INTO o_skillList '
+        '(id,name,description,state,type,createTime,updateTime,path,md5,embedding) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [
+          'legacy_external',
+          'legacy_external',
+          '',
+          1,
+          markdownAssistantSkillType,
+          1,
+          1,
+          external.path,
+          '',
+          '',
+        ],
+      );
+
+      expect(engine.assistantSkillContexts(), isEmpty);
+      expect(() => engine.readAssistantSkillFile('legacy_external', 'extra.md'),
           throwsA(isA<EngineException>()));
     });
   });

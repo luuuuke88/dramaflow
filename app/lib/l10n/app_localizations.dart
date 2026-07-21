@@ -4948,6 +4948,67 @@ abstract class AppLocalizations {
   /// **'技能定义保存在本地 o_skillList，可编辑说明与启停状态；工具名保持固定，确保任务中心可追踪、可重试。'**
   String get agentSkillsEditableHint;
 
+  /// No description provided for @agentSkillsImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入 Markdown'**
+  String get agentSkillsImport;
+
+  /// No description provided for @agentSkillsScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'重扫'**
+  String get agentSkillsScan;
+
+  /// No description provided for @agentSkillsSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索技能'**
+  String get agentSkillsSearch;
+
+  /// No description provided for @agentSkillsPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容预览'**
+  String get agentSkillsPreview;
+
+  /// No description provided for @agentSkillsEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑内容'**
+  String get agentSkillsEdit;
+
+  /// No description provided for @agentSkillsSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存内容'**
+  String get agentSkillsSave;
+
+  /// No description provided for @agentSkillsBack.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回技能列表'**
+  String get agentSkillsBack;
+
+  /// No description provided for @agentSkillsImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能已导入'**
+  String get agentSkillsImported;
+
+  /// No description provided for @agentSkillsSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能内容已保存'**
+  String get agentSkillsSaved;
+
+  /// No description provided for @agentSkillsScanSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描完成：新增 {added}，更新 {updated}，丢失 {missing}，无效 {invalid}'**
+  String agentSkillsScanSummary(
+      int added, int updated, int missing, int invalid);
+
   /// No description provided for @agentSkillAttributionFilter.
   ///
   /// In zh, this message translates to:

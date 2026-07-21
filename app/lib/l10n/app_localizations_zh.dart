@@ -2527,6 +2527,39 @@ class AppLocalizationsZh extends AppLocalizations {
       '技能定义保存在本地 o_skillList，可编辑说明与启停状态；工具名保持固定，确保任务中心可追踪、可重试。';
 
   @override
+  String get agentSkillsImport => '导入 Markdown';
+
+  @override
+  String get agentSkillsScan => '重扫';
+
+  @override
+  String get agentSkillsSearch => '搜索技能';
+
+  @override
+  String get agentSkillsPreview => '内容预览';
+
+  @override
+  String get agentSkillsEdit => '编辑内容';
+
+  @override
+  String get agentSkillsSave => '保存内容';
+
+  @override
+  String get agentSkillsBack => '返回技能列表';
+
+  @override
+  String get agentSkillsImported => '技能已导入';
+
+  @override
+  String get agentSkillsSaved => '技能内容已保存';
+
+  @override
+  String agentSkillsScanSummary(
+      int added, int updated, int missing, int invalid) {
+    return '扫描完成：新增 $added，更新 $updated，丢失 $missing，无效 $invalid';
+  }
+
+  @override
   String get agentSkillAttributionFilter => '技能归属';
 
   @override
