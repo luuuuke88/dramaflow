@@ -525,6 +525,20 @@ class _DFCanvasState extends State<DFCanvas> {
     return box?.globalToLocal(event.position) ?? event.localPosition;
   }
 
+  /// 三个转发点(背景层自身、标题拖拽条、卡片内的 DFCanvasDragRegion /
+  /// DFCanvasViewportSignalRegion)在同一次命中测试里可能同时出现在事件路径上
+  /// ——标题条用 HitTestBehavior.translucent，即使它自己没吸收命中也仍会被计入
+  /// 路径，卡片内容随后可能各自再命中一次。PointerSignalEvent 的派发会把信号
+  /// 送达路径上的每一个 Listener，不会像手势竞技场那样只有一个胜者，所以必须
+  /// 显式登记到 PointerSignalResolver 去重，让同一个滚轮事件只被处理一次——
+  /// 这正是 Flutter 自己的 Scrollable 组件(见 SDK scrollable.dart 里的
+  /// _receivedPointerSignal/_handlePointerScroll)在嵌套滚动场景下使用的标准
+  /// 写法，也让画布和卡片内嵌套的 ListView/Scrollable 互斥。
+  void _registerBackgroundPointerSignal(PointerSignalEvent event) {
+    GestureBinding.instance.pointerSignalResolver
+        .register(event, _handleBackgroundPointerSignal);
+  }
+
   void _handleBackgroundPointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent || _spacePanPointer != null) return;
     final transform = Matrix4.copy(_controller.value);
@@ -690,7 +704,7 @@ class _DFCanvasState extends State<DFCanvas> {
               children: [
                 Positioned.fill(
                   child: Listener(
-                    onPointerSignal: _handleBackgroundPointerSignal,
+                    onPointerSignal: _registerBackgroundPointerSignal,
                     child: RawGestureDetector(
                       key: const ValueKey('df-canvas-background'),
                       behavior: HitTestBehavior.opaque,
@@ -767,7 +781,7 @@ class _DFCanvasState extends State<DFCanvas> {
                                             endNodeDrag: _endNodeDrag,
                                             cancelNodeDrag: _endNodeDrag,
                                             handleViewportPointerSignal:
-                                                _handleBackgroundPointerSignal,
+                                                _registerBackgroundPointerSignal,
                                           ),
                                     child: _isInteracting &&
                                             widget.interactionReductionEnabled
@@ -797,7 +811,7 @@ class _DFCanvasState extends State<DFCanvas> {
                                           onPointerUp: _endNodeDrag,
                                           onPointerCancel: _endNodeDrag,
                                           onPointerSignal:
-                                              _handleBackgroundPointerSignal,
+                                              _registerBackgroundPointerSignal,
                                         ),
                                       ),
                                     ),
