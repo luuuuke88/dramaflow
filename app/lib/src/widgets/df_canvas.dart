@@ -583,7 +583,20 @@ class _DFCanvasState extends State<DFCanvas> {
     final eventId = event.original ?? event;
     if (identical(_handledPanZoomUpdateId, eventId)) return;
     _handledPanZoomUpdateId = eventId;
-    _updateViewportTransform(_localPositionOf(start + event.pan), event.scale);
+    // Bug 3: 和背景层 ScaleGestureRecognizer 上设置的 trackpadScrollCausesScale
+    // 读取同一个 widget.wheelMode，两条路径(起点在空白画布 vs 起点在节点上)
+    // 对触控板手势的解读必须一致。causesScale 为 true 时公式抄自 SDK
+    // scale.dart 的 _PointerPanZoomData:焦点固定在手势起点，pan 量按
+    // kDefaultTrackpadScrollToScaleFactor 换算成指数缩放；为 false 时保持原来
+    // 的纯平移语义(焦点 = 起点 + 累计 pan，scale 恒为手势自身的 event.scale)。
+    final causesScale = widget.wheelMode == CanvasWheelMode.zoom;
+    final focalGlobal = causesScale ? start : start + event.pan;
+    final gestureScale = causesScale
+        ? event.scale *
+            math.exp(event.pan.dx * kDefaultTrackpadScrollToScaleFactor.dx +
+                event.pan.dy * kDefaultTrackpadScrollToScaleFactor.dy)
+        : event.scale;
+    _updateViewportTransform(_localPositionOf(focalGlobal), gestureScale);
   }
 
   void _handleNodePanZoomEnd(PointerPanZoomEndEvent event) {
@@ -789,6 +802,14 @@ class _DFCanvasState extends State<DFCanvas> {
                             recognizer.onStart = _startViewportGesture;
                             recognizer.onUpdate = _updateViewportGesture;
                             recognizer.onEnd = _endViewportGesture;
+                            // Bug 3: 触控板双指默认被 ScaleGestureRecognizer 当成
+                            // 平移(trackpadScrollCausesScale 默认 false)，从不
+                            // 查询画布自己的 wheelMode 设置。这里让它和现有
+                            // PointerScrollEvent 分支(_handleBackgroundPointerSignal
+                            // 里 widget.wheelMode == CanvasWheelMode.scroll 的判断)
+                            // 保持同一套读取方式，缩放模式下让触控板双指也走缩放。
+                            recognizer.trackpadScrollCausesScale =
+                                widget.wheelMode == CanvasWheelMode.zoom;
                           },
                         ),
                       },
