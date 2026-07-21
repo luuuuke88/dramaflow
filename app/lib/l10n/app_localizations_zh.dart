@@ -274,6 +274,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errTaskActive => '所选镜头已有正在生成的任务';
 
   @override
+  String get errVideoTargetDeleted => '生成目标在处理过程中被删除';
+
+  @override
   String get shellSelectProject => '请选择项目';
 
   @override
@@ -1873,6 +1876,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workbenchClearSelectedTracksDone => '已清空已选轨道';
 
   @override
+  String get workbenchTrackGeneratingCannotDelete => '该轨道正在生成中，请先取消或等待完成';
+
+  @override
   String get workbenchCompose => '合成本集';
 
   @override
@@ -2558,7 +2564,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String agentSkillsScanSummary(
-      int added, int updated, int missing, int invalid) {
+    int added,
+    int updated,
+    int missing,
+    int invalid,
+  ) {
     return '扫描完成：新增 $added，更新 $updated，丢失 $missing，无效 $invalid';
   }
 

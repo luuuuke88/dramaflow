@@ -277,6 +277,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errTaskActive => '選択したショットにはすでに生成中のタスクがあります';
 
   @override
+  String get errVideoTargetDeleted => '処理中に生成対象が削除されました';
+
+  @override
   String get shellSelectProject => 'プロジェクトを選択';
 
   @override
@@ -1889,6 +1892,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workbenchClearSelectedTracksDone => '選択トラックをクリアしました';
 
   @override
+  String get workbenchTrackGeneratingCannotDelete =>
+      'このトラックは生成中です。先にキャンセルするか、完了をお待ちください。';
+
+  @override
   String get workbenchCompose => '話数を合成';
 
   @override
@@ -2576,7 +2583,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String agentSkillsScanSummary(
-      int added, int updated, int missing, int invalid) {
+    int added,
+    int updated,
+    int missing,
+    int invalid,
+  ) {
     return 'スキャン完了：追加 $added、更新 $updated、不足 $missing、無効 $invalid';
   }
 

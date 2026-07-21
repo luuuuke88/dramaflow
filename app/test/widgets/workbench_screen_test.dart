@@ -382,6 +382,34 @@ void main() {
     expect(engine.storyboards(scriptId).single.trackId, storyboardTrackId);
   });
 
+  testWidgets('独立视频轨生成中时删除入口会被拦截并提示', (tester) async {
+    final standaloneTrackId = engine.createStandaloneVideoTrack(
+      projectId: projectId,
+      scriptId: scriptId,
+      duration: 5,
+    );
+    // 直接把轨道状态置为生成中，等价于一次真实生成任务正在跑（不需要真的
+    // 跑完整条生成流水线）。
+    engine.db.execute(
+      'UPDATE o_videoTrack SET state=? WHERE id=?',
+      [vtGenerating, standaloneTrackId],
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(
+        ValueKey('workbench-delete-standalone-track-$standaloneTrackId')));
+    await tester.pumpAndSettle();
+
+    // 生成中应该被直接拦截，不会走到确认弹窗。
+    expect(find.text('删除此视频轨及其候选视频？'), findsNothing);
+    expect(find.text('该轨道正在生成中，请先取消或等待完成'), findsOneWidget);
+    expect(engine.track(standaloneTrackId), isNotNull,
+        reason: '生成中的轨道不应被删除');
+  });
+
   testWidgets('独立视频轨选中后可编辑提示词并打开视频参数', (tester) async {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
