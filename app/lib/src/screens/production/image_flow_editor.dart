@@ -25,6 +25,7 @@ import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_canvas.dart';
 import '../../widgets/common.dart';
+import 'storyboard_image_picker.dart';
 
 const _nodeWidth = 260.0;
 // upload 节点含头部、图片、带“直接采用”操作的手柄行，留出稳定余量避免溢出。
@@ -519,7 +520,16 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
 
   /// 从素材库或分镜里挑一张已生成图片，返回其相对路径。
   Future<String?> _pickFromLibrary({required bool fromStoryboard}) async {
-    final items = fromStoryboard ? _storyboardImageItems() : _assetImageItems();
+    if (fromStoryboard) {
+      final selected = await showStoryboardImagePicker(
+        context,
+        engine: _engine,
+        candidates: _storyboardImageItems(),
+        emptyText: context.l10n.imageEditorNoStoryboardImages,
+      );
+      return selected?.firstOrNull?.localPath;
+    }
+    final items = _assetImageItems();
     final rel = await showDFAdaptiveDialog<String>(
       context,
       title: context.l10n.imageEditorPickImageTitle,
@@ -527,9 +537,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
       builder: (_) => _LibraryPicker(
         engine: _engine,
         items: items,
-        emptyText: fromStoryboard
-            ? context.l10n.imageEditorNoStoryboardImages
-            : context.l10n.imageEditorNoAssetsImages,
+        emptyText: context.l10n.imageEditorNoAssetsImages,
       ),
     );
     return rel;
@@ -550,15 +558,19 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
   }
 
   /// 本剧集已生成首帧图的分镜（按镜头序号编号）。
-  List<_PickItem> _storyboardImageItems() {
+  List<StoryboardImageCandidate> _storyboardImageItems() {
     final scriptId = widget.scriptId;
     if (scriptId == null) return const [];
     final rows = _engine.storyboards(scriptId);
-    final out = <_PickItem>[];
+    final out = <StoryboardImageCandidate>[];
     for (final (i, r) in rows.indexed) {
       if (r.filePath != null && r.filePath!.isNotEmpty) {
-        out.add(_PickItem(
-            rel: r.filePath!, label: 'S${(i + 1).toString().padLeft(2, '0')}'));
+        out.add(StoryboardImageCandidate(
+          id: r.id,
+          localPath: r.filePath!,
+          label: 'S${(i + 1).toString().padLeft(2, '0')}',
+          prompt: r.prompt ?? '',
+        ));
       }
     }
     return out;

@@ -604,6 +604,64 @@ void main() {
     await tester.pumpAndSettle();
     // 首帧图以镜头序号 S01 标注。
     expect(find.text('S01'), findsOneWidget);
+    await tester
+        .tap(find.byKey(ValueKey('storyboard-image-picker-item-$sbId')));
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('storyboard-image-picker-confirm')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('storyboard-image-picker-confirm')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('storyboard-image-picker-search')),
+        findsNothing);
+  });
+
+  testWidgets('从分镜选择：每页十条并可翻到下一页', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    engine.installStoryboardPipeline();
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '分页剧集', content: 'x');
+    final rel = engine.media.saveImage(_pngBytes, '$projectId');
+    for (var i = 0; i < 11; i++) {
+      final storyboardId = engine.addStoryboard(
+        projectId: projectId,
+        scriptId: scriptId,
+        prompt: '第 ${i + 1} 镜',
+      );
+      engine.setStoryboardImage(storyboardId, rel);
+    }
+
+    await tester
+        .pumpWidget(host(scriptId: scriptId, seedRefs: [seedUploadRel()]));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(uploadImageTap().first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('从分镜选择'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('S01'), findsOneWidget);
+    expect(find.text('S11'), findsNothing);
+    await tester
+        .tap(find.byKey(const ValueKey('storyboard-image-picker-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('S11'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('storyboard-image-picker-search')),
+      '第 1 镜',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('S01'), findsOneWidget);
+    expect(find.text('S11'), findsNothing);
   });
 
   testWidgets('连线中点 × 手柄可删除单条连线', (tester) async {
