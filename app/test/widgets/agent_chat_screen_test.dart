@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
@@ -48,6 +49,28 @@ class _Gateway implements ProviderGateway {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// 回合结果可手动 Completer 卡住的网关：用于模拟"请求飞行中"（发出后未 resolve）
+/// 的状态，验证 UI 在这期间的行为（Bug 1 清空按钮门控、Bug 3 家族级发送态）。
+class _PendingGateway implements ProviderGateway {
+  final List<Completer<AgentTurnResult>> completers = [];
+
+  @override
+  Future<AgentTurnResult> generateAgentTurn(
+    String system,
+    List<Map<String, String>> messages,
+    List<AgentToolDef> tools, {
+    required String stage,
+    CancelToken? cancelToken,
+  }) {
+    final completer = Completer<AgentTurnResult>();
+    completers.add(completer);
+    return completer.future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _SkillFileSelector extends FileSelectorPlatform {
   final XFile file;
   _SkillFileSelector(this.file);
@@ -82,6 +105,53 @@ $body
 Future<void> _openAssistantAdvanced(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('assistant-advanced-button')));
   await tester.pumpAndSettle();
+}
+
+/// 独立于外层 setUp 的 Engine+DB+项目，绑定 [_PendingGateway]，用于需要真正
+/// "卡住飞行中请求"的场景（Bug 1 清空按钮门控、Bug 3 家族级发送态隔离）。
+/// 自带 addTearDown 清理，调用方不需要额外处理。
+class _FlightHarness {
+  final Engine engine;
+  final _PendingGateway gateway;
+  final int projectId;
+  _FlightHarness(this.engine, this.gateway, this.projectId);
+}
+
+Future<_FlightHarness> _pumpFlightAgentChat(
+  WidgetTester tester, {
+  String projectName = '飞行测试',
+}) async {
+  final flightDir =
+      Directory.systemTemp.createTempSync('dramaflow-agentchat-flight-');
+  final flightDb = openEngineDb(':memory:');
+  final pendingGateway = _PendingGateway();
+  final flightEngine = Engine(
+    db: flightDb,
+    media: MediaStore(p.join(flightDir.path, 'media')),
+    gateway: pendingGateway,
+    config: EngineConfig(flightDb, isMobile: false),
+  );
+  addTearDown(() {
+    flightEngine.dispose();
+    flightDb.close();
+    if (flightDir.existsSync()) flightDir.deleteSync(recursive: true);
+  });
+  final flightProjectId =
+      flightEngine.addProject(projectType: 'novel', name: projectName);
+
+  await tester.pumpWidget(ProviderScope(
+    overrides: [engineProvider.overrideWithValue(flightEngine)],
+    child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+      locale: const Locale('zh'),
+      theme: buildTheme(Brightness.light),
+      home: AgentChatScreen(projectId: flightProjectId),
+    ),
+  ));
+  await tester.pumpAndSettle();
+
+  return _FlightHarness(flightEngine, pendingGateway, flightProjectId);
 }
 
 void main() {
@@ -591,5 +661,116 @@ description: 移动端构图
     await tester.tap(find.byKey(const ValueKey('assistant-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('部署'), findsOneWidget);
+  });
+
+  testWidgets('请求飞行期间清空记忆按钮禁用，和发送按钮的约束保持一致（Bug 1 UI 配合防护）',
+      (tester) async {
+    final flight = await _pumpFlightAgentChat(tester);
+    final clearButtonFinder =
+        find.byKey(const ValueKey('assistant-clear-memory-button'));
+
+    expect(
+      tester.widget<IconButton>(clearButtonFinder).onPressed,
+      isNotNull,
+      reason: '空闲状态下清空按钮应可点击',
+    );
+
+    await tester.enterText(find.byType(TextField), '你好');
+    await tester.tap(find.text('发送'));
+    await tester.pump(); // 应用 setState(_sending = true)；请求本身仍卡在 completer 上。
+
+    expect(flight.gateway.completers, hasLength(1));
+    expect(
+      tester.widget<IconButton>(clearButtonFinder).onPressed,
+      isNull,
+      reason: '发送中应禁用清空入口，和发送按钮 _sending ? null : _send 的约束保持一致',
+    );
+
+    // 放行飞行请求，恢复到空闲态，同时验证按钮重新可用（收尾，避免遗留挂起的 Future）。
+    flight.gateway.completers.single.complete(const AgentTurnResult.text('完成'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<IconButton>(clearButtonFinder).onPressed, isNotNull);
+  });
+
+  testWidgets('技能工具调用失败时气泡显示本地化文案而不是原始 JSON，且不标"已执行"（Bug 2 回归）',
+      (tester) async {
+    // 激活一个不存在的技能：activateAssistantSkill 会抛 errLlmFormat/skillMissing，
+    // 走 _runAssistantSkillToolAndAppend 的 catch 分支。
+    gateway.turns.add(
+      const AgentTurnResult.tool(
+        'activate_skill',
+        {'skillName': 'does_not_exist'},
+      ),
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '帮我用一下运镜技能');
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+
+    // 不能是未本地化的原始 JSON/错误码字符串。
+    expect(find.textContaining('errKey'), findsNothing);
+    expect(find.textContaining('skillMissing'), findsNothing);
+    // 不能被误标成"已执行"（那是成功执行结果专属的标题/样式）。
+    expect(find.textContaining('已执行'), findsNothing);
+    expect(find.byIcon(Icons.bolt), findsNothing);
+    // 应该展示 errLlmFormat 对应的本地化通用文案。
+    expect(find.text('模型输出格式无效'), findsOneWidget);
+  });
+
+  testWidgets('剧本 Agent 请求飞行中不影响制作 Agent 标签的发送（Bug 3 回归）', (tester) async {
+    final flight = await _pumpFlightAgentChat(tester);
+    final sendButtonFinder = find.widgetWithText(FilledButton, '发送');
+
+    // 剧本 Agent（默认标签）发一条消息，卡在飞行中不 resolve。
+    await tester.enterText(find.byType(TextField), '剧本侧请求');
+    await tester.tap(sendButtonFinder);
+    await tester.pump(); // 应用 setState(_sendingByFamily[script] = true)。
+
+    expect(flight.gateway.completers, hasLength(1));
+    expect(
+      tester.widget<FilledButton>(sendButtonFinder).onPressed,
+      isNull,
+      reason: '剧本 Agent 自己的发送按钮应该在飞行中禁用',
+    );
+
+    // 切到制作 Agent 标签。用有界的 pump 而不是 pumpAndSettle：Bug 3 未修复时
+    // "思考中"指示器（不确定进度的 CircularProgressIndicator）会跟着共享的
+    // _sending 一起误显示在这个标签上，那是一个永不停止的动画，pumpAndSettle
+    // 会一直等到超时——用 pump 才能让失败以清晰的断言呈现，而不是超时。
+    await tester.tap(find.byKey(const ValueKey('assistant-family-production')));
+    await tester.pump();
+
+    expect(
+      tester.widget<FilledButton>(sendButtonFinder).onPressed,
+      isNotNull,
+      reason: '另一个家族的飞行请求不应该禁用这个家族的发送按钮（Bug 3：两个家族曾经共用一个 _sending）',
+    );
+
+    // 制作 Agent 标签下应该真的能发出去。
+    await tester.enterText(find.byType(TextField), '制作侧请求');
+    await tester.tap(sendButtonFinder);
+    await tester.pump();
+
+    expect(flight.gateway.completers, hasLength(2),
+        reason: '制作 Agent 的消息应该真的调用了 gateway，不是被静默丢弃');
+    expect(
+      flight.engine
+          .assistantMessages(flight.projectId, family: assistantFamilyProduction),
+      hasLength(1),
+      reason: '制作 Agent 家族应该收到刚发送的用户消息',
+    );
+    expect(
+      flight.engine
+          .assistantMessages(flight.projectId, family: assistantFamilyScript),
+      hasLength(1),
+      reason: '剧本 Agent 家族应该仍只有它自己飞行中的那条用户消息，不受制作 Agent 发送影响',
+    );
+
+    // 收尾：放行两个飞行请求，避免遗留挂起的 Future。
+    flight.gateway.completers[0].complete(const AgentTurnResult.text('剧本完成'));
+    flight.gateway.completers[1].complete(const AgentTurnResult.text('制作完成'));
+    await tester.pumpAndSettle();
   });
 }

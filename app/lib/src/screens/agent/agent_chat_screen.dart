@@ -34,8 +34,17 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
   bool _autoMode = false;
-  bool _sending = false;
+  // 剧本 Agent 和制作 Agent 是两个独立家族，各自的请求飞行状态不能互相影响：
+  // 一个家族的消息还没回复时，切到另一个家族应该照常能发送。按 family 分开
+  // 记录，而不是共用一个 bool。
+  final Map<String, bool> _sendingByFamily = {
+    assistantFamilyScript: false,
+    assistantFamilyProduction: false,
+  };
   String _family = assistantFamilyScript;
+
+  /// 当前正在查看的家族是否有请求飞行中；UI 只关心"这一屏"的状态。
+  bool get _sending => _sendingByFamily[_family] ?? false;
 
   @override
   void initState() {
@@ -74,11 +83,14 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty || _sending) return;
-    _input.clear();
-    setState(() => _sending = true);
-    _scrollToBottom();
+    // 用发起时的家族门控/回写发送态，而不是 _sending 这个跟随当前 tab 的
+    // getter：请求飞行期间用户可能已经切到另一个家族，_family 会变，但这次
+    // 请求归属的家族不能变。
     final family = _family;
+    if (text.isEmpty || (_sendingByFamily[family] ?? false)) return;
+    _input.clear();
+    setState(() => _sendingByFamily[family] = true);
+    _scrollToBottom();
     try {
       await ref.read(engineProvider).sendAssistantMessage(
             widget.projectId,
@@ -87,7 +99,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
             autoMode: _autoMode,
           );
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) setState(() => _sendingByFamily[family] = false);
       _scrollToBottom();
     }
   }
@@ -169,9 +181,14 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
         ),
       ),
       IconButton(
+        key: const ValueKey('assistant-clear-memory-button'),
         tooltip: l10n.agentChatClearMemory,
         icon: const Icon(Icons.delete_sweep_outlined),
-        onPressed: _clearChat,
+        // 和发送按钮（_sending ? null : _send）保持一致的约束：请求飞行期间
+        // 禁用清空入口。真正堵住"清空被飞行请求复活"竞态的是引擎层的会话代际号
+        // （assistant_chat.dart _driveAssistantLoop），这里只是配合防护——不能
+        // 保证清空入口只有这一个 UI 路径，但至少让这条已知路径更难触发竞态。
+        onPressed: _sending ? null : _clearChat,
       ),
       const SizedBox(width: 8),
     ];

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -40,6 +41,29 @@ class _Gateway implements ProviderGateway {
     final result = turns[callCount];
     callCount++;
     return result;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// 回合结果可手动 Completer 卡住的网关：用于复现"清空记忆发生在请求飞行中"的
+/// 竞态——测试拿到 completer 后可以在请求挂起期间执行别的引擎调用（比如清空），
+/// 再手动 complete 观察飞行请求 resolve 之后的行为。
+class _PendingGateway implements ProviderGateway {
+  final List<Completer<AgentTurnResult>> completers = [];
+
+  @override
+  Future<AgentTurnResult> generateAgentTurn(
+    String system,
+    List<Map<String, String>> messages,
+    List<AgentToolDef> tools, {
+    required String stage,
+    CancelToken? cancelToken,
+  }) {
+    final completer = Completer<AgentTurnResult>();
+    completers.add(completer);
+    return completer.future;
   }
 
   @override
@@ -182,6 +206,13 @@ void main() {
 
     expect(gateway.callCount, 2);
     expect(gateway.lastMessages.last['content'], contains('skillMissing'));
+    // Bug 2 回归：失败的技能工具调用必须存成 assistant role（走本地化渲染、
+    // 不被 UI 标成"已执行”），不能是 tool role（对照 _runAssistantActionAndAppend
+    // 失败分支的既有写法）。
+    final failure = engine
+        .assistantMessages(projectId, family: assistantFamilyProduction)
+        .singleWhere((m) => m.toolName == 'read_skill_file');
+    expect(failure.role, assistantRoleAssistant);
   });
 
   test('连续技能工具最多执行三次，不挤占业务动作上限', () async {
@@ -201,13 +232,13 @@ void main() {
     );
 
     expect(gateway.callCount, 3);
-    expect(
-      engine
-          .assistantMessages(projectId, family: assistantFamilyScript)
-          .last
-          .content,
-      contains('assistantSkillToolLimit'),
-    );
+    final limitMessage =
+        engine.assistantMessages(projectId, family: assistantFamilyScript).last;
+    expect(limitMessage.content, contains('assistantSkillToolLimit'));
+    // Bug 2 回归：跳数超限是失败/中止提示，不是一次成功执行的技能结果，role
+    // 必须是 assistant（走本地化渲染），不能是 tool（会被 UI 原样显示 JSON
+    // 并标成"已执行"）。
+    expect(limitMessage.role, assistantRoleAssistant);
   });
 
   test('family 由入口传入并互相隔离', () async {
@@ -378,5 +409,105 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  group('Bug 1 回归：清空记忆发生在请求飞行中不能被复活', () {
+    test('飞行中的普通对话请求 resolve 后，清空后的消息列表仍然为空', () async {
+      final pendingGateway = _PendingGateway();
+      final flightEngine = Engine(
+        db: db,
+        media: MediaStore(p.join(dir.path, 'media-flight-text')),
+        gateway: pendingGateway,
+        config: EngineConfig(db, isMobile: false),
+      );
+      addTearDown(flightEngine.dispose);
+
+      // sendAssistantMessage 在真正调用 gateway 之前全是同步代码（保存用户
+      // 消息、进入 _driveAssistantLoop、发起 generateAgentTurn），所以这里不
+      // 需要额外 pump：不 await 这个 Future，completer 已经就绪，用户消息也
+      // 已经落库——这正是复现时"发消息等回复期间点清空"的那个飞行窗口。
+      final flightFuture = flightEngine.sendAssistantMessage(
+        projectId,
+        '你好，请帮我推进',
+        family: assistantFamilyScript,
+        autoMode: false,
+      );
+
+      expect(pendingGateway.completers, hasLength(1));
+      expect(
+        engine.assistantMessages(projectId, family: assistantFamilyScript),
+        hasLength(1),
+        reason: '飞行请求发起时应该已经把用户消息落库',
+      );
+
+      engine.clearAssistantChat(projectId, family: assistantFamilyScript);
+      expect(
+        engine.assistantMessages(projectId, family: assistantFamilyScript),
+        isEmpty,
+        reason: '清空应该立刻生效',
+      );
+
+      // 手动放行飞行中的请求，让它带着"清空前"的内存态尝试回写。
+      pendingGateway.completers.single.complete(
+        const AgentTurnResult.text('抱歉久等了，已经处理好了。'),
+      );
+      await flightFuture;
+
+      expect(
+        engine.assistantMessages(projectId, family: assistantFamilyScript),
+        isEmpty,
+        reason: '飞行请求完成后不能把清空前的消息复活',
+      );
+    });
+
+    test('飞行中的技能激活请求 resolve 后，清空后的已激活技能集合仍然为空', () async {
+      importSkill('camera_guide', '运镜规范', '先建立空间关系');
+      final pendingGateway = _PendingGateway();
+      final flightEngine = Engine(
+        db: db,
+        media: MediaStore(p.join(dir.path, 'media-flight-skill')),
+        gateway: pendingGateway,
+        config: EngineConfig(db, isMobile: false),
+      );
+      addTearDown(flightEngine.dispose);
+
+      unawaited(flightEngine.sendAssistantMessage(
+        projectId,
+        '规划镜头',
+        family: assistantFamilyScript,
+        autoMode: false,
+      ));
+      expect(pendingGateway.completers, hasLength(1));
+
+      engine.clearAssistantChat(projectId, family: assistantFamilyScript);
+      expect(
+        engine.activatedAssistantSkillIds(
+          projectId,
+          family: assistantFamilyScript,
+        ),
+        isEmpty,
+      );
+
+      pendingGateway.completers.single.complete(
+        const AgentTurnResult.tool(
+          'activate_skill',
+          {'skillName': 'camera_guide'},
+        ),
+      );
+      // 只需要推进一步：足够让 _driveAssistantLoop 处理完这次 resolve——不管是
+      // 修复后直接因代际号过期放弃，还是修复前继续激活技能并把状态写回去。
+      // 不等待整条消息链跑完（那还需要第二轮 gateway 调用），所以不用第二个
+      // completer，也不会因此挂起。
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        engine.activatedAssistantSkillIds(
+          projectId,
+          family: assistantFamilyScript,
+        ),
+        isEmpty,
+        reason: '飞行请求 resolve 后不能把清空前的技能激活状态复活',
+      );
+    });
   });
 }
