@@ -74,10 +74,31 @@ deployment and Agent-page suites passed, followed by the full Flutter suite,
 `flutter analyze`, macOS debug build and the 538/538 parity-inventory check.
 All evidence used temporary files, in-memory SQLite and fake gateways.
 
-This closes file management and reliable rescan only. It does **not** expose
-`activate_skill` or `read_skill_file` to the model, does not restrict skills by
-Agent family or stage, and does not change the current all-enabled-bodies
-system-prompt injection.
+This closes file management and reliable rescan only. The next evidence refresh
+below records the separate Agent runtime protocol.
+
+### On-demand skill-runtime refresh — 2026-07-21
+
+Commits `441e93e`, `71a8123` and `fbb6200` replace blanket Markdown-body
+injection with the original observable three-step shape: an initial metadata
+catalogue, `activate_skill`, then constrained `read_skill_file`. The catalogue
+contains only enabled managed skills' stable ID/name/description; a fake gateway
+asserts that a body is absent from the initial system prompt and present only in
+the subsequent tool-result history. Activation is persisted per project plus
+explicit `script`/`production` family in `o_agentWorkData`, so the two visible
+entry points never share state.
+
+The engine rejects disabled/unknown skills, resources before activation, path
+traversal, deleted entries and package symlinks; a failed body read writes no
+activation residue. `clearAssistantChat` clears the paired activation row. The
+local test suite also locks three context-tool hops without weakening manual's
+one business-action or auto's five business-action boundaries. All evidence is
+in-memory SQLite plus fake gateways; it makes no provider request.
+
+This does **not** add original stage-specific skill attribution, sub-agent tool
+bags, decision/execution/supervision orchestration, vector RAG, summaries or
+streaming. Those remain W2 work rather than being hidden behind the word
+"skills".
 
 ---
 
@@ -133,7 +154,7 @@ Row `W8-AGENTUTIL-SKILLS-001`. Two tools created by `createSkillTools` (:180-273
 
 ## 2. DramaFlow's current state (the "v0.4 assistant")
 
-DramaFlow replaced the whole system with a **single flat tool-calling loop shared by both families** — no sub-agents, no vector memory, no on-demand skills, no live canvas, no streaming. There is no WebSocket/backend; socket semantics are approximated by in-process direct calls + the task-queue event bus (`queue.dart:87-114`; `W7F-SOCKET-AGENT-001`).
+DramaFlow replaced the whole system with a **single flat tool-calling loop shared by both families** — no sub-agents, no vector memory, no live canvas and no streaming. It now has the on-demand Markdown protocol above, but not ToonFlow's stage-specific skill selection. There is no WebSocket/backend; socket semantics are approximated by in-process direct calls + the task-queue event bus (`queue.dart:87-114`; `W7F-SOCKET-AGENT-001`).
 
 ### 2.1 The one loop
 

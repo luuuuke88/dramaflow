@@ -14,8 +14,8 @@
 | 能力 | ToonFlow 1.1.8 实际行为 | DramaFlow 当前行为 | 状态 |
 | --- | --- | --- | --- |
 | 技能文件库管理 | 树形浏览、搜索、预览、编辑并保存既有 `.md` 文件 | 应用自有工作区中的单 Markdown 导入、搜索、预览、编辑保存和启停；桌面双栏、窄屏详情返回 | 部分实现（仍无目录树/目录包导入） |
-| Agent 主技能加载 | 首轮只给 `name`/`description`，模型调用 `activate_skill` 后才收到正文 | 每轮把所有启用 Markdown 技能全文拼进 system prompt | 缺失 |
-| 技能资源读取 | 已激活技能可通过 `read_skill_file` 按需读其受限目录内的资源 | 有引擎级安全读取 API，但未注册给模型调用 | 缺失 |
+| Agent 主技能加载 | 首轮只给 `name`/`description`，模型调用 `activate_skill` 后才收到正文 | 初始提示词仅有启用技能目录；`activate_skill` 将正文和资源清单作为工具结果写入同一项目/家族会话 | 已验证等价（单层范围） |
+| 技能资源读取 | 已激活技能可通过 `read_skill_file` 按需读其受限目录内的资源 | `read_skill_file` 仅能读当前项目、当前家族已激活的托管包常规文件，拒绝路径穿越和符号链接 | 已验证等价（单层范围） |
 | 阶段归属 | 技能按剧本/制作子 Agent 阶段筛选可见集合 | 无阶段归属读取；所有启用 Markdown 技能对两个助手家族同样注入 | 缺失 |
 | “扫描 Skills” | Web 客户端会请求一个未在 1.1.8 后端/打包 bundle 注册的路由 | 对应用私有目录做新增/更新/丢失/无效 frontmatter 的真实本地对账，并显示统计 | 已验证等价（承接用户意图，不复制失效路由） |
 
@@ -48,15 +48,22 @@ Flutter 现在通过 `_AssistantSkillsPane` 提供可达的单 Markdown 导入�
 会被拒绝。制作 Agent 在 `productionAgent/index.ts` 还会按当前子任务选择 art、story
 和 production 技能集合。
 
-Flutter 已有相近的基础安全件：`readAssistantSkillFile()` 会拒绝越界相对路径。但
-`assistantSkillContexts()` 会逐个读取所有启用 Markdown 技能正文，而
-`_assistantSystemPrompt()` 每轮都将其注入。`readAssistantSkillFile()` 也没有成为
-`AssistantAction` 或其他 LLM 工具。因此它既缺少延迟加载，也缺少向模型公开的安全资源
-读取面；技能数或正文变大时还会不必要地放大上下文和成本。
+2026-07-21，Flutter 已将这一单层协议落在 `assistant_skills.dart` 与
+`assistant_chat.dart`：`assistantSkillCatalog()` 只从启用 Markdown 行读取 `id`、名称和
+说明；初始 system prompt 以 `<available_skills>` 提供目录，完全不读取正文。模型可调用
+`activate_skill`，工具结果才返回解析后的正文和递归资源清单；`read_skill_file` 只能读取
+同一项目、同一剧本/制作家族已激活的应用私有技能包。
 
-恢复时应保留 Flutter 的文件边界保护和统一确认闸，但改为：技能清单元数据 ->
-`activate_skill` -> 受限 `read_skill_file` 三段式，并让阶段/助手家族显式决定可见技能。
-这是一项 W2 Agent 工作，不能作为供应商预设计划的附带改动。
+激活集合独立持久化为 `o_agentWorkData` 的
+`assistantSkillActivation:<family>`，按稳定 ID 排序；重复激活不重复写入，清空该家族聊天
+会同步清空集合。任何读取都会依次校验启用状态、激活状态、相对路径、非链接常规文件及
+解析后的真实路径仍在技能包内。`../`、外部历史路径、未激活资源、已删除正文和符号链接
+逃逸都会以工具错误回传，而不会中断对话。上下文工具至多连续三跳，不经过花费/破坏确认闸；
+手动模式的一次业务动作及自动模式的五次业务动作上限不变。
+
+这只完成原版**按需 Markdown 协议的单层可观察闭环**。Flutter 仍没有原版按子 Agent
+阶段挑选 art/story/production 技能的归属读取，也没有原版的子 Agent、向量记忆或流式
+编排；不能以本节结案替代这些 W2 缺口。
 
 ## 3. 关于 `scanSkills` 的纠正
 
@@ -77,9 +84,12 @@ Markdown 文件的内部函数，不是设置页 HTTP 端点。
 
 - 文件管理：已验证单 Markdown 导入、预览、编辑保存和窄屏详情返回；目录树与目录包导入
   仍是未完成的 W6D 缺口。
-- 激活协议：假网关断言首轮没有正文，`activate_skill` 后才携带正文；未激活时读取资源被拒。
-- 边界：`../`、绝对路径、已删除文件、重复激活和禁用技能各有引擎测试。
-- 归属：剧本与制作至少有不同的可见技能集合，不能靠消息关键字猜测。
+- 激活协议：fake gateway 断言首轮没有正文，`activate_skill` 后正文才作为工具结果回传，
+  且手动对话会继续取得文本回答。
+- 边界：未激活资源、`../`、绝对路径、已删除文件、重复激活、禁用技能、包内符号链接
+  和清空会话各有本地引擎/对话测试。
+- 归属：已验证剧本/制作会话的**激活集合**隔离；原版的阶段级可见技能集合仍缺失，不能
+  靠消息关键字猜测。
 - 不调用真实文本、图片或视频供应商；视频仍只做 fake gateway 状态测试。
 
 ## 关联条目

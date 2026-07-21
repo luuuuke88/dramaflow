@@ -70,6 +70,19 @@
 保存已完成，但原版目录树与目录包导入尚未实现。
 完整边界见 [`skill-runtime-matrix.md`](skill-runtime-matrix.md)。
 
+### 审计更正：Agent 按需技能协议
+
+2026-07-21 已在单层 Assistant 中关闭原版 Markdown 技能协议的核心闭环：首轮只暴露启用
+技能的名称和说明；模型通过 `activate_skill` 才获得正文与资源清单，随后
+`read_skill_file` 只能访问当前项目、当前剧本/制作家族已激活的应用私有技能包。资源前置
+激活、禁用技能、`../`、外部遗留路径、已删除文件和符号链接都被本地引擎拒绝并作为工具
+错误回传；清空家族聊天同时清空激活记录。fake gateway 覆盖了正文不预注入、手动激活后
+继续回答、三跳上限及既有花费/破坏确认闸不被绕过。它不调用供应商，也不改变视频真实验收
+边界。
+
+这不代表 W2 Agent 已完成：技能仍未按原版子 Agent 阶段归属，分层决策/执行/监督、向量
+记忆/RAG、摘要、流式消息和实时画布写入仍是明确缺口。
+
 ## 3. 已经具备的主流程
 
 以下能力已经有较强对照与测试证据，后续以修缺口和跨端回归为主，不重写：
@@ -109,7 +122,11 @@
 
 ### B. 原版 Agent 体系（W2）
 
-当前是精简对话助手，尚未覆盖 ToonFlow 的剧本/制作 Agent 分层决策、执行、监督、摘要、向量记忆、Markdown 技能激活与复杂流程恢复。2026-07-19 逐文件复核确认：Flutter 当前会把所有启用 Markdown 技能正文注入每轮 system prompt，虽有安全的文件读取 API，却没有将其作为模型可调用的按需工具；原版则以 `activate_skill` / `read_skill_file` 进行两段式加载，并按子 Agent 阶段筛选技能。原版 Web 的 `scanSkills` 客户端动作在 1.1.8 后端/打包 bundle 没有对应路由，不能按失效按钮复刻。完整证据和验收边界见 [`skill-runtime-matrix.md`](skill-runtime-matrix.md)。
+当前是精简对话助手：已经具备单层 Markdown 技能的目录 → `activate_skill` → 受限
+`read_skill_file` 闭环，但尚未覆盖 ToonFlow 的剧本/制作 Agent 分层决策、执行、监督、摘要、
+向量记忆、**阶段级**技能归属、流式消息与复杂流程恢复。原版 Web 的 `scanSkills` 客户端
+动作在 1.1.8 后端/打包 bundle 没有对应路由，Flutter 已以本地可验证重扫承接其用户意图。
+完整证据和验收边界见 [`skill-runtime-matrix.md`](skill-runtime-matrix.md)。
 
 完成定义：以 ToonFlow 可观察行为为准移植，**禁止**恢复旧 DramaFlow 那套非原版的 JS 解释器、ES 查询 DSL 或无法维护的 2 万行单体 Agent；所有花钱或破坏性工具必须经过同一确认策略。
 
