@@ -280,8 +280,7 @@ void main() {
         ['p/first.png', 'p/last.png']);
   });
 
-  test('videoReferenceCandidates exposes only local media available to a shot',
-      () {
+  test('videoReferenceCandidates 优先当前镜头素材并保留项目素材候选', () {
     final sbId = engine.addStoryboard(
         projectId: projectId, scriptId: scriptId, prompt: '参考素材');
     writeMedia('p/candidate-first.png');
@@ -321,10 +320,20 @@ void main() {
 
     final candidates = engine.videoReferenceCandidates(projectId, sbId);
 
-    expect(candidates.map((candidate) => candidate.localPath),
-        containsAll(['p/candidate-first.png', 'p/candidate-role.png']));
-    expect(candidates.map((candidate) => candidate.localPath),
-        isNot(contains('p/candidate-unrelated.png')));
+    final paths = candidates.map((candidate) => candidate.localPath).toList();
+    expect(
+      paths,
+      containsAll([
+        'p/candidate-first.png',
+        'p/candidate-role.png',
+        'p/candidate-unrelated.png',
+      ]),
+    );
+    expect(
+      paths.indexOf('p/candidate-role.png'),
+      lessThan(paths.indexOf('p/candidate-unrelated.png')),
+      reason: '当前镜头关联资产应比项目其余素材优先展示',
+    );
     expect(candidates.every((candidate) => candidate.localPath.startsWith('/')),
         isFalse);
   });
@@ -380,8 +389,10 @@ void main() {
     );
 
     final candidates = engine.videoReferenceCandidates(projectId, storyboardId);
-    final audio = candidates.singleWhere(
-      (candidate) => candidate.source.sourceType == 'audio',
+    final audio = candidates.firstWhere(
+      (candidate) =>
+          candidate.source.sourceType == 'audio' &&
+          candidate.source.sourceId == audioId,
     );
 
     expect(audio.source.sourceId, audioId);
@@ -390,6 +401,68 @@ void main() {
     expect(audio.label, '林朝雪音色');
     expect(audio.localPath, startsWith('$projectId/'));
     expect(audio.localPath, endsWith('.mp3'));
+  });
+
+  test('videoReferenceCandidates 也列出项目中未关联当前分镜的可用素材', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '允许从项目素材库选参考的镜头',
+    );
+    final roleId = engine.uploadClip(
+      projectId: projectId,
+      type: 'role',
+      name: '项目角色参考',
+      bytes: [1, 2, 3],
+      ext: 'png',
+    );
+    final clipId = engine.uploadClip(
+      projectId: projectId,
+      type: 'clip',
+      name: '项目片段参考',
+      bytes: [4, 5, 6],
+      ext: 'mp4',
+    );
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '项目音色参考',
+      sex: '女',
+      describe: '',
+      items: [
+        (
+          base64: base64Encode([7, 8, 9]),
+          ext: 'mp3',
+          prompt: '台词样本',
+          name: '项目音色样本',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+
+    final candidates = engine.videoReferenceCandidates(projectId, storyboardId);
+
+    expect(
+      candidates.any((candidate) =>
+          candidate.source.sourceType == 'asset' &&
+          candidate.source.sourceId == roleId &&
+          candidate.source.mediaType == 'image'),
+      isTrue,
+    );
+    expect(
+      candidates.any((candidate) =>
+          candidate.source.sourceType == 'asset' &&
+          candidate.source.sourceId == clipId &&
+          candidate.source.mediaType == 'video'),
+      isTrue,
+    );
+    expect(
+      candidates.any((candidate) =>
+          candidate.source.sourceType == 'audio' &&
+          candidate.source.sourceId == audioId &&
+          candidate.source.mediaType == 'audio'),
+      isTrue,
+    );
   });
 
   test('batchGenerateVideos rejects unsupported controls before enqueue', () {

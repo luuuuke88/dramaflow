@@ -336,6 +336,7 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
           ? (value) => setState(() {
                 if (value == true) {
                   _multiReferenceKeys.add(key);
+                  _addBoundAudioReferences(candidate);
                 } else {
                   _multiReferenceKeys.remove(key);
                 }
@@ -395,6 +396,26 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
       if (_candidateKey(candidate) == key) return candidate;
     }
     return null;
+  }
+
+  void _addBoundAudioReferences(VideoReferenceCandidate candidate) {
+    for (final audioId in candidate.boundAudioSourceIds) {
+      final audio = widget.candidates
+          .where((item) =>
+              item.source.sourceType == 'audio' &&
+              item.source.sourceId == audioId)
+          .firstOrNull;
+      if (audio == null) continue;
+      final key = _candidateKey(audio);
+      if (_multiReferenceKeys.contains(key)) continue;
+      final limit = widget.capabilities.referenceLimits['audio'] ?? 0;
+      final selectedAudioCount = _multiReferenceKeys
+          .map(_candidateForKey)
+          .whereType<VideoReferenceCandidate>()
+          .where((item) => item.source.mediaType == 'audio')
+          .length;
+      if (limit > selectedAudioCount) _multiReferenceKeys.add(key);
+    }
   }
 
   bool _isFixedFirstFrame(VideoReferenceCandidate candidate) {

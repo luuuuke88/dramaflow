@@ -5528,7 +5528,7 @@ void main() {
     expect(request.references.single.role, 'reference_image');
   });
 
-  testWidgets('视频参数弹窗可选择分镜关联角色的绑定音频参考', (tester) async {
+  testWidgets('视频参数弹窗选择项目角色时自动携带其绑定音频参考', (tester) async {
     engine.db.execute(
       'UPDATE o_vendorConfig SET models=? WHERE id=?',
       [
@@ -5555,7 +5555,7 @@ void main() {
     final storyboardId = engine.addStoryboard(
       projectId: projectId,
       scriptId: scriptId,
-      prompt: '带角色音色参考的镜头',
+      prompt: '从项目素材库选择角色音色参考的镜头',
     );
     final roleId = engine.addAsset(
       projectId: projectId,
@@ -5563,9 +5563,11 @@ void main() {
       name: '林朝雪',
       describe: '',
     );
-    engine.db.execute(
-      'INSERT INTO o_assets2Storyboard (assetId,storyboardId) VALUES (?,?)',
-      [roleId, storyboardId],
+    engine.saveAssetImage(
+      assetsId: roleId,
+      projectId: projectId,
+      base64Image: base64Encode([9, 8, 7]),
+      type: 'role',
     );
     final audioId = engine.addAudioAssets(
       projectId: projectId,
@@ -5597,10 +5599,10 @@ void main() {
         .tap(find.byKey(ValueKey('workbench-video-params-$storyboardId')));
     await tester.pumpAndSettle();
 
-    final audioReference =
-        find.byKey(ValueKey('video-request-reference-audio-$audioId'));
-    expect(audioReference, findsOneWidget);
-    await tester.tap(audioReference);
+    final roleReference =
+        find.byKey(ValueKey('video-request-reference-asset-$roleId'));
+    expect(roleReference, findsOneWidget);
+    await tester.tap(roleReference);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('video-request-save')));
     await tester.pumpAndSettle();
@@ -5610,17 +5612,30 @@ void main() {
         .singleWhere((storyboard) => storyboard.id == storyboardId)
         .trackId!;
     final draft = engine.videoRequestForTrack(trackId);
-    expect(draft.references, hasLength(1));
-    expect(draft.references.single.sourceType, 'audio');
-    expect(draft.references.single.sourceId, audioId);
-    expect(draft.references.single.role, 'reference_audio');
+    expect(draft.references, hasLength(2));
+    expect(
+      draft.references.any((reference) =>
+          reference.sourceType == 'asset' && reference.sourceId == roleId),
+      isTrue,
+    );
+    expect(
+      draft.references.any((reference) =>
+          reference.sourceType == 'audio' &&
+          reference.sourceId == audioId &&
+          reference.role == 'reference_audio'),
+      isTrue,
+    );
     final request = engine.buildVideoRequest(
       projectId: projectId,
       storyboardId: storyboardId,
       trackId: trackId,
     );
-    expect(request.references.single.mediaType, 'audio');
-    expect(request.references.single.role, 'reference_audio');
+    expect(
+      request.references.any((reference) =>
+          reference.mediaType == 'audio' &&
+          reference.role == 'reference_audio'),
+      isTrue,
+    );
   });
 
   testWidgets('桌面工作台为纯文生模型隐藏参考素材和供应商音频', (tester) async {

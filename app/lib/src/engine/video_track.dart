@@ -158,11 +158,13 @@ class VideoReferenceCandidate {
   final VideoReferenceSource source;
   final String label;
   final String localPath;
+  final List<int> boundAudioSourceIds;
 
   const VideoReferenceCandidate({
     required this.source,
     required this.label,
     required this.localPath,
+    this.boundAudioSourceIds = const [],
   });
 }
 
@@ -383,6 +385,7 @@ extension VideoTrackApi on Engine {
     int storyboardId,
   ) {
     final rows = <VideoReferenceCandidate>[];
+    final sourceKeys = <String>{};
 
     void add({
       required String sourceType,
@@ -391,9 +394,11 @@ extension VideoTrackApi on Engine {
       required String role,
       required String label,
       required String? localPath,
+      List<int> boundAudioSourceIds = const [],
     }) {
       if (localPath == null || localPath.isEmpty) return;
       if (media.existingFilePath(localPath) == null) return;
+      if (!sourceKeys.add('$sourceType:$sourceId')) return;
       rows.add(VideoReferenceCandidate(
         source: VideoReferenceSource(
           sourceType: sourceType,
@@ -403,6 +408,7 @@ extension VideoTrackApi on Engine {
         ),
         label: label,
         localPath: localPath,
+        boundAudioSourceIds: List.unmodifiable(boundAudioSourceIds),
       ));
     }
 
@@ -442,6 +448,10 @@ extension VideoTrackApi on Engine {
         role: role,
         label: row['name'] as String? ?? '',
         localPath: row['filePath'] as String?,
+        boundAudioSourceIds: _boundAudioAssetIds(
+          projectId,
+          row['id'] as int,
+        ),
       );
     }
     // ToonFlow 会把分镜关联资产（及其父资产）绑定的音频加入当前镜头参考。
@@ -466,6 +476,46 @@ extension VideoTrackApi on Engine {
         mediaType: 'audio',
         role: 'reference_audio',
         label: row['audioName'] as String? ?? '',
+        localPath: _audioAssetReferencePath(projectId, audioId),
+      );
+    }
+    // 原版工作台可从项目完整素材库补充参考，而不局限于当前分镜已关联资产。
+    // 已关联项先写入，sourceKeys 会令其在候选列表中保持靠前。
+    for (final row in db.select(
+      'SELECT a.id,a.name,a.type,i.filePath FROM o_assets a '
+      'JOIN o_image i ON i.id=a.imageId '
+      'WHERE a.projectId=? AND a.assetsId IS NULL '
+      "AND a.type IN ('role','tool','scene','clip') "
+      "AND i.filePath IS NOT NULL AND trim(i.filePath)<>'' ORDER BY a.id",
+      [projectId],
+    )) {
+      final type = row['type'] as String? ?? '';
+      final mediaType = type == 'clip' ? 'video' : 'image';
+      add(
+        sourceType: 'asset',
+        sourceId: row['id'] as int,
+        mediaType: mediaType,
+        role: mediaType == 'video' ? 'reference_video' : 'reference_image',
+        label: row['name'] as String? ?? '',
+        localPath: row['filePath'] as String?,
+        boundAudioSourceIds: _boundAudioAssetIds(
+          projectId,
+          row['id'] as int,
+        ),
+      );
+    }
+    for (final row in db.select(
+      "SELECT id,name FROM o_assets WHERE projectId=? AND type='audio' "
+      'AND assetsId IS NULL ORDER BY id',
+      [projectId],
+    )) {
+      final audioId = row['id'] as int;
+      add(
+        sourceType: 'audio',
+        sourceId: audioId,
+        mediaType: 'audio',
+        role: 'reference_audio',
+        label: row['name'] as String? ?? '',
         localPath: _audioAssetReferencePath(projectId, audioId),
       );
     }
@@ -601,6 +651,17 @@ extension VideoTrackApi on Engine {
         ? child
         : null;
   }
+
+  List<int> _boundAudioAssetIds(int projectId, int assetId) => db
+      .select(
+        'SELECT DISTINCT audio.id FROM o_assetsRole2Audio link '
+        'JOIN o_assets audio ON audio.id=link.assetsAudioId '
+        "AND audio.projectId=? AND audio.type='audio' AND audio.assetsId IS NULL "
+        'WHERE link.assetsRoleId=? ORDER BY audio.id',
+        [projectId, assetId],
+      )
+      .map((row) => row['id'] as int)
+      .toList(growable: false);
 
   VideoRequestDraft _videoRequestDefaults(int? storyboardId, Row project) {
     final capabilities = _videoCapabilities(project);
