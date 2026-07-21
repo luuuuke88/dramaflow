@@ -294,6 +294,15 @@
   "novelMsgBatchDeleteHeader": "Batch Delete",
   "novelMsgBatchDeleteBody": "Are you sure you want to delete the selected {count} items?",
   "novelMsgBatchDeleteSuccess": "Batch delete successful",
+  "novelMsgBatchDeleteSkippedGenerating": "Skipped {count} chapters that are still generating events; the rest were deleted",
+  "@novelMsgBatchDeleteSkippedGenerating": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "novelMsgBatchDeleteAllGenerating": "The selected chapters are all generating events and cannot be deleted yet",
   "novelMsgDeleteHeader": "Confirm Deletion",
   "novelMsgDeleteBody": "Are you sure you want to delete the chapter named \"{name}\"?",
   "novelMsgDeleteSuccess": "Deleted successfully",

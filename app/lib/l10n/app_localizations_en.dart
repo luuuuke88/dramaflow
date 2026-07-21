@@ -758,6 +758,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelMsgBatchDeleteSuccess => 'Batch delete successful';
 
   @override
+  String novelMsgBatchDeleteSkippedGenerating(String count) {
+    return 'Skipped $count chapters that are still generating events; the rest were deleted';
+  }
+
+  @override
+  String get novelMsgBatchDeleteAllGenerating =>
+      'The selected chapters are all generating events and cannot be deleted yet';
+
+  @override
   String get novelMsgDeleteHeader => 'Confirm Deletion';
 
   @override

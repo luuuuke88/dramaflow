@@ -737,6 +737,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelMsgBatchDeleteSuccess => '批量删除成功';
 
   @override
+  String novelMsgBatchDeleteSkippedGenerating(String count) {
+    return '已跳过 $count 项正在生成事件的章节，其余已删除';
+  }
+
+  @override
+  String get novelMsgBatchDeleteAllGenerating => '选中的章节都在生成事件中，暂时无法删除';
+
+  @override
   String get novelMsgDeleteHeader => '删除确认';
 
   @override

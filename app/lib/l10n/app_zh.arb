@@ -322,6 +322,15 @@
     }
   },
   "novelMsgBatchDeleteSuccess": "批量删除成功",
+  "novelMsgBatchDeleteSkippedGenerating": "已跳过 {count} 项正在生成事件的章节，其余已删除",
+  "@novelMsgBatchDeleteSkippedGenerating": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "novelMsgBatchDeleteAllGenerating": "选中的章节都在生成事件中，暂时无法删除",
   "novelMsgDeleteHeader": "删除确认",
   "novelMsgDeleteBody": "确定要删除章节名称为「{name}」的数据吗?",
   "@novelMsgDeleteBody": {

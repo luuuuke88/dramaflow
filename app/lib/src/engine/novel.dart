@@ -6,6 +6,8 @@ import 'engine.dart';
 import 'event_cleanup.dart';
 import 'novel_parse.dart';
 
+String _ph(List<int> ids) => List.filled(ids.length, '?').join(',');
+
 class NovelRow {
   final int id;
   final int projectId;
@@ -73,12 +75,10 @@ extension NovelApi on Engine {
   /// onNovelsAdded（T6 注入事件生成）。返回新增行 id 列表。
   List<int> addNovels(int projectId, List<ChapterItem> items) {
     if (items.isEmpty) return const [];
-    final base = db
-        .select(
-          'SELECT COALESCE(MAX(chapterIndex),0) m FROM o_novel WHERE projectId=?',
-          [projectId],
-        )
-        .first['m'] as int;
+    final base = db.select(
+      'SELECT COALESCE(MAX(chapterIndex),0) m FROM o_novel WHERE projectId=?',
+      [projectId],
+    ).first['m'] as int;
     final now = DateTime.now().millisecondsSinceEpoch;
     final ids = <int>[];
     var idx = base;
@@ -126,10 +126,24 @@ extension NovelApi on Engine {
   void deleteNovels(List<int> ids) {
     if (ids.isEmpty) return;
     clearNovelEventLinks(db, ids);
-    db.execute(
-      'DELETE FROM o_novel WHERE id IN (${List.filled(ids.length, '?').join(',')})',
-      ids,
-    );
+    db.execute('DELETE FROM o_novel WHERE id IN (${_ph(ids)})', ids);
+  }
+
+  /// 选中章节里正在生成事件（eventState=0）的 id 子集。
+  ///
+  /// 事件生成 worker（events.dart 的 _runEventGeneration/_replaceChapterEvent）
+  /// 在网络请求期间持有 novelId；若这期间该章节被删除，worker 返回后仍会照常对
+  /// 已删除的 novelId 插入新事件行，产生 events() 的 INNER JOIN 永远查不到、也无法
+  /// 通过 UI 删除的孤儿事件行。批量删除等操作应先用这个方法排除生成中的行。
+  List<int> generatingNovelIds(List<int> ids) {
+    if (ids.isEmpty) return const [];
+    return db
+        .select(
+          'SELECT id FROM o_novel WHERE id IN (${_ph(ids)}) AND eventState=0',
+          ids,
+        )
+        .map((row) => row['id'] as int)
+        .toList();
   }
 
   List<({int id, int index, String chapter})> novelIndex(int projectId) => db

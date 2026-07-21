@@ -294,6 +294,15 @@
   "novelMsgBatchDeleteHeader": "一括削除",
   "novelMsgBatchDeleteBody": "選択した {count} 件のデータを削除してもよろしいですか？",
   "novelMsgBatchDeleteSuccess": "一括削除に成功しました",
+  "novelMsgBatchDeleteSkippedGenerating": "イベント生成中の {count} 件をスキップしました。それ以外は削除されました",
+  "@novelMsgBatchDeleteSkippedGenerating": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "novelMsgBatchDeleteAllGenerating": "選択した章はすべてイベント生成中のため、まだ削除できません",
   "novelMsgDeleteHeader": "削除の確認",
   "novelMsgDeleteBody": "章名「{name}」のデータを削除してもよろしいですか？",
   "novelMsgDeleteSuccess": "削除に成功しました",

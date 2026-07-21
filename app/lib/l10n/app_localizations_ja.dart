@@ -743,6 +743,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelMsgBatchDeleteSuccess => '一括削除に成功しました';
 
   @override
+  String novelMsgBatchDeleteSkippedGenerating(String count) {
+    return 'イベント生成中の $count 件をスキップしました。それ以外は削除されました';
+  }
+
+  @override
+  String get novelMsgBatchDeleteAllGenerating => '選択した章はすべてイベント生成中のため、まだ削除できません';
+
+  @override
   String get novelMsgDeleteHeader => '削除の確認';
 
   @override

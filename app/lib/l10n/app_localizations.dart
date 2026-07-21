@@ -1504,6 +1504,18 @@ abstract class AppLocalizations {
   /// **'批量删除成功'**
   String get novelMsgBatchDeleteSuccess;
 
+  /// No description provided for @novelMsgBatchDeleteSkippedGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'已跳过 {count} 项正在生成事件的章节，其余已删除'**
+  String novelMsgBatchDeleteSkippedGenerating(String count);
+
+  /// No description provided for @novelMsgBatchDeleteAllGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'选中的章节都在生成事件中，暂时无法删除'**
+  String get novelMsgBatchDeleteAllGenerating;
+
   /// No description provided for @novelMsgDeleteHeader.
   ///
   /// In zh, this message translates to:

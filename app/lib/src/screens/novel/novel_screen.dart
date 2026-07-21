@@ -44,11 +44,23 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
 
   Future<void> _batchDelete() async {
     final l10n = context.l10n;
+    final engine = ref.read(engineProvider);
+    // 与单行操作栏的 isGenerating 保护对齐：事件生成 worker 在网络请求期间持有
+    // novelId，若此时把行删掉，worker 返回后会对已删除的 novelId 插入新事件行，
+    // 产生 events() 的 INNER JOIN 永远查不到、UI 也删不掉的孤儿事件行。
+    final selectedIds = _selectedIds;
+    final generating = engine.generatingNovelIds(selectedIds).toSet();
+    final deletableIds =
+        selectedIds.where((id) => !generating.contains(id)).toList();
+    if (deletableIds.isEmpty) {
+      _toast(l10n.novelMsgBatchDeleteAllGenerating);
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: Text(l10n.novelMsgBatchDeleteHeader),
-        content: Text(l10n.novelMsgBatchDeleteBody('${_selected.length}')),
+        content: Text(l10n.novelMsgBatchDeleteBody('${deletableIds.length}')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
@@ -61,9 +73,13 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
       ),
     );
     if (confirmed != true) return;
-    ref.read(engineProvider).deleteNovels(_selectedIds);
-    setState(() => _selected.clear());
-    _toast(l10n.novelMsgBatchDeleteSuccess);
+    engine.deleteNovels(deletableIds);
+    setState(() => _selected.removeAll(deletableIds.map((id) => '$id')));
+    if (generating.isNotEmpty) {
+      _toast(l10n.novelMsgBatchDeleteSkippedGenerating('${generating.length}'));
+    } else {
+      _toast(l10n.novelMsgBatchDeleteSuccess);
+    }
   }
 
   Future<void> _deleteOne(NovelRow row) async {
