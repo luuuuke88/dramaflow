@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:dramaflow/src/engine/assistant_chat.dart';
 import 'package:dramaflow/src/engine/assistant_deploy.dart';
+import 'package:dramaflow/src/engine/assistant_skill_library.dart';
 import 'package:dramaflow/src/engine/assistant_skills.dart';
 import 'package:dramaflow/src/engine/assistant_stage_registry.dart';
 import 'package:dramaflow/src/engine/config.dart';
@@ -22,6 +24,7 @@ void main() {
   late Directory dir;
   late Database db;
   late Engine engine;
+  late int projectId;
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('dramaflow-skills-');
@@ -32,7 +35,33 @@ void main() {
       gateway: _Gateway(),
       config: EngineConfig(db, isMobile: false),
     );
+    projectId = engine.addProject(projectType: 'novel', name: '技能测试');
   });
+
+  AssistantSkill importSkill(String name, String description, String body) {
+    final file = File(p.join(dir.path, '$name.md'))
+      ..writeAsStringSync(
+        '---\nname: $name\ndescription: $description\n---\n$body',
+      );
+    return engine.saveMarkdownAssistantSkill(filePath: file.path);
+  }
+
+  AssistantSkill importSkillPackage(
+    String name, {
+    required String body,
+    String? resource,
+  }) {
+    final package = Directory(p.join(dir.path, '$name-package'))
+      ..createSync();
+    final entry = File(p.join(package.path, 'SKILL.md'))
+      ..writeAsStringSync(
+        '---\nname: $name\ndescription: 运镜规范\n---\n$body',
+      );
+    if (resource != null) {
+      File(p.join(package.path, resource)).writeAsStringSync('资源：$resource');
+    }
+    return engine.saveMarkdownAssistantSkill(filePath: entry.path);
+  }
 
   tearDown(() {
     engine.dispose();
@@ -127,6 +156,145 @@ void main() {
       expect(engine.assistantSkillContexts(), isEmpty);
       expect(() => engine.readAssistantSkillFile('legacy_external', 'extra.md'),
           throwsA(isA<EngineException>()));
+    });
+
+    group('on-demand skill runtime', () {
+      test('目录仅暴露启用技能元数据，不包含正文', () {
+        final skill = importSkill('camera_guide', '运镜规范', '绝密正文');
+
+        final catalog = engine.assistantSkillCatalog();
+        expect(catalog, hasLength(1));
+        expect(catalog.single.id, skill.id);
+        expect(catalog.single.name, 'camera_guide');
+        expect(catalog.single.description, '运镜规范');
+      });
+
+      test('激活技能按项目和家族持久化，重复激活不重复记录', () {
+        importSkillPackage('camera_guide', body: '镜头规则', resource: 'notes.md');
+
+        final reply = engine.activateAssistantSkill(
+          projectId,
+          family: assistantFamilyScript,
+          skillName: 'camera_guide',
+        );
+        engine.activateAssistantSkill(
+          projectId,
+          family: assistantFamilyScript,
+          skillName: 'camera_guide',
+        );
+
+        expect(reply, contains('镜头规则'));
+        expect(reply, contains('notes.md'));
+        expect(
+          engine.activatedAssistantSkillIds(
+            projectId,
+            family: assistantFamilyScript,
+          ),
+          {'camera_guide'},
+        );
+        expect(
+          engine.activatedAssistantSkillIds(
+            projectId,
+            family: assistantFamilyProduction,
+          ),
+          isEmpty,
+        );
+      });
+
+      test('资源读取必须先激活，且符号链接不能逃逸技能包', () {
+        importSkillPackage('camera_guide', body: '镜头规则', resource: 'notes.md');
+
+        expect(
+          () => engine.readActivatedAssistantSkillFile(
+            projectId,
+            family: assistantFamilyScript,
+            skillName: 'camera_guide',
+            relativePath: 'notes.md',
+          ),
+          throwsA(isA<EngineException>()),
+        );
+        engine.activateAssistantSkill(
+          projectId,
+          family: assistantFamilyScript,
+          skillName: 'camera_guide',
+        );
+        expect(
+          engine.readActivatedAssistantSkillFile(
+            projectId,
+            family: assistantFamilyScript,
+            skillName: 'camera_guide',
+            relativePath: 'notes.md',
+          ),
+          '资源：notes.md',
+        );
+
+        final packageRoot =
+            File(engine.managedAssistantSkillPath('camera_guide')).parent;
+        final outside = File(p.join(dir.path, 'outside.md'))
+          ..writeAsStringSync('不可读取');
+        Link(p.join(packageRoot.path, 'escape.md')).createSync(outside.path);
+        expect(
+          () => engine.readActivatedAssistantSkillFile(
+            projectId,
+            family: assistantFamilyScript,
+            skillName: 'camera_guide',
+            relativePath: 'escape.md',
+          ),
+          throwsA(isA<EngineException>()),
+        );
+        expect(
+          () => engine.readActivatedAssistantSkillFile(
+            projectId,
+            family: assistantFamilyScript,
+            skillName: 'camera_guide',
+            relativePath: '../outside.md',
+          ),
+          throwsA(isA<EngineException>()),
+        );
+      });
+
+      test('禁用技能不能激活，清空家族状态不影响另一个家族', () {
+        final skill = importSkill('camera_guide', '运镜规范', '镜头规则');
+        engine.updateAssistantSkill(skill.id, enabled: false);
+        expect(
+          () => engine.activateAssistantSkill(
+            projectId,
+            family: assistantFamilyScript,
+            skillName: skill.id,
+          ),
+          throwsA(isA<EngineException>()),
+        );
+
+        engine.updateAssistantSkill(skill.id, enabled: true);
+        engine.activateAssistantSkill(
+          projectId,
+          family: assistantFamilyScript,
+          skillName: skill.id,
+        );
+        engine.activateAssistantSkill(
+          projectId,
+          family: assistantFamilyProduction,
+          skillName: skill.id,
+        );
+        engine.clearActivatedAssistantSkills(
+          projectId,
+          family: assistantFamilyScript,
+        );
+        expect(
+          engine.activatedAssistantSkillIds(
+            projectId,
+            family: assistantFamilyScript,
+          ),
+          isEmpty,
+        );
+        expect(
+          engine.activatedAssistantSkillIds(
+            projectId,
+            family: assistantFamilyProduction,
+          ),
+          {skill.id},
+        );
+      });
     });
   });
 
