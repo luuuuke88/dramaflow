@@ -8,6 +8,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+// material.dart re-exports rendering.dart with a `show` clause that (as of
+// this Flutter version) omits the trackpad PointerPanZoom*EventListener
+// typedefs even though the Listener widget itself already exposes
+// onPointerPanZoomStart/Update/End — import the full barrel directly so
+// _CanvasNodeDragHandlers can name those typedefs explicitly.
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../state/canvas_wheel_mode.dart';
@@ -189,6 +195,9 @@ class DFCanvasDragRegion extends StatelessWidget {
       onPointerUp: handlers.endNodeDrag,
       onPointerCancel: handlers.cancelNodeDrag,
       onPointerSignal: handlers.handleViewportPointerSignal,
+      onPointerPanZoomStart: handlers.handleViewportPanZoomStart,
+      onPointerPanZoomUpdate: handlers.handleViewportPanZoomUpdate,
+      onPointerPanZoomEnd: handlers.handleViewportPanZoomEnd,
       child: child,
     );
   }
@@ -209,6 +218,9 @@ class DFCanvasViewportSignalRegion extends StatelessWidget {
     if (handlers == null) return child;
     return Listener(
       onPointerSignal: handlers.handleViewportPointerSignal,
+      onPointerPanZoomStart: handlers.handleViewportPanZoomStart,
+      onPointerPanZoomUpdate: handlers.handleViewportPanZoomUpdate,
+      onPointerPanZoomEnd: handlers.handleViewportPanZoomEnd,
       child: child,
     );
   }
@@ -220,6 +232,9 @@ class _CanvasNodeDragHandlers {
   final PointerUpEventListener endNodeDrag;
   final PointerCancelEventListener cancelNodeDrag;
   final void Function(PointerSignalEvent event) handleViewportPointerSignal;
+  final PointerPanZoomStartEventListener handleViewportPanZoomStart;
+  final PointerPanZoomUpdateEventListener handleViewportPanZoomUpdate;
+  final PointerPanZoomEndEventListener handleViewportPanZoomEnd;
 
   const _CanvasNodeDragHandlers({
     required this.startNodeDrag,
@@ -227,6 +242,9 @@ class _CanvasNodeDragHandlers {
     required this.endNodeDrag,
     required this.cancelNodeDrag,
     required this.handleViewportPointerSignal,
+    required this.handleViewportPanZoomStart,
+    required this.handleViewportPanZoomUpdate,
+    required this.handleViewportPanZoomEnd,
   });
 }
 
@@ -302,6 +320,9 @@ class _DFCanvasState extends State<DFCanvas> {
   bool _twoFingerPinchActive = false;
   Timer? _interactionRecovery;
   bool _isInteracting = false;
+  int? _nodePanZoomPointer;
+  Offset? _nodePanZoomStartPosition;
+  Object? _handledPanZoomUpdateId;
 
   @override
   void initState() {
@@ -520,9 +541,57 @@ class _DFCanvasState extends State<DFCanvas> {
     _endInteractionAfterDelay();
   }
 
-  Offset _viewportPositionOf(PointerEvent event) {
+  Offset _localPositionOf(Offset globalPosition) {
     final box = context.findRenderObject() as RenderBox?;
-    return box?.globalToLocal(event.position) ?? event.localPosition;
+    return box?.globalToLocal(globalPosition) ?? globalPosition;
+  }
+
+  Offset _viewportPositionOf(PointerEvent event) =>
+      _localPositionOf(event.position);
+
+  /// 触控板双指手势(PointerPanZoomStart/Update/End)是独立于 PointerSignalEvent
+  /// 的事件族，走正常指针路由而不是信号派发，背景层 Positioned.fill 上的
+  /// ScaleGestureRecognizer(约构建方法里 698 行前后)已经能正确处理它——但只有
+  /// 手势起点落在空白画布时才轮得到它:节点卡片的可见内容(Text/Image 等)
+  /// hitTestSelf 恒为 true，命中测试会在 Stack 同级的节点内容分支处停下，
+  /// 背景层这个兄弟分支根本收不到事件。这里复用"滚轮事件已经从节点层转发给
+  /// 背景层处理函数"的同一思路(见 _registerBackgroundPointerSignal 的调用方:
+  /// 标题拖拽条、DFCanvasDragRegion、DFCanvasViewportSignalRegion)，让这些
+  /// 已经位于节点不透明内容之上的 Listener 也转发 PanZoom 事件，驱动同一套
+  /// _startViewportTransform/_updateViewportTransform 画布变换逻辑。
+  ///
+  /// 同一次命中测试路径上可能有多个转发 Listener 同时收到同一个事件(和 Bug 1
+  /// 滚轮重复触发同一根因)，但 PointerSignalResolver 只认 PointerSignalEvent。
+  /// 这里手动做等价的去重:起点用 pointer 互斥(先到先得，见
+  /// _handleNodePanZoomStart)；更新用 event.original 识别"这是不是同一个物理
+  /// 事件的重复派发"(写法参考 SDK pointer_signal_resolver.dart 里的
+  /// _isSameEvent)，避免同一帧被处理两次。
+  void _handleNodePanZoomStart(PointerPanZoomStartEvent event) {
+    if (_nodePanZoomPointer != null ||
+        _spacePanPointer != null ||
+        _twoFingerPinchActive) {
+      return;
+    }
+    _nodePanZoomPointer = event.pointer;
+    _nodePanZoomStartPosition = event.position;
+    _startViewportTransform(_viewportPositionOf(event));
+  }
+
+  void _handleNodePanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    final start = _nodePanZoomStartPosition;
+    if (_nodePanZoomPointer != event.pointer || start == null) return;
+    final eventId = event.original ?? event;
+    if (identical(_handledPanZoomUpdateId, eventId)) return;
+    _handledPanZoomUpdateId = eventId;
+    _updateViewportTransform(_localPositionOf(start + event.pan), event.scale);
+  }
+
+  void _handleNodePanZoomEnd(PointerPanZoomEndEvent event) {
+    if (_nodePanZoomPointer != event.pointer) return;
+    _nodePanZoomPointer = null;
+    _nodePanZoomStartPosition = null;
+    _handledPanZoomUpdateId = null;
+    _endViewportGesture(ScaleEndDetails());
   }
 
   /// 三个转发点(背景层自身、标题拖拽条、卡片内的 DFCanvasDragRegion /
@@ -782,6 +851,12 @@ class _DFCanvasState extends State<DFCanvas> {
                                             cancelNodeDrag: _endNodeDrag,
                                             handleViewportPointerSignal:
                                                 _registerBackgroundPointerSignal,
+                                            handleViewportPanZoomStart:
+                                                _handleNodePanZoomStart,
+                                            handleViewportPanZoomUpdate:
+                                                _handleNodePanZoomUpdate,
+                                            handleViewportPanZoomEnd:
+                                                _handleNodePanZoomEnd,
                                           ),
                                     child: _isInteracting &&
                                             widget.interactionReductionEnabled
@@ -812,6 +887,12 @@ class _DFCanvasState extends State<DFCanvas> {
                                           onPointerCancel: _endNodeDrag,
                                           onPointerSignal:
                                               _registerBackgroundPointerSignal,
+                                          onPointerPanZoomStart:
+                                              _handleNodePanZoomStart,
+                                          onPointerPanZoomUpdate:
+                                              _handleNodePanZoomUpdate,
+                                          onPointerPanZoomEnd:
+                                              _handleNodePanZoomEnd,
                                         ),
                                       ),
                                     ),
