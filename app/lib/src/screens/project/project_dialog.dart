@@ -297,11 +297,13 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
       _label(l10n.projectDialogProjectName),
       TextField(
         controller: _name,
+        onChanged: (_) => setState(() => _validationMessage = null),
         decoration: InputDecoration(hintText: l10n.projectDialogProjectNamePh),
       ),
       _label(l10n.projectDialogNovelType),
       TextField(
         controller: _novelType,
+        onChanged: (_) => setState(() => _validationMessage = null),
         decoration: InputDecoration(hintText: l10n.projectDialogNovelTypePh),
       ),
       _label(l10n.projectDialogModelData),
@@ -312,7 +314,10 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
             kind: 'image',
             value: _imageModel,
             hint: l10n.projectMsgEnterImageModel,
-            onChanged: (o) => setState(() => _imageModel = o?.value),
+            onChanged: (o) => setState(() {
+              _imageModel = o?.value;
+              _validationMessage = null;
+            }),
             onConfigure: _openProviderSettings,
           ),
         ),
@@ -327,7 +332,10 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
               DropdownMenuItem(value: '2K', child: Text('2K')),
               DropdownMenuItem(value: '4K', child: Text('4K')),
             ],
-            onChanged: (v) => setState(() => _imageQuality = v),
+            onChanged: (v) => setState(() {
+              _imageQuality = v;
+              _validationMessage = null;
+            }),
           ),
         ),
       ]),
@@ -342,6 +350,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
             onChanged: (o) => setState(() {
               _videoModel = o?.value;
               _setVideoModes(o);
+              _validationMessage = null;
             }),
             onConfigure: _openProviderSettings,
           ),
@@ -359,7 +368,10 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                 for (final m in _videoModes)
                   DropdownMenuItem(value: m, child: Text(m)),
               ],
-              onChanged: (v) => setState(() => _mode = v),
+              onChanged: (v) => setState(() {
+                _mode = v;
+                _validationMessage = null;
+              }),
             ),
           ),
         ],
@@ -372,13 +384,17 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
           DropdownMenuItem(value: '16:9', child: Text('16:9')),
           DropdownMenuItem(value: '9:16', child: Text('9:16')),
         ],
-        onChanged: (v) => setState(() => _videoRatio = v),
+        onChanged: (v) => setState(() {
+          _videoRatio = v;
+          _validationMessage = null;
+        }),
       ),
       _label(l10n.projectDialogNovelIntro),
       TextField(
         controller: _intro,
         minLines: 3,
         maxLines: 6,
+        onChanged: (_) => setState(() => _validationMessage = null),
         decoration: InputDecoration(hintText: l10n.projectDialogNovelIntroPh),
       ),
     ]);

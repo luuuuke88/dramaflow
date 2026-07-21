@@ -322,6 +322,15 @@
     }
   },
   "novelMsgBatchDeleteSuccess": "批量删除成功",
+  "novelMsgBatchDeleteSkippedGenerating": "已跳过 {count} 项正在生成事件的章节，其余已删除",
+  "@novelMsgBatchDeleteSkippedGenerating": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "novelMsgBatchDeleteAllGenerating": "选中的章节都在生成事件中，暂时无法删除",
   "novelMsgDeleteHeader": "删除确认",
   "novelMsgDeleteBody": "确定要删除章节名称为「{name}」的数据吗?",
   "@novelMsgDeleteBody": {
@@ -1478,6 +1487,12 @@
       "count": { "type": "int" }
     }
   },
+  "settingsStorageClearTableNoCascadeWarning": "注意：{table} 尚未接入级联清理，仅会删除这张表自身。关联表中的孤儿记录和磁盘上的媒体文件不会被一并清理。",
+  "@settingsStorageClearTableNoCascadeWarning": {
+    "placeholders": {
+      "table": { "type": "String" }
+    }
+  },
   "settingsStorageClearTableDone": "已清空 {table}",
   "@settingsStorageClearTableDone": {
     "placeholders": {
@@ -1839,7 +1854,11 @@
   "onboardingLanguageJa": "日语",
   "bootstrapFailureTitle": "无法打开本地工作区",
   "bootstrapFailureMessage": "DramaFlow 无法创建或读取本机工作区。请检查磁盘空间和目录权限后重试。",
+  "bootstrapFailureTitleGeneric": "启动时发生意外错误",
+  "bootstrapFailureMessageGeneric": "DramaFlow 启动失败，原因可能不是磁盘空间或权限问题，重试未必能解决。请展开下方详细信息查看具体错误，需要时可联系支持或手动检查本机数据。",
   "bootstrapFailureDirectory": "工作区目录",
+  "bootstrapFailureShowDetails": "详细信息",
+  "bootstrapFailureHideDetails": "收起详细信息",
   "bootstrapFailureRetry": "重试",
   "bootstrapFailureExit": "退出应用"
 }

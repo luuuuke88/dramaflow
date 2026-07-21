@@ -8,6 +8,7 @@ import 'l10n_ext.dart';
 String localizeErrKey(AppLocalizations l10n, EngineException e) =>
     switch (e.errKey) {
       errProviderMissing => l10n.errProviderMissing,
+      errProviderExists => l10n.presetProviderExists,
       errModelMissing => l10n.errModelMissing,
       errPromptMissing => l10n.errPromptMissing,
       errConfigVersion => l10n.errConfigVersion,
@@ -24,6 +25,7 @@ String localizeErrKey(AppLocalizations l10n, EngineException e) =>
       errTaskActive => l10n.errTaskActive,
       errManualInvalid => l10n.errManualInvalid,
       errManualExists => l10n.errManualExists,
+      errDbTableClearForbidden => l10n.errDbTableClearForbidden,
       _ => e.errKey,
     };
 

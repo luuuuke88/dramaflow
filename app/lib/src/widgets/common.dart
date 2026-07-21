@@ -241,7 +241,10 @@ String engineErrorText(BuildContext context, EngineException error) {
   final l10n = AppLocalizations.of(context);
   return switch (error.errKey) {
     errProviderMissing => l10n.errProviderMissing,
+    errProviderExists => l10n.presetProviderExists,
     errModelMissing => l10n.errModelMissing,
+    errPromptMissing => l10n.errPromptMissing,
+    errConfigVersion => l10n.errConfigVersion,
     errNetwork => l10n.errNetwork,
     errLlmFormat => l10n.errLlmFormat,
     errCanceled => l10n.errCanceled,
@@ -251,6 +254,10 @@ String engineErrorText(BuildContext context, EngineException error) {
     errRegexInvalid => l10n.errRegexInvalid,
     errNoChapters => l10n.errNoChapters,
     errPlatformComposer => l10n.errPlatformComposer,
+    errTaskUnsupported => l10n.errTaskUnsupported,
+    errTaskActive => l10n.errTaskActive,
+    errManualInvalid => l10n.errManualInvalid,
+    errManualExists => l10n.errManualExists,
     errDbTableClearForbidden => l10n.errDbTableClearForbidden,
     _ => error.message,
   };

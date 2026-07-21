@@ -518,6 +518,37 @@ void main() {
     expect(engine.db.select('SELECT COUNT(*) n FROM memories').single['n'], 0);
   });
 
+  testWidgets('清空未接入级联清理的表时弹窗展示诚实提示', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '存储与引擎');
+    await tester.tap(find.byKey(const Key('settings-storage-clear-table')));
+    await tester.pumpAndSettle();
+
+    // o_imageFlow 的磁盘文件内嵌在任意结构的 flowData JSON 里，没有接入
+    // clearTable 的级联清理（见 db_admin.dart 的 nonCascadingClearTables）。
+    final imageFlowOption =
+        find.byKey(const Key('settings-storage-clear-table-o_imageFlow'));
+    await tester.dragUntilVisible(
+      imageFlowOption,
+      find.byKey(const Key('settings-storage-clear-table-list')),
+      const Offset(0, -60),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(imageFlowOption);
+    await tester.pumpAndSettle();
+    await tester.tap(
+        find.byKey(const Key('settings-storage-clear-table-continue')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('清空 o_imageFlow？'), findsOneWidget);
+    expect(find.textContaining('尚未接入级联清理'), findsOneWidget);
+  });
+
   testWidgets('低高度移动端的单表清空操作保持可达', (tester) async {
     tester.view.physicalSize = const Size(390, 480);
     tester.view.devicePixelRatio = 1;

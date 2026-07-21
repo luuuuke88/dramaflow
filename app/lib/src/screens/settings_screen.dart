@@ -1552,10 +1552,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     if (!mounted || table == null) return;
 
+    // 有些表（目前仅 o_imageFlow）还没有接入级联清理：确认前诚实告知用户，
+    // 避免误以为这是一次干净、不留孤儿数据的清空（见 db_admin.dart 文件头注释）。
+    final cascades = ref.read(engineProvider).tableClearCascades(table.table);
+    final body =
+        l10n.settingsStorageClearTableConfirmBody(table.table, table.rowCount);
     final confirmed = await _confirm(
       title: l10n.settingsStorageClearTableConfirmTitle(table.table),
-      message:
-          l10n.settingsStorageClearTableConfirmBody(table.table, table.rowCount),
+      message: cascades
+          ? body
+          : '$body\n\n'
+              '${l10n.settingsStorageClearTableNoCascadeWarning(table.table)}',
       confirmText: l10n.settingsStorageClearTable,
       destructive: true,
       confirmKey: const Key('settings-storage-clear-table-confirm'),

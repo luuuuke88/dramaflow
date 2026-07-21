@@ -743,6 +743,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelMsgBatchDeleteSuccess => '一括削除に成功しました';
 
   @override
+  String novelMsgBatchDeleteSkippedGenerating(String count) {
+    return 'イベント生成中の $count 件をスキップしました。それ以外は削除されました';
+  }
+
+  @override
+  String get novelMsgBatchDeleteAllGenerating => '選択した章はすべてイベント生成中のため、まだ削除できません';
+
+  @override
   String get novelMsgDeleteHeader => '削除の確認';
 
   @override
@@ -3316,6 +3324,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String settingsStorageClearTableNoCascadeWarning(String table) {
+    return '注意：$table はまだ連鎖削除に対応していないため、このテーブル自体のみが削除されます。関連テーブルの孤立レコードやディスク上のメディアファイルは削除されません。';
+  }
+
+  @override
   String settingsStorageClearTableDone(String table) {
     return '$table を消去しました';
   }
@@ -4086,7 +4099,20 @@ class AppLocalizationsJa extends AppLocalizations {
       'DramaFlow はこの端末のワークスペースを作成または読み取れません。空き容量とフォルダ権限を確認して、もう一度お試しください。';
 
   @override
+  String get bootstrapFailureTitleGeneric => '起動時に予期しないエラーが発生しました';
+
+  @override
+  String get bootstrapFailureMessageGeneric =>
+      'DramaFlow の起動に失敗しました。原因はディスク容量や権限の問題ではない可能性があり、再試行しても解決しないことがあります。下の詳細情報を開いて実際のエラーを確認し、必要であればサポートに連絡するか、端末のデータを手動で確認してください。';
+
+  @override
   String get bootstrapFailureDirectory => 'ワークスペースのフォルダ';
+
+  @override
+  String get bootstrapFailureShowDetails => '詳細を表示';
+
+  @override
+  String get bootstrapFailureHideDetails => '詳細を隠す';
 
   @override
   String get bootstrapFailureRetry => '再試行';

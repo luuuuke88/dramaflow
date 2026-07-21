@@ -223,6 +223,77 @@ void main() {
     expect(tester.widget<TextButton>(delete).onPressed, isNull);
   });
 
+  testWidgets('批量删除跳过生成中的章节，不产生孤儿事件行', (tester) async {
+    final ids = seed(3);
+    db.execute('UPDATE o_novel SET eventState=1');
+    // 第二章此刻正在生成事件：事件生成 worker 可能在网络请求期间持有它的
+    // novelId，若批量删除照常把它删掉，worker 返回后会插入指向已删 novelId
+    // 的孤儿事件行（events() 对 o_novel 是 INNER JOIN，UI 再也查不到也删不掉）。
+    db.execute('UPDATE o_novel SET eventState=0 WHERE id=?', [ids[1]]);
+
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    // 生成中状态含持续动画，不能用 pumpAndSettle（会一直不稳定而超时），
+    // 固定推进两帧即可。
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // 勾选全部三章（复选框列第 0 个是全选表头，行复选框依次跟随）。
+    await tester.tap(find.byType(Checkbox).at(1));
+    await tester.pump();
+    await tester.tap(find.byType(Checkbox).at(2));
+    await tester.pump();
+    await tester.tap(find.byType(Checkbox).at(3));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, '批量删除 (3)'));
+    await tester.pump();
+    // 确认弹窗只统计真正会被删除的行数：跳过生成中的一条后应该是 2 条。
+    expect(find.text('确定要删除选中的 2 条数据吗?'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pump();
+
+    final remainingIds = engine.novels(projectId).data.map((r) => r.id).toSet();
+    expect(remainingIds, {ids[1]}, reason: '生成中的章节不应被批量删除');
+    expect(find.textContaining('已跳过 1 项'), findsOneWidget);
+
+    // 未删除意味着该行仍然存在：即使事件生成 worker 之后才写回，
+    // 也是写回一个仍然存在的 novelId，不会产生孤儿事件行。
+    expect(
+      db.select(
+          'SELECT COUNT(*) n FROM o_novel WHERE id=?', [ids[1]]).single['n'],
+      1,
+    );
+  });
+
+  testWidgets('批量删除全选中都在生成事件中时整体阻止，不弹出确认框', (tester) async {
+    final ids = seed(2);
+    db.execute('UPDATE o_novel SET eventState=0');
+
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    await tester.tap(find.byType(Checkbox).at(1));
+    await tester.pump();
+    await tester.tap(find.byType(Checkbox).at(2));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, '批量删除 (2)'));
+    await tester.pump();
+
+    expect(find.byType(AlertDialog), findsNothing,
+        reason: '全部选中项都在生成中时不应该弹出删除确认框');
+    expect(find.textContaining('选中的章节都在生成事件中'), findsOneWidget);
+    expect(engine.novels(projectId).data.map((r) => r.id).toSet(), ids.toSet());
+  });
+
   testWidgets('移动端小说页：卡片展示章节内容预览，点击「查看详情」走全屏弹窗而非小弹窗', (tester) async {
     final ids = seed(1);
     final longContent = '风雪压境，' * 30; // 超过 80 字截断阈值

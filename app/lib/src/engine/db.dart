@@ -6,43 +6,54 @@ const schemaVersion = 14;
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
+/// 打开（或初始化/迁移）引擎数据库。
+///
+/// 整个函数体在一个 try/catch 里：无论在哪个分支失败（版本过新、全新建库、
+/// 版本迁移、或已是当前版本的例行 initSchema），都必须先关闭已经 open() 出来的
+/// 原生 sqlite 句柄再把异常往外抛，否则调用方（Engine.boot()/buildDramaFlowApp()）
+/// 拿不到 db 引用、句柄再也无法关闭——尤其是现在启动失败恢复页支持"同一进程内反复
+/// 重试"之后，每次重试都会新开一个句柄，泄漏会随重试次数累积。
 Database openEngineDb(String path) {
   final db = path == ':memory:' ? sqlite3.openInMemory() : sqlite3.open(path);
-  _configure(db);
-  final version = _userVersion(db);
-  if (version > schemaVersion) {
-    db.close();
-    throw StateError(
-      'Database version $version is newer than supported version $schemaVersion.',
-    );
-  }
-  if (version == 0) {
-    initSchema(db);
+  try {
+    _configure(db);
+    final version = _userVersion(db);
+    if (version > schemaVersion) {
+      throw StateError(
+        'Database version $version is newer than supported version $schemaVersion.',
+      );
+    }
+    if (version == 0) {
+      initSchema(db);
+      migrateLegacyModelPromptTemplates(db);
+      _ensureV10Indexes(db);
+      return db;
+    }
+    if (version < schemaVersion) {
+      _backupBeforeMigration(db, path, version);
+      db.execute('BEGIN IMMEDIATE');
+      try {
+        initSchema(db, setVersion: false);
+        migrateSchema(db, version, schemaVersion);
+        migrateLegacyModelPromptTemplates(db);
+        _ensureV10Indexes(db);
+        db.execute('PRAGMA user_version = $schemaVersion');
+        db.execute('COMMIT');
+      } catch (_) {
+        db.execute('ROLLBACK');
+        rethrow;
+      }
+      return db;
+    }
+
+    initSchema(db, setVersion: false);
     migrateLegacyModelPromptTemplates(db);
     _ensureV10Indexes(db);
     return db;
+  } catch (_) {
+    db.close();
+    rethrow;
   }
-  if (version < schemaVersion) {
-    _backupBeforeMigration(db, path, version);
-    db.execute('BEGIN IMMEDIATE');
-    try {
-      initSchema(db, setVersion: false);
-      migrateSchema(db, version, schemaVersion);
-      migrateLegacyModelPromptTemplates(db);
-      _ensureV10Indexes(db);
-      db.execute('PRAGMA user_version = $schemaVersion');
-      db.execute('COMMIT');
-    } catch (_) {
-      db.execute('ROLLBACK');
-      rethrow;
-    }
-    return db;
-  }
-
-  initSchema(db, setVersion: false);
-  migrateLegacyModelPromptTemplates(db);
-  _ensureV10Indexes(db);
-  return db;
 }
 
 void _configure(Database db) {

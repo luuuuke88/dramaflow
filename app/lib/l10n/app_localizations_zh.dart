@@ -737,6 +737,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelMsgBatchDeleteSuccess => '批量删除成功';
 
   @override
+  String novelMsgBatchDeleteSkippedGenerating(String count) {
+    return '已跳过 $count 项正在生成事件的章节，其余已删除';
+  }
+
+  @override
+  String get novelMsgBatchDeleteAllGenerating => '选中的章节都在生成事件中，暂时无法删除';
+
+  @override
   String get novelMsgDeleteHeader => '删除确认';
 
   @override
@@ -3292,6 +3300,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String settingsStorageClearTableNoCascadeWarning(String table) {
+    return '注意：$table 尚未接入级联清理，仅会删除这张表自身。关联表中的孤儿记录和磁盘上的媒体文件不会被一并清理。';
+  }
+
+  @override
   String settingsStorageClearTableDone(String table) {
     return '已清空 $table';
   }
@@ -4056,7 +4069,20 @@ class AppLocalizationsZh extends AppLocalizations {
       'DramaFlow 无法创建或读取本机工作区。请检查磁盘空间和目录权限后重试。';
 
   @override
+  String get bootstrapFailureTitleGeneric => '启动时发生意外错误';
+
+  @override
+  String get bootstrapFailureMessageGeneric =>
+      'DramaFlow 启动失败，原因可能不是磁盘空间或权限问题，重试未必能解决。请展开下方详细信息查看具体错误，需要时可联系支持或手动检查本机数据。';
+
+  @override
   String get bootstrapFailureDirectory => '工作区目录';
+
+  @override
+  String get bootstrapFailureShowDetails => '详细信息';
+
+  @override
+  String get bootstrapFailureHideDetails => '收起详细信息';
 
   @override
   String get bootstrapFailureRetry => '重试';

@@ -758,6 +758,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelMsgBatchDeleteSuccess => 'Batch delete successful';
 
   @override
+  String novelMsgBatchDeleteSkippedGenerating(String count) {
+    return 'Skipped $count chapters that are still generating events; the rest were deleted';
+  }
+
+  @override
+  String get novelMsgBatchDeleteAllGenerating =>
+      'The selected chapters are all generating events and cannot be deleted yet';
+
+  @override
   String get novelMsgDeleteHeader => 'Confirm Deletion';
 
   @override
@@ -3411,6 +3420,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String settingsStorageClearTableNoCascadeWarning(String table) {
+    return 'Note: $table does not have cascading cleanup yet, so only this table itself will be cleared. Orphan rows in related tables and media files on disk will not be cleaned up.';
+  }
+
+  @override
   String settingsStorageClearTableDone(String table) {
     return 'Cleared $table';
   }
@@ -4192,7 +4206,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'DramaFlow couldn\'t create or read this device\'s workspace. Check available storage and folder permissions, then try again.';
 
   @override
+  String get bootstrapFailureTitleGeneric => 'Unexpected error during startup';
+
+  @override
+  String get bootstrapFailureMessageGeneric =>
+      'DramaFlow failed to start, and the cause may not be storage space or permissions, so retrying might not help. Expand the details below for the exact error, and contact support or check this device\'s data manually if needed.';
+
+  @override
   String get bootstrapFailureDirectory => 'Workspace folder';
+
+  @override
+  String get bootstrapFailureShowDetails => 'Show details';
+
+  @override
+  String get bootstrapFailureHideDetails => 'Hide details';
 
   @override
   String get bootstrapFailureRetry => 'Retry';

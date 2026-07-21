@@ -39,21 +39,29 @@ Future<void> verifyDataDirectoryWritable(String dataDir) async {
 Future<void> bootstrap({
   StartupAppBuilder? appBuilder,
   StartupAppRunner? runAppOverride,
+  VoidCallback? exitOverride,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   final attach = runAppOverride ?? runApp;
+  // dart:io 的 exit() 在这个非 web 入口的所有目标平台（macOS/Windows/Linux/
+  // Android/iOS）上都可用，不再像此前那样只给 macOS 提供退出路径——否则其他
+  // 平台的用户一旦启动失败就会卡死在恢复页出不去。exitOverride 只用于测试
+  // 场景替换掉真正的进程退出，避免单测跑到一半把 test runner 进程本身杀掉。
+  final exitApp = exitOverride ?? () => exit(1);
 
   Future<void> start() async {
     try {
       attach(await (appBuilder ?? buildDramaFlowApp)());
-    } catch (error, _) {
+    } catch (error, stackTrace) {
       final failure =
           error is StartupFailure ? error : StartupFailure(cause: error);
-      debugPrint('DramaFlow startup failed: ${failure.cause.runtimeType}');
+      // 完整错误文本 + 堆栈只进 debugPrint（仅开发者可见）是不够的——真实原因
+      // 必须同时展示在 StartupFailureApp 里，见该文件的 _FailureDetails。
+      debugPrint('DramaFlow startup failed: ${failure.cause}\n$stackTrace');
       attach(StartupFailureApp(
         failure: failure,
         onRetry: start,
-        onExit: Platform.isMacOS ? () => exit(1) : null,
+        onExit: exitApp,
       ));
     }
   }

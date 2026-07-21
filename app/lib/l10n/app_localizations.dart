@@ -1504,6 +1504,18 @@ abstract class AppLocalizations {
   /// **'批量删除成功'**
   String get novelMsgBatchDeleteSuccess;
 
+  /// No description provided for @novelMsgBatchDeleteSkippedGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'已跳过 {count} 项正在生成事件的章节，其余已删除'**
+  String novelMsgBatchDeleteSkippedGenerating(String count);
+
+  /// No description provided for @novelMsgBatchDeleteAllGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'选中的章节都在生成事件中，暂时无法删除'**
+  String get novelMsgBatchDeleteAllGenerating;
+
   /// No description provided for @novelMsgDeleteHeader.
   ///
   /// In zh, this message translates to:
@@ -6395,6 +6407,12 @@ abstract class AppLocalizations {
   /// **'将删除 {table} 中的 {count} 条记录，且无法恢复。确定继续吗？'**
   String settingsStorageClearTableConfirmBody(String table, int count);
 
+  /// No description provided for @settingsStorageClearTableNoCascadeWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'注意：{table} 尚未接入级联清理，仅会删除这张表自身。关联表中的孤儿记录和磁盘上的媒体文件不会被一并清理。'**
+  String settingsStorageClearTableNoCascadeWarning(String table);
+
   /// No description provided for @settingsStorageClearTableDone.
   ///
   /// In zh, this message translates to:
@@ -7847,11 +7865,35 @@ abstract class AppLocalizations {
   /// **'DramaFlow 无法创建或读取本机工作区。请检查磁盘空间和目录权限后重试。'**
   String get bootstrapFailureMessage;
 
+  /// No description provided for @bootstrapFailureTitleGeneric.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动时发生意外错误'**
+  String get bootstrapFailureTitleGeneric;
+
+  /// No description provided for @bootstrapFailureMessageGeneric.
+  ///
+  /// In zh, this message translates to:
+  /// **'DramaFlow 启动失败，原因可能不是磁盘空间或权限问题，重试未必能解决。请展开下方详细信息查看具体错误，需要时可联系支持或手动检查本机数据。'**
+  String get bootstrapFailureMessageGeneric;
+
   /// No description provided for @bootstrapFailureDirectory.
   ///
   /// In zh, this message translates to:
   /// **'工作区目录'**
   String get bootstrapFailureDirectory;
+
+  /// No description provided for @bootstrapFailureShowDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'详细信息'**
+  String get bootstrapFailureShowDetails;
+
+  /// No description provided for @bootstrapFailureHideDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起详细信息'**
+  String get bootstrapFailureHideDetails;
 
   /// No description provided for @bootstrapFailureRetry.
   ///
