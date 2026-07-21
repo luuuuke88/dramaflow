@@ -1832,6 +1832,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get videoRequestReferenceAudio => '音频素材';
 
   @override
+  String get videoRequestAddReference => '添加参考素材';
+
+  @override
+  String get videoRequestPickFromAssets => '从素材库选择';
+
+  @override
+  String get videoRequestPickFromStoryboard => '从分镜选择';
+
+  @override
   String get workbenchGenerateAll => '全部生成视频';
 
   @override

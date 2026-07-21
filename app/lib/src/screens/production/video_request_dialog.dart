@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/engine.dart';
 import '../../engine/video_request.dart';
 import '../../engine/video_track.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../script/asset_picker.dart';
+import 'storyboard_image_picker.dart';
 
 Future<VideoRequestDraft?> showVideoRequestDialog(
   BuildContext context, {
   required VideoRequestDraft initial,
   required VideoModelCapabilities capabilities,
   required List<VideoReferenceCandidate> candidates,
+  required List<VideoReferenceCandidate> storyboardCandidates,
+  required Engine engine,
+  required WidgetRef ref,
+  required int projectId,
 }) {
   if (capabilities.modes.isEmpty) return Future.value(null);
   return showDFAdaptiveDialog<VideoRequestDraft>(
@@ -20,6 +28,10 @@ Future<VideoRequestDraft?> showVideoRequestDialog(
       initial: initial,
       capabilities: capabilities,
       candidates: candidates,
+      storyboardCandidates: storyboardCandidates,
+      engine: engine,
+      ref: ref,
+      projectId: projectId,
     ),
   );
 }
@@ -28,11 +40,19 @@ class _VideoRequestDialog extends StatefulWidget {
   final VideoRequestDraft initial;
   final VideoModelCapabilities capabilities;
   final List<VideoReferenceCandidate> candidates;
+  final List<VideoReferenceCandidate> storyboardCandidates;
+  final Engine engine;
+  final WidgetRef ref;
+  final int projectId;
 
   const _VideoRequestDialog({
     required this.initial,
     required this.capabilities,
     required this.candidates,
+    required this.storyboardCandidates,
+    required this.engine,
+    required this.ref,
+    required this.projectId,
   });
 
   @override
@@ -61,6 +81,16 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
   List<VideoReferenceCandidate> get _imageCandidates => widget.candidates
       .where((candidate) => candidate.source.mediaType == 'image')
       .toList();
+
+  Iterable<VideoReferenceCandidate> get _allCandidates sync* {
+    final keys = <String>{};
+    for (final candidate in [
+      ...widget.candidates,
+      ...widget.storyboardCandidates,
+    ]) {
+      if (keys.add(_candidateKey(candidate))) yield candidate;
+    }
+  }
 
   VideoReferenceSource? get _fixedFirstFrame {
     for (final reference in widget.initial.references) {
@@ -236,6 +266,7 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
             const SizedBox(height: 8),
             Text(l10n.videoRequestLastFrame,
                 style: Theme.of(context).textTheme.labelLarge),
+            _referencePickerButton(context),
             RadioGroup<String>(
               groupValue:
                   _lastFrame == null ? null : _candidateKey(_lastFrame!),
@@ -266,6 +297,7 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
           children: [
             Text(l10n.videoRequestReferences,
                 style: Theme.of(context).textTheme.labelLarge),
+            _referencePickerButton(context),
             _candidateGroup(
               context,
               l10n.videoRequestStoryboardImages,
@@ -313,6 +345,149 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
       title: Text(title),
       subtitle: Text(candidate?.label ?? '—'),
     );
+  }
+
+  Widget _referencePickerButton(BuildContext context) => Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          key: const ValueKey('video-request-add-reference'),
+          onPressed: _pickReference,
+          icon: const Icon(Icons.add_photo_alternate_outlined),
+          label: Text(context.l10n.videoRequestAddReference),
+        ),
+      );
+
+  Future<void> _pickReference() async {
+    final source = await showDFAdaptiveDialog<_ReferencePickerSource>(
+      context,
+      title: context.l10n.videoRequestReferences,
+      builder: (dialogContext) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            key: const ValueKey('video-request-source-assets'),
+            leading: const Icon(Icons.perm_media_outlined),
+            title: Text(context.l10n.videoRequestPickFromAssets),
+            onTap: () => Navigator.of(dialogContext)
+                .pop(_ReferencePickerSource.assets),
+          ),
+          ListTile(
+            key: const ValueKey('video-request-source-storyboard'),
+            leading: const Icon(Icons.view_carousel_outlined),
+            title: Text(context.l10n.videoRequestPickFromStoryboard),
+            onTap: () => Navigator.of(dialogContext)
+                .pop(_ReferencePickerSource.storyboard),
+          ),
+        ]),
+      ),
+    );
+    if (!mounted || source == null) return;
+    switch (source) {
+      case _ReferencePickerSource.assets:
+        await _pickAssetReferences();
+      case _ReferencePickerSource.storyboard:
+        await _pickStoryboardReferences();
+    }
+  }
+
+  Future<void> _pickAssetReferences() async {
+    final imageAllowed = _referenceLimit('image') > 0;
+    final videoAllowed = _referenceLimit('video') > 0;
+    final audioAllowed = _referenceLimit('audio') > 0;
+    final types = <String>{
+      if (imageAllowed) ...{'role', 'tool', 'scene'},
+      if (imageAllowed || videoAllowed || audioAllowed) 'clip',
+      if (audioAllowed) 'audio',
+    };
+    if (types.isEmpty) return;
+    final clipMediaTypes = <String>{
+      if (imageAllowed) 'image',
+      if (videoAllowed) 'video',
+      if (audioAllowed) 'audio',
+    };
+    final ids = await showAssetPicker(
+      context,
+      widget.ref,
+      projectId: widget.projectId,
+      initial: const [],
+      types: types,
+      clipMediaTypes: clipMediaTypes,
+      multiple: _mode == VideoMode.multiReference,
+      title: context.l10n.videoRequestPickFromAssets,
+    );
+    if (!mounted || ids == null || ids.isEmpty) return;
+    final picked = [
+      for (final id in ids)
+        if (_assetCandidateForId(id) case final candidate?) candidate,
+    ];
+    if (picked.isEmpty) return;
+    setState(() {
+      for (final candidate in picked) {
+        _usePickedCandidate(candidate);
+      }
+    });
+  }
+
+  Future<void> _pickStoryboardReferences() async {
+    final selected = await showStoryboardImagePicker(
+      context,
+      engine: widget.engine,
+      candidates: [
+        for (final candidate in widget.storyboardCandidates)
+          StoryboardImageCandidate(
+            id: candidate.source.sourceId,
+            label: candidate.label,
+            prompt: '',
+            localPath: candidate.localPath,
+          ),
+      ],
+      emptyText: context.l10n.imageEditorNoStoryboardImages,
+      multiple: _mode == VideoMode.multiReference,
+    );
+    if (!mounted || selected == null || selected.isEmpty) return;
+    setState(() {
+      for (final row in selected) {
+        final candidate = widget.storyboardCandidates
+            .where((item) => item.source.sourceId == row.id)
+            .firstOrNull;
+        if (candidate != null) _usePickedCandidate(candidate);
+      }
+    });
+  }
+
+  int _referenceLimit(String mediaType) =>
+      widget.capabilities.referenceLimits[mediaType] ?? 0;
+
+  void _usePickedCandidate(VideoReferenceCandidate candidate) {
+    if (_mode == VideoMode.firstLastFrame) {
+      if (candidate.source.mediaType == 'image' &&
+          !_isFixedFirstFrame(candidate)) {
+        _lastFrame = candidate;
+      }
+      return;
+    }
+    if (_mode != VideoMode.multiReference) return;
+    final key = _candidateKey(candidate);
+    if (_multiReferenceKeys.contains(key)) return;
+    final used = _multiReferenceKeys
+        .map(_candidateForKey)
+        .whereType<VideoReferenceCandidate>()
+        .where((item) => item.source.mediaType == candidate.source.mediaType)
+        .length;
+    if (used >= _referenceLimit(candidate.source.mediaType)) return;
+    _multiReferenceKeys.add(key);
+    _addBoundAudioReferences(candidate);
+  }
+
+  VideoReferenceCandidate? _assetCandidateForId(int id) {
+    for (final candidate in widget.candidates) {
+      final source = candidate.source;
+      if ((source.sourceType == 'asset' || source.sourceType == 'audio') &&
+          source.sourceId == id) {
+        return candidate;
+      }
+    }
+    return null;
   }
 
   Widget _multiReferenceTile(VideoReferenceCandidate candidate) {
@@ -392,7 +567,7 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
       );
 
   VideoReferenceCandidate? _candidateForKey(String key) {
-    for (final candidate in widget.candidates) {
+    for (final candidate in _allCandidates) {
       if (_candidateKey(candidate) == key) return candidate;
     }
     return null;
@@ -425,6 +600,8 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
         candidate.source.sourceId == fixed.sourceId;
   }
 }
+
+enum _ReferencePickerSource { assets, storyboard }
 
 Widget _choiceField<T>({
   required Key key,

@@ -1848,6 +1848,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get videoRequestReferenceAudio => '音声素材';
 
   @override
+  String get videoRequestAddReference => '参照素材を追加';
+
+  @override
+  String get videoRequestPickFromAssets => '素材ライブラリから選択';
+
+  @override
+  String get videoRequestPickFromStoryboard => '絵コンテから選択';
+
+  @override
   String get workbenchGenerateAll => 'すべて動画生成';
 
   @override

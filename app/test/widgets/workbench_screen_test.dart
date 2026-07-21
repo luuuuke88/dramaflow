@@ -5562,6 +5562,174 @@ void main() {
     expect(request.references.single.role, 'reference_image');
   });
 
+  testWidgets('视频参数可从完整素材库选择并按片段媒体类型保存', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['multi_reference'],
+                'references': {'image': 1, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '从完整素材库添加视频参考',
+    );
+    final imageClipId = engine.uploadClip(
+      projectId: projectId,
+      name: '素材库图片片段',
+      bytes: [1, 2, 3],
+      ext: 'png',
+    );
+    final videoClipId = engine.uploadClip(
+      projectId: projectId,
+      name: '素材库视频片段',
+      bytes: [4, 5, 6],
+      ext: 'mp4',
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-add-reference')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-source-assets')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('asset-picker-search')), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('asset-picker-item-$imageClipId')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey('asset-picker-item-$videoClipId')),
+      findsNothing,
+      reason: '图片参考模型不应在素材库里暴露视频片段',
+    );
+    await tester.tap(find.byKey(ValueKey('asset-picker-item-$imageClipId')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('video-request-save')));
+    await tester.pumpAndSettle();
+
+    final trackId = engine
+        .storyboards(scriptId)
+        .singleWhere((storyboard) => storyboard.id == storyboardId)
+        .trackId!;
+    final draft = engine.videoRequestForTrack(trackId);
+    expect(draft.references, hasLength(1));
+    expect(draft.references.single.sourceId, imageClipId);
+    expect(draft.references.single.mediaType, 'image');
+  });
+
+  testWidgets('视频参数可从同剧集分镜选择图片参考', (tester) async {
+    engine.db.execute(
+      'UPDATE o_vendorConfig SET models=? WHERE id=?',
+      [
+        jsonEncode([
+          {
+            'modelId': 'test-video',
+            'kind': 'video',
+            'enabled': true,
+            'capabilities': {
+              'video': {
+                'modes': ['multi_reference'],
+                'references': {'image': 2, 'video': 0, 'audio': 0},
+                'durations': [5],
+                'resolutions': ['720p'],
+                'ratios': ['16:9'],
+                'audio': 'none',
+              },
+            },
+          },
+        ]),
+        'volcengine',
+      ],
+    );
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '当前镜头',
+    );
+    final otherStoryboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '可用的另一张分镜图',
+    );
+    final image = File(engine.mediaAbsPath('p/other-storyboard.png'))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    expect(image.existsSync(), isTrue);
+    engine.db.execute(
+      "UPDATE o_storyboard SET filePath='p/other-storyboard.png' WHERE id=?",
+      [otherStoryboardId],
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-video-params-$storyboardId')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-add-reference')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('video-request-source-storyboard')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        ValueKey('storyboard-image-picker-item-$otherStoryboardId'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('storyboard-image-picker-confirm')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('video-request-save')));
+    await tester.pumpAndSettle();
+
+    final trackId = engine
+        .storyboards(scriptId)
+        .singleWhere((storyboard) => storyboard.id == storyboardId)
+        .trackId!;
+    final draft = engine.videoRequestForTrack(trackId);
+    expect(draft.references, hasLength(1));
+    expect(draft.references.single.sourceType, 'storyboard');
+    expect(draft.references.single.sourceId, otherStoryboardId);
+  });
+
   testWidgets('视频参数弹窗选择项目角色时自动携带其绑定音频参考', (tester) async {
     engine.db.execute(
       'UPDATE o_vendorConfig SET models=? WHERE id=?',

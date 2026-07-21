@@ -1892,6 +1892,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get videoRequestReferenceAudio => 'Audio media';
 
   @override
+  String get videoRequestAddReference => 'Add reference media';
+
+  @override
+  String get videoRequestPickFromAssets => 'Choose from assets';
+
+  @override
+  String get videoRequestPickFromStoryboard => 'Choose from storyboards';
+
+  @override
   String get workbenchGenerateAll => 'Generate All Videos';
 
   @override

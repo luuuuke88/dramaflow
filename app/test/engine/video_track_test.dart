@@ -465,6 +465,72 @@ void main() {
     );
   });
 
+  test('videoReferenceCandidates 按片段扩展名分类并保留可选子资产', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '图片片段、视频片段和子资产都可作为参考',
+    );
+    final imageClipId = engine.uploadClip(
+      projectId: projectId,
+      name: '图片片段',
+      bytes: [1, 2, 3],
+      ext: 'png',
+    );
+    final videoClipId = engine.uploadClip(
+      projectId: projectId,
+      name: '视频片段',
+      bytes: [4, 5, 6],
+      ext: 'mp4',
+    );
+    final parentId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '角色父资产',
+      describe: '',
+    );
+    final childId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '角色子资产',
+      describe: '',
+      parentAssetsId: parentId,
+    );
+    writeMedia('p/child-reference.png');
+    db.execute(
+      "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,'image','已完成')",
+      [childId, 'p/child-reference.png'],
+    );
+    db.execute(
+      'UPDATE o_assets SET imageId=? WHERE id=?',
+      [db.lastInsertRowId, childId],
+    );
+
+    final candidates = engine.videoReferenceCandidates(projectId, storyboardId);
+
+    expect(
+      candidates.any((candidate) =>
+          candidate.source.sourceType == 'asset' &&
+          candidate.source.sourceId == imageClipId &&
+          candidate.source.mediaType == 'image'),
+      isTrue,
+    );
+    expect(
+      candidates.any((candidate) =>
+          candidate.source.sourceType == 'asset' &&
+          candidate.source.sourceId == videoClipId &&
+          candidate.source.mediaType == 'video'),
+      isTrue,
+    );
+    expect(
+      candidates.any((candidate) =>
+          candidate.source.sourceType == 'asset' &&
+          candidate.source.sourceId == childId &&
+          candidate.source.mediaType == 'image'),
+      isTrue,
+    );
+  });
+
   test('batchGenerateVideos rejects unsupported controls before enqueue', () {
     configureVideoModel();
     final sbId = engine.addStoryboard(

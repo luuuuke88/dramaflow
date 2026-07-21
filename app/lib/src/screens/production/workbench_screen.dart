@@ -3855,6 +3855,26 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
       capabilities: capabilities,
       candidates:
           engine.videoReferenceCandidates(widget.projectId, widget.shot.id),
+      storyboardCandidates: [
+        for (final storyboard in engine.storyboards(widget.shot.scriptId))
+          if (storyboard.filePath case final path? when path.isNotEmpty)
+            if (engine.media.existingFilePath(path) != null)
+              VideoReferenceCandidate(
+                source: VideoReferenceSource(
+                  sourceType: 'storyboard',
+                  sourceId: storyboard.id,
+                  mediaType: 'image',
+                  role: storyboard.id == widget.shot.id
+                      ? 'first_frame'
+                      : 'reference_image',
+                ),
+                label: 'P${storyboard.index + 1}',
+                localPath: path,
+              ),
+      ],
+      engine: engine,
+      ref: ref,
+      projectId: widget.projectId,
     );
     if (saved == null || !mounted) return;
     final trackId =

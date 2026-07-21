@@ -98,6 +98,20 @@ class CornerScapeAsset {
 }
 
 const _cornerScapeAssetTypes = {'role', 'scene', 'tool'};
+const _clipVideoExtensions = {'mp4', 'webm', 'mov', 'avi', 'mkv'};
+const _clipAudioExtensions = {'mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'};
+
+/// ToonFlow 的素材库按实际文件扩展名区分 clip 是图片、视频还是音频。
+/// 这个归类同时供资产筛选和视频请求使用，避免两条调用路径产生不同结论。
+String clipMediaTypeForPath(String? localPath) {
+  final path = (localPath ?? '').split('?').first;
+  final name = path.split('/').last;
+  final dot = name.lastIndexOf('.');
+  final extension = dot < 0 ? '' : name.substring(dot + 1).toLowerCase();
+  if (_clipVideoExtensions.contains(extension)) return 'video';
+  if (_clipAudioExtensions.contains(extension)) return 'audio';
+  return 'image';
+}
 
 class _TypeConfig {
   final String label;

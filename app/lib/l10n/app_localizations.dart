@@ -3622,6 +3622,24 @@ abstract class AppLocalizations {
   /// **'音频素材'**
   String get videoRequestReferenceAudio;
 
+  /// No description provided for @videoRequestAddReference.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加参考素材'**
+  String get videoRequestAddReference;
+
+  /// No description provided for @videoRequestPickFromAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'从素材库选择'**
+  String get videoRequestPickFromAssets;
+
+  /// No description provided for @videoRequestPickFromStoryboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'从分镜选择'**
+  String get videoRequestPickFromStoryboard;
+
   /// No description provided for @workbenchGenerateAll.
   ///
   /// In zh, this message translates to:

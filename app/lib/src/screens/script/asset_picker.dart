@@ -20,13 +20,21 @@ Future<List<int>?> showAssetPicker(
   required int projectId,
   required List<int> initial,
   Set<String> types = _scriptAssetTypes,
+  Set<String>? clipMediaTypes,
   bool multiple = true,
   String? title,
 }) {
-  final options = ref.read(engineProvider).assetSelectionItems(
+  final allOptions = ref.read(engineProvider).assetSelectionItems(
         projectId,
         types: types,
       );
+  final options = clipMediaTypes == null
+      ? allOptions
+      : allOptions
+          .where((asset) =>
+              asset.type != 'clip' ||
+              clipMediaTypes.contains(clipMediaTypeForPath(asset.filePath)))
+          .toList(growable: false);
   return showDFAdaptiveDialog<List<int>>(
     context,
     title: title ?? context.l10n.scriptAddMsgSelectAssetsTitle,

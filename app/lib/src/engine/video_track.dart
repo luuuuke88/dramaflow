@@ -30,6 +30,13 @@ const videoPromptDone = '已完成';
 const videoPromptFailed = '生成失败';
 const videoPromptGenerationTaskClass = 'video_prompt_generation';
 
+String _assetReferenceMediaType(String type, String? localPath) =>
+    type == 'audio'
+        ? 'audio'
+        : type == 'clip'
+            ? clipMediaTypeForPath(localPath)
+            : 'image';
+
 typedef _VideoCandidateExportEntry = ({String archivePath, String sourcePath});
 
 String _videoCandidateExportExtension(String relPath) {
@@ -434,8 +441,10 @@ extension VideoTrackApi on Engine {
       [storyboardId, projectId],
     )) {
       final type = row['type'] as String? ?? '';
-      final mediaType =
-          type == 'audio' ? 'audio' : (type == 'clip' ? 'video' : 'image');
+      final mediaType = _assetReferenceMediaType(
+        type,
+        row['filePath'] as String?,
+      );
       final role = switch (mediaType) {
         'audio' => 'reference_audio',
         'video' => 'reference_video',
@@ -484,13 +493,16 @@ extension VideoTrackApi on Engine {
     for (final row in db.select(
       'SELECT a.id,a.name,a.type,i.filePath FROM o_assets a '
       'JOIN o_image i ON i.id=a.imageId '
-      'WHERE a.projectId=? AND a.assetsId IS NULL '
+      'WHERE a.projectId=? '
       "AND a.type IN ('role','tool','scene','clip') "
       "AND i.filePath IS NOT NULL AND trim(i.filePath)<>'' ORDER BY a.id",
       [projectId],
     )) {
       final type = row['type'] as String? ?? '';
-      final mediaType = type == 'clip' ? 'video' : 'image';
+      final mediaType = _assetReferenceMediaType(
+        type,
+        row['filePath'] as String?,
+      );
       add(
         sourceType: 'asset',
         sourceId: row['id'] as int,
@@ -506,7 +518,7 @@ extension VideoTrackApi on Engine {
     }
     for (final row in db.select(
       "SELECT id,name FROM o_assets WHERE projectId=? AND type='audio' "
-      'AND assetsId IS NULL ORDER BY id',
+      'ORDER BY id',
       [projectId],
     )) {
       final audioId = row['id'] as int;
