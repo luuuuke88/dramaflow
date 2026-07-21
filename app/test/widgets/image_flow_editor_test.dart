@@ -1101,7 +1101,8 @@ void main() {
       engine.mediaAbsPath(generatedRel),
     ]);
     expect(gateway.lastMaskAbsPath, isNotNull);
-    expect(File(gateway.lastMaskAbsPath!).existsSync(), isTrue);
+    // mask 是一次性上传临时文件，请求结束后应立即删盘，不残留孤儿文件。
+    expect(File(gateway.lastMaskAbsPath!).existsSync(), isFalse);
   });
 
   testWidgets('移动端 390px：已生成节点可局部重绘并传递 mask', (tester) async {
@@ -1147,6 +1148,55 @@ void main() {
       engine.mediaAbsPath(generatedRel),
     ]);
     expect(gateway.lastMaskAbsPath, isNotNull);
-    expect(File(gateway.lastMaskAbsPath!).existsSync(), isTrue);
+    // mask 是一次性上传临时文件，请求结束后应立即删盘，不残留孤儿文件。
+    expect(File(gateway.lastMaskAbsPath!).existsSync(), isFalse);
+  });
+
+  testWidgets('局部重绘完成后临时 mask 文件不残留在磁盘媒体目录', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await installImageModel();
+    final generatedRel = engine.media.saveImage(_pngBytes, '$projectId');
+    final flowId = engine.saveImageFlow([
+      ImageFlowNode(
+        id: 'g0',
+        type: 'generated',
+        x: 40,
+        y: 40,
+        data: {
+          'prompt': '白衣少年',
+          'generatedImage': generatedRel,
+          'model': null,
+          'ratio': '16:9',
+          'quality': '2K',
+        },
+      ),
+    ], const []);
+
+    await tester.pumpWidget(host(flowId: flowId));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await expandGeneratedNode(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '局部重绘'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '只重绘衣领');
+    await tester.drag(
+        find.byKey(const Key('mask-paint-area')), const Offset(48, 0));
+    await tester.pump();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, '局部重绘'));
+    await tester.tap(find.widgetWithText(FilledButton, '局部重绘'));
+    await tester.pumpAndSettle();
+
+    // 除了流程开始前就存在的 generatedRel 文件外，项目媒体目录里
+    // 不应再残留任何 mask 临时文件（回归：曾经每次局部重绘都会永久泄漏一个 mask png）。
+    final projectMediaDir = Directory(p.join(dir.path, 'media', '$projectId'));
+    final remaining = projectMediaDir
+        .listSync()
+        .whereType<File>()
+        .map((f) => p.basename(f.path))
+        .toList();
+    expect(remaining, [p.basename(generatedRel)]);
   });
 }

@@ -658,6 +658,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
     final result = await _showMaskInpaintDialog(context, sourceAbs);
     if (!mounted || result == null) return;
     final maskRel = _engine.saveFlowMaskImage(widget.projectId, result.maskPng);
+    final maskAbs = _engine.mediaAbsPath(maskRel);
     setState(() {
       node.state = 'generating';
       node.errorText = null;
@@ -668,7 +669,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
         prompt: node.promptCtl.text,
         referenceAbsPaths: [sourceAbs],
         editInstruction: result.instruction,
-        maskAbsPath: _engine.mediaAbsPath(maskRel),
+        maskAbsPath: maskAbs,
         model: node.model,
         ratio: node.ratio,
         quality: node.quality,
@@ -683,6 +684,11 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
         node.state = 'failed';
         node.errorText = localizeError(context, e);
       });
+    } finally {
+      // mask 是仅供本次请求上传的一次性临时文件，maskRel 不写入任何持久化字段
+      // （不同于 imageRel/generatedRel），用完必须立即删盘，否则永久泄漏。
+      final maskFile = File(maskAbs);
+      if (maskFile.existsSync()) maskFile.deleteSync();
     }
   }
 
