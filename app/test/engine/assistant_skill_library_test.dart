@@ -237,6 +237,18 @@ description: 初版
       ]);
     });
 
+    test('单个已登记技能文件缺失时仍列出其余可用包', () {
+      final missing = importPackage('missing_skill');
+      final available = importPackage('available_skill');
+      File(missing.path).deleteSync();
+
+      expect(
+        engine.managedSkillLibraryFiles().map((file) => file.displayPath),
+        ['available_skill/SKILL.md'],
+      );
+      expect(engine.readManagedAssistantSkill(available.id), contains('技能正文'));
+    });
+
     test('入口编辑同步元数据，资源编辑只替换同包既有 Markdown', () {
       final skill = importPackage('camera_guide');
       final root = File(engine.managedAssistantSkillPath(skill.id)).parent;

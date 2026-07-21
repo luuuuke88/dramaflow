@@ -218,7 +218,13 @@ extension AssistantSkillLibraryApi on Engine {
     );
     for (final row in rows) {
       final skillId = row['id'] as String;
-      final entry = _managedFile(row['path'] as String?);
+      File entry;
+      try {
+        entry = _managedFile(row['path'] as String?);
+      } on EngineException {
+        // 技能页仍应能管理其余包；缺失项可由现有扫描功能报告。
+        continue;
+      }
       final packageRoot = entry.parent.resolveSymbolicLinksSync();
       for (final entity in Directory(packageRoot)
           .listSync(recursive: true, followLinks: false)) {
