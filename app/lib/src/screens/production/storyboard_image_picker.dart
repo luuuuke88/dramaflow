@@ -166,12 +166,19 @@ class _StoryboardImagePickerState extends State<_StoryboardImagePicker> {
             const SizedBox(width: 8),
             FilledButton(
               key: const ValueKey('storyboard-image-picker-confirm'),
+              // `_selected` 是按勾选先后顺序迭代的 LinkedHashSet；用 id 查表
+              // 换回候选对象，而不是按 widget.candidates 固定顺序枚举再过滤，
+              // 否则确认后的返回顺序会丢失用户的实际勾选顺序。
               onPressed: _selected.isEmpty
                   ? null
-                  : () => Navigator.of(context).pop([
-                        for (final item in widget.candidates)
-                          if (_selected.contains(item.id)) item,
-                      ]),
+                  : () {
+                      final byId = {
+                        for (final item in widget.candidates) item.id: item,
+                      };
+                      Navigator.of(context).pop([
+                        for (final id in _selected) byId[id]!,
+                      ]);
+                    },
               child: Text(context.l10n.commonConfirm),
             ),
           ]),
