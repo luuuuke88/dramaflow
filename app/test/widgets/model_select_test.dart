@@ -140,4 +140,33 @@ void main() {
     expect(
         find.byKey(Key('model-select-provider-${provider.id}')), findsNothing);
   });
+
+  testWidgets('guards against opening a second menu on a rapid double tap',
+      (tester) async {
+    final provider = await addImageModel(
+      providerName: 'ima2',
+      modelId: 'gpt-image-2',
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    // 直接连续调用两次 onTap，中间不 await：这精确复现了 InkWell 手势分发
+    // 的 fire-and-forget 语义——第一次 _openMenu() 调用刚跑到
+    // loadModelOptions 内部第一个 await 就把控制权交还，第二次调用紧接着
+    // 发生。用 tester.tap() 走完整手势识别在这里不可靠：即便没有守卫，
+    // await tester.tap() 本身会把微任务队列耗尽到第一次 _openMenu 已经把
+    // 菜单弹出、遮住命中区域，第二次 tester.tap() 反而摸不到 InkWell，
+    // 造成假阳性。直接调用 onTap 才是对这条重入路径的准确复现。
+    final field = tester.widget<InkWell>(
+      find.byKey(const Key('model-select-field-image')),
+    );
+    field.onTap!();
+    field.onTap!();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(Key('model-select-provider-${provider.id}')),
+      findsOneWidget,
+    );
+  });
 }

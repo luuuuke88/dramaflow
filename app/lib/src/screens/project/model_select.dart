@@ -74,26 +74,37 @@ class ModelSelect extends ConsumerStatefulWidget {
 }
 
 class _ModelSelectState extends ConsumerState<ModelSelect> {
+  // 守卫 loadModelOptions 的 await 窗口：菜单还没弹出前 InkWell 仍可点击，
+  // 快速二次点击会在第一次 _openMenu 还在等待模型列表时重入，重复发起加载
+  // 并可能弹出两份重叠的菜单。
+  bool _menuOpening = false;
+
   Future<void> _openMenu() async {
-    final context = this.context;
-    final box = context.findRenderObject()! as RenderBox;
-    final overlay = Navigator.of(context).overlay!;
-    final overlayBox = overlay.context.findRenderObject()! as RenderBox;
-    final latest =
-        await loadModelOptions(ref.read(engineProvider), widget.kind);
-    if (!context.mounted) return;
-    ref.invalidate(modelOptionsProvider(widget.kind));
-    if (latest.isEmpty) return;
-    final origin = box.localToGlobal(Offset.zero, ancestor: overlayBox);
-    final selected = await showMenu<ModelOption>(
-      context: context,
-      position: RelativeRect.fromRect(
-        origin & box.size,
-        Offset.zero & overlayBox.size,
-      ),
-      items: _modelMenuItems(latest),
-    );
-    if (selected != null && context.mounted) widget.onChanged(selected);
+    if (_menuOpening) return;
+    _menuOpening = true;
+    try {
+      final context = this.context;
+      final box = context.findRenderObject()! as RenderBox;
+      final overlay = Navigator.of(context).overlay!;
+      final overlayBox = overlay.context.findRenderObject()! as RenderBox;
+      final latest =
+          await loadModelOptions(ref.read(engineProvider), widget.kind);
+      if (!context.mounted) return;
+      ref.invalidate(modelOptionsProvider(widget.kind));
+      if (latest.isEmpty) return;
+      final origin = box.localToGlobal(Offset.zero, ancestor: overlayBox);
+      final selected = await showMenu<ModelOption>(
+        context: context,
+        position: RelativeRect.fromRect(
+          origin & box.size,
+          Offset.zero & overlayBox.size,
+        ),
+        items: _modelMenuItems(latest),
+      );
+      if (selected != null && context.mounted) widget.onChanged(selected);
+    } finally {
+      _menuOpening = false;
+    }
   }
 
   @override
