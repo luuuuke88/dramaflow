@@ -1362,6 +1362,9 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       _selectedClipIds
         ..clear()
         ..addAll(duplicateIds);
+      // 复制后画面上高亮的是新片段，检查器必须跟着指向新片段，否则仍绑定
+      // 源片段——用户以为在编辑新片段，保存时实际改的是源片段。
+      _inspectedClipId = duplicateIds.isEmpty ? null : duplicateIds.last;
     });
   }
 
@@ -1388,6 +1391,8 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       _selectedClipIds
         ..clear()
         ..addAll(duplicateIds);
+      // 同 _duplicateSelectedClipLayers：检查器必须跟着新复制出的片段走。
+      _inspectedClipId = duplicateIds.isEmpty ? null : duplicateIds.last;
     });
   }
 
@@ -1473,6 +1478,8 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
       _selectedClipIds
         ..clear()
         ..addAll(duplicateIds);
+      // 同 _duplicateSelectedClipLayers：检查器必须跟着新复制出的片段走。
+      _inspectedClipId = duplicateIds.isEmpty ? null : duplicateIds.last;
     });
   }
 
@@ -1699,14 +1706,28 @@ class _TimelineOverviewState extends ConsumerState<_TimelineOverview> {
     if (_selectedClipIds.isEmpty) return;
     final engine = ref.read(engineProvider);
     engine.deleteTimelineClips(_selectedClipIds.toList());
-    setState(_selectedClipIds.clear);
+    setState(() {
+      // 与单个删除路径（_deleteClipLayer）保持一致：被删片段若正是检查器
+      // 绑定的对象，必须一并清空，否则检查器会悬挂指向一个已不存在的片段。
+      if (_inspectedClipId != null &&
+          _selectedClipIds.contains(_inspectedClipId)) {
+        _inspectedClipId = null;
+      }
+      _selectedClipIds.clear();
+    });
   }
 
   void _rippleDeleteSelectedClipLayers() {
     if (_selectedClipIds.isEmpty) return;
     final engine = ref.read(engineProvider);
     engine.deleteTimelineClipsRipple(_selectedClipIds.toList());
-    setState(_selectedClipIds.clear);
+    setState(() {
+      if (_inspectedClipId != null &&
+          _selectedClipIds.contains(_inspectedClipId)) {
+        _inspectedClipId = null;
+      }
+      _selectedClipIds.clear();
+    });
   }
 
   Future<void> _addClipLayer() async {

@@ -2858,6 +2858,81 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('复制所选后检查器跟随新片段，保存改的是新片段而不是源片段', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '镜头一',
+      duration: '4',
+    );
+    const rel = 'p/duplicate_inspector_follow.mp4';
+    File(engine.mediaAbsPath(rel))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([7, 8, 9]);
+    final assetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '源片段',
+      relPath: rel,
+    );
+    final clipId = engine.addTimelineClipFromAsset(
+      projectId: projectId,
+      scriptId: scriptId,
+      clipAssetId: assetId,
+    );
+
+    await tester.pumpWidget(app(initialTab: WorkbenchTab.edit));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('workbench-timeline-clip-select-$clipId')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$clipId')),
+      findsOneWidget,
+      reason: '前置：检查器先绑定源片段 A',
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-duplicate-selected')),
+    );
+    await tester.pumpAndSettle();
+
+    final clips = engine.timelineClips(scriptId);
+    expect(clips, hasLength(2));
+    final duplicateId = clips.singleWhere((c) => c.id != clipId).id;
+
+    // 画面上高亮的是新复制出的片段，检查器必须跟着走，不能还停在源片段 A。
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$duplicateId')),
+      findsOneWidget,
+      reason: '复制后检查器应绑定新片段',
+    );
+    expect(
+      find.byKey(ValueKey('workbench-timeline-inspector-$clipId')),
+      findsNothing,
+      reason: '复制后检查器不应再绑定源片段 A',
+    );
+
+    // 走一次真实保存流程：断言被改的是新片段，源片段 A 的名字不受影响。
+    await tester.enterText(
+      find.byKey(const ValueKey('workbench-timeline-inspector-name-input')),
+      '改名新片段',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('workbench-timeline-inspector-save')),
+    );
+    await tester.pumpAndSettle();
+
+    final afterSave = engine.timelineClips(scriptId);
+    expect(afterSave.singleWhere((c) => c.id == duplicateId).name, '改名新片段');
+    expect(afterSave.singleWhere((c) => c.id == clipId).name, '源片段',
+        reason: '保存不应改到源片段 A');
+  });
+
   testWidgets('工作台可选中多个素材层并对齐到播放头', (tester) async {
     engine.addStoryboard(
       projectId: projectId,
