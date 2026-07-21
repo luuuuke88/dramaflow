@@ -556,6 +556,68 @@ void main() {
     expect(audio.localPath, endsWith('.mp3'));
   });
 
+  test('videoReferenceCandidates 子资产候选可继承父级角色绑定的配音', () {
+    final storyboardId = engine.addStoryboard(
+      projectId: projectId,
+      scriptId: scriptId,
+      prompt: '角色有换装子资产的镜头',
+    );
+    final roleId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '有换装的角色',
+      describe: '',
+    );
+    final audioId = engine.addAudioAssets(
+      projectId: projectId,
+      name: '角色音色',
+      sex: '女',
+      describe: '',
+      items: [
+        (
+          base64: base64Encode([1, 2, 3]),
+          ext: 'mp3',
+          prompt: '样本',
+          name: '样本',
+          describe: '',
+          existingImageId: null,
+        ),
+      ],
+    );
+    engine.bindAssetAudio(roleId, audioId);
+
+    final childId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '换装子资产',
+      describe: '',
+      parentAssetsId: roleId,
+    );
+    writeMedia('p/child-outfit.png');
+    db.execute(
+      "INSERT INTO o_image (assetsId,filePath,type,state) VALUES (?,?,'image','已完成')",
+      [childId, 'p/child-outfit.png'],
+    );
+    db.execute(
+      'UPDATE o_assets SET imageId=? WHERE id=?',
+      [db.lastInsertRowId, childId],
+    );
+
+    final candidates =
+        engine.videoReferenceCandidates(projectId, storyboardId);
+    final childCandidate = candidates.firstWhere(
+      (candidate) =>
+          candidate.source.sourceType == 'asset' &&
+          candidate.source.sourceId == childId,
+    );
+
+    expect(
+      childCandidate.boundAudioSourceIds,
+      contains(audioId),
+      reason: '子资产作为候选时应继承父级角色绑定的配音，而不是查出空列表',
+    );
+  });
+
   test('videoReferenceCandidates 也列出项目中未关联当前分镜的可用素材', () {
     final storyboardId = engine.addStoryboard(
       projectId: projectId,

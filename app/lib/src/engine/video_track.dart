@@ -719,11 +719,13 @@ extension VideoTrackApi on Engine {
 
   List<int> _boundAudioAssetIds(int projectId, int assetId) => db
       .select(
-        'SELECT DISTINCT audio.id FROM o_assetsRole2Audio link '
+        'SELECT DISTINCT audio.id FROM o_assets target '
+        'JOIN o_assetsRole2Audio link ON '
+        '(link.assetsRoleId=target.id OR link.assetsRoleId=target.assetsId) '
         'JOIN o_assets audio ON audio.id=link.assetsAudioId '
         "AND audio.projectId=? AND audio.type='audio' AND audio.assetsId IS NULL "
-        'WHERE link.assetsRoleId=? ORDER BY audio.id',
-        [projectId, assetId],
+        'WHERE target.id=? AND target.projectId=? ORDER BY audio.id',
+        [projectId, assetId, projectId],
       )
       .map((row) => row['id'] as int)
       .toList(growable: false);
