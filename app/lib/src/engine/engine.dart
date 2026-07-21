@@ -1520,8 +1520,7 @@ WHERE id=?
       hasCredential =
           (await credentials.read(credentialRef))?.isNotEmpty == true;
     } catch (_) {
-      // Provider metadata must remain readable while the OS credential store
-      // is locked or unavailable; an actual remote request still fails closed.
+      // 本地 SQLite 凭证读取异常时仍可查看供应商元数据；实际远程请求仍会失败关闭。
     }
     return ProviderInfo.fromJson({
       'id': providerId,

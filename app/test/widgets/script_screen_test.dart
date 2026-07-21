@@ -438,6 +438,69 @@ void main() {
         {roleId, sceneId});
   });
 
+  testWidgets('关联资产选择器可搜索分页并选择衍生资产', (tester) async {
+    final parentId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '第 1 位角色',
+      describe: '',
+    );
+    final childId = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '第 1 位角色-战损',
+      describe: '',
+      parentAssetsId: parentId,
+    );
+    for (var index = 2; index <= 10; index++) {
+      engine.addAsset(
+        projectId: projectId,
+        type: 'role',
+        name: '第 $index 位角色',
+        describe: '',
+      );
+    }
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(1200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建剧本').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '选择资产'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('第 10 位角色'), findsNothing, reason: '资产选择器每页最多显示 10 条');
+    await tester.tap(find.byKey(const ValueKey('asset-picker-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('第 10 位角色'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('asset-picker-search')),
+      '战损',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('第 1 位角色-战损'), findsOneWidget);
+    await tester.tap(find.text('第 1 位角色-战损'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('第 1 位角色-战损'), findsOneWidget);
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == '剧本名称',
+      ),
+      '衍生资产剧本',
+    );
+    await tester.enterText(find.byType(TextField).last, '正文');
+    await tester.tap(find.widgetWithText(FilledButton, '确认'));
+    await tester.pumpAndSettle();
+
+    expect(engine.scripts(projectId).single.relatedAssets.single.id, childId);
+  });
+
   testWidgets('新增剧本在名称和正文都为空时先提示填写正文', (tester) async {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
@@ -514,7 +577,8 @@ void main() {
       [projectId],
     );
     final novelId = db.select('SELECT id FROM o_novel').first['id'] as int;
-    db.execute("INSERT INTO o_event (name,detail,createTime) VALUES ('雪夜破门','详情',1)");
+    db.execute(
+        "INSERT INTO o_event (name,detail,createTime) VALUES ('雪夜破门','详情',1)");
     final eventId = db.select('SELECT id FROM o_event').first['id'] as int;
     db.execute(
       'INSERT INTO o_eventChapter (eventId,novelId) VALUES (?,?)',
@@ -532,7 +596,8 @@ void main() {
       expect(find.text('选择事件生成剧本'), findsNothing);
       expect(
           db
-              .select("SELECT COUNT(*) n FROM o_tasks WHERE taskClass='script_generation'")
+              .select(
+                  "SELECT COUNT(*) n FROM o_tasks WHERE taskClass='script_generation'")
               .single['n'],
           0);
       expect(tester.takeException(), isNull);

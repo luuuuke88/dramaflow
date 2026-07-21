@@ -208,6 +208,48 @@ abstract class AppLocalizations {
   /// **'上一步'**
   String get commonPrevStep;
 
+  /// No description provided for @assetPickerPreviousPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一页'**
+  String get assetPickerPreviousPage;
+
+  /// No description provided for @assetPickerNextPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一页'**
+  String get assetPickerNextPage;
+
+  /// No description provided for @assetPickerTypeRole.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色'**
+  String get assetPickerTypeRole;
+
+  /// No description provided for @assetPickerTypeTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'道具'**
+  String get assetPickerTypeTool;
+
+  /// No description provided for @assetPickerTypeScene.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景'**
+  String get assetPickerTypeScene;
+
+  /// No description provided for @assetPickerTypeClip.
+  ///
+  /// In zh, this message translates to:
+  /// **'片段'**
+  String get assetPickerTypeClip;
+
+  /// No description provided for @assetPickerTypeAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频'**
+  String get assetPickerTypeAudio;
+
   /// No description provided for @projectListTitle.
   ///
   /// In zh, this message translates to:

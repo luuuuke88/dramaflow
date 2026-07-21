@@ -63,6 +63,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonPrevStep => 'Previous';
 
   @override
+  String get assetPickerPreviousPage => 'Previous page';
+
+  @override
+  String get assetPickerNextPage => 'Next page';
+
+  @override
+  String get assetPickerTypeRole => 'Character';
+
+  @override
+  String get assetPickerTypeTool => 'Prop';
+
+  @override
+  String get assetPickerTypeScene => 'Scene';
+
+  @override
+  String get assetPickerTypeClip => 'Clip';
+
+  @override
+  String get assetPickerTypeAudio => 'Audio';
+
+  @override
   String get projectListTitle => 'Projects';
 
   @override

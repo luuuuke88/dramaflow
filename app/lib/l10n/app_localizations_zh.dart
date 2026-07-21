@@ -63,6 +63,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonPrevStep => '上一步';
 
   @override
+  String get assetPickerPreviousPage => '上一页';
+
+  @override
+  String get assetPickerNextPage => '下一页';
+
+  @override
+  String get assetPickerTypeRole => '角色';
+
+  @override
+  String get assetPickerTypeTool => '道具';
+
+  @override
+  String get assetPickerTypeScene => '场景';
+
+  @override
+  String get assetPickerTypeClip => '片段';
+
+  @override
+  String get assetPickerTypeAudio => '音频';
+
+  @override
   String get projectListTitle => '项目';
 
   @override

@@ -63,6 +63,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonPrevStep => '前へ';
 
   @override
+  String get assetPickerPreviousPage => '前のページ';
+
+  @override
+  String get assetPickerNextPage => '次のページ';
+
+  @override
+  String get assetPickerTypeRole => 'キャラクター';
+
+  @override
+  String get assetPickerTypeTool => '小道具';
+
+  @override
+  String get assetPickerTypeScene => 'シーン';
+
+  @override
+  String get assetPickerTypeClip => 'クリップ';
+
+  @override
+  String get assetPickerTypeAudio => '音声';
+
+  @override
   String get projectListTitle => 'プロジェクト';
 
   @override

@@ -107,6 +107,32 @@ void main() {
     expect(engine.assetImages(parent).single.selected, isTrue);
   });
 
+  test('assetSelectionItems 按类型返回父资产及其子资产', () {
+    final role = engine.addAsset(
+        projectId: projectId, type: 'role', name: '角色', describe: '');
+    final child = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '角色衍生',
+      describe: '',
+      parentAssetsId: role,
+    );
+    final clip = engine.uploadClip(
+      projectId: projectId,
+      name: '片段',
+      bytes: [1, 2],
+      ext: 'mp4',
+    );
+
+    final roles = engine.assetSelectionItems(projectId, types: {'role'});
+    expect(roles.map((item) => item.id), [role, child]);
+    expect(roles.last.assetsId, role);
+    expect(
+      engine.assetSelectionItems(projectId, types: {'clip'}).single.id,
+      clip,
+    );
+  });
+
   test('制作画布资产查询保留关联原始资产的派生子项', () {
     final parent = engine.addAsset(
         projectId: projectId, type: 'role', name: '林逸', describe: '主角');

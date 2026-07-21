@@ -25,6 +25,7 @@ import '../../widgets/df_empty.dart';
 import '../../widgets/local_media_preview.dart';
 import '../../widgets/policy_confirm.dart';
 import '../../widgets/common.dart';
+import '../script/asset_picker.dart';
 import 'video_request_dialog.dart';
 import 'workbench_preview.dart';
 
@@ -3751,14 +3752,17 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
   Future<void> _pickClip() async {
     final l10n = context.l10n;
     final engine = ref.read(engineProvider);
-    final clips =
-        engine.getAssets(widget.projectId, type: 'clip', limit: 100).data;
-    final clip = await showDFAdaptiveDialog<AssetRow>(
+    final selected = await showAssetPicker(
       context,
+      ref,
+      projectId: widget.projectId,
+      initial: const [],
+      types: const {'clip'},
+      multiple: false,
       title: l10n.workbenchPickClipTitle,
-      desktopWidthFactor: 0.42,
-      builder: (c) => _PickClipAssetList(clips: clips),
     );
+    if (selected == null || selected.isEmpty || !mounted) return;
+    final clip = engine.assetsByIds(selected).firstOrNull;
     if (clip == null || !mounted) return;
     try {
       final trackId = engine.ensureTrackForStoryboard(widget.shot.id);
@@ -4064,44 +4068,6 @@ class _ShotRowState extends ConsumerState<_ShotRow> {
           ]),
         ),
       ]),
-    );
-  }
-}
-
-class _PickClipAssetList extends StatelessWidget {
-  final List<AssetRow> clips;
-
-  const _PickClipAssetList({required this.clips});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    if (clips.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(DFTokens.s20),
-        child: DFEmpty(text: l10n.workbenchNoClipAssets),
-      );
-    }
-    return ListView.separated(
-      shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(vertical: DFTokens.s8),
-      itemCount: clips.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
-      itemBuilder: (_, i) {
-        final row = clips[i];
-        final enabled = row.filePath?.isNotEmpty == true;
-        return ListTile(
-          leading: const Icon(Icons.video_library_outlined),
-          title: Text(row.name ?? ''),
-          subtitle: Text(
-            row.filePath ?? '',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          enabled: enabled,
-          onTap: enabled ? () => Navigator.pop(context, row) : null,
-        );
-      },
     );
   }
 }

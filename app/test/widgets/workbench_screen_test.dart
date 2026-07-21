@@ -348,6 +348,40 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('镜头素材库复用通用选择器并可绑定片段', (tester) async {
+    final storyboardId = engine.addStoryboard(
+        projectId: projectId, scriptId: scriptId, prompt: 'x');
+    const relPath = 'assets/reusable-clip.mp4';
+    File(engine.mediaAbsPath(relPath))
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    final assetId = engine.registerClipAsset(
+      projectId: projectId,
+      name: '可复用片段',
+      relPath: relPath,
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '素材库'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('asset-picker-search')), findsOneWidget);
+    expect(find.text('可复用片段'), findsOneWidget);
+    await tester.tap(find.byKey(ValueKey('asset-picker-item-$assetId')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
+
+    final track = engine.track(engine.storyboards(scriptId).single.trackId!);
+    expect(track?.selectVideoId, isNotNull);
+    expect(track?.state, '已完成');
+    expect(track?.candidates.single.filePath, relPath);
+    expect(engine.storyboards(scriptId).single.id, storyboardId);
+  });
+
   testWidgets('工作台快速预览按时长跳镜并展示本地分镜与关联资产', (tester) async {
     const png =
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL3UQAAAABJRU5ErkJggg==';
@@ -5949,6 +5983,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('素材镜头A'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
+    await tester.pumpAndSettle();
 
     final trackId = engine.storyboards(scriptId).single.trackId!;
     final track = engine.track(trackId)!;
@@ -5998,6 +6034,8 @@ void main() {
     expect(find.text('选择素材视频'), findsOneWidget);
 
     await tester.tap(find.text('移动素材镜头A'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('asset-picker-confirm')));
     await tester.pumpAndSettle();
 
     final trackId = engine.storyboards(scriptId).single.trackId!;

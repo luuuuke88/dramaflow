@@ -214,6 +214,36 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
       getAssets(projectId,
           type: type, page: page, limit: limit, search: search);
 
+  /// 通用资产选择器的数据源：按类型平铺父资产及其衍生子资产。
+  ///
+  /// 既有 [getAssets] 的页面列表只展示父资产；选择器需要允许选中
+  /// ToonFlow 中可见的衍生资产，因此在这里保留父子顺序后展开。
+  List<AssetRow> assetSelectionItems(
+    int projectId, {
+    required Set<String> types,
+    String? search,
+  }) {
+    if (types.isEmpty) return const [];
+
+    final result = <AssetRow>[];
+    for (final type in types.toList()..sort()) {
+      final page = getAssets(
+        projectId,
+        type: type,
+        page: 1,
+        // SQLite 的 LIMIT -1 表示不设上限；选择器再在 UI 逐页展示，避免静默漏项。
+        limit: -1,
+        search: search,
+      );
+      for (final parent in page.data) {
+        result
+          ..add(parent)
+          ..addAll(parent.sonAssets);
+      }
+    }
+    return result;
+  }
+
   /// 按 id 批量取资产（跨类型），供制作画布资产节点展示关联资产缩略图。
   List<AssetRow> assetsByIds(List<int> ids) {
     if (ids.isEmpty) return const [];
