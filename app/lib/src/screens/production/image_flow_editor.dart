@@ -976,7 +976,9 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
                     left: 4,
                     child: IconButton(
                       key: Key('image-flow-seed-${node.id}'),
-                      onPressed: () => _seedGeneratedImage(node),
+                      onPressed: node.state == 'generating'
+                          ? null
+                          : () => _seedGeneratedImage(node),
                       icon: const Icon(Icons.upload_file_outlined, size: 18),
                       tooltip: l10n.productionEditImageUpload,
                       visualDensity: VisualDensity.compact,

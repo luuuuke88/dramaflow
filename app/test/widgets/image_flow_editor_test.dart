@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -38,6 +39,8 @@ class _Gateway implements ProviderGateway {
   String? lastEditInstruction;
   List<String> lastReferenceAbsPaths = const [];
   String? lastMaskAbsPath;
+  // 置位后 generateImage 挂起在此 Completer 上，供测试模拟"生成进行中"。
+  Completer<String>? pendingImage;
 
   @override
   Future<String> generateImage(String prompt, String projectId,
@@ -53,6 +56,8 @@ class _Gateway implements ProviderGateway {
     lastEditInstruction = editInstruction;
     lastReferenceAbsPaths = referenceAbsPaths;
     lastMaskAbsPath = maskAbsPath;
+    final pending = pendingImage;
+    if (pending != null) return pending.future;
     return 'p/gen.png';
   }
 
@@ -532,6 +537,71 @@ void main() {
 
     expect(appliedRel, assetRel);
     expect(find.text('open'), findsOneWidget);
+  });
+
+  testWidgets('生成进行中「直接采用图片」按钮禁用，与生成/重绘/局部重绘一致（Bug 1 回归）',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final modelValue = await installImageModel();
+    final generatedRel = engine.media.saveImage(_pngBytes, '$projectId');
+    final flowId = engine.saveImageFlow([
+      ImageFlowNode(
+        id: 'g0',
+        type: 'generated',
+        x: 40,
+        y: 40,
+        data: {
+          'prompt': '白衣少年',
+          'generatedImage': generatedRel,
+          'model': modelValue,
+          'ratio': '16:9',
+          'quality': '2K',
+        },
+      ),
+    ], const []);
+    // 挂起网关调用，模拟生成请求已发出但尚未返回（node.state == 'generating'）。
+    final pending = Completer<String>();
+    gateway.pendingImage = pending;
+
+    await tester.pumpWidget(host(flowId: flowId));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await expandGeneratedNode(tester);
+
+    final seedBtn = find.byKey(const Key('image-flow-seed-g0'));
+    final generateBtn = find.widgetWithText(OutlinedButton, '生成');
+    final repaintBtn = find.widgetWithText(OutlinedButton, '重绘');
+    final inpaintBtn = find.widgetWithText(OutlinedButton, '局部重绘');
+
+    // 生成前：四个动作入口均可用。
+    expect(tester.widget<IconButton>(seedBtn).onPressed, isNotNull);
+    expect(tester.widget<OutlinedButton>(generateBtn).onPressed, isNotNull);
+    expect(tester.widget<OutlinedButton>(repaintBtn).onPressed, isNotNull);
+    expect(tester.widget<OutlinedButton>(inpaintBtn).onPressed, isNotNull);
+
+    // 触发重绘：弹窗确认修改意见后进入 generating，网关调用挂起在 Completer 上。
+    await tester.tap(repaintBtn);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '把衣服改成红色');
+    await tester.tap(find.widgetWithText(FilledButton, '重绘'));
+    await tester.pump();
+
+    expect(gateway.imageCalls, 1);
+    // 生成中：Generate/Repaint/Local-inpaint 早已禁用；Bug 1 修复前"直接采用图片"
+    // 没有这一保护，会在生成结果还没返回时静默覆盖/被覆盖——这里断言四者行为一致。
+    expect(tester.widget<OutlinedButton>(generateBtn).onPressed, isNull);
+    expect(tester.widget<OutlinedButton>(repaintBtn).onPressed, isNull);
+    expect(tester.widget<OutlinedButton>(inpaintBtn).onPressed, isNull);
+    expect(tester.widget<IconButton>(seedBtn).onPressed, isNull,
+        reason: '生成进行中应禁止「直接采用图片」，避免与 AI 生成结果发生覆盖竞态');
+
+    pending.complete('p/repainted.png');
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<IconButton>(seedBtn).onPressed, isNotNull,
+        reason: '生成结束后应恢复可点击');
   });
 
   testWidgets('移动端 390px：生成节点首屏可操作，素材参考与生成参数可保存', (tester) async {
