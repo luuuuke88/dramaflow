@@ -288,6 +288,30 @@ void main() {
     }
   });
 
+  testWidgets('联系表输入的镜头序号跟画布网格彩色 tag 的编号口径一致', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // 镜头 1 未生成图、镜头 2/3 已生成：回归 bug 场景——联系表曾经在过滤掉
+    // 未生成分镜后从 S01 重新计数，导致第二张图（真实镜头 3）被标成 S02。
+    seedShot(withImage: false);
+    seedShot(withImage: true);
+    seedShot(withImage: true);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    // 画布网格自身编号（含未生成分镜）：第三格显示的彩色 tag 应为 S03。
+    expect(find.text('S01'), findsOneWidget);
+    expect(find.text('S02'), findsOneWidget);
+    expect(find.text('S03'), findsOneWidget);
+
+    // `_previewAll`/`_downloadAll` 喂给联系表合成器的输入必须携带同一套真实
+    // 序号（2、3），不能是过滤掉镜头 1 之后重新计数的 1、2。
+    final shots = engine.storyboardImagePaths(scriptId);
+    expect(shots.map((s) => s.shotNumber).toList(), [2, 3]);
+  });
+
   testWidgets('行菜单「在前面插入分镜」把新镜头排到目标之前', (tester) async {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;

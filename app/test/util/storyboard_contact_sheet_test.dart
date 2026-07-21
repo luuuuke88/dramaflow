@@ -11,13 +11,13 @@ void main() {
   test('完整导出过滤坏图、最多五列，并保留每列最大宽和每行最大高', () {
     final sheet = buildStoryboardContactSheet(
       [
-        Uint8List.fromList([1, 2, 3]),
-        png(20, 10, img.ColorRgb8(220, 20, 20)),
-        png(10, 30, img.ColorRgb8(20, 220, 20)),
-        png(15, 15, img.ColorRgb8(20, 20, 220)),
-        png(5, 40, img.ColorRgb8(220, 220, 20)),
-        png(25, 12, img.ColorRgb8(20, 220, 220)),
-        png(50, 8, img.ColorRgb8(220, 20, 220)),
+        (shotNumber: 1, bytes: Uint8List.fromList([1, 2, 3])),
+        (shotNumber: 2, bytes: png(20, 10, img.ColorRgb8(220, 20, 20))),
+        (shotNumber: 3, bytes: png(10, 30, img.ColorRgb8(20, 220, 20))),
+        (shotNumber: 4, bytes: png(15, 15, img.ColorRgb8(20, 20, 220))),
+        (shotNumber: 5, bytes: png(5, 40, img.ColorRgb8(220, 220, 20))),
+        (shotNumber: 6, bytes: png(25, 12, img.ColorRgb8(20, 220, 220))),
+        (shotNumber: 7, bytes: png(50, 8, img.ColorRgb8(220, 20, 220))),
       ],
       mode: StoryboardContactSheetMode.export,
     );
@@ -34,7 +34,7 @@ void main() {
 
   test('预览在布局前将每张图的宽度限制为 512，并编码 JPEG', () {
     final sheet = buildStoryboardContactSheet(
-      [png(1024, 512, img.ColorRgb8(220, 20, 20))],
+      [(shotNumber: 1, bytes: png(1024, 512, img.ColorRgb8(220, 20, 20)))],
       mode: StoryboardContactSheetMode.preview,
     );
 
@@ -46,9 +46,39 @@ void main() {
     expect(img.decodeJpg(sheet.bytes), isNotNull);
   });
 
+  test('完整导出对超大源图同样有宽度上限，避免内存占用失控', () {
+    final sheet = buildStoryboardContactSheet(
+      [(shotNumber: 1, bytes: png(4096, 2048, img.ColorRgb8(20, 20, 220)))],
+      mode: StoryboardContactSheetMode.export,
+    );
+
+    expect(sheet, isNotNull);
+    expect(sheet!.imageCount, 1);
+    // 4096 原图必须被降采样，不能直接怼进合成画布；2048 是导出上限，
+    // 高度按原图宽高比例联动缩小到一半（2048）。
+    expect(sheet.width, lessThan(4096));
+    expect(sheet.width, 2048);
+    expect(sheet.height, 1024);
+    final decoded = img.decodePng(sheet.bytes);
+    expect(decoded, isNotNull);
+    expect(decoded!.width, 2048);
+    expect(decoded.height, 1024);
+  });
+
+  test('完整导出不对上限以内的源图做任何缩放', () {
+    final sheet = buildStoryboardContactSheet(
+      [(shotNumber: 1, bytes: png(1600, 900, img.ColorRgb8(20, 20, 220)))],
+      mode: StoryboardContactSheetMode.export,
+    );
+
+    expect(sheet, isNotNull);
+    expect(sheet!.width, 1600);
+    expect(sheet.height, 900);
+  });
+
   test('标签背景按 ToonFlow 的 fontSize 公式计算高度', () {
     final sheet = buildStoryboardContactSheet(
-      [png(100, 100, img.ColorRgb8(255, 255, 255))],
+      [(shotNumber: 1, bytes: png(100, 100, img.ColorRgb8(255, 255, 255)))],
       mode: StoryboardContactSheetMode.export,
     );
 
@@ -59,12 +89,35 @@ void main() {
     expect(decoded.getPixel(8, 30).r, 255);
   });
 
+  test('标签使用调用方传入的真实镜头序号，而不是过滤后重新计数的下标', () {
+    // 对齐 bug 场景：分镜 2 未生成图，联系表只收到分镜 1、3 的图片，但两张图
+    // 各自的 shotNumber 必须原样保留（1、3），画出来的标签才会跟画布网格上的
+    // S01/S03 一致，不会被压缩成 S01/S02 指错分镜。
+    final source = png(100, 100, img.ColorRgb8(255, 255, 255));
+
+    final sheetWithTrueShotNumber = buildStoryboardContactSheet(
+      [(shotNumber: 3, bytes: source)],
+      mode: StoryboardContactSheetMode.export,
+    )!;
+    final sheetWithPositionalShotNumber = buildStoryboardContactSheet(
+      [(shotNumber: 2, bytes: source)],
+      mode: StoryboardContactSheetMode.export,
+    )!;
+
+    // 两次调用里图片都是列表中唯一、第 0 位的元素——如果实现仍然按过滤后的
+    // 下标（0+1=1）画标签而不是使用传入的 shotNumber，两张联系表会画出完全
+    // 相同的标签字形，产出字节相等。真正读取了 shotNumber 时，S03 和 S02
+    // 的字形不同，产出字节必须不同。
+    expect(
+      sheetWithTrueShotNumber.bytes,
+      isNot(orderedEquals(sheetWithPositionalShotNumber.bytes)),
+    );
+  });
+
   test('没有可解码图片时不返回伪造的空画布', () {
     expect(
       buildStoryboardContactSheet(
-        [
-          Uint8List.fromList([0, 1, 2])
-        ],
+        [(shotNumber: 1, bytes: Uint8List.fromList([0, 1, 2]))],
         mode: StoryboardContactSheetMode.export,
       ),
       isNull,
@@ -74,7 +127,7 @@ void main() {
   test('预览合成器可在后台 isolate 返回可传递结果', () async {
     final sheet = await compute(
       buildStoryboardPreviewContactSheet,
-      [png(8, 8, img.ColorRgb8(20, 220, 20))],
+      [(shotNumber: 1, bytes: png(8, 8, img.ColorRgb8(20, 220, 20)))],
     );
 
     expect(sheet, isNotNull);
@@ -86,7 +139,7 @@ void main() {
   test('完整 PNG 导出器可在后台 isolate 返回可传递结果', () async {
     final sheet = await compute(
       buildStoryboardExportContactSheet,
-      [png(8, 8, img.ColorRgb8(20, 220, 20))],
+      [(shotNumber: 1, bytes: png(8, 8, img.ColorRgb8(20, 220, 20)))],
     );
 
     expect(sheet, isNotNull);

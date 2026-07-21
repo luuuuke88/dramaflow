@@ -54,6 +54,12 @@ void main() {
     ));
 
     await tester.tap(find.byKey(const ValueKey('asset-image-copy')));
+    // _copy now runs imageBytesForClipboard through compute() on a real
+    // background isolate; runAsync lets that isolate round-trip actually
+    // complete before we pump and assert (a bare pump() isn't enough).
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
     await tester.pump();
     expect(readPath, image.path);
     expect(copied, isNotNull);

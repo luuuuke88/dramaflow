@@ -141,10 +141,10 @@ class _AssetPickerBodyState extends State<_AssetPickerBody> {
             const SizedBox(width: 8),
             FilledButton(
               key: const ValueKey('asset-picker-confirm'),
-              onPressed: () => Navigator.of(context).pop([
-                for (final asset in widget.options)
-                  if (_selected.contains(asset.id)) asset.id,
-              ]),
+              // `_selected` 是 LinkedHashSet（勾选时 add、取消时 remove），
+              // 按勾选先后顺序迭代；不能改成按 widget.options 固定顺序枚举
+              // 再过滤，否则确认后的返回顺序会丢失用户的实际勾选顺序。
+              onPressed: () => Navigator.of(context).pop(_selected.toList()),
               child: Text(l10n.commonConfirm),
             ),
           ]),
