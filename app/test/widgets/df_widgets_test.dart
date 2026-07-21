@@ -464,6 +464,14 @@ void main() {
     expect(scenePointAfter.dy, closeTo(scenePointBefore.dy, 0.1));
   });
 
+  // Bug 4 修复:flutter_test 的 TestPointer.scroll() 无论构造时传入什么
+  // PointerDeviceKind,产出的都是 PointerScrollEvent(鼠标滚轮语义)——SDK
+  // test_pointer.dart 原文是 "scroll wheel scroll, not finger-drag scroll"。
+  // 用 PointerDeviceKind.trackpad 调它只是给滚轮事件贴了个 trackpad 标签，并
+  // 没有真正走触控板的 PointerPanZoomStart/Update/End 事件流，测不到 Bug 2/3
+  // 描述的真实触控板路径。下面两个测试改用 panZoomStart/panZoomUpdate(pan:
+  // ...)/panZoomEnd()——SDK 同一份源码明确要求用这组 API 模拟真实触控板输入，
+  // 对 trackpad kind 的指针调用 .down()/.scroll() 会直接触发断言失败。
   testWidgets(
       'DFCanvas zoom mode lets trackpad scrolling zoom around its focal point',
       (tester) async {
@@ -482,8 +490,10 @@ void main() {
 
     const focalPoint = Offset(450, 300);
     final pointer = TestPointer(1, PointerDeviceKind.trackpad);
-    pointer.hover(focalPoint);
-    await tester.sendEventToBinding(pointer.scroll(const Offset(0, 100)));
+    await tester.sendEventToBinding(pointer.panZoomStart(focalPoint));
+    await tester.sendEventToBinding(
+        pointer.panZoomUpdate(focalPoint, pan: const Offset(0, 100)));
+    await tester.sendEventToBinding(pointer.panZoomEnd());
     await tester.pump();
 
     expect(controller.value.storage[0], closeTo(0.6065, 0.001));
@@ -518,15 +528,253 @@ void main() {
     expect(controller.value.storage[12], closeTo(-20, 0.1));
     expect(controller.value.storage[13], closeTo(-100, 0.1));
 
-    final trackpad = TestPointer(2, PointerDeviceKind.trackpad)
-      ..hover(const Offset(450, 300));
-    await tester.sendEventToBinding(trackpad.scroll(const Offset(-12, 18)));
+    // 触控板双指平移的 pan 语义和鼠标滚轮的 scrollDelta 方向相反(内容跟随
+    // 手指移动，而不是像滚轮那样朝滚动方向的反方向滚)，所以这里 pan 取值和
+    // 上面鼠标部分的 scrollDelta 符号相反，但产生的最终矩阵断言保持不变，
+    // 验证的是同一个"scroll 模式下触控板也走平移而不是缩放"的行为。
+    final trackpad = TestPointer(2, PointerDeviceKind.trackpad);
+    await tester.sendEventToBinding(
+        trackpad.panZoomStart(const Offset(450, 300)));
+    await tester.sendEventToBinding(trackpad.panZoomUpdate(
+      const Offset(450, 300),
+      pan: const Offset(12, -18),
+    ));
+    await tester.sendEventToBinding(trackpad.panZoomEnd());
     await tester.pump();
 
-    expect(controller.value.storage[0], 1);
-    expect(controller.value.storage[5], 1);
+    expect(controller.value.storage[0], closeTo(1, 0.001));
+    expect(controller.value.storage[5], closeTo(1, 0.001));
     expect(controller.value.storage[12], closeTo(-8, 0.1));
     expect(controller.value.storage[13], closeTo(-118, 0.1));
+  });
+
+  testWidgets(
+      'DFCanvas 滚轮滚过节点标题栏与卡片主体产生相同的单次缩放量(Bug 1 回归)',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    final controller = TransformationController();
+    const nodePosition = Offset(180, 160);
+    const nodeSize = Size(240, 120);
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        nodes: [
+          DFCanvasNode(
+            id: 'title-overlap',
+            position: nodePosition,
+            size: nodeSize,
+            onDragUpdate: (_) {},
+            // 完整卡片(含自身约 30px 标题 Text)整体包在 DFCanvasDragRegion
+            // 里，和 DFCanvas 自动加的 36px 标题拖拽条在屏幕上重叠——这正是
+            // Bug 1 的真实触发形状:同一次命中测试路径里会有两个 Listener
+            // 都收到同一个滚轮信号。
+            child: DFCanvasDragRegion(
+              child: ColoredBox(
+                key: const ValueKey('title-overlap-card'),
+                color: Colors.blue,
+                child: Column(children: [
+                  const SizedBox(
+                    height: 30,
+                    child: Center(
+                      child:
+                          Text('节点标题', style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
+                  Expanded(child: Container()),
+                ]),
+              ),
+            ),
+          ),
+        ],
+      ),
+    )));
+
+    final titleStripPoint = Offset(
+        nodePosition.dx + nodeSize.width / 2, nodePosition.dy + 15);
+    final titlePointer = TestPointer(1, PointerDeviceKind.mouse);
+    titlePointer.hover(titleStripPoint);
+    await tester.sendEventToBinding(titlePointer.scroll(const Offset(0, 100)));
+    await tester.pump();
+    final titleScale = controller.value.storage[0];
+
+    controller.value = Matrix4.identity();
+    await tester.pump();
+
+    final bodyPoint =
+        tester.getCenter(find.byKey(const ValueKey('title-overlap-card')));
+    final bodyPointer = TestPointer(2, PointerDeviceKind.mouse);
+    bodyPointer.hover(bodyPoint);
+    await tester.sendEventToBinding(bodyPointer.scroll(const Offset(0, 100)));
+    await tester.pump();
+    final bodyScale = controller.value.storage[0];
+
+    // 双重触发时观察到的是 exp(-1) ≈ 0.3679(两次 exp(-0.5) 叠乘)；
+    // 单次正确触发应为 exp(-0.5) ≈ 0.6065，且标题栏和卡片主体应完全一致。
+    expect(titleScale, closeTo(0.6065, 0.001));
+    expect(bodyScale, closeTo(0.6065, 0.001));
+    expect(titleScale, closeTo(bodyScale, 0.0001));
+  });
+
+  testWidgets(
+      'DFCanvas 触控板双指手势从卡片文字内容上方开始时画布同样响应(Bug 2 回归)',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    final controller = TransformationController();
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        nodes: [
+          DFCanvasNode(
+            id: 'trackpad-text-card',
+            position: const Offset(180, 160),
+            size: const Size(240, 120),
+            onDragUpdate: (_) {},
+            child: const DFCanvasViewportSignalRegion(
+              child: ColoredBox(
+                color: Colors.blue,
+                child: Center(
+                  child: Text(
+                    '卡片正文内容',
+                    key: ValueKey('trackpad-text-card-label'),
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    )));
+
+    final textFinder = find.byKey(const ValueKey('trackpad-text-card-label'));
+    expect(textFinder.hitTestable(), findsOneWidget);
+    final start = tester.getCenter(textFinder);
+
+    final pointer = TestPointer(1, PointerDeviceKind.trackpad);
+    await tester.sendEventToBinding(pointer.panZoomStart(start));
+    await tester.sendEventToBinding(
+        pointer.panZoomUpdate(start, pan: const Offset(-30, -20)));
+    await tester.sendEventToBinding(pointer.panZoomEnd());
+    await tester.pump();
+
+    // 起点落在 RenderParagraph(Text)可见内容正上方；修复前背景层的
+    // ScaleGestureRecognizer 命中测试不到，矩阵会纹丝不动等于单位矩阵。
+    expect(controller.value, isNot(Matrix4.identity()));
+  });
+
+  testWidgets('DFCanvas wheelMode 决定节点上方触控板手势是缩放还是平移(Bug 3 回归)',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+
+    Future<TransformationController> pumpAndPan(CanvasWheelMode mode) async {
+      final controller = TransformationController();
+      await tester.pumpWidget(themed(SizedBox(
+        width: 900,
+        height: 600,
+        child: DFCanvas(
+          controller: controller,
+          fitOnInit: false,
+          wheelMode: mode,
+          nodes: [
+            DFCanvasNode(
+              id: 'wheel-mode-card',
+              position: const Offset(180, 160),
+              size: const Size(240, 120),
+              onDragUpdate: (_) {},
+              child: const DFCanvasViewportSignalRegion(
+                child: ColoredBox(
+                  key: ValueKey('wheel-mode-card-body'),
+                  color: Colors.blue,
+                  child: Text('内容'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      )));
+
+      final start =
+          tester.getCenter(find.byKey(const ValueKey('wheel-mode-card-body')));
+      final pointer = TestPointer(1, PointerDeviceKind.trackpad);
+      await tester.sendEventToBinding(pointer.panZoomStart(start));
+      await tester
+          .sendEventToBinding(pointer.panZoomUpdate(start, pan: const Offset(0, 60)));
+      await tester.sendEventToBinding(pointer.panZoomEnd());
+      await tester.pump();
+      return controller;
+    }
+
+    final zoomController = await pumpAndPan(CanvasWheelMode.zoom);
+    expect(zoomController.value.storage[0], isNot(closeTo(1, 0.001)));
+
+    final scrollController = await pumpAndPan(CanvasWheelMode.scroll);
+    expect(scrollController.value.storage[0], closeTo(1, 0.001));
+    expect(scrollController.value.storage[13], closeTo(60, 0.1));
+  });
+
+  testWidgets(
+      'DFCanvas 节点内嵌套 ListView 滚轮去重后优先于画布(Bug 1 附带问题验证)',
+      (tester) async {
+    await setLogicalSize(tester, const Size(900, 600));
+    final controller = TransformationController();
+    final scrollController = ScrollController();
+    addTearDown(scrollController.dispose);
+
+    // 复刻 production_screen.dart _AssetsNode 的真实结构:整节点包一层
+    // DFCanvasViewportSignalRegion(把滚轮交还给画布)，内部是一个未做任何特殊
+    // 处理的普通 ListView——和真实代码一样，完全依赖 ListView 自带的
+    // Scrollable 通过 PointerSignalResolver 参与去重。评审指出:画布这边一旦
+    // 也改成走 resolver，二者应该正常互斥；这里实际跑一遍而不是假设。
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        nodes: [
+          DFCanvasNode(
+            id: 'assets-like',
+            position: const Offset(180, 160),
+            size: const Size(240, 200),
+            onDragUpdate: (_) {},
+            child: DFCanvasViewportSignalRegion(
+              child: ListView.builder(
+                key: const ValueKey('assets-like-list'),
+                controller: scrollController,
+                itemCount: 30,
+                itemBuilder: (context, i) => SizedBox(
+                  height: 40,
+                  child: ColoredBox(
+                    color: i.isEven ? Colors.blue : Colors.blue.shade200,
+                    child: Text('item $i'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    )));
+
+    final listPoint =
+        tester.getCenter(find.byKey(const ValueKey('assets-like-list')));
+    final pointer = TestPointer(1, PointerDeviceKind.mouse);
+    pointer.hover(listPoint);
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, 100)));
+    await tester.pump();
+
+    // 列表内容优先响应滚轮:滚动位置改变。
+    expect(scrollController.offset, greaterThan(0));
+    // 画布矩阵完全不受影响——既没有跟着平移也没有跟着缩放。
+    expect(controller.value, Matrix4.identity());
   });
 
   testWidgets('DFCanvas title handle moves a node in scene coordinates',
