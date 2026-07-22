@@ -128,15 +128,41 @@ void main() {
     expect(gateway.stages, ['scriptAgent', 'productionAgent']);
   });
 
-  test('manual 模式只执行一轮工具调用', () async {
+  test('manual 模式下 get_status 探测后还能再进行一轮', () async {
+    // 手动模式以前"跑完一个工具调用就停"，如果 AI 第一步只是调用免确认的
+    // get_status 探路（比如不确定该操作哪个 scriptId），整轮就直接结束，
+    // 用户只看到一段状态文本，AI 没机会说明或接着动手——只能重新发一遍。
+    // 现在允许 get_status 这类只读探测之后再给一轮，让 AI 能继续解释/行动。
     gateway.turns = [
       const AgentTurnResult.tool('get_status', {}),
-      const AgentTurnResult.text('不应继续到第二轮'),
+      const AgentTurnResult.text('已了解现状，建议先补全资产提取。'),
     ];
 
     await engine.sendAssistantMessage(
       projectId,
       '看看进度',
+      family: assistantFamilyScript,
+      autoMode: false,
+    );
+
+    expect(gateway.callCount, 2);
+    final messages = engine.assistantMessages(
+      projectId,
+      family: assistantFamilyScript,
+    );
+    expect(messages.last.role, 'assistant');
+    expect(messages.last.content, '已了解现状，建议先补全资产提取。');
+  });
+
+  test('manual 模式下真实动作只执行一轮，不会自行连续追加', () async {
+    gateway.turns = [
+      const AgentTurnResult.tool('note_search', {'query': '角色'}),
+      const AgentTurnResult.text('不应继续到第二轮'),
+    ];
+
+    await engine.sendAssistantMessage(
+      projectId,
+      '查一下笔记',
       family: assistantFamilyScript,
       autoMode: false,
     );
@@ -147,7 +173,7 @@ void main() {
       family: assistantFamilyScript,
     );
     expect(messages.last.role, 'tool');
-    expect(messages.last.toolName, 'get_status');
+    expect(messages.last.toolName, 'note_search');
   });
 
   test('auto 模式最多连续执行 5 轮', () async {

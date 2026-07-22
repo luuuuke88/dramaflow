@@ -261,14 +261,18 @@ Future<String> runAssistantAction(
         scriptId,
         replaceExisting: false,
       );
-      if (taskId == 0) return '缺少已保存的导演规划或分镜表，无法生成分镜。';
+      if (taskId == 0) {
+        return '还没有导演规划和分镜表，这两样需要先在"视频生产"画布里生成，聊天里做不了，麻烦去那边操作一下。';
+      }
       return '已提交分镜生成任务（任务 #$taskId）。';
     case 'generate_shot_images':
       final scriptId = _intOf(args['scriptId']);
       if (scriptId == null) return '缺少 scriptId 参数。';
       final ids = _intList(args['storyboardIds']) ??
           engine.storyboards(scriptId).map((s) => s.id).toList();
-      if (ids.isEmpty) return '该剧本暂无分镜。';
+      if (ids.isEmpty) {
+        return '该剧本暂无分镜，请先去"视频生产"画布生成分镜。';
+      }
       final taskId = engine.batchGenerateStoryboardImages(projectId, ids,
           compulsory: true);
       return '已提交首帧图生成任务（任务 #$taskId），涉及 ${ids.length} 个分镜。';
@@ -277,7 +281,9 @@ Future<String> runAssistantAction(
       if (scriptId == null) return '缺少 scriptId 参数。';
       final ids = _intList(args['storyboardIds']) ??
           engine.storyboards(scriptId).map((s) => s.id).toList();
-      if (ids.isEmpty) return '该剧本暂无分镜。';
+      if (ids.isEmpty) {
+        return '该剧本暂无分镜，请先去"视频生产"画布生成分镜。';
+      }
       int taskId;
       try {
         taskId = engine.batchGenerateVideos(projectId, ids);

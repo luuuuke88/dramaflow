@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../engine/assets.dart';
 import '../../engine/assistant_chat.dart';
@@ -34,11 +35,15 @@ class AgentChatScreen extends ConsumerStatefulWidget {
 }
 
 class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
+  // 「剧本Agent」「制作Agent」以前是同一个聊天框的两个 tab，切换只换了欢迎语和
+  // 给 AI 的一句提示偏好，能力完全一样——用户反馈"感觉不出区别"，所以合并成
+  // 一个入口，固定用 script family，不再让用户在两个几乎一样的东西里选。
+  static const _family = assistantFamilyScript;
+
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
   bool _autoMode = false;
   bool _sending = false;
-  String _family = assistantFamilyScript;
 
   @override
   void initState() {
@@ -58,12 +63,6 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     ref.read(engineProvider).setAssistantAutoMode(value);
   }
 
-  void _setFamily(String family) {
-    if (_family == family) return;
-    setState(() => _family = family);
-    _scrollToBottom();
-  }
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
@@ -81,12 +80,11 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     _input.clear();
     setState(() => _sending = true);
     _scrollToBottom();
-    final family = _family;
     try {
       await ref.read(engineProvider).sendAssistantMessage(
             widget.projectId,
             text,
-            family: family,
+            family: _family,
             autoMode: _autoMode,
           );
     } finally {
@@ -164,9 +162,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_family == assistantFamilyScript
-            ? l10n.agentDeployGroupScriptAgent
-            : l10n.agentDeployGroupProductionAgent),
+        title: Text(l10n.agentDeployGroupScriptAgent),
         actions: [
           IconButton(
             key: const ValueKey('assistant-advanced-button'),
@@ -201,49 +197,12 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
         ],
       ),
       body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: SegmentedButton<String>(
-              key: const ValueKey('assistant-family-switch'),
-              showSelectedIcon: false,
-              segments: [
-                ButtonSegment(
-                  value: assistantFamilyScript,
-                  icon: const Icon(Icons.edit_note_outlined),
-                  label: Text(
-                    l10n.agentDeployGroupScriptAgent,
-                    key: const ValueKey('assistant-family-script'),
-                  ),
-                ),
-                ButtonSegment(
-                  value: assistantFamilyProduction,
-                  icon: const Icon(Icons.movie_creation_outlined),
-                  label: Text(
-                    l10n.agentDeployGroupProductionAgent,
-                    key: const ValueKey('assistant-family-production'),
-                  ),
-                ),
-              ],
-              selected: {_family},
-              onSelectionChanged: (selection) {
-                _setFamily(selection.single);
-              },
-            ),
-          ),
-        ),
         Expanded(
           child: ListView(
             controller: _scroll,
             padding: const EdgeInsets.all(16),
             children: [
-              if (messages.isEmpty)
-                _WelcomeBubble(
-                  text: _family == assistantFamilyScript
-                      ? l10n.agentChatWelcome
-                      : l10n.canvasChatWelcome,
-                ),
+              if (messages.isEmpty) _WelcomeBubble(text: l10n.agentChatWelcome),
               for (final message in messages)
                 _AssistantMessageBubble(
                   message: message,
@@ -327,7 +286,10 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                             index: entry.$1,
                             step: entry.$2,
                             enabled: !_sending,
-                            onTap: () => _quickSend(entry.$2.prompt),
+                            onTap: entry.$2.opensProduction
+                                ? () => context
+                                    .go('/p/${widget.projectId}/production')
+                                : () => _quickSend(entry.$2.prompt),
                           ),
                         ]),
                     ],
@@ -369,6 +331,9 @@ class _PipelineStepInfo {
   final _StepStatus status;
   final int doneCount;
   final int? totalCount;
+  // 分镜/首帧图/视频这三步在聊天里做不完整（缺"导演规划"和"分镜表"，
+  // 只有"视频生产"画布能生成），点击直接跳转过去，而不是在聊天里注定失败。
+  final bool opensProduction;
 
   const _PipelineStepInfo({
     required this.label,
@@ -376,6 +341,7 @@ class _PipelineStepInfo {
     required this.status,
     required this.doneCount,
     this.totalCount,
+    this.opensProduction = false,
   });
 
   String get countText {
@@ -460,6 +426,7 @@ List<_PipelineStepInfo> _pipelineSteps(
       prompt: '帮我生成分镜',
       status: statusAt(2),
       doneCount: storyboardCount,
+      opensProduction: true,
     ),
     _PipelineStepInfo(
       label: l10n.agentChatQuickShotImage,
@@ -467,6 +434,7 @@ List<_PipelineStepInfo> _pipelineSteps(
       status: statusAt(3),
       doneCount: shotImageDone,
       totalCount: storyboardCount,
+      opensProduction: true,
     ),
     _PipelineStepInfo(
       label: l10n.agentChatQuickVideo,
@@ -474,6 +442,7 @@ List<_PipelineStepInfo> _pipelineSteps(
       status: statusAt(4),
       doneCount: shotVideoDone,
       totalCount: storyboardCount,
+      opensProduction: true,
     ),
     _PipelineStepInfo(
       label: l10n.agentChatQuickAudio,
@@ -508,9 +477,16 @@ class _PipelineStepChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final df = context.df;
-    final label = step.countText.isEmpty
+    final labelText = step.countText.isEmpty
         ? step.label
         : '${step.label} ${step.countText}';
+    final label = step.opensProduction
+        ? Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(labelText),
+            const SizedBox(width: 4),
+            Icon(Icons.open_in_new_rounded, size: 12, color: df.textTertiary),
+          ])
+        : Text(labelText);
 
     final Widget avatar;
     Color? background;
@@ -554,7 +530,7 @@ class _PipelineStepChip extends StatelessWidget {
 
     return ActionChip(
       avatar: avatar,
-      label: Text(label),
+      label: label,
       backgroundColor: background,
       side: side,
       onPressed: enabled ? onTap : null,

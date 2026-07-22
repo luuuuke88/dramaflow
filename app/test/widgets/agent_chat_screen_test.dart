@@ -112,12 +112,15 @@ void main() {
     );
   }
 
-  testWidgets('对话页使用 assistant_chat，并按入口隔离剧本/制作会话', (tester) async {
+  testWidgets('对话页使用 assistant_chat，固定 script family，不再有入口切换',
+      (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
     expect(find.textContaining('剧本 Agent'), findsWidgets);
-    await tester.enterText(find.byType(TextField), '剧本侧推进事件');
+    expect(find.byType(SegmentedButton<String>), findsNothing);
+
+    await tester.enterText(find.byType(TextField), '推进事件');
     await tester.tap(find.text('发送'));
     await tester.pumpAndSettle();
 
@@ -128,18 +131,6 @@ void main() {
     expect(
       engine.assistantMessages(projectId, family: assistantFamilyProduction),
       isEmpty,
-    );
-
-    await tester.tap(find.byKey(const ValueKey('assistant-family-production')));
-    await tester.pumpAndSettle();
-    expect(find.text('剧本侧推进事件'), findsNothing);
-
-    await tester.enterText(find.byType(TextField), '制作侧推进分镜');
-    await tester.tap(find.text('发送'));
-    await tester.pumpAndSettle();
-    expect(
-      engine.assistantMessages(projectId, family: assistantFamilyProduction),
-      hasLength(2),
     );
   });
 
