@@ -299,31 +299,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _sectionBody() {
+    // 注：这里原来用 AnimatedSwitcher 做淡入淡出，但各分区内容高度差异很大
+    // （"外观"很短，"供应商"表格很长），交叉淡入淡出期间新旧内容各自居中叠在
+    // 一起，看起来就是"重叠一下再跳一下"，不流畅。分区切换直接换内容更干脆。
     return ListView(
       children: [
         const SizedBox(height: 16),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 120),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
+        KeyedSubtree(
+          key: ValueKey(_section),
+          child: switch (_section) {
+            _SettingsSection.appearance => _appearanceCard(),
+            _SettingsSection.providers => _providersPanel(),
+            _SettingsSection.bindings => _bindingsPanel(),
+            _SettingsSection.prompts => _promptsPanel(),
+            _SettingsSection.other => _otherPanel(),
+            _SettingsSection.storage => _storageCard(),
+            _SettingsSection.about => _aboutCard(),
           },
-          child: KeyedSubtree(
-            key: ValueKey(_section),
-            child: switch (_section) {
-              _SettingsSection.appearance => _appearanceCard(),
-              _SettingsSection.providers => _providersPanel(),
-              _SettingsSection.bindings => _bindingsPanel(),
-              _SettingsSection.prompts => _promptsPanel(),
-              _SettingsSection.other => _otherPanel(),
-              _SettingsSection.storage => _storageCard(),
-              _SettingsSection.about => _aboutCard(),
-            },
-          ),
         ),
         const SizedBox(height: 40),
       ],
@@ -1645,25 +1637,27 @@ class _SideNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final df = context.df;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 240,
       decoration: BoxDecoration(
-        color: df.surface,
+        color: isDark
+            ? const Color(0xFF1C1C24).withValues(alpha: 0.65)
+            : Colors.white.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: df.stroke.withValues(alpha: 0.4)),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       padding: const EdgeInsets.all(10),
-      // 卡片本身被外层 Row 拉伸到跟右侧内容等高；这里用 SingleChildScrollView
-      // 包一层，正常情况下菜单项按自身高度顶部对齐、下方留白，
-      // 万一窗口矮到装不下也能滚动，而不是溢出报错。
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1790,16 +1784,22 @@ class _SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final df = context.df;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: df.surface,
+        color: isDark
+            ? const Color(0xFF1C1C24).withValues(alpha: 0.65)
+            : Colors.white.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: df.stroke.withValues(alpha: 0.4)),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),

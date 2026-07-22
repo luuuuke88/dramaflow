@@ -286,6 +286,168 @@ abstract class AppLocalizations {
   /// **'设置界面的显示语言选项'**
   String get settingsLanguageSubtitle;
 
+  /// No description provided for @taskActiveRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个任务运行中'**
+  String taskActiveRunning(Object count);
+
+  /// No description provided for @taskActiveNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无运行中任务'**
+  String get taskActiveNone;
+
+  /// No description provided for @taskFilterProjectLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目名称'**
+  String get taskFilterProjectLabel;
+
+  /// No description provided for @taskFilterProjectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部项目'**
+  String get taskFilterProjectAll;
+
+  /// No description provided for @taskFilterClassLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务大类'**
+  String get taskFilterClassLabel;
+
+  /// No description provided for @taskFilterClassAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部大类'**
+  String get taskFilterClassAll;
+
+  /// No description provided for @taskFilterStateLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务状态'**
+  String get taskFilterStateLabel;
+
+  /// No description provided for @taskFilterStateAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部状态'**
+  String get taskFilterStateAll;
+
+  /// No description provided for @taskFilterReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置筛选'**
+  String get taskFilterReset;
+
+  /// No description provided for @taskTableHeaderClass.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务大类'**
+  String get taskTableHeaderClass;
+
+  /// No description provided for @taskTableHeaderTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'关联对象'**
+  String get taskTableHeaderTarget;
+
+  /// No description provided for @taskTableHeaderModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型名称'**
+  String get taskTableHeaderModel;
+
+  /// No description provided for @taskTableHeaderDescribe.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述'**
+  String get taskTableHeaderDescribe;
+
+  /// No description provided for @taskTableHeaderReason.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败原因'**
+  String get taskTableHeaderReason;
+
+  /// No description provided for @taskTableHeaderState.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get taskTableHeaderState;
+
+  /// No description provided for @taskTableHeaderAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间 / 操作'**
+  String get taskTableHeaderAction;
+
+  /// No description provided for @taskFooterTotalCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 条数据'**
+  String taskFooterTotalCount(Object count);
+
+  /// No description provided for @taskFooterPageSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条/页'**
+  String taskFooterPageSize(Object count);
+
+  /// No description provided for @taskEmptyFilteredTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无符合条件的任务记录'**
+  String get taskEmptyFilteredTitle;
+
+  /// No description provided for @taskEmptyFilteredDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成剧本、图片、视频等操作产生的任务会显示在这里，可以按项目、类型、状态筛选查看'**
+  String get taskEmptyFilteredDesc;
+
+  /// No description provided for @taskGlobalProject.
+  ///
+  /// In zh, this message translates to:
+  /// **'全局任务'**
+  String get taskGlobalProject;
+
+  /// No description provided for @projectSearchPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索项目名称或简介...'**
+  String get projectSearchPlaceholder;
+
+  /// No description provided for @projectViewGrid.
+  ///
+  /// In zh, this message translates to:
+  /// **'网格视图'**
+  String get projectViewGrid;
+
+  /// No description provided for @projectViewList.
+  ///
+  /// In zh, this message translates to:
+  /// **'列表视图'**
+  String get projectViewList;
+
+  /// No description provided for @projectStatTotalProjects.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个项目'**
+  String projectStatTotalProjects(Object count);
+
+  /// No description provided for @projectStatTotalScripts.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 份剧本'**
+  String projectStatTotalScripts(Object count);
+
+  /// No description provided for @projectStatTotalStoryboards.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 组分镜'**
+  String projectStatTotalStoryboards(Object count);
+
   /// No description provided for @projectUntitled.
   ///
   /// In zh, this message translates to:
@@ -1779,6 +1941,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'事件分析中'**
   String get novelAnalysisAnalyzing;
+
+  /// No description provided for @novelNextStepBannerText.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件已生成，可以去生成剧本了'**
+  String get novelNextStepBannerText;
+
+  /// No description provided for @novelNextStepBannerButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'去生成剧本'**
+  String get novelNextStepBannerButton;
 
   /// No description provided for @scriptSearchPlaceholder.
   ///

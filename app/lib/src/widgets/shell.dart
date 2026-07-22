@@ -135,7 +135,6 @@ class _SideBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final df = context.df;
     final activeCount = ref.watch(activeJobsProvider).length;
 
     final isProject = path == '/' || path.startsWith('/p/');
@@ -152,17 +151,19 @@ class _SideBar extends ConsumerWidget {
     return Container(
       width: 76,
       decoration: BoxDecoration(
-        gradient: glassGradient(df, isDark),
+        color: isDark
+            ? const Color(0xFF1C1C24).withValues(alpha: 0.65)
+            : Colors.white.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(38),
         border: Border.all(
-          color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.8),
+          color: Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.36 : 0.16),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -300,17 +301,11 @@ class _TopBar extends ConsumerWidget {
     final visibleMenus = _visibleProjectMenus(project);
 
     return Container(
-      height: 64,
-      decoration: BoxDecoration(
-        color: df.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: df.stroke.withValues(alpha: 0.35),
-            width: 1,
-          ),
-        ),
+      height: 86,
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Row(children: [
         // 左上角当前项目名（纯展示，不可点击）
         ConstrainedBox(
@@ -320,8 +315,9 @@ class _TopBar extends ConsumerWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
               color: project == null ? df.textTertiary : df.textPrimary,
             ),
           ),
@@ -330,11 +326,10 @@ class _TopBar extends ConsumerWidget {
         // 右上角项目功能 Segmented 选项卡（大气舒展布局）
         if (visibleMenus.isNotEmpty)
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: df.surfaceMuted.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: df.stroke.withValues(alpha: 0.4)),
+              color: df.surfaceMuted.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -442,12 +437,12 @@ class _NavPillState extends State<_NavPill> {
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected
                 ? df.surface
                 : (_hover ? df.surfaceMuted : Colors.transparent),
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isSelected
                   ? df.stroke.withValues(alpha: 0.5)
@@ -467,13 +462,13 @@ class _NavPillState extends State<_NavPill> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, size: 16, color: fg),
-              const SizedBox(width: 6),
+              Icon(widget.icon, size: 18, color: fg),
+              const SizedBox(width: 8),
               Text(
                 widget.label,
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                   color: fg,
                 ),
               ),

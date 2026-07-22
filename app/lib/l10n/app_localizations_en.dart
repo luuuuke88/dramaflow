@@ -108,6 +108,100 @@ class AppLocalizationsEn extends AppLocalizations {
       'Select display language for the application interface';
 
   @override
+  String taskActiveRunning(Object count) {
+    return '$count tasks running';
+  }
+
+  @override
+  String get taskActiveNone => 'No active tasks';
+
+  @override
+  String get taskFilterProjectLabel => 'Project';
+
+  @override
+  String get taskFilterProjectAll => 'All Projects';
+
+  @override
+  String get taskFilterClassLabel => 'Category';
+
+  @override
+  String get taskFilterClassAll => 'All Categories';
+
+  @override
+  String get taskFilterStateLabel => 'Status';
+
+  @override
+  String get taskFilterStateAll => 'All Statuses';
+
+  @override
+  String get taskFilterReset => 'Reset Filters';
+
+  @override
+  String get taskTableHeaderClass => 'Category';
+
+  @override
+  String get taskTableHeaderTarget => 'Target';
+
+  @override
+  String get taskTableHeaderModel => 'Model';
+
+  @override
+  String get taskTableHeaderDescribe => 'Description';
+
+  @override
+  String get taskTableHeaderReason => 'Reason';
+
+  @override
+  String get taskTableHeaderState => 'Status';
+
+  @override
+  String get taskTableHeaderAction => 'Time / Action';
+
+  @override
+  String taskFooterTotalCount(Object count) {
+    return 'Total $count items';
+  }
+
+  @override
+  String taskFooterPageSize(Object count) {
+    return '$count / page';
+  }
+
+  @override
+  String get taskEmptyFilteredTitle => 'No tasks match current filter';
+
+  @override
+  String get taskEmptyFilteredDesc =>
+      'Tasks generated from script, image, or video operations will appear here';
+
+  @override
+  String get taskGlobalProject => 'Global Task';
+
+  @override
+  String get projectSearchPlaceholder => 'Search project name or intro...';
+
+  @override
+  String get projectViewGrid => 'Grid View';
+
+  @override
+  String get projectViewList => 'List View';
+
+  @override
+  String projectStatTotalProjects(Object count) {
+    return '$count Projects';
+  }
+
+  @override
+  String projectStatTotalScripts(Object count) {
+    return '$count Scripts';
+  }
+
+  @override
+  String projectStatTotalStoryboards(Object count) {
+    return '$count Storyboards';
+  }
+
+  @override
   String get projectUntitled => 'Untitled project';
 
   @override
@@ -914,6 +1008,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get novelAnalysisAnalyzing => 'Analyzing events';
+
+  @override
+  String get novelNextStepBannerText =>
+      'Events are ready. You can generate the script now.';
+
+  @override
+  String get novelNextStepBannerButton => 'Generate script';
 
   @override
   String get scriptSearchPlaceholder => 'Search script names...';

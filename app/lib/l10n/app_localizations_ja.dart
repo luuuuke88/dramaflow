@@ -102,6 +102,100 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsLanguageSubtitle => '设置界面的显示语言选项';
 
   @override
+  String taskActiveRunning(Object count) {
+    return '$count 个任务运行中';
+  }
+
+  @override
+  String get taskActiveNone => '暂无运行中任务';
+
+  @override
+  String get taskFilterProjectLabel => '项目名称';
+
+  @override
+  String get taskFilterProjectAll => '全部项目';
+
+  @override
+  String get taskFilterClassLabel => '任务大类';
+
+  @override
+  String get taskFilterClassAll => '全部大类';
+
+  @override
+  String get taskFilterStateLabel => '任务状态';
+
+  @override
+  String get taskFilterStateAll => '全部状态';
+
+  @override
+  String get taskFilterReset => '重置筛选';
+
+  @override
+  String get taskTableHeaderClass => '任务大类';
+
+  @override
+  String get taskTableHeaderTarget => '关联对象';
+
+  @override
+  String get taskTableHeaderModel => '模型名称';
+
+  @override
+  String get taskTableHeaderDescribe => '描述';
+
+  @override
+  String get taskTableHeaderReason => '失败原因';
+
+  @override
+  String get taskTableHeaderState => '状态';
+
+  @override
+  String get taskTableHeaderAction => '时间 / 操作';
+
+  @override
+  String taskFooterTotalCount(Object count) {
+    return '共 $count 条数据';
+  }
+
+  @override
+  String taskFooterPageSize(Object count) {
+    return '$count 条/页';
+  }
+
+  @override
+  String get taskEmptyFilteredTitle => '暂无符合条件的任务记录';
+
+  @override
+  String get taskEmptyFilteredDesc =>
+      '生成剧本、图片、视频等操作产生的任务会显示在这里，可以按项目、类型、状态筛选查看';
+
+  @override
+  String get taskGlobalProject => '全局任务';
+
+  @override
+  String get projectSearchPlaceholder => '搜索项目名称或简介...';
+
+  @override
+  String get projectViewGrid => '网格视图';
+
+  @override
+  String get projectViewList => '列表视图';
+
+  @override
+  String projectStatTotalProjects(Object count) {
+    return '$count 个项目';
+  }
+
+  @override
+  String projectStatTotalScripts(Object count) {
+    return '$count 份剧本';
+  }
+
+  @override
+  String projectStatTotalStoryboards(Object count) {
+    return '$count 组分镜';
+  }
+
+  @override
   String get projectUntitled => '無題のプロジェクト';
 
   @override
@@ -891,6 +985,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelAnalysisAnalyzing => 'イベント分析中';
+
+  @override
+  String get novelNextStepBannerText => 'イベントの生成が完了しました。台本を生成できます';
+
+  @override
+  String get novelNextStepBannerButton => '台本を生成';
 
   @override
   String get scriptSearchPlaceholder => 'シナリオ名を検索...';

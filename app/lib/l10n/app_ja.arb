@@ -326,6 +326,8 @@
   "novelAnalysisStartAnalysis": "分析を開始",
   "novelAnalysisChapterHeader": "第{index}章 - {name}",
   "novelAnalysisAnalyzing": "イベント分析中",
+  "novelNextStepBannerText": "イベントの生成が完了しました。台本を生成できます",
+  "novelNextStepBannerButton": "台本を生成",
   "scriptSearchPlaceholder": "シナリオ名を検索...",
   "scriptSearch": "検索",
   "scriptAddScript": "シナリオを新規作成",

@@ -232,13 +232,9 @@ class _MobileRows extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+    Widget list({required bool bounded}) => ListView.separated(
+          shrinkWrap: !bounded,
+          physics: bounded ? null : const NeverScrollableScrollPhysics(),
           itemCount: rows.length,
           separatorBuilder: (_, __) => const SizedBox(height: DFTokens.s12),
           itemBuilder: (context, index) {
@@ -250,17 +246,35 @@ class _MobileRows extends StatelessWidget {
               child: mobileCardBuilder(context, row),
             );
           },
-        ),
-        if (pagination != null)
-          Padding(
-            padding: const EdgeInsets.only(top: DFTokens.s12),
-            child: _PaginationBar(
-              pagination: pagination!,
-              onPageChange: onPageChange,
+        );
+
+    return LayoutBuilder(builder: (context, constraints) {
+      // 外层给了确定高度（比如被 Expanded 包住）就用正常的可滚动列表，
+      // 数据多时在自己范围内滚动；外层高度不确定（比如嵌在别的 ListView
+      // 里）才用 shrinkWrap + 禁用自身滚动，交给外层滚动。
+      // 之前一律用 shrinkWrap + 禁用滚动，数据一多、外层又给了固定高度时，
+      // 内容会把外层撑爆（章节选择表数据多时的溢出报错正是这个原因）。
+      final bounded = constraints.hasBoundedHeight;
+      final listWidget = list(bounded: bounded);
+      final column = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          bounded ? Expanded(child: listWidget) : listWidget,
+          if (pagination != null)
+            Padding(
+              padding: const EdgeInsets.only(top: DFTokens.s12),
+              child: _PaginationBar(
+                pagination: pagination!,
+                onPageChange: onPageChange,
+              ),
             ),
-          ),
-      ],
-    );
+        ],
+      );
+      return bounded
+          ? SizedBox(height: constraints.maxHeight, child: column)
+          : column;
+    });
   }
 
   void _toggle(String id, bool selected) {

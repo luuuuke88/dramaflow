@@ -4,11 +4,14 @@
 // 数据刷新：watch 队列事件（jobsGeneration），无轮询。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../engine/events.dart';
 import '../../engine/novel.dart';
+import '../../engine/scripts.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
+import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_data_table.dart';
@@ -36,6 +39,7 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
   static const _limit = 10;
   String _search = '';
   final Set<String> _selected = {};
+  bool _nextStepBannerDismissed = false;
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -387,29 +391,103 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
     ]);
   }
 
+  Widget _buildGlassContainer({required Widget child}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C24).withValues(alpha: 0.65) : Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget? _nextStepBanner() {
+    if (_nextStepBannerDismissed) return null;
+    ref.watch(jobsGenerationProvider);
+    final engine = ref.watch(engineProvider);
+    final hasEvents = engine.events(widget.projectId, limit: 1).total > 0;
+    if (!hasEvents) return null;
+    final hasScript = engine.scripts(widget.projectId).isNotEmpty;
+    if (hasScript) return null;
+
+    final l10n = context.l10n;
+    final df = context.df;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: df.primarySubtle,
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        border: Border.all(color: df.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Icon(Icons.auto_awesome_rounded, size: 20, color: df.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            l10n.novelNextStepBannerText,
+            style: DFTokens.body14.copyWith(color: df.textPrimary),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          onPressed: () => context.go('/p/${widget.projectId}/scriptAgent'),
+          child: Text(l10n.novelNextStepBannerButton),
+        ),
+        IconButton(
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          icon: const Icon(Icons.close_rounded, size: 18),
+          onPressed: () => setState(() => _nextStepBannerDismissed = true),
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final banner = _nextStepBanner();
     return DefaultTabController(
       length: 2,
       child: Column(children: [
         Container(
           alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.only(left: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
+            dividerColor: Colors.transparent,
+            labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            indicatorSize: TabBarIndicatorSize.label,
             tabs: [
               Tab(text: l10n.menuNovel),
               Tab(text: l10n.novelColEvent),
             ],
           ),
         ),
+        if (banner != null) Padding(padding: const EdgeInsets.only(top: 12), child: banner),
         Expanded(
-          child: TabBarView(children: [
-            _chaptersTab(),
-            EventTab(projectId: widget.projectId),
-          ]),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: TabBarView(children: [
+              _buildGlassContainer(child: _chaptersTab()),
+              _buildGlassContainer(child: EventTab(projectId: widget.projectId)),
+            ]),
+          ),
         ),
       ]),
     );

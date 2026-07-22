@@ -73,6 +73,8 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     final startIndex = (safePage - 1) * _pageSize;
     final pageJobs = filteredJobs.skip(startIndex).take(_pageSize).toList();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(40, 36, 40, 32),
       child: Column(
@@ -103,8 +105,8 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                           ),
                           child: Text(
                             activeJobs.isNotEmpty
-                                ? '${activeJobs.length} 个任务运行中'
-                                : '暂无运行中任务',
+                                ? l10n.taskActiveRunning(activeJobs.length)
+                                : l10n.taskActiveNone,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -147,18 +149,23 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
           ),
           const SizedBox(height: 24),
 
-          // 2. 顶部多维筛选控制卡片 (Filter Bar)
+          // 2. 顶部多维筛选控制卡片 (Filter Bar - 磨砂玻璃)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: df.surface,
+              color: isDark
+                  ? const Color(0xFF1C1C24).withValues(alpha: 0.65)
+                  : Colors.white.withValues(alpha: 0.72),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: df.stroke.withValues(alpha: 0.4)),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
+                width: 1.2,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -167,7 +174,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 // 筛选 1: 项目名称
                 _buildFilterItem(
                   context,
-                  label: '项目名称',
+                  label: l10n.taskFilterProjectLabel,
                   child: DropdownButton<int?>(
                     value: _selectedProjectId,
                     isDense: true,
@@ -175,9 +182,9 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     icon: Icon(Icons.keyboard_arrow_down_rounded,
                         color: df.textTertiary, size: 18),
                     items: [
-                      const DropdownMenuItem<int?>(
+                      DropdownMenuItem<int?>(
                         value: null,
-                        child: Text('全部项目'),
+                        child: Text(l10n.taskFilterProjectAll),
                       ),
                       for (final p in projects)
                         DropdownMenuItem<int?>(
@@ -195,7 +202,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 // 筛选 2: 任务大类
                 _buildFilterItem(
                   context,
-                  label: '任务大类',
+                  label: l10n.taskFilterClassLabel,
                   child: DropdownButton<String>(
                     value: classes.contains(_classFilter)
                         ? _classFilter
@@ -205,9 +212,9 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     icon: Icon(Icons.keyboard_arrow_down_rounded,
                         color: df.textTertiary, size: 18),
                     items: [
-                      const DropdownMenuItem<String>(
+                      DropdownMenuItem<String>(
                         value: _kAllFilter,
-                        child: Text('全部大类'),
+                        child: Text(l10n.taskFilterClassAll),
                       ),
                       for (final cls in classes)
                         DropdownMenuItem<String>(
@@ -229,7 +236,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 // 筛选 3: 状态
                 _buildFilterItem(
                   context,
-                  label: '任务状态',
+                  label: l10n.taskFilterStateLabel,
                   child: DropdownButton<String>(
                     value: _stateFilter,
                     isDense: true,
@@ -237,9 +244,9 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     icon: Icon(Icons.keyboard_arrow_down_rounded,
                         color: df.textTertiary, size: 18),
                     items: [
-                      const DropdownMenuItem<String>(
+                      DropdownMenuItem<String>(
                         value: _kAllFilter,
-                        child: Text('全部状态'),
+                        child: Text(l10n.taskFilterStateAll),
                       ),
                       for (final st in states)
                         DropdownMenuItem<String>(
@@ -269,7 +276,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                       _currentPage = 1;
                     }),
                     icon: const Icon(Icons.filter_alt_off_outlined, size: 16),
-                    label: const Text('重置筛选'),
+                    label: Text(l10n.taskFilterReset),
                     style: TextButton.styleFrom(
                       foregroundColor: df.textSecondary,
                     ),
@@ -279,18 +286,23 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
           ),
           const SizedBox(height: 16),
 
-          // 3. 旗舰级数据表格卡片 (Pro Table)
+          // 3. 旗舰级数据表格卡片 (Pro Table - 磨砂玻璃)
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: df.surface,
+                color: isDark
+                    ? const Color(0xFF1C1C24).withValues(alpha: 0.65)
+                    : Colors.white.withValues(alpha: 0.72),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: df.stroke.withValues(alpha: 0.4)),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
+                  width: 1.2,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 12,
-                    offset: const Offset(0, 2),
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -317,7 +329,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                       children: [
                         SizedBox(
                           width: 140,
-                          child: Text('任务大类',
+                          child: Text(l10n.taskTableHeaderClass,
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -325,7 +337,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                         ),
                         SizedBox(
                           width: 140,
-                          child: Text('关联对象',
+                          child: Text(l10n.taskTableHeaderTarget,
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -333,14 +345,14 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                         ),
                         SizedBox(
                           width: 180,
-                          child: Text('模型名称',
+                          child: Text(l10n.taskTableHeaderModel,
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                   color: df.textSecondary)),
                         ),
                         Expanded(
-                          child: Text('描述',
+                          child: Text(l10n.taskTableHeaderDescribe,
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -348,7 +360,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                         ),
                         SizedBox(
                           width: 160,
-                          child: Text('失败原因',
+                          child: Text(l10n.taskTableHeaderReason,
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -356,7 +368,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                         ),
                         SizedBox(
                           width: 120,
-                          child: Text('状态',
+                          child: Text(l10n.taskTableHeaderState,
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -366,7 +378,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                           width: 120,
                           child: Align(
                             alignment: Alignment.centerRight,
-                            child: Text('时间 / 操作',
+                            child: Text(l10n.taskTableHeaderAction,
                                 style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
@@ -416,7 +428,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     child: Row(
                       children: [
                         Text(
-                          '共 $totalCount 条数据',
+                          l10n.taskFooterTotalCount(totalCount),
                           style: TextStyle(
                             fontSize: 13,
                             color: df.textSecondary,
@@ -431,10 +443,10 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                           underline: const SizedBox(),
                           icon: Icon(Icons.keyboard_arrow_down_rounded,
                               color: df.textTertiary, size: 16),
-                          items: const [
-                            DropdownMenuItem(value: 10, child: Text('10 条/页')),
-                            DropdownMenuItem(value: 20, child: Text('20 条/页')),
-                            DropdownMenuItem(value: 50, child: Text('50 条/页')),
+                          items: [
+                            DropdownMenuItem(value: 10, child: Text(l10n.taskFooterPageSize(10))),
+                            DropdownMenuItem(value: 20, child: Text(l10n.taskFooterPageSize(20))),
+                            DropdownMenuItem(value: 50, child: Text(l10n.taskFooterPageSize(50))),
                           ],
                           onChanged: (v) {
                             if (v != null) {
@@ -531,9 +543,10 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
   }
 
   Widget _buildEmptyTable(BuildContext context) {
-    return const DFEmpty(
-      text: '暂无符合条件的任务记录',
-      description: '生成剧本、图片、视频等操作产生的任务会显示在这里，可以按项目、类型、状态筛选查看',
+    final l10n = AppLocalizations.of(context);
+    return DFEmpty(
+      text: l10n.taskEmptyFilteredTitle,
+      description: l10n.taskEmptyFilteredDesc,
     );
   }
 }
@@ -555,7 +568,7 @@ class _TaskTableRow extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final reason = _reasonText(l10n, task.reason);
     final modelName = task.model ?? _taskModelName(task);
-    final projectName = _taskProjectName(task, projects);
+    final projectName = _taskProjectName(l10n, task, projects);
 
     return InkWell(
       onTap: () => _showTaskDetail(context, task, reason),
@@ -689,8 +702,9 @@ class _TaskTableRow extends ConsumerWidget {
     try {
       final related = task.relatedObjectsJson;
       if (related.containsKey('model')) return related['model']!.toString();
-      if (related.containsKey('model_id'))
+      if (related.containsKey('model_id')) {
         return related['model_id']!.toString();
+      }
       if (related.containsKey('provider_model')) {
         return related['provider_model']!.toString();
       }
@@ -698,8 +712,9 @@ class _TaskTableRow extends ConsumerWidget {
     return '-';
   }
 
-  String _taskProjectName(TasksRow task, List<ProjectRow> projects) {
-    if (task.projectId == null) return '全局任务';
+  String _taskProjectName(
+      AppLocalizations l10n, TasksRow task, List<ProjectRow> projects) {
+    if (task.projectId == null) return l10n.taskGlobalProject;
     for (final p in projects) {
       if (p.id == task.projectId) return p.name ?? '#${p.id}';
     }
