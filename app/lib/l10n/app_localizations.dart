@@ -4138,6 +4138,12 @@ abstract class AppLocalizations {
   /// **'进度如何'**
   String get agentChatQuickStatus;
 
+  /// No description provided for @agentChatQuickOrderLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议顺序'**
+  String get agentChatQuickOrderLabel;
+
   /// No description provided for @agentChatQuickScript.
   ///
   /// In zh, this message translates to:

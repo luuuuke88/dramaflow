@@ -889,6 +889,7 @@
   "agentChatInputPlaceholder": "告诉我你想推进哪一步，或直接问\"现在进度如何\"",
   "agentChatSend": "发送",
   "agentChatQuickStatus": "进度如何",
+  "agentChatQuickOrderLabel": "建议顺序",
   "agentChatQuickScript": "生成剧本",
   "agentChatQuickAssets": "提取资产",
   "agentChatQuickStoryboard": "生成分镜",

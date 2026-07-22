@@ -755,6 +755,7 @@
   "agentChatInputPlaceholder": "Tell me what to work on next, or ask \"what's the status\"",
   "agentChatSend": "Send",
   "agentChatQuickStatus": "Status",
+  "agentChatQuickOrderLabel": "Suggested order",
   "agentChatQuickScript": "Generate script",
   "agentChatQuickAssets": "Extract assets",
   "agentChatQuickStoryboard": "Generate storyboard",

@@ -2104,6 +2104,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentChatQuickStatus => '进度如何';
 
   @override
+  String get agentChatQuickOrderLabel => '建议顺序';
+
+  @override
   String get agentChatQuickScript => '生成剧本';
 
   @override

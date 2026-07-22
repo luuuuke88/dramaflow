@@ -2181,6 +2181,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentChatQuickStatus => 'Status';
 
   @override
+  String get agentChatQuickOrderLabel => 'Suggested order';
+
+  @override
   String get agentChatQuickScript => 'Generate script';
 
   @override

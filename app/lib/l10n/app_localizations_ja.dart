@@ -2117,6 +2117,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentChatQuickStatus => '進捗確認';
 
   @override
+  String get agentChatQuickOrderLabel => '推奨の順序';
+
+  @override
   String get agentChatQuickScript => '台本を生成';
 
   @override

@@ -277,26 +277,71 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(children: [
-                    for (final action in [
-                      (l10n.agentChatQuickStatus, '现在进度如何'),
-                      (l10n.agentChatQuickScript, '帮我从事件生成剧本'),
-                      (l10n.agentChatQuickAssets, '帮我提取剧本里的资产'),
-                      (l10n.agentChatQuickStoryboard, '帮我生成分镜'),
-                      (l10n.agentChatQuickShotImage, '帮我生成首帧图'),
-                      (l10n.agentChatQuickVideo, '帮我生成视频'),
-                      (l10n.agentChatQuickAudio, '帮我绑定配音'),
-                      (l10n.agentChatQuickCompose, '帮我合成这一集'),
-                    ])
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ActionChip(
+                        avatar: Icon(Icons.query_stats_rounded,
+                            size: 16, color: df.textSecondary),
+                        label: Text(l10n.agentChatQuickStatus),
+                        onPressed: _sending
+                            ? null
+                            : () => _quickSend('现在进度如何'),
+                      ),
                       Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ActionChip(
-                          label: Text(action.$1),
-                          onPressed:
-                              _sending ? null : () => _quickSend(action.$2),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Container(
+                          width: 1,
+                          height: 16,
+                          color: df.stroke,
                         ),
                       ),
-                  ]),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Text(
+                          l10n.agentChatQuickOrderLabel,
+                          style:
+                              TextStyle(fontSize: 11, color: df.textTertiary),
+                        ),
+                      ),
+                      for (final entry in [
+                        (l10n.agentChatQuickScript, '帮我从事件生成剧本'),
+                        (l10n.agentChatQuickAssets, '帮我提取剧本里的资产'),
+                        (l10n.agentChatQuickStoryboard, '帮我生成分镜'),
+                        (l10n.agentChatQuickShotImage, '帮我生成首帧图'),
+                        (l10n.agentChatQuickVideo, '帮我生成视频'),
+                        (l10n.agentChatQuickAudio, '帮我绑定配音'),
+                        (l10n.agentChatQuickCompose, '帮我合成这一集'),
+                      ].indexed)
+                        Row(children: [
+                          if (entry.$1 > 0)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Icon(Icons.arrow_forward_rounded,
+                                  size: 14, color: df.textTertiary),
+                            ),
+                          ActionChip(
+                            avatar: CircleAvatar(
+                              radius: 9,
+                              backgroundColor: df.primarySubtle,
+                              child: Text(
+                                '${entry.$1 + 1}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: df.primary,
+                                ),
+                              ),
+                            ),
+                            label: Text(entry.$2.$1),
+                            onPressed: _sending
+                                ? null
+                                : () => _quickSend(entry.$2.$2),
+                          ),
+                        ]),
+                    ],
+                  ),
                 ),
                 Row(children: [
                   Expanded(
