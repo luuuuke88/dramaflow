@@ -2114,6 +2114,30 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentChatSend => '送信';
 
   @override
+  String get agentChatQuickStatus => '進捗確認';
+
+  @override
+  String get agentChatQuickScript => '台本を生成';
+
+  @override
+  String get agentChatQuickAssets => '資産を抽出';
+
+  @override
+  String get agentChatQuickStoryboard => '絵コンテを生成';
+
+  @override
+  String get agentChatQuickShotImage => '先頭フレームを生成';
+
+  @override
+  String get agentChatQuickVideo => '動画を生成';
+
+  @override
+  String get agentChatQuickAudio => '音声を紐付け';
+
+  @override
+  String get agentChatQuickCompose => '話数を合成';
+
+  @override
   String get agentChatThinking => '考え中...';
 
   @override

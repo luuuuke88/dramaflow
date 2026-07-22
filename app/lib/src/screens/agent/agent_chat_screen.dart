@@ -88,6 +88,12 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     }
   }
 
+  Future<void> _quickSend(String prompt) async {
+    if (_sending) return;
+    _input.text = prompt;
+    await _send();
+  }
+
   Future<void> _clearChat() async {
     final l10n = context.l10n;
     final confirmed = await showDFAdaptiveDialog<bool>(
@@ -257,32 +263,62 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
           ),
         ),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
           decoration: BoxDecoration(
             color: df.surface,
             border: Border(top: BorderSide(color: df.stroke)),
           ),
           child: SafeArea(
             top: false,
-            child: Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _input,
-                  minLines: 1,
-                  maxLines: 4,
-                  onSubmitted: (_) => _send(),
-                  decoration: InputDecoration(
-                    hintText: l10n.agentChatInputPlaceholder,
-                    isDense: true,
-                  ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(children: [
+                    for (final action in [
+                      (l10n.agentChatQuickStatus, '现在进度如何'),
+                      (l10n.agentChatQuickScript, '帮我从事件生成剧本'),
+                      (l10n.agentChatQuickAssets, '帮我提取剧本里的资产'),
+                      (l10n.agentChatQuickStoryboard, '帮我生成分镜'),
+                      (l10n.agentChatQuickShotImage, '帮我生成首帧图'),
+                      (l10n.agentChatQuickVideo, '帮我生成视频'),
+                      (l10n.agentChatQuickAudio, '帮我绑定配音'),
+                      (l10n.agentChatQuickCompose, '帮我合成这一集'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          label: Text(action.$1),
+                          onPressed:
+                              _sending ? null : () => _quickSend(action.$2),
+                        ),
+                      ),
+                  ]),
                 ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _sending ? null : _send,
-                child: Text(l10n.agentChatSend),
-              ),
-            ]),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _input,
+                      minLines: 1,
+                      maxLines: 4,
+                      onSubmitted: (_) => _send(),
+                      decoration: InputDecoration(
+                        hintText: l10n.agentChatInputPlaceholder,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _sending ? null : _send,
+                    child: Text(l10n.agentChatSend),
+                  ),
+                ]),
+              ],
+            ),
           ),
         ),
       ]),

@@ -4132,6 +4132,54 @@ abstract class AppLocalizations {
   /// **'发送'**
   String get agentChatSend;
 
+  /// No description provided for @agentChatQuickStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'进度如何'**
+  String get agentChatQuickStatus;
+
+  /// No description provided for @agentChatQuickScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成剧本'**
+  String get agentChatQuickScript;
+
+  /// No description provided for @agentChatQuickAssets.
+  ///
+  /// In zh, this message translates to:
+  /// **'提取资产'**
+  String get agentChatQuickAssets;
+
+  /// No description provided for @agentChatQuickStoryboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成分镜'**
+  String get agentChatQuickStoryboard;
+
+  /// No description provided for @agentChatQuickShotImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成首帧图'**
+  String get agentChatQuickShotImage;
+
+  /// No description provided for @agentChatQuickVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成视频'**
+  String get agentChatQuickVideo;
+
+  /// No description provided for @agentChatQuickAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'配音绑定'**
+  String get agentChatQuickAudio;
+
+  /// No description provided for @agentChatQuickCompose.
+  ///
+  /// In zh, this message translates to:
+  /// **'合成本集'**
+  String get agentChatQuickCompose;
+
   /// No description provided for @agentChatThinking.
   ///
   /// In zh, this message translates to:

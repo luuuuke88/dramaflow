@@ -2101,6 +2101,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentChatSend => '发送';
 
   @override
+  String get agentChatQuickStatus => '进度如何';
+
+  @override
+  String get agentChatQuickScript => '生成剧本';
+
+  @override
+  String get agentChatQuickAssets => '提取资产';
+
+  @override
+  String get agentChatQuickStoryboard => '生成分镜';
+
+  @override
+  String get agentChatQuickShotImage => '生成首帧图';
+
+  @override
+  String get agentChatQuickVideo => '生成视频';
+
+  @override
+  String get agentChatQuickAudio => '配音绑定';
+
+  @override
+  String get agentChatQuickCompose => '合成本集';
+
+  @override
   String get agentChatThinking => '思考中...';
 
   @override

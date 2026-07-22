@@ -2178,6 +2178,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentChatSend => 'Send';
 
   @override
+  String get agentChatQuickStatus => 'Status';
+
+  @override
+  String get agentChatQuickScript => 'Generate script';
+
+  @override
+  String get agentChatQuickAssets => 'Extract assets';
+
+  @override
+  String get agentChatQuickStoryboard => 'Generate storyboard';
+
+  @override
+  String get agentChatQuickShotImage => 'Generate first frame';
+
+  @override
+  String get agentChatQuickVideo => 'Generate video';
+
+  @override
+  String get agentChatQuickAudio => 'Bind voice';
+
+  @override
+  String get agentChatQuickCompose => 'Compose episode';
+
+  @override
   String get agentChatThinking => 'Thinking...';
 
   @override
