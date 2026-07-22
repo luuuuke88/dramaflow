@@ -189,38 +189,58 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: ListView(
-              controller: _scroll,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
-              children: [
-                if (messages.isEmpty) _WelcomeBubble(text: l10n.agentChatWelcome),
-                for (final message in messages)
-                  _AssistantMessageBubble(
-                    message: message,
-                    onApprove: () => _confirmPending(true),
-                    onReject: () => _confirmPending(false),
-                  ),
-                if (_sending)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(children: [
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        l10n.agentChatThinking,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: df.textTertiary,
+            // 新对话只有一条欢迎语时，顶部对齐的列表会在下面留一大片空白，
+            // 显得页面很空——这种情况改成整体居中，看起来才像个完整的空状态，
+            // 而不是内容没加载全。一旦开始聊天，恢复正常的顶部对齐滚动列表。
+            child: messages.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 160),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: Text(
+                          l10n.agentChatWelcome,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            height: 1.6,
+                            color: df.textSecondary,
+                          ),
                         ),
                       ),
-                    ]),
+                    ),
+                  )
+                : ListView(
+                    controller: _scroll,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
+                    children: [
+                      for (final message in messages)
+                        _AssistantMessageBubble(
+                          message: message,
+                          onApprove: () => _confirmPending(true),
+                          onReject: () => _confirmPending(false),
+                        ),
+                      if (_sending)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(children: [
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              l10n.agentChatThinking,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: df.textTertiary,
+                              ),
+                            ),
+                          ]),
+                        ),
+                    ],
                   ),
-              ],
-            ),
           ),
           Positioned(
             left: 0,
@@ -371,30 +391,6 @@ class _AssistantAdvancedPanel extends StatelessWidget {
             ]),
           ),
         ]),
-      ),
-    );
-  }
-}
-
-class _WelcomeBubble extends StatelessWidget {
-  final String text;
-  const _WelcomeBubble({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final df = context.df;
-    final maxBubbleWidth = MediaQuery.sizeOf(context).width > 720 ? 560.0 : MediaQuery.sizeOf(context).width * 0.85;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 20),
-        padding: const EdgeInsets.all(12),
-        constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-        decoration: BoxDecoration(
-          color: df.surfaceMuted,
-          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-        ),
-        child: Text(text, style: const TextStyle(fontSize: 13)),
       ),
     );
   }
