@@ -2104,28 +2104,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentChatQuickStatus => '进度如何';
 
   @override
-  String get agentChatQuickOrderLabel => '建议顺序';
-
-  @override
   String get agentChatQuickScript => '生成剧本';
-
-  @override
-  String get agentChatQuickAssets => '提取资产';
-
-  @override
-  String get agentChatQuickStoryboard => '生成分镜';
-
-  @override
-  String get agentChatQuickShotImage => '生成首帧图';
-
-  @override
-  String get agentChatQuickVideo => '生成视频';
-
-  @override
-  String get agentChatQuickAudio => '配音绑定';
-
-  @override
-  String get agentChatQuickCompose => '合成本集';
 
   @override
   String get agentChatThinking => '思考中...';
@@ -2150,7 +2129,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentChatWelcome =>
-      '你好，我是剧本 Agent。我可以帮你推进事件提取、资产提取、分镜生成、首帧图、视频生成、配音绑定和最终合成。直接告诉我你想做什么，或者问我\"现在进度如何\"。';
+      '你好，我是剧本 Agent。我可以帮你把已生成的事件改写成剧本——跟我聊聊故事骨架、改编策略，或者直接问我\"现在进度如何\"。分镜、配音、合成这些后续步骤，请去对应的页面操作。';
 
   @override
   String agentChatToolExecuted(String tool) {

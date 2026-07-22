@@ -2181,28 +2181,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentChatQuickStatus => 'Status';
 
   @override
-  String get agentChatQuickOrderLabel => 'Suggested order';
-
-  @override
   String get agentChatQuickScript => 'Generate script';
-
-  @override
-  String get agentChatQuickAssets => 'Extract assets';
-
-  @override
-  String get agentChatQuickStoryboard => 'Generate storyboard';
-
-  @override
-  String get agentChatQuickShotImage => 'Generate first frame';
-
-  @override
-  String get agentChatQuickVideo => 'Generate video';
-
-  @override
-  String get agentChatQuickAudio => 'Bind voice';
-
-  @override
-  String get agentChatQuickCompose => 'Compose episode';
 
   @override
   String get agentChatThinking => 'Thinking...';
@@ -2228,7 +2207,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentChatWelcome =>
-      'Hi, I\'m the Script Agent. I can help with event extraction, asset extraction, storyboard generation, first-frame images, video generation, voice binding, and final compose. Tell me what to do, or ask \"what\'s the status\".';
+      'Hi, I\'m the Script Agent. I can help turn your generated events into a script — let\'s talk through the story skeleton or adaptation approach, or just ask \"what\'s the status\". For storyboards, voice binding, and compose, please use their own pages.';
 
   @override
   String agentChatToolExecuted(String tool) {

@@ -4138,53 +4138,11 @@ abstract class AppLocalizations {
   /// **'进度如何'**
   String get agentChatQuickStatus;
 
-  /// No description provided for @agentChatQuickOrderLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'建议顺序'**
-  String get agentChatQuickOrderLabel;
-
   /// No description provided for @agentChatQuickScript.
   ///
   /// In zh, this message translates to:
   /// **'生成剧本'**
   String get agentChatQuickScript;
-
-  /// No description provided for @agentChatQuickAssets.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取资产'**
-  String get agentChatQuickAssets;
-
-  /// No description provided for @agentChatQuickStoryboard.
-  ///
-  /// In zh, this message translates to:
-  /// **'生成分镜'**
-  String get agentChatQuickStoryboard;
-
-  /// No description provided for @agentChatQuickShotImage.
-  ///
-  /// In zh, this message translates to:
-  /// **'生成首帧图'**
-  String get agentChatQuickShotImage;
-
-  /// No description provided for @agentChatQuickVideo.
-  ///
-  /// In zh, this message translates to:
-  /// **'生成视频'**
-  String get agentChatQuickVideo;
-
-  /// No description provided for @agentChatQuickAudio.
-  ///
-  /// In zh, this message translates to:
-  /// **'配音绑定'**
-  String get agentChatQuickAudio;
-
-  /// No description provided for @agentChatQuickCompose.
-  ///
-  /// In zh, this message translates to:
-  /// **'合成本集'**
-  String get agentChatQuickCompose;
 
   /// No description provided for @agentChatThinking.
   ///
@@ -4231,7 +4189,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentChatWelcome.
   ///
   /// In zh, this message translates to:
-  /// **'你好，我是剧本 Agent。我可以帮你推进事件提取、资产提取、分镜生成、首帧图、视频生成、配音绑定和最终合成。直接告诉我你想做什么，或者问我\"现在进度如何\"。'**
+  /// **'你好，我是剧本 Agent。我可以帮你把已生成的事件改写成剧本——跟我聊聊故事骨架、改编策略，或者直接问我\"现在进度如何\"。分镜、配音、合成这些后续步骤，请去对应的页面操作。'**
   String get agentChatWelcome;
 
   /// No description provided for @agentChatToolExecuted.

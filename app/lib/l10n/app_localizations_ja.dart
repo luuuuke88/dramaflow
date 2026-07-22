@@ -2117,28 +2117,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentChatQuickStatus => '進捗確認';
 
   @override
-  String get agentChatQuickOrderLabel => '推奨の順序';
-
-  @override
   String get agentChatQuickScript => '台本を生成';
-
-  @override
-  String get agentChatQuickAssets => '資産を抽出';
-
-  @override
-  String get agentChatQuickStoryboard => '絵コンテを生成';
-
-  @override
-  String get agentChatQuickShotImage => '先頭フレームを生成';
-
-  @override
-  String get agentChatQuickVideo => '動画を生成';
-
-  @override
-  String get agentChatQuickAudio => '音声を紐付け';
-
-  @override
-  String get agentChatQuickCompose => '話数を合成';
 
   @override
   String get agentChatThinking => '考え中...';
@@ -2163,7 +2142,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agentChatWelcome =>
-      'こんにちは、脚本エージェントです。イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像、動画生成、配音の割り当て、最終合成をお手伝いできます。何をしたいか教えてください。または「今の進捗は?」と聞いてください。';
+      'こんにちは、脚本エージェントです。生成済みのイベントを台本に書き上げるお手伝いをします——ストーリーの骨組みや脚色方針について話しましょう。または「今の進捗は?」と聞いてください。絵コンテ・配音・合成などの後続作業はそれぞれのページで行ってください。';
 
   @override
   String agentChatToolExecuted(String tool) {

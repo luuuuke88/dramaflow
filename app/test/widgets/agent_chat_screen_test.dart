@@ -121,7 +121,7 @@ void main() {
     expect(find.byType(SegmentedButton<String>), findsNothing);
 
     await tester.enterText(find.byType(TextField), '推进事件');
-    await tester.tap(find.text('发送'));
+    await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
 
     expect(
@@ -173,7 +173,7 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '生成事件');
-    await tester.tap(find.text('发送'));
+    await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('需要确认'), findsOneWidget);
