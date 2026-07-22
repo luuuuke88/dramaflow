@@ -14,6 +14,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../../engine/audio_bind.dart';
@@ -49,9 +50,47 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
   final Set<int> _selected = {};
   _BindFilter _filter = _BindFilter.all;
   String _query = '';
+  bool _nextStepBannerDismissed = false;
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Widget? _nextStepBanner(int boundCount, int roleCount) {
+    if (_nextStepBannerDismissed) return null;
+    if (roleCount == 0 || boundCount < roleCount) return null;
+
+    final l10n = context.l10n;
+    final df = context.df;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: df.primarySubtle,
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        border: Border.all(color: df.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Icon(Icons.auto_awesome_rounded, size: 20, color: df.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            l10n.cornerScapeNextStepBannerText,
+            style: DFTokens.body14.copyWith(color: df.textPrimary),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          onPressed: () => context.go('/p/${widget.projectId}/production'),
+          child: Text(l10n.cornerScapeNextStepBannerButton),
+        ),
+        IconButton(
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          icon: const Icon(Icons.close_rounded, size: 18),
+          onPressed: () => setState(() => _nextStepBannerDismissed = true),
+        ),
+      ]),
+    );
   }
 
   bool _matchesFilter(RoleAudioBinding r) {
@@ -130,6 +169,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     final boundCount = roles.where((r) => r.audioAssetId != null).length;
     final visibleUnboundCount =
         visible.where((r) => r.audioAssetId == null).length;
+    final banner = _nextStepBanner(boundCount, roles.length);
 
     return Column(children: [
       Padding(
@@ -214,6 +254,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
           child: Text(l10n.cornerScapeNoAudioPool,
               style: TextStyle(fontSize: 12, color: df.warning)),
         ),
+      if (banner != null) banner,
       Expanded(
         child: visible.isEmpty
             ? Center(child: DFEmpty(text: l10n.cornerScapeNoMatch))

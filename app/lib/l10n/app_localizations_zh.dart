@@ -985,6 +985,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelNextStepBannerButton => '去生成剧本';
 
   @override
+  String get scriptNextStepBannerText => '资产已提取，可以去塑角造景绑定配音了';
+
+  @override
+  String get scriptNextStepBannerButton => '去塑角造景';
+
+  @override
+  String get cornerScapeNextStepBannerText => '配音已绑定，可以去视频生产了';
+
+  @override
+  String get cornerScapeNextStepBannerButton => '去视频生产';
+
+  @override
   String get scriptSearchPlaceholder => '搜索剧本名称...';
 
   @override

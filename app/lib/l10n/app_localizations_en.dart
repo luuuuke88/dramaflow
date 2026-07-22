@@ -1017,6 +1017,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelNextStepBannerButton => 'Generate script';
 
   @override
+  String get scriptNextStepBannerText =>
+      'Assets are extracted. You can bind voices now.';
+
+  @override
+  String get scriptNextStepBannerButton => 'Go bind voices';
+
+  @override
+  String get cornerScapeNextStepBannerText =>
+      'Voices are bound. You can move on to production.';
+
+  @override
+  String get cornerScapeNextStepBannerButton => 'Go to production';
+
+  @override
   String get scriptSearchPlaceholder => 'Search script names...';
 
   @override

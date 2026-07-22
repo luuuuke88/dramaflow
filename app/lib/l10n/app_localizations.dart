@@ -1954,6 +1954,30 @@ abstract class AppLocalizations {
   /// **'去生成剧本'**
   String get novelNextStepBannerButton;
 
+  /// No description provided for @scriptNextStepBannerText.
+  ///
+  /// In zh, this message translates to:
+  /// **'资产已提取，可以去塑角造景绑定配音了'**
+  String get scriptNextStepBannerText;
+
+  /// No description provided for @scriptNextStepBannerButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'去塑角造景'**
+  String get scriptNextStepBannerButton;
+
+  /// No description provided for @cornerScapeNextStepBannerText.
+  ///
+  /// In zh, this message translates to:
+  /// **'配音已绑定，可以去视频生产了'**
+  String get cornerScapeNextStepBannerText;
+
+  /// No description provided for @cornerScapeNextStepBannerButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'去视频生产'**
+  String get cornerScapeNextStepBannerButton;
+
   /// No description provided for @scriptSearchPlaceholder.
   ///
   /// In zh, this message translates to:

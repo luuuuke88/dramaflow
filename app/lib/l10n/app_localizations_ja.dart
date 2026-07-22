@@ -993,6 +993,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelNextStepBannerButton => '台本を生成';
 
   @override
+  String get scriptNextStepBannerText => '素材の抽出が完了しました。配音の割り当てに進めます';
+
+  @override
+  String get scriptNextStepBannerButton => '配音の割り当てへ';
+
+  @override
+  String get cornerScapeNextStepBannerText => '配音の割り当てが完了しました。映像制作に進めます';
+
+  @override
+  String get cornerScapeNextStepBannerButton => '映像制作へ';
+
+  @override
   String get scriptSearchPlaceholder => 'シナリオ名を検索...';
 
   @override
