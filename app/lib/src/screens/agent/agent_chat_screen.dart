@@ -2,14 +2,21 @@
 // 被砍功能（custom JS 执行、监督 Agent、RAG 设置）不再从 UI 暴露。
 import 'dart:convert';
 
+import 'package:dramaflow/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/assets.dart';
 import '../../engine/assistant_chat.dart';
 import '../../engine/assistant_deploy.dart';
 import '../../engine/assistant_skills.dart';
+import '../../engine/audio_bind.dart';
+import '../../engine/engine.dart';
 import '../../engine/errors.dart';
 import '../../engine/project_notes.dart';
+import '../../engine/scripts.dart';
+import '../../engine/storyboard.dart';
+import '../../engine/video_track.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -147,6 +154,9 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
+    ref.watch(jobsGenerationProvider);
+    final pipelineSteps =
+        _pipelineSteps(l10n, ref.watch(engineProvider), widget.projectId);
     final messages = ref.watch(engineProvider).assistantMessages(
           widget.projectId,
           family: _family,
@@ -304,15 +314,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                               TextStyle(fontSize: 11, color: df.textTertiary),
                         ),
                       ),
-                      for (final entry in [
-                        (l10n.agentChatQuickScript, '帮我从事件生成剧本'),
-                        (l10n.agentChatQuickAssets, '帮我提取剧本里的资产'),
-                        (l10n.agentChatQuickStoryboard, '帮我生成分镜'),
-                        (l10n.agentChatQuickShotImage, '帮我生成首帧图'),
-                        (l10n.agentChatQuickVideo, '帮我生成视频'),
-                        (l10n.agentChatQuickAudio, '帮我绑定配音'),
-                        (l10n.agentChatQuickCompose, '帮我合成这一集'),
-                      ].indexed)
+                      for (final entry in pipelineSteps.indexed)
                         Row(children: [
                           if (entry.$1 > 0)
                             Padding(
@@ -321,23 +323,11 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                               child: Icon(Icons.arrow_forward_rounded,
                                   size: 14, color: df.textTertiary),
                             ),
-                          ActionChip(
-                            avatar: CircleAvatar(
-                              radius: 9,
-                              backgroundColor: df.primarySubtle,
-                              child: Text(
-                                '${entry.$1 + 1}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: df.primary,
-                                ),
-                              ),
-                            ),
-                            label: Text(entry.$2.$1),
-                            onPressed: _sending
-                                ? null
-                                : () => _quickSend(entry.$2.$2),
+                          _PipelineStepChip(
+                            index: entry.$1,
+                            step: entry.$2,
+                            enabled: !_sending,
+                            onTap: () => _quickSend(entry.$2.prompt),
                           ),
                         ]),
                     ],
@@ -367,6 +357,207 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
           ),
         ),
       ]),
+    );
+  }
+}
+
+enum _StepStatus { done, current, upcoming }
+
+class _PipelineStepInfo {
+  final String label;
+  final String prompt;
+  final _StepStatus status;
+  final int doneCount;
+  final int? totalCount;
+
+  const _PipelineStepInfo({
+    required this.label,
+    required this.prompt,
+    required this.status,
+    required this.doneCount,
+    this.totalCount,
+  });
+
+  String get countText {
+    final total = totalCount;
+    if (total != null && total > 0) return '$doneCount/$total';
+    if (doneCount > 0) return '$doneCount';
+    return '';
+  }
+}
+
+/// 汇总项目在 7 个制作阶段各自的完成度，第一个未完成的阶段标为「当前」，
+/// 之前的算完成、之后的算还没到——用于给快捷按钮打勾/高亮，回答"进行到哪了"。
+/// 合成本集没有可靠的完成标记（引擎不记录合成状态），用同名成片资产是否
+/// 存在做近似判断，重命名剧本或重复合成会让这一步的判断不准，但不影响其它
+/// 阶段，也不会阻塞任何操作，只是这一格的对错标记可能失真。
+List<_PipelineStepInfo> _pipelineSteps(
+  AppLocalizations l10n,
+  Engine engine,
+  int projectId,
+) {
+  final scriptRows = engine.scripts(projectId);
+  final scriptCount = scriptRows.length;
+  final assetDone = scriptRows.where((s) => s.extractState == 1).length;
+  var storyboardCount = 0;
+  var shotImageDone = 0;
+  var shotVideoDone = 0;
+  var composedCount = 0;
+  for (final s in scriptRows) {
+    final sbs = engine.storyboards(s.id);
+    storyboardCount += sbs.length;
+    shotImageDone += sbs.where((b) => b.state == sbDone).length;
+    for (final sb in sbs) {
+      final trackId = sb.trackId;
+      if (trackId != null && engine.track(trackId)?.state == vtDone) {
+        shotVideoDone++;
+      }
+    }
+    final composed = engine.getAssets(
+      projectId,
+      type: 'clip',
+      search: '成片：${s.name ?? s.id}',
+    );
+    if (composed.total > 0) composedCount++;
+  }
+  final roles = engine.roleAudioBindings(projectId);
+  final roleCount = roles.length;
+  final roleBound = roles.where((r) => r.audioAssetId != null).length;
+
+  final rawDone = [
+    scriptCount > 0,
+    scriptCount > 0 && assetDone >= scriptCount,
+    storyboardCount > 0,
+    storyboardCount > 0 && shotImageDone >= storyboardCount,
+    storyboardCount > 0 && shotVideoDone >= storyboardCount,
+    roleCount == 0 || roleBound >= roleCount,
+    scriptCount > 0 && composedCount >= scriptCount,
+  ];
+  var currentIndex = rawDone.indexWhere((done) => !done);
+  if (currentIndex == -1) currentIndex = rawDone.length;
+  _StepStatus statusAt(int i) => i < currentIndex
+      ? _StepStatus.done
+      : i == currentIndex
+          ? _StepStatus.current
+          : _StepStatus.upcoming;
+
+  return [
+    _PipelineStepInfo(
+      label: l10n.agentChatQuickScript,
+      prompt: '帮我从事件生成剧本',
+      status: statusAt(0),
+      doneCount: scriptCount,
+    ),
+    _PipelineStepInfo(
+      label: l10n.agentChatQuickAssets,
+      prompt: '帮我提取剧本里的资产',
+      status: statusAt(1),
+      doneCount: assetDone,
+      totalCount: scriptCount,
+    ),
+    _PipelineStepInfo(
+      label: l10n.agentChatQuickStoryboard,
+      prompt: '帮我生成分镜',
+      status: statusAt(2),
+      doneCount: storyboardCount,
+    ),
+    _PipelineStepInfo(
+      label: l10n.agentChatQuickShotImage,
+      prompt: '帮我生成首帧图',
+      status: statusAt(3),
+      doneCount: shotImageDone,
+      totalCount: storyboardCount,
+    ),
+    _PipelineStepInfo(
+      label: l10n.agentChatQuickVideo,
+      prompt: '帮我生成视频',
+      status: statusAt(4),
+      doneCount: shotVideoDone,
+      totalCount: storyboardCount,
+    ),
+    _PipelineStepInfo(
+      label: l10n.agentChatQuickAudio,
+      prompt: '帮我绑定配音',
+      status: statusAt(5),
+      doneCount: roleBound,
+      totalCount: roleCount,
+    ),
+    _PipelineStepInfo(
+      label: l10n.agentChatQuickCompose,
+      prompt: '帮我合成这一集',
+      status: statusAt(6),
+      doneCount: composedCount,
+      totalCount: scriptCount,
+    ),
+  ];
+}
+
+class _PipelineStepChip extends StatelessWidget {
+  final int index;
+  final _PipelineStepInfo step;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _PipelineStepChip({
+    required this.index,
+    required this.step,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final label = step.countText.isEmpty
+        ? step.label
+        : '${step.label} ${step.countText}';
+
+    final Widget avatar;
+    Color? background;
+    BorderSide side = BorderSide(color: df.stroke);
+    switch (step.status) {
+      case _StepStatus.done:
+        avatar = CircleAvatar(
+          radius: 9,
+          backgroundColor: df.success.withValues(alpha: 0.16),
+          child: Icon(Icons.check_rounded, size: 12, color: df.success),
+        );
+      case _StepStatus.current:
+        avatar = CircleAvatar(
+          radius: 9,
+          backgroundColor: df.primary,
+          child: Text(
+            '${index + 1}',
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        );
+        background = df.primarySubtle;
+        side = BorderSide(color: df.primary, width: 1.3);
+      case _StepStatus.upcoming:
+        avatar = CircleAvatar(
+          radius: 9,
+          backgroundColor: df.surfaceMuted,
+          child: Text(
+            '${index + 1}',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: df.textTertiary,
+            ),
+          ),
+        );
+    }
+
+    return ActionChip(
+      avatar: avatar,
+      label: Text(label),
+      backgroundColor: background,
+      side: side,
+      onPressed: enabled ? onTap : null,
     );
   }
 }
