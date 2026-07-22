@@ -103,12 +103,12 @@ class ProjectListScreen extends ConsumerWidget {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(
                 children: [
-                  Text(
-                    l10n.projectTitle,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
+                  Flexible(
+                    child: Text(
+                      l10n.projectTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DFTokens.pageTitle26w800,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -121,8 +121,7 @@ class ProjectListScreen extends ConsumerWidget {
                     ),
                     child: Text(
                       '${projects.length}',
-                      style: TextStyle(
-                        fontSize: 13,
+                      style: DFTokens.caption12.copyWith(
                         fontWeight: FontWeight.w700,
                         color: df.primary,
                       ),
@@ -133,22 +132,16 @@ class ProjectListScreen extends ConsumerWidget {
               const SizedBox(height: 6),
               Text(
                 l10n.projectSubtitle,
-                style: TextStyle(fontSize: 14, color: df.textSecondary),
+                style: DFTokens.body14.copyWith(color: df.textSecondary),
               ),
             ]),
           ),
           FilledButton.icon(
             onPressed: () => _edit(context, ref),
             icon: const Icon(Icons.add, size: 20),
-            label: Text(
-              l10n.projectNewProject,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
+            label: Text(l10n.projectNewProject),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
               elevation: 0,
             ),
           ),
@@ -264,8 +257,8 @@ class _ProjectCardState extends State<_ProjectCard> {
                   p.name ?? l10n.projectUntitled,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700),
+                  style: DFTokens.cardTitle18w700.copyWith(
+                      color: df.textPrimary),
                 ),
               ),
               _RoundTag(text: typeLabel, color: df.primary),
@@ -279,26 +272,37 @@ class _ProjectCardState extends State<_ProjectCard> {
                 p.intro ?? '',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, color: df.textSecondary),
+                style: DFTokens.body14.copyWith(color: df.textSecondary),
               ),
             ),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
+            // 固定单行：用 Flexible 让统计项在挤不下时自己收窄/省略号，
+            // 而不是像 Wrap 那样换行撑高卡片（卡片高度由 GridView 的
+            // mainAxisExtent 固定，换行会导致底部溢出，窗口拉伸变窄时尤其明显）。
+            Row(
               children: [
-                _StatTag(text: l10n.projectStatChapters(widget.stats.chapters)),
-                _StatTag(text: l10n.projectStatScripts(widget.stats.scripts)),
-                _StatTag(text: l10n.projectStatAssets(widget.stats.assets)),
-                _StatTag(
-                    text:
-                        l10n.projectStatStoryboards(widget.stats.storyboards)),
+                Flexible(
+                    child: _StatTag(
+                        text: l10n.projectStatChapters(widget.stats.chapters))),
+                const SizedBox(width: 6),
+                Flexible(
+                    child: _StatTag(
+                        text: l10n.projectStatScripts(widget.stats.scripts))),
+                const SizedBox(width: 6),
+                Flexible(
+                    child: _StatTag(
+                        text: l10n.projectStatAssets(widget.stats.assets))),
+                const SizedBox(width: 6),
+                Flexible(
+                    child: _StatTag(
+                        text: l10n
+                            .projectStatStoryboards(widget.stats.storyboards))),
               ],
             ),
             const SizedBox(height: 4),
             Row(children: [
               Expanded(
                 child: Text(created,
-                    style: TextStyle(fontSize: 11, color: df.textTertiary)),
+                    style: DFTokens.caption12.copyWith(color: df.textTertiary)),
               ),
               if (showActions) ...[
                 IconButton(
@@ -342,7 +346,7 @@ class _StatTag extends StatelessWidget {
         text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 11, color: df.textTertiary),
+        style: DFTokens.caption12.copyWith(color: df.textTertiary),
       ),
     );
   }
@@ -364,7 +368,8 @@ class _RoundTag extends StatelessWidget {
       child: Text(text,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 11, color: color)),
+          style: DFTokens.caption12.copyWith(
+              color: color, fontWeight: FontWeight.w600)),
     );
   }
 }

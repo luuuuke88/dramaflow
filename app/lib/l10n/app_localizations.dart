@@ -1420,6 +1420,18 @@ abstract class AppLocalizations {
   /// **'支持 .txt, .docx 格式，建议文件大小不超过 10MB'**
   String get novelImportUploadHint;
 
+  /// No description provided for @novelImportUploaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已上传：{fileName}'**
+  String novelImportUploaded(String fileName);
+
+  /// No description provided for @novelImportReUploadHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容已填入下方文本框，可编辑；点击可重新上传'**
+  String get novelImportReUploadHint;
+
   /// No description provided for @novelImportOr.
   ///
   /// In zh, this message translates to:

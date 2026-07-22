@@ -307,6 +307,15 @@
   "novelImportStep3": "第三步",
   "novelImportDragUpload": "拖拽小说原文文件到此处或点击上传",
   "novelImportUploadHint": "支持 .txt, .docx 格式，建议文件大小不超过 10MB",
+  "novelImportUploaded": "已上传：{fileName}",
+  "@novelImportUploaded": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "novelImportReUploadHint": "内容已填入下方文本框，可编辑；点击可重新上传",
   "novelImportOr": "或",
   "novelImportPasteLabel": "直接粘贴小说原文内容",
   "novelImportPastePlaceholder": "请输入小说原文内容",

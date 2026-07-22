@@ -265,6 +265,15 @@
   "novelImportStep3": "Step 3",
   "novelImportDragUpload": "Drag and drop your novel file here or click to upload",
   "novelImportUploadHint": "Supports .txt, .docx. Recommended file size under 10MB",
+  "novelImportUploaded": "Uploaded: {fileName}",
+  "@novelImportUploaded": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "novelImportReUploadHint": "Content filled in below, you can edit it — click to upload a different file",
   "novelImportOr": "OR",
   "novelImportPasteLabel": "Directly paste novel text",
   "novelImportPastePlaceholder": "Please paste novel text here",

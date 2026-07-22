@@ -9,6 +9,7 @@ import '../../engine/engine.dart';
 import '../../engine/manuals.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
+import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
@@ -221,11 +222,11 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
   }) {
     final df = context.df;
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: df.surfaceMuted.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
         border: Border.all(color: df.stroke.withValues(alpha: 0.5)),
       ),
       child: Column(
@@ -233,19 +234,18 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: df.primary),
-              const SizedBox(width: 6),
+              Icon(icon, size: 17, color: df.primary),
+              const SizedBox(width: 8),
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 13,
+                style: DFTokens.section16w600.copyWith(
                   fontWeight: FontWeight.w700,
                   color: df.textPrimary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           child,
         ],
       ),
@@ -421,11 +421,11 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
   Widget _label(String text) {
     final df = context.df;
     return Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 6),
+      padding: const EdgeInsets.only(top: 14, bottom: 8),
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
           color: df.textSecondary,
         ),
@@ -450,6 +450,9 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                 _rightManuals(),
               ]);
             }
+            // 注：这里不用 IntrinsicHeight 强制两栏等高——它要求子树里所有节点都支持
+            // "干量高度"计算，而左侧表单里的多行 TextField 并不支持，混在一起会导致
+            // 弹窗直接崩溃打不开。两栏高度不一致但功能可靠，优先级更高。
             return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(child: _leftForm()),
               const SizedBox(width: 24),

@@ -718,6 +718,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Supports .txt, .docx. Recommended file size under 10MB';
 
   @override
+  String novelImportUploaded(String fileName) {
+    return 'Uploaded: $fileName';
+  }
+
+  @override
+  String get novelImportReUploadHint =>
+      'Content filled in below, you can edit it — click to upload a different file';
+
+  @override
   String get novelImportOr => 'OR';
 
   @override

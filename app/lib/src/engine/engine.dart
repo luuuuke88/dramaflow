@@ -974,6 +974,14 @@ WHERE id=?
       .map(TasksRow.fromRow)
       .toList();
 
+  Future<List<TasksRow>> allJobs({int limit = 500}) async => db
+      .select(
+        'SELECT * FROM o_tasks ORDER BY id DESC LIMIT ?',
+        [limit],
+      )
+      .map(TasksRow.fromRow)
+      .toList();
+
   Future<List<TasksRow>> projectJobs(int projectId, {int limit = 50}) async =>
       db
           .select(

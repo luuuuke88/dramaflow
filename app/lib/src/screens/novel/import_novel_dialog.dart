@@ -46,6 +46,8 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
   List<ChapterItem> _parsed = const [];
   final Set<String> _selected = {};
   bool _saving = false;
+  String? _uploadedFileName;
+  bool _programmaticChange = false;
 
   @override
   void dispose() {
@@ -83,14 +85,18 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
     }
     try {
       final name = file.name.toLowerCase();
+      _programmaticChange = true;
       if (name.endsWith('.docx')) {
         _content.text = extractDocxText(bytes);
       } else if (name.endsWith('.txt')) {
         _content.text = utf8.decode(bytes, allowMalformed: true);
       } else {
+        _programmaticChange = false;
         _toast(l10n.novelImportMsgUnsupportedType);
         return;
       }
+      _programmaticChange = false;
+      setState(() => _uploadedFileName = file.name);
       _reparse();
     } on EngineException catch (e) {
       if (mounted) _toast(localizeError(context, e));
@@ -148,20 +154,32 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: df.primary.withValues(alpha: 0.1),
+                color: (_uploadedFileName != null ? df.success : df.primary)
+                    .withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.cloud_upload_rounded,
-                  size: 26, color: df.primary),
+              child: Icon(
+                _uploadedFileName != null
+                    ? Icons.check_circle_rounded
+                    : Icons.cloud_upload_rounded,
+                size: 26,
+                color: _uploadedFileName != null ? df.success : df.primary,
+              ),
             ),
             const SizedBox(height: 10),
             Text(
-              l10n.novelImportDragUpload,
+              _uploadedFileName != null
+                  ? l10n.novelImportUploaded(_uploadedFileName!)
+                  : l10n.novelImportDragUpload,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
-              l10n.novelImportUploadHint,
+              _uploadedFileName != null
+                  ? l10n.novelImportReUploadHint
+                  : l10n.novelImportUploadHint,
               style: TextStyle(fontSize: 12, color: df.textTertiary),
             ),
           ]),
@@ -200,7 +218,12 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
         controller: _content,
         minLines: 8,
         maxLines: 8,
-        onChanged: (_) => _reparse(),
+        onChanged: (_) {
+          if (!_programmaticChange && _uploadedFileName != null) {
+            setState(() => _uploadedFileName = null);
+          }
+          _reparse();
+        },
         style: const TextStyle(fontSize: 13, height: 1.5),
         decoration: InputDecoration(
           hintText: l10n.novelImportPastePlaceholder,

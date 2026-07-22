@@ -700,6 +700,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelImportUploadHint => '対応形式: .txt, .docx。ファイルサイズは10MB以下を推奨します';
 
   @override
+  String novelImportUploaded(String fileName) {
+    return 'アップロード済み：$fileName';
+  }
+
+  @override
+  String get novelImportReUploadHint =>
+      '内容は下のテキスト欄に入力されました。編集可能です。クリックで再アップロード';
+
+  @override
   String get novelImportOr => 'または';
 
   @override

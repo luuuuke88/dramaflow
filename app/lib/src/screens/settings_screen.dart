@@ -13,6 +13,7 @@ import '../engine/db_admin.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
+import '../theme/tokens.dart';
 import '../util/error_l10n.dart';
 import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
@@ -243,11 +244,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     Text(
                       l10n.settingsTitle,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
+                      style: DFTokens.pageTitle26w800,
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -267,17 +264,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 28),
           Expanded(
             child: wide
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SideNav(
-                        selected: _section,
-                        onSelected: _selectSection,
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(child: _sectionBody()),
-                    ],
-                  )
+                ? LayoutBuilder(builder: (context, constraints) {
+                    // 直接用 LayoutBuilder 量出这一行能用的总高度，强制左侧卡片
+                    // 就是这个高度——不依赖 CrossAxisAlignment.stretch 的隐式行为。
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: constraints.maxHeight,
+                          child: _SideNav(
+                            selected: _section,
+                            onSelected: _selectSection,
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(child: _sectionBody()),
+                      ],
+                    );
+                  })
                 : Column(
                     children: [
                       _TopSectionTabs(
@@ -340,29 +344,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.settingsThemeTitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: df.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      l10n.settingsThemeSubtitle,
-                      style: TextStyle(fontSize: 12, color: df.textTertiary),
-                    ),
-                  ],
+          _SettingRow(
+            label: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.settingsThemeTitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: df.textPrimary,
+                  ),
                 ),
-              ),
-              SegmentedButton<ThemeMode>(
+                const SizedBox(height: 2),
+                Text(
+                  l10n.settingsThemeSubtitle,
+                  style: TextStyle(fontSize: 12, color: df.textTertiary),
+                ),
+              ],
+            ),
+            control: SegmentedButton<ThemeMode>(
                 showSelectedIcon: false,
                 style: ButtonStyle(
                   backgroundColor: WidgetStateProperty.resolveWith(
@@ -406,36 +407,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         .setThemeMode(next);
                   }, successMessage: l10n.settingsThemeUpdated);
                 },
-              ),
-            ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 20),
             child: Divider(height: 1, color: df.stroke.withValues(alpha: 0.4)),
           ),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.settingsLanguage,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: df.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      l10n.settingsLanguageSubtitle,
-                      style: TextStyle(fontSize: 12, color: df.textTertiary),
-                    ),
-                  ],
+          _SettingRow(
+            label: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.settingsLanguage,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: df.textPrimary,
+                  ),
                 ),
-              ),
-              SegmentedButton<String>(
+                const SizedBox(height: 2),
+                Text(
+                  l10n.settingsLanguageSubtitle,
+                  style: TextStyle(fontSize: 12, color: df.textTertiary),
+                ),
+              ],
+            ),
+            control: SegmentedButton<String>(
                 showSelectedIcon: false,
                 style: ButtonStyle(
                   backgroundColor: WidgetStateProperty.resolveWith(
@@ -468,8 +465,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         .setLocale(next.isEmpty ? null : Locale(next));
                   }, successMessage: l10n.settingsLanguage);
                 },
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -1490,47 +1486,154 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
-class _TopSectionTabs extends StatelessWidget {
+class _TopSectionTabs extends StatefulWidget {
   final _SettingsSection selected;
   final ValueChanged<_SettingsSection> onSelected;
 
   const _TopSectionTabs({required this.selected, required this.onSelected});
 
   @override
+  State<_TopSectionTabs> createState() => _TopSectionTabsState();
+}
+
+class _TopSectionTabsState extends State<_TopSectionTabs> {
+  final _scrollController = ScrollController();
+  bool _canScrollMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkOverflow());
+    _scrollController.addListener(_checkOverflow);
+  }
+
+  void _checkOverflow() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final canScrollMore = pos.maxScrollExtent - pos.pixels > 4;
+    if (canScrollMore != _canScrollMore) {
+      setState(() => _canScrollMore = canScrollMore);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SegmentedButton<_SettingsSection>(
-          showSelectedIcon: false,
-          selected: {selected},
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
-                  ? context.df.primaryDim
-                  : context.df.surface,
+    final df = context.df;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: df.surfaceMuted,
+              borderRadius: BorderRadius.circular(999),
             ),
-            foregroundColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
-                  ? context.df.primary
-                  : context.df.textMid,
-            ),
-            side: WidgetStateProperty.all(BorderSide(color: context.df.stroke)),
-          ),
-          segments: [
-            for (final section in _SettingsSection.values)
-              ButtonSegment(
-                value: section,
-                icon: Icon(_sectionIcons[section], size: 18),
-                label: Text(_sectionLabel(l10n, section)),
+            padding: const EdgeInsets.all(4),
+            child: Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: _canScrollMore,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<_SettingsSection>(
+                  showSelectedIcon: false,
+                  selected: {widget.selected},
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? df.surface
+                          : Colors.transparent,
+                    ),
+                    foregroundColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? df.primary
+                          : df.textMid,
+                    ),
+                    side: const WidgetStatePropertyAll(BorderSide.none),
+                    shape: const WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(999)),
+                      ),
+                    ),
+                  ),
+                  segments: [
+                    for (final section in _SettingsSection.values)
+                      ButtonSegment(
+                        value: section,
+                        icon: Icon(_sectionIcons[section], size: 18),
+                        label: Text(_sectionLabel(l10n, section)),
+                      ),
+                  ],
+                  onSelectionChanged: (selected) =>
+                      widget.onSelected(selected.single),
+                ),
               ),
-          ],
-          onSelectionChanged: (selected) => onSelected(selected.single),
-        ),
+            ),
+          ),
+          // 右侧还有更多标签时的渐隐提示，暗示"可以继续右滑"。
+          if (_canScrollMore)
+            IgnorePointer(
+              child: Container(
+                width: 32,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      df.surfaceMuted.withValues(alpha: 0),
+                      df.surfaceMuted,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
+  }
+}
+
+/// 设置项行：label + control。窄屏下 control（通常是 SegmentedButton）
+/// 会把 label 挤到 0 宽度，导致文字逐字换行、Row 溢出——窄于阈值时改成
+/// 上下堆叠，并给 control 包一层横向滚动兜底，彻底避免溢出。
+class _SettingRow extends StatelessWidget {
+  final Widget label;
+  final Widget control;
+  const _SettingRow({required this.label, required this.control});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final scrollableControl = SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: control,
+      );
+      if (constraints.maxWidth < 480) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            label,
+            const SizedBox(height: 12),
+            scrollableControl,
+          ],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(child: label),
+          const SizedBox(width: 16),
+          scrollableControl,
+        ],
+      );
+    });
   }
 }
 
@@ -1558,16 +1661,21 @@ class _SideNav extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.all(10),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final section in _SettingsSection.values)
-            _SideNavItem(
-              section: section,
-              selected: selected == section,
-              onTap: () => onSelected(section),
-            ),
-        ],
+      // 卡片本身被外层 Row 拉伸到跟右侧内容等高；这里用 SingleChildScrollView
+      // 包一层，正常情况下菜单项按自身高度顶部对齐、下方留白，
+      // 万一窗口矮到装不下也能滚动，而不是溢出报错。
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final section in _SettingsSection.values)
+              _SideNavItem(
+                section: section,
+                selected: selected == section,
+                onTap: () => onSelected(section),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1600,14 +1708,14 @@ class _SideNavItemState extends State<_SideNavItem> {
         : (_hover ? df.primary : df.textSecondary);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: MouseRegion(
         onEnter: (_) => setState(() => _hover = true),
         onExit: (_) => setState(() => _hover = false),
         child: GestureDetector(
           onTap: widget.onTap,
           child: Container(
-            height: 44,
+            height: 48,
             decoration: BoxDecoration(
               color: isSelected
                   ? df.primary.withValues(alpha: 0.1)

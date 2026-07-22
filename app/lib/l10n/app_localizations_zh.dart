@@ -695,6 +695,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelImportUploadHint => '支持 .txt, .docx 格式，建议文件大小不超过 10MB';
 
   @override
+  String novelImportUploaded(String fileName) {
+    return '已上传：$fileName';
+  }
+
+  @override
+  String get novelImportReUploadHint => '内容已填入下方文本框，可编辑；点击可重新上传';
+
+  @override
   String get novelImportOr => '或';
 
   @override

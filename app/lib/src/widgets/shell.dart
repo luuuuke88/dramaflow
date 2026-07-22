@@ -1,9 +1,5 @@
 // ToonFlow 工作台壳 1:1 移植（Toonflow-web src/pages/workbench/index.vue）：
 // 桌面 ≥840：左侧细图标栏（Logo/我的项目/任务中心 + 底部反馈·设置·GitHub）
-//           + 顶栏 50px（项目名 | 项目内菜单右对齐）+ 圆角内容区。
-// 移动 <840：底部导航（项目/任务/设置），项目内子页由顶部横向 Tab 承接。
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,6 +13,24 @@ import '../theme/tokens.dart';
 import '../util/l10n_ext.dart';
 
 const _feedbackUrl = 'https://github.com/HBAI-Ltd/Toonflow-app/issues';
+
+/// 玻璃质感胶囊（侧栏/移动端底部导航共用）的渐变底色：不用 BackdropFilter 真实模糊
+/// （会跟路由/弹窗动画冲突导致渲染错乱，见 _SideBar 里的说明），改用左上到右下的
+/// 双色渐变 + 顶部高光边，模拟玻璃的光影层次，纯色调也不至于显得单薄。
+LinearGradient glassGradient(DFColors df, bool isDark) {
+  final base = Color.alphaBlend(
+    df.primary.withValues(alpha: isDark ? 0.16 : 0.08),
+    df.surface,
+  );
+  return LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      base.withValues(alpha: isDark ? 0.90 : 0.90),
+      base.withValues(alpha: isDark ? 0.72 : 0.68),
+    ],
+  );
+}
 
 /// 项目内菜单定义（顺序照抄 ToonFlow workbench 顶栏）。P1-P5 全部批次已交付，
 /// 各分区均为真实功能（无占位）。
@@ -91,8 +105,11 @@ class _DesktopShell extends ConsumerWidget {
     return Scaffold(
       backgroundColor: df.bg,
       body: Row(children: [
-        // 满版大气侧边栏（全高连贯布局，无零碎内缩外边距框）
-        _SideBar(path: path),
+        // 悬浮磨砂玻璃胶囊侧栏，与窗口边缘留白
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          child: _SideBar(path: path),
+        ),
         // 主内容画布（通透满版无缩进）
         Expanded(
           child: Column(children: [
@@ -124,49 +141,62 @@ class _SideBar extends ConsumerWidget {
     final isProject = path == '/' || path.startsWith('/p/');
     final isTasks = path.startsWith('/tasks');
     final isSettings = path.startsWith('/settings');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // 胶囊形状：圆角 = 宽度一半，顶部/底部自然收成半圆。
+    // 玻璃底色在 surface 基础上混入一点主色，再拉高不透明度：纯灰玻璃在素色背景下
+    // 太浅，几乎看不出形状；混色+提高不透明度后，不管背景亮暗都能看清胶囊轮廓。
+    // 注：不用 BackdropFilter 做真实模糊——它跟路由切换/弹窗动画同时触发时会导致
+    // 渲染树错乱（页面跳转卡顿、弹窗消失），这里改成纯色调不透明度模拟玻璃质感，
+    // 牺牲一点"透"的效果换稳定。
     return Container(
       width: 76,
       decoration: BoxDecoration(
-        color: df.surface,
-        border: Border(
-          right: BorderSide(
-            color: df.stroke.withValues(alpha: 0.5),
-            width: 1,
-          ),
+        gradient: glassGradient(df, isDark),
+        borderRadius: BorderRadius.circular(38),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.8),
+          width: 1.2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.36 : 0.16),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Column(children: [
-        const DFLogo(),
-        const SizedBox(height: 24),
-        // 核心导航区
-        _SideIcon(
-          tooltip: context.l10n.menuMyProject,
-          icon: Icons.grid_view_rounded,
-          selected: isProject,
-          onTap: () => context.go('/'),
-        ),
-        _SideIcon(
-          tooltip: context.l10n.menuTaskCenter,
-          icon: Icons.view_stream_rounded,
-          selected: isTasks,
-          badgeCount: activeCount,
-          onTap: () => context.go('/tasks'),
-        ),
-        const Spacer(),
-        // 下方系统操作区：【设置】与【反馈】
-        _SideIcon(
-          tooltip: context.l10n.menuSettings,
-          icon: Icons.settings_rounded,
-          selected: isSettings,
-          onTap: () => context.go('/settings'),
-        ),
-        _SideIcon(
-          tooltip: context.l10n.menuFeedbackQuestions,
-          icon: Icons.help_outline_rounded,
-          onTap: () => launchUrl(Uri.parse(_feedbackUrl)),
-        ),
+            const DFLogo(),
+            const SizedBox(height: 24),
+            // 核心导航区
+            _SideIcon(
+              tooltip: context.l10n.menuMyProject,
+              icon: Icons.grid_view_rounded,
+              selected: isProject,
+              onTap: () => context.go('/'),
+            ),
+            _SideIcon(
+              tooltip: context.l10n.menuTaskCenter,
+              icon: Icons.view_stream_rounded,
+              selected: isTasks,
+              badgeCount: activeCount,
+              onTap: () => context.go('/tasks'),
+            ),
+            const Spacer(),
+            // 下方系统操作区：【设置】与【反馈】
+            _SideIcon(
+              tooltip: context.l10n.menuSettings,
+              icon: Icons.settings_rounded,
+              selected: isSettings,
+              onTap: () => context.go('/settings'),
+            ),
+            _SideIcon(
+              tooltip: context.l10n.menuFeedbackQuestions,
+              icon: Icons.help_outline_rounded,
+              onTap: () => launchUrl(Uri.parse(_feedbackUrl)),
+            ),
       ]),
     );
   }
@@ -282,46 +312,18 @@ class _TopBar extends ConsumerWidget {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Row(children: [
-        // 左上角当前项目 Switcher Pill（大气大号按键）
-        Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: df.surfaceMuted,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: df.stroke.withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                project != null
-                    ? Icons.movie_creation_outlined
-                    : Icons.auto_awesome_mosaic_outlined,
-                size: 18,
-                color: project != null ? df.primary : df.textTertiary,
-              ),
-              const SizedBox(width: 10),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 240),
-                child: Text(
-                  project?.name ?? context.l10n.shellSelectProject,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: project == null ? df.textTertiary : df.textPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 18,
-                color: df.textSecondary,
-              ),
-            ],
+        // 左上角当前项目名（纯展示，不可点击）
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 240),
+          child: Text(
+            project?.name ?? context.l10n.shellSelectProject,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: project == null ? df.textTertiary : df.textPrimary,
+            ),
           ),
         ),
         const Spacer(),
@@ -504,13 +506,6 @@ class _MobileShell extends ConsumerWidget {
     final activeCount = ref.watch(activeJobsProvider).length;
     final inProject = project != null && path.startsWith('/p/');
 
-    Widget taskIcon(bool active) => Badge(
-          isLabelVisible: activeCount > 0,
-          label: Text('$activeCount'),
-          backgroundColor: df.accent,
-          child: Icon(active ? Icons.view_list : Icons.view_list_outlined),
-        );
-
     return Scaffold(
       backgroundColor: df.bg,
       appBar: inProject
@@ -525,28 +520,133 @@ class _MobileShell extends ConsumerWidget {
             )
           : null,
       body: inProject ? child : SafeArea(bottom: false, child: child),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tabIndex,
-        height: 64,
-        onDestinationSelected: (i) =>
-            context.go(const ['/', '/tasks', '/settings'][i]),
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.folder_outlined),
-            selectedIcon: const Icon(Icons.folder),
-            label: context.l10n.menuMyProject,
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: _MobileFloatingNavBar(
+            selectedIndex: _tabIndex,
+            activeCount: activeCount,
+            onSelect: (i) => context.go(const ['/', '/tasks', '/settings'][i]),
           ),
-          NavigationDestination(
-            icon: taskIcon(false),
-            selectedIcon: taskIcon(true),
-            label: context.l10n.menuTaskCenter,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: const Icon(Icons.settings),
-            label: context.l10n.menuSettings,
+        ),
+      ),
+    );
+  }
+}
+
+/// 移动端底部导航：跟桌面侧栏同一套磨砂玻璃胶囊语言（圆角=高度一半、同样的玻璃底色）。
+class _MobileFloatingNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final int activeCount;
+  final ValueChanged<int> onSelect;
+  const _MobileFloatingNavBar({
+    required this.selectedIndex,
+    required this.activeCount,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const height = 64.0;
+
+    final items = [
+      (Icons.folder_outlined, Icons.folder, l10n.menuMyProject),
+      (Icons.view_list_outlined, Icons.view_list, l10n.menuTaskCenter),
+      (Icons.settings_outlined, Icons.settings, l10n.menuSettings),
+    ];
+
+    // 跟桌面侧栏一样：不用 BackdropFilter，用渐变+高光边模拟玻璃质感，避免跟
+    // 路由切换动画冲突导致渲染错乱。
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        gradient: glassGradient(df, isDark),
+        borderRadius: BorderRadius.circular(height / 2),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.8),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.36 : 0.16),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
           ),
         ],
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < items.length; i++)
+            Expanded(
+              child: _MobileNavItem(
+                outlineIcon: items[i].$1,
+                filledIcon: items[i].$2,
+                label: items[i].$3,
+                selected: i == selectedIndex,
+                badgeCount: i == 1 ? activeCount : 0,
+                onTap: () => onSelect(i),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileNavItem extends StatelessWidget {
+  final IconData outlineIcon;
+  final IconData filledIcon;
+  final String label;
+  final bool selected;
+  final int badgeCount;
+  final VoidCallback onTap;
+  const _MobileNavItem({
+    required this.outlineIcon,
+    required this.filledIcon,
+    required this.label,
+    required this.selected,
+    required this.badgeCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = context.df;
+    final color = selected ? df.primary : df.textSecondary;
+
+    final icon = Badge(
+      isLabelVisible: badgeCount > 0,
+      label: Text('$badgeCount'),
+      backgroundColor: df.accent,
+      child: Icon(selected ? filledIcon : outlineIcon, size: 22, color: color),
+    );
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Center(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? df.primary.withValues(alpha: 0.14) : null,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              icon,
+              const SizedBox(height: 2),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -609,8 +709,8 @@ class _MobileTabChip extends StatelessWidget {
   }
 }
 
-/// 品牌 Logo："层叠分镜"：三张错位旋转的圆角卡片代表小说→分镜→成片的流水线，
-/// 最前一张卡片上嵌入播放三角。纯代码绘制，跟随主题 primary/accent 自动换色。
+/// 品牌 Logo："开口播放环"：圆角方块上一个缺口圆环，缺口处嵌播放三角。
+/// 纯代码矢量绘制，只用主色/辅色/容器底色三种颜色，小尺寸下依然清晰。
 class DFLogo extends StatelessWidget {
   const DFLogo({super.key});
 
@@ -621,7 +721,11 @@ class DFLogo extends StatelessWidget {
       width: 40,
       height: 40,
       child: CustomPaint(
-        painter: _DFLogoPainter(primary: df.primary, accent: df.accent),
+        painter: _DFLogoPainter(
+          primary: df.primary,
+          accent: df.accent,
+          background: df.surface,
+        ),
       ),
     );
   }
@@ -630,43 +734,52 @@ class DFLogo extends StatelessWidget {
 class _DFLogoPainter extends CustomPainter {
   final Color primary;
   final Color accent;
-  const _DFLogoPainter({required this.primary, required this.accent});
+  final Color background;
+  const _DFLogoPainter({
+    required this.primary,
+    required this.accent,
+    required this.background,
+  });
 
-  static const _squareRect = Rect.fromLTWH(9, 9, 22, 22);
-  static final _rrect =
-      RRect.fromRectAndRadius(_squareRect, const Radius.circular(6.5));
+  static final _badge = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(3, 3, 34, 34), const Radius.circular(10));
+  static const _ringCenter = Offset(17.5, 20);
+  static const _ringRadius = 11.0;
+
+  // 挖开圆环右侧缺口的“橡皮擦”三角（与主体同色，视觉上抹掉右半圈）。
+  static final _wedge = Path()
+    ..moveTo(19, 7)
+    ..lineTo(33, 20)
+    ..lineTo(19, 33)
+    ..close();
+
+  // 缺口处的播放三角。
   static final _triangle = Path()
-    ..moveTo(17.3, 14.6)
-    ..lineTo(26, 20)
-    ..lineTo(17.3, 25.4)
+    ..moveTo(20.5, 14.5)
+    ..lineTo(29, 20)
+    ..lineTo(20.5, 25.5)
     ..close();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-
-    void withRotation(double degrees, void Function() draw) {
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(degrees * math.pi / 180);
-      canvas.translate(-center.dx, -center.dy);
-      draw();
-      canvas.restore();
-    }
-
-    withRotation(-14, () => canvas.drawRRect(
-        _rrect, Paint()..color = primary.withValues(alpha: 0.28)));
-    withRotation(7, () => canvas.drawRRect(
-        _rrect, Paint()..color = primary.withValues(alpha: 0.55)));
-    withRotation(-2, () {
-      canvas.drawRRect(_rrect, Paint()..color = primary);
-      canvas.drawPath(_triangle, Paint()..color = accent);
-    });
+    canvas.drawRRect(_badge, Paint()..color = primary);
+    canvas.drawCircle(
+      _ringCenter,
+      _ringRadius,
+      Paint()
+        ..color = background
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6,
+    );
+    canvas.drawPath(_wedge, Paint()..color = primary);
+    canvas.drawPath(_triangle, Paint()..color = accent);
   }
 
   @override
   bool shouldRepaint(covariant _DFLogoPainter oldDelegate) =>
-      oldDelegate.primary != primary || oldDelegate.accent != accent;
+      oldDelegate.primary != primary ||
+      oldDelegate.accent != accent ||
+      oldDelegate.background != background;
 }
 
 /// 页面级内容容器：统一最大宽度与内边距，避免超宽屏内容拉满。

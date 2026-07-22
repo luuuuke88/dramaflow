@@ -259,6 +259,15 @@
   "novelImportStep3": "ステップ 3",
   "novelImportDragUpload": "ここに小説ファイルをドラッグ＆ドロップするか、クリックしてアップロード",
   "novelImportUploadHint": "対応形式: .txt, .docx。ファイルサイズは10MB以下を推奨します",
+  "novelImportUploaded": "アップロード済み：{fileName}",
+  "@novelImportUploaded": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "novelImportReUploadHint": "内容は下のテキスト欄に入力されました。編集可能です。クリックで再アップロード",
   "novelImportOr": "または",
   "novelImportPasteLabel": "小説の原文を直接貼り付け",
   "novelImportPastePlaceholder": "小説の原文を入力してください",
