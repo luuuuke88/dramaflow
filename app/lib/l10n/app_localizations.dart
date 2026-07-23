@@ -340,6 +340,12 @@ abstract class AppLocalizations {
   /// **'重置筛选'**
   String get taskFilterReset;
 
+  /// No description provided for @taskFilterButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选'**
+  String get taskFilterButton;
+
   /// No description provided for @taskTableHeaderClass.
   ///
   /// In zh, this message translates to:

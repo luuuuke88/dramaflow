@@ -131,6 +131,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get taskFilterReset => '重置筛选';
 
   @override
+  String get taskFilterButton => '筛选';
+
+  @override
   String get taskTableHeaderClass => '任务大类';
 
   @override

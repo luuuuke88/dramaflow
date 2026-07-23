@@ -223,6 +223,7 @@
   "taskFilterStateLabel": "Status",
   "taskFilterStateAll": "All Statuses",
   "taskFilterReset": "Reset Filters",
+  "taskFilterButton": "Filter",
   "taskTableHeaderClass": "Category",
   "taskTableHeaderTarget": "Target",
   "taskTableHeaderModel": "Model",

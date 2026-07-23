@@ -1009,6 +1009,7 @@
   "taskFilterClass": "タスク種別",
   "taskFilterState": "状態",
   "taskFilterAll": "すべて",
+  "taskFilterButton": "絞り込み",
   "taskDetailTitle": "タスク詳細",
   "taskDetailClass": "タスク種別",
   "taskDetailState": "状態",
