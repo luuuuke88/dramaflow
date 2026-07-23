@@ -328,6 +328,85 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  // 桌面表格固定 7 列宽度合计远超手机屏幕，横向滚动能看全但很难
+                  // 发现、体验也差——窄屏下直接换成竖排卡片，一屏内看完全部信息。
+                  if (constraints.maxWidth < 640) {
+                    return Column(children: [
+                      Expanded(
+                        child: allJobsAsync.isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : pageJobs.isEmpty
+                                ? _buildEmptyTable(context)
+                                : ListView.builder(
+                                    padding: const EdgeInsets.all(14),
+                                    itemCount: pageJobs.length,
+                                    itemBuilder: (context, index) =>
+                                        _MobileTaskCard(
+                                      task: pageJobs[index],
+                                      projects: projects,
+                                    ),
+                                  ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: df.stroke.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ),
+                        child: Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: [
+                            Text(
+                              l10n.taskFooterTotalCount(totalCount),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: df.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                              IconButton(
+                                icon: const Icon(
+                                    Icons.chevron_left_rounded,
+                                    size: 18),
+                                onPressed: safePage > 1
+                                    ? () => setState(
+                                        () => _currentPage = safePage - 1)
+                                    : null,
+                              ),
+                              Text(
+                                '$safePage / $totalPages',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: df.textSecondary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18),
+                                onPressed: safePage < totalPages
+                                    ? () => setState(
+                                        () => _currentPage = safePage + 1)
+                                    : null,
+                              ),
+                            ]),
+                          ],
+                        ),
+                      ),
+                    ]);
+                  }
+
                   // BoxConstraints 只给 minWidth 时，maxWidth/maxHeight 会默认变成
                   // 无穷大——表头和每行里用 Expanded 撑开的列（比如"描述"那一列）
                   // 因此拿不到一个有限宽度可分配，导致整张表布局失败、点击也失灵。
@@ -734,27 +813,135 @@ class _TaskTableRow extends ConsumerWidget {
     );
   }
 
-  String _taskModelName(TasksRow task) {
-    try {
-      final related = task.relatedObjectsJson;
-      if (related.containsKey('model')) return related['model']!.toString();
-      if (related.containsKey('model_id')) {
-        return related['model_id']!.toString();
-      }
-      if (related.containsKey('provider_model')) {
-        return related['provider_model']!.toString();
-      }
-    } catch (_) {}
-    return '-';
-  }
+}
 
-  String _taskProjectName(
-      AppLocalizations l10n, TasksRow task, List<ProjectRow> projects) {
-    if (task.projectId == null) return l10n.taskGlobalProject;
-    for (final p in projects) {
-      if (p.id == task.projectId) return p.name ?? '#${p.id}';
+String _taskModelName(TasksRow task) {
+  try {
+    final related = task.relatedObjectsJson;
+    if (related.containsKey('model')) return related['model']!.toString();
+    if (related.containsKey('model_id')) {
+      return related['model_id']!.toString();
     }
-    return '#${task.projectId}';
+    if (related.containsKey('provider_model')) {
+      return related['provider_model']!.toString();
+    }
+  } catch (_) {}
+  return '-';
+}
+
+String _taskProjectName(
+    AppLocalizations l10n, TasksRow task, List<ProjectRow> projects) {
+  if (task.projectId == null) return l10n.taskGlobalProject;
+  for (final p in projects) {
+    if (p.id == task.projectId) return p.name ?? '#${p.id}';
+  }
+  return '#${task.projectId}';
+}
+
+class _MobileTaskCard extends ConsumerWidget {
+  final TasksRow task;
+  final List<ProjectRow> projects;
+
+  const _MobileTaskCard({required this.task, required this.projects});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final df = context.df;
+    final l10n = AppLocalizations.of(context);
+    final reason = _reasonText(l10n, task.reason);
+    final projectName = _taskProjectName(l10n, task, projects);
+
+    return InkWell(
+      onTap: () => _showTaskDetail(context, task, reason),
+      borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: df.surface,
+          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+          border: Border.all(color: df.stroke),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(_taskIcon(task.taskClass), size: 16, color: df.primary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _taskClassLabel(l10n, task.taskClass),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: df.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              StatusChip(task.state, dense: true, errorTooltip: reason),
+            ]),
+            const SizedBox(height: 6),
+            Text(
+              projectName,
+              style: TextStyle(fontSize: 12, color: df.textSecondary),
+            ),
+            if ((task.describe ?? '').isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                task.describe!,
+                style: TextStyle(fontSize: 13, color: df.textPrimary),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (reason != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                reason,
+                style: TextStyle(fontSize: 12, color: df.danger),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 8),
+            Row(children: [
+              Text(
+                task.startTime != null ? _formatTime(task.startTime!) : '-',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: df.textTertiary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const Spacer(),
+              if (task.state == 'pending' || task.state == 'processing')
+                TextButton.icon(
+                  onPressed: () => runAction(context, ref, () async {
+                    await ref.read(engineProvider).cancelJob(task.id);
+                    ref.invalidate(allJobsProvider);
+                  }, successMessage: l10n.taskCanceledMessage),
+                  icon: Icon(Icons.close_rounded, size: 14, color: df.danger),
+                  label: Text(l10n.taskCancelTooltip,
+                      style: TextStyle(fontSize: 12, color: df.danger)),
+                ),
+              if (task.state == 'failed' && task.supersededByTaskId == null)
+                TextButton.icon(
+                  onPressed: () => runAction(context, ref, () async {
+                    await ref.read(engineProvider).retryJob(task.id);
+                    ref.invalidate(allJobsProvider);
+                  }, successMessage: l10n.taskRetryQueued),
+                  icon:
+                      Icon(Icons.refresh_rounded, size: 14, color: df.primary),
+                  label: Text(l10n.commonRetry,
+                      style: TextStyle(fontSize: 12, color: df.primary)),
+                ),
+            ]),
+          ],
+        ),
+      ),
+    );
   }
 }
 
