@@ -1,5 +1,7 @@
 // ToonFlow 工作台壳 1:1 移植（Toonflow-web src/pages/workbench/index.vue）：
 // 桌面 ≥840：左侧细图标栏（Logo/我的项目/任务中心 + 底部反馈·设置·GitHub）
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -502,6 +504,7 @@ class _MobileShell extends ConsumerWidget {
     final inProject = project != null && path.startsWith('/p/');
 
     return Scaffold(
+      extendBody: true,
       backgroundColor: df.bg,
       appBar: inProject
           ? AppBar(
@@ -548,32 +551,36 @@ class _MobileFloatingNavBar extends StatelessWidget {
     const height = 64.0;
 
     final items = [
-      (Icons.folder_outlined, Icons.folder, l10n.menuMyProject),
-      (Icons.view_list_outlined, Icons.view_list, l10n.menuTaskCenter),
-      (Icons.settings_outlined, Icons.settings, l10n.menuSettings),
+      (Icons.grid_view_outlined, Icons.grid_view_rounded, l10n.menuMyProject),
+      (Icons.view_stream_outlined, Icons.view_stream_rounded, l10n.menuTaskCenter),
+      (Icons.settings_outlined, Icons.settings_rounded, l10n.menuSettings),
     ];
 
     // 跟桌面侧栏一样：不用 BackdropFilter，用渐变+高光边模拟玻璃质感，避免跟
     // 路由切换动画冲突导致渲染错乱。
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        gradient: glassGradient(df, isDark),
-        borderRadius: BorderRadius.circular(height / 2),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.8),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.36 : 0.16),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(height / 2),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          height: height,
+          decoration: BoxDecoration(
+            gradient: glassGradient(df, isDark),
+            borderRadius: BorderRadius.circular(height / 2),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.8),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.36 : 0.16),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
+          child: Row(
+            children: [
           for (var i = 0; i < items.length; i++)
             Expanded(
               child: _MobileNavItem(
@@ -585,7 +592,9 @@ class _MobileFloatingNavBar extends StatelessWidget {
                 onTap: () => onSelect(i),
               ),
             ),
-        ],
+          ],
+        ),
+        ),
       ),
     );
   }
@@ -622,26 +631,27 @@ class _MobileNavItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Center(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? df.primary.withValues(alpha: 0.14) : null,
-            borderRadius: BorderRadius.circular(16),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  icon,
+                  const SizedBox(height: 2),
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+                ],
+              ),
+            ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              icon,
-              const SizedBox(height: 2),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }

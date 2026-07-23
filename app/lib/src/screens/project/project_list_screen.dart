@@ -250,15 +250,17 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
                       size: 18,
                       color: _isGridView ? df.primary : df.textTertiary,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      l10n.projectViewGrid,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: _isGridView ? FontWeight.w700 : FontWeight.w500,
-                        color: _isGridView ? df.primary : df.textSecondary,
+                    if (!compact) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.projectViewGrid,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: _isGridView ? FontWeight.w700 : FontWeight.w500,
+                          color: _isGridView ? df.primary : df.textSecondary,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -288,15 +290,17 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
                       size: 18,
                       color: !_isGridView ? df.primary : df.textTertiary,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      l10n.projectViewList,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: !_isGridView ? FontWeight.w700 : FontWeight.w500,
-                        color: !_isGridView ? df.primary : df.textSecondary,
+                    if (!compact) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.projectViewList,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: !_isGridView ? FontWeight.w700 : FontWeight.w500,
+                          color: !_isGridView ? df.primary : df.textSecondary,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -305,41 +309,16 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
         ),
       );
 
-      final badges = Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          _OverviewBadge(
-            icon: Icons.article_outlined,
-            label: l10n.projectStatTotalScripts(totalScripts),
-          ),
-          _OverviewBadge(
-            icon: Icons.view_compact_alt_outlined,
-            label: l10n.projectStatTotalStoryboards(totalStoryboards),
-          ),
-        ],
-      );
-
       final controlStrip = compact
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          ? Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(child: badges),
-                    const SizedBox(width: 8),
-                    viewSwitcher,
-                  ],
-                ),
-                const SizedBox(height: 16),
-                searchBar,
+                Expanded(child: searchBar),
+                const SizedBox(width: 12),
+                viewSwitcher,
               ],
             )
           : Row(
               children: [
-                badges,
-                const SizedBox(width: 32),
                 Expanded(child: searchBar),
                 const SizedBox(width: 32),
                 viewSwitcher,
@@ -347,7 +326,7 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
             );
 
       return Padding(
-        padding: EdgeInsets.fromLTRB(compact ? 20 : 40, compact ? 24 : 36, compact ? 20 : 40, 32),
+        padding: EdgeInsets.fromLTRB(compact ? 20 : 40, compact ? 20 : 36, compact ? 20 : 40, compact ? 120 : 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -369,7 +348,7 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 12),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(16),
                             ),
                           ),
                         ),
@@ -402,7 +381,7 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
         padding: const EdgeInsets.only(bottom: 24),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: cols,
-          mainAxisExtent: constraints.maxWidth < 720 ? 144 : 184,
+          mainAxisExtent: constraints.maxWidth < 720 ? 164 : 184,
           crossAxisSpacing: 18,
           mainAxisSpacing: 18,
         ),
@@ -539,7 +518,7 @@ class _ProjectCardState extends State<_ProjectCard> {
             padding: EdgeInsets.all(compact ? 14 : 20),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1C1C24) : Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
                 width: 1,
@@ -587,41 +566,35 @@ class _ProjectCardState extends State<_ProjectCard> {
                     ),
                   ],
                 ),
-                if (!compact) ...[
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: Text(
-                      p.intro ?? '',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.5,
-                        color: df.textSecondary,
-                      ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Text(
+                    p.intro ?? '',
+                    maxLines: compact ? 1 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.5,
+                      color: df.textSecondary,
                     ),
                   ),
-                ],
-                if (compact) const Spacer(),
+                ),
                 const SizedBox(height: 4),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    if (!compact)
-                      Expanded(
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            _StatTag(text: l10n.projectStatChapters(widget.stats.chapters)),
-                            _StatTag(text: l10n.projectStatScripts(widget.stats.scripts)),
-                            _StatTag(text: l10n.projectStatAssets(widget.stats.assets)),
-                            _StatTag(text: l10n.projectStatStoryboards(widget.stats.storyboards)),
-                          ],
-                        ),
-                      )
-                    else 
-                      const Spacer(),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _StatTag(text: l10n.projectStatChapters(widget.stats.chapters)),
+                          _StatTag(text: l10n.projectStatScripts(widget.stats.scripts)),
+                          _StatTag(text: l10n.projectStatAssets(widget.stats.assets)),
+                          _StatTag(text: l10n.projectStatStoryboards(widget.stats.storyboards)),
+                        ],
+                      ),
+                    ),
                     if (showActions) ...[
                       const SizedBox(width: 8),
                       IconButton(

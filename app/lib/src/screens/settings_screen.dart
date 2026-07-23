@@ -178,6 +178,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   _SettingsSection _section = _SettingsSection.appearance;
   int _modelRevision = 0;
+  bool _isMobileDetailOpen = false;
 
   // 其他设置字段控制器（懒初始化：进入面板时按引擎当前值填充）。
   TextEditingController? _chapterRegCtrl;
@@ -203,8 +204,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _selectSection(_SettingsSection section) {
-    if (section == _section) return;
-    setState(() => _section = section);
+    setState(() {
+      _section = section;
+      _isMobileDetailOpen = true;
+    });
   }
 
   void _invalidateConfig() {
@@ -232,7 +235,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final df = context.df;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(40, 36, 40, 0),
+      padding: EdgeInsets.fromLTRB(
+          MediaQuery.sizeOf(context).width < 720 ? 20 : 40, 
+          MediaQuery.sizeOf(context).width < 720 ? 20 : 36, 
+          MediaQuery.sizeOf(context).width < 720 ? 20 : 40, 
+          MediaQuery.sizeOf(context).width < 720 ? 120 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -247,10 +254,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: DFTokens.pageTitle26w800,
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      l10n.settingsSubtitle,
-                      style: TextStyle(fontSize: 14, color: df.textSecondary),
-                    ),
+                    if (MediaQuery.sizeOf(context).width >= 720)
+                      Text(
+                        l10n.settingsSubtitle,
+                        style: TextStyle(fontSize: 14, color: df.textSecondary),
+                      ),
                   ],
                 ),
               ),
@@ -282,15 +290,106 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ],
                     );
                   })
-                : Column(
-                    children: [
-                      _TopSectionTabs(
-                        selected: _section,
-                        onSelected: _selectSection,
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(child: _sectionBody()),
-                    ],
+                : AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: _isMobileDetailOpen
+                        ? KeyedSubtree(
+                            key: const ValueKey('mobile_detail'),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    InkWell(
+                                      onTap: () => setState(() => _isMobileDetailOpen = false),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: df.surfaceMuted,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: df.textSecondary),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              '返回',
+                                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: df.textSecondary),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      _sectionLabel(l10n, _section),
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: df.textPrimary),
+                                    ),
+                                    const Spacer(),
+                                    // To visually balance the back button so title is centered
+                                    const SizedBox(width: 64), 
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Expanded(child: _sectionBody()),
+                              ],
+                            ),
+                          )
+                        : KeyedSubtree(
+                            key: const ValueKey('mobile_menu'),
+                            child: ListView.separated(
+                              itemCount: _SettingsSection.values.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                final section = _SettingsSection.values[index];
+                                return InkWell(
+                                  onTap: () => _selectSection(section),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C24) : Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: df.surface,
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))
+                                            ]
+                                          ),
+                                          child: Icon(_sectionIcons[section], size: 18, color: df.primary),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Text(
+                                            _sectionLabel(l10n, section),
+                                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: df.textPrimary),
+                                          ),
+                                        ),
+                                        Icon(Icons.arrow_forward_ios_rounded, size: 16, color: df.textTertiary),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
                   ),
           ),
         ],
@@ -1518,77 +1617,85 @@ class _TopSectionTabsState extends State<_TopSectionTabs> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final df = context.df;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: Stack(
-        alignment: Alignment.centerRight,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: df.surfaceMuted,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            padding: const EdgeInsets.all(4),
-            child: Scrollbar(
-              controller: _scrollController,
-              thumbVisibility: _canScrollMore,
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                scrollDirection: Axis.horizontal,
-                child: SegmentedButton<_SettingsSection>(
-                  showSelectedIcon: false,
-                  selected: {widget.selected},
-                  style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.resolveWith(
-                      (states) => states.contains(WidgetState.selected)
-                          ? df.surface
-                          : Colors.transparent,
-                    ),
-                    foregroundColor: WidgetStateProperty.resolveWith(
-                      (states) => states.contains(WidgetState.selected)
-                          ? df.primary
-                          : df.textMid,
-                    ),
-                    side: const WidgetStatePropertyAll(BorderSide.none),
-                    shape: const WidgetStatePropertyAll(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(999)),
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [
+        SingleChildScrollView(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final section in _SettingsSection.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: InkWell(
+                    onTap: () => widget.onSelected(section),
+                    borderRadius: BorderRadius.circular(999),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: widget.selected == section ? df.surface : df.surfaceMuted.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: widget.selected == section ? df.stroke : Colors.transparent,
+                          width: 1,
+                        ),
+                        boxShadow: widget.selected == section
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : [],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _sectionIcons[section],
+                            size: 16,
+                            color: widget.selected == section ? df.primary : df.textSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _sectionLabel(l10n, section),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: widget.selected == section ? FontWeight.w700 : FontWeight.w500,
+                              color: widget.selected == section ? df.primary : df.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  segments: [
-                    for (final section in _SettingsSection.values)
-                      ButtonSegment(
-                        value: section,
-                        icon: Icon(_sectionIcons[section], size: 18),
-                        label: Text(_sectionLabel(l10n, section)),
-                      ),
+                ),
+              // 右侧留白，确保最后一项不会被渐变遮住
+              const SizedBox(width: 24),
+            ],
+          ),
+        ),
+        // 右侧渐隐遮罩
+        if (_canScrollMore)
+          IgnorePointer(
+            child: Container(
+              width: 48,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    df.bg.withValues(alpha: 0),
+                    df.bg,
                   ],
-                  onSelectionChanged: (selected) =>
-                      widget.onSelected(selected.single),
                 ),
               ),
             ),
           ),
-          // 右侧还有更多标签时的渐隐提示，暗示"可以继续右滑"。
-          if (_canScrollMore)
-            IgnorePointer(
-              child: Container(
-                width: 32,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      df.surfaceMuted.withValues(alpha: 0),
-                      df.surfaceMuted,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -1807,7 +1914,7 @@ class _SettingsCard extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 720 ? 16 : 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2115,7 +2222,7 @@ class _ChatTestDialogState extends ConsumerState<_ChatTestDialog> {
               child: _messages.isEmpty
                   ? Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(24),
+                        padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 720 ? 16 : 24),
                         child: Text(
                           l10n.settingsChatTestEmptyHint,
                           textAlign: TextAlign.center,
