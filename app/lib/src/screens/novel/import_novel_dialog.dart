@@ -46,6 +46,8 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
   List<ChapterItem> _parsed = const [];
   final Set<String> _selected = {};
   bool _saving = false;
+  String? _uploadedFileName;
+  bool _programmaticChange = false;
 
   @override
   void dispose() {
@@ -83,14 +85,18 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
     }
     try {
       final name = file.name.toLowerCase();
+      _programmaticChange = true;
       if (name.endsWith('.docx')) {
         _content.text = extractDocxText(bytes);
       } else if (name.endsWith('.txt')) {
         _content.text = utf8.decode(bytes, allowMalformed: true);
       } else {
+        _programmaticChange = false;
         _toast(l10n.novelImportMsgUnsupportedType);
         return;
       }
+      _programmaticChange = false;
+      setState(() => _uploadedFileName = file.name);
       _reparse();
     } on EngineException catch (e) {
       if (mounted) _toast(localizeError(context, e));
@@ -128,61 +134,155 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       InkWell(
         onTap: _pickFile,
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          height: 108,
+          height: 136,
           decoration: BoxDecoration(
-            border: Border.all(color: df.stroke, width: 1.4),
-            borderRadius: BorderRadius.circular(DFTokens.radiusControl),
-            color: df.surfaceMuted,
+            border: Border.all(
+                color: df.primary.withValues(alpha: 0.35), width: 1.5),
+            borderRadius: BorderRadius.circular(16),
+            color: df.surface.withValues(alpha: 0.65),
+            boxShadow: [
+              BoxShadow(
+                color: df.primary.withValues(alpha: 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.upload_file_outlined, size: 32, color: df.primary),
-            const SizedBox(height: 6),
-            Text(l10n.novelImportDragUpload,
-                style: const TextStyle(fontSize: 13)),
-            const SizedBox(height: 2),
-            Text(l10n.novelImportUploadHint,
-                style: TextStyle(fontSize: 11, color: df.textTertiary)),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (_uploadedFileName != null ? df.success : df.primary)
+                    .withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _uploadedFileName != null
+                    ? Icons.check_circle_rounded
+                    : Icons.cloud_upload_rounded,
+                size: 26,
+                color: _uploadedFileName != null ? df.success : df.primary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _uploadedFileName != null
+                  ? l10n.novelImportUploaded(_uploadedFileName!)
+                  : l10n.novelImportDragUpload,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _uploadedFileName != null
+                  ? l10n.novelImportReUploadHint
+                  : l10n.novelImportUploadHint,
+              style: TextStyle(fontSize: 12, color: df.textTertiary),
+            ),
           ]),
         ),
       ),
       Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(children: [
-          Expanded(child: Divider(color: df.stroke)),
+          Expanded(child: Divider(color: df.stroke.withValues(alpha: 0.5))),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(l10n.novelImportOr,
-                style: TextStyle(fontSize: 12, color: df.textTertiary)),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: df.surfaceMuted,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                l10n.novelImportOr,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: df.textTertiary),
+              ),
+            ),
           ),
-          Expanded(child: Divider(color: df.stroke)),
+          Expanded(child: Divider(color: df.stroke.withValues(alpha: 0.5))),
         ]),
       ),
-      Text(l10n.novelImportPasteLabel,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 6),
+      Text(
+        l10n.novelImportPasteLabel,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 8),
       TextField(
         controller: _content,
-        minLines: 10,
-        maxLines: 10,
-        onChanged: (_) => _reparse(),
-        decoration: InputDecoration(hintText: l10n.novelImportPastePlaceholder),
+        minLines: 8,
+        maxLines: 8,
+        onChanged: (_) {
+          if (!_programmaticChange && _uploadedFileName != null) {
+            setState(() => _uploadedFileName = null);
+          }
+          _reparse();
+        },
+        style: const TextStyle(fontSize: 13, height: 1.5),
+        decoration: InputDecoration(
+          hintText: l10n.novelImportPastePlaceholder,
+          fillColor: df.surface.withValues(alpha: 0.7),
+          filled: true,
+          contentPadding: const EdgeInsets.all(16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: df.stroke.withValues(alpha: 0.5)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: df.stroke.withValues(alpha: 0.5)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: df.primary, width: 1.5),
+          ),
+        ),
       ),
-      const SizedBox(height: 6),
-      Row(children: [
-        Text('$chars ${l10n.novelImportChars}',
+      const SizedBox(height: 8),
+      Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Expanded(
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              Text(
+                '$chars ${l10n.novelImportChars}',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: chars > 0 && chars < 100
+                        ? df.warning
+                        : df.textTertiary),
+              ),
+              if (chars > 0 && chars < 100)
+                Text(l10n.novelImportTooShort,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: df.warning)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: df.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            l10n.novelImportParsedChapters('${_parsed.length}'),
             style: TextStyle(
-                fontSize: 12,
-                color:
-                    chars > 0 && chars < 100 ? df.warning : df.textTertiary)),
-        if (chars > 0 && chars < 100) ...[
-          const SizedBox(width: 6),
-          Text(l10n.novelImportTooShort,
-              style: TextStyle(fontSize: 12, color: df.warning)),
-        ],
-        const Spacer(),
-        Text(l10n.novelImportParsedChapters('${_parsed.length}'),
-            style: TextStyle(fontSize: 12, color: df.textSecondary)),
+                fontSize: 12, fontWeight: FontWeight.w600, color: df.primary),
+          ),
+        ),
       ]),
     ]);
   }
@@ -230,11 +330,19 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
             final item =
                 _parsed.firstWhere((x) => '${x.index}_${x.chapter}' == row.id);
             return ListTile(
-              title: Text('${item.index} · ${item.chapter}'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                '${item.index} · ${item.chapter}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.reel, style: const TextStyle(fontSize: 12)),
+                  Text(item.reel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12)),
                   if (item.chapterData.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -279,6 +387,7 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final df = context.df;
     final stepTitles = [
       '${l10n.novelImportStep1}：${l10n.novelImportText}',
       '${l10n.novelImportStep2}：${l10n.novelImportMsgSelectFile}',
@@ -286,7 +395,7 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
     ];
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+        padding: const EdgeInsets.fromLTRB(28, 14, 28, 12),
         child: LayoutBuilder(builder: (context, constraints) {
           if (constraints.maxWidth < 420) {
             return Row(children: [
@@ -295,16 +404,16 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: context.df.primary,
+                      color: df.primary,
                     )),
               ),
               const SizedBox(width: 8),
               Text('${_step + 1}/${stepTitles.length}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: context.df.textTertiary,
+                    color: df.textTertiary,
                     fontFeatures: DFTokens.tabularFigures,
                   )),
             ]);
@@ -314,27 +423,42 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
             for (final (i, t) in stepTitles.indexed) ...[
               if (i > 0)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.chevron_right,
-                      size: 16, color: context.df.textTertiary),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Icon(Icons.chevron_right_rounded,
+                      size: 18, color: df.textTertiary.withValues(alpha: 0.6)),
                 ),
-              Text(t,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: _step == i ? FontWeight.w700 : FontWeight.w400,
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _step == i
+                      ? df.primary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
                     color: _step == i
-                        ? context.df.primary
-                        : context.df.textTertiary,
-                  )),
+                        ? df.primary.withValues(alpha: 0.3)
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Text(
+                  t,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: _step == i ? FontWeight.w700 : FontWeight.w500,
+                    color: _step == i ? df.primary : df.textTertiary,
+                  ),
+                ),
+              ),
             ],
           ]);
         }),
       ),
       Flexible(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 28),
           child: SizedBox(
-            height: 420,
+            height: 440,
             child: switch (_step) {
               0 => SingleChildScrollView(child: _step1()),
               1 => _step2(),
@@ -344,16 +468,28 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
         ),
       ),
       Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(28, 14, 28, 20),
         child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           if (_step == 1)
-            TextButton(
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
               onPressed: () => setState(() => _step = 0),
               child: Text(l10n.novelImportPrevStep),
             ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           if (_step == 0)
             FilledButton(
+              style: FilledButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
               onPressed: _parsed.isEmpty
                   ? null
                   : () {
@@ -366,22 +502,37 @@ class _ImportNovelBodyState extends State<_ImportNovelBody> {
                           ]);
                       });
                     },
-              child: Text(l10n.novelImportNextStep),
+              child: Text(l10n.novelImportNextStep,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
             )
           else if (_step == 1)
             FilledButton(
+              style: FilledButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
               onPressed: _saving ? null : _save,
               child: _saving
                   ? const SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(l10n.novelImportSaveAndAnalyze),
+                  : Text(l10n.novelImportSaveAndAnalyze,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
             )
           else
             FilledButton(
+              style: FilledButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text(l10n.commonConfirm),
+              child: Text(l10n.commonConfirm,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
         ]),
       ),

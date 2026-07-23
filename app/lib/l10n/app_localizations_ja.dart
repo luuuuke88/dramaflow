@@ -105,6 +105,118 @@ class AppLocalizationsJa extends AppLocalizations {
   String get projectEmpty => 'プロジェクトはまだありません';
 
   @override
+  String get projectEmptySubtitle => '配置基本信息与 AI 视觉手册，开启全流程短剧创作';
+
+  @override
+  String get taskCenterSubtitle => '查看正在运行的 AI 生成任务与历史生成记录';
+
+  @override
+  String get settingsSubtitle => '管理 AI 模型供应商、模型绑定、提示词预设与应用外观';
+
+  @override
+  String get settingsThemeTitle => '显示主题';
+
+  @override
+  String get settingsThemeSubtitle => '选择 DramaFlow 的外观视觉主题风格';
+
+  @override
+  String get settingsLanguageSubtitle => '设置界面的显示语言选项';
+
+  @override
+  String taskActiveRunning(Object count) {
+    return '$count 个任务运行中';
+  }
+
+  @override
+  String get taskActiveNone => '暂无运行中任务';
+
+  @override
+  String get taskFilterProjectLabel => '项目名称';
+
+  @override
+  String get taskFilterProjectAll => '全部项目';
+
+  @override
+  String get taskFilterClassLabel => '任务大类';
+
+  @override
+  String get taskFilterClassAll => '全部大类';
+
+  @override
+  String get taskFilterStateLabel => '任务状态';
+
+  @override
+  String get taskFilterStateAll => '全部状态';
+
+  @override
+  String get taskFilterReset => '重置筛选';
+
+  @override
+  String get taskTableHeaderClass => '任务大类';
+
+  @override
+  String get taskTableHeaderTarget => '关联对象';
+
+  @override
+  String get taskTableHeaderModel => '模型名称';
+
+  @override
+  String get taskTableHeaderDescribe => '描述';
+
+  @override
+  String get taskTableHeaderReason => '失败原因';
+
+  @override
+  String get taskTableHeaderState => '状态';
+
+  @override
+  String get taskTableHeaderAction => '时间 / 操作';
+
+  @override
+  String taskFooterTotalCount(Object count) {
+    return '共 $count 条数据';
+  }
+
+  @override
+  String taskFooterPageSize(Object count) {
+    return '$count 条/页';
+  }
+
+  @override
+  String get taskEmptyFilteredTitle => '暂无符合条件的任务记录';
+
+  @override
+  String get taskEmptyFilteredDesc =>
+      '生成剧本、图片、视频等操作产生的任务会显示在这里，可以按项目、类型、状态筛选查看';
+
+  @override
+  String get taskGlobalProject => '全局任务';
+
+  @override
+  String get projectSearchPlaceholder => '搜索项目名称或简介...';
+
+  @override
+  String get projectViewGrid => '网格视图';
+
+  @override
+  String get projectViewList => '列表视图';
+
+  @override
+  String projectStatTotalProjects(Object count) {
+    return '$count 个项目';
+  }
+
+  @override
+  String projectStatTotalScripts(Object count) {
+    return '$count 份剧本';
+  }
+
+  @override
+  String projectStatTotalStoryboards(Object count) {
+    return '$count 组分镜';
+  }
+
+  @override
   String get projectUntitled => '無題のプロジェクト';
 
   @override
@@ -624,6 +736,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonEdit => '編集';
 
   @override
+  String get commonPreview => 'プレビュー';
+
+  @override
   String get manualTabReadme => 'README';
 
   @override
@@ -751,7 +866,8 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get novelMsgBatchDeleteAllGenerating => '選択した章はすべてイベント生成中のため、まだ削除できません';
+  String get novelMsgBatchDeleteAllGenerating =>
+      '選択した章はすべてイベント生成中のため、まだ削除できません';
 
   @override
   String get novelMsgDeleteHeader => '削除の確認';
@@ -789,6 +905,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelImportUploadHint => '対応形式: .txt, .docx。ファイルサイズは10MB以下を推奨します';
+
+  @override
+  String novelImportUploaded(String fileName) {
+    return 'アップロード済み：$fileName';
+  }
+
+  @override
+  String get novelImportReUploadHint =>
+      '内容は下のテキスト欄に入力されました。編集可能です。クリックで再アップロード';
 
   @override
   String get novelImportOr => 'または';
@@ -973,6 +1098,24 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelAnalysisAnalyzing => 'イベント分析中';
+
+  @override
+  String get novelNextStepBannerText => 'イベントの生成が完了しました。台本を生成できます';
+
+  @override
+  String get novelNextStepBannerButton => '台本を生成';
+
+  @override
+  String get scriptNextStepBannerText => '素材の抽出が完了しました。配音の割り当てに進めます';
+
+  @override
+  String get scriptNextStepBannerButton => '配音の割り当てへ';
+
+  @override
+  String get cornerScapeNextStepBannerText => '配音の割り当てが完了しました。映像制作に進めます';
+
+  @override
+  String get cornerScapeNextStepBannerButton => '映像制作へ';
 
   @override
   String get scriptSearchPlaceholder => 'シナリオ名を検索...';
@@ -2449,6 +2592,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentChatSend => '送信';
 
   @override
+  String get agentChatQuickStatus => '進捗確認';
+
+  @override
+  String get agentChatQuickScript => '台本を生成';
+
+  @override
+  String get agentChatQuickStatusPrompt => '今の進捗はどうですか';
+
+  @override
+  String get agentChatQuickScriptPrompt => 'イベントから台本を生成してください';
+
+  @override
   String get agentChatThinking => '考え中...';
 
   @override
@@ -2471,7 +2626,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agentChatWelcome =>
-      'こんにちは、脚本エージェントです。イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像、動画生成、配音の割り当て、最終合成をお手伝いできます。何をしたいか教えてください。または「今の進捗は?」と聞いてください。';
+      'こんにちは、脚本エージェントです。生成済みのイベントを台本に書き上げるお手伝いをします——ストーリーの骨組みや脚色方針について話しましょう。または「今の進捗は?」と聞いてください。絵コンテ・配音・合成などの後続作業はそれぞれのページで行ってください。';
 
   @override
   String agentChatToolExecuted(String tool) {
@@ -2599,11 +2754,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String agentSkillsScanSummary(
-    int added,
-    int updated,
-    int missing,
-    int invalid,
-  ) {
+      int added, int updated, int missing, int invalid) {
     return 'スキャン完了：追加 $added、更新 $updated、不足 $missing、無効 $invalid';
   }
 
@@ -3664,6 +3815,32 @@ class AppLocalizationsJa extends AppLocalizations {
   String settingsProviderTestTitle(String name) {
     return '接続テスト · $name';
   }
+
+  @override
+  String get settingsChatTest => '会話テスト';
+
+  @override
+  String settingsChatTestTitle(String name) {
+    return '会話テスト · $name';
+  }
+
+  @override
+  String get settingsChatTestInputHint => 'メッセージを入力し、Enterで送信';
+
+  @override
+  String get settingsChatTestEmptyHint => 'メッセージを送って、モデルの実際の返信を確認しましょう';
+
+  @override
+  String get settingsFetchModels => 'モデルを取得';
+
+  @override
+  String get settingsFetchModelsNoneFound => '新しいモデルは見つかりませんでした';
+
+  @override
+  String get settingsFetchModelsTitle => '追加するモデルを選択';
+
+  @override
+  String get settingsFetchModelsAdd => '選択したものを追加';
 
   @override
   String get settingsDeleteProviderTitle => 'プロバイダーを削除';

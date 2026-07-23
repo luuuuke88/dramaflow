@@ -64,7 +64,7 @@ import 'app_localizations_zh.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -87,17 +87,17 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
     Locale('ja'),
-    Locale('zh'),
+    Locale('zh')
   ];
 
   /// No description provided for @menuMyProject.
@@ -291,6 +291,204 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无项目'**
   String get projectEmpty;
+
+  /// No description provided for @projectEmptySubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置基本信息与 AI 视觉手册，开启全流程短剧创作'**
+  String get projectEmptySubtitle;
+
+  /// No description provided for @taskCenterSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看正在运行的 AI 生成任务与历史生成记录'**
+  String get taskCenterSubtitle;
+
+  /// No description provided for @settingsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理 AI 模型供应商、模型绑定、提示词预设与应用外观'**
+  String get settingsSubtitle;
+
+  /// No description provided for @settingsThemeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示主题'**
+  String get settingsThemeTitle;
+
+  /// No description provided for @settingsThemeSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择 DramaFlow 的外观视觉主题风格'**
+  String get settingsThemeSubtitle;
+
+  /// No description provided for @settingsLanguageSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置界面的显示语言选项'**
+  String get settingsLanguageSubtitle;
+
+  /// No description provided for @taskActiveRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个任务运行中'**
+  String taskActiveRunning(Object count);
+
+  /// No description provided for @taskActiveNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无运行中任务'**
+  String get taskActiveNone;
+
+  /// No description provided for @taskFilterProjectLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目名称'**
+  String get taskFilterProjectLabel;
+
+  /// No description provided for @taskFilterProjectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部项目'**
+  String get taskFilterProjectAll;
+
+  /// No description provided for @taskFilterClassLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务大类'**
+  String get taskFilterClassLabel;
+
+  /// No description provided for @taskFilterClassAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部大类'**
+  String get taskFilterClassAll;
+
+  /// No description provided for @taskFilterStateLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务状态'**
+  String get taskFilterStateLabel;
+
+  /// No description provided for @taskFilterStateAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部状态'**
+  String get taskFilterStateAll;
+
+  /// No description provided for @taskFilterReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置筛选'**
+  String get taskFilterReset;
+
+  /// No description provided for @taskTableHeaderClass.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务大类'**
+  String get taskTableHeaderClass;
+
+  /// No description provided for @taskTableHeaderTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'关联对象'**
+  String get taskTableHeaderTarget;
+
+  /// No description provided for @taskTableHeaderModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型名称'**
+  String get taskTableHeaderModel;
+
+  /// No description provided for @taskTableHeaderDescribe.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述'**
+  String get taskTableHeaderDescribe;
+
+  /// No description provided for @taskTableHeaderReason.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败原因'**
+  String get taskTableHeaderReason;
+
+  /// No description provided for @taskTableHeaderState.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get taskTableHeaderState;
+
+  /// No description provided for @taskTableHeaderAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间 / 操作'**
+  String get taskTableHeaderAction;
+
+  /// No description provided for @taskFooterTotalCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 条数据'**
+  String taskFooterTotalCount(Object count);
+
+  /// No description provided for @taskFooterPageSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条/页'**
+  String taskFooterPageSize(Object count);
+
+  /// No description provided for @taskEmptyFilteredTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无符合条件的任务记录'**
+  String get taskEmptyFilteredTitle;
+
+  /// No description provided for @taskEmptyFilteredDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成剧本、图片、视频等操作产生的任务会显示在这里，可以按项目、类型、状态筛选查看'**
+  String get taskEmptyFilteredDesc;
+
+  /// No description provided for @taskGlobalProject.
+  ///
+  /// In zh, this message translates to:
+  /// **'全局任务'**
+  String get taskGlobalProject;
+
+  /// No description provided for @projectSearchPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索项目名称或简介...'**
+  String get projectSearchPlaceholder;
+
+  /// No description provided for @projectViewGrid.
+  ///
+  /// In zh, this message translates to:
+  /// **'网格视图'**
+  String get projectViewGrid;
+
+  /// No description provided for @projectViewList.
+  ///
+  /// In zh, this message translates to:
+  /// **'列表视图'**
+  String get projectViewList;
+
+  /// No description provided for @projectStatTotalProjects.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个项目'**
+  String projectStatTotalProjects(Object count);
+
+  /// No description provided for @projectStatTotalScripts.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 份剧本'**
+  String projectStatTotalScripts(Object count);
+
+  /// No description provided for @projectStatTotalStoryboards.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 组分镜'**
+  String projectStatTotalStoryboards(Object count);
 
   /// No description provided for @projectUntitled.
   ///
@@ -1270,6 +1468,12 @@ abstract class AppLocalizations {
   /// **'编辑'**
   String get commonEdit;
 
+  /// No description provided for @commonPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get commonPreview;
+
   /// No description provided for @manualTabReadme.
   ///
   /// In zh, this message translates to:
@@ -1587,6 +1791,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'支持 .txt, .docx 格式，建议文件大小不超过 10MB'**
   String get novelImportUploadHint;
+
+  /// No description provided for @novelImportUploaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已上传：{fileName}'**
+  String novelImportUploaded(String fileName);
+
+  /// No description provided for @novelImportReUploadHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容已填入下方文本框，可编辑；点击可重新上传'**
+  String get novelImportReUploadHint;
 
   /// No description provided for @novelImportOr.
   ///
@@ -1935,6 +2151,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'事件分析中'**
   String get novelAnalysisAnalyzing;
+
+  /// No description provided for @novelNextStepBannerText.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件已生成，可以去生成剧本了'**
+  String get novelNextStepBannerText;
+
+  /// No description provided for @novelNextStepBannerButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'去生成剧本'**
+  String get novelNextStepBannerButton;
+
+  /// No description provided for @scriptNextStepBannerText.
+  ///
+  /// In zh, this message translates to:
+  /// **'资产已提取，可以去塑角造景绑定配音了'**
+  String get scriptNextStepBannerText;
+
+  /// No description provided for @scriptNextStepBannerButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'去塑角造景'**
+  String get scriptNextStepBannerButton;
+
+  /// No description provided for @cornerScapeNextStepBannerText.
+  ///
+  /// In zh, this message translates to:
+  /// **'配音已绑定，可以去视频生产了'**
+  String get cornerScapeNextStepBannerText;
+
+  /// No description provided for @cornerScapeNextStepBannerButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'去视频生产'**
+  String get cornerScapeNextStepBannerButton;
 
   /// No description provided for @scriptSearchPlaceholder.
   ///
@@ -4768,6 +5020,30 @@ abstract class AppLocalizations {
   /// **'发送'**
   String get agentChatSend;
 
+  /// No description provided for @agentChatQuickStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'进度如何'**
+  String get agentChatQuickStatus;
+
+  /// No description provided for @agentChatQuickScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成剧本'**
+  String get agentChatQuickScript;
+
+  /// No description provided for @agentChatQuickStatusPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在进度如何'**
+  String get agentChatQuickStatusPrompt;
+
+  /// No description provided for @agentChatQuickScriptPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'帮我从事件生成剧本'**
+  String get agentChatQuickScriptPrompt;
+
   /// No description provided for @agentChatThinking.
   ///
   /// In zh, this message translates to:
@@ -4813,7 +5089,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentChatWelcome.
   ///
   /// In zh, this message translates to:
-  /// **'你好，我是剧本 Agent。我可以帮你推进事件提取、资产提取、分镜生成、首帧图、视频生成、配音绑定和最终合成。直接告诉我你想做什么，或者问我\"现在进度如何\"。'**
+  /// **'你好，我是剧本 Agent。我可以帮你把已生成的事件改写成剧本——跟我聊聊故事骨架、改编策略，或者直接问我\"现在进度如何\"。分镜、配音、合成这些后续步骤，请去对应的页面操作。'**
   String get agentChatWelcome;
 
   /// No description provided for @agentChatToolExecuted.
@@ -5049,11 +5325,7 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'扫描完成：新增 {added}，更新 {updated}，丢失 {missing}，无效 {invalid}'**
   String agentSkillsScanSummary(
-    int added,
-    int updated,
-    int missing,
-    int invalid,
-  );
+      int added, int updated, int missing, int invalid);
 
   /// No description provided for @agentSkillAttributionFilter.
   ///
@@ -7053,6 +7325,54 @@ abstract class AppLocalizations {
   /// **'测试连通 · {name}'**
   String settingsProviderTestTitle(String name);
 
+  /// No description provided for @settingsChatTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话测试'**
+  String get settingsChatTest;
+
+  /// No description provided for @settingsChatTestTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话测试 · {name}'**
+  String settingsChatTestTitle(String name);
+
+  /// No description provided for @settingsChatTestInputHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入一条消息，回车发送'**
+  String get settingsChatTestInputHint;
+
+  /// No description provided for @settingsChatTestEmptyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'发一条消息，看看模型的真实回复'**
+  String get settingsChatTestEmptyHint;
+
+  /// No description provided for @settingsFetchModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'拉取模型'**
+  String get settingsFetchModels;
+
+  /// No description provided for @settingsFetchModelsNoneFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有发现新模型'**
+  String get settingsFetchModelsNoneFound;
+
+  /// No description provided for @settingsFetchModelsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择要添加的模型'**
+  String get settingsFetchModelsTitle;
+
+  /// No description provided for @settingsFetchModelsAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加所选'**
+  String get settingsFetchModelsAdd;
+
   /// No description provided for @settingsDeleteProviderTitle.
   ///
   /// In zh, this message translates to:
@@ -7953,9 +8273,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }

@@ -4,11 +4,14 @@
 // 数据刷新：watch 队列事件（jobsGeneration），无轮询。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../engine/events.dart';
 import '../../engine/novel.dart';
+import '../../engine/scripts.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
+import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
@@ -35,6 +38,7 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
   static const _limit = 10;
   String _search = '';
   final Set<String> _selected = {};
+  bool _nextStepBannerDismissed = false;
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -373,8 +377,58 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
     ]);
   }
 
+  Widget? _nextStepBanner() {
+    if (_nextStepBannerDismissed) return null;
+    ref.watch(jobsGenerationProvider);
+    final engine = ref.watch(engineProvider);
+    final hasEvents = engine.events(widget.projectId, limit: 1).total > 0;
+    if (!hasEvents) return null;
+    final hasScript = engine.scripts(widget.projectId).isNotEmpty;
+    if (hasScript) return null;
+
+    final l10n = context.l10n;
+    final df = context.df;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: df.primarySubtle,
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        border: Border.all(color: df.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Icon(Icons.auto_awesome_rounded, size: 20, color: df.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            l10n.novelNextStepBannerText,
+            style: DFTokens.body14.copyWith(color: df.textPrimary),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          onPressed: () => context.go('/p/${widget.projectId}/scriptAgent'),
+          child: Text(l10n.novelNextStepBannerButton),
+        ),
+        IconButton(
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          icon: const Icon(Icons.close_rounded, size: 18),
+          onPressed: () => setState(() => _nextStepBannerDismissed = true),
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return _chaptersTab();
+    final banner = _nextStepBanner();
+    if (banner == null) return _chaptersTab();
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        child: banner,
+      ),
+      Expanded(child: _chaptersTab()),
+    ]);
   }
 }

@@ -51,3 +51,4 @@ flutter:
     - integration_test/fixtures/
     - assets/default_skills/toonflow_default_skills.zip
     - assets/default_prompts/toonflow_model_prompts.zip
+    - assets/images/logo.jpg

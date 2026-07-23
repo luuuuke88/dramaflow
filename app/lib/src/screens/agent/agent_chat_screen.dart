@@ -31,20 +31,15 @@ class AgentChatScreen extends ConsumerStatefulWidget {
 }
 
 class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
+  // 「剧本Agent」「制作Agent」以前是同一个聊天框的两个 tab，切换只换了欢迎语和
+  // 给 AI 的一句提示偏好，能力完全一样——用户反馈"感觉不出区别"，所以合并成
+  // 一个入口，固定用 script family，不再让用户在两个几乎一样的东西里选。
+  static const _family = assistantFamilyScript;
+
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
   bool _autoMode = false;
-  // 剧本 Agent 和制作 Agent 是两个独立家族，各自的请求飞行状态不能互相影响：
-  // 一个家族的消息还没回复时，切到另一个家族应该照常能发送。按 family 分开
-  // 记录，而不是共用一个 bool。
-  final Map<String, bool> _sendingByFamily = {
-    assistantFamilyScript: false,
-    assistantFamilyProduction: false,
-  };
-  String _family = assistantFamilyScript;
-
-  /// 当前正在查看的家族是否有请求飞行中；UI 只关心"这一屏"的状态。
-  bool get _sending => _sendingByFamily[_family] ?? false;
+  bool _sending = false;
 
   @override
   void initState() {
@@ -64,12 +59,6 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     ref.read(engineProvider).setAssistantAutoMode(value);
   }
 
-  void _setFamily(String family) {
-    if (_family == family) return;
-    setState(() => _family = family);
-    _scrollToBottom();
-  }
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
@@ -83,25 +72,27 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    // 用发起时的家族门控/回写发送态，而不是 _sending 这个跟随当前 tab 的
-    // getter：请求飞行期间用户可能已经切到另一个家族，_family 会变，但这次
-    // 请求归属的家族不能变。
-    final family = _family;
-    if (text.isEmpty || (_sendingByFamily[family] ?? false)) return;
+    if (text.isEmpty || _sending) return;
     _input.clear();
-    setState(() => _sendingByFamily[family] = true);
+    setState(() => _sending = true);
     _scrollToBottom();
     try {
       await ref.read(engineProvider).sendAssistantMessage(
             widget.projectId,
             text,
-            family: family,
+            family: _family,
             autoMode: _autoMode,
           );
     } finally {
-      if (mounted) setState(() => _sendingByFamily[family] = false);
+      if (mounted) setState(() => _sending = false);
       _scrollToBottom();
     }
+  }
+
+  Future<void> _quickSend(String prompt) async {
+    if (_sending) return;
+    _input.text = prompt;
+    await _send();
   }
 
   Future<void> _clearChat() async {
@@ -197,122 +188,206 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   Widget _buildBody(BuildContext context, List<AssistantMessage> messages) {
     final l10n = context.l10n;
     final df = context.df;
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: SegmentedButton<String>(
-            key: const ValueKey('assistant-family-switch'),
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(
-                value: assistantFamilyScript,
-                icon: const Icon(Icons.edit_note_outlined),
-                label: Text(
-                  l10n.agentDeployGroupScriptAgent,
-                  key: const ValueKey('assistant-family-script'),
-                ),
-              ),
-              ButtonSegment(
-                value: assistantFamilyProduction,
-                icon: const Icon(Icons.movie_creation_outlined),
-                label: Text(
-                  l10n.agentDeployGroupProductionAgent,
-                  key: const ValueKey('assistant-family-production'),
-                ),
-              ),
-            ],
-            selected: {_family},
-            onSelectionChanged: (selection) {
-              _setFamily(selection.single);
-            },
-          ),
-        ),
-      ),
-      Expanded(
-        child: ListView(
-          controller: _scroll,
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (messages.isEmpty)
-              _WelcomeBubble(
-                text: _family == assistantFamilyScript
-                    ? l10n.agentChatWelcome
-                    : l10n.canvasChatWelcome,
-              ),
-            for (final message in messages)
-              _AssistantMessageBubble(
-                message: message,
-                onApprove: () => _confirmPending(true),
-                onReject: () => _confirmPending(false),
-              ),
-            if (_sending)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(children: [
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    l10n.agentChatThinking,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: df.textTertiary,
+    return Stack(
+      children: [
+        Positioned.fill(
+          // 新对话只有一条欢迎语时，顶部对齐的列表会在下面留一大片空白，
+          // 显得页面很空——这种情况改成整体居中，看起来才像个完整的空状态，
+          // 而不是内容没加载全。一旦开始聊天，恢复正常的顶部对齐滚动列表。
+          child: messages.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 160),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: Text(
+                        l10n.agentChatWelcome,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.6,
+                          color: df.textSecondary,
+                        ),
+                      ),
                     ),
                   ),
-                ]),
+                )
+              : ListView(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
+                  children: [
+                    for (final message in messages)
+                      _AssistantMessageBubble(
+                        message: message,
+                        onApprove: () => _confirmPending(true),
+                        onReject: () => _confirmPending(false),
+                      ),
+                    if (_sending)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(children: [
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            l10n.agentChatThinking,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: df.textTertiary,
+                            ),
+                          ),
+                        ]),
+                      ),
+                  ],
+                ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            alignment: Alignment.bottomCenter,
+            padding: EdgeInsets.fromLTRB(
+                16, 32, 16, MediaQuery.sizeOf(context).width < 720 ? 12 : 24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  df.surface.withValues(alpha: 0.0),
+                  df.surface.withValues(alpha: 0.8),
+                  df.surface,
+                  df.surface,
+                ],
+                stops: const [0.0, 0.4, 0.8, 1.0],
               ),
-          ],
-        ),
-      ),
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: df.surface,
-          border: Border(top: BorderSide(color: df.stroke)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _input,
-                minLines: 1,
-                maxLines: 4,
-                onSubmitted: (_) => _send(),
-                decoration: InputDecoration(
-                  hintText: l10n.agentChatInputPlaceholder,
-                  isDense: true,
+            ),
+            child: SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 840),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          ActionChip(
+                            avatar: Icon(Icons.query_stats_rounded,
+                                size: 16, color: df.textSecondary),
+                            label: Text(l10n.agentChatQuickStatus),
+                            onPressed: _sending
+                                ? null
+                                : () => _quickSend(
+                                    l10n.agentChatQuickStatusPrompt),
+                          ),
+                          const SizedBox(width: 8),
+                          ActionChip(
+                            avatar: Icon(Icons.edit_note_rounded,
+                                size: 16, color: df.textSecondary),
+                            label: Text(l10n.agentChatQuickScript),
+                            onPressed: _sending
+                                ? null
+                                : () => _quickSend(
+                                    l10n.agentChatQuickScriptPrompt),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: df.surface,
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                            color: df.stroke.withValues(alpha: 0.6)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                                alpha: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? 0.2
+                                    : 0.04),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.only(
+                          left: 16, right: 6, top: 4, bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _input,
+                              minLines: 1,
+                              maxLines: 5,
+                              onSubmitted: (_) => _send(),
+                              decoration: InputDecoration(
+                                hintText: l10n.agentChatInputPlaceholder,
+                                hintStyle: TextStyle(
+                                    color: df.textTertiary, fontSize: 15),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(bottom: 4, left: 8),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                color: _sending
+                                    ? df.surfaceMuted
+                                    : df.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_upward_rounded,
+                                    size: 20),
+                                color: _sending
+                                    ? df.textTertiary
+                                    : Colors.white,
+                                onPressed: _sending ? null : _send,
+                                tooltip: l10n.agentChatSend,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: _sending ? null : _send,
-              child: Text(l10n.agentChatSend),
-            ),
-          ]),
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    ref.watch(jobsGenerationProvider);
     final messages = ref.watch(engineProvider).assistantMessages(
           widget.projectId,
           family: _family,
         );
 
     final title = Text(
-      _family == assistantFamilyScript
-          ? l10n.agentDeployGroupScriptAgent
-          : l10n.agentDeployGroupProductionAgent,
+      l10n.agentDeployGroupScriptAgent,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -409,29 +484,6 @@ class _AssistantAdvancedPanel extends StatelessWidget {
   }
 }
 
-class _WelcomeBubble extends StatelessWidget {
-  final String text;
-  const _WelcomeBubble({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final df = context.df;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        constraints: const BoxConstraints(maxWidth: 560),
-        decoration: BoxDecoration(
-          color: df.surfaceMuted,
-          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-        ),
-        child: Text(text, style: const TextStyle(fontSize: 13)),
-      ),
-    );
-  }
-}
-
 class _AssistantMessageBubble extends StatelessWidget {
   final AssistantMessage message;
   final VoidCallback onApprove;
@@ -450,15 +502,16 @@ class _AssistantMessageBubble extends StatelessWidget {
     final isUser = message.role == assistantRoleUser;
     final isTool = message.role == assistantRoleTool;
     final isConfirm = message.role == assistantRoleConfirm;
+    final maxBubbleWidth = MediaQuery.sizeOf(context).width > 720 ? 560.0 : MediaQuery.sizeOf(context).width * 0.85;
 
     if (isConfirm) {
       final pending = message.confirmStatus == 'pending';
       return Align(
         alignment: Alignment.centerLeft,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
+          margin: const EdgeInsets.only(bottom: 20),
           padding: const EdgeInsets.all(12),
-          constraints: const BoxConstraints(maxWidth: 560),
+          constraints: BoxConstraints(maxWidth: maxBubbleWidth),
           decoration: BoxDecoration(
             color: df.warning.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(DFTokens.radiusCard),
@@ -517,9 +570,9 @@ class _AssistantMessageBubble extends StatelessWidget {
       return Align(
         alignment: Alignment.centerLeft,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
+          margin: const EdgeInsets.only(bottom: 20),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          constraints: const BoxConstraints(maxWidth: 560),
+          constraints: BoxConstraints(maxWidth: maxBubbleWidth),
           decoration: BoxDecoration(
             color: df.primarySubtle,
             borderRadius: BorderRadius.circular(DFTokens.radiusCard),
@@ -551,9 +604,9 @@ class _AssistantMessageBubble extends StatelessWidget {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 20),
         padding: const EdgeInsets.all(12),
-        constraints: const BoxConstraints(maxWidth: 560),
+        constraints: BoxConstraints(maxWidth: maxBubbleWidth),
         decoration: BoxDecoration(
           color: isUser ? df.primary : df.surfaceMuted,
           borderRadius: BorderRadius.circular(DFTokens.radiusCard),

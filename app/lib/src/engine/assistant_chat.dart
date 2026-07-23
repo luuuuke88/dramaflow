@@ -116,7 +116,10 @@ extension AssistantChatApi on Engine {
       family: family,
       messages: messages,
       autoMode: autoMode,
-      remainingTurns: autoMode ? _maxAutoTurns : 1,
+      // 手动模式给 2 轮预算：如果第一轮 AI 只是调用只读的 get_status 打探情况
+      // （不需要确认，也没有实际推进任何东西），还能再决定一次真正要做的事；
+      // 但凡跑了一个会产生实际改动的动作，下面的 return 条件仍然只放行一步。
+      remainingTurns: autoMode ? _maxAutoTurns : 2,
       epoch: epoch,
     );
   }
@@ -317,7 +320,8 @@ extension AssistantChatApi on Engine {
         addMoneyNotice: autoMode && action.costsMoney,
         epoch: epoch,
       );
-      if (!ran || !autoMode) return;
+      final isStatusProbe = action.name == 'get_status';
+      if (!ran || !(autoMode || isStatusProbe)) return;
       // runAssistantAction 也可能真正挂起（例如涉及 I/O 的动作）；同一个道理，
       // 恢复后先确认代际号仍然是自己发起时记下的那个，否则不再继续下一轮。
       if (_assistantSessionStale(projectId, family, epoch)) return;

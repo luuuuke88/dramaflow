@@ -106,6 +106,123 @@ class AppLocalizationsEn extends AppLocalizations {
   String get projectEmpty => 'No projects yet';
 
   @override
+  String get projectEmptySubtitle =>
+      'Configure basic info and AI visual manuals to start your AI short drama creation';
+
+  @override
+  String get taskCenterSubtitle =>
+      'View active AI generation tasks and task history';
+
+  @override
+  String get settingsSubtitle =>
+      'Manage AI model providers, model bindings, prompts, and appearance';
+
+  @override
+  String get settingsThemeTitle => 'Display Theme';
+
+  @override
+  String get settingsThemeSubtitle =>
+      'Choose the visual theme style for DramaFlow';
+
+  @override
+  String get settingsLanguageSubtitle =>
+      'Select display language for the application interface';
+
+  @override
+  String taskActiveRunning(Object count) {
+    return '$count tasks running';
+  }
+
+  @override
+  String get taskActiveNone => 'No active tasks';
+
+  @override
+  String get taskFilterProjectLabel => 'Project';
+
+  @override
+  String get taskFilterProjectAll => 'All Projects';
+
+  @override
+  String get taskFilterClassLabel => 'Category';
+
+  @override
+  String get taskFilterClassAll => 'All Categories';
+
+  @override
+  String get taskFilterStateLabel => 'Status';
+
+  @override
+  String get taskFilterStateAll => 'All Statuses';
+
+  @override
+  String get taskFilterReset => 'Reset Filters';
+
+  @override
+  String get taskTableHeaderClass => 'Category';
+
+  @override
+  String get taskTableHeaderTarget => 'Target';
+
+  @override
+  String get taskTableHeaderModel => 'Model';
+
+  @override
+  String get taskTableHeaderDescribe => 'Description';
+
+  @override
+  String get taskTableHeaderReason => 'Reason';
+
+  @override
+  String get taskTableHeaderState => 'Status';
+
+  @override
+  String get taskTableHeaderAction => 'Time / Action';
+
+  @override
+  String taskFooterTotalCount(Object count) {
+    return 'Total $count items';
+  }
+
+  @override
+  String taskFooterPageSize(Object count) {
+    return '$count / page';
+  }
+
+  @override
+  String get taskEmptyFilteredTitle => 'No tasks match current filter';
+
+  @override
+  String get taskEmptyFilteredDesc =>
+      'Tasks generated from script, image, or video operations will appear here';
+
+  @override
+  String get taskGlobalProject => 'Global Task';
+
+  @override
+  String get projectSearchPlaceholder => 'Search project name or intro...';
+
+  @override
+  String get projectViewGrid => 'Grid View';
+
+  @override
+  String get projectViewList => 'List View';
+
+  @override
+  String projectStatTotalProjects(Object count) {
+    return '$count Projects';
+  }
+
+  @override
+  String projectStatTotalScripts(Object count) {
+    return '$count Scripts';
+  }
+
+  @override
+  String projectStatTotalStoryboards(Object count) {
+    return '$count Storyboards';
+  }
+
+  @override
   String get projectUntitled => 'Untitled project';
 
   @override
@@ -638,6 +755,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonEdit => 'Edit';
 
   @override
+  String get commonPreview => 'Preview';
+
+  @override
   String get manualTabReadme => 'README';
 
   @override
@@ -808,6 +928,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get novelImportUploadHint =>
       'Supports .txt, .docx. Recommended file size under 10MB';
+
+  @override
+  String novelImportUploaded(String fileName) {
+    return 'Uploaded: $fileName';
+  }
+
+  @override
+  String get novelImportReUploadHint =>
+      'Content filled in below, you can edit it — click to upload a different file';
 
   @override
   String get novelImportOr => 'OR';
@@ -997,6 +1126,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get novelAnalysisAnalyzing => 'Analyzing events';
+
+  @override
+  String get novelNextStepBannerText =>
+      'Events are ready. You can generate the script now.';
+
+  @override
+  String get novelNextStepBannerButton => 'Generate script';
+
+  @override
+  String get scriptNextStepBannerText =>
+      'Assets are extracted. You can bind voices now.';
+
+  @override
+  String get scriptNextStepBannerButton => 'Go bind voices';
+
+  @override
+  String get cornerScapeNextStepBannerText =>
+      'Voices are bound. You can move on to production.';
+
+  @override
+  String get cornerScapeNextStepBannerButton => 'Go to production';
 
   @override
   String get scriptSearchPlaceholder => 'Search script names...';
@@ -2524,6 +2674,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentChatSend => 'Send';
 
   @override
+  String get agentChatQuickStatus => 'Status';
+
+  @override
+  String get agentChatQuickScript => 'Generate script';
+
+  @override
+  String get agentChatQuickStatusPrompt => 'What\'s the progress so far?';
+
+  @override
+  String get agentChatQuickScriptPrompt =>
+      'Please generate a script from the events';
+
+  @override
   String get agentChatThinking => 'Thinking...';
 
   @override
@@ -2547,7 +2710,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentChatWelcome =>
-      'Hi, I\'m the Script Agent. I can help with event extraction, asset extraction, storyboard generation, first-frame images, video generation, voice binding, and final compose. Tell me what to do, or ask \"what\'s the status\".';
+      'Hi, I\'m the Script Agent. I can help turn your generated events into a script — let\'s talk through the story skeleton or adaptation approach, or just ask \"what\'s the status\". For storyboards, voice binding, and compose, please use their own pages.';
 
   @override
   String agentChatToolExecuted(String tool) {
@@ -2677,11 +2840,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String agentSkillsScanSummary(
-    int added,
-    int updated,
-    int missing,
-    int invalid,
-  ) {
+      int added, int updated, int missing, int invalid) {
     return 'Scan complete: $added added, $updated updated, $missing missing, $invalid invalid';
   }
 
@@ -3764,6 +3923,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String settingsProviderTestTitle(String name) {
     return 'Test connection · $name';
   }
+
+  @override
+  String get settingsChatTest => 'Chat test';
+
+  @override
+  String settingsChatTestTitle(String name) {
+    return 'Chat test · $name';
+  }
+
+  @override
+  String get settingsChatTestInputHint => 'Type a message, press Enter to send';
+
+  @override
+  String get settingsChatTestEmptyHint =>
+      'Send a message to see the model\'s real reply';
+
+  @override
+  String get settingsFetchModels => 'Fetch models';
+
+  @override
+  String get settingsFetchModelsNoneFound => 'No new models found';
+
+  @override
+  String get settingsFetchModelsTitle => 'Choose models to add';
+
+  @override
+  String get settingsFetchModelsAdd => 'Add selected';
 
   @override
   String get settingsDeleteProviderTitle => 'Delete provider';

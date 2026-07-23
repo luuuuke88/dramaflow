@@ -105,6 +105,118 @@ class AppLocalizationsZh extends AppLocalizations {
   String get projectEmpty => '暂无项目';
 
   @override
+  String get projectEmptySubtitle => '配置基本信息与 AI 视觉手册，开启全流程短剧创作';
+
+  @override
+  String get taskCenterSubtitle => '查看正在运行的 AI 生成任务与历史生成记录';
+
+  @override
+  String get settingsSubtitle => '管理 AI 模型供应商、模型绑定、提示词预设与应用外观';
+
+  @override
+  String get settingsThemeTitle => '显示主题';
+
+  @override
+  String get settingsThemeSubtitle => '选择 DramaFlow 的外观视觉主题风格';
+
+  @override
+  String get settingsLanguageSubtitle => '设置界面的显示语言选项';
+
+  @override
+  String taskActiveRunning(Object count) {
+    return '$count 个任务运行中';
+  }
+
+  @override
+  String get taskActiveNone => '暂无运行中任务';
+
+  @override
+  String get taskFilterProjectLabel => '项目名称';
+
+  @override
+  String get taskFilterProjectAll => '全部项目';
+
+  @override
+  String get taskFilterClassLabel => '任务大类';
+
+  @override
+  String get taskFilterClassAll => '全部大类';
+
+  @override
+  String get taskFilterStateLabel => '任务状态';
+
+  @override
+  String get taskFilterStateAll => '全部状态';
+
+  @override
+  String get taskFilterReset => '重置筛选';
+
+  @override
+  String get taskTableHeaderClass => '任务大类';
+
+  @override
+  String get taskTableHeaderTarget => '关联对象';
+
+  @override
+  String get taskTableHeaderModel => '模型名称';
+
+  @override
+  String get taskTableHeaderDescribe => '描述';
+
+  @override
+  String get taskTableHeaderReason => '失败原因';
+
+  @override
+  String get taskTableHeaderState => '状态';
+
+  @override
+  String get taskTableHeaderAction => '时间 / 操作';
+
+  @override
+  String taskFooterTotalCount(Object count) {
+    return '共 $count 条数据';
+  }
+
+  @override
+  String taskFooterPageSize(Object count) {
+    return '$count 条/页';
+  }
+
+  @override
+  String get taskEmptyFilteredTitle => '暂无符合条件的任务记录';
+
+  @override
+  String get taskEmptyFilteredDesc =>
+      '生成剧本、图片、视频等操作产生的任务会显示在这里，可以按项目、类型、状态筛选查看';
+
+  @override
+  String get taskGlobalProject => '全局任务';
+
+  @override
+  String get projectSearchPlaceholder => '搜索项目名称或简介...';
+
+  @override
+  String get projectViewGrid => '网格视图';
+
+  @override
+  String get projectViewList => '列表视图';
+
+  @override
+  String projectStatTotalProjects(Object count) {
+    return '$count 个项目';
+  }
+
+  @override
+  String projectStatTotalScripts(Object count) {
+    return '$count 份剧本';
+  }
+
+  @override
+  String projectStatTotalStoryboards(Object count) {
+    return '$count 组分镜';
+  }
+
+  @override
   String get projectUntitled => '未命名项目';
 
   @override
@@ -618,6 +730,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonEdit => '编辑';
 
   @override
+  String get commonPreview => '预览';
+
+  @override
   String get manualTabReadme => 'README';
 
   @override
@@ -783,6 +898,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelImportUploadHint => '支持 .txt, .docx 格式，建议文件大小不超过 10MB';
+
+  @override
+  String novelImportUploaded(String fileName) {
+    return '已上传：$fileName';
+  }
+
+  @override
+  String get novelImportReUploadHint => '内容已填入下方文本框，可编辑；点击可重新上传';
 
   @override
   String get novelImportOr => '或';
@@ -965,6 +1088,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelAnalysisAnalyzing => '事件分析中';
+
+  @override
+  String get novelNextStepBannerText => '事件已生成，可以去生成剧本了';
+
+  @override
+  String get novelNextStepBannerButton => '去生成剧本';
+
+  @override
+  String get scriptNextStepBannerText => '资产已提取，可以去塑角造景绑定配音了';
+
+  @override
+  String get scriptNextStepBannerButton => '去塑角造景';
+
+  @override
+  String get cornerScapeNextStepBannerText => '配音已绑定，可以去视频生产了';
+
+  @override
+  String get cornerScapeNextStepBannerButton => '去视频生产';
 
   @override
   String get scriptSearchPlaceholder => '搜索剧本名称...';
@@ -2431,6 +2572,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentChatSend => '发送';
 
   @override
+  String get agentChatQuickStatus => '进度如何';
+
+  @override
+  String get agentChatQuickScript => '生成剧本';
+
+  @override
+  String get agentChatQuickStatusPrompt => '现在进度如何';
+
+  @override
+  String get agentChatQuickScriptPrompt => '帮我从事件生成剧本';
+
+  @override
   String get agentChatThinking => '思考中...';
 
   @override
@@ -2453,7 +2606,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentChatWelcome =>
-      '你好，我是剧本 Agent。我可以帮你推进事件提取、资产提取、分镜生成、首帧图、视频生成、配音绑定和最终合成。直接告诉我你想做什么，或者问我\"现在进度如何\"。';
+      '你好，我是剧本 Agent。我可以帮你把已生成的事件改写成剧本——跟我聊聊故事骨架、改编策略，或者直接问我\"现在进度如何\"。分镜、配音、合成这些后续步骤，请去对应的页面操作。';
 
   @override
   String agentChatToolExecuted(String tool) {
@@ -2579,11 +2732,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String agentSkillsScanSummary(
-    int added,
-    int updated,
-    int missing,
-    int invalid,
-  ) {
+      int added, int updated, int missing, int invalid) {
     return '扫描完成：新增 $added，更新 $updated，丢失 $missing，无效 $invalid';
   }
 
@@ -3639,6 +3788,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String settingsProviderTestTitle(String name) {
     return '测试连通 · $name';
   }
+
+  @override
+  String get settingsChatTest => '对话测试';
+
+  @override
+  String settingsChatTestTitle(String name) {
+    return '对话测试 · $name';
+  }
+
+  @override
+  String get settingsChatTestInputHint => '输入一条消息，回车发送';
+
+  @override
+  String get settingsChatTestEmptyHint => '发一条消息，看看模型的真实回复';
+
+  @override
+  String get settingsFetchModels => '拉取模型';
+
+  @override
+  String get settingsFetchModelsNoneFound => '没有发现新模型';
+
+  @override
+  String get settingsFetchModelsTitle => '选择要添加的模型';
+
+  @override
+  String get settingsFetchModelsAdd => '添加所选';
 
   @override
   String get settingsDeleteProviderTitle => '删除供应商';

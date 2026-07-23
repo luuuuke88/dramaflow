@@ -65,6 +65,7 @@ ThemeData buildTheme(
 
   return base.copyWith(
     scaffoldBackgroundColor: colors.bg,
+    canvasColor: colors.surface,
     splashFactory: InkSparkle.splashFactory,
     textTheme: textTheme,
     cardTheme: CardThemeData(
@@ -260,9 +261,11 @@ ThemeData buildTheme(
     popupMenuTheme: PopupMenuThemeData(
       color: colors.surface,
       surfaceTintColor: Colors.transparent,
-      textStyle: TextStyle(color: colors.textPrimary),
+      elevation: 4,
+      shadowColor: Colors.black26,
+      textStyle: TextStyle(color: colors.textPrimary, fontSize: 13),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(color: colors.stroke),
       ),
     ),

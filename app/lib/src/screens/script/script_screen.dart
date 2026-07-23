@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../engine/scripts.dart';
 import '../../state/providers.dart';
@@ -34,9 +35,50 @@ class ScriptScreen extends ConsumerStatefulWidget {
 class _ScriptScreenState extends ConsumerState<ScriptScreen> {
   String _search = '';
   final Set<int> _selected = {};
+  bool _nextStepBannerDismissed = false;
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Widget? _nextStepBanner(List<ScriptRow> scripts) {
+    if (_nextStepBannerDismissed) return null;
+    final hasExtractedAssets = scripts
+        .any((s) => s.extractState == 1 && s.relatedAssets.isNotEmpty);
+    if (!hasExtractedAssets) return null;
+
+    final l10n = context.l10n;
+    final df = context.df;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: df.primarySubtle,
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        border: Border.all(color: df.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Icon(Icons.auto_awesome_rounded, size: 20, color: df.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            l10n.scriptNextStepBannerText,
+            style: DFTokens.body14.copyWith(color: df.textPrimary),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          onPressed: () =>
+              context.go('/p/${widget.projectId}/cornerScape'),
+          child: Text(l10n.scriptNextStepBannerButton),
+        ),
+        IconButton(
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          icon: const Icon(Icons.close_rounded, size: 18),
+          onPressed: () => setState(() => _nextStepBannerDismissed = true),
+        ),
+      ]),
+    );
   }
 
   Future<void> _batchDelete(List<ScriptRow> all) async {
@@ -149,6 +191,7 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
         .scripts(widget.projectId, search: _search.isEmpty ? null : _search);
     final allSelected =
         scripts.isNotEmpty && _selected.length == scripts.length;
+    final banner = _nextStepBanner(scripts);
 
     return Column(children: [
       Padding(
@@ -257,6 +300,11 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
           ]);
         }),
       ),
+      if (banner != null)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+          child: banner,
+        ),
       Expanded(
         child: scripts.isEmpty
             ? Center(

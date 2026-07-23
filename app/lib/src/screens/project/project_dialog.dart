@@ -12,9 +12,11 @@ import '../../engine/engine.dart';
 import '../../engine/manuals.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
+import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/df_select.dart';
 import '../manuals/manual_editor.dart';
 import '../manuals/manual_gallery.dart';
 import 'model_select.dart';
@@ -108,11 +110,23 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
   @override
   void initState() {
     super.initState();
+    _name.addListener(_onFormChanged);
     _reloadManuals();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _hydrateExistingVideoModes();
     });
   }
+
+  void _onFormChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _isValid =>
+      _name.text.trim().isNotEmpty &&
+      _artStyle != null &&
+      _artStyle!.isNotEmpty &&
+      _directorManual != null &&
+      _directorManual!.isNotEmpty;
 
   Future<void> _hydrateExistingVideoModes() async {
     final selected = _videoModel;
@@ -143,6 +157,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
 
   @override
   void dispose() {
+    _name.removeListener(_onFormChanged);
     _name.dispose();
     _novelType.dispose();
     _intro.dispose();
@@ -277,127 +292,186 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
     _reloadManuals();
   }
 
+  Widget _buildSectionCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    final df = context.df;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: df.surfaceMuted.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        border: Border.all(color: df.stroke.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 17, color: df.primary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: DFTokens.section16w600.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: df.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+
   Widget _leftForm() {
     final l10n = context.l10n;
-    final df = context.df;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _label(l10n.projectDialogProjectType),
-      DropdownButtonFormField<String>(
-        initialValue: _projectType,
-        isExpanded: true,
-        items: [
-          DropdownMenuItem(
-              value: 'novel', child: Text(l10n.projectDialogBasedOnNovel)),
-          DropdownMenuItem(
-              value: 'script', child: Text(l10n.projectDialogBasedOnScript)),
-        ],
-        onChanged: (v) => setState(() => _projectType = v ?? 'novel'),
-        hint: Text(l10n.projectDialogSelectType),
-      ),
-      _label(l10n.projectDialogProjectName),
-      TextField(
-        controller: _name,
-        onChanged: (_) => setState(() => _validationMessage = null),
-        decoration: InputDecoration(hintText: l10n.projectDialogProjectNamePh),
-      ),
-      _label(l10n.projectDialogNovelType),
-      TextField(
-        controller: _novelType,
-        onChanged: (_) => setState(() => _validationMessage = null),
-        decoration: InputDecoration(hintText: l10n.projectDialogNovelTypePh),
-      ),
-      _label(l10n.projectDialogModelData),
-      Row(children: [
-        Expanded(
-          flex: 3,
-          child: ModelSelect(
-            kind: 'image',
-            value: _imageModel,
-            hint: l10n.projectMsgEnterImageModel,
-            onChanged: (o) => setState(() {
-              _imageModel = o?.value;
-              _validationMessage = null;
-            }),
-            onConfigure: _openProviderSettings,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          flex: 1,
-          child: DropdownButtonFormField<String>(
-            initialValue: _imageQuality,
-            isExpanded: true,
-            items: const [
-              DropdownMenuItem(value: '1K', child: Text('1K')),
-              DropdownMenuItem(value: '2K', child: Text('2K')),
-              DropdownMenuItem(value: '4K', child: Text('4K')),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionCard(
+          context,
+          title: l10n.projectDialogProjectType,
+          icon: Icons.edit_note_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DFSelect<String>(
+                value: _projectType,
+                hint: l10n.projectDialogSelectType,
+                items: [
+                  DFSelectItem(
+                      value: 'novel', label: l10n.projectDialogBasedOnNovel),
+                  DFSelectItem(
+                      value: 'script', label: l10n.projectDialogBasedOnScript),
+                ],
+                onChanged: (v) => setState(() {
+                  _projectType = v ?? 'novel';
+                  _validationMessage = null;
+                }),
+              ),
+              _label(l10n.projectDialogProjectName),
+              TextField(
+                controller: _name,
+                onChanged: (_) => setState(() => _validationMessage = null),
+                decoration:
+                    InputDecoration(hintText: l10n.projectDialogProjectNamePh),
+              ),
+              _label(l10n.projectDialogNovelType),
+              TextField(
+                controller: _novelType,
+                onChanged: (_) => setState(() => _validationMessage = null),
+                decoration:
+                    InputDecoration(hintText: l10n.projectDialogNovelTypePh),
+              ),
             ],
-            onChanged: (v) => setState(() {
-              _imageQuality = v;
-              _validationMessage = null;
-            }),
           ),
         ),
-      ]),
-      _label(l10n.projectDialogVideoModelData),
-      Row(children: [
-        Expanded(
-          flex: 3,
-          child: ModelSelect(
-            kind: 'video',
-            value: _videoModel,
-            hint: l10n.projectMsgEnterVideoModel,
-            onChanged: (o) => setState(() {
-              _videoModel = o?.value;
-              _setVideoModes(o);
-              _validationMessage = null;
-            }),
-            onConfigure: _openProviderSettings,
+        _buildSectionCard(
+          context,
+          title: l10n.projectDialogModelData,
+          icon: Icons.tune_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Expanded(
+                  flex: 3,
+                  child: ModelSelect(
+                    kind: 'image',
+                    value: _imageModel,
+                    hint: l10n.projectMsgEnterImageModel,
+                    onChanged: (o) => setState(() {
+                      _imageModel = o?.value;
+                      _validationMessage = null;
+                    }),
+                    onConfigure: _openProviderSettings,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  flex: 1,
+                  child: DFSelect<String>(
+                    value: _imageQuality,
+                    items: const [
+                      DFSelectItem(value: '1K', label: '1K'),
+                      DFSelectItem(value: '2K', label: '2K'),
+                      DFSelectItem(value: '4K', label: '4K'),
+                    ],
+                    onChanged: (v) => setState(() {
+                      _imageQuality = v;
+                      _validationMessage = null;
+                    }),
+                  ),
+                ),
+              ]),
+              _label(l10n.projectDialogVideoModelData),
+              Row(children: [
+                Expanded(
+                  flex: 3,
+                  child: ModelSelect(
+                    kind: 'video',
+                    value: _videoModel,
+                    hint: l10n.projectMsgEnterVideoModel,
+                    onChanged: (o) => setState(() {
+                      _videoModel = o?.value;
+                      _setVideoModes(o);
+                      _validationMessage = null;
+                    }),
+                    onConfigure: _openProviderSettings,
+                  ),
+                ),
+                if (_videoModes.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Expanded(
+                    flex: 1,
+                    child: DFSelect<String>(
+                      value: _mode,
+                      hint: l10n.projectMsgSelectMode,
+                      items: [
+                        for (final m in _videoModes)
+                          DFSelectItem(value: m, label: m),
+                      ],
+                      onChanged: (v) => setState(() {
+                        _mode = v;
+                        _validationMessage = null;
+                      }),
+                    ),
+                  ),
+                ],
+              ]),
+              _label(l10n.projectDialogVideoRatio),
+              DFSelect<String>(
+                value: _videoRatio,
+                items: const [
+                  DFSelectItem(value: '16:9', label: '16:9'),
+                  DFSelectItem(value: '9:16', label: '9:16'),
+                ],
+                onChanged: (v) => setState(() {
+                  _videoRatio = v;
+                  _validationMessage = null;
+                }),
+              ),
+              _label(l10n.projectDialogNovelIntro),
+              TextField(
+                controller: _intro,
+                minLines: 3,
+                maxLines: 5,
+                onChanged: (_) => setState(() => _validationMessage = null),
+                decoration:
+                    InputDecoration(hintText: l10n.projectDialogNovelIntroPh),
+              ),
+            ],
           ),
         ),
-        if (_videoModes.isNotEmpty) ...[
-          const SizedBox(width: 6),
-          Expanded(
-            flex: 1,
-            child: DropdownButtonFormField<String>(
-              initialValue: _mode,
-              isExpanded: true,
-              hint: Text(l10n.projectMsgSelectMode,
-                  style: TextStyle(fontSize: 12, color: df.textTertiary)),
-              items: [
-                for (final m in _videoModes)
-                  DropdownMenuItem(value: m, child: Text(m)),
-              ],
-              onChanged: (v) => setState(() {
-                _mode = v;
-                _validationMessage = null;
-              }),
-            ),
-          ),
-        ],
-      ]),
-      _label(l10n.projectDialogVideoRatio),
-      DropdownButtonFormField<String>(
-        initialValue: _videoRatio,
-        isExpanded: true,
-        items: const [
-          DropdownMenuItem(value: '16:9', child: Text('16:9')),
-          DropdownMenuItem(value: '9:16', child: Text('9:16')),
-        ],
-        onChanged: (v) => setState(() {
-          _videoRatio = v;
-          _validationMessage = null;
-        }),
-      ),
-      _label(l10n.projectDialogNovelIntro),
-      TextField(
-        controller: _intro,
-        minLines: 3,
-        maxLines: 6,
-        onChanged: (_) => setState(() => _validationMessage = null),
-        decoration: InputDecoration(hintText: l10n.projectDialogNovelIntroPh),
-      ),
-    ]);
+      ],
+    );
   }
 
   Widget _rightManuals() {
@@ -423,7 +497,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
         },
         onDelete: (p) => _deleteManual('visual', p),
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 14),
       ManualGallery(
         title: l10n.projectDialogDirectorManual,
         addLabel: l10n.projectDialogAddDirectorManual,
@@ -447,19 +521,29 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
     ]);
   }
 
-  Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(top: 14, bottom: 6),
-        child: Text(text,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      );
+  Widget _label(String text) {
+    final df = context.df;
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, bottom: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: df.textSecondary,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final df = context.df;
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Flexible(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
           child: LayoutBuilder(builder: (context, constraints) {
             final twoCol = constraints.maxWidth >= 700;
             if (!twoCol) {
@@ -469,6 +553,9 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                 _rightManuals(),
               ]);
             }
+            // 注：这里不用 IntrinsicHeight 强制两栏等高——它要求子树里所有节点都支持
+            // "干量高度"计算，而左侧表单里的多行 TextField 并不支持，混在一起会导致
+            // 弹窗直接崩溃打不开。两栏高度不一致但功能可靠，优先级更高。
             return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(child: _leftForm()),
               const SizedBox(width: 24),
@@ -489,17 +576,27 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
             ),
           ),
         ),
-      Padding(
-        padding: const EdgeInsets.all(16),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: df.stroke)),
+        ),
         child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: Text(l10n.projectDialogCancel),
           ),
           const SizedBox(width: 8),
-          FilledButton(
+          FilledButton.icon(
+            icon: const Icon(Icons.check, size: 16),
+            style: FilledButton.styleFrom(
+              backgroundColor: _isValid
+                  ? df.primary
+                  : df.primary.withValues(alpha: 0.35),
+              foregroundColor: Colors.white,
+            ),
             onPressed: _saving ? null : _save,
-            child: _saving
+            label: _saving
                 ? const SizedBox(
                     width: 16,
                     height: 16,

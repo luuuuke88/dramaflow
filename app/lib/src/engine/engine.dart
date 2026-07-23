@@ -1275,6 +1275,14 @@ WHERE id=?
       .map(TasksRow.fromRow)
       .toList();
 
+  Future<List<TasksRow>> allJobs({int limit = 500}) async => db
+      .select(
+        'SELECT * FROM o_tasks ORDER BY id DESC LIMIT ?',
+        [limit],
+      )
+      .map(TasksRow.fromRow)
+      .toList();
+
   Future<List<TasksRow>> projectJobs(int projectId, {int limit = 50}) async =>
       db
           .select(
@@ -2093,6 +2101,53 @@ WHERE id=?
       default:
         throw const EngineException(errModelMissing, {'reason': '该模态暂不支持连通测试'});
     }
+  }
+
+  /// 对话测试：设置页"对话测试"弹窗专用，仅支持文本模型，多轮真实对话。
+  Future<String> chatTestModel(
+    String providerId,
+    String modelId,
+    List<Map<String, String>> messages,
+  ) async {
+    final model = (await listProviderModels(providerId)).firstWhere(
+      (item) => item.modelId == modelId,
+      orElse: () => throw const EngineException(errModelMissing),
+    );
+    if (model.kind != 'text') {
+      throw const EngineException(errModelMissing, {'reason': '对话测试仅支持文本模型'});
+    }
+    if (gateway is! HttpProviderGateway) {
+      throw const EngineException(
+          errProviderMissing, {'reason': '当前网关不支持对话测试'});
+    }
+    final http = gateway as HttpProviderGateway;
+    final resolved = await resolveModelById(
+      db,
+      credentials,
+      providerId,
+      model.modelId,
+    );
+    return http.chatTestModel(resolved, messages);
+  }
+
+  /// 拉取供应商可用模型 ID 列表，供"模型管理"里的"拉取模型"辅助操作使用。
+  Future<List<String>> fetchProviderModels(String providerId) async {
+    final row = _mustProvider(providerId);
+    final input = _jsonMap(row['inputValues']);
+    final baseUrl = (input['baseUrl'] as String? ?? '').trim();
+    if (baseUrl.isEmpty) {
+      throw const EngineException(errProviderMissing, {'reason': '未配置请求地址'});
+    }
+    if (gateway is! HttpProviderGateway) {
+      throw const EngineException(
+          errProviderMissing, {'reason': '当前网关不支持拉取模型列表'});
+    }
+    final credentialRef =
+        (input['credentialRef'] ?? providerCredentialRef(providerId))
+            .toString();
+    final apiKey = await credentials.read(credentialRef) ?? '';
+    final http = gateway as HttpProviderGateway;
+    return http.fetchModelIds(baseUrl, apiKey);
   }
 
   void _writeSetting(String key, String value) {

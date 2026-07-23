@@ -255,6 +255,7 @@
   "projectTypeNovel": "原作小説に基づいて",
   "projectTypeScript": "小説の脚本に基づく",
   "commonEdit": "編集",
+  "commonPreview": "プレビュー",
   "manualTabReadme": "README",
   "manualTabPrefix": "プレフィックス",
   "manualTabCharacter": "キャラクター",
@@ -315,6 +316,15 @@
   "novelImportStep3": "ステップ 3",
   "novelImportDragUpload": "ここに小説ファイルをドラッグ＆ドロップするか、クリックしてアップロード",
   "novelImportUploadHint": "対応形式: .txt, .docx。ファイルサイズは10MB以下を推奨します",
+  "novelImportUploaded": "アップロード済み：{fileName}",
+  "@novelImportUploaded": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "novelImportReUploadHint": "内容は下のテキスト欄に入力されました。編集可能です。クリックで再アップロード",
   "novelImportOr": "または",
   "novelImportPasteLabel": "小説の原文を直接貼り付け",
   "novelImportPastePlaceholder": "小説の原文を入力してください",
@@ -373,6 +383,12 @@
   "novelAnalysisStartAnalysis": "分析を開始",
   "novelAnalysisChapterHeader": "第{index}章 - {name}",
   "novelAnalysisAnalyzing": "イベント分析中",
+  "novelNextStepBannerText": "イベントの生成が完了しました。台本を生成できます",
+  "novelNextStepBannerButton": "台本を生成",
+  "scriptNextStepBannerText": "素材の抽出が完了しました。配音の割り当てに進めます",
+  "scriptNextStepBannerButton": "配音の割り当てへ",
+  "cornerScapeNextStepBannerText": "配音の割り当てが完了しました。映像制作に進めます",
+  "cornerScapeNextStepBannerButton": "映像制作へ",
   "scriptSearchPlaceholder": "シナリオ名を検索...",
   "scriptSearch": "検索",
   "scriptAddScript": "シナリオを新規作成",
@@ -940,6 +956,10 @@
   "agentChatTitle": "脚本エージェント",
   "agentChatInputPlaceholder": "次に進める作業を教えてください。または「今の進捗は?」と聞いてください",
   "agentChatSend": "送信",
+  "agentChatQuickStatus": "進捗確認",
+  "agentChatQuickScript": "台本を生成",
+  "agentChatQuickStatusPrompt": "今の進捗はどうですか",
+  "agentChatQuickScriptPrompt": "イベントから台本を生成してください",
   "agentChatThinking": "考え中...",
   "agentChatAutoMode": "自動連続実行",
   "agentChatManualMode": "手動確認",
@@ -947,7 +967,7 @@
   "agentChatConfirmClearTitle": "対話を消去",
   "agentChatConfirmClearBody": "会話履歴をすべて消去しますか？元に戻せません。",
   "agentChatMemoryCleared": "対話を消去しました",
-  "agentChatWelcome": "こんにちは、脚本エージェントです。イベント抽出、素材抽出、絵コンテ生成、初期フレーム画像、動画生成、配音の割り当て、最終合成をお手伝いできます。何をしたいか教えてください。または「今の進捗は?」と聞いてください。",
+  "agentChatWelcome": "こんにちは、脚本エージェントです。生成済みのイベントを台本に書き上げるお手伝いをします——ストーリーの骨組みや脚色方針について話しましょう。または「今の進捗は?」と聞いてください。絵コンテ・配音・合成などの後続作業はそれぞれのページで行ってください。",
   "agentChatToolExecuted": "実行しました：{tool}",
   "agentChatConfirmNeeded": "確認が必要：{tool}",
   "agentChatConfirmActionBody": "この操作はクレジットを消費するか、既存内容を変更する可能性があります。続行するには確認してください。",
@@ -1407,6 +1427,21 @@
       }
     }
   },
+  "settingsChatTest": "会話テスト",
+  "settingsChatTestTitle": "会話テスト · {name}",
+  "@settingsChatTestTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsChatTestInputHint": "メッセージを入力し、Enterで送信",
+  "settingsChatTestEmptyHint": "メッセージを送って、モデルの実際の返信を確認しましょう",
+  "settingsFetchModels": "モデルを取得",
+  "settingsFetchModelsNoneFound": "新しいモデルは見つかりませんでした",
+  "settingsFetchModelsTitle": "追加するモデルを選択",
+  "settingsFetchModelsAdd": "選択したものを追加",
   "settingsDeleteProviderTitle": "プロバイダーを削除",
   "settingsDeleteProviderMessage": "“{name}”を削除しますか？ステージに割り当てられている場合、エンジンは削除を拒否します。",
   "@settingsDeleteProviderMessage": {
