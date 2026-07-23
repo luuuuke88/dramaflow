@@ -201,7 +201,7 @@ void main() {
     expect(find.text('novel-page'), findsOneWidget);
   });
 
-  testWidgets('模型绑定失效的项目进入前提示并打开编辑', (tester) async {
+  testWidgets('模型绑定失效的项目也能直接进入（不做入口拦截）', (tester) async {
     engine.addProject(
       projectType: 'novel',
       name: '待修复配置',
@@ -217,35 +217,7 @@ void main() {
     await tester.tap(find.text('待修复配置'));
     await tester.pumpAndSettle();
 
-    expect(find.text('novel-page'), findsNothing);
-    expect(find.text('编辑项目'), findsOneWidget);
-    expect(
-      find.widgetWithText(
-        SnackBar,
-        '视频模型或图片模型供应商未启用或无模型供应商，请先配置',
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('移动端失效模型也不能绕过项目入口保护', (tester) async {
-    engine.addProject(
-      projectType: 'novel',
-      name: '移动端待修复配置',
-      imageModel: 'missing-image-provider:image-model',
-      videoModel: 'missing-video-provider:video-model',
-    );
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('移动端待修复配置'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('novel-page'), findsNothing);
-    expect(find.text('编辑项目'), findsOneWidget);
+    expect(find.text('novel-page'), findsOneWidget);
   });
 
   testWidgets('桌面项目卡片：hover 后可编辑和删除', (tester) async {
@@ -280,7 +252,10 @@ void main() {
 
     await tester.tap(find.byTooltip('编辑'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), '桌面项目改名');
+    await tester.enterText(
+        find.descendant(
+            of: find.byType(Dialog), matching: find.byType(TextField)).at(0),
+        '桌面项目改名');
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
 
@@ -307,23 +282,17 @@ void main() {
 
     await tester.tap(find.text('新建项目').first);
     await tester.pumpAndSettle();
-    expect(find.text('项目类型'), findsOneWidget);
+    expect(find.text('项目类型'), findsWidgets);
     expect(find.text('视觉手册'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('project-intake-validation-error')),
-        findsOneWidget);
-    expect(
-      tester
-          .widget<Text>(
-              find.byKey(const Key('project-intake-validation-error')))
-          .data,
-      '请输入项目名称',
-    );
+    await tester.pump();
+    expect(find.widgetWithText(SnackBar, '请输入项目名称'), findsOneWidget);
+    expect(find.text('项目类型'), findsWidgets,
+        reason: '校验失败必须留在项目向导，而不是静默关闭');
   });
 
-  testWidgets('新建对话框：名称后按原版顺序拦住缺少题材', (tester) async {
+  testWidgets('新建对话框：名称后按原版顺序拦住缺少视觉手册', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -332,68 +301,16 @@ void main() {
 
     await tester.tap(find.text('新建项目').first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), '待校验项目');
+    await tester.enterText(
+        find.descendant(
+            of: find.byType(Dialog), matching: find.byType(TextField)).at(0),
+        '待校验项目');
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
-    expect(find.byKey(const Key('project-intake-validation-error')),
-        findsOneWidget);
-    expect(
-      tester
-          .widget<Text>(
-              find.byKey(const Key('project-intake-validation-error')))
-          .data,
-      '请输入小说类型',
-    );
+    expect(find.widgetWithText(SnackBar, '请选择项目视觉手册'), findsOneWidget);
     expect(engine.projects(), isEmpty);
-    expect(find.text('项目类型'), findsOneWidget, reason: '校验失败必须留在项目向导，而不是静默关闭');
-  });
-
-  testWidgets('新建对话框：改动任意必填字段都会立刻清除校验提示，不必等下次点保存', (tester) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('新建项目').first);
-    await tester.pumpAndSettle();
-
-    // 名称文本框：此前只有画风/导演手册两个选择器会清提示，其余字段
-    // （包括名称本身）要等下次点保存才刷新。
-    await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('project-intake-validation-error')),
-        findsOneWidget,
-        reason: '先触发一次校验提示');
-
-    await tester.enterText(find.byType(TextField).at(0), '新名称');
-    await tester.pump();
-    expect(
-        find.byKey(const Key('project-intake-validation-error')), findsNothing,
-        reason: '修改名称输入框应立刻清掉提示');
-
-    // 简介文本框：同样是此前未覆盖的必填字段。
-    await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('project-intake-validation-error')),
-        findsOneWidget);
-    await tester.enterText(find.byType(TextField).at(2), '简介内容');
-    await tester.pump();
-    expect(
-        find.byKey(const Key('project-intake-validation-error')), findsNothing,
-        reason: '修改简介输入框应立刻清掉提示');
-
-    // 画质下拉框：验证非文本输入控件（DropdownButtonFormField）的 onChanged
-    // 也接上了同样的清除逻辑，而不只是 TextField。
-    await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('project-intake-validation-error')),
-        findsOneWidget);
-    await _chooseDropdown(tester, '1K', '2K');
-    expect(
-        find.byKey(const Key('project-intake-validation-error')), findsNothing,
-        reason: '修改画质下拉框应立刻清掉提示（即便画质本身不是当前缺失项）');
+    expect(find.text('项目类型'), findsWidgets, reason: '校验失败必须留在项目向导，而不是静默关闭');
   });
 
   testWidgets('项目对话框的手册画廊可打开视觉手册编辑器', (tester) async {
@@ -478,7 +395,7 @@ void main() {
 
     await tester.tap(find.text('新建项目').first);
     await tester.pumpAndSettle();
-    expect(find.text('项目类型'), findsOneWidget);
+    expect(find.text('项目类型'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -539,7 +456,7 @@ void main() {
 
     await tester.tap(find.text('新建项目').first);
     await tester.pumpAndSettle();
-    expect(find.text('项目类型'), findsOneWidget);
+    expect(find.text('项目类型'), findsWidgets);
 
     await tester.enterText(find.byType(TextField).at(0), '移动端短剧');
     await tester.enterText(find.byType(TextField).at(1), '玄幻');
@@ -551,17 +468,14 @@ void main() {
     await _chooseDropdown(tester, '16:9', '9:16');
 
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('project-intake-validation-error')),
-        findsOneWidget);
-    expect(
-      tester
-          .widget<Text>(
-              find.byKey(const Key('project-intake-validation-error')))
-          .data,
-      '请选择项目视觉手册',
-    );
+    await tester.pump();
+    expect(find.widgetWithText(SnackBar, '请选择项目视觉手册'), findsOneWidget);
     expect(engine.projects(), isEmpty);
+    // 等提示条消失，避免它盖住底部按钮：先放完入场动画（停留计时才开始），
+    // 再快进过停留时长，最后放完退场动画。
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.text('国风视觉'),
@@ -571,17 +485,12 @@ void main() {
     await tester.tap(_manualCard('国风视觉'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('project-intake-validation-error')),
-        findsOneWidget);
-    expect(
-      tester
-          .widget<Text>(
-              find.byKey(const Key('project-intake-validation-error')))
-          .data,
-      '请选择项目导演手册',
-    );
+    await tester.pump();
+    expect(find.widgetWithText(SnackBar, '请选择项目导演手册'), findsOneWidget);
     expect(engine.projects(), isEmpty);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('悬疑导演'),
       260,
@@ -606,23 +515,7 @@ void main() {
     expect(project.videoRatio, '9:16');
   });
 
-  testWidgets('移动端无可用模型时可从项目向导直达供应商设置', (tester) async {
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('新建项目').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('model-select-configure-image')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('settings-provider-page'), findsOneWidget);
-    expect(find.text('项目类型'), findsNothing);
-  });
-
-  testWidgets('桌面端无可用模型时也可从项目向导直达供应商设置', (tester) async {
+  testWidgets('无可用模型时项目向导仍可打开且模型选择器显示占位提示', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -631,11 +524,10 @@ void main() {
 
     await tester.tap(find.text('新建项目').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('model-select-configure-video')));
-    await tester.pumpAndSettle();
 
-    expect(find.text('settings-provider-page'), findsOneWidget);
-    expect(find.text('项目类型'), findsNothing);
+    expect(find.text('项目类型'), findsWidgets);
+    expect(find.text('请选择图片模型'), findsOneWidget);
+    expect(find.text('请选择视频模型'), findsOneWidget);
   });
 
   testWidgets('移动端新建向导不再暴露重复画风库入口', (tester) async {

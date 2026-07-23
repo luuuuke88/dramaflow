@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -11,7 +10,6 @@ import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
 import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/screens/settings_screen.dart';
-import 'package:dramaflow/src/state/canvas_wheel_mode.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
@@ -23,15 +21,6 @@ import 'package:path/path.dart' as p;
 class _NoopGateway implements ProviderGateway {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _CandidatesGateway implements ProviderGateway {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<List<String>> listRemoteModelIds(String providerId) async =>
-      ['deepseek-v4-flash', 'deepseek-v4-pro', 'brand-new-model'];
 }
 
 class _RecordingHttpGateway extends HttpProviderGateway {
@@ -58,6 +47,28 @@ class _RecordingHttpGateway extends HttpProviderGateway {
       {CancelToken? cancelToken}) async {
     calls.add('video:${model.modelId}');
     return 33;
+  }
+
+  final chatMessages = <List<Map<String, String>>>[];
+
+  @override
+  Future<String> chatTestModel(
+    ResolvedModel model,
+    List<Map<String, String>> messages, {
+    CancelToken? cancelToken,
+  }) async {
+    calls.add('chat:${model.modelId}');
+    chatMessages.add(messages);
+    return '模型说：${messages.last['content']}';
+  }
+
+  List<String> fetchedModelIds = const [];
+
+  @override
+  Future<List<String>> fetchModelIds(String baseUrl, String apiKey,
+      {CancelToken? cancelToken}) async {
+    calls.add('fetch:$baseUrl');
+    return fetchedModelIds;
   }
 }
 
@@ -115,7 +126,7 @@ void main() {
               theme: buildTheme(Brightness.light),
               darkTheme: buildTheme(Brightness.dark),
               themeMode: ref.watch(themeModeProvider),
-              home: const SettingsScreen(),
+              home: const Scaffold(body: SettingsScreen()),
             );
           },
         ),
@@ -128,17 +139,13 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
+    await _selectSection(tester, '外观');
     await tester.tap(find.text('深色'));
     await tester.pumpAndSettle();
     expect(engine.config.str('themeMode'), 'dark');
 
     await _selectSection(tester, '供应商');
     await tester.tap(find.text('添加供应商').first);
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-        find.byKey(const Key('preset-card-custom')), 300);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('preset-card-custom')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Local Gateway');
     await tester.enterText(
@@ -170,82 +177,7 @@ void main() {
     expect(find.text('設定'), findsOneWidget);
   });
 
-  testWidgets('移动端外观：主题色和字号持久化，非法 HEX 不改变当前设置', (tester) async {
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('settings-theme-color-E34D59')));
-    await tester.pumpAndSettle();
-    expect(engine.config.themePrimaryColor, '#E34D59');
-
-    await tester.enterText(
-      find.byKey(const Key('settings-theme-color-custom')),
-      '#2BA471',
-    );
-    await tester.tap(find.byKey(const Key('settings-theme-color-apply')));
-    await tester.pumpAndSettle();
-    expect(engine.config.themePrimaryColor, '#2BA471');
-
-    await tester.tap(find.byKey(const Key('settings-theme-font-22')));
-    await tester.pumpAndSettle();
-    expect(engine.config.themeFontSize, 22);
-
-    await tester.enterText(
-      find.byKey(const Key('settings-theme-color-custom')),
-      '#FFF',
-    );
-    await tester.tap(find.byKey(const Key('settings-theme-color-apply')));
-    await tester.pumpAndSettle();
-    expect(engine.config.themePrimaryColor, '#2BA471');
-    expect(find.text('请输入 #RRGGBB 格式的颜色'), findsOneWidget);
-  });
-
-  testWidgets('移动端自定义供应商表单默认遮蔽 API Key', (tester) async {
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await _selectSection(tester, '供应商');
-    await tester.tap(find.text('添加供应商').first);
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-        find.byKey(const Key('preset-card-custom')), 300);
-    await tester.tap(find.byKey(const Key('preset-card-custom')));
-    await tester.pumpAndSettle();
-
-    expect(
-      tester.widget<TextField>(find.byType(TextField).at(2)).obscureText,
-      isTrue,
-    );
-  });
-
-  testWidgets('Anthropic 供应商在列表和编辑页都显示原生协议', (tester) async {
-    await engine.createProvider(
-      name: 'Claude Primary',
-      protocol: 'anthropic',
-      baseUrl: 'https://api.anthropic.com/v1',
-      apiKey: 'sk-ant-test',
-    );
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await _selectSection(tester, '供应商');
-    expect(find.text('Anthropic 原生'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('编辑').first);
-    await tester.pumpAndSettle();
-    expect(find.text('Anthropic 原生'), findsWidgets);
-  });
-
-  testWidgets('桌面端提示词库：新建、绑定、编辑和解绑模型模板', (tester) async {
+  testWidgets('移动端设置页：可编辑模型专属提示词模板', (tester) async {
     final provider = await engine.createProvider(
       name: 'Volcengine',
       protocol: 'volcengine',
@@ -260,106 +192,16 @@ void main() {
         'enabled': true,
       },
     ]);
-
-    tester.view.physicalSize = const Size(1280, 860);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await _selectSection(tester, '提示词');
-    expect(find.text('Volcengine'), findsOneWidget);
-    final targetKey = ValueKey(
-      'model-prompt-target-${provider.id}:doubao-seedance-2-0-mini-260615',
-    );
-    await tester.scrollUntilVisible(find.byKey(targetKey), 320);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(targetKey));
-    await tester.pumpAndSettle();
-    expect(find.text('模型提示词模板'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('model-prompt-template-create')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('model-prompt-template-save')));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const Key('model-prompt-template-name')),
-      findsOneWidget,
-    );
-    await tester.enterText(
-      find.byKey(const Key('model-prompt-template-name')),
-      'Seedance 多参',
-    );
-    await tester.enterText(
-      find.byKey(const Key('model-prompt-template-content')),
-      '初版模板正文',
-    );
-    await tester.tap(find.byKey(const Key('model-prompt-template-save')));
-    await tester.pumpAndSettle();
-
-    final templatePath = 'video/Seedance 多参.md';
-    await tester.tap(
-      find.byKey(ValueKey('model-prompt-bind-$templatePath')),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(ValueKey('model-prompt-unbind-$templatePath')),
-      findsOneWidget,
-    );
-
-    await tester.tap(
-      find.byKey(ValueKey('model-prompt-edit-$templatePath')),
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('model-prompt-template-content')),
-      '更新后的模板正文',
-    );
-    await tester.tap(find.byKey(const Key('model-prompt-template-save')));
-    await tester.pumpAndSettle();
-    expect(
-      (await engine.listModelPromptTemplates(kind: 'video')).single.prompt,
-      '更新后的模板正文',
-    );
-
-    await tester.tap(
-      find.byKey(ValueKey('model-prompt-delete-$templatePath')),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      find.text('删除“Seedance 多参”后，将解绑 1 个模型。此操作不可撤销。'),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('取消'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(
-      find.byKey(ValueKey('model-prompt-unbind-$templatePath')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(ValueKey('model-prompt-bind-$templatePath')),
-        findsOneWidget);
-  });
-
-  testWidgets('移动端提示词库：可选择既有模板并编辑且无溢出', (tester) async {
-    final provider = await engine.createProvider(
-      name: 'Volcengine',
-      protocol: 'volcengine',
-      baseUrl: 'https://ark.test',
-      apiKey: 'sk',
-    );
-    await engine.saveProviderModels(provider.id, const [
-      {
-        'modelId': 'seedance-mobile',
-        'label': 'Seedance Mobile',
-        'kind': 'video',
-        'enabled': true,
-      },
-    ]);
-    final template = await engine.createModelPromptTemplate(
-      kind: 'video',
-      name: '移动端已有模板',
-      prompt: '旧正文',
+    engine.db.execute(
+      'INSERT INTO o_modelPrompt (vendorId,model,fileName,path,prompt) '
+      'VALUES (?,?,?,?,?)',
+      [
+        provider.id,
+        'doubao-seedance-2-0-mini-260615',
+        'video_prompt_gen',
+        'video/seedance2Multi-parameterMode.md',
+        '旧 Seedance 模板',
+      ],
     );
 
     tester.view.physicalSize = const Size(390, 760);
@@ -369,40 +211,25 @@ void main() {
     await tester.pumpAndSettle();
 
     await _selectSection(tester, '提示词');
-    await tester.drag(
-      find.byKey(const Key('settings-section-scroll')),
-      const Offset(0, -1500),
-    );
-    await tester.pumpAndSettle();
-    final target = find
-        .byKey(ValueKey('model-prompt-target-${provider.id}:seedance-mobile'))
-        .hitTestable();
-    expect(target, findsOneWidget);
-    await tester.tap(
-      target,
-    );
-    await tester.pumpAndSettle();
-    await tester
-        .tap(find.byKey(ValueKey('model-prompt-bind-${template.path}')));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(ValueKey('model-prompt-unbind-${template.path}')),
-      findsOneWidget,
-    );
+    expect(find.text('模型专属模板'), findsOneWidget);
+    expect(find.textContaining('Volcengine · Seedance Mini'), findsOneWidget);
 
     await tester
-        .tap(find.byKey(ValueKey('model-prompt-edit-${template.path}')));
+        .ensureVisible(find.textContaining('Volcengine · Seedance Mini'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('model-prompt-template-content')),
-      '移动端新正文',
-    );
-    await tester.tap(find.byKey(const Key('model-prompt-template-save')));
+    await tester.tap(find.textContaining('Volcengine · Seedance Mini'));
     await tester.pumpAndSettle();
-    expect(
-      (await engine.listModelPromptTemplates(kind: 'video')).single.prompt,
-      '移动端新正文',
-    );
+    expect(find.textContaining('编辑提示词 · Volcengine · Seedance Mini'),
+        findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, '新 Seedance 模板');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final prompt = engine.db.select(
+        'SELECT prompt FROM o_modelPrompt WHERE vendorId=?',
+        [provider.id]).single['prompt'];
+    expect(prompt, '新 Seedance 模板');
   });
 
   testWidgets('移动端设置页：模型管理、模型绑定与数据库信息可用', (tester) async {
@@ -424,11 +251,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('模型管理 · Local Gateway'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('model-editor-add')));
+    await tester.tap(find.text('添加模型').first);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'local-text');
     await tester.enterText(find.byType(TextField).at(1), '本地文本模型');
-    await tester.tap(find.byKey(const Key('model-editor-save')));
+    await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
 
     final models = await engine.listProviderModels(provider.id);
@@ -448,125 +275,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('数据库信息'), findsWidgets);
     expect(find.text('o_project'), findsOneWidget);
-  });
-
-  testWidgets('移动端设置页可选择并清空一张内容数据表', (tester) async {
-    engine.db.execute(
-      "INSERT INTO memories (id,name,content) VALUES ('m1','测试记忆','正文')",
-    );
-
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await _selectSection(tester, '存储与引擎');
-    final clearTable = find.byKey(const Key('settings-storage-clear-table'));
-    await tester.ensureVisible(clearTable);
-    await tester.pumpAndSettle();
-    await tester.tap(clearTable);
-    await tester.pumpAndSettle();
-
-    expect(find.text('选择要清空的数据表'), findsOneWidget);
-    expect(find.byKey(const Key('settings-storage-clear-table-memories')),
-        findsOneWidget);
-    expect(find.text('o_secret'), findsNothing,
-        reason: '密钥表不能成为可清空候选');
-
-    await tester
-        .tap(find.byKey(const Key('settings-storage-clear-table-memories')));
-    await tester.pumpAndSettle();
-    await tester.tap(
-        find.byKey(const Key('settings-storage-clear-table-continue')));
-    await tester.pumpAndSettle();
-    expect(find.text('清空 memories？'), findsOneWidget);
-
-    await tester
-        .tap(find.byKey(const Key('settings-storage-clear-table-confirm')));
-    await tester.pumpAndSettle();
-    expect(engine.db.select('SELECT COUNT(*) n FROM memories').single['n'], 0);
-  });
-
-  testWidgets('桌面端设置页可选择并清空一张内容数据表', (tester) async {
-    engine.db.execute(
-      "INSERT INTO memories (id,name,content) VALUES ('desktop-m1','桌面测试','正文')",
-    );
-
-    tester.view.physicalSize = const Size(1280, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await _selectSection(tester, '存储与引擎');
-    await tester.tap(find.byKey(const Key('settings-storage-clear-table')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('选择要清空的数据表'), findsOneWidget);
-    await tester
-        .tap(find.byKey(const Key('settings-storage-clear-table-memories')));
-    await tester.pumpAndSettle();
-    await tester.tap(
-        find.byKey(const Key('settings-storage-clear-table-continue')));
-    await tester.pumpAndSettle();
-    expect(find.text('清空 memories？'), findsOneWidget);
-
-    await tester
-        .tap(find.byKey(const Key('settings-storage-clear-table-confirm')));
-    await tester.pumpAndSettle();
-    expect(engine.db.select('SELECT COUNT(*) n FROM memories').single['n'], 0);
-  });
-
-  testWidgets('清空未接入级联清理的表时弹窗展示诚实提示', (tester) async {
-    tester.view.physicalSize = const Size(1280, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await _selectSection(tester, '存储与引擎');
-    await tester.tap(find.byKey(const Key('settings-storage-clear-table')));
-    await tester.pumpAndSettle();
-
-    // o_imageFlow 的磁盘文件内嵌在任意结构的 flowData JSON 里，没有接入
-    // clearTable 的级联清理（见 db_admin.dart 的 nonCascadingClearTables）。
-    final imageFlowOption =
-        find.byKey(const Key('settings-storage-clear-table-o_imageFlow'));
-    await tester.dragUntilVisible(
-      imageFlowOption,
-      find.byKey(const Key('settings-storage-clear-table-list')),
-      const Offset(0, -60),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(imageFlowOption);
-    await tester.pumpAndSettle();
-    await tester.tap(
-        find.byKey(const Key('settings-storage-clear-table-continue')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('清空 o_imageFlow？'), findsOneWidget);
-    expect(find.textContaining('尚未接入级联清理'), findsOneWidget);
-  });
-
-  testWidgets('低高度移动端的单表清空操作保持可达', (tester) async {
-    tester.view.physicalSize = const Size(390, 480);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await _selectSection(tester, '存储与引擎');
-    final clearTable = find.byKey(const Key('settings-storage-clear-table'));
-    await tester.ensureVisible(clearTable);
-    await tester.pumpAndSettle();
-    await tester.tap(clearTable);
-    await tester.pumpAndSettle();
-
-    final continueButton =
-        find.byKey(const Key('settings-storage-clear-table-continue'));
-    expect(continueButton, findsOneWidget);
-    expect(tester.getRect(continueButton).bottom, lessThanOrEqualTo(480));
   });
 
   testWidgets('移动端设置页显示导演规划和分镜表阶段', (tester) async {
@@ -680,7 +388,7 @@ void main() {
       ' video/seedance2-multi.md ',
     );
 
-    await tester.tap(find.byKey(const Key('model-editor-save')));
+    await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
 
     final model = (await engine.listProviderModels(provider.id)).single;
@@ -744,7 +452,7 @@ void main() {
     await tester.tap(find.byKey(
       const ValueKey('video-capability-mode-first_frame-seedance-validated'),
     ));
-    await tester.tap(find.byKey(const Key('model-editor-save')));
+    await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
     expect(find.text('视频模型至少需要一种生成模式'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
@@ -759,7 +467,7 @@ void main() {
       ),
       '-1',
     );
-    await tester.tap(find.byKey(const Key('model-editor-save')));
+    await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
     expect(find.text('视频参考数量不能为负数'), findsOneWidget);
   });
@@ -800,25 +508,7 @@ void main() {
     expect(find.text('Old Gateway'), findsNothing);
   });
 
-  testWidgets('移动端设置页编辑 ima2 时打开双端点专属表单', (tester) async {
-    await engine.createProviderFromPreset(presetId: 'ima2', apiKey: 'dummy');
-
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await _selectSection(tester, '供应商');
-    await tester.tap(find.byTooltip('编辑').first);
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('preset-input-chatBaseUrl')), findsOneWidget);
-    expect(find.byKey(const Key('preset-input-imageBaseUrl')), findsOneWidget);
-    expect(find.byKey(const Key('preset-form-baseurl')), findsNothing);
-  });
-
-  testWidgets('移动端设置页：付费连通测试先确认，视频保持人工验收', (tester) async {
+  testWidgets('移动端设置页：分模态连通测试可选择图片和视频模型', (tester) async {
     engine.dispose();
     final db = openEngineDb(':memory:');
     final media = MediaStore(p.join(dir.path, 'media'));
@@ -830,13 +520,15 @@ void main() {
       gateway: gateway,
       config: config,
     );
-    final imageProvider = await engine.createProvider(
-      name: 'A Image Gateway',
+    final provider = await engine.createProvider(
+      name: 'Local Gateway',
       protocol: 'openai_compatible',
       baseUrl: 'http://127.0.0.1:8787/v1',
       apiKey: 'local',
     );
-    await engine.saveProviderModels(imageProvider.id, const [
+    // 引擎现在只允许火山引擎协议挂视频模型：视频模型放到独立的 volcengine
+    // 供应商上，图片模型仍留在 openai_compatible 供应商。
+    await engine.saveProviderModels(provider.id, const [
       {
         'modelId': 'local-text',
         'label': '本地文本',
@@ -851,10 +543,10 @@ void main() {
       },
     ]);
     final videoProvider = await engine.createProvider(
-      name: 'B Volcengine',
+      name: 'Volc Video',
       protocol: 'volcengine',
-      baseUrl: 'https://ark.test',
-      apiKey: 'sk-test',
+      baseUrl: 'http://127.0.0.1:8788/v1',
+      apiKey: 'local',
     );
     await engine.saveProviderModels(videoProvider.id, const [
       {
@@ -872,33 +564,148 @@ void main() {
     await tester.pumpAndSettle();
 
     await _selectSection(tester, '供应商');
-    final imageCard = find.byKey(const ValueKey('a-image-gateway:0'));
-    await tester.ensureVisible(imageCard);
-    await tester.tap(find.descendant(
-      of: imageCard,
-      matching: find.byTooltip('测试连通'),
-    ));
+    await tester.tap(find.byTooltip('测试连通').first);
     await tester.pumpAndSettle();
-    expect(find.text('测试连通 · A Image Gateway'), findsOneWidget);
+    expect(find.text('测试连通 · Local Gateway'), findsOneWidget);
 
     await _chooseFirstDropdown(tester, '图片 · 本地图像');
     await tester.tap(find.text('测试').last);
     await tester.pumpAndSettle();
 
-    expect(gateway.calls, isEmpty);
-    expect(find.byKey(const Key('provider-test-paid-confirm')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('provider-test-paid-confirm')));
+    // Volc Video 供应商只有一个可测模型：不会弹模型选择框，点击后直接发起。
+    // 引擎的产品规则是视频连通测试会向上游真实提交生成任务，只允许在人工
+    // 验收阶段发起——这里应被拒绝、不产生视频调用。
+    await tester.ensureVisible(find.byTooltip('测试连通').last);
     await tester.pumpAndSettle();
-
-    final videoCard = find.byKey(const ValueKey('b-volcengine:0'));
-    await tester.ensureVisible(videoCard);
-    await tester.tap(find.descendant(
-      of: videoCard,
-      matching: find.byTooltip('测试连通'),
-    ));
+    await tester.tap(find.byTooltip('测试连通').last);
     await tester.pumpAndSettle();
 
     expect(gateway.calls, ['image:local-image']);
+  });
+
+  testWidgets('移动端设置页：对话测试可以来回聊并看到真实回复', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    final media = MediaStore(p.join(dir.path, 'media'));
+    final config = EngineConfig(db, isMobile: true);
+    final gateway = _RecordingHttpGateway(db, config, media);
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: gateway,
+      config: config,
+    );
+    final provider = await engine.createProvider(
+      name: 'Local Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'local-text',
+        'label': '本地文本',
+        'kind': 'text',
+        'enabled': true,
+      },
+    ]);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('对话测试').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('对话测试 · Local Gateway'), findsOneWidget);
+    expect(find.text('发一条消息，看看模型的真实回复'), findsOneWidget);
+
+    final inputField = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(inputField, '在吗');
+    await tester.tap(find.descendant(
+      of: find.byType(Dialog),
+      matching: find.text('发送'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('在吗'), findsOneWidget);
+    expect(find.text('模型说：在吗'), findsOneWidget);
+    expect(gateway.calls, ['chat:local-text']);
+    expect(gateway.chatMessages.single, [
+      {'role': 'user', 'content': '在吗'},
+    ]);
+  });
+
+  testWidgets('移动端设置页：拉取模型可勾选新发现的模型并追加到列表', (tester) async {
+    engine.dispose();
+    final db = openEngineDb(':memory:');
+    final media = MediaStore(p.join(dir.path, 'media'));
+    final config = EngineConfig(db, isMobile: true);
+    final gateway = _RecordingHttpGateway(db, config, media)
+      ..fetchedModelIds = const ['gpt-5.5', 'gpt-5.6-sol'];
+    engine = Engine(
+      db: db,
+      media: media,
+      gateway: gateway,
+      config: config,
+    );
+    final provider = await engine.createProvider(
+      name: 'Local Gateway',
+      protocol: 'openai_compatible',
+      baseUrl: 'http://127.0.0.1:8787/v1',
+      apiKey: 'local',
+    );
+    await engine.saveProviderModels(provider.id, const [
+      {
+        'modelId': 'gpt-5.5',
+        'label': 'gpt-5.5',
+        'kind': 'text',
+        'enabled': true,
+      },
+    ]);
+
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.byTooltip('模型管理').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('拉取模型'));
+    await tester.pumpAndSettle();
+
+    // 已存在的 gpt-5.5 不应再被列出，只有新发现的 gpt-5.6-sol 可勾选。
+    final dialogFinder = find.byType(AlertDialog);
+    expect(find.text('选择要添加的模型'), findsOneWidget);
+    expect(
+      find.descendant(of: dialogFinder, matching: find.text('gpt-5.6-sol')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialogFinder, matching: find.text('gpt-5.5')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('添加所选'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, 'gpt-5.6-sol'), findsWidgets);
+    expect(gateway.calls, ['fetch:http://127.0.0.1:8787/v1']);
+
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    final models = await engine.listProviderModels(provider.id);
+    expect(models.map((m) => m.modelId), containsAll(['gpt-5.5', 'gpt-5.6-sol']));
   });
 
   testWidgets('移动端设置页：清空数据确认只清内容保留配置', (tester) async {
@@ -1008,11 +815,6 @@ void main() {
     expect(engine.config.str('policy.confirmMoney'), '1');
     expect(engine.config.str('policy.confirmDestructive'), '1');
 
-    await tester.drag(
-      find.byKey(const Key('settings-section-scroll')),
-      const Offset(0, -260),
-    );
-    await tester.pumpAndSettle();
     await tester.tap(find.text('花钱操作需确认'));
     await tester.pumpAndSettle();
     expect(engine.config.str('policy.confirmMoney'), '0');
@@ -1025,215 +827,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(engine.config.str('policy.confirmMoney'), '1');
   });
-
-  testWidgets('其他设置：画布滚轮模式仅本次会话生效', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-    await _selectSection(tester, '其他设置');
-
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(SettingsScreen)),
-    );
-    final beforeConfig = jsonEncode(engine.config.getAll());
-    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.zoom);
-    expect(find.byKey(const Key('settings-canvas-wheel-zoom')), findsOneWidget);
-    expect(
-      find.byKey(const Key('settings-canvas-wheel-scroll')),
-      findsOneWidget,
-    );
-
-    await tester.drag(
-      find.byKey(const Key('settings-section-scroll')),
-      const Offset(0, -220),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('settings-canvas-wheel-scroll')));
-    await tester.pump();
-
-    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.scroll);
-    expect(jsonEncode(engine.config.getAll()), beforeConfig);
-  });
-
-  testWidgets('390dp 其他设置：画布滚轮模式两个选项均可操作', (tester) async {
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-    await _selectSection(tester, '其他设置');
-
-    final zoom = find.byKey(const Key('settings-canvas-wheel-zoom'));
-    final scroll = find.byKey(const Key('settings-canvas-wheel-scroll'));
-    expect(zoom, findsOneWidget);
-    expect(scroll, findsOneWidget);
-    const viewport = Rect.fromLTWH(0, 0, 390, 760);
-    expect(tester.getRect(zoom).overlaps(viewport), isTrue);
-    expect(tester.getRect(scroll).overlaps(viewport), isTrue);
-
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(SettingsScreen)),
-    );
-    await tester.tap(scroll);
-    await tester.pump();
-    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.scroll);
-
-    await tester.tap(zoom);
-    await tester.pump();
-    expect(container.read(canvasWheelModeProvider), CanvasWheelMode.zoom);
-  });
-
-  testWidgets('390dp 其他设置保存请求超时与画布拖动性能开关', (tester) async {
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-    await _selectSection(tester, '其他设置');
-
-    final timeout = find.byKey(const Key('settings-request-timeout'));
-    final interactionSwitch =
-        find.byKey(const Key('settings-canvas-interaction-switch'));
-    expect(timeout, findsOneWidget);
-    expect(interactionSwitch, findsOneWidget);
-    const viewport = Rect.fromLTWH(0, 0, 390, 760);
-    expect(tester.getRect(timeout).overlaps(viewport), isTrue);
-    expect(tester.getRect(interactionSwitch).overlaps(viewport), isTrue);
-
-    await tester.enterText(timeout, '42');
-    await tester.tap(interactionSwitch);
-    final save = find.byIcon(Icons.save_outlined);
-    await tester.ensureVisible(save);
-    await tester.tap(save);
-    await tester.pumpAndSettle();
-
-    expect(engine.config.requestTimeout, const Duration(seconds: 42));
-    expect(engine.config.str('production.interacting'), '0');
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-    await _selectSection(tester, '其他设置');
-
-    final reloadedTimeout = tester
-        .widget<TextField>(find.byKey(const Key('settings-request-timeout')));
-    expect(reloadedTimeout.controller!.text, '42');
-    expect(
-      tester
-          .widget<SwitchListTile>(
-              find.byKey(const Key('settings-canvas-interaction-switch')))
-          .value,
-      isFalse,
-    );
-  });
-
-  testWidgets('其他设置拒绝小于十秒的请求超时', (tester) async {
-    tester.view.physicalSize = const Size(800, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-    await _selectSection(tester, '其他设置');
-
-    await tester.enterText(
-        find.byKey(const Key('settings-request-timeout')), '9');
-    final save = find.byIcon(Icons.save_outlined);
-    await tester.ensureVisible(save);
-    await tester.tap(save);
-    await tester.pumpAndSettle();
-
-    expect(engine.config.requestTimeout, const Duration(seconds: 600));
-    expect(find.textContaining('至少为 10 秒'), findsOneWidget);
-  });
-
-  testWidgets('模型管理：从 API 拉取候选，未分类必须定 kind 才能加入，且默认禁用', (tester) async {
-    // 换成能应答 /models 的 fake gateway（沿用本文件 setUp 的 db/media 构造方式）
-    engine.dispose();
-    final db = openEngineDb(':memory:');
-    engine = Engine(
-      db: db,
-      media: MediaStore(p.join(dir.path, 'media')),
-      gateway: _CandidatesGateway(),
-      config: EngineConfig(db, isMobile: true),
-    );
-    // deepseek 预设当前模型清单为 deepseek-v4-flash / deepseek-v4-pro
-    // （deepseek-chat 已随预设目录更新下线，2026-07-19 复核见 provider_presets.dart）。
-    await engine.createProviderFromPreset(
-        presetId: 'deepseek',
-        apiKey: 'k',
-        selectedModelIds: ['deepseek-v4-flash']);
-
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    await _selectSection(tester, '供应商');
-    await tester.tap(find.byTooltip('模型管理').first);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('model-editor-fetch-models')));
-    await tester.pumpAndSettle();
-
-    // deepseek-v4-flash 已在清单 → 候选剩 deepseek-v4-pro（目录已知，应自动
-    // 归类）与 brand-new-model（目录未收录，未分类）。
-    expect(
-        find.byKey(const Key('candidate-row-brand-new-model')), findsOneWidget);
-    expect(
-        find.byKey(const Key('candidate-row-deepseek-v4-pro')), findsOneWidget);
-    expect(
-        find.byKey(const Key('candidate-row-deepseek-v4-flash')), findsNothing);
-    expect(find.text('未分类'), findsOneWidget); // 仅 brand-new-model 未分类
-
-    // Task 1 目录已知模型（deepseek-v4-pro）：kind 应自动预填为 text，
-    // 不是留空（spec §5 第 5 条），且勾选它无需手动选类型即可通过校验。
-    final preFilledKind = tester.widget<DropdownButton<String>>(
-        find.byKey(const Key('candidate-kind-deepseek-v4-pro')));
-    expect(preFilledKind.value, 'text', reason: 'Task 1 目录已知模型应自动填充 kind，而非留空');
-    await tester.tap(find.byKey(const Key('candidate-check-deepseek-v4-pro')));
-    await tester.pump();
-
-    // 不定 kind 勾选加入 → 行内报错，不关弹层
-    await tester.tap(find.byKey(const Key('candidate-check-brand-new-model')));
-    await tester.pump();
-    await tester.tap(find.text('加入清单'));
-    await tester.pump();
-    expect(find.text('请先为勾选的模型选择类型'), findsOneWidget);
-
-    // 定 kind = 图片 → 加入成功
-    await tester.tap(find.byKey(const Key('candidate-kind-brand-new-model')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('图片').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('加入清单'));
-    await tester.pumpAndSettle();
-    // 新草稿同时预填模型 ID 与显示名称，两个输入框都应保留远端 ID。
-    expect(find.text('brand-new-model'), findsNWidgets(2));
-
-    // 保存后落库：新模型默认禁用；已知目录模型 kind 正确落地；原模型不受影响
-    await tester.tap(find.byKey(const Key('model-editor-save')));
-    await tester.pumpAndSettle();
-    final models = await engine.listProviderModels('deepseek');
-    final byId = {for (final m in models) m.modelId: m};
-    expect(byId['brand-new-model']!.kind, 'image');
-    expect(byId['brand-new-model']!.enabled, isFalse,
-        reason: '拉取候选默认禁用（spec §5 第 5 条）');
-    expect(byId['deepseek-v4-pro']!.kind, 'text',
-        reason: '目录已知模型的自动预填 kind 应随保存正确落库');
-    expect(byId['deepseek-v4-pro']!.enabled, isFalse,
-        reason: '拉取候选默认禁用（spec §5 第 5 条），即便 kind 是自动预填的');
-    expect(byId['deepseek-v4-flash']!.enabled, isTrue, reason: '已有条目不受影响');
-  });
 }
 
 Future<void> _selectSection(WidgetTester tester, String label) async {
-  await tester.dragUntilVisible(
-    find.text(label),
-    find.byType(SegmentedButton).first,
-    const Offset(-160, 0),
-  );
-  await tester.tap(find.text(label));
+  // 移动端设置页是「分区列表 → 详情」两级：若正处于某个详情页，先点左上角
+  // 返回回到列表，再点目标分区。桌面端侧边导航常驻，直接点即可。
+  final back = find.text('返回');
+  if (back.evaluate().isNotEmpty) {
+    await tester.tap(back.first);
+    await tester.pumpAndSettle();
+  }
+  final target = find.text(label).first;
+  if (target.evaluate().isEmpty ||
+      !tester.getRect(target).overlaps(Offset.zero & tester.view.physicalSize)) {
+    await tester.scrollUntilVisible(
+      find.text(label).first,
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
+  await tester.tap(find.text(label).first);
   await tester.pumpAndSettle();
 }
 

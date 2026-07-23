@@ -21,6 +21,7 @@ import '../../widgets/df_search_field.dart';
 import '../../widgets/df_status_tag.dart';
 import '../../widgets/policy_confirm.dart';
 import 'edit_novel_dialog.dart';
+import 'event_tab.dart';
 import 'import_novel_dialog.dart';
 
 const _previewMaxLength = 80;
@@ -419,16 +420,68 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
     );
   }
 
+  Widget _buildGlassContainer({required Widget child}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1C1C24).withValues(alpha: 0.65)
+            : Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final banner = _nextStepBanner();
-    if (banner == null) return _chaptersTab();
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-        child: banner,
-      ),
-      Expanded(child: _chaptersTab()),
-    ]);
+    return DefaultTabController(
+      length: 2,
+      child: Column(children: [
+        Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            dividerColor: Colors.transparent,
+            labelStyle:
+                const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            unselectedLabelStyle:
+                const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            indicatorSize: TabBarIndicatorSize.label,
+            tabs: [
+              Tab(text: l10n.menuNovel),
+              Tab(text: l10n.novelColEvent),
+            ],
+          ),
+        ),
+        if (banner != null)
+          Padding(padding: const EdgeInsets.only(top: 12), child: banner),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: TabBarView(children: [
+              _buildGlassContainer(child: _chaptersTab()),
+              _buildGlassContainer(child: EventTab(projectId: widget.projectId)),
+            ]),
+          ),
+        ),
+      ]),
+    );
   }
 }

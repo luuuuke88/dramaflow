@@ -4016,7 +4016,7 @@ class _TimelineClip extends StatelessWidget {
 
     return Container(
       width: width,
-      height: (isVideo ? 48 : 36) * textScale,
+      height: (isVideo ? 50 : 38) * textScale,
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

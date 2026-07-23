@@ -181,10 +181,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    expect(find.byType(TabBar), findsNothing,
-        reason: '原版小说页没有事件列表 Tab');
+    // 本项目的小说页设计为「章节 / 事件」双 Tab（与 Toonflow 原版不同，
+    // 是刻意保留的差异）；事件 Tab 只做浏览，批量入队仍走「事件分析」入口。
+    expect(find.byType(TabBar), findsOneWidget);
     expect(find.text('生成事件'), findsNothing,
-        reason: '原版只有「事件分析」这一项批量事件生成入口');
+        reason: '只有「事件分析」这一项批量事件生成入口');
 
     await tester.tap(find.textContaining('章1').first);
     await tester.pump();

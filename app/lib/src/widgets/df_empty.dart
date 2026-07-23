@@ -19,7 +19,7 @@ class DFEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.df;
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -637,11 +637,11 @@ description: 移动端构图
     ));
     await tester.pumpAndSettle();
 
-    // 手机宽度下必须是 _MobileShell（有底部 NavigationBar），且被壳承载的
+    // 手机宽度下必须是 _MobileShell（有自绘的胶囊底部导航），且被壳承载的
     // scriptAgent 页不能再套自己的 Scaffold+AppBar：应当只有壳自身那一层
     // AppBar，而不是壳 AppBar + 本页 AppBar 叠成两层。
-    expect(find.byType(NavigationBar), findsOneWidget,
-        reason: '手机宽度应命中 _MobileShell');
+    expect(find.text('我的项目'), findsOneWidget,
+        reason: '手机宽度应命中 _MobileShell（底部导航展示三个入口）');
     expect(find.byType(AppBar), findsOneWidget,
         reason: '壳的 AppBar 与本页自己的 AppBar 曾经会叠成两层，这里必须只剩一层');
 

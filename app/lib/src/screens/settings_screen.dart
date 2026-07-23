@@ -10,35 +10,15 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/models.dart';
-import '../engine/config.dart';
 import '../engine/db_admin.dart';
-import '../engine/engine.dart';
-import '../engine/pipeline_policy.dart';
-import '../engine/provider_presets.dart';
 import '../engine/util.dart';
-import '../state/canvas_wheel_mode.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
 import '../theme/tokens.dart';
+import '../util/error_l10n.dart';
 import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
-import '../widgets/df_adaptive_dialog.dart';
 import '../widgets/shell.dart';
-import 'provider_preset_form.dart';
-import 'provider_preset_gallery.dart';
-
-Color? _lightAppBarBackground(BuildContext context) =>
-    Theme.of(context).brightness == Brightness.light
-        ? context.df.surface
-        : null;
-
-PreferredSizeWidget? _lightAppBarBottom(BuildContext context) {
-  if (Theme.of(context).brightness != Brightness.light) return null;
-  return PreferredSize(
-    preferredSize: const Size.fromHeight(1),
-    child: Container(height: 1, color: context.df.stroke),
-  );
-}
 
 // 应用版本（对齐 pubspec version；package_info_plus 未引入，引擎版本另经 health 展示）。
 const _appVersion = '0.1.0';
@@ -209,70 +189,56 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   _SettingsSection _section = _SettingsSection.appearance;
   int _modelRevision = 0;
-
-  // 其他设置字段控制器（懒初始化：进入面板时按引擎当前值填充）。
-  TextEditingController? _chapterRegCtrl;
-  TextEditingController? _requestTimeoutCtrl;
-  TextEditingController? _episodeLengthCtrl;
-  TextEditingController? _batchSizeCtrl;
-
-  TextEditingController? _themeColorCtrl;
-  String? _syncedThemeColor;
-  String? _themeColorError;
+  bool _isMobileDetailOpen = false;
 
   @override
   void initState() {
     super.initState();
-    _section = switch (widget.initialSection) {
+    final requested = switch (widget.initialSection) {
       'providers' => _SettingsSection.providers,
       'bindings' => _SettingsSection.bindings,
       'prompts' => _SettingsSection.prompts,
       'other' => _SettingsSection.other,
       'storage' => _SettingsSection.storage,
       'about' => _SettingsSection.about,
-      _ => _SettingsSection.appearance,
+      _ => null,
     };
+    if (requested != null) {
+      _section = requested;
+      // 手机端设置页是「分区列表 → 详情」两级：带着定位参数进来时直接落到
+      // 详情，不停留在列表。
+      _isMobileDetailOpen = true;
+    }
   }
+
+  // 其他设置字段控制器（懒初始化：进入面板时按引擎当前值填充）。
+  TextEditingController? _chapterRegCtrl;
+  TextEditingController? _episodeLengthCtrl;
+  TextEditingController? _batchSizeCtrl;
 
   void _ensureOtherControllers() {
     if (_chapterRegCtrl != null) return;
     final config = ref.read(engineProvider).config;
     _chapterRegCtrl = TextEditingController(text: config.str('chapterReg'));
-    _requestTimeoutCtrl =
-        TextEditingController(text: '${config.requestTimeout.inSeconds}');
     _episodeLengthCtrl =
         TextEditingController(text: config.str('scriptEpisodeLength'));
     _batchSizeCtrl =
         TextEditingController(text: config.str('assetsBatchGenereateSize'));
   }
 
-  void _ensureThemeColorController(String hex) {
-    if (_themeColorCtrl == null) {
-      _themeColorCtrl = TextEditingController(text: hex);
-      _syncedThemeColor = hex;
-      return;
-    }
-    if (_syncedThemeColor == hex) return;
-    _themeColorCtrl!.value = TextEditingValue(
-      text: hex,
-      selection: TextSelection.collapsed(offset: hex.length),
-    );
-    _syncedThemeColor = hex;
-  }
-
   @override
   void dispose() {
     _chapterRegCtrl?.dispose();
-    _requestTimeoutCtrl?.dispose();
     _episodeLengthCtrl?.dispose();
     _batchSizeCtrl?.dispose();
-    _themeColorCtrl?.dispose();
     super.dispose();
   }
 
   void _selectSection(_SettingsSection section) {
-    if (section == _section) return;
-    setState(() => _section = section);
+    setState(() {
+      _section = section;
+      _isMobileDetailOpen = true;
+    });
   }
 
   void _invalidateConfig() {
@@ -280,8 +246,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.invalidate(bindingsProvider);
     ref.invalidate(promptsProvider);
     ref.invalidate(modelPromptsProvider);
-    ref.invalidate(modelPromptTemplatesProvider);
-    ref.invalidate(modelPromptTargetsProvider);
     ref.invalidate(settingsProvider);
     ref.invalidate(healthProvider);
     setState(() => _modelRevision++);
@@ -299,85 +263,210 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 900;
     final l10n = context.l10n;
+    final df = context.df;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: _lightAppBarBackground(context),
-        bottom: _lightAppBarBottom(context),
-        leading: widget.showOnboardingReturn
-            ? IconButton(
-                key: const Key('onboarding-return'),
-                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                icon: const Icon(Icons.arrow_back_rounded),
-                onPressed: () => context.go('/onboarding'),
-              )
-            : null,
-        title: Text(l10n.settingsTitle),
-        actions: [
-          IconButton(
-            tooltip: l10n.commonRefresh,
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _invalidateConfig,
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: PageContainer(
-        maxWidth: 1240,
-        child: wide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: _SideNav(
-                      selected: _section,
-                      onSelected: _selectSection,
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          MediaQuery.sizeOf(context).width < 840 ? 20 : 40,
+          MediaQuery.sizeOf(context).width < 840 ? 20 : 36,
+          MediaQuery.sizeOf(context).width < 840 ? 20 : 40,
+          // 手机壳（<840）有悬浮底部导航，底部要预留出它的高度。
+          MediaQuery.sizeOf(context).width < 840 ? 120 : 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (widget.showOnboardingReturn)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: IconButton(
+                    key: const Key('onboarding-return'),
+                    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () => context.go('/onboarding'),
+                  ),
+                ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.settingsTitle,
+                      style: DFTokens.pageTitle26w800,
                     ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(child: _sectionBody()),
-                ],
-              )
-            : Column(
-                children: [
-                  const SizedBox(height: 12),
-                  _TopSectionTabs(
-                    selected: _section,
-                    onSelected: _selectSection,
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(child: _sectionBody()),
-                ],
+                    const SizedBox(height: 6),
+                    if (MediaQuery.sizeOf(context).width >= 720)
+                      Text(
+                        l10n.settingsSubtitle,
+                        style: TextStyle(fontSize: 14, color: df.textSecondary),
+                      ),
+                  ],
+                ),
               ),
+              IconButton(
+                tooltip: l10n.commonRefresh,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                onPressed: _invalidateConfig,
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
+          Expanded(
+            child: wide
+                ? LayoutBuilder(builder: (context, constraints) {
+                    // 直接用 LayoutBuilder 量出这一行能用的总高度，强制左侧卡片
+                    // 就是这个高度——不依赖 CrossAxisAlignment.stretch 的隐式行为。
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: constraints.maxHeight,
+                          child: _SideNav(
+                            selected: _section,
+                            onSelected: _selectSection,
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(child: _sectionBody()),
+                      ],
+                    );
+                  })
+                : AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: _isMobileDetailOpen
+                        ? KeyedSubtree(
+                            key: const ValueKey('mobile_detail'),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    InkWell(
+                                      onTap: () => setState(() => _isMobileDetailOpen = false),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: df.surfaceMuted,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: df.textSecondary),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              MaterialLocalizations.of(context).backButtonTooltip,
+                                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: df.textSecondary),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        _sectionLabel(l10n, _section),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: df.textPrimary),
+                                      ),
+                                    ),
+                                    // To visually balance the back button so title is centered
+                                    const SizedBox(width: 64),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Expanded(child: _sectionBody()),
+                              ],
+                            ),
+                          )
+                        : KeyedSubtree(
+                            key: const ValueKey('mobile_menu'),
+                            child: ListView.separated(
+                              itemCount: _SettingsSection.values.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                final section = _SettingsSection.values[index];
+                                return InkWell(
+                                  onTap: () => _selectSection(section),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C24) : Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: df.surface,
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))
+                                            ]
+                                          ),
+                                          child: Icon(_sectionIcons[section], size: 18, color: df.primary),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Text(
+                                            _sectionLabel(l10n, section),
+                                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: df.textPrimary),
+                                          ),
+                                        ),
+                                        Icon(Icons.arrow_forward_ios_rounded, size: 16, color: df.textTertiary),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                  ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _sectionBody() {
+    // 注：这里原来用 AnimatedSwitcher 做淡入淡出，但各分区内容高度差异很大
+    // （"外观"很短，"供应商"表格很长），交叉淡入淡出期间新旧内容各自居中叠在
+    // 一起，看起来就是"重叠一下再跳一下"，不流畅。分区切换直接换内容更干脆。
     return ListView(
-      key: const Key('settings-section-scroll'),
       children: [
         const SizedBox(height: 16),
-        switch (_section) {
-          _SettingsSection.appearance => Column(children: [
-              _appearanceCard(),
-              const SizedBox(height: 12),
-              _languageCard(),
-            ]),
-          _SettingsSection.providers => KeyedSubtree(
-              key: const Key('settings-section-providers'),
-              child: _providersPanel(),
-            ),
-          _SettingsSection.bindings => KeyedSubtree(
-              key: const Key('settings-section-bindings'),
-              child: _bindingsPanel(),
-            ),
-          _SettingsSection.prompts => _promptsPanel(),
-          _SettingsSection.other => _otherPanel(),
-          _SettingsSection.storage => _storageCard(),
-          _SettingsSection.about => _aboutCard(),
-        },
+        KeyedSubtree(
+          key: ValueKey(_section),
+          child: switch (_section) {
+            _SettingsSection.appearance => _appearanceCard(),
+            _SettingsSection.providers => KeyedSubtree(
+                key: const Key('settings-section-providers'),
+                child: _providersPanel(),
+              ),
+            _SettingsSection.bindings => KeyedSubtree(
+                key: const Key('settings-section-bindings'),
+                child: _bindingsPanel(),
+              ),
+            _SettingsSection.prompts => _promptsPanel(),
+            _SettingsSection.other => _otherPanel(),
+            _SettingsSection.storage => _storageCard(),
+            _SettingsSection.about => _aboutCard(),
+          },
+        ),
         const SizedBox(height: 40),
       ],
     );
@@ -385,180 +474,142 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // ---------- 0. 外观 ----------
 
-  Future<void> _saveThemeColor(String value) async {
-    final normalized = EngineConfig.normalizeThemePrimaryColor(value);
-    if (normalized == null) {
-      setState(() => _themeColorError = context.l10n.settingsThemeColorInvalid);
-      return;
-    }
-    final saved = await runAction(context, ref, () async {
-      await ref
-          .read(themePrimaryColorProvider.notifier)
-          .setThemePrimaryColor(themeColorFromHex(normalized));
-    });
-    if (!saved || !mounted) return;
-    _themeColorCtrl!.value = TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
-    );
-    setState(() {
-      _syncedThemeColor = normalized;
-      _themeColorError = null;
-    });
-  }
-
   Widget _appearanceCard() {
     final themeMode = ref.watch(themeModeProvider);
-    final primaryColor = ref.watch(themePrimaryColorProvider);
-    final fontSize = ref.watch(themeFontSizeProvider);
-    final themeHex = themeColorToHex(primaryColor);
-    _ensureThemeColorController(themeHex);
+    final locale = ref.watch(localeProvider);
     final l10n = context.l10n;
+    final df = context.df;
+    final currentLocale = locale?.languageCode ?? '';
+
     return _SettingsCard(
       title: l10n.settingsAppearanceSection,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SegmentedButton<ThemeMode>(
-            showSelectedIcon: false,
-            style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.resolveWith(
-                (states) => states.contains(WidgetState.selected)
-                    ? context.df.primaryDim
-                    : context.df.surface,
-              ),
-              foregroundColor: WidgetStateProperty.resolveWith(
-                (states) => states.contains(WidgetState.selected)
-                    ? context.df.primary
-                    : context.df.textMid,
-              ),
-              side:
-                  WidgetStateProperty.all(BorderSide(color: context.df.stroke)),
+          _SettingRow(
+            label: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.settingsThemeTitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: df.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.settingsThemeSubtitle,
+                  style: TextStyle(fontSize: 12, color: df.textTertiary),
+                ),
+              ],
             ),
-            segments: [
-              ButtonSegment(
-                value: ThemeMode.light,
-                icon: const Icon(Icons.light_mode_outlined, size: 18),
-                label: Text(l10n.settingsThemeLight),
-              ),
-              ButtonSegment(
-                value: ThemeMode.dark,
-                icon: const Icon(Icons.dark_mode_outlined, size: 18),
-                label: Text(l10n.settingsThemeDark),
-              ),
-              ButtonSegment(
-                value: ThemeMode.system,
-                icon: const Icon(Icons.brightness_auto_outlined, size: 18),
-                label: Text(l10n.settingsThemeSystem),
-              ),
-            ],
-            selected: {themeMode},
-            onSelectionChanged: (selected) {
-              final next = selected.single;
-              if (next == themeMode) return;
-              runAction(context, ref, () async {
-                await ref.read(themeModeProvider.notifier).setThemeMode(next);
-              }, successMessage: l10n.settingsThemeUpdated);
-            },
-          ),
-          const SizedBox(height: 20),
-          Text(l10n.settingsThemeColor, style: DFTokens.section16w600),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final hex in EngineConfig.themePrimaryColorPresets)
-                _ThemeColorSwatch(
-                  key: Key('settings-theme-color-${hex.substring(1)}'),
-                  hex: hex,
-                  selected: themeHex == hex,
-                  onSelected: () => _saveThemeColor(hex),
+            control: SegmentedButton<ThemeMode>(
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? df.primary.withValues(alpha: 0.1)
+                        : df.surface,
+                  ),
+                  foregroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? df.primary
+                        : df.textSecondary,
+                  ),
+                  side: WidgetStateProperty.all(
+                    BorderSide(color: df.stroke.withValues(alpha: 0.6)),
+                  ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            key: const Key('settings-theme-color-custom'),
-            controller: _themeColorCtrl,
-            textCapitalization: TextCapitalization.characters,
-            decoration: InputDecoration(
-              labelText: l10n.settingsThemeColorCustom,
-              errorText: _themeColorError,
-              prefixIcon: Container(
-                width: 22,
-                height: 22,
-                margin: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: context.df.strokeStrong),
-                ),
-              ),
-              suffixIcon: IconButton(
-                key: const Key('settings-theme-color-apply'),
-                tooltip: l10n.settingsThemeColorApply,
-                icon: const Icon(Icons.check_rounded),
-                onPressed: () => _saveThemeColor(_themeColorCtrl!.text),
-              ),
+                segments: [
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    icon: const Icon(Icons.light_mode_outlined, size: 16),
+                    label: Text(l10n.settingsThemeLight),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    icon: const Icon(Icons.dark_mode_outlined, size: 16),
+                    label: Text(l10n.settingsThemeDark),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    icon: const Icon(Icons.brightness_auto_outlined, size: 16),
+                    label: Text(l10n.settingsThemeSystem),
+                  ),
+                ],
+                selected: {themeMode},
+                onSelectionChanged: (selected) {
+                  final next = selected.single;
+                  if (next == themeMode) return;
+                  runAction(context, ref, () async {
+                    await ref
+                        .read(themeModeProvider.notifier)
+                        .setThemeMode(next);
+                  }, successMessage: l10n.settingsThemeUpdated);
+                },
             ),
-            onChanged: (_) {
-              if (_themeColorError != null) {
-                setState(() => _themeColorError = null);
-              }
-            },
           ),
-          const SizedBox(height: 20),
-          Text(l10n.settingsThemeFontSize, style: DFTokens.section16w600),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final size in EngineConfig.themeFontSizeOptions)
-                ChoiceChip(
-                  key: Key('settings-theme-font-$size'),
-                  label: Text('$size'),
-                  selected: fontSize == size,
-                  onSelected: fontSize == size
-                      ? null
-                      : (_) => runAction(context, ref, () async {
-                            await ref
-                                .read(themeFontSizeProvider.notifier)
-                                .setThemeFontSize(size);
-                          }),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Divider(height: 1, color: df.stroke.withValues(alpha: 0.4)),
+          ),
+          _SettingRow(
+            label: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.settingsLanguage,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: df.textPrimary,
+                  ),
                 ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  l10n.settingsLanguageSubtitle,
+                  style: TextStyle(fontSize: 12, color: df.textTertiary),
+                ),
+              ],
+            ),
+            control: SegmentedButton<String>(
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? df.primary.withValues(alpha: 0.1)
+                        : df.surface,
+                  ),
+                  foregroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? df.primary
+                        : df.textSecondary,
+                  ),
+                  side: WidgetStateProperty.all(
+                    BorderSide(color: df.stroke.withValues(alpha: 0.6)),
+                  ),
+                ),
+                segments: [
+                  ButtonSegment(value: '', label: Text(l10n.localeSystem)),
+                  ButtonSegment(value: 'zh', label: Text(l10n.localeChinese)),
+                  const ButtonSegment(value: 'en', label: Text('English')),
+                  ButtonSegment(value: 'ja', label: Text(l10n.localeJapanese)),
+                ],
+                selected: {currentLocale},
+                onSelectionChanged: (selected) {
+                  final next = selected.single;
+                  if (next == currentLocale) return;
+                  runAction(context, ref, () async {
+                    await ref
+                        .read(localeProvider.notifier)
+                        .setLocale(next.isEmpty ? null : Locale(next));
+                  }, successMessage: l10n.settingsLanguage);
+                },
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _languageCard() {
-    final locale = ref.watch(localeProvider);
-    final l10n = AppLocalizations.of(context);
-    final current = locale?.languageCode ?? '';
-    return _SettingsCard(
-      title: l10n.settingsLanguage,
-      child: SegmentedButton<String>(
-        showSelectedIcon: false,
-        segments: [
-          ButtonSegment(value: '', label: Text(l10n.localeSystem)),
-          ButtonSegment(value: 'zh', label: Text(l10n.localeChinese)),
-          const ButtonSegment(value: 'en', label: Text('English')),
-          ButtonSegment(value: 'ja', label: Text(l10n.localeJapanese)),
-        ],
-        selected: {current},
-        onSelectionChanged: (selected) {
-          final next = selected.single;
-          if (next == current) return;
-          runAction(context, ref, () async {
-            await ref
-                .read(localeProvider.notifier)
-                .setLocale(next.isEmpty ? null : Locale(next));
-          }, successMessage: l10n.settingsLanguage);
-        },
       ),
     );
   }
@@ -605,6 +656,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         onEdit: () => _openEditProviderDialog(provider),
                         onManageModels: () => _openModelsEditor(provider),
                         onTest: () => _testProvider(provider),
+                        onChatTest: () => _chatTestProvider(provider),
                         onDelete: () => _deleteProvider(provider),
                         onEnabledChanged: (enabled) =>
                             _setProviderEnabled(provider, enabled),
@@ -620,6 +672,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onEdit: _openEditProviderDialog,
                 onManageModels: _openModelsEditor,
                 onTest: _testProvider,
+                onChatTest: _chatTestProvider,
                 onDelete: _deleteProvider,
                 onEnabledChanged: _setProviderEnabled,
               );
@@ -635,54 +688,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _openCreateProviderDialog() async {
-    final providers = await ref.read(engineProvider).listProviders();
+    final result = await showDialog<_ProviderFormResult>(
+      context: context,
+      builder: (_) => const _ProviderFormDialog(),
+    );
+    if (result == null || !mounted) return;
+    final l10n = context.l10n;
+
+    await runAction(context, ref, () async {
+      await ref.read(engineProvider).createProvider(
+            name: result.name,
+            protocol: result.protocol,
+            baseUrl: result.baseUrl,
+            apiKey: result.apiKey,
+          );
+    }, successMessage: l10n.settingsProviderAdded);
     if (!mounted) return;
-    final picked = await showProviderPresetGallery(context,
-        existingProviderIds: {for (final p in providers) p.id});
-    if (picked == null || !mounted) return;
-
-    if (picked == 'custom') {
-      final result = await showDialog<_ProviderFormResult>(
-        context: context,
-        builder: (_) => const _ProviderFormDialog(),
-      );
-      if (result == null || !mounted) return;
-      final l10n = context.l10n;
-      await runAction(context, ref, () async {
-        await ref.read(engineProvider).createProvider(
-              name: result.name,
-              protocol: result.protocol,
-              baseUrl: result.baseUrl,
-              apiKey: result.apiKey,
-            );
-      }, successMessage: l10n.settingsProviderAdded);
-      if (!mounted) return;
-      _invalidateProvidersAndBindings();
-      return;
-    }
-
-    final existing = providers.where((p) => p.id == picked).toList();
-    if (existing.isNotEmpty) {
-      await _openEditProviderDialog(existing.first);
-      return;
-    }
-
-    final created =
-        await showProviderPresetForm(context, ref, presetId: picked);
-    if (created && mounted) _invalidateProvidersAndBindings();
+    _invalidateProvidersAndBindings();
   }
 
   Future<void> _openEditProviderDialog(ProviderInfo provider) async {
-    if (provider.protocol == 'ima2') {
-      final saved = await showProviderPresetForm(
-        context,
-        ref,
-        presetId: provider.id,
-        existingProvider: provider,
-      );
-      if (saved && mounted) _invalidateProvidersAndBindings();
-      return;
-    }
     final result = await showDialog<_ProviderFormResult>(
       context: context,
       builder: (_) => _ProviderFormDialog(provider: provider),
@@ -764,12 +789,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
     if (!mounted || models == null) return;
 
-    // 视频测试会提交真实生成任务，留给用户最终手动验收；文本、图片和语音
-    // 仍可在设置页做低成本连通检查。
+    // 分模态测试（对齐引擎 testProvider 的 text/image/video 分派）：
+    // 允许测试任一启用的文本/图片/视频模型，而非仅文本。
     final testable = models!
         .where((model) =>
             model.enabled &&
-            const {'text', 'image', 'tts'}.contains(model.kind))
+            const {'text', 'image', 'video', 'tts'}.contains(model.kind))
         .toList();
     if (testable.isEmpty) {
       await runAction(context, ref, () async {
@@ -782,21 +807,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ? testable.first
         : await _chooseTestModel(provider, testable);
     if (!mounted || selected == null) return;
-
-    if (requiresMoneyConfirmation(ref.read(engineProvider).config)) {
-      final kindLabel = _modelKinds
-          .firstWhere((item) => item.value == selected.kind,
-              orElse: () => const _KindMeta('text'))
-          .label(context.l10n);
-      final confirmed = await _confirm(
-        title: context.l10n.settingsProviderTestPaidTitle,
-        message: context.l10n
-            .settingsProviderTestPaidMessage(provider.name, kindLabel),
-        confirmText: context.l10n.settingsProviderTestPaidConfirm,
-        confirmKey: const Key('provider-test-paid-confirm'),
-      );
-      if (!mounted || !confirmed) return;
-    }
 
     var elapsedMs = 0;
     final l10n = context.l10n;
@@ -853,6 +863,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _chatTestProvider(ProviderInfo provider) async {
+    List<ProviderModelInfo>? models;
+    await runAction(context, ref, () async {
+      models = await ref.read(engineProvider).listProviderModels(provider.id);
+    });
+    if (!mounted || models == null) return;
+
+    // 对话测试仅支持文本模型：能真正来回聊，而不只是量个耗时。
+    final textModels =
+        models!.where((model) => model.enabled && model.kind == 'text').toList();
+    if (textModels.isEmpty) {
+      await runAction(context, ref, () async {
+        throw EngineException(context.l10n.settingsProviderTestNoModel);
+      });
+      return;
+    }
+
+    final selected = textModels.length == 1
+        ? textModels.first
+        : await _chooseTestModel(provider, textModels);
+    if (!mounted || selected == null) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ChatTestDialog(
+        providerId: provider.id,
+        providerName: provider.name,
+        modelId: selected.modelId,
       ),
     );
   }
@@ -963,8 +1005,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _promptsPanel() {
     final promptsAsync = ref.watch(promptsProvider);
-    final modelTargetsAsync = ref.watch(modelPromptTargetsProvider);
-    final templatesAsync = ref.watch(modelPromptTemplatesProvider);
+    final modelPromptsAsync = ref.watch(modelPromptsProvider);
     return _SettingsCard(
       title: context.l10n.promptPanelTitle,
       child: AsyncView<List<Map<String, dynamic>>>(
@@ -986,41 +1027,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onOpen: () => _openPromptEditor(meta, byKey[meta.key]),
                 ),
               const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _SubsectionTitle(
-                      label: context.l10n.promptModelTemplates,
-                    ),
-                  ),
-                  IconButton(
-                    key: const Key('model-prompt-template-create-global'),
-                    tooltip: context.l10n.promptTemplateCreate,
-                    icon: const Icon(Icons.add_rounded),
-                    onPressed: _openNewModelPromptTemplate,
-                  ),
-                ],
-              ),
-              AsyncView<List<ModelPromptTarget>>(
-                value: modelTargetsAsync,
-                onRetry: () => ref.invalidate(modelPromptTargetsProvider),
-                builder: (targets) => AsyncView<List<ModelPromptTemplate>>(
-                  value: templatesAsync,
-                  onRetry: () => ref.invalidate(modelPromptTemplatesProvider),
-                  builder: (templates) => targets.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          child: Text(
-                            context.l10n.promptTemplateLibraryEmpty,
-                            style: TextStyle(color: context.df.textLo),
-                          ),
-                        )
-                      : _ModelPromptTargetGroups(
-                          targets: targets,
-                          templates: templates,
-                          onOpen: _openModelPromptLibrary,
+              _SubsectionTitle(label: context.l10n.promptModelTemplates),
+              AsyncView<List<Map<String, dynamic>>>(
+                value: modelPromptsAsync,
+                onRetry: () => ref.invalidate(modelPromptsProvider),
+                builder: (modelPrompts) => modelPrompts.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        child: Text(
+                          context.l10n.promptModelTemplatesEmpty,
+                          style: TextStyle(color: context.df.textLo),
                         ),
-                ),
+                      )
+                    : Column(
+                        children: [
+                          for (final prompt in modelPrompts)
+                            _ModelPromptRow(
+                              prompt: prompt,
+                              onOpen: () => _openModelPromptEditor(prompt),
+                            ),
+                        ],
+                      ),
               ),
             ],
           );
@@ -1045,30 +1072,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _openModelPromptLibrary(ModelPromptTarget target) async {
+  Future<void> _openModelPromptEditor(Map<String, dynamic> prompt) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => _ModelPromptBindingPage(target: target),
+        builder: (_) => _ModelPromptEditorPage(prompt: prompt),
         fullscreenDialog: true,
       ),
     );
     if (saved == true && mounted) {
       ref.invalidate(modelPromptsProvider);
-      ref.invalidate(modelPromptTemplatesProvider);
-      ref.invalidate(modelPromptTargetsProvider);
-    }
-  }
-
-  Future<void> _openNewModelPromptTemplate() async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => const _ModelPromptTemplateEditorPage(),
-        fullscreenDialog: true,
-      ),
-    );
-    if (saved == true && mounted) {
-      ref.invalidate(modelPromptTemplatesProvider);
-      ref.invalidate(modelPromptTargetsProvider);
     }
   }
 
@@ -1077,7 +1089,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _otherPanel() {
     _ensureOtherControllers();
     final l10n = context.l10n;
-    final canvasWheelMode = ref.watch(canvasWheelModeProvider);
     return _SettingsCard(
       title: l10n.settingsOtherTitle,
       child: Column(
@@ -1097,16 +1108,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           TextField(
-            key: const Key('settings-request-timeout'),
-            controller: _requestTimeoutCtrl,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: l10n.settingsOtherRequestTimeout,
-              suffixText: l10n.settingsOtherSeconds,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
             controller: _episodeLengthCtrl,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
@@ -1120,52 +1121,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             decoration: InputDecoration(
               labelText: l10n.settingsOtherBatchSize,
             ),
-          ),
-          const SizedBox(height: 20),
-          SwitchListTile(
-            key: const ValueKey('settings-canvas-interaction-switch'),
-            contentPadding: EdgeInsets.zero,
-            value:
-                ref.read(engineProvider).config.str('production.interacting') !=
-                    '0',
-            onChanged: (enabled) => setState(() {
-              ref
-                  .read(engineProvider)
-                  .config
-                  .update({'production.interacting': enabled ? '1' : '0'});
-            }),
-            title: Text(l10n.settingsOtherCanvasInteraction),
-            subtitle: Text(l10n.settingsOtherCanvasInteractionHint),
-          ),
-          const SizedBox(height: 12),
-          Text(l10n.settingsOtherCanvasWheelMode,
-              style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          SegmentedButton<CanvasWheelMode>(
-            segments: [
-              ButtonSegment(
-                value: CanvasWheelMode.zoom,
-                label: Text(
-                  l10n.settingsOtherCanvasWheelZoom,
-                  key: const Key('settings-canvas-wheel-zoom'),
-                ),
-                icon: const Icon(Icons.zoom_in_rounded),
-              ),
-              ButtonSegment(
-                value: CanvasWheelMode.scroll,
-                label: Text(
-                  l10n.settingsOtherCanvasWheelScroll,
-                  key: const Key('settings-canvas-wheel-scroll'),
-                ),
-                icon: const Icon(Icons.pan_tool_outlined),
-              ),
-            ],
-            selected: {canvasWheelMode},
-            onSelectionChanged: (selection) {
-              ref
-                  .read(canvasWheelModeProvider.notifier)
-                  .setMode(selection.first);
-            },
           ),
           const SizedBox(height: 20),
           Align(
@@ -1213,15 +1168,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _saveOtherSettings() async {
     final l10n = context.l10n;
-    final timeout = int.tryParse(_requestTimeoutCtrl!.text.trim());
     final episode = int.tryParse(_episodeLengthCtrl!.text.trim());
     final batch = int.tryParse(_batchSizeCtrl!.text.trim());
-    if (timeout == null || timeout < 10) {
-      await runAction(context, ref, () async {
-        throw EngineException(l10n.settingsOtherInvalidTimeout);
-      });
-      return;
-    }
     if (episode == null || episode <= 0 || batch == null || batch <= 0) {
       await runAction(context, ref, () async {
         throw EngineException(l10n.settingsOtherInvalidNumber);
@@ -1231,7 +1179,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await runAction(context, ref, () async {
       ref.read(engineProvider).config.update({
         'chapterReg': _chapterRegCtrl!.text.trim(),
-        'requestTimeoutSeconds': '$timeout',
         'scriptEpisodeLength': '$episode',
         'assetsBatchGenereateSize': '$batch',
       });
@@ -1301,17 +1248,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onPressed: _showDbInfo,
                 icon: const Icon(Icons.table_chart_outlined, size: 18),
                 label: Text(context.l10n.settingsStorageDbInfo),
-              ),
-              OutlinedButton.icon(
-                key: const Key('settings-storage-clear-table'),
-                onPressed: _clearSelectedTable,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: context.df.red,
-                  side:
-                      BorderSide(color: context.df.red.withValues(alpha: 0.5)),
-                ),
-                icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-                label: Text(context.l10n.settingsStorageClearTable),
               ),
               OutlinedButton.icon(
                 onPressed: _clearAllData,
@@ -1540,45 +1476,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _invalidateConfig();
   }
 
-  Future<void> _clearSelectedTable() async {
-    final l10n = context.l10n;
-    final table = await showDFAdaptiveDialog<DbTableInfo>(
-      context,
-      title: l10n.settingsStorageClearTableTitle,
-      desktopWidthFactor: .4,
-      builder: (_) => _ClearTablePicker(
-        tables: ref.read(engineProvider).clearableDbTables(),
-      ),
-    );
-    if (!mounted || table == null) return;
-
-    // 有些表（目前仅 o_imageFlow）还没有接入级联清理：确认前诚实告知用户，
-    // 避免误以为这是一次干净、不留孤儿数据的清空（见 db_admin.dart 文件头注释）。
-    final cascades = ref.read(engineProvider).tableClearCascades(table.table);
-    final body =
-        l10n.settingsStorageClearTableConfirmBody(table.table, table.rowCount);
-    final confirmed = await _confirm(
-      title: l10n.settingsStorageClearTableConfirmTitle(table.table),
-      message: cascades
-          ? body
-          : '$body\n\n'
-              '${l10n.settingsStorageClearTableNoCascadeWarning(table.table)}',
-      confirmText: l10n.settingsStorageClearTable,
-      destructive: true,
-      confirmKey: const Key('settings-storage-clear-table-confirm'),
-    );
-    if (!mounted || !confirmed) return;
-
-    final completed = await runAction(
-      context,
-      ref,
-      () async => ref.read(engineProvider).clearTable(table.table),
-      successMessage: l10n.settingsStorageClearTableDone(table.table),
-    );
-    if (!completed || !mounted) return;
-    ref.invalidate(projectsProvider);
-  }
-
   // ---------- 6. 关于 ----------
 
   Widget _aboutCard() {
@@ -1706,7 +1603,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required String message,
     required String confirmText,
     bool destructive = false,
-    Key? confirmKey,
   }) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -1719,7 +1615,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Text(context.l10n.commonCancel),
           ),
           FilledButton(
-            key: confirmKey,
             style: destructive
                 ? FilledButton.styleFrom(backgroundColor: context.df.red)
                 : null,
@@ -1733,196 +1628,162 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
-class _ClearTablePicker extends StatefulWidget {
-  final List<DbTableInfo> tables;
-
-  const _ClearTablePicker({required this.tables});
-
-  @override
-  State<_ClearTablePicker> createState() => _ClearTablePickerState();
-}
-
-class _ClearTablePickerState extends State<_ClearTablePicker> {
-  DbTableInfo? _selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Keep the selection action visible on small phones while giving the
-        // table list a comfortable, bounded height on desktop.
-        final listHeight = constraints.maxHeight.isFinite
-            ? (constraints.maxHeight - 166).clamp(96.0, 360.0).toDouble()
-            : 360.0;
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                l10n.settingsStorageClearTableDescription,
-                style: TextStyle(color: context.df.textMid),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: listHeight,
-                child: widget.tables.isEmpty
-                    ? Center(
-                        child: Text(
-                          l10n.settingsStorageClearTableEmpty,
-                          style: TextStyle(color: context.df.textLo),
-                          textAlign: TextAlign.center,
-                        ),
-                      )
-                    : RadioGroup<DbTableInfo>(
-                        groupValue: _selected,
-                        onChanged: (value) =>
-                            setState(() => _selected = value),
-                        child: ListView.separated(
-                          key: const Key('settings-storage-clear-table-list'),
-                          itemCount: widget.tables.length,
-                          separatorBuilder: (_, __) =>
-                              Divider(height: 1, color: context.df.stroke),
-                          itemBuilder: (context, index) {
-                            final table = widget.tables[index];
-                            return RadioListTile<DbTableInfo>(
-                              key: Key(
-                                  'settings-storage-clear-table-${table.table}'),
-                              value: table,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                table.table,
-                                style: const TextStyle(fontFamily: 'monospace'),
-                              ),
-                              subtitle: Text(
-                                '${table.rowCount}',
-                                style: TextStyle(color: context.df.textLo),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton(
-                  key: const Key('settings-storage-clear-table-continue'),
-                  onPressed: _selected == null
-                      ? null
-                      : () => Navigator.of(context).pop(_selected),
-                  child: Text(l10n.settingsStorageClearTableContinue),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ThemeColorSwatch extends StatelessWidget {
-  final String hex;
-  final bool selected;
-  final VoidCallback onSelected;
-
-  const _ThemeColorSwatch({
-    super.key,
-    required this.hex,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = themeColorFromHex(hex);
-    final foreground =
-        ThemeData.estimateBrightnessForColor(color) == Brightness.dark
-            ? Colors.white
-            : Colors.black87;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: hex,
-      child: Tooltip(
-        message: hex,
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onSelected,
-            child: AnimatedContainer(
-              duration: DFTokens.fast120,
-              width: 40,
-              height: 40,
-              padding: EdgeInsets.all(selected ? 3 : 1),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color:
-                      selected ? context.df.primary : context.df.strokeStrong,
-                  width: selected ? 2 : 1,
-                ),
-              ),
-              child: DecoratedBox(
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                child: selected
-                    ? Icon(Icons.check_rounded, color: foreground, size: 20)
-                    : null,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopSectionTabs extends StatelessWidget {
+class _TopSectionTabs extends StatefulWidget {
   final _SettingsSection selected;
   final ValueChanged<_SettingsSection> onSelected;
 
   const _TopSectionTabs({required this.selected, required this.onSelected});
 
   @override
+  State<_TopSectionTabs> createState() => _TopSectionTabsState();
+}
+
+class _TopSectionTabsState extends State<_TopSectionTabs> {
+  final _scrollController = ScrollController();
+  bool _canScrollMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkOverflow());
+    _scrollController.addListener(_checkOverflow);
+  }
+
+  void _checkOverflow() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final canScrollMore = pos.maxScrollExtent - pos.pixels > 4;
+    if (canScrollMore != _canScrollMore) {
+      setState(() => _canScrollMore = canScrollMore);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SegmentedButton<_SettingsSection>(
-          showSelectedIcon: false,
-          selected: {selected},
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
-                  ? context.df.primaryDim
-                  : context.df.surface,
-            ),
-            foregroundColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
-                  ? context.df.primary
-                  : context.df.textMid,
-            ),
-            side: WidgetStateProperty.all(BorderSide(color: context.df.stroke)),
+    final df = context.df;
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [
+        SingleChildScrollView(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final section in _SettingsSection.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: InkWell(
+                    onTap: () => widget.onSelected(section),
+                    borderRadius: BorderRadius.circular(999),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: widget.selected == section ? df.surface : df.surfaceMuted.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: widget.selected == section ? df.stroke : Colors.transparent,
+                          width: 1,
+                        ),
+                        boxShadow: widget.selected == section
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : [],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _sectionIcons[section],
+                            size: 16,
+                            color: widget.selected == section ? df.primary : df.textSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _sectionLabel(l10n, section),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: widget.selected == section ? FontWeight.w700 : FontWeight.w500,
+                              color: widget.selected == section ? df.primary : df.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              // 右侧留白，确保最后一项不会被渐变遮住
+              const SizedBox(width: 24),
+            ],
           ),
-          segments: [
-            for (final section in _SettingsSection.values)
-              ButtonSegment(
-                value: section,
-                icon: Icon(_sectionIcons[section], size: 18),
-                label: Text(_sectionLabel(l10n, section)),
-              ),
-          ],
-          onSelectionChanged: (selected) => onSelected(selected.single),
         ),
-      ),
+        // 右侧渐隐遮罩
+        if (_canScrollMore)
+          IgnorePointer(
+            child: Container(
+              width: 48,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    df.bg.withValues(alpha: 0),
+                    df.bg,
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
+  }
+}
+
+/// 设置项行：label + control。窄屏下 control（通常是 SegmentedButton）
+/// 会把 label 挤到 0 宽度，导致文字逐字换行、Row 溢出——窄于阈值时改成
+/// 上下堆叠，并给 control 包一层横向滚动兜底，彻底避免溢出。
+class _SettingRow extends StatelessWidget {
+  final Widget label;
+  final Widget control;
+  const _SettingRow({required this.label, required this.control});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final scrollableControl = SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: control,
+      );
+      if (constraints.maxWidth < 480) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            label,
+            const SizedBox(height: 12),
+            scrollableControl,
+          ],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(child: label),
+          const SizedBox(width: 16),
+          scrollableControl,
+        ],
+      );
+    });
   }
 }
 
@@ -1934,30 +1795,45 @@ class _SideNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      width: 216,
+      width: 240,
       decoration: BoxDecoration(
-        color: context.df.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: context.df.stroke),
-      ),
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final section in _SettingsSection.values)
-            _SideNavItem(
-              section: section,
-              selected: selected == section,
-              onTap: () => onSelected(section),
-            ),
+        color: isDark
+            ? const Color(0xFF1C1C24).withValues(alpha: 0.65)
+            : Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
         ],
+      ),
+      padding: const EdgeInsets.all(10),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final section in _SettingsSection.values)
+              _SideNavItem(
+                section: section,
+                selected: selected == section,
+                onTap: () => onSelected(section),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SideNavItem extends StatelessWidget {
+class _SideNavItem extends StatefulWidget {
   final _SettingsSection section;
   final bool selected;
   final VoidCallback onTap;
@@ -1969,29 +1845,78 @@ class _SideNavItem extends StatelessWidget {
   });
 
   @override
+  State<_SideNavItem> createState() => _SideNavItemState();
+}
+
+class _SideNavItemState extends State<_SideNavItem> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    final color = selected ? context.df.primary : context.df.textMid;
+    final df = context.df;
+    final isSelected = widget.selected;
+    final color = isSelected
+        ? df.primary
+        : (_hover ? df.primary : df.textSecondary);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Material(
-        color: selected ? context.df.primaryDim : Colors.transparent,
-        borderRadius: BorderRadius.circular(7),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(7),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            child: Row(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? df.primary.withValues(alpha: 0.1)
+                  : (_hover ? df.surfaceMuted : Colors.transparent),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected
+                    ? df.primary.withValues(alpha: 0.25)
+                    : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Stack(
+              alignment: Alignment.centerLeft,
               children: [
-                Icon(_sectionIcons[section], size: 19, color: color),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _sectionLabel(context.l10n, section),
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                if (isSelected)
+                  Positioned(
+                    left: 0,
+                    top: 10,
+                    bottom: 10,
+                    child: Container(
+                      width: 3.5,
+                      decoration: BoxDecoration(
+                        color: df.primary,
+                        borderRadius: const BorderRadius.only(
+                          topRight: Radius.circular(3),
+                          bottomRight: Radius.circular(3),
+                        ),
+                      ),
                     ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      Icon(_sectionIcons[widget.section],
+                          size: 19, color: color),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _sectionLabel(context.l10n, widget.section),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -2016,26 +1941,55 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(title,
-                      style: Theme.of(context).textTheme.titleMedium),
-                ),
-                if (trailing != null) trailing!,
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
-            child,
-          ],
+    final df = context.df;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1C1C24).withValues(alpha: 0.65)
+            : Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 720 ? 16 : 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
+                  if (trailing != null) trailing!,
+                ],
+              ),
+              const SizedBox(height: 16),
+              Divider(height: 1, color: df.stroke.withValues(alpha: 0.4)),
+              const SizedBox(height: 20),
+              child,
+            ],
+          ),
         ),
       ),
     );
@@ -2049,6 +2003,7 @@ class _ProviderTable extends StatelessWidget {
   final ValueChanged<ProviderInfo> onEdit;
   final ValueChanged<ProviderInfo> onManageModels;
   final ValueChanged<ProviderInfo> onTest;
+  final ValueChanged<ProviderInfo> onChatTest;
   final ValueChanged<ProviderInfo> onDelete;
   final void Function(ProviderInfo provider, bool enabled) onEnabledChanged;
 
@@ -2059,6 +2014,7 @@ class _ProviderTable extends StatelessWidget {
     required this.onEdit,
     required this.onManageModels,
     required this.onTest,
+    required this.onChatTest,
     required this.onDelete,
     required this.onEnabledChanged,
   });
@@ -2082,6 +2038,7 @@ class _ProviderTable extends StatelessWidget {
               onEdit: () => onEdit(provider),
               onManageModels: () => onManageModels(provider),
               onTest: () => onTest(provider),
+              onChatTest: () => onChatTest(provider),
               onDelete: () => onDelete(provider),
               onEnabledChanged: (enabled) =>
                   onEnabledChanged(provider, enabled),
@@ -2110,7 +2067,7 @@ class _ProviderTableHeader extends StatelessWidget {
           _HeaderFlexCell(flex: 24, label: l10n.settingsProviderColumnBaseUrl),
           _HeaderCell(width: 92, label: l10n.commonEnabled),
           _HeaderCell(width: 72, label: l10n.commonModel),
-          _HeaderCell(width: 184, label: l10n.commonActions),
+          _HeaderCell(width: 220, label: l10n.commonActions),
         ],
       ),
     );
@@ -2123,6 +2080,7 @@ class _ProviderTableRow extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onManageModels;
   final VoidCallback onTest;
+  final VoidCallback onChatTest;
   final VoidCallback onDelete;
   final ValueChanged<bool> onEnabledChanged;
 
@@ -2133,6 +2091,7 @@ class _ProviderTableRow extends StatelessWidget {
     required this.onEdit,
     required this.onManageModels,
     required this.onTest,
+    required this.onChatTest,
     required this.onDelete,
     required this.onEnabledChanged,
   });
@@ -2191,15 +2150,222 @@ class _ProviderTableRow extends StatelessWidget {
             ),
           ),
           _FixedCell(
-            width: 184,
+            width: 220,
             child: _ProviderActions(
               onEdit: onEdit,
               onManageModels: onManageModels,
               onTest: onTest,
+              onChatTest: onChatTest,
               onDelete: onDelete,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatTestDialog extends ConsumerStatefulWidget {
+  final String providerId;
+  final String providerName;
+  final String modelId;
+
+  const _ChatTestDialog({
+    required this.providerId,
+    required this.providerName,
+    required this.modelId,
+  });
+
+  @override
+  ConsumerState<_ChatTestDialog> createState() => _ChatTestDialogState();
+}
+
+class _ChatTestDialogState extends ConsumerState<_ChatTestDialog> {
+  final _input = TextEditingController();
+  final _scroll = ScrollController();
+  final List<Map<String, String>> _messages = [];
+  bool _sending = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _input.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  Future<void> _send() async {
+    final text = _input.text.trim();
+    if (text.isEmpty || _sending) return;
+    _input.clear();
+    setState(() {
+      _messages.add({'role': 'user', 'content': text});
+      _sending = true;
+      _error = null;
+    });
+    _scrollToBottom();
+    try {
+      final reply = await ref.read(engineProvider).chatTestModel(
+            widget.providerId,
+            widget.modelId,
+            List<Map<String, String>>.from(_messages),
+          );
+      if (!mounted) return;
+      setState(() {
+        _messages.add({'role': 'assistant', 'content': reply});
+        _sending = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = localizeError(context, e);
+        _sending = false;
+      });
+    }
+    _scrollToBottom();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return Dialog(
+      child: SizedBox(
+        width: 480,
+        height: 560,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.settingsChatTestTitle(widget.providerName),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: df.textHi,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.commonClose,
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: df.stroke),
+            Expanded(
+              child: _messages.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 720 ? 16 : 24),
+                        child: Text(
+                          l10n.settingsChatTestEmptyHint,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: df.textLo),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        final isUser = message['role'] == 'user';
+                        return Align(
+                          alignment: isUser
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(12),
+                            constraints: const BoxConstraints(maxWidth: 360),
+                            decoration: BoxDecoration(
+                              color: isUser ? df.primary : df.surfaceMuted,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              message['content'] ?? '',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isUser ? Colors.white : df.textPrimary,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            if (_sending)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(l10n.agentChatThinking,
+                        style: TextStyle(color: df.textLo, fontSize: 12)),
+                  ],
+                ),
+              ),
+            if (_error != null)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: df.red, fontSize: 12),
+                ),
+              ),
+            Divider(height: 1, color: df.stroke),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _input,
+                      minLines: 1,
+                      maxLines: 4,
+                      enabled: !_sending,
+                      onSubmitted: (_) => _send(),
+                      decoration: InputDecoration(
+                        hintText: l10n.settingsChatTestInputHint,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _sending ? null : _send,
+                    child: Text(l10n.agentChatSend),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2211,6 +2377,7 @@ class _ProviderCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onManageModels;
   final VoidCallback onTest;
+  final VoidCallback onChatTest;
   final VoidCallback onDelete;
   final ValueChanged<bool> onEnabledChanged;
 
@@ -2221,6 +2388,7 @@ class _ProviderCard extends StatelessWidget {
     required this.onEdit,
     required this.onManageModels,
     required this.onTest,
+    required this.onChatTest,
     required this.onDelete,
     required this.onEnabledChanged,
   });
@@ -2282,6 +2450,11 @@ class _ProviderCard extends StatelessWidget {
                 tooltip: context.l10n.settingsTestConnection,
                 icon: Icons.network_check_rounded,
                 onPressed: onTest,
+              ),
+              _SmallIconButton(
+                tooltip: context.l10n.settingsChatTest,
+                icon: Icons.chat_bubble_outline_rounded,
+                onPressed: onChatTest,
               ),
               _SmallIconButton(
                 tooltip: context.l10n.commonDelete,
@@ -2416,12 +2589,14 @@ class _ProviderActions extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onManageModels;
   final VoidCallback onTest;
+  final VoidCallback onChatTest;
   final VoidCallback onDelete;
 
   const _ProviderActions({
     required this.onEdit,
     required this.onManageModels,
     required this.onTest,
+    required this.onChatTest,
     required this.onDelete,
   });
 
@@ -2443,6 +2618,11 @@ class _ProviderActions extends StatelessWidget {
           tooltip: context.l10n.settingsTestConnection,
           icon: Icons.network_check_rounded,
           onPressed: onTest,
+        ),
+        _SmallIconButton(
+          tooltip: context.l10n.settingsChatTest,
+          icon: Icons.chat_bubble_outline_rounded,
+          onPressed: onChatTest,
         ),
         _SmallIconButton(
           tooltip: context.l10n.commonDelete,
@@ -2488,10 +2668,6 @@ class _ProtocolBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color) = switch (protocol) {
       'volcengine' => (context.l10n.providerProtocolVolcengine, context.df.red),
-      'anthropic' => (
-          context.l10n.providerProtocolAnthropic,
-          context.df.primary
-        ),
       _ => (context.l10n.providerProtocolOpenAiCompatible, context.df.primary),
     };
     return Container(
@@ -2541,7 +2717,6 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
   late final TextEditingController _baseUrl;
   late final TextEditingController _apiKey;
   late String _protocol;
-  var _obscureApiKey = true;
 
   bool get _editing => widget.provider != null;
 
@@ -2584,10 +2759,6 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
                     label: Text(l10n.providerProtocolOpenAiCompatible),
                   ),
                   ButtonSegment(
-                    value: 'anthropic',
-                    label: Text(l10n.providerProtocolAnthropic),
-                  ),
-                  ButtonSegment(
                     value: 'volcengine',
                     label: Text(l10n.providerProtocolVolcengine),
                   ),
@@ -2619,17 +2790,9 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _apiKey,
-                obscureText: _obscureApiKey,
                 decoration: InputDecoration(
                   labelText: 'API Key',
                   hintText: l10n.settingsKeepEmptyUnchanged,
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureApiKey
-                        ? Icons.visibility_off
-                        : Icons.visibility),
-                    onPressed: () =>
-                        setState(() => _obscureApiKey = !_obscureApiKey),
-                  ),
                 ),
               ),
             ],
@@ -2653,6 +2816,61 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
             ));
           },
           child: Text(l10n.commonSave),
+        ),
+      ],
+    );
+  }
+}
+
+class _FetchedModelsDialog extends StatefulWidget {
+  final List<String> modelIds;
+
+  const _FetchedModelsDialog({required this.modelIds});
+
+  @override
+  State<_FetchedModelsDialog> createState() => _FetchedModelsDialogState();
+}
+
+class _FetchedModelsDialogState extends State<_FetchedModelsDialog> {
+  late final Set<String> _selected = {...widget.modelIds};
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.settingsFetchModelsTitle),
+      content: SizedBox(
+        width: 420,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 420),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final id in widget.modelIds)
+                CheckboxListTile(
+                  value: _selected.contains(id),
+                  title: Text(id),
+                  dense: true,
+                  onChanged: (checked) => setState(() {
+                    if (checked == true) {
+                      _selected.add(id);
+                    } else {
+                      _selected.remove(id);
+                    }
+                  }),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_selected),
+          child: Text(l10n.settingsFetchModelsAdd),
         ),
       ],
     );
@@ -2701,57 +2919,34 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
     draft.dispose();
   }
 
-  Future<void> _fetchCandidates() async {
+  Future<void> _fetchModels() async {
     final l10n = context.l10n;
-    List<String> ids;
-    try {
-      ids = await ref
-          .read(engineProvider)
-          .fetchProviderModelCandidates(widget.provider.id);
-    } on EngineException catch (e) {
-      // 与 provider_preset_form.dart 的 _save() 同源的本地化映射（common.dart
-      // 的 engineErrorText），不把 errKey/参数 Map 原样 toString() 展示给用户。
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(engineErrorText(context, e))));
-      return;
-    } catch (e) {
-      // 非 EngineException 的意外失败：退到已有的通用“操作失败”本地化文案。
-      if (!mounted) return;
+    List<String>? fetched;
+    await runAction(context, ref, () async {
+      fetched =
+          await ref.read(engineProvider).fetchProviderModels(widget.provider.id);
+    });
+    if (!mounted || fetched == null) return;
+
+    final existingIds =
+        _drafts.map((draft) => draft.modelId.text.trim()).toSet();
+    final newIds = fetched!.where((id) => !existingIds.contains(id)).toList();
+    if (newIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.projectMsgOperationFailed)));
+        SnackBar(content: Text(l10n.settingsFetchModelsNoneFound)),
+      );
       return;
     }
-    if (!mounted) return;
-    final known = {for (final d in _drafts) d.modelId.text.trim()};
-    final candidates = [
-      for (final id in ids)
-        if (!known.contains(id)) id,
-    ];
-    if (candidates.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.presetFetchEmpty)));
-      return;
-    }
-    final picked = await showModalBottomSheet<List<(String, String)>>(
+
+    final selected = await showDialog<Set<String>>(
       context: context,
-      isScrollControlled: true,
-      builder: (context) => _CandidateSheet(
-        candidates: candidates,
-        knownKinds: presetModelKinds(widget.provider.id),
-      ),
+      builder: (_) => _FetchedModelsDialog(modelIds: newIds),
     );
-    if (picked == null || picked.isEmpty || !mounted) return;
+    if (selected == null || selected.isEmpty || !mounted) return;
+
     setState(() {
-      for (final (id, kind) in picked) {
-        _drafts.add(_ModelDraft(
-          id: '',
-          modelId: TextEditingController(text: id),
-          label: TextEditingController(text: id),
-          kind: kind,
-          capabilities: <String, dynamic>{},
-          enabled: false, // spec：候选默认禁用，用户手动启用
-        ));
+      for (final id in selected) {
+        _drafts.add(_ModelDraft.discovered(id));
       }
     });
   }
@@ -2811,47 +3006,23 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
       appBar: AppBar(
         title: Text(l10n.settingsModelManagementTitle(widget.provider.name)),
         actions: [
-          if (wide) ...[
-            TextButton.icon(
-              key: const Key('model-editor-add'),
-              onPressed: _addModel,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text(l10n.settingsAddModel),
-            ),
-            const SizedBox(width: 8),
-            TextButton.icon(
-              key: const Key('model-editor-fetch-models'),
-              onPressed: _fetchCandidates,
-              icon: const Icon(Icons.cloud_download_outlined, size: 18),
-              label: Text(l10n.presetFetchModels),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              key: const Key('model-editor-save'),
-              onPressed: _save,
-              icon: const Icon(Icons.save_outlined, size: 18),
-              label: Text(l10n.settingsSaveModels),
-            ),
-          ] else ...[
-            IconButton(
-              key: const Key('model-editor-add'),
-              onPressed: _addModel,
-              icon: const Icon(Icons.add_rounded),
-              tooltip: l10n.settingsAddModel,
-            ),
-            IconButton(
-              key: const Key('model-editor-fetch-models'),
-              onPressed: _fetchCandidates,
-              icon: const Icon(Icons.cloud_download_outlined),
-              tooltip: l10n.presetFetchModels,
-            ),
-            IconButton(
-              key: const Key('model-editor-save'),
-              onPressed: _save,
-              icon: const Icon(Icons.save_outlined),
-              tooltip: l10n.settingsSaveModels,
-            ),
-          ],
+          TextButton.icon(
+            onPressed: _fetchModels,
+            icon: const Icon(Icons.cloud_sync_outlined, size: 18),
+            label: Text(l10n.settingsFetchModels),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            onPressed: _addModel,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: Text(l10n.settingsAddModel),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: _save,
+            icon: const Icon(Icons.save_outlined, size: 18),
+            label: Text(l10n.settingsSaveModels),
+          ),
           const SizedBox(width: 16),
         ],
       ),
@@ -2953,6 +3124,16 @@ class _ModelDraft {
         id: '',
         modelId: TextEditingController(),
         label: TextEditingController(),
+        kind: 'text',
+        capabilities: <String, dynamic>{},
+        enabled: true,
+      );
+
+  /// 从"拉取模型"结果创建：默认文本模型、默认启用，用户可在表格里改类型/能力。
+  factory _ModelDraft.discovered(String modelId) => _ModelDraft(
+        id: '',
+        modelId: TextEditingController(text: modelId),
+        label: TextEditingController(text: modelId),
         kind: 'text',
         capabilities: <String, dynamic>{},
         enabled: true,
@@ -3107,112 +3288,6 @@ List<String> _uniqueStrings(String raw) {
     if (value.isNotEmpty && !values.contains(value)) values.add(value);
   }
   return values;
-}
-
-class _CandidateSheet extends StatefulWidget {
-  final List<String> candidates;
-  final Map<String, String> knownKinds;
-  const _CandidateSheet({required this.candidates, required this.knownKinds});
-
-  @override
-  State<_CandidateSheet> createState() => _CandidateSheetState();
-}
-
-class _CandidateSheetState extends State<_CandidateSheet> {
-  late final Map<String, String?> _kinds = {
-    for (final id in widget.candidates) id: widget.knownKinds[id],
-  };
-  final Set<String> _checked = {};
-  String? _error;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    // 复用与既有模型编辑器每行 kind 下拉框相同的规范映射（_modelKinds /
-    // _KindMeta.label，见 _chooseTestModel 的同款用法），不再自建一套平行的
-    // presetKind* 文案——否则同一屏两处控件会把同一个 kind 翻成不同文字。
-    String kindLabel(String k) => _modelKinds
-        .firstWhere((item) => item.value == k,
-            orElse: () => const _KindMeta('text'))
-        .label(l10n);
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final id in widget.candidates)
-                    Row(
-                      key: Key('candidate-row-$id'),
-                      children: [
-                        Checkbox(
-                          key: Key('candidate-check-$id'),
-                          value: _checked.contains(id),
-                          onChanged: (v) => setState(() {
-                            if (v == true) {
-                              _checked.add(id);
-                            } else {
-                              _checked.remove(id);
-                            }
-                          }),
-                        ),
-                        Expanded(
-                          child: Text(id,
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
-                        DropdownButton<String>(
-                          key: Key('candidate-kind-$id'),
-                          value: _kinds[id],
-                          hint: Text(l10n.presetUncategorized),
-                          items: [
-                            for (final k in const [
-                              'text',
-                              'image',
-                              'video',
-                              'tts'
-                            ])
-                              DropdownMenuItem(
-                                  value: k, child: Text(kindLabel(k))),
-                          ],
-                          onChanged: (v) => setState(() => _kinds[id] = v),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(_error!,
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error)),
-              ),
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: () {
-                final missing =
-                    _checked.where((id) => _kinds[id] == null).toList();
-                if (missing.isNotEmpty) {
-                  setState(() => _error = l10n.presetKindRequired);
-                  return;
-                }
-                Navigator.of(context).pop([
-                  for (final id in _checked) (id, _kinds[id]!),
-                ]);
-              },
-              child: Text(l10n.presetAddCandidates),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _ModelsTable extends StatelessWidget {
@@ -3724,68 +3799,34 @@ class _SubsectionTitle extends StatelessWidget {
   }
 }
 
-class _ModelPromptTargetGroups extends StatelessWidget {
-  final List<ModelPromptTarget> targets;
-  final List<ModelPromptTemplate> templates;
-  final ValueChanged<ModelPromptTarget> onOpen;
-
-  const _ModelPromptTargetGroups({
-    required this.targets,
-    required this.templates,
-    required this.onOpen,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final groups = <String, List<ModelPromptTarget>>{};
-    for (final target in targets) {
-      groups.putIfAbsent(target.provider.id, () => []).add(target);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final group in groups.values) ...[
-          _SubsectionTitle(label: group.first.provider.name),
-          for (final target in group)
-            _ModelPromptTargetRow(
-              target: target,
-              templates: templates,
-              onOpen: () => onOpen(target),
-            ),
-        ],
-      ],
-    );
-  }
-}
-
-class _ModelPromptTargetRow extends StatelessWidget {
-  final ModelPromptTarget target;
-  final List<ModelPromptTemplate> templates;
+class _ModelPromptRow extends StatelessWidget {
+  final Map<String, dynamic> prompt;
   final VoidCallback onOpen;
 
-  const _ModelPromptTargetRow({
-    required this.target,
-    required this.templates,
+  const _ModelPromptRow({
+    required this.prompt,
     required this.onOpen,
   });
+
+  String get _title {
+    final provider = (prompt['providerName'] ?? '').toString();
+    final model = (prompt['modelLabel'] ?? prompt['model'] ?? '').toString();
+    final key = ((prompt['fileName'] ?? '').toString().isNotEmpty
+            ? prompt['fileName']
+            : prompt['path'])
+        .toString();
+    return [provider, model, key].where((v) => v.isNotEmpty).join(' · ');
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final templatesByPath = {
-      for (final template in templates) template.path: template
-    };
-    final paths = target.boundTemplatePaths.toList()..sort();
-    final bindingLabel = switch (paths.length) {
-      0 => l10n.promptTemplateUnbound,
-      1 => templatesByPath[paths.single]?.name ?? l10n.promptTemplateBound,
-      _ => l10n.promptTemplateBoundCount(paths.length),
-    };
-    final kindLabel = _KindMeta(target.model.kind).label(l10n);
+    final content = (prompt['prompt'] ?? '').toString();
+    final preview = content.trim().replaceAll(r'\n', ' ').replaceAll('\n', ' ');
+    final path = (prompt['path'] ?? '').toString();
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        key: ValueKey('model-prompt-target-${target.key}'),
         onTap: onOpen,
         borderRadius: BorderRadius.circular(8),
         child: Container(
@@ -3800,18 +3841,36 @@ class _ModelPromptTargetRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      target.model.label,
+                      _title,
                       style: TextStyle(
                         color: context.df.textHi,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    if (path.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        path,
+                        style:
+                            TextStyle(color: context.df.textLo, fontSize: 12),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
                     Text(
-                      '$kindLabel · $bindingLabel',
-                      maxLines: 1,
+                      preview.isEmpty ? l10n.promptUnset : preview,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: context.df.textMid, fontSize: 13),
+                      style: TextStyle(
+                        color: preview.isEmpty
+                            ? context.df.textLo
+                            : context.df.textMid,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.promptCharacterCount(content.length),
+                      style: TextStyle(color: context.df.textLo, fontSize: 12),
                     ),
                   ],
                 ),
@@ -3852,408 +3911,105 @@ class _PromptOverrideBadge extends StatelessWidget {
   }
 }
 
-class _ModelPromptBindingPage extends ConsumerStatefulWidget {
-  final ModelPromptTarget target;
+class _ModelPromptEditorPage extends ConsumerStatefulWidget {
+  final Map<String, dynamic> prompt;
 
-  const _ModelPromptBindingPage({required this.target});
+  const _ModelPromptEditorPage({required this.prompt});
 
   @override
-  ConsumerState<_ModelPromptBindingPage> createState() =>
-      _ModelPromptBindingPageState();
+  ConsumerState<_ModelPromptEditorPage> createState() =>
+      _ModelPromptEditorPageState();
 }
 
-class _ModelPromptBindingPageState
-    extends ConsumerState<_ModelPromptBindingPage> {
-  late Set<String> _boundTemplatePaths;
+class _ModelPromptEditorPageState
+    extends ConsumerState<_ModelPromptEditorPage> {
+  late final TextEditingController _controller;
+
+  String get _title {
+    final provider = (widget.prompt['providerName'] ?? '').toString();
+    final model = (widget.prompt['modelLabel'] ?? widget.prompt['model'] ?? '')
+        .toString();
+    final key = ((widget.prompt['fileName'] ?? '').toString().isNotEmpty
+            ? widget.prompt['fileName']
+            : widget.prompt['path'])
+        .toString();
+    return [provider, model, key].where((v) => v.isNotEmpty).join(' · ');
+  }
 
   @override
   void initState() {
     super.initState();
-    _boundTemplatePaths = {...widget.target.boundTemplatePaths};
-  }
-
-  void _invalidateLibrary() {
-    ref.invalidate(modelPromptsProvider);
-    ref.invalidate(modelPromptTemplatesProvider);
-    ref.invalidate(modelPromptTargetsProvider);
-  }
-
-  Future<void> _openEditor([ModelPromptTemplate? template]) async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => _ModelPromptTemplateEditorPage(
-          template: template,
-          fixedKind: widget.target.model.kind,
-        ),
-        fullscreenDialog: true,
-      ),
-    );
-    if (saved == true && mounted) _invalidateLibrary();
-  }
-
-  Future<void> _bind(ModelPromptTemplate template) async {
-    final completed = await runAction(context, ref, () async {
-      await ref.read(engineProvider).bindModelPromptTemplate(
-            widget.target.provider.id,
-            widget.target.model.modelId,
-            template.path,
-          );
-    }, successMessage: context.l10n.promptTemplateBound);
-    if (!completed || !mounted) return;
-    setState(() => _boundTemplatePaths = {template.path});
-    _invalidateLibrary();
-  }
-
-  Future<void> _unbind() async {
-    final completed = await runAction(context, ref, () async {
-      await ref.read(engineProvider).unbindModelPromptTemplate(
-            widget.target.provider.id,
-            widget.target.model.modelId,
-          );
-    }, successMessage: context.l10n.promptTemplateUnbound);
-    if (!completed || !mounted) return;
-    setState(_boundTemplatePaths.clear);
-    _invalidateLibrary();
-  }
-
-  Future<void> _delete(ModelPromptTemplate template) async {
-    final bindings = await ref.read(engineProvider).listModelPromptBindings();
-    final count = bindings
-        .where((binding) => binding.path == template.path)
-        .map((binding) => '${binding.providerId}:${binding.modelId}')
-        .toSet()
-        .length;
-    if (!mounted) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(context.l10n.promptTemplateDeleteTitle),
-        content: Text(
-          context.l10n.promptTemplateDeleteMessage(template.name, count),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(context.l10n.commonCancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: context.df.red),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(context.l10n.commonDelete),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    final completed = await runAction(context, ref, () async {
-      await ref.read(engineProvider).deleteModelPromptTemplate(template.path);
-    }, successMessage: context.l10n.promptTemplateDeleted);
-    if (!completed || !mounted) return;
-    setState(() => _boundTemplatePaths.remove(template.path));
-    _invalidateLibrary();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final templatesAsync = ref.watch(modelPromptTemplatesProvider);
-    final title =
-        '${widget.target.provider.name} · ${widget.target.model.label}';
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.promptEditTitle(title)),
-        actions: [
-          IconButton(
-            key: const Key('model-prompt-template-create'),
-            tooltip: l10n.promptTemplateCreate,
-            onPressed: _openEditor,
-            icon: const Icon(Icons.add_rounded),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: PageContainer(
-        maxWidth: 1040,
-        child: AsyncView<List<ModelPromptTemplate>>(
-          value: templatesAsync,
-          onRetry: () => ref.invalidate(modelPromptTemplatesProvider),
-          builder: (allTemplates) {
-            final templates = allTemplates
-                .where((template) => template.kind == widget.target.model.kind)
-                .toList(growable: false);
-            return ListView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              children: [
-                Text(
-                  l10n.promptTemplateLibraryTitle,
-                  style: TextStyle(
-                    color: context.df.textHi,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _KindMeta(widget.target.model.kind).label(l10n),
-                  style: TextStyle(color: context.df.textLo, fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                if (templates.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    child: Text(
-                      l10n.promptTemplateNoMatch,
-                      style: TextStyle(color: context.df.textLo),
-                    ),
-                  ),
-                for (final template in templates)
-                  _ModelPromptTemplateRow(
-                    template: template,
-                    isBound: _boundTemplatePaths.contains(template.path),
-                    onBind: () => _bind(template),
-                    onUnbind: _unbind,
-                    onEdit: () => _openEditor(template),
-                    onDelete: () => _delete(template),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _ModelPromptTemplateRow extends StatelessWidget {
-  final ModelPromptTemplate template;
-  final bool isBound;
-  final VoidCallback onBind;
-  final VoidCallback onUnbind;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  const _ModelPromptTemplateRow({
-    required this.template,
-    required this.isBound,
-    required this.onBind,
-    required this.onUnbind,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final preview =
-        template.prompt.trim().replaceAll(r'\n', ' ').replaceAll('\n', ' ');
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: context.df.stroke)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  template.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: context.df.textHi,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (isBound)
-                Text(
-                  l10n.promptTemplateBound,
-                  style: TextStyle(color: context.df.green, fontSize: 12),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            preview.isEmpty ? l10n.promptUnset : preview,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: preview.isEmpty ? context.df.textLo : context.df.textMid,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Wrap(
-              spacing: 2,
-              children: [
-                IconButton(
-                  key: ValueKey(
-                      'model-prompt-${isBound ? 'unbind' : 'bind'}-${template.path}'),
-                  tooltip: isBound
-                      ? l10n.promptTemplateUnbind
-                      : l10n.promptTemplateBind,
-                  onPressed: isBound ? onUnbind : onBind,
-                  icon: Icon(
-                    isBound ? Icons.link_off_rounded : Icons.link_rounded,
-                    size: 19,
-                  ),
-                ),
-                IconButton(
-                  key: ValueKey('model-prompt-edit-${template.path}'),
-                  tooltip: l10n.commonEdit,
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 19),
-                ),
-                IconButton(
-                  key: ValueKey('model-prompt-delete-${template.path}'),
-                  tooltip: l10n.commonDelete,
-                  onPressed: onDelete,
-                  icon: Icon(Icons.delete_outline_rounded,
-                      size: 19, color: context.df.red),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ModelPromptTemplateEditorPage extends ConsumerStatefulWidget {
-  final ModelPromptTemplate? template;
-  final String? fixedKind;
-
-  const _ModelPromptTemplateEditorPage({
-    this.template,
-    this.fixedKind,
-  });
-
-  @override
-  ConsumerState<_ModelPromptTemplateEditorPage> createState() =>
-      _ModelPromptTemplateEditorPageState();
-}
-
-class _ModelPromptTemplateEditorPageState
-    extends ConsumerState<_ModelPromptTemplateEditorPage> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _contentController;
-  late String _kind;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.template?.name ?? '');
-    _contentController =
-        TextEditingController(text: widget.template?.prompt ?? '');
-    _kind = widget.fixedKind ?? widget.template?.kind ?? 'video';
+    _controller =
+        TextEditingController(text: (widget.prompt['prompt'] ?? '').toString());
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _contentController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     final l10n = context.l10n;
-    final completed = await runAction(context, ref, () async {
-      final existing = widget.template;
-      if (existing == null) {
-        await ref.read(engineProvider).createModelPromptTemplate(
-              kind: _kind,
-              name: _nameController.text,
-              prompt: _contentController.text,
-            );
-      } else {
-        await ref
-            .read(engineProvider)
-            .updateModelPromptTemplate(existing.path, _contentController.text);
-      }
-    }, successMessage: l10n.promptTemplateSaved);
-    if (completed && mounted) Navigator.of(context).pop(true);
+    await runAction(context, ref, () async {
+      await ref
+          .read(engineProvider)
+          .updateModelPrompt(widget.prompt['id'] as int, _controller.text);
+    }, successMessage: l10n.promptSaved);
+    if (mounted) Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final isEditing = widget.template != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          isEditing
-              ? l10n.promptEditTitle(widget.template!.name)
-              : l10n.promptTemplateCreate,
-        ),
+        title: Text(l10n.promptEditTitle(_title)),
         actions: [
-          IconButton(
-            key: const Key('model-prompt-template-save'),
-            tooltip: l10n.commonSave,
+          FilledButton.icon(
             onPressed: _save,
-            icon: const Icon(Icons.save_outlined),
+            icon: const Icon(Icons.save_outlined, size: 18),
+            label: Text(l10n.commonSave),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
         ],
       ),
       body: PageContainer(
         maxWidth: 1040,
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
           children: [
-            TextField(
-              key: const Key('model-prompt-template-name'),
-              controller: _nameController,
-              enabled: !isEditing,
-              decoration: InputDecoration(
-                labelText: l10n.promptTemplateName,
-                hintText: l10n.promptTemplateNameHint,
+            const SizedBox(height: 16),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                expands: true,
+                maxLines: null,
+                minLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                keyboardType: TextInputType.multiline,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  color: context.df.textHi,
+                  height: 1.45,
+                ),
+                decoration: InputDecoration(
+                  alignLabelWithHint: true,
+                  labelText: l10n.settingsPromptContent,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) => Text(
+                  l10n.promptCharacterCount(_controller.text.length),
+                  style: TextStyle(color: context.df.textLo, fontSize: 12),
+                ),
               ),
             ),
             const SizedBox(height: 16),
-            if (isEditing || widget.fixedKind != null)
-              InputDecorator(
-                decoration: InputDecoration(labelText: l10n.promptTemplateKind),
-                child: Text(_KindMeta(_kind).label(l10n)),
-              )
-            else
-              DropdownButtonFormField<String>(
-                initialValue: _kind,
-                decoration: InputDecoration(labelText: l10n.promptTemplateKind),
-                items: const ['video', 'image']
-                    .map(
-                      (kind) => DropdownMenuItem(
-                        value: kind,
-                        child: Text(_KindMeta(kind).label(l10n)),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) {
-                  if (value != null) setState(() => _kind = value);
-                },
-              ),
-            const SizedBox(height: 16),
-            TextField(
-              key: const Key('model-prompt-template-content'),
-              controller: _contentController,
-              minLines: 14,
-              maxLines: null,
-              keyboardType: TextInputType.multiline,
-              textAlignVertical: TextAlignVertical.top,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                color: context.df.textHi,
-                height: 1.45,
-              ),
-              decoration: InputDecoration(
-                alignLabelWithHint: true,
-                labelText: l10n.settingsPromptContent,
-              ),
-            ),
           ],
         ),
       ),

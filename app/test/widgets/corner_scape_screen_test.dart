@@ -129,7 +129,7 @@ void main() {
   Future<void> selectImageModel(WidgetTester tester) async {
     await tester.tap(find.byKey(const Key('model-select-field-image')).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(_imageModelLabel).last);
+    await tester.tap(find.text(_imageModelLabel.split(' · ').last).last);
     await tester.pump();
   }
 
@@ -1367,7 +1367,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(_imageModelLabel).last);
+    await tester.tap(find.text(_imageModelLabel.split(' · ').last).last);
     await tester.pump();
 
     final resolution = find.byKey(Key('cornerscape-resolution-$assetId'));
@@ -1423,7 +1423,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(_imageModelLabel).last);
+    await tester.tap(find.text(_imageModelLabel.split(' · ').last).last);
     await tester.pump();
 
     final promptField = find.byKey(Key('cornerscape-prompt-$assetId'));
@@ -1474,7 +1474,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(_imageModelLabel).last);
+    await tester.tap(find.text(_imageModelLabel.split(' · ').last).last);
     await tester.pump();
 
     final regenerateButton = find.byKey(Key('cornerscape-regenerate-$assetId'));

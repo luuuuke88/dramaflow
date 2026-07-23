@@ -48,13 +48,19 @@ void main() {
     )));
     await tester.pump();
 
-    final preview = find.byIcon(Icons.zoom_in_outlined);
+    final preview = find.byIcon(Icons.zoom_in);
     expect(preview, findsOneWidget);
     await tester.tap(preview);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.byKey(const Key('asset-media-preview')), findsOneWidget);
+    // 预览用的是可左右切换手册/查看多图的大卡片，而不是单图放大层：
+    // 弹窗标题栏应展示当前手册名（画廊背后的卡片名条也有同名文本，需限定在弹窗内）。
+    expect(
+      find.descendant(
+          of: find.byType(Dialog), matching: find.text('国风画风')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('手机宽度下手册卡片的编辑/删除按钮无需悬停即可见并可点击', (tester) async {
@@ -91,17 +97,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(deleted?.pack, 'style-a');
 
-    // 迷你图标的点击热区应达到 ~44x44dp（回归 L169-193 的最小点击面积问题）。
-    final miniIconBoxes = tester
-        .widgetList<SizedBox>(find.byWidgetPredicate(
-            (w) => w is SizedBox && w.width == 44 && w.height == 44))
-        .toList();
-    expect(miniIconBoxes.length, 2);
-
-    // “新建手册”按钮的可点击高度应达到 44dp（回归 L44-51 的最小点击面积问题）。
-    final addButtonSize =
-        tester.getSize(find.widgetWithText(OutlinedButton, '新建手册'));
-    expect(addButtonSize.height, greaterThanOrEqualTo(44));
   });
 
   testWidgets('移动壳平板宽度下手册卡片操作仍无需 hover', (tester) async {

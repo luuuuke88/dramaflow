@@ -26,6 +26,10 @@ Widget _app(
           GoRoute(path: '/', builder: (c, s) => const Text('home')),
           GoRoute(path: '/tasks', builder: (c, s) => const Text('tasks')),
           GoRoute(path: '/settings', builder: (c, s) => const Text('settings')),
+          GoRoute(
+              path: '/p/:pid/novel', builder: (c, s) => const Text('novel')),
+          GoRoute(
+              path: '/p/:pid/script', builder: (c, s) => const Text('script')),
         ],
       ),
     ],
@@ -62,6 +66,23 @@ class ActiveJobsStub extends ActiveJobsNotifier {
   List<TasksRow> build() => const [];
 }
 
+const _novelProject = ProjectRow(
+  id: 7,
+  artStyle: null,
+  createTime: null,
+  directorManual: null,
+  imageModel: 'image:demo',
+  imageQuality: '1K',
+  intro: '测试项目',
+  mode: 'text',
+  name: '小说项目',
+  projectType: 'novel',
+  type: '现代',
+  userId: 1,
+  videoModel: 'volcengine:demo',
+  videoRatio: '16:9',
+);
+
 const _scriptProject = ProjectRow(
   id: 7,
   artStyle: null,
@@ -84,24 +105,26 @@ void main() {
     final source = File('lib/src/widgets/shell.dart').readAsStringSync();
 
     expect(source, contains('openExternalUri(Uri.parse(_feedbackUrl))'));
-    expect(source, contains('openExternalUri(Uri.parse(_githubUrl))'));
     expect(source, isNot(contains('launchUrl(Uri.parse(_feedbackUrl))')));
   });
 
-  testWidgets('桌面壳：细侧栏 + 顶栏，未选项目时项目菜单禁用', (tester) async {
+  test('壳层不使用 BackdropFilter（会与路由/弹窗动画冲突导致渲染错乱）', () {
+    final source = File('lib/src/widgets/shell.dart').readAsStringSync();
+
+    expect(source, isNot(contains('BackdropFilter(')));
+  });
+
+  testWidgets('桌面壳：未进入项目时不显示项目分区顶栏', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(_app(1200));
     await tester.pumpAndSettle();
 
-    expect(find.text('请选择项目'), findsOneWidget);
-    expect(find.text('小说原文'), findsOneWidget);
-    expect(find.text('剧本管理'), findsOneWidget);
-    // 未选项目 → 点击项目菜单不导航（仍在 home）
-    await tester.tap(find.text('剧本管理'));
-    await tester.pumpAndSettle();
+    // 首页只有侧栏与内容，项目分区菜单要点进项目后才出现。
     expect(find.text('home'), findsOneWidget);
+    expect(find.text('小说原文'), findsNothing);
+    expect(find.text('剧本管理'), findsNothing);
   });
 
   testWidgets('移动壳：底部导航三项', (tester) async {
@@ -111,7 +134,6 @@ void main() {
     await tester.pumpWidget(_app(380));
     await tester.pumpAndSettle();
 
-    expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('我的项目'), findsOneWidget);
     expect(find.text('任务中心'), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
@@ -135,11 +157,15 @@ void main() {
         reason: '首页（无 AppBar 的顶级 Tab）内容顶部必须让开状态栏/灵动岛安全区');
   });
 
-  testWidgets('全部 6 个项目分区均已交付，无占位批次徽标残留', (tester) async {
-    tester.view.physicalSize = const Size(1200, 800);
+  testWidgets('进入项目后顶栏展示全部 6 个分区，无占位批次徽标残留', (tester) async {
+    tester.view.physicalSize = const Size(1600, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(_app(1200));
+    final container = _container();
+    addTearDown(container.dispose);
+    container.read(currentProjectProvider.notifier).select(_novelProject);
+    await tester.pumpWidget(
+        _app(1600, initial: '/p/7/novel', container: container));
     await tester.pumpAndSettle();
 
     for (final label in ['小说原文', '剧本Agent', '剧本管理', '塑角造景', '视频生产', '资产中心']) {
@@ -151,13 +177,14 @@ void main() {
   });
 
   testWidgets('剧本项目隐藏小说专属菜单，保留其余制作分区', (tester) async {
-    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.physicalSize = const Size(1600, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final container = _container();
     addTearDown(container.dispose);
     container.read(currentProjectProvider.notifier).select(_scriptProject);
-    await tester.pumpWidget(_app(1200, container: container));
+    await tester.pumpWidget(
+        _app(1600, initial: '/p/7/script', container: container));
     await tester.pumpAndSettle();
 
     expect(find.text('剧本项目'), findsOneWidget);

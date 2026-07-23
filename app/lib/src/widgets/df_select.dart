@@ -164,20 +164,25 @@ class _DFSelectState<T> extends State<DFSelect<T>> {
     if (badge.isNotEmpty) {
       return Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-            decoration: BoxDecoration(
-              color: df.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                  color: df.primary.withValues(alpha: 0.3), width: 0.5),
-            ),
-            child: Text(
-              badge,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: df.primary,
+          // 供应商名可能很长：角标允许收缩省略，避免把触发框挤爆。
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: df.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                    color: df.primary.withValues(alpha: 0.3), width: 0.5),
+              ),
+              child: Text(
+                badge,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: df.primary,
+                ),
               ),
             ),
           ),

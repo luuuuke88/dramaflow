@@ -324,6 +324,11 @@ Future<void> _chooseDropdown(
   );
   await tester.tap(field.evaluate().isNotEmpty ? field.first : modelField.first);
   await tester.pumpAndSettle();
-  await tester.tap(find.text(optionLabel).last);
+  // DFSelect 弹层把「供应商 · 模型」拆成角标+模型名两段：整段找不到时点模型名。
+  var option = find.text(optionLabel);
+  if (option.evaluate().isEmpty && optionLabel.contains(' · ')) {
+    option = find.text(optionLabel.split(' · ').last);
+  }
+  await tester.tap(option.last);
   await tester.pumpAndSettle();
 }

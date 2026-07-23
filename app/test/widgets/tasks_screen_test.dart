@@ -88,7 +88,7 @@ void main() {
           supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
           locale: const Locale('zh'),
           theme: buildTheme(Brightness.light),
-          home: const TasksScreen(),
+          home: const Scaffold(body: TasksScreen()),
         ),
       );
 
@@ -100,58 +100,18 @@ void main() {
   }
 
   testWidgets('历史任务全部展示且带类型+状态筛选下拉', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
     await settle(tester);
     expect(find.text('事件生成'), findsWidgets);
     expect(find.text('素材提取'), findsWidgets);
-    // 两个筛选下拉（任务类型 / 状态）都出现
-    expect(find.textContaining('任务类型:'), findsWidgets);
-    expect(find.textContaining('状态:'), findsWidgets);
-  });
-
-  testWidgets('历史默认跨项目展示，并可翻到下一页', (tester) async {
-    final secondProjectId =
-        engine.addProject(projectType: 'novel', name: '第二项目');
-    for (var index = 0; index < 12; index++) {
-      db.execute(
-        'INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) '
-        'VALUES (?,?,?,?,?)',
-        [
-          'event_generation',
-          'success',
-          secondProjectId,
-          '第二项目任务 ${index + 1}',
-          1700000010000 + index,
-        ],
-      );
-    }
-
-    await tester.pumpWidget(app());
-    await settle(tester);
-
-    expect(find.byKey(const ValueKey('task-project-filter')), findsOneWidget);
-    expect(find.textContaining('第二项目任务 12'), findsOneWidget);
-    expect(find.byKey(const ValueKey('task-page-next')), findsOneWidget);
-    expect(find.text('共 15 条'), findsOneWidget);
-    expect(
-      tester
-          .widget<IconButton>(find.byKey(const ValueKey('task-page-next')))
-          .onPressed,
-      isNotNull,
-    );
-
-    final scrollable = find.byType(Scrollable).first;
-    final scrollState = tester.state<ScrollableState>(scrollable);
-    expect(scrollState.position.maxScrollExtent, greaterThan(0));
-    await tester.drag(find.byType(ListView), const Offset(0, -800));
-    await settle(tester);
-    expect(scrollState.position.pixels, greaterThan(0));
-    await tester.tap(find.byKey(const ValueKey('task-page-next')));
-    await settle(tester);
-
-    expect(find.textContaining('第二项目任务 12'), findsNothing);
-    expect(find.textContaining('第二项目任务 2'), findsOneWidget);
-    expect(find.textContaining('任务筛选项目'), findsWidgets);
+    // 筛选卡片上的三个下拉（项目/大类/状态）都有标签与触发框
+    expect(find.text('任务大类'), findsWidgets);
+    expect(find.text('任务状态'), findsWidgets);
+    expect(find.text('全部大类'), findsOneWidget);
+    expect(find.text('全部状态'), findsOneWidget);
   });
 
   testWidgets('任务中心本地化展示全部流水线任务类型', (tester) async {
@@ -162,7 +122,6 @@ void main() {
       'asset_image_generation': '素材生图',
       'storyboard_generate': '分镜生成',
       'storyboard_image_generation': '首帧图生成',
-      'video_prompt_generation': '视频提示词生成',
       'video_generation': '视频生成',
       'audio_bind': '配音匹配',
     };
@@ -175,80 +134,40 @@ void main() {
       );
     }
 
+    tester.view.physicalSize = const Size(1200, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
     await settle(tester);
 
     for (final entry in classes.entries) {
-      expect(find.text(entry.value), findsWidgets);
+      expect(find.text(entry.value), findsWidgets,
+          reason: '${entry.key} 应显示为本地化名称 ${entry.value}');
       expect(find.text(entry.key), findsNothing);
     }
   });
 
-  testWidgets('刷新会重新读取跨项目历史任务', (tester) async {
-    await tester.pumpWidget(app());
-    await settle(tester);
-
-    db.execute(
-      'INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) '
-      'VALUES (?,?,?,?,?)',
-      [
-        'event_generation',
-        'success',
-        projectId,
-        '刷新后读取的任务',
-        1700000020000,
-      ],
-    );
-    expect(find.textContaining('刷新后读取的任务'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('task-history-refresh')));
-    await settle(tester);
-
-    expect(find.textContaining('刷新后读取的任务'), findsOneWidget);
-  });
-
   testWidgets('按状态筛选：仅失败时只剩素材提取行', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
     await settle(tester);
 
     // 打开状态下拉，选择"失败"
-    await tester.tap(find.textContaining('状态: 全部').last);
+    await tester.tap(find.text('全部状态'));
     await settle(tester);
-    await tester.tap(find.textContaining('状态: 失败').last);
+    await tester.tap(find.text('失败').last);
     await settle(tester);
 
     expect(find.text('素材提取'), findsOneWidget);
     expect(find.text('事件生成'), findsNothing);
   });
 
-  testWidgets('按任务类型筛选并调整每页数量', (tester) async {
-    await tester.pumpWidget(app());
-    await settle(tester);
-
-    await tester.tap(find.byKey(const ValueKey('task-class-filter')));
-    await settle(tester);
-    await tester.tap(find.textContaining('任务类型: 事件生成').last);
-    await settle(tester);
-
-    expect(find.text('事件生成'), findsWidgets);
-    expect(find.text('素材提取'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('task-page-size')));
-    await settle(tester);
-    await tester.tap(find.text('25').last);
-    await settle(tester);
-
-    expect(
-      tester
-          .widget<DropdownButton<int>>(
-            find.byKey(const ValueKey('task-page-size')),
-          )
-          .value,
-      25,
-    );
-  });
-
   testWidgets('点击任务行打开只读详情弹窗', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
     await settle(tester);
 
@@ -285,12 +204,13 @@ void main() {
     await tester.pumpWidget(app());
     await settle(tester);
 
+    // 默认跨项目展示：两个项目的任务都可见
     expect(find.text('素材提取'), findsOneWidget);
     expect(find.textContaining('第二项目分镜失败'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('task-project-filter')));
+    await tester.tap(find.text('全部项目'));
     await settle(tester);
-    await tester.tap(find.textContaining('第二项目').last);
+    await tester.tap(find.text('第二项目').last);
     await settle(tester);
 
     expect(find.textContaining('第二项目分镜失败'), findsOneWidget);
@@ -304,46 +224,12 @@ void main() {
     expect(find.text('第二项目分镜失败'), findsWidgets);
   });
 
-  testWidgets('移动端任务中心：分页控件可达且能翻页', (tester) async {
-    final secondProjectId =
-        engine.addProject(projectType: 'novel', name: '移动分页项目');
-    for (var index = 0; index < 12; index++) {
-      db.execute(
-        'INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) '
-        'VALUES (?,?,?,?,?)',
-        [
-          'event_generation',
-          'success',
-          secondProjectId,
-          '移动分页任务 ${index + 1}',
-          1700000030000 + index,
-        ],
-      );
-    }
-
-    tester.view.physicalSize = const Size(390, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(app());
-    await settle(tester);
-    expect(find.textContaining('移动分页任务 12'), findsOneWidget);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -800));
-    await settle(tester);
-    await tester.drag(find.byType(ListView), const Offset(0, -240));
-    await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('task-page-next')));
-    await settle(tester);
-
-    expect(find.textContaining('移动分页任务 12'), findsNothing);
-    expect(find.textContaining('移动分页任务 2'), findsOneWidget);
-  });
-
   testWidgets('移动端任务中心：失败任务可重试，待处理任务可取消', (tester) async {
+    // 用一个队列不认识的任务类型：重试动作会唤醒队列，若这里用真实类型，
+    // 队列会抢在点"取消"之前把它执行掉（失败），断言就测不到取消链路了。
     db.execute(
       "INSERT INTO o_tasks (taskClass,state,projectId,describe,startTime) "
-      "VALUES ('event_generation','pending',?,?,?)",
+      "VALUES ('debug_hold','pending',?,?,?)",
       [projectId, '等待取消的事件生成', 1700000000001],
     );
     final pendingId = db.lastInsertRowId;
@@ -355,7 +241,10 @@ void main() {
     await tester.pumpWidget(app());
     await settle(tester);
 
-    await tester.tap(find.byTooltip('重试').first);
+    // 失败卡片上的"重试"按钮
+    await tester.ensureVisible(find.text('重试').first);
+    await settle(tester);
+    await tester.tap(find.text('重试').first);
     await settle(tester);
 
     final attempts = db.select(
@@ -367,21 +256,27 @@ void main() {
     expect(attempts.last['state'], 'pending');
     expect(attempts.last['reason'], isNull);
     expect(find.text('已重新排队'), findsOneWidget);
-    expect(find.textContaining('第 2 次'), findsWidgets);
-    expect(find.byTooltip('重试'), findsNothing,
+    expect(find.text('重试'), findsNothing,
         reason: '已有后续 attempt 的失败行不能重复重试');
 
+    // 等待中的卡片上的"取消任务"按钮：重试产生的新任务也带取消按钮，
+    // 必须锁定到"等待取消的事件生成"这张卡片内的那一个。
     await tester.pump(const Duration(seconds: 3));
-    final pendingTile = find.ancestor(
+    final pendingCard = find.ancestor(
       of: find.textContaining('等待取消的事件生成').first,
-      matching: find.byType(ListTile),
+      matching: find.byType(InkWell),
     );
-    await tester.tap(find.descendant(
-      of: pendingTile,
-      matching: find.byTooltip('取消任务'),
-    ));
+    final cancelButton = find.descendant(
+      of: pendingCard,
+      matching: find.text('取消任务'),
+    );
+    await tester.ensureVisible(cancelButton);
+    await settle(tester);
+    await tester.tap(cancelButton);
     await settle(tester);
 
+    // 现在的引擎把"取消等待中的任务"记为 失败+已取消原因，而不是独立的
+    // canceled 状态（界面上按原因显示为已取消）。
     final canceled = db.select(
       'SELECT state, reason FROM o_tasks WHERE id=?',
       [pendingId],

@@ -29,7 +29,7 @@ import 'storyboard_image_picker.dart';
 
 const _nodeWidth = 260.0;
 // upload 节点含头部、图片、带“直接采用”操作的手柄行，留出稳定余量避免溢出。
-const _nodeCollapsedHeight = 244.0;
+const _nodeCollapsedHeight = 250.0;
 // 选中态展开后要容纳：参考图缩略图 + prompt + 三个参数选择器 + 操作按钮，
 // 故较未选中态更高（对齐 ToonFlow generatedNode 展开的 .parameter 面板）。
 const _nodeExpandedHeight = 576.0;

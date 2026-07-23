@@ -256,6 +256,11 @@ final projectJobsProvider =
   return ref.watch(engineProvider).projectJobs(projectId);
 });
 
+final allJobsProvider = FutureProvider.autoDispose<List<TasksRow>>((ref) {
+  ref.watch(jobsGenerationProvider);
+  return ref.watch(engineProvider).allJobs();
+});
+
 final taskHistoryProvider =
     FutureProvider.autoDispose.family<TaskHistoryPage, TaskHistoryQuery>(
   (ref, query) {

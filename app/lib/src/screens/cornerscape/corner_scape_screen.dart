@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../../engine/assets.dart';
@@ -41,6 +42,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
   String _resolution = '1K';
   bool _modelLoaded = false;
   bool _polishing = false;
+  bool _nextStepBannerDismissed = false;
 
   @override
   void didChangeDependencies() {
@@ -328,6 +330,47 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     );
   }
 
+  Widget? _nextStepBanner(List<CornerScapeAsset> assets,
+      Map<int, String?> audioByAsset) {
+    if (_nextStepBannerDismissed) return null;
+    if (assets.isEmpty) return null;
+    final allBound =
+        assets.every((item) => audioByAsset[item.asset.id] != null);
+    if (!allBound) return null;
+
+    final l10n = context.l10n;
+    final df = context.df;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: df.primarySubtle,
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        border: Border.all(color: df.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Icon(Icons.auto_awesome_rounded, size: 20, color: df.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            l10n.cornerScapeNextStepBannerText,
+            style: DFTokens.body14.copyWith(color: df.textPrimary),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          onPressed: () => context.go('/p/${widget.projectId}/production'),
+          child: Text(l10n.cornerScapeNextStepBannerButton),
+        ),
+        IconButton(
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          icon: const Icon(Icons.close_rounded, size: 18),
+          onPressed: () => setState(() => _nextStepBannerDismissed = true),
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // 订阅队列终态，确保页面独立挂载时也会刷新资产级匹配状态。
@@ -342,6 +385,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       for (final binding in engine.assetAudioBindings(widget.projectId))
         binding.assetId: binding.audioName,
     };
+    final banner = _nextStepBanner(assets, audioByAsset);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -350,6 +394,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
           return CustomScrollView(
             key: const Key('cornerscape-scroll'),
             slivers: [
+              if (banner != null) SliverToBoxAdapter(child: banner),
               SliverToBoxAdapter(
                 child: _settingsPanel(
                   assets,
@@ -363,10 +408,17 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
         }
         final settingsPanel = _settingsPanel(assets, visible);
         final cardGrid = _cardGrid(assets, visible, audioByAsset);
-        return Row(
+        return Column(
           children: [
-            SizedBox(width: 328, child: settingsPanel),
-            Expanded(child: cardGrid),
+            if (banner != null) banner,
+            Expanded(
+              child: Row(
+                children: [
+                  SizedBox(width: 328, child: settingsPanel),
+                  Expanded(child: cardGrid),
+                ],
+              ),
+            ),
           ],
         );
       },

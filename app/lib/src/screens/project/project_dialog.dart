@@ -4,9 +4,6 @@
 // 校验照抄：名称必填。移动端 <840 全屏单列。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
-import 'package:dramaflow/l10n/app_localizations.dart';
 
 import '../../engine/engine.dart';
 import '../../engine/manuals.dart';
@@ -20,50 +17,6 @@ import '../../widgets/df_select.dart';
 import '../manuals/manual_editor.dart';
 import '../manuals/manual_gallery.dart';
 import 'model_select.dart';
-
-/// ToonFlow 项目向导在保存前按固定顺序提示首个缺失项。
-enum ProjectIntakeField {
-  name,
-  type,
-  imageModel,
-  videoModel,
-  artStyle,
-  directorManual,
-  videoRatio,
-  intro,
-  imageQuality,
-  mode,
-}
-
-ProjectIntakeField? firstMissingProjectIntakeField({
-  required String? name,
-  required String? type,
-  required String? imageModel,
-  required String? videoModel,
-  required String? artStyle,
-  required String? directorManual,
-  required String? videoRatio,
-  required String? intro,
-  required String? imageQuality,
-  required String? mode,
-}) {
-  final values = <(ProjectIntakeField, String?)>[
-    (ProjectIntakeField.name, name),
-    (ProjectIntakeField.type, type),
-    (ProjectIntakeField.imageModel, imageModel),
-    (ProjectIntakeField.videoModel, videoModel),
-    (ProjectIntakeField.artStyle, artStyle),
-    (ProjectIntakeField.directorManual, directorManual),
-    (ProjectIntakeField.videoRatio, videoRatio),
-    (ProjectIntakeField.intro, intro),
-    (ProjectIntakeField.imageQuality, imageQuality),
-    (ProjectIntakeField.mode, mode),
-  ];
-  for (final (field, value) in values) {
-    if (value?.trim().isEmpty ?? true) return field;
-  }
-  return null;
-}
 
 Future<bool?> showProjectDialog(BuildContext context, {ProjectRow? existing}) {
   final l10n = context.l10n;
@@ -102,7 +55,6 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
   late String? _directorManual = widget.existing?.directorManual;
   List<String> _videoModes = const [];
   bool _saving = false;
-  String? _validationMessage;
 
   List<ManualPack> _visuals = const [];
   List<ManualPack> _directors = const [];
@@ -168,51 +120,21 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  void _openProviderSettings() {
-    final router = GoRouter.of(context);
-    Navigator.of(context).pop();
-    router.go('/settings?section=providers');
-  }
-
-  String _intakeError(
-    AppLocalizations l10n,
-    ProjectIntakeField field,
-  ) =>
-      switch (field) {
-        ProjectIntakeField.name => l10n.projectMsgEnterProjectName,
-        ProjectIntakeField.type => l10n.projectMsgEnterProjectType,
-        ProjectIntakeField.imageModel => l10n.projectMsgEnterImageModel,
-        ProjectIntakeField.videoModel => l10n.projectMsgEnterVideoModel,
-        ProjectIntakeField.artStyle => l10n.projectMsgEnterArtStyle,
-        ProjectIntakeField.directorManual => l10n.projectMsgDirectorManual,
-        ProjectIntakeField.videoRatio => l10n.projectMsgEnterVideoRatio,
-        ProjectIntakeField.intro => l10n.projectMsgEnterProjectIntro,
-        ProjectIntakeField.imageQuality => l10n.projectMsgEnterProjectQuality,
-        ProjectIntakeField.mode => l10n.projectMsgSelectMode,
-      };
-
   Future<void> _save() async {
     final l10n = context.l10n;
-    final missing = firstMissingProjectIntakeField(
-      name: _name.text,
-      type: _novelType.text,
-      imageModel: _imageModel,
-      videoModel: _videoModel,
-      artStyle: _artStyle,
-      directorManual: _directorManual,
-      videoRatio: _videoRatio,
-      intro: _intro.text,
-      imageQuality: _imageQuality,
-      mode: _mode,
-    );
-    if (missing != null) {
-      setState(() => _validationMessage = _intakeError(l10n, missing));
+    if (_name.text.trim().isEmpty) {
+      _toast(l10n.projectMsgEnterProjectName);
       return;
     }
-    setState(() {
-      _saving = true;
-      _validationMessage = null;
-    });
+    if (_artStyle == null || _artStyle!.isEmpty) {
+      _toast(l10n.projectMsgEnterArtStyle);
+      return;
+    }
+    if (_directorManual == null || _directorManual!.isEmpty) {
+      _toast(l10n.projectMsgDirectorManual);
+      return;
+    }
+    setState(() => _saving = true);
     try {
       final engine = ref.read(engineProvider);
       if (widget.existing == null) {
@@ -342,6 +264,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _label(l10n.projectDialogProjectType),
               DFSelect<String>(
                 value: _projectType,
                 hint: l10n.projectDialogSelectType,
@@ -351,22 +274,17 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                   DFSelectItem(
                       value: 'script', label: l10n.projectDialogBasedOnScript),
                 ],
-                onChanged: (v) => setState(() {
-                  _projectType = v ?? 'novel';
-                  _validationMessage = null;
-                }),
+                onChanged: (v) => setState(() => _projectType = v ?? 'novel'),
               ),
               _label(l10n.projectDialogProjectName),
               TextField(
                 controller: _name,
-                onChanged: (_) => setState(() => _validationMessage = null),
                 decoration:
                     InputDecoration(hintText: l10n.projectDialogProjectNamePh),
               ),
               _label(l10n.projectDialogNovelType),
               TextField(
                 controller: _novelType,
-                onChanged: (_) => setState(() => _validationMessage = null),
                 decoration:
                     InputDecoration(hintText: l10n.projectDialogNovelTypePh),
               ),
@@ -380,6 +298,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _label(l10n.projectDialogModelData),
               Row(children: [
                 Expanded(
                   flex: 3,
@@ -387,11 +306,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                     kind: 'image',
                     value: _imageModel,
                     hint: l10n.projectMsgEnterImageModel,
-                    onChanged: (o) => setState(() {
-                      _imageModel = o?.value;
-                      _validationMessage = null;
-                    }),
-                    onConfigure: _openProviderSettings,
+                    onChanged: (o) => setState(() => _imageModel = o?.value),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -404,10 +319,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                       DFSelectItem(value: '2K', label: '2K'),
                       DFSelectItem(value: '4K', label: '4K'),
                     ],
-                    onChanged: (v) => setState(() {
-                      _imageQuality = v;
-                      _validationMessage = null;
-                    }),
+                    onChanged: (v) => setState(() => _imageQuality = v),
                   ),
                 ),
               ]),
@@ -422,9 +334,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                     onChanged: (o) => setState(() {
                       _videoModel = o?.value;
                       _setVideoModes(o);
-                      _validationMessage = null;
                     }),
-                    onConfigure: _openProviderSettings,
                   ),
                 ),
                 if (_videoModes.isNotEmpty) ...[
@@ -438,10 +348,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                         for (final m in _videoModes)
                           DFSelectItem(value: m, label: m),
                       ],
-                      onChanged: (v) => setState(() {
-                        _mode = v;
-                        _validationMessage = null;
-                      }),
+                      onChanged: (v) => setState(() => _mode = v),
                     ),
                   ),
                 ],
@@ -453,17 +360,13 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                   DFSelectItem(value: '16:9', label: '16:9'),
                   DFSelectItem(value: '9:16', label: '9:16'),
                 ],
-                onChanged: (v) => setState(() {
-                  _videoRatio = v;
-                  _validationMessage = null;
-                }),
+                onChanged: (v) => setState(() => _videoRatio = v),
               ),
               _label(l10n.projectDialogNovelIntro),
               TextField(
                 controller: _intro,
                 minLines: 3,
                 maxLines: 5,
-                onChanged: (_) => setState(() => _validationMessage = null),
                 decoration:
                     InputDecoration(hintText: l10n.projectDialogNovelIntroPh),
               ),
@@ -482,10 +385,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
         addLabel: l10n.projectDialogNewVisualManual,
         packs: _visuals,
         selectedPackId: _artStyle,
-        onSelect: (p) => setState(() {
-          _artStyle = p?.pack;
-          _validationMessage = null;
-        }),
+        onSelect: (p) => setState(() => _artStyle = p?.pack),
         onCreate: () async {
           final saved = await showManualEditor(context, ref, kind: 'visual');
           if (saved == true) _reloadManuals();
@@ -503,10 +403,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
         addLabel: l10n.projectDialogAddDirectorManual,
         packs: _directors,
         selectedPackId: _directorManual,
-        onSelect: (p) => setState(() {
-          _directorManual = p?.pack;
-          _validationMessage = null;
-        }),
+        onSelect: (p) => setState(() => _directorManual = p?.pack),
         onCreate: () async {
           final saved = await showManualEditor(context, ref, kind: 'director');
           if (saved == true) _reloadManuals();
@@ -564,18 +461,6 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
           }),
         ),
       ),
-      if (_validationMessage != null)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Semantics(
-            liveRegion: true,
-            child: Text(
-              _validationMessage!,
-              key: const Key('project-intake-validation-error'),
-              style: TextStyle(color: context.df.danger),
-            ),
-          ),
-        ),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(

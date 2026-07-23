@@ -68,11 +68,16 @@ class DFStatusTag extends StatelessWidget {
           else
             Icon(_iconFor(kind), size: 13, color: foreground),
           const SizedBox(width: DFTokens.s4),
-          Text(
-            label,
-            style: DFTokens.caption12.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w600,
+          // 容器给的宽度不够时收缩省略，而不是把所在行挤爆。
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: DFTokens.caption12.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

@@ -182,7 +182,7 @@ class DFColors extends ThemeExtension<DFColors> {
 
 abstract final class DFTokens {
   static const radiusShell = 16.0;
-  static const radiusCard = 12.0;
+  static const radiusCard = 14.0;
   static const radiusControl = 8.0;
   static const radiusChip = 999.0;
 
@@ -225,30 +225,47 @@ abstract final class DFTokens {
   static const easeOutCubic = Curves.easeOutCubic;
   static const curve = easeOutCubic;
 
+  static const pageTitle26w800 = TextStyle(
+    fontSize: 26,
+    fontWeight: FontWeight.w800,
+    height: 1.3,
+    letterSpacing: -0.5,
+  );
   static const display24w700 = TextStyle(
     fontSize: 24,
     fontWeight: FontWeight.w700,
-    height: 1.5,
+    height: 1.35,
+    letterSpacing: -0.4,
   );
   static const title20w700 = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.w700,
-    height: 1.5,
+    height: 1.4,
+    letterSpacing: -0.3,
+  );
+  static const cardTitle18w700 = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w700,
+    height: 1.4,
+    letterSpacing: -0.25,
   );
   static const section16w600 = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    height: 1.5,
+    height: 1.45,
+    letterSpacing: -0.2,
   );
   static const body14 = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w400,
-    height: 1.5,
+    height: 1.55,
+    letterSpacing: 0.15,
   );
   static const caption12 = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w400,
     height: 1.5,
+    letterSpacing: 0.2,
   );
 
   static const tabularFigures = <FontFeature>[FontFeature.tabularFigures()];
