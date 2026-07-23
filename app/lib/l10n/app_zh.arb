@@ -40,7 +40,6 @@
   "taskFilterStateLabel": "任务状态",
   "taskFilterStateAll": "全部状态",
   "taskFilterReset": "重置筛选",
-  "taskFilterButton": "筛选",
   "taskTableHeaderClass": "任务大类",
   "taskTableHeaderTarget": "关联对象",
   "taskTableHeaderModel": "模型名称",

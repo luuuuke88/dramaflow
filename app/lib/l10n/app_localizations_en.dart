@@ -137,9 +137,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get taskFilterReset => 'Reset Filters';
 
   @override
-  String get taskFilterButton => 'Filter';
-
-  @override
   String get taskTableHeaderClass => 'Category';
 
   @override

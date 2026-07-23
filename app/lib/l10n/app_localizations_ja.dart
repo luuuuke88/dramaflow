@@ -131,9 +131,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get taskFilterReset => '重置筛选';
 
   @override
-  String get taskFilterButton => '絞り込み';
-
-  @override
   String get taskTableHeaderClass => '任务大类';
 
   @override

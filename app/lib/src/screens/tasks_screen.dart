@@ -170,137 +170,163 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               ],
             ),
             child: LayoutBuilder(builder: (context, constraints) {
-              final projectFilter = _buildFilterItem(
-                context,
-                label: l10n.taskFilterProjectLabel,
-                child: DropdownButton<int?>(
-                  value: _selectedProjectId,
-                  isDense: true,
-                  underline: const SizedBox(),
-                  icon: Icon(Icons.keyboard_arrow_down_rounded,
-                      color: df.textTertiary, size: 18),
-                  items: [
-                    DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text(l10n.taskFilterProjectAll),
-                    ),
-                    for (final p in projects)
-                      DropdownMenuItem<int?>(
-                        value: p.id,
-                        child: Text(p.name ?? '#${p.id}'),
-                      ),
-                  ],
-                  onChanged: (v) => setState(() {
-                    _selectedProjectId = v;
-                    _currentPage = 1;
-                  }),
-                ),
-              );
-              final classFilter = _buildFilterItem(
-                context,
-                label: l10n.taskFilterClassLabel,
-                child: DropdownButton<String>(
-                  value: classes.contains(_classFilter)
-                      ? _classFilter
-                      : _kAllFilter,
-                  isDense: true,
-                  underline: const SizedBox(),
-                  icon: Icon(Icons.keyboard_arrow_down_rounded,
-                      color: df.textTertiary, size: 18),
-                  items: [
-                    DropdownMenuItem<String>(
-                      value: _kAllFilter,
-                      child: Text(l10n.taskFilterClassAll),
-                    ),
-                    for (final cls in classes)
-                      DropdownMenuItem<String>(
-                        value: cls,
-                        child: Text(_taskClassLabel(l10n, cls)),
-                      ),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) {
-                      setState(() {
-                        _classFilter = v;
-                        _currentPage = 1;
-                      });
-                    }
-                  },
-                ),
-              );
-              final stateFilter = _buildFilterItem(
-                context,
-                label: l10n.taskFilterStateLabel,
-                child: DropdownButton<String>(
-                  value: _stateFilter,
-                  isDense: true,
-                  underline: const SizedBox(),
-                  icon: Icon(Icons.keyboard_arrow_down_rounded,
-                      color: df.textTertiary, size: 18),
-                  items: [
-                    DropdownMenuItem<String>(
-                      value: _kAllFilter,
-                      child: Text(l10n.taskFilterStateAll),
-                    ),
-                    for (final st in states)
-                      DropdownMenuItem<String>(
-                        value: st,
-                        child: Text(_taskStateLabel(l10n, st)),
-                      ),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) {
-                      setState(() {
-                        _stateFilter = v;
-                        _currentPage = 1;
-                      });
-                    }
-                  },
-                ),
-              );
-              final resetButton = (_selectedProjectId != null ||
-                      _classFilter != _kAllFilter ||
-                      _stateFilter != _kAllFilter)
-                  ? TextButton.icon(
-                      onPressed: () => setState(() {
-                        _selectedProjectId = null;
-                        _classFilter = _kAllFilter;
-                        _stateFilter = _kAllFilter;
-                        _currentPage = 1;
-                      }),
-                      icon:
-                          const Icon(Icons.filter_alt_off_outlined, size: 16),
-                      label: Text(l10n.taskFilterReset),
-                      style: TextButton.styleFrom(
-                        foregroundColor: df.textSecondary,
-                      ),
-                    )
-                  : null;
+              final compact = constraints.maxWidth < 640;
 
-              if (constraints.maxWidth < 640) {
-                final activeCount = (_selectedProjectId != null ? 1 : 0) +
-                    (_classFilter != _kAllFilter ? 1 : 0) +
-                    (_stateFilter != _kAllFilter ? 1 : 0);
-                // 三个筛选项在窄屏下竖排会占掉一整屏，改成一个按钮收进弹出面板。
-                return OutlinedButton.icon(
-                  onPressed: () => _openMobileFilterSheet(
-                      context, l10n, df, projects, classes, states),
-                  icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: Text(activeCount > 0
-                      ? '${l10n.taskFilterButton} ($activeCount)'
-                      : l10n.taskFilterButton),
-                );
+              final projectDropdown = DropdownButton<int?>(
+                value: _selectedProjectId,
+                isDense: true,
+                isExpanded: compact,
+                underline: const SizedBox(),
+                icon: Icon(Icons.keyboard_arrow_down_rounded,
+                    color: df.textTertiary, size: 18),
+                items: [
+                  DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text(l10n.taskFilterProjectAll,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  for (final p in projects)
+                    DropdownMenuItem<int?>(
+                      value: p.id,
+                      child: Text(p.name ?? '#${p.id}',
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: (v) => setState(() {
+                  _selectedProjectId = v;
+                  _currentPage = 1;
+                }),
+              );
+              final classDropdown = DropdownButton<String>(
+                value:
+                    classes.contains(_classFilter) ? _classFilter : _kAllFilter,
+                isDense: true,
+                isExpanded: compact,
+                underline: const SizedBox(),
+                icon: Icon(Icons.keyboard_arrow_down_rounded,
+                    color: df.textTertiary, size: 18),
+                items: [
+                  DropdownMenuItem<String>(
+                    value: _kAllFilter,
+                    child: Text(l10n.taskFilterClassAll,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  for (final cls in classes)
+                    DropdownMenuItem<String>(
+                      value: cls,
+                      child: Text(_taskClassLabel(l10n, cls),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      _classFilter = v;
+                      _currentPage = 1;
+                    });
+                  }
+                },
+              );
+              final stateDropdown = DropdownButton<String>(
+                value: _stateFilter,
+                isDense: true,
+                isExpanded: compact,
+                underline: const SizedBox(),
+                icon: Icon(Icons.keyboard_arrow_down_rounded,
+                    color: df.textTertiary, size: 18),
+                items: [
+                  DropdownMenuItem<String>(
+                    value: _kAllFilter,
+                    child: Text(l10n.taskFilterStateAll,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  for (final st in states)
+                    DropdownMenuItem<String>(
+                      value: st,
+                      child: Text(_taskStateLabel(l10n, st),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      _stateFilter = v;
+                      _currentPage = 1;
+                    });
+                  }
+                },
+              );
+              final hasActiveFilter = _selectedProjectId != null ||
+                  _classFilter != _kAllFilter ||
+                  _stateFilter != _kAllFilter;
+              void resetFilters() => setState(() {
+                    _selectedProjectId = null;
+                    _classFilter = _kAllFilter;
+                    _stateFilter = _kAllFilter;
+                    _currentPage = 1;
+                  });
+
+              if (compact) {
+                // 三个下拉各占一份、自己的选中文字会省略号截断，保证无论屏幕
+                // 多窄都不会溢出——比竖排三行或弹出面板都更简单可靠。
+                Widget compactField(IconData icon, Widget dropdown) =>
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: df.stroke),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(children: [
+                        Icon(icon, size: 14, color: df.textTertiary),
+                        const SizedBox(width: 4),
+                        Expanded(child: dropdown),
+                      ]),
+                    );
+                return Row(children: [
+                  Expanded(
+                      child: compactField(
+                          Icons.folder_outlined, projectDropdown)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child:
+                          compactField(Icons.category_outlined, classDropdown)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: compactField(Icons.flag_outlined, stateDropdown)),
+                  if (hasActiveFilter) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: l10n.taskFilterReset,
+                      onPressed: resetFilters,
+                      icon: Icon(Icons.filter_alt_off_outlined,
+                          size: 18, color: df.textSecondary),
+                    ),
+                  ],
+                ]);
               }
 
               return Row(
                 children: [
-                  projectFilter,
+                  _buildFilterItem(context,
+                      label: l10n.taskFilterProjectLabel,
+                      child: projectDropdown),
                   const SizedBox(width: 24),
-                  classFilter,
+                  _buildFilterItem(context,
+                      label: l10n.taskFilterClassLabel, child: classDropdown),
                   const SizedBox(width: 24),
-                  stateFilter,
+                  _buildFilterItem(context,
+                      label: l10n.taskFilterStateLabel, child: stateDropdown),
                   const Spacer(),
-                  if (resetButton != null) resetButton,
+                  if (hasActiveFilter)
+                    TextButton.icon(
+                      onPressed: resetFilters,
+                      icon: const Icon(Icons.filter_alt_off_outlined,
+                          size: 16),
+                      label: Text(l10n.taskFilterReset),
+                      style: TextButton.styleFrom(
+                        foregroundColor: df.textSecondary,
+                      ),
+                    ),
                 ],
               );
             }),
@@ -636,168 +662,6 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _openMobileFilterSheet(
-    BuildContext context,
-    AppLocalizations l10n,
-    DFColors df,
-    List<ProjectRow> projects,
-    List<String> classes,
-    List<String> states,
-  ) {
-    Widget sheetItem(String label, Widget dropdown) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: df.textSecondary,
-                )),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: df.stroke),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: dropdown,
-            ),
-          ],
-        );
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setModalState) {
-          void applyThenRefresh(VoidCallback change) {
-            setState(change);
-            setModalState(() {});
-          }
-
-          return Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              20 + MediaQuery.of(sheetContext).viewInsets.bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(children: [
-                  Expanded(
-                    child: Text(
-                      l10n.taskFilterButton,
-                      style: DFTokens.section16w600
-                          .copyWith(color: df.textPrimary),
-                    ),
-                  ),
-                  if (_selectedProjectId != null ||
-                      _classFilter != _kAllFilter ||
-                      _stateFilter != _kAllFilter)
-                    TextButton(
-                      onPressed: () => applyThenRefresh(() {
-                        _selectedProjectId = null;
-                        _classFilter = _kAllFilter;
-                        _stateFilter = _kAllFilter;
-                        _currentPage = 1;
-                      }),
-                      child: Text(l10n.taskFilterReset),
-                    ),
-                ]),
-                const SizedBox(height: 12),
-                sheetItem(
-                  l10n.taskFilterProjectLabel,
-                  DropdownButton<int?>(
-                    value: _selectedProjectId,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    items: [
-                      DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text(l10n.taskFilterProjectAll),
-                      ),
-                      for (final p in projects)
-                        DropdownMenuItem<int?>(
-                          value: p.id,
-                          child: Text(p.name ?? '#${p.id}'),
-                        ),
-                    ],
-                    onChanged: (v) => applyThenRefresh(() {
-                      _selectedProjectId = v;
-                      _currentPage = 1;
-                    }),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                sheetItem(
-                  l10n.taskFilterClassLabel,
-                  DropdownButton<String>(
-                    value: classes.contains(_classFilter)
-                        ? _classFilter
-                        : _kAllFilter,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    items: [
-                      DropdownMenuItem<String>(
-                        value: _kAllFilter,
-                        child: Text(l10n.taskFilterClassAll),
-                      ),
-                      for (final cls in classes)
-                        DropdownMenuItem<String>(
-                          value: cls,
-                          child: Text(_taskClassLabel(l10n, cls)),
-                        ),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) {
-                        applyThenRefresh(() {
-                          _classFilter = v;
-                          _currentPage = 1;
-                        });
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(height: 14),
-                sheetItem(
-                  l10n.taskFilterStateLabel,
-                  DropdownButton<String>(
-                    value: _stateFilter,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    items: [
-                      DropdownMenuItem<String>(
-                        value: _kAllFilter,
-                        child: Text(l10n.taskFilterStateAll),
-                      ),
-                      for (final st in states)
-                        DropdownMenuItem<String>(
-                          value: st,
-                          child: Text(_taskStateLabel(l10n, st)),
-                        ),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) {
-                        applyThenRefresh(() {
-                          _stateFilter = v;
-                          _currentPage = 1;
-                        });
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          );
-        },
       ),
     );
   }
