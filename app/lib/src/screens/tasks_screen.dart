@@ -306,7 +306,19 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                   ),
                 ],
               ),
-              child: Column(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // BoxConstraints 只给 minWidth 时，maxWidth/maxHeight 会默认变成
+                  // 无穷大——表头和每行里用 Expanded 撑开的列（比如"描述"那一列）
+                  // 因此拿不到一个有限宽度可分配，导致整张表布局失败、点击也失灵。
+                  // 用 tightFor 把宽度定死成同一个值，高度仍交给外层横向滚动区决定。
+                  final tableWidth =
+                      constraints.maxWidth > 920 ? constraints.maxWidth : 920.0;
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints.tightFor(width: tableWidth),
+                      child: Column(
                 children: [
                   // 表头 (Table Header)
                   Container(
@@ -516,6 +528,10 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     ),
                   ),
                 ],
+                    ),
+                  ),
+                  );
+                },
               ),
             ),
           ),
