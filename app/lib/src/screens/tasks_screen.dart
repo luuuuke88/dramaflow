@@ -170,9 +170,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 ),
               ],
             ),
-            child: LayoutBuilder(builder: (context, constraints) {
-              final compact = constraints.maxWidth < 640;
-
+            child: Builder(builder: (context) {
               final projectSelect = DFSelect<int?>(
                 value: _selectedProjectId,
                 hint: l10n.taskFilterProjectAll,
@@ -231,54 +229,55 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     _currentPage = 1;
                   });
 
-              if (compact) {
-                // 三个 DFSelect 各占一份宽度，长文字自己会省略号截断，保证
-                // 无论屏幕多窄都不会溢出。
-                return Row(children: [
-                  Expanded(child: projectSelect),
-                  const SizedBox(width: 8),
-                  Expanded(child: classSelect),
-                  const SizedBox(width: 8),
-                  Expanded(child: stateSelect),
-                  if (hasActiveFilter) ...[
-                    const SizedBox(width: 4),
-                    IconButton(
-                      tooltip: l10n.taskFilterReset,
-                      onPressed: resetFilters,
-                      icon: Icon(Icons.filter_alt_off_outlined,
-                          size: 18, color: df.textSecondary),
-                    ),
-                  ],
-                ]);
-              }
+              // 之前分「窄屏一套布局、宽屏另一套固定宽度布局」两条代码路径，
+              // 宽屏那条给每个下拉框写死了 200/180/160 的宽度，中间宽度的
+              // 窗口（比如 700~900px，够不上宽屏假设的~950px，又摸到了窄屏
+              // 断点之上）就会溢出。改成不管多宽都用同一套写法：三个筛选项
+              // 各占 Row 里等分的一份 Expanded，永远不会比容器更宽，从根上
+              // 排除这类"两条路径、各自假设一个宽度范围"的溢出。
+              Widget filterField(String label, Widget select) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: df.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      select,
+                    ],
+                  );
 
-              // DFSelect 内部用 Expanded 撑开文字，需要父级给一个有限宽度——
-              // 直接塞进 Row 的非 flex 位置会拿到无限宽度导致布局失败，用
-              // SizedBox 定死宽度即可（跟前面表格那次的坑是同一类问题）。
               return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildFilterItem(context,
-                      label: l10n.taskFilterProjectLabel,
-                      child: SizedBox(width: 200, child: projectSelect)),
-                  const SizedBox(width: 24),
-                  _buildFilterItem(context,
-                      label: l10n.taskFilterClassLabel,
-                      child: SizedBox(width: 180, child: classSelect)),
-                  const SizedBox(width: 24),
-                  _buildFilterItem(context,
-                      label: l10n.taskFilterStateLabel,
-                      child: SizedBox(width: 160, child: stateSelect)),
-                  const Spacer(),
-                  if (hasActiveFilter)
-                    TextButton.icon(
-                      onPressed: resetFilters,
-                      icon: const Icon(Icons.filter_alt_off_outlined,
-                          size: 16),
-                      label: Text(l10n.taskFilterReset),
-                      style: TextButton.styleFrom(
-                        foregroundColor: df.textSecondary,
+                  Expanded(
+                      child: filterField(
+                          l10n.taskFilterProjectLabel, projectSelect)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child:
+                          filterField(l10n.taskFilterClassLabel, classSelect)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child:
+                          filterField(l10n.taskFilterStateLabel, stateSelect)),
+                  if (hasActiveFilter) ...[
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 18),
+                      child: IconButton(
+                        tooltip: l10n.taskFilterReset,
+                        onPressed: resetFilters,
+                        icon: Icon(Icons.filter_alt_off_outlined,
+                            size: 18, color: df.textSecondary),
                       ),
                     ),
+                  ],
                 ],
               );
             }),
@@ -615,24 +614,6 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFilterItem(BuildContext context,
-      {required String label, required Widget child}) {
-    final df = context.df;
-    return Row(
-      children: [
-        Text(
-          '$label: ',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: df.textSecondary,
-          ),
-        ),
-        child,
-      ],
     );
   }
 
