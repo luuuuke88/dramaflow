@@ -169,120 +169,140 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                // 筛选 1: 项目名称
-                _buildFilterItem(
-                  context,
-                  label: l10n.taskFilterProjectLabel,
-                  child: DropdownButton<int?>(
-                    value: _selectedProjectId,
-                    isDense: true,
-                    underline: const SizedBox(),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded,
-                        color: df.textTertiary, size: 18),
-                    items: [
-                      DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text(l10n.taskFilterProjectAll),
-                      ),
-                      for (final p in projects)
-                        DropdownMenuItem<int?>(
-                          value: p.id,
-                          child: Text(p.name ?? '#${p.id}'),
-                        ),
-                    ],
-                    onChanged: (v) => setState(() {
-                      _selectedProjectId = v;
-                      _currentPage = 1;
-                    }),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                // 筛选 2: 任务大类
-                _buildFilterItem(
-                  context,
-                  label: l10n.taskFilterClassLabel,
-                  child: DropdownButton<String>(
-                    value: classes.contains(_classFilter)
-                        ? _classFilter
-                        : _kAllFilter,
-                    isDense: true,
-                    underline: const SizedBox(),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded,
-                        color: df.textTertiary, size: 18),
-                    items: [
-                      DropdownMenuItem<String>(
-                        value: _kAllFilter,
-                        child: Text(l10n.taskFilterClassAll),
-                      ),
-                      for (final cls in classes)
-                        DropdownMenuItem<String>(
-                          value: cls,
-                          child: Text(_taskClassLabel(l10n, cls)),
-                        ),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() {
-                          _classFilter = v;
-                          _currentPage = 1;
-                        });
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 24),
-                // 筛选 3: 状态
-                _buildFilterItem(
-                  context,
-                  label: l10n.taskFilterStateLabel,
-                  child: DropdownButton<String>(
-                    value: _stateFilter,
-                    isDense: true,
-                    underline: const SizedBox(),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded,
-                        color: df.textTertiary, size: 18),
-                    items: [
-                      DropdownMenuItem<String>(
-                        value: _kAllFilter,
-                        child: Text(l10n.taskFilterStateAll),
-                      ),
-                      for (final st in states)
-                        DropdownMenuItem<String>(
-                          value: st,
-                          child: Text(_taskStateLabel(l10n, st)),
-                        ),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() {
-                          _stateFilter = v;
-                          _currentPage = 1;
-                        });
-                      }
-                    },
-                  ),
-                ),
-                const Spacer(),
-                if (_selectedProjectId != null ||
-                    _classFilter != _kAllFilter ||
-                    _stateFilter != _kAllFilter)
-                  TextButton.icon(
-                    onPressed: () => setState(() {
-                      _selectedProjectId = null;
-                      _classFilter = _kAllFilter;
-                      _stateFilter = _kAllFilter;
-                      _currentPage = 1;
-                    }),
-                    icon: const Icon(Icons.filter_alt_off_outlined, size: 16),
-                    label: Text(l10n.taskFilterReset),
-                    style: TextButton.styleFrom(
-                      foregroundColor: df.textSecondary,
+            child: LayoutBuilder(builder: (context, constraints) {
+              final projectFilter = _buildFilterItem(
+                context,
+                label: l10n.taskFilterProjectLabel,
+                child: DropdownButton<int?>(
+                  value: _selectedProjectId,
+                  isDense: true,
+                  underline: const SizedBox(),
+                  icon: Icon(Icons.keyboard_arrow_down_rounded,
+                      color: df.textTertiary, size: 18),
+                  items: [
+                    DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(l10n.taskFilterProjectAll),
                     ),
-                  ),
-              ],
-            ),
+                    for (final p in projects)
+                      DropdownMenuItem<int?>(
+                        value: p.id,
+                        child: Text(p.name ?? '#${p.id}'),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() {
+                    _selectedProjectId = v;
+                    _currentPage = 1;
+                  }),
+                ),
+              );
+              final classFilter = _buildFilterItem(
+                context,
+                label: l10n.taskFilterClassLabel,
+                child: DropdownButton<String>(
+                  value: classes.contains(_classFilter)
+                      ? _classFilter
+                      : _kAllFilter,
+                  isDense: true,
+                  underline: const SizedBox(),
+                  icon: Icon(Icons.keyboard_arrow_down_rounded,
+                      color: df.textTertiary, size: 18),
+                  items: [
+                    DropdownMenuItem<String>(
+                      value: _kAllFilter,
+                      child: Text(l10n.taskFilterClassAll),
+                    ),
+                    for (final cls in classes)
+                      DropdownMenuItem<String>(
+                        value: cls,
+                        child: Text(_taskClassLabel(l10n, cls)),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _classFilter = v;
+                        _currentPage = 1;
+                      });
+                    }
+                  },
+                ),
+              );
+              final stateFilter = _buildFilterItem(
+                context,
+                label: l10n.taskFilterStateLabel,
+                child: DropdownButton<String>(
+                  value: _stateFilter,
+                  isDense: true,
+                  underline: const SizedBox(),
+                  icon: Icon(Icons.keyboard_arrow_down_rounded,
+                      color: df.textTertiary, size: 18),
+                  items: [
+                    DropdownMenuItem<String>(
+                      value: _kAllFilter,
+                      child: Text(l10n.taskFilterStateAll),
+                    ),
+                    for (final st in states)
+                      DropdownMenuItem<String>(
+                        value: st,
+                        child: Text(_taskStateLabel(l10n, st)),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _stateFilter = v;
+                        _currentPage = 1;
+                      });
+                    }
+                  },
+                ),
+              );
+              final resetButton = (_selectedProjectId != null ||
+                      _classFilter != _kAllFilter ||
+                      _stateFilter != _kAllFilter)
+                  ? TextButton.icon(
+                      onPressed: () => setState(() {
+                        _selectedProjectId = null;
+                        _classFilter = _kAllFilter;
+                        _stateFilter = _kAllFilter;
+                        _currentPage = 1;
+                      }),
+                      icon:
+                          const Icon(Icons.filter_alt_off_outlined, size: 16),
+                      label: Text(l10n.taskFilterReset),
+                      style: TextButton.styleFrom(
+                        foregroundColor: df.textSecondary,
+                      ),
+                    )
+                  : null;
+
+              if (constraints.maxWidth < 640) {
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    projectFilter,
+                    classFilter,
+                    stateFilter,
+                    if (resetButton != null) resetButton,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  projectFilter,
+                  const SizedBox(width: 24),
+                  classFilter,
+                  const SizedBox(width: 24),
+                  stateFilter,
+                  const Spacer(),
+                  if (resetButton != null) resetButton,
+                ],
+              );
+            }),
           ),
           const SizedBox(height: 16),
 
