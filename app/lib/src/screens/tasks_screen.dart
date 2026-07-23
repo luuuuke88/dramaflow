@@ -12,6 +12,7 @@ import '../theme/theme.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/df_empty.dart';
+import '../widgets/df_select.dart';
 
 const _kAllFilter = '__all__';
 
@@ -172,51 +173,28 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
             child: LayoutBuilder(builder: (context, constraints) {
               final compact = constraints.maxWidth < 640;
 
-              final projectDropdown = DropdownButton<int?>(
+              final projectSelect = DFSelect<int?>(
                 value: _selectedProjectId,
-                isDense: true,
-                isExpanded: compact,
-                underline: const SizedBox(),
-                icon: Icon(Icons.keyboard_arrow_down_rounded,
-                    color: df.textTertiary, size: 18),
+                hint: l10n.taskFilterProjectAll,
                 items: [
-                  DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text(l10n.taskFilterProjectAll,
-                        overflow: TextOverflow.ellipsis),
-                  ),
+                  DFSelectItem<int?>(
+                      value: null, label: l10n.taskFilterProjectAll),
                   for (final p in projects)
-                    DropdownMenuItem<int?>(
-                      value: p.id,
-                      child: Text(p.name ?? '#${p.id}',
-                          overflow: TextOverflow.ellipsis),
-                    ),
+                    DFSelectItem<int?>(
+                        value: p.id, label: p.name ?? '#${p.id}'),
                 ],
                 onChanged: (v) => setState(() {
                   _selectedProjectId = v;
                   _currentPage = 1;
                 }),
               );
-              final classDropdown = DropdownButton<String>(
+              final classSelect = DFSelect<String>(
                 value:
                     classes.contains(_classFilter) ? _classFilter : _kAllFilter,
-                isDense: true,
-                isExpanded: compact,
-                underline: const SizedBox(),
-                icon: Icon(Icons.keyboard_arrow_down_rounded,
-                    color: df.textTertiary, size: 18),
                 items: [
-                  DropdownMenuItem<String>(
-                    value: _kAllFilter,
-                    child: Text(l10n.taskFilterClassAll,
-                        overflow: TextOverflow.ellipsis),
-                  ),
+                  DFSelectItem(value: _kAllFilter, label: l10n.taskFilterClassAll),
                   for (final cls in classes)
-                    DropdownMenuItem<String>(
-                      value: cls,
-                      child: Text(_taskClassLabel(l10n, cls),
-                          overflow: TextOverflow.ellipsis),
-                    ),
+                    DFSelectItem(value: cls, label: _taskClassLabel(l10n, cls)),
                 ],
                 onChanged: (v) {
                   if (v != null) {
@@ -227,25 +205,12 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                   }
                 },
               );
-              final stateDropdown = DropdownButton<String>(
+              final stateSelect = DFSelect<String>(
                 value: _stateFilter,
-                isDense: true,
-                isExpanded: compact,
-                underline: const SizedBox(),
-                icon: Icon(Icons.keyboard_arrow_down_rounded,
-                    color: df.textTertiary, size: 18),
                 items: [
-                  DropdownMenuItem<String>(
-                    value: _kAllFilter,
-                    child: Text(l10n.taskFilterStateAll,
-                        overflow: TextOverflow.ellipsis),
-                  ),
+                  DFSelectItem(value: _kAllFilter, label: l10n.taskFilterStateAll),
                   for (final st in states)
-                    DropdownMenuItem<String>(
-                      value: st,
-                      child: Text(_taskStateLabel(l10n, st),
-                          overflow: TextOverflow.ellipsis),
-                    ),
+                    DFSelectItem(value: st, label: _taskStateLabel(l10n, st)),
                 ],
                 onChanged: (v) {
                   if (v != null) {
@@ -267,32 +232,14 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                   });
 
               if (compact) {
-                // 三个下拉各占一份、自己的选中文字会省略号截断，保证无论屏幕
-                // 多窄都不会溢出——比竖排三行或弹出面板都更简单可靠。
-                Widget compactField(IconData icon, Widget dropdown) =>
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: df.stroke),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(children: [
-                        Icon(icon, size: 14, color: df.textTertiary),
-                        const SizedBox(width: 4),
-                        Expanded(child: dropdown),
-                      ]),
-                    );
+                // 三个 DFSelect 各占一份宽度，长文字自己会省略号截断，保证
+                // 无论屏幕多窄都不会溢出。
                 return Row(children: [
-                  Expanded(
-                      child: compactField(
-                          Icons.folder_outlined, projectDropdown)),
+                  Expanded(child: projectSelect),
                   const SizedBox(width: 8),
-                  Expanded(
-                      child:
-                          compactField(Icons.category_outlined, classDropdown)),
+                  Expanded(child: classSelect),
                   const SizedBox(width: 8),
-                  Expanded(
-                      child: compactField(Icons.flag_outlined, stateDropdown)),
+                  Expanded(child: stateSelect),
                   if (hasActiveFilter) ...[
                     const SizedBox(width: 4),
                     IconButton(
@@ -305,17 +252,22 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 ]);
               }
 
+              // DFSelect 内部用 Expanded 撑开文字，需要父级给一个有限宽度——
+              // 直接塞进 Row 的非 flex 位置会拿到无限宽度导致布局失败，用
+              // SizedBox 定死宽度即可（跟前面表格那次的坑是同一类问题）。
               return Row(
                 children: [
                   _buildFilterItem(context,
                       label: l10n.taskFilterProjectLabel,
-                      child: projectDropdown),
+                      child: SizedBox(width: 200, child: projectSelect)),
                   const SizedBox(width: 24),
                   _buildFilterItem(context,
-                      label: l10n.taskFilterClassLabel, child: classDropdown),
+                      label: l10n.taskFilterClassLabel,
+                      child: SizedBox(width: 180, child: classSelect)),
                   const SizedBox(width: 24),
                   _buildFilterItem(context,
-                      label: l10n.taskFilterStateLabel, child: stateDropdown),
+                      label: l10n.taskFilterStateLabel,
+                      child: SizedBox(width: 160, child: stateSelect)),
                   const Spacer(),
                   if (hasActiveFilter)
                     TextButton.icon(
