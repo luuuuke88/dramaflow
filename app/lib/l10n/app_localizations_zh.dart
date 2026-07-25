@@ -698,6 +698,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get projectMsgSelectMode => '请选择模式';
 
   @override
+  String get videoModeFirstFrame => '首帧图生成';
+
+  @override
+  String get videoModeLastFrame => '尾帧图生成';
+
+  @override
   String get projectMsgDeleteDirectorManualHeader => '删除导演手册';
 
   @override
@@ -1106,6 +1112,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cornerScapeNextStepBannerButton => '去视频生产';
+
+  @override
+  String agentNextStepBannerText(String count) {
+    return '剧本已生成 $count 集，可以去剧本管理里查看和修改了';
+  }
+
+  @override
+  String get agentNextStepBannerButton => '去剧本管理';
 
   @override
   String get scriptSearchPlaceholder => '搜索剧本名称...';
@@ -2402,7 +2416,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cornerScapeMatchAudio => 'AI 匹配音频';
 
   @override
-  String get cornerScapeStartBatch => '开始批量生成';
+  String get cornerScapeStartBatch => '生成图片';
+
+  @override
+  String get cornerScapeModelUnreachableTitle => '模型连不上';
+
+  @override
+  String cornerScapeModelUnreachableBody(String model) {
+    return '「$model」当前无法连接。请在「设置 → 供应商」中检查地址和密钥，或换用其他可用模型。';
+  }
+
+  @override
+  String get commonGotIt => '知道了';
 
   @override
   String get cornerScapeWaitingGeneration => '等待生成';

@@ -431,6 +431,42 @@ class HttpProviderGateway
     );
   }
 
+  /// 轻量连通探测：只确认服务地址能被连上，不发生成请求、不计费。
+  /// 任何 HTTP 响应（含 401/404）都算「服务在」——鉴权/额度问题留给真实任务
+  /// 去报，这里只拦「地址根本连不上」这一类（连接被拒、DNS 失败、超时）。
+  Future<void> probeReachable(ResolvedModel model) async {
+    var baseUrl = model.baseUrl.trim();
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+    }
+    try {
+      await dio.get<dynamic>(
+        '$baseUrl/models',
+        options: Options(
+          headers: {
+            if (model.protocol == 'anthropic') ...{
+              'x-api-key': model.apiKey,
+              'anthropic-version': anthropicApiVersion,
+            } else if (model.apiKey.isNotEmpty)
+              'Authorization': 'Bearer ${model.apiKey}',
+          },
+          // 探测要快，别让用户在按钮上干等。
+          sendTimeout: const Duration(seconds: 6),
+          receiveTimeout: const Duration(seconds: 6),
+          // 收到任何状态码都当作「连上了」。
+          validateStatus: (_) => true,
+        ),
+      );
+    } on DioException catch (e) {
+      // 有响应 = 服务活着，只是这个路径不通，放行。
+      if (e.response != null) return;
+      throw EngineException(errNetwork, {
+        'op': 'probeReachable',
+        'message': e.message,
+      });
+    }
+  }
+
   Future<int> testTextModel(ResolvedModel model,
       {CancelToken? cancelToken}) async {
     final sw = Stopwatch()..start();

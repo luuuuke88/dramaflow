@@ -292,6 +292,8 @@
   "projectMsgEnterVideoModel": "请选择视频模型",
   "projectMsgVisualManualDeleted": "删除成功",
   "projectMsgSelectMode": "请选择模式",
+  "videoModeFirstFrame": "首帧图生成",
+  "videoModeLastFrame": "尾帧图生成",
   "projectMsgDeleteDirectorManualHeader": "删除导演手册",
   "projectMsgDeleteDirectorManualBody": "确定要删除导演手册「{name}」吗？",
   "@projectMsgDeleteDirectorManualBody": {
@@ -495,6 +497,15 @@
   "scriptNextStepBannerButton": "去塑角造景",
   "cornerScapeNextStepBannerText": "配音已绑定，可以去视频生产了",
   "cornerScapeNextStepBannerButton": "去视频生产",
+  "agentNextStepBannerText": "剧本已生成 {count} 集，可以去剧本管理里查看和修改了",
+  "@agentNextStepBannerText": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "agentNextStepBannerButton": "去剧本管理",
   "scriptSearchPlaceholder": "搜索剧本名称...",
   "scriptSearch": "搜索",
   "scriptAddScript": "新建剧本",
@@ -1060,7 +1071,17 @@
   "cornerScapeOtherPromptHint": "补充画风、构图或一致性要求",
   "cornerScapeGeneratePrompts": "生成提示词",
   "cornerScapeMatchAudio": "AI 匹配音频",
-  "cornerScapeStartBatch": "开始批量生成",
+  "cornerScapeStartBatch": "生成图片",
+  "cornerScapeModelUnreachableTitle": "模型连不上",
+  "cornerScapeModelUnreachableBody": "「{model}」当前无法连接。请在「设置 → 供应商」中检查地址和密钥，或换用其他可用模型。",
+  "@cornerScapeModelUnreachableBody": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "commonGotIt": "知道了",
   "cornerScapeWaitingGeneration": "等待生成",
   "cornerScapeGenerating": "生成中",
   "cornerScapeGenerationFailed": "生成失败",

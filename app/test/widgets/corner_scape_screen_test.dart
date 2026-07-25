@@ -134,7 +134,7 @@ void main() {
   }
 
   Future<void> confirmBatchImageGeneration(WidgetTester tester) async {
-    await tester.tap(find.widgetWithText(FilledButton, '开始批量生成'));
+    await tester.tap(find.widgetWithText(FilledButton, '生成图片'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('确定'));
     await tester.pump();
@@ -247,7 +247,7 @@ void main() {
         findsNothing,
       );
 
-      final batchButton = find.widgetWithText(FilledButton, '开始批量生成');
+      final batchButton = find.widgetWithText(FilledButton, '生成图片');
       await tester.ensureVisible(batchButton);
       await tester.pumpAndSettle();
       await tester.tap(batchButton);
@@ -299,6 +299,34 @@ void main() {
     expect(task.relatedObjectsJson['ids'], [role]);
     expect(task.relatedObjectsJson['model'], _imageModel);
     expect(task.relatedObjectsJson['resolution'], '2K');
+  });
+
+  testWidgets('三步按钮的蓝色主按钮跟着当前该干的那一步走', (tester) async {
+    // 缺提示词 → 第 1 步是主按钮。
+    final blank = engine.addAsset(
+      projectId: projectId,
+      type: 'role',
+      name: '无提示词',
+      describe: '',
+    );
+    await pumpDesktop(tester);
+    expect(find.widgetWithText(FilledButton, '生成提示词'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '生成图片'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'AI 匹配音频'), findsOneWidget);
+
+    // 提示词齐了但图还没出 → 主按钮移到第 2 步。
+    engine.db.execute('UPDATE o_assets SET prompt=? WHERE id=?', ['剑客', blank]);
+    await pumpDesktop(tester);
+    expect(find.widgetWithText(OutlinedButton, '生成提示词'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '生成图片'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'AI 匹配音频'), findsOneWidget);
+
+    // 图也出完了 → 主按钮移到第 3 步。
+    setImageState(blank, stateDone);
+    await pumpDesktop(tester);
+    expect(find.widgetWithText(OutlinedButton, '生成提示词'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '生成图片'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'AI 匹配音频'), findsOneWidget);
   });
 
   testWidgets('未选择图片模型时确认批量生成不会创建图片任务', (tester) async {
@@ -357,7 +385,7 @@ void main() {
     await pumpDesktop(tester);
     await tester.tap(find.byKey(Key('cornerscape-select-$assetId')));
     await selectImageModel(tester);
-    await tester.tap(find.widgetWithText(FilledButton, '开始批量生成'));
+    await tester.tap(find.widgetWithText(FilledButton, '生成图片'));
     await tester.pumpAndSettle();
     expect(find.text('花费确认'), findsOneWidget);
 
@@ -515,7 +543,8 @@ void main() {
       ),
       '统一冷色调',
     );
-    await tester.tap(find.widgetWithText(OutlinedButton, '生成提示词'));
+    // 步骤按钮的外观随「当前该干哪一步」在实底/描边间切换，这里只按文案定位。
+    await tester.tap(find.text('生成提示词'));
     await tester.pump();
 
     expect(find.text('提示词批量生成已提交'), findsOneWidget);

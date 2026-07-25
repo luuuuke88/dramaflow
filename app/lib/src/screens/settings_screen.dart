@@ -19,6 +19,8 @@ import '../util/error_l10n.dart';
 import '../util/l10n_ext.dart';
 import '../widgets/common.dart';
 import '../widgets/shell.dart';
+import 'provider_preset_form.dart';
+import 'provider_preset_gallery.dart';
 
 // 应用版本（对齐 pubspec version；package_info_plus 未引入，引擎版本另经 health 展示）。
 const _appVersion = '0.1.0';
@@ -265,14 +267,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final l10n = context.l10n;
     final df = context.df;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-          MediaQuery.sizeOf(context).width < 840 ? 20 : 40,
-          MediaQuery.sizeOf(context).width < 840 ? 20 : 36,
-          MediaQuery.sizeOf(context).width < 840 ? 20 : 40,
-          // 手机壳（<840）有悬浮底部导航，底部要预留出它的高度。
-          MediaQuery.sizeOf(context).width < 840 ? 120 : 32),
-      child: Column(
+    return LayoutBuilder(builder: (context, constraints) {
+      final compact = constraints.maxWidth < 840;
+      return Padding(
+        padding: EdgeInsets.fromLTRB(
+            compact ? 20 : 40,
+            compact ? 20 : 36,
+            compact ? 20 : 40,
+            compact ? 120 : 32),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -440,6 +443,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
     );
+    });
   }
 
   Widget _sectionBody() {
@@ -687,7 +691,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return ref.read(engineProvider).listProviderModels(providerId);
   }
 
+  /// 「添加供应商」：先进预设画廊挑一家（内置目录已填好地址和模型清单，
+  /// 只需填密钥），选「自定义」才回到从前那张全手填的空白表。
   Future<void> _openCreateProviderDialog() async {
+    final existing = ref.read(providersProvider).value ?? const <ProviderInfo>[];
+    final presetId = await showProviderPresetGallery(
+      context,
+      existingProviderIds: {for (final p in existing) p.id},
+    );
+    if (presetId == null || !mounted) return;
+    if (presetId != 'custom') {
+      final saved =
+          await showProviderPresetForm(context, ref, presetId: presetId);
+      if (!mounted) return;
+      if (saved) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.settingsProviderAdded)),
+        );
+        _invalidateProvidersAndBindings();
+      }
+      return;
+    }
+    await _openCustomProviderDialog();
+  }
+
+  Future<void> _openCustomProviderDialog() async {
     final result = await showDialog<_ProviderFormResult>(
       context: context,
       builder: (_) => const _ProviderFormDialog(),

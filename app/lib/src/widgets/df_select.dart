@@ -46,6 +46,7 @@ class DFSelect<T> extends StatefulWidget {
   final ValueChanged<T?> onChanged;
   final double? popoverMinWidth;
   final double? popoverMaxWidth;
+  final TextAlign? textAlign;
 
   const DFSelect({
     super.key,
@@ -55,6 +56,7 @@ class DFSelect<T> extends StatefulWidget {
     required this.onChanged,
     this.popoverMinWidth,
     this.popoverMaxWidth,
+    this.textAlign,
   });
 
   @override
@@ -79,11 +81,11 @@ class _DFSelectState<T> extends State<DFSelect<T>> {
         popupMenuTheme: PopupMenuThemeData(
           color: df.surface,
           surfaceTintColor: Colors.transparent,
-          elevation: 8,
-          shadowColor: Colors.black38,
+          elevation: 16,
+          shadowColor: Colors.black.withValues(alpha: 0.15),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: df.stroke, width: 1),
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: df.stroke.withValues(alpha: 0.5), width: 1),
           ),
         ),
       ),
@@ -100,11 +102,12 @@ class _DFSelectState<T> extends State<DFSelect<T>> {
           for (final item in widget.items)
             PopupMenuItem<T>(
               value: item.value,
-              height: 42,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: _DFSelectOptionTile<T>(
                 item: item,
                 isSelected: item.value == widget.value,
+                textAlign: widget.textAlign,
               ),
             ),
         ],
@@ -154,6 +157,7 @@ class _DFSelectState<T> extends State<DFSelect<T>> {
       return Text(
         widget.hint ?? '',
         overflow: TextOverflow.ellipsis,
+        textAlign: widget.textAlign,
         style: TextStyle(fontSize: 13, color: df.textTertiary),
       );
     }
@@ -205,6 +209,7 @@ class _DFSelectState<T> extends State<DFSelect<T>> {
     return Text(
       displayText(selectedItem),
       overflow: TextOverflow.ellipsis,
+      textAlign: widget.textAlign,
       style: TextStyle(fontSize: 13, color: df.textPrimary),
     );
   }
@@ -215,10 +220,12 @@ class _DFSelectState<T> extends State<DFSelect<T>> {
 class _DFSelectOptionTile<T> extends StatefulWidget {
   final DFSelectItem<T> item;
   final bool isSelected;
+  final TextAlign? textAlign;
 
   const _DFSelectOptionTile({
     required this.item,
     required this.isSelected,
+    this.textAlign,
   });
 
   @override
@@ -244,12 +251,12 @@ class _DFSelectOptionTileState<T> extends State<_DFSelectOptionTile<T>> {
         onExit: (_) => setState(() => _hover = false),
         child: AnimatedContainer(
           duration: DFTokens.fast120,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
-                ? df.primary.withValues(alpha: 0.15)
+                ? df.primary.withValues(alpha: 0.12)
                 : (_hover ? df.surfaceMuted : Colors.transparent),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
@@ -284,6 +291,7 @@ class _DFSelectOptionTileState<T> extends State<_DFSelectOptionTile<T>> {
                 child: Text(
                   modelName,
                   overflow: TextOverflow.ellipsis,
+                  textAlign: widget.textAlign,
                   style: TextStyle(
                     fontSize: 13,
                     color: isSelected ? df.primary : df.textPrimary,

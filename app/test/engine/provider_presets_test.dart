@@ -56,10 +56,37 @@ void main() {
   });
 
   test('xAI 默认模型只保留当前官方目录可核实的型号', () {
+    // 2026-07-25 复核 docs.x.ai/docs/models：官方目录已扩到六个文本档 + 两个生图档。
+    // grok-imagine-video 视频档本引擎无对应协议，刻意不预置。
     expect(
       providerPresetById('xai')!.models.map((model) => model.modelId),
-      ['grok-4.5'],
+      [
+        'grok-4.5',
+        'grok-4.3',
+        'grok-4.20-0309-reasoning',
+        'grok-4.20-0309-non-reasoning',
+        'grok-4.20-multi-agent-0309',
+        'grok-build-0.1',
+        'grok-imagine-image',
+        'grok-imagine-image-quality',
+      ],
     );
+    expect(
+      providerPresetById('xai')!.models.any((m) => m.kind == 'video'),
+      isFalse,
+      reason: '没有 xAI 视频协议实现前不得预置视频档（选了必失败）',
+    );
+  });
+
+  test('除火山外不预置视频模型：本引擎只实现了 volcengine 视频协议', () {
+    for (final preset in kProviderPresets) {
+      if (preset.id == 'volcengine') continue;
+      expect(
+        preset.models.where((m) => m.kind == 'video'),
+        isEmpty,
+        reason: '${preset.id} 预置了视频模型，但引擎没有对应协议，用户选中必然失败',
+      );
+    }
   });
 
   test('azt 预设目录同步本机服务可见的文本模型，并保留独立验证的图片模型', () {

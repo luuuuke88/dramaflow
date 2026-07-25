@@ -699,12 +699,14 @@ class _MobileTabChip extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(DFTokens.radiusChip),
         onTap: () => context.go('/p/${project.id}/${menu.path}'),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Text(
             menu.label(context),
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: selected ? df.primary : df.textPrimary,
             ),
           ),

@@ -19,6 +19,7 @@ import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/df_status_tag.dart';
 import '../../widgets/df_tag_chip.dart';
+import '../../widgets/df_toast.dart';
 import '../../widgets/local_media_preview.dart';
 import '../../widgets/policy_confirm.dart';
 import '../project/model_select.dart';
@@ -42,6 +43,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
   String _resolution = '1K';
   bool _modelLoaded = false;
   bool _polishing = false;
+  bool _probing = false;
   bool _nextStepBannerDismissed = false;
 
   @override
@@ -62,10 +64,10 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     _otherPrompt.dispose();
     super.dispose();
   }
+  bool _isMobileSettingsExpanded = true;
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    showDFToast(context, message);
   }
 
   List<CornerScapeAsset> _visible(List<CornerScapeAsset> assets) {
@@ -76,6 +78,23 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
   List<int> _selectedVisible(List<CornerScapeAsset> visible) {
     final visibleIds = visible.map((item) => item.asset.id).toSet();
     return _selected.where(visibleIds.contains).toList();
+  }
+
+  /// 当前该干的是第几步：蓝色主按钮跟着它走，永远等于「现在该点这个」。
+  ///
+  /// 判断对象是已勾选的资产；一个都没勾时看当前可见的全部，这样空手进来
+  /// 也有正确的指引。缺提示词 → 1；提示词齐了但图没出全 → 2；都齐了 → 3。
+  int _activeStep(List<CornerScapeAsset> visible) {
+    final selectedIds = _selectedVisible(visible).toSet();
+    final targets = selectedIds.isEmpty
+        ? visible
+        : visible.where((item) => selectedIds.contains(item.asset.id));
+    if (targets.isEmpty) return 1;
+    if (targets.any((item) => (item.asset.prompt ?? '').trim().isEmpty)) {
+      return 1;
+    }
+    if (targets.any((item) => item.asset.imageState != stateDone)) return 2;
+    return 3;
   }
 
   Future<bool> _isCurrentImageCandidate(String selectedModel) async {
@@ -94,6 +113,36 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       }
     }
     return false;
+  }
+
+  /// 出图前的连通预检：连得上返回 true 放行；连不上弹窗说明并返回 false。
+  /// 只拦「地址根本连不上」，鉴权/额度之类仍旧交给真实任务去报。
+  Future<bool> _ensureModelReachable(String selectedModel) async {
+    final engine = ref.read(engineProvider);
+    final parts = selectedModel.split(':');
+    if (parts.length < 2) return true;
+    final providerId = parts.first;
+    final modelId = parts.sublist(1).join(':');
+    setState(() => _probing = true);
+    try {
+      await engine.probeModelReachable(providerId, modelId);
+      return true;
+    } catch (_) {
+      if (!mounted) return false;
+      final goSettings = await showDFAdaptiveDialog<bool>(
+        context,
+        title: context.l10n.cornerScapeModelUnreachableTitle,
+        desktopWidthFactor: .36,
+        builder: (c) => _ModelUnreachableBody(
+          message: c.l10n
+              .cornerScapeModelUnreachableBody('$providerId · $modelId'),
+        ),
+      );
+      if (goSettings == true && mounted) context.go('/settings');
+      return false;
+    } finally {
+      if (mounted) setState(() => _probing = false);
+    }
   }
 
   void _toggleType(String type, List<CornerScapeAsset> assets) {
@@ -227,6 +276,8 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       _toast(l10n.assetsGenPickModel);
       return;
     }
+    // 先探一下模型连不连得上：连不上就当场说清楚，别糟蹋一整批任务。
+    if (!await _ensureModelReachable(model)) return;
     engine.generateAssetImages(
       widget.projectId,
       [
@@ -327,6 +378,67 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
           },
         ),
       ),
+    );
+  }
+
+  /// 步骤按钮：左边一个圆形序号，右边是按钮本体，撑满剩余宽度。
+  ///
+  /// [active] 为真时这一步是「现在该点的」——序号点亮成实心，按钮用蓝色实底；
+  /// 其余步骤序号是淡底，按钮只描边。同一时刻页面上只有一处蓝色。
+  Widget _stepButton({
+    required int step,
+    required bool active,
+    required VoidCallback? onPressed,
+    required Widget icon,
+    required String label,
+  }) {
+    final df = context.df;
+    return Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? df.primary : df.surfaceMuted,
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            '$step',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: active ? Colors.white : df.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: SizedBox(
+            height: 44,
+            child: active
+                ? FilledButton.icon(
+                    onPressed: onPressed,
+                    icon: icon,
+                    label: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                  )
+                : OutlinedButton.icon(
+                    onPressed: onPressed,
+                    icon: icon,
+                    label: Text(label, style: const TextStyle(fontSize: 14)),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: BorderSide(color: df.stroke.withValues(alpha: 0.6)),
+                      foregroundColor: df.textSecondary,
+                    ),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -433,6 +545,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     final l10n = context.l10n;
     final df = context.df;
     final selectedCount = _selectedVisible(visible).length;
+    final activeStep = _activeStep(visible);
     List<CornerScapeAsset> currentVisible() => _visible(assets);
 
     Widget sectionLabel(String text) => Padding(
@@ -451,16 +564,20 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       required String label,
       required VoidCallback onPressed,
     }) =>
-        OutlinedButton.icon(
-          style: const ButtonStyle(
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: df.surfaceMuted.withValues(alpha: 0.5),
+            foregroundColor: df.textPrimary,
+            elevation: 0,
             visualDensity: VisualDensity.compact,
-            padding: WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: DFTokens.s8),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
           onPressed: onPressed,
-          icon: Icon(icon, size: 15),
-          label: Text(label),
+          icon: Icon(icon, size: 14),
+          label: Text(label, style: const TextStyle(fontSize: 12)),
         );
 
     final content = Padding(
@@ -468,152 +585,206 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.cornerScapeBatchSettings,
-                  style: DFTokens.title20w700.copyWith(color: df.textPrimary),
+          InkWell(
+            onTap: compact
+                ? () {
+                    setState(() {
+                      _isMobileSettingsExpanded = !_isMobileSettingsExpanded;
+                    });
+                  }
+                : null,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.cornerScapeBatchSettings,
+                    style: DFTokens.title20w700.copyWith(color: df.textPrimary),
+                  ),
                 ),
-              ),
-              DFTagChip(
-                label: visible.length.toString(),
-                tone: DFTagTone.primary,
-              ),
-            ],
-          ),
-          const SizedBox(height: DFTokens.s20),
-          sectionLabel(l10n.cornerScapeQuickActions),
-          Wrap(
-            spacing: DFTokens.s8,
-            runSpacing: DFTokens.s8,
-            children: [
-              quickAction(
-                icon: Icons.done_all_rounded,
-                label: l10n.cornerScapeSelectAll,
-                onPressed: () => _selectWhere(currentVisible(), (_) => true),
-              ),
-              quickAction(
-                icon: Icons.notes_rounded,
-                label: l10n.cornerScapeSelectPromptEmpty,
-                onPressed: () => _selectWhere(
-                  currentVisible(),
-                  (item) => (item.asset.prompt ?? '').trim().isEmpty,
+                DFTagChip(
+                  label: visible.length.toString(),
+                  tone: DFTagTone.primary,
                 ),
-              ),
-              quickAction(
-                icon: Icons.image_not_supported_outlined,
-                label: l10n.cornerScapeSelectUngenerated,
-                onPressed: () => _selectWhere(
-                  currentVisible(),
-                  (item) => item.asset.imageState?.isNotEmpty != true,
-                ),
-              ),
-              quickAction(
-                icon: Icons.check_circle_outline_rounded,
-                label: l10n.cornerScapeSelectCompleted,
-                onPressed: () => _selectWhere(
-                  currentVisible(),
-                  (item) => item.asset.imageState == stateDone,
-                ),
-              ),
-              quickAction(
-                icon: Icons.error_outline_rounded,
-                label: l10n.cornerScapeSelectFailed,
-                onPressed: () => _selectWhere(
-                  currentVisible(),
-                  (item) => item.asset.imageState == stateFailed,
-                ),
-              ),
-              quickAction(
-                icon: Icons.swap_horiz_rounded,
-                label: l10n.cornerScapeInvertSelection,
-                onPressed: () => _invertSelection(currentVisible()),
-              ),
-              quickAction(
-                icon: Icons.clear_rounded,
-                label: l10n.cornerScapeClearSelection,
-                onPressed: () => setState(_selected.clear),
-              ),
-              quickAction(
-                icon: Icons.grid_view_rounded,
-                label: l10n.cornerScapeBatchPreview,
-                onPressed: () => _showBatchPreview(currentVisible()),
-              ),
-            ],
-          ),
-          const SizedBox(height: DFTokens.s20),
-          sectionLabel(l10n.cornerScapeAssetType),
-          Wrap(
-            spacing: DFTokens.s8,
-            runSpacing: DFTokens.s8,
-            children: [
-              FilterChip(
-                label: Text(l10n.cornerScapeFilterRole),
-                selected: _types.contains('role'),
-                onSelected: (_) => _toggleType('role', assets),
-              ),
-              FilterChip(
-                label: Text(l10n.cornerScapeFilterScene),
-                selected: _types.contains('scene'),
-                onSelected: (_) => _toggleType('scene', assets),
-              ),
-              FilterChip(
-                label: Text(l10n.cornerScapeFilterTool),
-                selected: _types.contains('tool'),
-                onSelected: (_) => _toggleType('tool', assets),
-              ),
-            ],
-          ),
-          const SizedBox(height: DFTokens.s20),
-          sectionLabel(l10n.cornerScapeImageModel),
-          ModelSelect(
-            kind: 'image',
-            value: _selectedModel,
-            hint: l10n.assetsGenPickModel,
-            onChanged: (option) =>
-                setState(() => _selectedModel = option?.value),
-          ),
-          const SizedBox(height: DFTokens.s16),
-          sectionLabel(l10n.cornerScapeResolution),
-          SegmentedButton<String>(
-            showSelectedIcon: false,
-            segments: const [
-              ButtonSegment(value: '1K', label: Text('1K')),
-              ButtonSegment(value: '2K', label: Text('2K')),
-              ButtonSegment(value: '4K', label: Text('4K')),
-            ],
-            selected: {_resolution},
-            onSelectionChanged: (values) =>
-                setState(() => _resolution = values.single),
-          ),
-          const SizedBox(height: DFTokens.s16),
-          TextField(
-            controller: _otherPrompt,
-            minLines: 3,
-            maxLines: 5,
-            decoration: InputDecoration(
-              labelText: l10n.cornerScapeOtherPrompt,
-              hintText: l10n.cornerScapeOtherPromptHint,
-              alignLabelWithHint: true,
+                if (compact) ...[
+                  const SizedBox(width: 12),
+                  Icon(
+                    _isMobileSettingsExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: df.textSecondary,
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: DFTokens.s16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: DFTagChip(
-              label: l10n.assetsBatchSelected(selectedCount.toString()),
-              tone: DFTagTone.primary,
-            ),
-          ),
-          const SizedBox(height: DFTokens.s12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _polishing
-                      ? null
-                      : () => _generatePrompts(currentVisible()),
+          AnimatedCrossFade(
+            crossFadeState: compact && !_isMobileSettingsExpanded
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            duration: DFTokens.fast120,
+            firstChild: const SizedBox(width: double.infinity, height: 0),
+            secondChild: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(height: compact ? DFTokens.s16 : DFTokens.s24),
+                sectionLabel(l10n.cornerScapeQuickActions),
+                Wrap(
+                  spacing: DFTokens.s8,
+                  runSpacing: DFTokens.s8,
+                  children: [
+                    quickAction(
+                      icon: Icons.done_all_rounded,
+                      label: l10n.cornerScapeSelectAll,
+                      onPressed: () => _selectWhere(currentVisible(), (_) => true),
+                    ),
+                    quickAction(
+                      icon: Icons.notes_rounded,
+                      label: l10n.cornerScapeSelectPromptEmpty,
+                      onPressed: () => _selectWhere(
+                        currentVisible(),
+                        (item) => (item.asset.prompt ?? '').trim().isEmpty,
+                      ),
+                    ),
+                    quickAction(
+                      icon: Icons.image_not_supported_outlined,
+                      label: l10n.cornerScapeSelectUngenerated,
+                      onPressed: () => _selectWhere(
+                        currentVisible(),
+                        (item) => item.asset.imageState?.isNotEmpty != true,
+                      ),
+                    ),
+                    quickAction(
+                      icon: Icons.check_circle_outline_rounded,
+                      label: l10n.cornerScapeSelectCompleted,
+                      onPressed: () => _selectWhere(
+                        currentVisible(),
+                        (item) => item.asset.imageState == stateDone,
+                      ),
+                    ),
+                    quickAction(
+                      icon: Icons.error_outline_rounded,
+                      label: l10n.cornerScapeSelectFailed,
+                      onPressed: () => _selectWhere(
+                        currentVisible(),
+                        (item) => item.asset.imageState == stateFailed,
+                      ),
+                    ),
+                    quickAction(
+                      icon: Icons.swap_horiz_rounded,
+                      label: l10n.cornerScapeInvertSelection,
+                      onPressed: () => _invertSelection(currentVisible()),
+                    ),
+                    quickAction(
+                      icon: Icons.clear_rounded,
+                      label: l10n.cornerScapeClearSelection,
+                      onPressed: () => setState(_selected.clear),
+                    ),
+                    quickAction(
+                      icon: Icons.grid_view_rounded,
+                      label: l10n.cornerScapeBatchPreview,
+                      onPressed: () => _showBatchPreview(currentVisible()),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: DFTokens.s20),
+                sectionLabel(l10n.cornerScapeAssetType),
+                Wrap(
+                  spacing: DFTokens.s8,
+                  runSpacing: DFTokens.s8,
+                  children: [
+                    FilterChip(
+                      label: Text(l10n.cornerScapeFilterRole),
+                      selected: _types.contains('role'),
+                      onSelected: (_) => _toggleType('role', assets),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      side: BorderSide.none,
+                      backgroundColor: df.surfaceMuted.withValues(alpha: 0.5),
+                      selectedColor: df.primary.withValues(alpha: 0.12),
+                      checkmarkColor: df.primary,
+                      labelStyle: TextStyle(
+                        color: _types.contains('role') ? df.primary : df.textPrimary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    FilterChip(
+                      label: Text(l10n.cornerScapeFilterScene),
+                      selected: _types.contains('scene'),
+                      onSelected: (_) => _toggleType('scene', assets),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      side: BorderSide.none,
+                      backgroundColor: df.surfaceMuted.withValues(alpha: 0.5),
+                      selectedColor: df.primary.withValues(alpha: 0.12),
+                      checkmarkColor: df.primary,
+                      labelStyle: TextStyle(
+                        color: _types.contains('scene') ? df.primary : df.textPrimary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    FilterChip(
+                      label: Text(l10n.cornerScapeFilterTool),
+                      selected: _types.contains('tool'),
+                      onSelected: (_) => _toggleType('tool', assets),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      side: BorderSide.none,
+                      backgroundColor: df.surfaceMuted.withValues(alpha: 0.5),
+                      selectedColor: df.primary.withValues(alpha: 0.12),
+                      checkmarkColor: df.primary,
+                      labelStyle: TextStyle(
+                        color: _types.contains('tool') ? df.primary : df.textPrimary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: DFTokens.s20),
+                sectionLabel(l10n.cornerScapeImageModel),
+                ModelSelect(
+                  kind: 'image',
+                  value: _selectedModel,
+                  hint: l10n.assetsGenPickModel,
+                  onChanged: (option) =>
+                      setState(() => _selectedModel = option?.value),
+                ),
+                const SizedBox(height: DFTokens.s16),
+                sectionLabel(l10n.cornerScapeResolution),
+                SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: '1K', label: Text('1K')),
+                    ButtonSegment(value: '2K', label: Text('2K')),
+                    ButtonSegment(value: '4K', label: Text('4K')),
+                  ],
+                  selected: {_resolution},
+                  onSelectionChanged: (values) =>
+                      setState(() => _resolution = values.single),
+                ),
+                const SizedBox(height: DFTokens.s16),
+                TextField(
+                  controller: _otherPrompt,
+                  minLines: 3,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    labelText: l10n.cornerScapeOtherPrompt,
+                    hintText: l10n.cornerScapeOtherPromptHint,
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: DFTokens.s16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: DFTagChip(
+                    label: l10n.assetsBatchSelected(selectedCount.toString()),
+                    tone: DFTagTone.primary,
+                  ),
+                ),
+                const SizedBox(height: DFTokens.s12),
+                // 三步按真实干活顺序竖排：先出提示词，再出图，最后配音频。
+                // 蓝色主按钮跟着 _activeStep 走，永远落在「现在该点的那一步」上。
+                _stepButton(
+                  step: 1,
+                  active: activeStep == 1,
+                  onPressed:
+                      _polishing ? null : () => _generatePrompts(currentVisible()),
                   icon: _polishing
                       ? const SizedBox(
                           width: 16,
@@ -621,36 +792,74 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.auto_fix_high_rounded, size: 17),
-                  label: Text(l10n.cornerScapeGeneratePrompts),
+                  label: l10n.cornerScapeGeneratePrompts,
                 ),
-              ),
-              const SizedBox(width: DFTokens.s8),
-              Expanded(
-                child: OutlinedButton.icon(
+                const SizedBox(height: DFTokens.s8),
+                _stepButton(
+                  step: 2,
+                  active: activeStep == 2,
+                  onPressed: _probing ? null : () => _startBatch(currentVisible()),
+                  icon: _probing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.image_outlined, size: 18),
+                  label: l10n.cornerScapeStartBatch,
+                ),
+                const SizedBox(height: DFTokens.s8),
+                _stepButton(
+                  step: 3,
+                  active: activeStep == 3,
                   onPressed: () => _matchAudio(currentVisible()),
                   icon: const Icon(Icons.graphic_eq_rounded, size: 17),
-                  label: Text(l10n.cornerScapeMatchAudio),
+                  label: l10n.cornerScapeMatchAudio,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: DFTokens.s8),
-          FilledButton.icon(
-            onPressed: () => _startBatch(currentVisible()),
-            icon: const Icon(Icons.image_outlined, size: 18),
-            label: Text(l10n.cornerScapeStartBatch),
+              ],
+            ),
           ),
         ],
       ),
     );
-    return DecoratedBox(
+    if (compact) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: df.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: content,
+        ),
+      );
+    }
+    
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 0, 16),
       decoration: BoxDecoration(
         color: df.surface,
-        border: compact
-            ? Border(bottom: BorderSide(color: df.stroke))
-            : Border(right: BorderSide(color: df.stroke)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: compact ? content : SingleChildScrollView(child: content),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SingleChildScrollView(child: content),
+      ),
     );
   }
 
@@ -1135,8 +1344,7 @@ class _AssetDetailBodyState extends ConsumerState<_AssetDetailBody> {
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    showDFToast(context, message);
   }
 
   void _savePromptOnBlur() {
@@ -1569,8 +1777,7 @@ class _AuditionButtonState extends ConsumerState<_AuditionButton> {
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    showDFToast(context, message);
   }
 
   Future<void> _stopAndReset() async {
@@ -1678,6 +1885,55 @@ class _AuditionButtonState extends ConsumerState<_AuditionButton> {
           : Icon(
               _playing ? Icons.stop_circle_outlined : Icons.play_circle_outline,
             ),
+    );
+  }
+}
+
+/// 「模型连不上」弹窗正文：说明原因，并给出「去设置」的去处。
+class _ModelUnreachableBody extends StatelessWidget {
+  final String message;
+  const _ModelUnreachableBody({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final df = context.df;
+    return Padding(
+      padding: const EdgeInsets.all(DFTokens.s16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.wifi_off_rounded, size: 20, color: df.danger),
+              const SizedBox(width: DFTokens.s8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: DFTokens.body14.copyWith(color: df.textSecondary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(l10n.commonGotIt),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(l10n.modelSelectGoSettings),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

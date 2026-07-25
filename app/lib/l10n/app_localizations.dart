@@ -1408,6 +1408,18 @@ abstract class AppLocalizations {
   /// **'请选择模式'**
   String get projectMsgSelectMode;
 
+  /// No description provided for @videoModeFirstFrame.
+  ///
+  /// In zh, this message translates to:
+  /// **'首帧图生成'**
+  String get videoModeFirstFrame;
+
+  /// No description provided for @videoModeLastFrame.
+  ///
+  /// In zh, this message translates to:
+  /// **'尾帧图生成'**
+  String get videoModeLastFrame;
+
   /// No description provided for @projectMsgDeleteDirectorManualHeader.
   ///
   /// In zh, this message translates to:
@@ -2187,6 +2199,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'去视频生产'**
   String get cornerScapeNextStepBannerButton;
+
+  /// No description provided for @agentNextStepBannerText.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧本已生成 {count} 集，可以去剧本管理里查看和修改了'**
+  String agentNextStepBannerText(String count);
+
+  /// No description provided for @agentNextStepBannerButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'去剧本管理'**
+  String get agentNextStepBannerButton;
 
   /// No description provided for @scriptSearchPlaceholder.
   ///
@@ -4687,8 +4711,26 @@ abstract class AppLocalizations {
   /// No description provided for @cornerScapeStartBatch.
   ///
   /// In zh, this message translates to:
-  /// **'开始批量生成'**
+  /// **'生成图片'**
   String get cornerScapeStartBatch;
+
+  /// No description provided for @cornerScapeModelUnreachableTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型连不上'**
+  String get cornerScapeModelUnreachableTitle;
+
+  /// No description provided for @cornerScapeModelUnreachableBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{model}」当前无法连接。请在「设置 → 供应商」中检查地址和密钥，或换用其他可用模型。'**
+  String cornerScapeModelUnreachableBody(String model);
+
+  /// No description provided for @commonGotIt.
+  ///
+  /// In zh, this message translates to:
+  /// **'知道了'**
+  String get commonGotIt;
 
   /// No description provided for @cornerScapeWaitingGeneration.
   ///

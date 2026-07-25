@@ -245,6 +245,8 @@
   "projectMsgEnterVideoModel": "Please select a video model",
   "projectMsgVisualManualDeleted": "Delete successfully",
   "projectMsgSelectMode": "Please select mode",
+  "videoModeFirstFrame": "First-frame driven",
+  "videoModeLastFrame": "Last-frame driven",
   "projectMsgDeleteDirectorManualHeader": "Delete Director's Manual",
   "projectMsgDeleteDirectorManualBody": "Are you sure you want to delete Director's Manual \"{name}\"?",
   "projectMsgDirectorManualUpdated": "Director's Manual updated",
@@ -422,6 +424,15 @@
   "scriptNextStepBannerButton": "Go bind voices",
   "cornerScapeNextStepBannerText": "Voices are bound. You can move on to production.",
   "cornerScapeNextStepBannerButton": "Go to production",
+  "agentNextStepBannerText": "{count} scripts generated. You can review and edit them in Scripts.",
+  "@agentNextStepBannerText": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "agentNextStepBannerButton": "Go to Scripts",
   "scriptSearchPlaceholder": "Search script names...",
   "scriptSearch": "Search",
   "scriptAddScript": "New Script",
@@ -933,7 +944,17 @@
   "cornerScapeOtherPromptHint": "Add style, composition, or consistency requirements",
   "cornerScapeGeneratePrompts": "Generate prompts",
   "cornerScapeMatchAudio": "AI match audio",
-  "cornerScapeStartBatch": "Start batch generation",
+  "cornerScapeStartBatch": "Generate images",
+  "cornerScapeModelUnreachableTitle": "Model unreachable",
+  "cornerScapeModelUnreachableBody": "\"{model}\" cannot be reached. Check its address and API key under Settings → Providers, or pick another model.",
+  "@cornerScapeModelUnreachableBody": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "commonGotIt": "Got it",
   "cornerScapeWaitingGeneration": "Waiting",
   "cornerScapeGenerating": "Generating",
   "cornerScapeGenerationFailed": "Generation failed",

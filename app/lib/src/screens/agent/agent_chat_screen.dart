@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../engine/assistant_chat.dart';
 import '../../engine/assistant_deploy.dart';
@@ -13,6 +14,7 @@ import '../../engine/assistant_skill_library.dart';
 import '../../engine/assistant_skills.dart';
 import '../../engine/errors.dart';
 import '../../engine/project_notes.dart';
+import '../../engine/scripts.dart';
 import '../../state/providers.dart';
 import '../../theme/theme.dart';
 import '../../theme/tokens.dart';
@@ -40,6 +42,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   final ScrollController _scroll = ScrollController();
   bool _autoMode = false;
   bool _sending = false;
+  bool _nextStepBannerDismissed = false;
 
   @override
   void initState() {
@@ -185,9 +188,59 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     ];
   }
 
+  /// 剧本生成完之后的「下一步」提示：剧本 Agent 只会回一句「已提交任务」，
+  /// 用户不知道成品去了哪里。等任务真正跑完、库里有剧本了，就在对话末尾
+  /// 挂一条指路条，直接跳去剧本管理。
+  ///
+  /// 关掉之后本次会话不再出现（`_nextStepBannerDismissed`），避免一直杵着。
+  Widget? _nextStepBanner(BuildContext context) {
+    if (_nextStepBannerDismissed) return null;
+    final engine = ref.read(engineProvider);
+    final scripts = engine.scripts(widget.projectId);
+    if (scripts.isEmpty) return null;
+    // 还在生成中就先不提示，否则用户会以为已经全部完事。
+    final stillRunning = ref
+        .watch(activeJobsProvider)
+        .any((job) => job.taskClass == 'script_generation');
+    if (stillRunning) return null;
+
+    final l10n = context.l10n;
+    final df = context.df;
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: df.primarySubtle,
+        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+        border: Border.all(color: df.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Icon(Icons.auto_awesome_rounded, size: 20, color: df.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            l10n.agentNextStepBannerText(scripts.length.toString()),
+            style: DFTokens.body14.copyWith(color: df.textPrimary),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          onPressed: () => context.go('/p/${widget.projectId}/script'),
+          child: Text(l10n.agentNextStepBannerButton),
+        ),
+        IconButton(
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          icon: const Icon(Icons.close_rounded, size: 18),
+          onPressed: () => setState(() => _nextStepBannerDismissed = true),
+        ),
+      ]),
+    );
+  }
+
   Widget _buildBody(BuildContext context, List<AssistantMessage> messages) {
     final l10n = context.l10n;
     final df = context.df;
+    final banner = _nextStepBanner(context);
     return Stack(
       children: [
         Positioned.fill(
@@ -273,6 +326,12 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // 指路条钉在输入框上方而不是塞进消息列表末尾：对话一长
+                    // 用户往回翻时就再也看不见它了。
+                    if (banner != null) ...[
+                      banner,
+                      const SizedBox(height: 12),
+                    ],
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.only(bottom: 12),
@@ -513,9 +572,16 @@ class _AssistantMessageBubble extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           constraints: BoxConstraints(maxWidth: maxBubbleWidth),
           decoration: BoxDecoration(
-            color: df.warning.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-            border: Border.all(color: df.warning.withValues(alpha: 0.5)),
+            gradient: LinearGradient(
+              colors: [
+                df.warning.withValues(alpha: 0.15),
+                df.warning.withValues(alpha: 0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: df.warning.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -574,9 +640,16 @@ class _AssistantMessageBubble extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           constraints: BoxConstraints(maxWidth: maxBubbleWidth),
           decoration: BoxDecoration(
-            color: df.primarySubtle,
-            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-            border: Border.all(color: df.primary.withValues(alpha: 0.3)),
+            gradient: LinearGradient(
+              colors: [
+                df.primary.withValues(alpha: 0.15),
+                df.primary.withValues(alpha: 0.02),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: df.primary.withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -593,8 +666,15 @@ class _AssistantMessageBubble extends StatelessWidget {
                   ),
                 ),
               ]),
-              const SizedBox(height: 4),
-              Text(message.content, style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 6),
+              Text(
+                message.content,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: df.textSecondary,
+                  height: 1.5,
+                ),
+              ),
             ],
           ),
         ),
@@ -605,11 +685,25 @@ class _AssistantMessageBubble extends StatelessWidget {
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 20),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         constraints: BoxConstraints(maxWidth: maxBubbleWidth),
         decoration: BoxDecoration(
           color: isUser ? df.primary : df.surfaceMuted,
-          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: Radius.circular(isUser ? 16 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 16),
+          ),
+          boxShadow: isUser
+              ? [
+                  BoxShadow(
+                    color: df.primary.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
         ),
         child: ExternalLinkText(
           text: _assistantDisplayText(context, message.content),

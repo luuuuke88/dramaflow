@@ -2064,6 +2064,19 @@ WHERE id=?
     return gateway.listRemoteModelIds(providerId);
   }
 
+  /// 批量生成前的「先探一下」：只确认模型地址连得上，不发生成请求、不计费。
+  /// 连不上抛 errNetwork，其余情况（含鉴权失败）一律放行，交给真实任务去报错。
+  Future<void> probeModelReachable(String providerId, String modelId) async {
+    if (gateway is! HttpProviderGateway) return;
+    final resolved = await resolveModelById(
+      db,
+      credentials,
+      providerId,
+      modelId,
+    );
+    await (gateway as HttpProviderGateway).probeReachable(resolved);
+  }
+
   Future<int> testProvider(String providerId, String modelId) async {
     final model = (await listProviderModels(providerId)).firstWhere(
       (item) => item.modelId == modelId,

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:dramaflow/src/bootstrap/bootstrap_io.dart';
 import 'package:dramaflow/src/bootstrap/startup_failure_app.dart';
+import 'package:dramaflow/src/engine/manuals.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -167,6 +168,75 @@ void main() {
     await seedBundledModelPrompts(dir.path, bundle: bundle);
     expect(target.readAsStringSync(), 'user edited template');
   });
+
+  test('自有视觉手册包的每个文件都真实存在于版本库，且键名与引擎契约一致', () {
+    // 少一个文件启动就会抛异常、整个应用起不来，所以这里逐个核对到磁盘。
+    for (final pack in kExtraSkillPacks) {
+      final root = Directory('assets/default_skills/extra/$pack');
+      expect(root.existsSync(), isTrue, reason: '$pack 目录不存在');
+      for (final key in visualManualKeys) {
+        final relative = key == 'README'
+            ? 'README.md'
+            : key == 'prefix'
+                ? 'prefix.md'
+                : key.startsWith('director_')
+                    ? 'driector_skills/$key.md'
+                    : 'art_prompt/$key.md';
+        final file = File(p.join(root.path, relative));
+        expect(file.existsSync(), isTrue, reason: '$pack 缺 $relative');
+        expect(file.readAsStringSync().trim(), isNotEmpty,
+            reason: '$pack/$relative 是空的');
+      }
+      expect(File(p.join(root.path, 'meta.json')).existsSync(), isTrue,
+          reason: '$pack 缺 meta.json');
+      expect(File(p.join(root.path, 'images', '1.png')).existsSync(), isTrue,
+          reason: '$pack 缺封面图');
+    }
+  });
+
+  test('自有视觉手册包已在 pubspec 里声明，否则打包后读不到', () {
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    for (final pack in kExtraSkillPacks) {
+      for (final dir in ['', 'art_prompt/', 'driector_skills/', 'images/']) {
+        expect(pubspec, contains('assets/default_skills/extra/$pack/$dir'),
+            reason: '$pack/$dir 未在 pubspec assets 中声明');
+      }
+    }
+  });
+
+  test('自有视觉手册包按文件补齐，不覆盖用户编辑', () async {
+    final dir = Directory.systemTemp.createTempSync('dramaflow-extra-seed-');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    final bundle = _RepoAssetBundle();
+
+    await seedBundledExtraSkills(dir.path, bundle: bundle);
+
+    final readme = File(p.join(dir.path, 'skills', 'art_skills',
+        kExtraSkillPacks.first, 'README.md'));
+    expect(readme.existsSync(), isTrue);
+    expect(readme.readAsStringSync().trim(), isNotEmpty);
+    expect(
+      File(p.join(dir.path, 'skills', 'art_skills', kExtraSkillPacks.first,
+              'images', '1.png'))
+          .existsSync(),
+      isTrue,
+    );
+
+    readme.writeAsStringSync('用户改过的说明');
+    await seedBundledExtraSkills(dir.path, bundle: bundle);
+    expect(readme.readAsStringSync(), '用户改过的说明');
+  });
+}
+
+/// 直接从版本库磁盘读取 asset，绕开 flutter test 没有真实 asset bundle 的限制。
+class _RepoAssetBundle extends CachingAssetBundle {
+  @override
+  Future<ByteData> load(String key) async {
+    final bytes = File(key).readAsBytesSync();
+    return ByteData.sublistView(bytes);
+  }
 }
 
 ArchiveFile _file(String path, String content) {

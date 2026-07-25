@@ -52,3 +52,13 @@ flutter:
     - assets/default_skills/toonflow_default_skills.zip
     - assets/default_prompts/toonflow_model_prompts.zip
     - assets/images/logo.jpg
+    # DramaFlow 自有视觉手册包（散文件随包发布，便于在版本库里审阅与改写）。
+    # Flutter 的目录声明不递归，每个子目录都要单列。
+    - assets/default_skills/extra/3D_xianxia_cultivation/
+    - assets/default_skills/extra/3D_xianxia_cultivation/art_prompt/
+    - assets/default_skills/extra/3D_xianxia_cultivation/driector_skills/
+    - assets/default_skills/extra/3D_xianxia_cultivation/images/
+    - assets/default_skills/extra/2D_dark_demonic_path/
+    - assets/default_skills/extra/2D_dark_demonic_path/art_prompt/
+    - assets/default_skills/extra/2D_dark_demonic_path/driector_skills/
+    - assets/default_skills/extra/2D_dark_demonic_path/images/

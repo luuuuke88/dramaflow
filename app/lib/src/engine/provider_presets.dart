@@ -100,14 +100,18 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://api.anthropic.com/v1',
     keyUrl: 'https://console.anthropic.com/settings/keys',
     protocol: 'anthropic',
-    sourceUrl:
-        'https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions',
+    sourceUrl: 'https://platform.claude.com/docs/en/about-claude/models/overview',
     verifiedAt:
-        '2026-07-18', // WebFetch 核实：sonnet-5/opus-4-8/haiku-4-5（官方别名）均在列，原样确认
+        '2026-07-25', // WebFetch models/overview 核实：Claude API ID 列逐行照抄。补入此前缺失的当前旗舰 claude-opus-5 与最强档 claude-fable-5；legacy 折叠区的 opus-4-7/4-6、sonnet-4-6 一并补入（仍在架）。claude-mythos-5 为邀请制不自助开通，不预置；claude-opus-4-1 已标 deprecated（2026-08-05 退役），不预置
     models: [
+      PresetModel('claude-opus-5', 'text'),
       PresetModel('claude-sonnet-5', 'text'),
-      PresetModel('claude-opus-4-8', 'text'),
+      PresetModel('claude-fable-5', 'text'),
       PresetModel('claude-haiku-4-5', 'text'),
+      PresetModel('claude-opus-4-8', 'text'),
+      PresetModel('claude-opus-4-7', 'text'),
+      PresetModel('claude-opus-4-6', 'text'),
+      PresetModel('claude-sonnet-4-6', 'text'),
     ],
   ),
   const ProviderPreset(
@@ -116,12 +120,19 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     keyUrl: 'https://aistudio.google.com/apikey',
     compatMode: true,
-    sourceUrl: 'https://ai.google.dev/gemini-api/docs/openai',
+    sourceUrl: 'https://ai.google.dev/gemini-api/docs/models',
     verifiedAt:
-        '2026-07-18', // WebFetch+WebSearch 核实：无 gemini-3-pro，改用 gemini-3.1-pro-preview（当前唯一 Gemini 3 代 Pro 档，无 GA 非 preview 变体）
+        '2026-07-25', // WebFetch 官方 models 页核实并扩充文本档。生图档（gemini-3.1-flash-image / gemini-3-pro-image / gemini-2.5-flash-image）走 generateContent 而非 OpenAI /images/generations，兼容层能否直出图未验证——按 spec §4「不通则不预置」暂不入列；veo-3.x 视频档本引擎无对应协议，同样不预置
     models: [
+      PresetModel('gemini-3.6-flash', 'text'),
       PresetModel('gemini-3.5-flash', 'text'),
+      PresetModel('gemini-3.5-flash-lite', 'text'),
       PresetModel('gemini-3.1-pro-preview', 'text'),
+      PresetModel('gemini-3.1-flash-lite', 'text'),
+      PresetModel('gemini-3-flash-preview', 'text'),
+      PresetModel('gemini-2.5-pro', 'text'),
+      PresetModel('gemini-2.5-flash', 'text'),
+      PresetModel('gemini-2.5-flash-lite', 'text'),
     ],
   ),
   const ProviderPreset(
@@ -130,10 +141,18 @@ final kProviderPresets = <ProviderPreset>[
     baseUrl: 'https://api.x.ai/v1',
     keyUrl: 'https://console.x.ai',
     compatMode: true,
-    sourceUrl: 'https://docs.x.ai/developers/models',
-    verifiedAt: '2026-07-19', // 官方 models 页当前只列 grok-4.5；其他型号由用户按自身账号可见列表手动添加
+    sourceUrl: 'https://docs.x.ai/docs/models',
+    verifiedAt:
+        '2026-07-25', // WebFetch docs.x.ai/docs/models 重新核实：官方目录已不止 grok-4.5，文本档六项照抄；生图档走 /v1/images/generations（OpenAI 同构）故一并预置；grok-imagine-video 视频档本引擎无对应协议，不预置
     models: [
       PresetModel('grok-4.5', 'text'),
+      PresetModel('grok-4.3', 'text'),
+      PresetModel('grok-4.20-0309-reasoning', 'text'),
+      PresetModel('grok-4.20-0309-non-reasoning', 'text'),
+      PresetModel('grok-4.20-multi-agent-0309', 'text'),
+      PresetModel('grok-build-0.1', 'text'),
+      PresetModel('grok-imagine-image', 'image'),
+      PresetModel('grok-imagine-image-quality', 'image'),
     ],
   ),
   const ProviderPreset(
@@ -143,11 +162,22 @@ final kProviderPresets = <ProviderPreset>[
     keyUrl: 'https://openrouter.ai/settings/keys',
     sourceUrl: 'https://openrouter.ai/models',
     verifiedAt:
-        '2026-07-18', // 页面为 JS 渲染 WebFetch 抓不到列表，改用公开 GET /api/v1/models 真实调用核实（344 个模型）：anthropic/claude-sonnet-5、openai/gpt-5.1 命中；google/gemini-3-pro 不存在，改 google/gemini-3.1-pro-preview
+        '2026-07-25', // 页面为 JS 渲染 WebFetch 抓不到列表，仍走公开 GET /api/v1/models 真实调用核实并按家族扩充。上一版预置的 openai/gpt-5.1 与 google/gemini-3.1-pro-preview 本次已不在返回里，剔除；带 ~ 前缀的 latest 别名（~anthropic/claude-fable-latest 等）非稳定 id，不预置
     models: [
+      PresetModel('anthropic/claude-opus-5', 'text'),
       PresetModel('anthropic/claude-sonnet-5', 'text'),
-      PresetModel('google/gemini-3.1-pro-preview', 'text'),
-      PresetModel('openai/gpt-5.1', 'text'),
+      PresetModel('anthropic/claude-fable-5', 'text'),
+      PresetModel('anthropic/claude-opus-4.8', 'text'),
+      PresetModel('openai/gpt-5.6-sol', 'text'),
+      PresetModel('openai/gpt-5.6-terra', 'text'),
+      PresetModel('openai/gpt-5.6-luna', 'text'),
+      PresetModel('google/gemini-3.6-flash', 'text'),
+      PresetModel('google/gemini-3.5-flash', 'text'),
+      PresetModel('x-ai/grok-4.5', 'text'),
+      PresetModel('moonshotai/kimi-k3', 'text'),
+      PresetModel('z-ai/glm-5.2', 'text'),
+      PresetModel('qwen/qwen3.7-max', 'text'),
+      PresetModel('minimax/minimax-m3', 'text'),
     ],
   ),
   const ProviderPreset(
@@ -172,7 +202,7 @@ final kProviderPresets = <ProviderPreset>[
     keyUrl: 'https://platform.deepseek.com/api_keys',
     sourceUrl: 'https://api-docs.deepseek.com',
     verifiedAt:
-        '2026-07-19', // 独立复核（任务评审要求：不参考 ToonFlow 任何文件，仅从 api-docs.deepseek.com 官方域名重新 WebFetch 正文+定价页+WebSearch 交叉核实）：deepseek-chat/deepseek-reasoner 仍将于 2026-07-24 15:59 UTC 停用（原样确认，剩5天）；deepseek-v4-flash/deepseek-v4-pro 经官方定价页确认为两个独立在架型号、非同一模型别名（v4-pro 1.6T/49B 激活参数强推理档，定价约为 v4-flash 284B/13B 激活参数档的3倍），原样保留
+        '2026-07-25', // 重新 WebFetch 官方定价页核实：deepseek-v4-flash / deepseek-v4-pro 仍为仅有的两个在架型号（各 1M 上下文，v4-pro 为强推理档）；deepseek-chat / deepseek-reasoner 的 2026-07-24 停用日已过，确认下线，不预置
     models: [
       PresetModel('deepseek-v4-flash', 'text'),
       PresetModel('deepseek-v4-pro', 'text'),
@@ -183,12 +213,19 @@ final kProviderPresets = <ProviderPreset>[
     name: 'Kimi (Moonshot)',
     baseUrl: 'https://api.moonshot.cn/v1',
     keyUrl: 'https://platform.moonshot.cn/console/api-keys',
-    sourceUrl: 'https://platform.moonshot.cn/docs',
+    sourceUrl: 'https://platform.kimi.com/docs/api/chat',
     verifiedAt:
-        '2026-07-19', // 独立复核（任务评审要求：不参考 ToonFlow 任何文件，仅从 platform.moonshot.cn/docs 重新 WebFetch，再次确认跳转至新域名 platform.kimi.com/docs+WebSearch 交叉核实）：kimi-k3（2.8万亿参数旗舰，2026-07-16 刚发布，官方文档原样在列）与 kimi-k2.6（通用次档，256K上下文，官方文档原样在列）均确认现役；kimi-latest（2026-01-28停用）、kimi-k2 系列（2026-05-25停用）交叉核实确认已下线，原样保留
+        '2026-07-25', // WebFetch platform.moonshot.cn/docs/api/chat（301 跳新域名 platform.kimi.com）核实 chat 接口现役目录并照抄扩充；kimi-latest（2026-01-28 停用）、kimi-k2 系列（2026-05-25 停用）确认已下线，不预置
     models: [
       PresetModel('kimi-k3', 'text'),
+      PresetModel('kimi-k2.7-code', 'text'),
+      PresetModel('kimi-k2.7-code-highspeed', 'text'),
       PresetModel('kimi-k2.6', 'text'),
+      PresetModel('kimi-k2.5', 'text'),
+      PresetModel('moonshot-v1-auto', 'text'),
+      PresetModel('moonshot-v1-8k', 'text'),
+      PresetModel('moonshot-v1-32k', 'text'),
+      PresetModel('moonshot-v1-128k', 'text'),
     ],
   ),
   const ProviderPreset(
@@ -196,12 +233,28 @@ final kProviderPresets = <ProviderPreset>[
     name: '智谱 GLM',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     keyUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
-    sourceUrl: 'https://docs.bigmodel.cn',
+    sourceUrl: 'https://docs.bigmodel.cn/cn/guide/start/model-overview',
     verifiedAt:
-        '2026-07-18', // WebFetch+WebSearch 核实：glm-4.6 仍在列但已非旗舰，改用当前旗舰 glm-5.2（2026-06 发布，API id 经二次搜索交叉确认）；cogview-4 原样确认仍在架
+        '2026-07-25', // WebFetch 官方 model-overview 核实并照抄扩充文本/视觉/生图三档。cogvideox-3、vidu-q1/vidu-2、cogvideox-flash 视频档本引擎无对应协议，不预置；glm-tts / glm-tts-clone 是否走 OpenAI /audio/speech 未验证，按「不通则不预置」暂缓；embedding/rerank/asr 非本应用用途
     models: [
       PresetModel('glm-5.2', 'text'),
+      PresetModel('glm-5.1', 'text'),
+      PresetModel('glm-5', 'text'),
+      PresetModel('glm-5-turbo', 'text'),
+      PresetModel('glm-4.7', 'text'),
+      PresetModel('glm-4.7-flash', 'text'),
+      PresetModel('glm-4.7-flashx', 'text'),
+      PresetModel('glm-4.6', 'text'),
+      PresetModel('glm-4.5-air', 'text'),
+      PresetModel('glm-4.5-airx', 'text'),
+      PresetModel('glm-4.5-flash', 'text'),
+      PresetModel('glm-4-long', 'text'),
+      PresetModel('glm-5v-turbo', 'text'),
+      PresetModel('glm-4.6v', 'text'),
+      PresetModel('glm-4.6v-flash', 'text'),
+      PresetModel('glm-image', 'image'),
       PresetModel('cogview-4', 'image'),
+      PresetModel('cogview-3-flash', 'image'),
     ],
   ),
   const ProviderPreset(
@@ -209,13 +262,15 @@ final kProviderPresets = <ProviderPreset>[
     name: '通义 Qwen',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     keyUrl: 'https://bailian.console.aliyun.com/?apiKey=1',
-    sourceUrl: 'https://help.aliyun.com/zh/model-studio/models',
+    sourceUrl: 'https://www.alibabacloud.com/help/en/model-studio/models',
     verifiedAt:
-        '2026-07-18', // help.aliyun.com 被 WebFetch 域名策略拦截，改用 alibabacloud.com 镜像页+WebSearch 交叉核实：qwen3-max 已被 qwen3.7-max 取代（当前旗舰），qwen-plus（评测/兼容层长青别名）原样确认仍在架
+        '2026-07-25', // help.aliyun.com 仍被 WebFetch 域名策略拦截，继续用 alibabacloud.com 镜像页核实并扩充。该页明确写出：生图档（wan2.7-image-pro、qwen-image-2.0-pro）与视频档走独立端点、不在 OpenAI 兼容接口内 —— 与既有「不通则不预置」结论一致，故本次仍只预置文本档
     models: [
       PresetModel('qwen3.7-max', 'text'),
+      PresetModel('qwen3.7-plus', 'text'),
+      PresetModel('qwen3.6-flash', 'text'),
+      PresetModel('qwen3.5-omni-plus', 'text'),
       PresetModel('qwen-plus', 'text'),
-      // 图片是否过兼容层：spec §4 要求实施时验证，不通则不预置（Task 7 验收项）
     ],
   ),
   ProviderPreset(

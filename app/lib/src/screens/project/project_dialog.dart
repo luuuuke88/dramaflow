@@ -346,7 +346,15 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
                       hint: l10n.projectMsgSelectMode,
                       items: [
                         for (final m in _videoModes)
-                          DFSelectItem(value: m, label: m),
+                          DFSelectItem(
+                            value: m,
+                            label: switch (m) {
+                              'first_frame' => l10n.videoModeFirstFrame,
+                              'last_frame' => l10n.videoModeLastFrame,
+                              // 其余模式暂无中文名，原样显示后端返回值。
+                              _ => m,
+                            },
+                          ),
                       ],
                       onChanged: (v) => setState(() => _mode = v),
                     ),

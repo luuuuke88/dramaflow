@@ -76,8 +76,14 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final compact = MediaQuery.sizeOf(context).width < 840;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(40, 36, 40, 32),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 20 : 40,
+        compact ? 20 : 36,
+        compact ? 20 : 40,
+        compact ? 120 : 32,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -178,6 +184,9 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               final projectSelect = DFSelect<int?>(
                 value: _selectedProjectId,
                 hint: l10n.taskFilterProjectAll,
+                popoverMinWidth: 0,
+                popoverMaxWidth: 130,
+
                 items: [
                   DFSelectItem<int?>(
                       value: null, label: l10n.taskFilterProjectAll),
@@ -193,6 +202,9 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               final classSelect = DFSelect<String>(
                 value:
                     classes.contains(_classFilter) ? _classFilter : _kAllFilter,
+                popoverMinWidth: 0,
+                popoverMaxWidth: 130,
+
                 items: [
                   DFSelectItem(value: _kAllFilter, label: l10n.taskFilterClassAll),
                   for (final cls in classes)
@@ -209,6 +221,9 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               );
               final stateSelect = DFSelect<String>(
                 value: _stateFilter,
+                popoverMinWidth: 0,
+                popoverMaxWidth: 130,
+
                 items: [
                   DFSelectItem(value: _kAllFilter, label: l10n.taskFilterStateAll),
                   for (final st in states)

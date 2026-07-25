@@ -703,6 +703,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get projectMsgSelectMode => 'モードを選択してください';
 
   @override
+  String get videoModeFirstFrame => '先頭フレーム生成';
+
+  @override
+  String get videoModeLastFrame => '最終フレーム生成';
+
+  @override
   String get projectMsgDeleteDirectorManualHeader => 'ディレクターズマニュアルの削除';
 
   @override
@@ -1116,6 +1122,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cornerScapeNextStepBannerButton => '映像制作へ';
+
+  @override
+  String agentNextStepBannerText(String count) {
+    return '脚本を $count 話生成しました。脚本管理で確認・修正できます';
+  }
+
+  @override
+  String get agentNextStepBannerButton => '脚本管理へ';
 
   @override
   String get scriptSearchPlaceholder => 'シナリオ名を検索...';
@@ -2422,7 +2436,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cornerScapeMatchAudio => 'AI音声マッチング';
 
   @override
-  String get cornerScapeStartBatch => '一括生成を開始';
+  String get cornerScapeStartBatch => '画像を生成';
+
+  @override
+  String get cornerScapeModelUnreachableTitle => 'モデルに接続できません';
+
+  @override
+  String cornerScapeModelUnreachableBody(String model) {
+    return '「$model」に接続できません。「設定 → プロバイダ」でアドレスとAPIキーを確認するか、他のモデルを選んでください。';
+  }
+
+  @override
+  String get commonGotIt => 'OK';
 
   @override
   String get cornerScapeWaitingGeneration => '生成待ち';

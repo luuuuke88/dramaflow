@@ -8,6 +8,7 @@ import 'package:dramaflow/src/engine/db.dart';
 import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/provider_presets.dart';
 import 'package:dramaflow/src/engine/providers/resolve.dart';
 import 'package:dramaflow/src/screens/settings_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
@@ -146,6 +147,17 @@ void main() {
 
     await _selectSection(tester, '供应商');
     await tester.tap(find.text('添加供应商').first);
+    await tester.pumpAndSettle();
+    // 现在先进预设画廊，走「自定义」才回到全手填的空白表。
+    expect(find.text('选择供应商'), findsOneWidget);
+    // 自定义卡排在 13 张预设卡之后，窄屏要滚到底才看得见。
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('preset-card-custom')),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('preset-card-custom')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Local Gateway');
     await tester.enterText(
@@ -826,6 +838,38 @@ void main() {
     await tester.tap(find.text('花钱操作需确认'));
     await tester.pumpAndSettle();
     expect(engine.config.str('policy.confirmMoney'), '1');
+  });
+
+  testWidgets('「添加供应商」通往预设画廊，内置目录在界面上真的够得着', (tester) async {
+    // 回归防线：画廊和预填表单曾经写完却没接到任何按钮上，内置的 13 家供应商
+    // 因此在界面里完全不可见。这里锁住「点添加 → 看得到预设 → 选中能进预填表」。
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await _selectSection(tester, '供应商');
+    await tester.tap(find.text('添加供应商').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择供应商'), findsOneWidget);
+    // 网格按需构建，只断言首屏这几家确实上架了；目录完整性由
+    // provider_presets_test.dart 单独把关。
+    for (final id in ['openai', 'anthropic', 'gemini']) {
+      expect(find.byKey(Key('preset-card-$id')), findsOneWidget,
+          reason: '$id 没出现在画廊里');
+    }
+
+    await tester.tap(find.byKey(const Key('preset-card-anthropic')));
+    await tester.pumpAndSettle();
+
+    // 预填表把地址和模型清单都带出来了，用户只需要填密钥。
+    expect(find.byKey(const Key('preset-form-apikey')), findsOneWidget);
+    for (final model in providerPresetById('anthropic')!.models) {
+      expect(find.byKey(Key('preset-model-${model.modelId}')), findsOneWidget,
+          reason: '${model.modelId} 没出现在预填表里');
+    }
   });
 }
 

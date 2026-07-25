@@ -81,6 +81,7 @@ Future<Widget> buildDramaFlowApp({
     }
     await verifyDataDirectoryWritable(dataDir);
     await seedBundledDefaultSkills(dataDir, bundle: bundle);
+    await seedBundledExtraSkills(dataDir, bundle: bundle);
     await seedBundledModelPrompts(dataDir, bundle: bundle);
     final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
     final videoComposer =
@@ -120,6 +121,48 @@ Future<void> seedBundledDefaultSkills(
         parts.length >= 3 &&
         (parts[1] == 'art_skills' || parts[1] == 'story_skills'),
   );
+}
+
+/// DramaFlow 自有的视觉手册包（非 ToonFlow 内容），以散文件而非 zip 随包发布，
+/// 便于在版本库里直接审阅与改写。
+///
+/// 与 [seedBundledDefaultSkills] 同样只在本地文件缺失时写入，用户改过的内容
+/// 永远不会被应用更新覆盖。
+const kExtraSkillPacks = ['3D_xianxia_cultivation', '2D_dark_demonic_path'];
+
+const _extraSkillFiles = [
+  'meta.json',
+  'README.md',
+  'prefix.md',
+  'art_prompt/art_character.md',
+  'art_prompt/art_character_derivative.md',
+  'art_prompt/art_scene.md',
+  'art_prompt/art_scene_derivative.md',
+  'art_prompt/art_prop.md',
+  'art_prompt/art_prop_derivative.md',
+  'art_prompt/art_storyboard_video.md',
+  'driector_skills/director_planning_style.md',
+  'driector_skills/director_storyboard_table_style.md',
+  'driector_skills/director_storyboard.md',
+  'images/1.png',
+];
+
+Future<void> seedBundledExtraSkills(
+  String dataDir, {
+  AssetBundle? bundle,
+}) async {
+  final assetBundle = bundle ?? rootBundle;
+  for (final pack in kExtraSkillPacks) {
+    for (final relative in _extraSkillFiles) {
+      final target =
+          File(p.join(dataDir, 'skills', 'art_skills', pack, relative));
+      if (target.existsSync()) continue;
+      final data = await assetBundle
+          .load('assets/default_skills/extra/$pack/$relative');
+      target.parent.createSync(recursive: true);
+      target.writeAsBytesSync(_byteDataToList(data));
+    }
+  }
 }
 
 /// Copy bundled model prompt templates when their local files are absent.

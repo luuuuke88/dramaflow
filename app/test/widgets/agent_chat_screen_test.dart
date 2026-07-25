@@ -14,6 +14,7 @@ import 'package:dramaflow/src/engine/engine.dart';
 import 'package:dramaflow/src/engine/media.dart';
 import 'package:dramaflow/src/engine/project_notes.dart';
 import 'package:dramaflow/src/engine/providers/gateway.dart';
+import 'package:dramaflow/src/engine/scripts.dart';
 import 'package:dramaflow/src/screens/agent/agent_chat_screen.dart';
 import 'package:dramaflow/src/state/providers.dart';
 import 'package:dramaflow/src/theme/theme.dart';
@@ -708,5 +709,25 @@ description: 移动端构图
     expect(find.byIcon(Icons.bolt), findsNothing);
     // 应该展示 errLlmFormat 对应的本地化通用文案。
     expect(find.text('模型输出格式无效'), findsOneWidget);
+  });
+
+  testWidgets('剧本生成完之后在输入框上方给出去剧本管理的指路条，可关闭', (tester) async {
+    // 库里没剧本时不该出现——否则一进页面就催人去看空列表。
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.textContaining('可以去剧本管理'), findsNothing);
+
+    engine.addScript(projectId: projectId, name: '第一集', content: '正文');
+    engine.addScript(projectId: projectId, name: '第二集', content: '正文');
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.text('剧本已生成 2 集，可以去剧本管理里查看和修改了'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '去剧本管理'), findsOneWidget);
+
+    // 关掉之后本次会话不再出现。
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('可以去剧本管理'), findsNothing);
   });
 }

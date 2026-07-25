@@ -720,6 +720,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get projectMsgSelectMode => 'Please select mode';
 
   @override
+  String get videoModeFirstFrame => 'First-frame driven';
+
+  @override
+  String get videoModeLastFrame => 'Last-frame driven';
+
+  @override
   String get projectMsgDeleteDirectorManualHeader =>
       'Delete Director\'s Manual';
 
@@ -1147,6 +1153,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cornerScapeNextStepBannerButton => 'Go to production';
+
+  @override
+  String agentNextStepBannerText(String count) {
+    return '$count scripts generated. You can review and edit them in Scripts.';
+  }
+
+  @override
+  String get agentNextStepBannerButton => 'Go to Scripts';
 
   @override
   String get scriptSearchPlaceholder => 'Search script names...';
@@ -2485,7 +2499,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cornerScapeMatchAudio => 'AI match audio';
 
   @override
-  String get cornerScapeStartBatch => 'Start batch generation';
+  String get cornerScapeStartBatch => 'Generate images';
+
+  @override
+  String get cornerScapeModelUnreachableTitle => 'Model unreachable';
+
+  @override
+  String cornerScapeModelUnreachableBody(String model) {
+    return '\"$model\" cannot be reached. Check its address and API key under Settings → Providers, or pick another model.';
+  }
+
+  @override
+  String get commonGotIt => 'Got it';
 
   @override
   String get cornerScapeWaitingGeneration => 'Waiting';

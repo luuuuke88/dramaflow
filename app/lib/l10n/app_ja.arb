@@ -245,6 +245,8 @@
   "projectMsgEnterVideoModel": "ビデオモデルを選択してください",
   "projectMsgVisualManualDeleted": "正常に削除されました",
   "projectMsgSelectMode": "モードを選択してください",
+  "videoModeFirstFrame": "先頭フレーム生成",
+  "videoModeLastFrame": "最終フレーム生成",
   "projectMsgDeleteDirectorManualHeader": "ディレクターズマニュアルの削除",
   "projectMsgDeleteDirectorManualBody": "ディレクターズマニュアル「{name}」を削除してもよろしいですか?",
   "projectMsgDirectorManualUpdated": "ディレクターズマニュアルを更新しました",
@@ -389,6 +391,15 @@
   "scriptNextStepBannerButton": "配音の割り当てへ",
   "cornerScapeNextStepBannerText": "配音の割り当てが完了しました。映像制作に進めます",
   "cornerScapeNextStepBannerButton": "映像制作へ",
+  "agentNextStepBannerText": "脚本を {count} 話生成しました。脚本管理で確認・修正できます",
+  "@agentNextStepBannerText": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "agentNextStepBannerButton": "脚本管理へ",
   "scriptSearchPlaceholder": "シナリオ名を検索...",
   "scriptSearch": "検索",
   "scriptAddScript": "シナリオを新規作成",
@@ -900,7 +911,17 @@
   "cornerScapeOtherPromptHint": "画風、構図、一貫性の要件を追加",
   "cornerScapeGeneratePrompts": "プロンプト生成",
   "cornerScapeMatchAudio": "AI音声マッチング",
-  "cornerScapeStartBatch": "一括生成を開始",
+  "cornerScapeStartBatch": "画像を生成",
+  "cornerScapeModelUnreachableTitle": "モデルに接続できません",
+  "cornerScapeModelUnreachableBody": "「{model}」に接続できません。「設定 → プロバイダ」でアドレスとAPIキーを確認するか、他のモデルを選んでください。",
+  "@cornerScapeModelUnreachableBody": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "commonGotIt": "OK",
   "cornerScapeWaitingGeneration": "生成待ち",
   "cornerScapeGenerating": "生成中",
   "cornerScapeGenerationFailed": "生成失敗",
