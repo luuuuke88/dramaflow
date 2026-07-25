@@ -24,6 +24,8 @@ import '../../util/storyboard_contact_sheet.dart';
 import '../../widgets/policy_confirm.dart';
 import 'image_flow_editor.dart';
 import 'storyboard_gallery.dart';
+import '../../widgets/df_canvas.dart';
+import '../../widgets/df_toast.dart';
 
 const _tagColors = [
   0xFF5BCCB3,
@@ -52,7 +54,7 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
   double _cellSize = 150;
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _generateStoryboard() async {
@@ -475,14 +477,116 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
             )
             .stale;
 
+    // 拆解按钮：无分镜时是主动作（蓝色）；已有分镜后主角换成「生成图片」，
+    // 它退居描边样式并改叫「重新拆分镜头」——它重做的是镜头拆解（会替换
+    // S01…Sxx），卡片上的「未生成」说的是每个镜头的画面，两回事。
+    final splitButton = Tooltip(
+      message: l10n.storyboardGenerateTooltip,
+      child: rows.isEmpty
+          ? FilledButton.icon(
+              key: Key('storyboard-generate-${widget.scriptId}'),
+              onPressed: hasPlan && hasTable ? _generateStoryboard : null,
+              icon: const Icon(Icons.auto_awesome, size: 14),
+              label: Text(l10n.productionStoryboardGenerate,
+                  style: const TextStyle(fontSize: 12)),
+            )
+          : OutlinedButton.icon(
+              key: Key('storyboard-generate-${widget.scriptId}'),
+              onPressed: hasPlan && hasTable ? _generateStoryboard : null,
+              icon: const Icon(Icons.auto_awesome, size: 14),
+              label: Text(l10n.productionStoryboardRegenerate,
+                  style: const TextStyle(fontSize: 12)),
+            ),
+    );
+
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // 单行工具栏：主动作在左、选择组居中、全局操作在右，缩放钉在行尾。
+      // 之前是「标题+缩放」一行、按钮再挤两行，样式还混着链接和描边。
       Padding(
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
-        child: Row(children: [
-          Text(l10n.productionNodeStoryboardTitle,
-              style:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          const Spacer(),
+        padding: const EdgeInsets.fromLTRB(10, 8, 6, 4),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (rows.isNotEmpty)
+                  FilledButton.icon(
+                    key: Key('storyboard-batch-image-${widget.scriptId}'),
+                    onPressed: _selected.isEmpty ? null : _batchGenerateImages,
+                    icon: const Icon(Icons.image_outlined, size: 14),
+                    label: Text(
+                      l10n.productionStoryboardBatchGenerateImage,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                splitButton,
+                if (stale)
+                  Tooltip(
+                    message: l10n.productionNeedsRegeneration,
+                    child: Container(
+                      key: Key('storyboard-stale-${widget.scriptId}'),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: df.warning.withValues(alpha: .12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        l10n.productionStale,
+                        style: TextStyle(fontSize: 11, color: df.warning),
+                      ),
+                    ),
+                  ),
+                if (rows.isNotEmpty) ...[
+                  const SizedBox(width: 2),
+                  Text(
+                    l10n.productionStoryboardSelectedCount(
+                        '${_selected.length}'),
+                    style: TextStyle(fontSize: 11, color: df.textSecondary),
+                  ),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact),
+                    onPressed: () => setState(() => _selected
+                      ..clear()
+                      ..addAll(rows.map((r) => r.id))),
+                    child: Text(l10n.productionStoryboardSelectAll,
+                        style: const TextStyle(fontSize: 12)),
+                  ),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact),
+                    onPressed:
+                        _selected.isEmpty ? null : () => setState(_selected.clear),
+                    child: Text(l10n.productionStoryboardClearSelection,
+                        style: const TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (rows.isNotEmpty) ...[
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: l10n.storyboardPreviewAll,
+              icon: const Icon(Icons.photo_library_outlined, size: 16),
+              onPressed: _previewAll,
+            ),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: l10n.storyboardExportAll,
+              icon: const Icon(Icons.download_outlined, size: 16),
+              onPressed: _downloadAll,
+            ),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: l10n.assetsBatchDelete,
+              icon: Icon(Icons.delete_outline, size: 16, color: df.danger),
+              onPressed: _selected.isEmpty ? null : _batchDelete,
+            ),
+          ],
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.zoom_out, size: 16),
@@ -497,85 +601,11 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
           ),
         ]),
       ),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        child: Wrap(spacing: 6, runSpacing: 6, children: [
-          Tooltip(
-            message: l10n.storyboardGenerateTooltip,
-            child: FilledButton.icon(
-              key: Key('storyboard-generate-${widget.scriptId}'),
-              onPressed: hasPlan && hasTable ? _generateStoryboard : null,
-              icon: const Icon(Icons.auto_awesome, size: 14),
-              label: Text(
-                rows.isEmpty
-                    ? l10n.productionStoryboardGenerate
-                    : l10n.productionStoryboardRegenerate,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          ),
-          if (stale)
-            Tooltip(
-              message: l10n.productionNeedsRegeneration,
-              child: Container(
-                key: Key('storyboard-stale-${widget.scriptId}'),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: df.warning.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  l10n.productionStale,
-                  style: TextStyle(fontSize: 11, color: df.warning),
-                ),
-              ),
-            ),
-          if (rows.isNotEmpty) ...[
-            Text(l10n.productionStoryboardSelectedCount('${_selected.length}'),
-                style: TextStyle(fontSize: 11, color: df.textSecondary)),
-            TextButton(
-              onPressed: () => setState(() => _selected
-                ..clear()
-                ..addAll(rows.map((r) => r.id))),
-              child: Text(l10n.productionStoryboardSelectAll,
-                  style: const TextStyle(fontSize: 12)),
-            ),
-            TextButton(
-              onPressed: () => setState(() => _selected.clear()),
-              child: Text(l10n.productionStoryboardClearSelection,
-                  style: const TextStyle(fontSize: 12)),
-            ),
-            OutlinedButton(
-              onPressed: _selected.isEmpty ? null : _batchGenerateImages,
-              child: Text(l10n.productionStoryboardBatchGenerateImage,
-                  style: const TextStyle(fontSize: 12)),
-            ),
-            OutlinedButton(
-              onPressed: _selected.isEmpty ? null : _batchDelete,
-              style: OutlinedButton.styleFrom(foregroundColor: df.danger),
-              child: Text(l10n.assetsBatchDelete,
-                  style: const TextStyle(fontSize: 12)),
-            ),
-            OutlinedButton.icon(
-              onPressed: _previewAll,
-              icon: const Icon(Icons.photo_library_outlined, size: 14),
-              label: Text(l10n.storyboardPreviewAll,
-                  style: const TextStyle(fontSize: 12)),
-            ),
-            OutlinedButton.icon(
-              onPressed: _downloadAll,
-              icon: const Icon(Icons.download_outlined, size: 14),
-              label: Text(l10n.storyboardExportAll,
-                  style: const TextStyle(fontSize: 12)),
-            ),
-          ],
-        ]),
-      ),
       const SizedBox(height: 6),
       Expanded(
         child: rows.isEmpty
             ? const SizedBox.shrink()
-            : SingleChildScrollView(
+            : DFCanvasScrollRegion(child: SingleChildScrollView(
                 padding: const EdgeInsets.all(10),
                 child: Wrap(
                   spacing: 8,
@@ -590,7 +620,7 @@ class _StoryboardCanvasNodeState extends ConsumerState<StoryboardCanvasNode> {
                   ],
                 ),
               ),
-      ),
+      )),
     ]);
   }
 

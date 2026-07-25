@@ -97,7 +97,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '现在进度如何');
-    await tester.tap(find.text('发送'));
+    await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
 
     expect(find.text('现在进度如何'), findsOneWidget);
@@ -116,7 +116,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '查看镜头说明');
-    await tester.tap(find.text('发送'));
+    await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
 
     expect(
@@ -136,7 +136,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '生成事件');
-    await tester.tap(find.text('发送'));
+    await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('需要确认'), findsOneWidget);
@@ -164,7 +164,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '测试错误');
-    await tester.tap(find.text('发送'));
+    await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
 
     expect(find.text('网络请求失败'), findsOneWidget);
@@ -174,7 +174,7 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '你好');
-    await tester.tap(find.text('发送'));
+    await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
     expect(
       engine.assistantMessages(projectId, family: assistantFamilyProduction),

@@ -13,6 +13,7 @@ import '../../theme/theme.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 Future<bool?> showAddAssetDialog(BuildContext context, WidgetRef ref,
     {required int projectId, required String type, AssetRow? existing}) {
@@ -68,7 +69,7 @@ class _AddAssetBodyState extends State<_AddAssetBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _pickClip() async {

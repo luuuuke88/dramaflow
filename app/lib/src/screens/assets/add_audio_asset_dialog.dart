@@ -16,6 +16,7 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/desktop_drop_file.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 const _audioFileExtensions = <String>[
   'mp3',
@@ -112,7 +113,7 @@ class _AddAudioBodyState extends State<_AddAudioBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _pickAudio(_AudioItemDraft item) async {

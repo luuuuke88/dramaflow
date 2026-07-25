@@ -1389,6 +1389,97 @@ void main() {
     expect(gateway.referenceCalls, hasLength(2),
         reason: 'childB 的生成请求应该被正常发出，不能因 childA 被删除而跳过');
   });
+
+  test('列表排序在 SQL 里做，翻页后顺序依然正确', () async {
+    // 按添加顺序建：乙(无提示词/无图) → 甲(有提示词/已完成) → 丙(有提示词/失败)
+    engine.addAsset(
+        projectId: projectId, type: 'role', name: 'B乙', describe: '');
+    final a = engine.addAsset(
+        projectId: projectId, type: 'role', name: 'A甲', describe: '', prompt: '提示');
+    final c = engine.addAsset(
+        projectId: projectId, type: 'role', name: 'C丙', describe: '', prompt: '提示');
+    void setState(int id, String state) {
+      engine.db.execute(
+          'INSERT INTO o_image (assetsId,type,state) VALUES (?,?,?)',
+          [id, 'role', state]);
+      engine.db.execute('UPDATE o_assets SET imageId=? WHERE id=?',
+          [engine.db.lastInsertRowId, id]);
+    }
+    setState(a, stateDone);
+    setState(c, stateFailed);
+
+    List<String> namesOf({String? sort, bool desc = false, int limit = 10}) => [
+          for (final row in engine
+              .getAssets(projectId,
+                  type: 'role', limit: limit, sort: sort, descending: desc)
+              .data)
+            row.name ?? '',
+        ];
+
+    // 默认＝添加顺序
+    expect(namesOf(), ['B乙', 'A甲', 'C丙']);
+    // 名称
+    expect(namesOf(sort: 'name'), ['A甲', 'B乙', 'C丙']);
+    expect(namesOf(sort: 'name', desc: true), ['C丙', 'B乙', 'A甲']);
+    // 状态升序＝还没做完的排前面（未生成 → 失败 → 已完成）
+    expect(namesOf(sort: 'status'), ['B乙', 'C丙', 'A甲']);
+    // 提示词升序＝缺提示词的排前面
+    expect(namesOf(sort: 'prompt').first, 'B乙');
+    // 最近生成＝选中图 id 大的在前；没出过图的垫底
+    expect(namesOf(sort: 'generated', desc: true), ['C丙', 'A甲', 'B乙']);
+
+    // 关键：分页时排序必须整体生效，而不是只排当前这一页。
+    // 按名称降序取第 1 页 1 条，必须是全表最大的 C丙，不能是「首页里最大的」。
+    expect(namesOf(sort: 'name', desc: true, limit: 1), ['C丙']);
+    final page2 = engine
+        .getAssets(projectId,
+            type: 'role', page: 2, limit: 1, sort: 'name', descending: true)
+        .data;
+    expect(page2.single.name, 'B乙');
+  });
+
+  test('批量生图默认并发出图，不再一张出完才发下一张', () async {
+    // 回归防线：默认并发数曾是 1，十几个资产只能排队逐张生成，肉眼可见地慢。
+    final assetIds = [
+      for (var i = 0; i < 4; i++)
+        engine.addAsset(
+          projectId: projectId,
+          type: 'role',
+          name: '并发角色$i',
+          describe: '并发测试',
+          prompt: '提示词$i',
+        ),
+    ];
+
+    // 所有生成请求都挂起不返回：能同时挂起几个，就说明实际并发是几。
+    var inFlight = 0;
+    var peakInFlight = 0;
+    final release = Completer<void>();
+    final allStarted = Completer<void>();
+    gateway.imageFutureHandler = (_, __) async {
+      inFlight++;
+      if (inFlight > peakInFlight) peakInFlight = inFlight;
+      if (peakInFlight >= assetIds.length && !allStarted.isCompleted) {
+        allStarted.complete();
+      }
+      await release.future;
+      inFlight--;
+      return 'p/parallel.png';
+    };
+
+    engine.generateAssetImages(
+      projectId,
+      [for (final id in assetIds) (assetsId: id, refImageBase64: null)],
+    );
+
+    await allStarted.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => throw StateError(
+          '4 个资产没能同时开工，实际最高并发只有 $peakInFlight —— 批量生图退回了串行'),
+    );
+    expect(peakInFlight, assetIds.length);
+    release.complete();
+  });
 }
 
 class _Gateway implements ProviderGateway {

@@ -20,6 +20,7 @@ import '../../widgets/desktop_drop_file.dart';
 import '../../widgets/asset_image_preview.dart';
 import '../../widgets/policy_confirm.dart';
 import '../project/model_select.dart';
+import '../../widgets/df_toast.dart';
 
 const _imageFileExtensions = <String>[
   'png',
@@ -91,7 +92,7 @@ class _GenerateImageBodyState extends ConsumerState<_GenerateImageBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _pickRef() async {

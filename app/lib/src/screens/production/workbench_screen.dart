@@ -28,9 +28,10 @@ import '../../widgets/common.dart';
 import '../script/asset_picker.dart';
 import 'video_request_dialog.dart';
 import 'workbench_preview.dart';
+import '../../widgets/df_toast.dart';
 
 void _showWorkbenchSnackBar(BuildContext context, String msg) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  showDFToast(context, msg);
 }
 
 /// 保留工作台既有公开入口，统一委托给跨资产/工作台复用的本地媒体预览器。

@@ -9,6 +9,7 @@ import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../script/asset_picker.dart';
 import 'storyboard_image_picker.dart';
+import '../../widgets/df_toast.dart';
 
 Future<VideoRequestDraft?> showVideoRequestDialog(
   BuildContext context, {
@@ -495,9 +496,7 @@ class _VideoRequestDialogState extends State<_VideoRequestDialog> {
     // 不出候选，此前会被静默丢弃、零提示；现在必须明确告知用户，不能让"确认"
     // 看起来生效却什么也没发生。
     if (picked.length < expectedCount) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.videoRequestAssetUnavailable)),
-      );
+      showDFToast(context, context.l10n.videoRequestAssetUnavailable);
     }
     if (picked.isEmpty) return;
     setState(() {

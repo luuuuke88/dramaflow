@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
+import 'package:dramaflow/src/widgets/df_toast.dart';
 
 const _pngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAF/gL+6fD6nwAAAABJRU5ErkJggg==';
@@ -363,7 +364,7 @@ void main() {
 
     expect(
       find.descendant(
-        of: find.byType(SnackBar),
+        of: find.byKey(dfToastKey),
         matching: find.text('请选择模型'),
       ),
       findsOneWidget,

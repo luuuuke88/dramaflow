@@ -23,6 +23,7 @@ import '../../widgets/policy_confirm.dart';
 import 'edit_novel_dialog.dart';
 import 'event_tab.dart';
 import 'import_novel_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 const _previewMaxLength = 80;
 
@@ -42,7 +43,7 @@ class _NovelScreenState extends ConsumerState<NovelScreen> {
   bool _nextStepBannerDismissed = false;
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   List<int> get _selectedIds => _selected.map(int.parse).toList();

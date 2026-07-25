@@ -15,6 +15,7 @@ import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 /// 打开画风库管理器。返回 true 表示库有变更（供调用方刷新）。
 Future<bool?> showArtStyleLibrary(BuildContext context, WidgetRef ref) {
@@ -49,7 +50,7 @@ class _ArtStyleLibraryBodyState extends State<_ArtStyleLibraryBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _openEditor({ArtStyleRow? existing}) async {
@@ -289,7 +290,7 @@ class _ArtStyleEditorState extends State<_ArtStyleEditor> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _pickCover() async {

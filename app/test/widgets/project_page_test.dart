@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
+import '../support/toast_finders.dart';
 
 class _NoopGateway implements ProviderGateway {
   @override
@@ -287,7 +288,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pump();
-    expect(find.widgetWithText(SnackBar, '请输入项目名称'), findsOneWidget);
+    expect(findDFToastWithText('请输入项目名称'), findsOneWidget);
     expect(find.text('项目类型'), findsWidgets,
         reason: '校验失败必须留在项目向导，而不是静默关闭');
   });
@@ -308,7 +309,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pump();
 
-    expect(find.widgetWithText(SnackBar, '请选择项目视觉手册'), findsOneWidget);
+    expect(findDFToastWithText('请选择项目视觉手册'), findsOneWidget);
     expect(engine.projects(), isEmpty);
     expect(find.text('项目类型'), findsWidgets, reason: '校验失败必须留在项目向导，而不是静默关闭');
   });
@@ -469,7 +470,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pump();
-    expect(find.widgetWithText(SnackBar, '请选择项目视觉手册'), findsOneWidget);
+    expect(findDFToastWithText('请选择项目视觉手册'), findsOneWidget);
     expect(engine.projects(), isEmpty);
     // 等提示条消失，避免它盖住底部按钮：先放完入场动画（停留计时才开始），
     // 再快进过停留时长，最后放完退场动画。
@@ -486,7 +487,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pump();
-    expect(find.widgetWithText(SnackBar, '请选择项目导演手册'), findsOneWidget);
+    expect(findDFToastWithText('请选择项目导演手册'), findsOneWidget);
     expect(engine.projects(), isEmpty);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 5));

@@ -6,6 +6,7 @@ import '../../state/providers.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 Future<bool?> showAddTtsAudioDialog(
   BuildContext context,
@@ -48,7 +49,7 @@ class _AddTtsAudioBodyState extends State<_AddTtsAudioBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _save() async {

@@ -472,8 +472,7 @@ void main() {
   // 描述的真实触控板路径。下面两个测试改用 panZoomStart/panZoomUpdate(pan:
   // ...)/panZoomEnd()——SDK 同一份源码明确要求用这组 API 模拟真实触控板输入，
   // 对 trackpad kind 的指针调用 .down()/.scroll() 会直接触发断言失败。
-  testWidgets(
-      'DFCanvas zoom mode lets trackpad scrolling zoom around its focal point',
+  testWidgets('触控板双指一律平移，捏合才缩放（Figma 约定，不再受滚轮模式影响）',
       (tester) async {
     await setLogicalSize(tester, const Size(900, 600));
     final controller = TransformationController();
@@ -485,6 +484,9 @@ void main() {
         controller: controller,
         fitOnInit: false,
         nodes: const [],
+        // 即便处在「滚轮=缩放」模式，触控板双指也必须是平移：
+        // 双指既要能上下也要能左右移动画布，这是之前最难用的一点。
+        wheelMode: CanvasWheelMode.zoom,
       ),
     )));
 
@@ -492,14 +494,30 @@ void main() {
     final pointer = TestPointer(1, PointerDeviceKind.trackpad);
     await tester.sendEventToBinding(pointer.panZoomStart(focalPoint));
     await tester.sendEventToBinding(
-        pointer.panZoomUpdate(focalPoint, pan: const Offset(0, 100)));
+        pointer.panZoomUpdate(focalPoint, pan: const Offset(40, 100)));
     await tester.sendEventToBinding(pointer.panZoomEnd());
     await tester.pump();
 
-    expect(controller.value.storage[0], closeTo(0.6065, 0.001));
-    expect(controller.value.storage[5], closeTo(0.6065, 0.001));
-    expect(controller.toScene(focalPoint).dx, closeTo(focalPoint.dx, 0.1));
-    expect(controller.toScene(focalPoint).dy, closeTo(focalPoint.dy, 0.1));
+    expect(controller.value.storage[0], closeTo(1, 0.001),
+        reason: '双指平移不该改变缩放');
+    expect(controller.value.storage[12], closeTo(40, 0.5));
+    expect(controller.value.storage[13], closeTo(100, 0.5));
+
+    // 捏合才是缩放，并且锚在捏合中心。
+    controller.value = Matrix4.identity();
+    final sceneBefore = controller.toScene(focalPoint);
+    final pinch = TestPointer(2, PointerDeviceKind.trackpad);
+    await tester.sendEventToBinding(pinch.panZoomStart(focalPoint));
+    await tester.sendEventToBinding(
+        pinch.panZoomUpdate(focalPoint, scale: 2.0));
+    await tester.sendEventToBinding(pinch.panZoomEnd());
+    await tester.pump();
+
+    expect(controller.value.storage[0], closeTo(2, 0.01), reason: '捏合应当缩放');
+    final sceneAfter = controller.toScene(focalPoint);
+    expect(sceneAfter.dx, closeTo(sceneBefore.dx, 0.5),
+        reason: '捏合缩放必须锚在手指中心');
+    expect(sceneAfter.dy, closeTo(sceneBefore.dy, 0.5));
   });
 
   testWidgets('DFCanvas scroll mode pans mouse and trackpad signals',
@@ -1273,5 +1291,147 @@ void main() {
     await tester.pump();
 
     expect(controller.value.storage[0], lessThan(1));
+  });
+
+  testWidgets('DFCanvas 背景网格跟着视口走，且极端缩放下不会画爆', (tester) async {
+    final controller = TransformationController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(nodes: const [], controller: controller, fitOnInit: false),
+    )));
+
+    // 网格必须存在，而且不能吃掉手势——它只是参照物。
+    final grid = find.byKey(const ValueKey('df-canvas-grid'));
+    expect(grid, findsOneWidget);
+    expect(
+      find.ancestor(
+        of: grid,
+        matching: find.byWidgetPredicate(
+            (w) => w is IgnorePointer && w.ignoring),
+      ),
+      findsWidgets,
+      reason: '网格必须被 IgnorePointer 包住，否则会抢走画布的平移缩放手势',
+    );
+
+    // 缩到最小和放到最大都要能安全绘制：间距自适应逻辑若写错，
+    // 这里会因为循环画几十万个点而超时或抛异常。
+    for (final scale in [0.1, 0.5, 1.0, 4.0, 10.0]) {
+      controller.value = Matrix4.identity()
+        ..scaleByDouble(scale, scale, scale, 1)
+        ..translateByDouble(-3000, -2000, 0, 1);
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: '缩放 $scale 时网格绘制不应出错');
+    }
+  });
+
+  testWidgets('画布输入按 Figma 约定：滚轮平移、⌘滚轮定点缩放、Shift 横向平移', (tester) async {
+    final controller = TransformationController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        nodes: const [],
+        // 默认模式下裸滚轮就该是平移，而不是逼用户先去切开关。
+        wheelMode: CanvasWheelMode.scroll,
+      ),
+    )));
+
+    final pointer = TestPointer(1, PointerDeviceKind.mouse);
+    const focalPoint = Offset(450, 300);
+    pointer.hover(focalPoint);
+
+    // 1) 裸滚轮 = 平移，横竖都跟随
+    await tester.sendEventToBinding(pointer.scroll(const Offset(30, 100)));
+    await tester.pump();
+    expect(controller.value.storage[12], closeTo(-30, 0.01));
+    expect(controller.value.storage[13], closeTo(-100, 0.01));
+    expect(controller.value.storage[0], closeTo(1, 0.001),
+        reason: '平移不该改变缩放');
+
+    // 2) Shift + 滚轮 = 左右平移（只有竖向滚轮的鼠标靠它横移）
+    controller.value = Matrix4.identity();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, 80)));
+    await tester.pump();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    expect(controller.value.storage[12], closeTo(-80, 0.01));
+    expect(controller.value.storage[13], closeTo(0, 0.01));
+
+    // 3) ⌘ + 滚轮 = 缩放，且鼠标下的那个点必须原地不动（定点缩放）
+    controller.value = Matrix4.identity();
+    final sceneBefore = controller.toScene(focalPoint);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, -100)));
+    await tester.pump();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    expect(controller.value.storage[0], greaterThan(1.0), reason: '应当放大');
+    final sceneAfter = controller.toScene(focalPoint);
+    expect(sceneAfter.dx, closeTo(sceneBefore.dx, 0.1),
+        reason: '缩放必须锚在鼠标位置，该点不能漂走');
+    expect(sceneAfter.dy, closeTo(sceneBefore.dy, 0.1));
+  });
+
+  testWidgets('卡片内的可滚动区域自己滚动，不会变成拖动整块画布', (tester) async {
+    final controller = TransformationController();
+    addTearDown(controller.dispose);
+    final listController = ScrollController();
+    addTearDown(listController.dispose);
+
+    await tester.pumpWidget(themed(SizedBox(
+      width: 900,
+      height: 600,
+      child: DFCanvas(
+        controller: controller,
+        fitOnInit: false,
+        nodes: [
+          DFCanvasNode(
+            id: 'n',
+            position: const Offset(100, 100),
+            size: const Size(300, 300),
+            onDragUpdate: (_) {},
+            child: DFCanvasViewportSignalRegion(
+              child: DFCanvasScrollRegion(
+                child: ListView.builder(
+                  controller: listController,
+                  itemCount: 60,
+                  itemBuilder: (_, i) => SizedBox(height: 40, child: Text('行$i')),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    )));
+
+    final inside = tester.getCenter(find.byType(ListView));
+    final before = Matrix4.copy(controller.value);
+
+    // 触控板双指落在卡片上：应当滚列表，而不是平移画布。
+    final pointer = TestPointer(1, PointerDeviceKind.trackpad);
+    await tester.sendEventToBinding(pointer.panZoomStart(inside));
+    await tester.sendEventToBinding(
+        pointer.panZoomUpdate(inside, pan: const Offset(0, -120)));
+    await tester.sendEventToBinding(pointer.panZoomEnd());
+    await tester.pumpAndSettle();
+
+    expect(listController.offset, greaterThan(0),
+        reason: '卡片里的列表应该被滚动');
+    expect(controller.value, equals(before),
+        reason: '画布不该跟着一起动——这正是"想滑卡片却拖走整个画布"的毛病');
+
+    // 鼠标滚轮同理。
+    final wheelBefore = listController.offset;
+    final mouse = TestPointer(2, PointerDeviceKind.mouse);
+    mouse.hover(inside);
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 100)));
+    await tester.pumpAndSettle();
+    expect(listController.offset, greaterThan(wheelBefore));
+    expect(controller.value, equals(before), reason: '滚轮也不该平移画布');
   });
 }

@@ -172,12 +172,38 @@ SELECT a.*, i.filePath filePath, i.state imageState, i.errorReason imageErrorRea
 FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
 ''';
 
+  /// 列表排序键 → SQL ORDER BY 片段。
+  ///
+  /// 排序必须落在 SQL 里：列表是分页取的，在内存里排只会把「当前这一页」排一遍，
+  /// 翻到第二页顺序又乱，等于没排。
+  ///
+  /// - `name`   按名称
+  /// - `status` 按出图状态，升序＝「还没做完的排前面」（未生成 → 失败 → 生成中 → 已完成），
+  ///            这是用户真正想要的顺序，不是字典序
+  /// - `prompt` 按有无提示词，升序＝「缺提示词的排前面」
+  /// - `created`   按创建时间（`startTime` 只在新建时写入，之后不变）
+  /// - `generated` 按当前选中图的生成先后。图片行是逐次追加的，id 越大越新，
+  ///               所以降序＝「最近生成的排前面」；没出过图的一律垫底
+  static const _assetSortSql = {
+    'name': 'a.name COLLATE NOCASE',
+    'status': '''CASE
+      WHEN i.state IS NULL THEN 0
+      WHEN i.state='$stateFailed' THEN 1
+      WHEN i.state='$stateGenerating' THEN 2
+      ELSE 3 END''',
+    'prompt': "CASE WHEN COALESCE(TRIM(a.prompt),'')='' THEN 0 ELSE 1 END",
+    'created': 'COALESCE(a.startTime, a.id)',
+    'generated': 'COALESCE(i.id, -1)',
+  };
+
   ({List<AssetRow> data, int total}) getAssets(
     int projectId, {
     required String type,
     int page = 1,
     int limit = 10,
     String? search,
+    String? sort,
+    bool descending = false,
   }) {
     final where =
         StringBuffer('a.projectId=? AND a.type=? AND a.assetsId IS NULL');
@@ -192,8 +218,13 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
           args,
         )
         .first['n'] as int;
+    // 白名单取值，绝不把外部字符串拼进 SQL；未命中即回落到添加顺序。
+    final sortExpr = _assetSortSql[sort];
+    final orderBy = sortExpr == null
+        ? 'a.id'
+        : '$sortExpr ${descending ? 'DESC' : 'ASC'}, a.id';
     final parents = db.select(
-      '$_assetSelect WHERE $where ORDER BY a.id LIMIT ? OFFSET ?',
+      '$_assetSelect WHERE $where ORDER BY $orderBy LIMIT ? OFFSET ?',
       [...args, limit, (page - 1) * limit],
     );
     if (parents.isEmpty) return (data: const <AssetRow>[], total: total);
@@ -999,12 +1030,17 @@ FROM o_assets a LEFT JOIN o_image i ON i.id=a.imageId
 
   /// 生图（单个=1 项、批量=N 项，统一队列任务，image lane）。
   /// 预插 o_image(生成中) 并把 imageId 选中到资产（照抄语义），返回任务 id。
+  ///
+  /// [concurrentCount] 与 `generateDerivedAssetImages`、`batchPolishAssetPrompts`
+  /// 取同一个默认值 5：任务内的 worker 池实际开 `min(并行数, 项数)` 条，单张生成
+  /// 时自然退化为 1，所以对单图路径没有任何影响；而批量路径此前沿用 1，导致
+  /// 十几个资产只能一张一张排队出图。
   int generateAssetImages(
     int projectId,
     List<({int assetsId, String? refImageBase64})> items, {
     String? resolution,
     String? model,
-    int concurrentCount = 1,
+    int concurrentCount = 5,
   }) {
     if (items.isEmpty) return 0;
     final payload = <Map<String, Object?>>[];

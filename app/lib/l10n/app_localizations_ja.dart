@@ -1124,6 +1124,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cornerScapeNextStepBannerButton => '映像制作へ';
 
   @override
+  String get cornerScapeNoAudioBannerText => 'ステップ3には音声素材が必要ですが、まだ1つもありません';
+
+  @override
+  String get cornerScapeNoAudioBannerButton => '音声を準備';
+
+  @override
+  String get cornerScapeNoAudioBannerHint =>
+      '「アセット → 音声」でテキスト音声からセリフを生成するか、既存の音声をアップロードしてください';
+
+  @override
   String agentNextStepBannerText(String count) {
     return '脚本を $count 話生成しました。脚本管理で確認・修正できます';
   }
@@ -1441,6 +1451,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get assetsColCreateTime => '作成日時';
+
+  @override
+  String get assetsColStatus => 'ステータス';
+
+  @override
+  String get assetsSortPreviewTip => '生成が新しい順に並べ替え';
 
   @override
   String get assetsColOperation => '操作';
@@ -1777,6 +1793,32 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productionNodeStoryboardTitle => '絵コンテ';
 
   @override
+  String get productionNextStepLabel => '次のステップ';
+
+  @override
+  String get productionNextStepPlan => '脚本プランを作成 — 全体の流れとテンポを決める';
+
+  @override
+  String get productionNextStepTable => '絵コンテ表を作成 — 脚本をカットに分解';
+
+  @override
+  String get productionNextStepStoryboard => '絵コンテを生成 — カットごとに画を用意';
+
+  @override
+  String productionNextStepImages(String count) {
+    return '絵コンテ画像を生成 — 残り $count カット';
+  }
+
+  @override
+  String get productionNextStepWorkbench => 'ワークベンチを開く — カットを動画に合成';
+
+  @override
+  String get productionNextStepDone => '全カットが揃いました。ワークベンチで合成できます';
+
+  @override
+  String get productionNextStepLocate => 'そこへ移動';
+
+  @override
   String get productionNodeWorkbenchTitle => 'ワークベンチ';
 
   @override
@@ -1862,7 +1904,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productionStoryboardGenerate => '絵コンテ生成';
 
   @override
-  String get productionStoryboardRegenerate => '絵コンテ再生成';
+  String get productionStoryboardRegenerate => 'カットを再分解';
 
   @override
   String get storyboardGenerateDescription => '絵コンテ表から構造化された絵コンテを生成';
@@ -2361,7 +2403,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cornerScapeNoAudio => '未割り当て';
 
   @override
-  String get cornerScapeNoAudioPool => '音声素材がありません。先にアセットでアップロードしてください';
+  String get cornerScapeNoAudioPool =>
+      '音声素材がありません。「アセット → 音声」でテキスト音声から生成するか、既存の音声をアップロードしてください';
 
   @override
   String get cornerScapeNoRoles => 'キャラクター資産がありません。先にアセットで作成してください';
@@ -2434,6 +2477,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cornerScapeMatchAudio => 'AI音声マッチング';
+
+  @override
+  String get cornerScapeStepOptional => '任意';
 
   @override
   String get cornerScapeStartBatch => '画像を生成';

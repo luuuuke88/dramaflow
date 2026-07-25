@@ -497,6 +497,9 @@
   "scriptNextStepBannerButton": "去塑角造景",
   "cornerScapeNextStepBannerText": "配音已绑定，可以去视频生产了",
   "cornerScapeNextStepBannerButton": "去视频生产",
+  "cornerScapeNoAudioBannerText": "第 3 步需要音频素材，现在一个都还没有",
+  "cornerScapeNoAudioBannerButton": "去准备音频",
+  "cornerScapeNoAudioBannerHint": "去「资产中心 → 音频」，用「文本配音」让 AI 念出台词，或直接上传现成音频",
   "agentNextStepBannerText": "剧本已生成 {count} 集，可以去剧本管理里查看和修改了",
   "@agentNextStepBannerText": {
     "placeholders": {
@@ -621,6 +624,8 @@
   "assetsColDescribe": "描述",
   "assetsColRemark": "备注",
   "assetsColCreateTime": "创建时间",
+  "assetsColStatus": "状态",
+  "assetsSortPreviewTip": "按最近生成排序",
   "assetsColOperation": "操作",
   "assetsGenerate": "生成",
   "assetsEdit": "编辑",
@@ -766,6 +771,21 @@
   "productionDerivedAssetDeleteGeneratingConfirm": "该衍生资产正在生成图片，删除将中断本次生成且无法恢复，确定要删除吗？",
   "productionNodeStoryboardTableTitle": "分镜表",
   "productionNodeStoryboardTitle": "分镜",
+  "productionNextStepLabel": "下一步",
+  "productionNextStepPlan": "生成剧本规划——先定整体思路、节奏与要点",
+  "productionNextStepTable": "生成分镜表——把剧本拆成一个个镜头",
+  "productionNextStepStoryboard": "生成分镜——给每个镜头出画面",
+  "productionNextStepImages": "生成分镜图——还有 {count} 个镜头没出画面",
+  "@productionNextStepImages": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "productionNextStepWorkbench": "打开工作台——把镜头合成视频",
+  "productionNextStepDone": "这一集的镜头都齐了，可以去工作台合成了",
+  "productionNextStepLocate": "带我去",
   "productionNodeWorkbenchTitle": "工作台",
   "productionMobileNodeInspector": "节点检查器",
   "productionMobileCurrentNode": "当前节点",
@@ -805,7 +825,7 @@
   "productionNoScripts": "暂无剧本，请先在「剧本管理」创建",
   "productionGoToScripts": "去创建剧本",
   "productionStoryboardGenerate": "生成分镜",
-  "productionStoryboardRegenerate": "重新生成分镜",
+  "productionStoryboardRegenerate": "重新拆分镜头",
   "storyboardGenerateDescription": "根据分镜表生成结构化分镜",
   "storyboardGenerateTooltip": "按当前分镜表生成画面提示词和运镜描述",
   "storyboardReplaceDescription": "替换现有分镜及其图片、视频和时间线",
@@ -1046,7 +1066,7 @@
   "cornerScapeAutoMatching": "匹配中...",
   "cornerScapeSelectAudio": "选择音频",
   "cornerScapeNoAudio": "未绑定",
-  "cornerScapeNoAudioPool": "暂无音频素材，请先在「资产中心」上传音频",
+  "cornerScapeNoAudioPool": "暂无音频素材。去「资产中心 → 音频」用「文本配音」让 AI 生成，或直接上传现成音频",
   "cornerScapeNoRoles": "暂无角色资产，请先在「资产中心」创建角色",
   "cornerScapeSelectAtLeastOne": "请至少选择一个角色",
   "cornerScapeBindSuccess": "绑定成功",
@@ -1071,6 +1091,7 @@
   "cornerScapeOtherPromptHint": "补充画风、构图或一致性要求",
   "cornerScapeGeneratePrompts": "生成提示词",
   "cornerScapeMatchAudio": "AI 匹配音频",
+  "cornerScapeStepOptional": "可选",
   "cornerScapeStartBatch": "生成图片",
   "cornerScapeModelUnreachableTitle": "模型连不上",
   "cornerScapeModelUnreachableBody": "「{model}」当前无法连接。请在「设置 → 供应商」中检查地址和密钥，或换用其他可用模型。",

@@ -12,6 +12,7 @@ import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/external_link_text.dart';
+import '../../widgets/df_toast.dart';
 
 /// 画布内嵌的 Agent 对话面板。可作为桌面右侧滑出面板的内容，也可作为移动端
 /// 全屏对话页的 body。头部提供关闭、模式切换、清空记忆入口。
@@ -95,8 +96,7 @@ class _CanvasChatPanelState extends ConsumerState<CanvasChatPanel> {
     ref.read(engineProvider).clearAssistantChat(widget.projectId,
         family: assistantFamilyProduction);
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.agentChatMemoryCleared)));
+      showDFToast(context, l10n.agentChatMemoryCleared);
       setState(() {});
     }
   }
@@ -159,32 +159,79 @@ class _CanvasChatPanelState extends ConsumerState<CanvasChatPanel> {
         ),
       ),
       Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         decoration: BoxDecoration(
           color: df.surface,
-          border: Border(top: BorderSide(color: df.stroke)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.3
+                      : 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            )
+          ],
         ),
         child: SafeArea(
           top: false,
-          child: Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _input,
-                minLines: 1,
-                maxLines: 4,
-                onSubmitted: (_) => _send(),
-                decoration: InputDecoration(
-                  hintText: l10n.agentChatInputPlaceholder,
-                  isDense: true,
+          child: Container(
+            decoration: BoxDecoration(
+              color: df.surface,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: df.stroke.withValues(alpha: 0.8)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(
+                      alpha: Theme.of(context).brightness == Brightness.dark
+                          ? 0.2
+                          : 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: _sending ? null : _send,
-              child: Text(l10n.agentChatSend),
+            padding: const EdgeInsets.only(left: 16, right: 6, top: 4, bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _input,
+                    minLines: 1,
+                    maxLines: 5,
+                    onSubmitted: (_) => _send(),
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: l10n.agentChatInputPlaceholder,
+                      hintStyle: TextStyle(
+                          color: df.textTertiary, fontSize: 14),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2, left: 8),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      color: _sending ? df.surfaceMuted : df.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_upward_rounded, size: 20),
+                      color: _sending ? df.textTertiary : Colors.white,
+                      onPressed: _sending ? null : _send,
+                      tooltip: l10n.agentChatSend,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ]),
+          ),
         ),
       ),
     ]);
@@ -264,7 +311,12 @@ class _WelcomeBubble extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 520),
         decoration: BoxDecoration(
           color: df.surfaceMuted,
-          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(16),
+          ),
         ),
         child: Text(text, style: const TextStyle(fontSize: 13)),
       ),
@@ -300,7 +352,12 @@ class _MessageBubble extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 520),
           decoration: BoxDecoration(
             color: df.warning.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+              bottomLeft: Radius.circular(4),
+              bottomRight: Radius.circular(16),
+            ),
             border: Border.all(color: df.warning.withValues(alpha: 0.5)),
           ),
           child:
@@ -357,7 +414,12 @@ class _MessageBubble extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 520),
           decoration: BoxDecoration(
             color: df.primarySubtle,
-            borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+              bottomLeft: Radius.circular(4),
+              bottomRight: Radius.circular(16),
+            ),
             border: Border.all(color: df.primary.withValues(alpha: 0.3)),
           ),
           child:
@@ -386,7 +448,12 @@ class _MessageBubble extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 520),
         decoration: BoxDecoration(
           color: isUser ? df.primary : df.surfaceMuted,
-          borderRadius: BorderRadius.circular(DFTokens.radiusCard),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: Radius.circular(isUser ? 16 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 16),
+          ),
         ),
         child: ExternalLinkText(
           text: _assistantDisplayText(context, message.content),

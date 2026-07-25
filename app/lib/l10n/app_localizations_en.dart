@@ -1155,6 +1155,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cornerScapeNextStepBannerButton => 'Go to production';
 
   @override
+  String get cornerScapeNoAudioBannerText =>
+      'Step 3 needs audio assets, and there are none yet';
+
+  @override
+  String get cornerScapeNoAudioBannerButton => 'Prepare audio';
+
+  @override
+  String get cornerScapeNoAudioBannerHint =>
+      'Go to Assets → Audio and use Text to Speech to have AI voice your lines, or upload your own audio.';
+
+  @override
   String agentNextStepBannerText(String count) {
     return '$count scripts generated. You can review and edit them in Scripts.';
   }
@@ -1481,6 +1492,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get assetsColCreateTime => 'Created';
+
+  @override
+  String get assetsColStatus => 'Status';
+
+  @override
+  String get assetsSortPreviewTip => 'Sort by most recently generated';
 
   @override
   String get assetsColOperation => 'Actions';
@@ -1822,6 +1839,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get productionNodeStoryboardTitle => 'Storyboard';
 
   @override
+  String get productionNextStepLabel => 'Next';
+
+  @override
+  String get productionNextStepPlan =>
+      'Write the plan — set the arc, pacing, and key beats';
+
+  @override
+  String get productionNextStepTable =>
+      'Build the shot list — break the script into shots';
+
+  @override
+  String get productionNextStepStoryboard =>
+      'Generate storyboards — one frame per shot';
+
+  @override
+  String productionNextStepImages(String count) {
+    return 'Generate shot images — $count shots still have none';
+  }
+
+  @override
+  String get productionNextStepWorkbench =>
+      'Open the workbench — assemble the shots into video';
+
+  @override
+  String get productionNextStepDone =>
+      'Every shot is ready. Head to the workbench to assemble.';
+
+  @override
+  String get productionNextStepLocate => 'Take me there';
+
+  @override
   String get productionNodeWorkbenchTitle => 'Workbench';
 
   @override
@@ -1909,7 +1957,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get productionStoryboardGenerate => 'Generate Storyboard';
 
   @override
-  String get productionStoryboardRegenerate => 'Regenerate Storyboards';
+  String get productionStoryboardRegenerate => 'Re-split shots';
 
   @override
   String get storyboardGenerateDescription =>
@@ -2422,7 +2470,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cornerScapeNoAudioPool =>
-      'No audio assets yet — upload some in Assets first';
+      'No audio assets yet. Go to Assets → Audio to generate voices with Text to Speech, or upload your own.';
 
   @override
   String get cornerScapeNoRoles =>
@@ -2497,6 +2545,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cornerScapeMatchAudio => 'AI match audio';
+
+  @override
+  String get cornerScapeStepOptional => 'Optional';
 
   @override
   String get cornerScapeStartBatch => 'Generate images';

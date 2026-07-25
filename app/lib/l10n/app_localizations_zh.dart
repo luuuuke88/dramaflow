@@ -1114,6 +1114,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cornerScapeNextStepBannerButton => '去视频生产';
 
   @override
+  String get cornerScapeNoAudioBannerText => '第 3 步需要音频素材，现在一个都还没有';
+
+  @override
+  String get cornerScapeNoAudioBannerButton => '去准备音频';
+
+  @override
+  String get cornerScapeNoAudioBannerHint =>
+      '去「资产中心 → 音频」，用「文本配音」让 AI 念出台词，或直接上传现成音频';
+
+  @override
   String agentNextStepBannerText(String count) {
     return '剧本已生成 $count 集，可以去剧本管理里查看和修改了';
   }
@@ -1427,6 +1437,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get assetsColCreateTime => '创建时间';
+
+  @override
+  String get assetsColStatus => '状态';
+
+  @override
+  String get assetsSortPreviewTip => '按最近生成排序';
 
   @override
   String get assetsColOperation => '操作';
@@ -1763,6 +1779,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get productionNodeStoryboardTitle => '分镜';
 
   @override
+  String get productionNextStepLabel => '下一步';
+
+  @override
+  String get productionNextStepPlan => '生成剧本规划——先定整体思路、节奏与要点';
+
+  @override
+  String get productionNextStepTable => '生成分镜表——把剧本拆成一个个镜头';
+
+  @override
+  String get productionNextStepStoryboard => '生成分镜——给每个镜头出画面';
+
+  @override
+  String productionNextStepImages(String count) {
+    return '生成分镜图——还有 $count 个镜头没出画面';
+  }
+
+  @override
+  String get productionNextStepWorkbench => '打开工作台——把镜头合成视频';
+
+  @override
+  String get productionNextStepDone => '这一集的镜头都齐了，可以去工作台合成了';
+
+  @override
+  String get productionNextStepLocate => '带我去';
+
+  @override
   String get productionNodeWorkbenchTitle => '工作台';
 
   @override
@@ -1845,7 +1887,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get productionStoryboardGenerate => '生成分镜';
 
   @override
-  String get productionStoryboardRegenerate => '重新生成分镜';
+  String get productionStoryboardRegenerate => '重新拆分镜头';
 
   @override
   String get storyboardGenerateDescription => '根据分镜表生成结构化分镜';
@@ -2341,7 +2383,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cornerScapeNoAudio => '未绑定';
 
   @override
-  String get cornerScapeNoAudioPool => '暂无音频素材，请先在「资产中心」上传音频';
+  String get cornerScapeNoAudioPool =>
+      '暂无音频素材。去「资产中心 → 音频」用「文本配音」让 AI 生成，或直接上传现成音频';
 
   @override
   String get cornerScapeNoRoles => '暂无角色资产，请先在「资产中心」创建角色';
@@ -2414,6 +2457,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cornerScapeMatchAudio => 'AI 匹配音频';
+
+  @override
+  String get cornerScapeStepOptional => '可选';
 
   @override
   String get cornerScapeStartBatch => '生成图片';

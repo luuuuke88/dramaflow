@@ -17,6 +17,7 @@ import '../../widgets/df_select.dart';
 import '../manuals/manual_editor.dart';
 import '../manuals/manual_gallery.dart';
 import 'model_select.dart';
+import '../../widgets/df_toast.dart';
 
 Future<bool?> showProjectDialog(BuildContext context, {ProjectRow? existing}) {
   final l10n = context.l10n;
@@ -117,7 +118,7 @@ class _ProjectDialogBodyState extends ConsumerState<_ProjectDialogBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _save() async {

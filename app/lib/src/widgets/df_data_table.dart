@@ -8,7 +8,32 @@ class DFDataColumn {
   final String label;
   final bool numeric;
 
-  const DFDataColumn({required this.label, this.numeric = false});
+  /// 该栏的排序键。为空表示这一栏不参与排序（如「预览」）。
+  final String? sortKey;
+
+  const DFDataColumn({
+    required this.label,
+    this.numeric = false,
+    this.sortKey,
+  });
+}
+
+/// 当前排序状态：`key` 为空表示「默认顺序」（即数据源的原始排序）。
+class DFSortState {
+  final String? key;
+  final bool descending;
+
+  const DFSortState({this.key, this.descending = false});
+
+  static const none = DFSortState();
+
+  /// 点击某一栏时的状态流转：升序 → 降序 → 回到默认。
+  /// 三态而不是两态，是为了让用户点回「添加顺序」，不至于一旦排过就回不去。
+  DFSortState toggled(String key) {
+    if (this.key != key) return DFSortState(key: key);
+    if (!descending) return DFSortState(key: key, descending: true);
+    return none;
+  }
 }
 
 class DFDataRow {
@@ -50,6 +75,8 @@ class DFDataTable extends StatelessWidget {
   final DFPagination? pagination;
   final ValueChanged<int>? onPageChange;
   final DFMobileCardBuilder mobileCardBuilder;
+  final DFSortState sort;
+  final ValueChanged<DFSortState>? onSortChanged;
 
   const DFDataTable({
     super.key,
@@ -61,6 +88,8 @@ class DFDataTable extends StatelessWidget {
     this.pagination,
     this.onPageChange,
     required this.mobileCardBuilder,
+    this.sort = DFSortState.none,
+    this.onSortChanged,
   });
 
   @override
@@ -88,6 +117,8 @@ class DFDataTable extends StatelessWidget {
         onSelectionChanged: onSelectionChanged,
         pagination: pagination,
         onPageChange: onPageChange,
+        sort: sort,
+        onSortChanged: onSortChanged,
       );
     });
   }
@@ -101,6 +132,8 @@ class _DesktopTable extends StatelessWidget {
   final ValueChanged<Set<String>>? onSelectionChanged;
   final DFPagination? pagination;
   final ValueChanged<int>? onPageChange;
+  final DFSortState sort;
+  final ValueChanged<DFSortState>? onSortChanged;
 
   const _DesktopTable({
     required this.columns,
@@ -110,6 +143,8 @@ class _DesktopTable extends StatelessWidget {
     required this.onSelectionChanged,
     required this.pagination,
     required this.onPageChange,
+    required this.sort,
+    required this.onSortChanged,
   });
 
   @override
@@ -152,7 +187,11 @@ class _DesktopTable extends StatelessWidget {
                   for (final column in columns)
                     DataColumn(
                       numeric: column.numeric,
-                      label: Text(column.label),
+                      label: _HeaderLabel(
+                        column: column,
+                        sort: sort,
+                        onSortChanged: onSortChanged,
+                      ),
                     ),
                 ],
                 rows: [
@@ -391,6 +430,58 @@ class _PaginationBar extends StatelessWidget {
             icon: const Icon(Icons.chevron_right_rounded),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 可点击的表头：带 sortKey 的栏点一下切换排序，并显示当前方向的箭头。
+/// 不带 sortKey（如「预览」）保持纯文字，不给出可点的错觉。
+class _HeaderLabel extends StatelessWidget {
+  final DFDataColumn column;
+  final DFSortState sort;
+  final ValueChanged<DFSortState>? onSortChanged;
+
+  const _HeaderLabel({
+    required this.column,
+    required this.sort,
+    required this.onSortChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final key = column.sortKey;
+    if (key == null || onSortChanged == null) return Text(column.label);
+    final colors = context.df;
+    final active = sort.key == key;
+    return InkWell(
+      key: Key('df-sort-$key'),
+      borderRadius: BorderRadius.circular(4),
+      onTap: () => onSortChanged!(sort.toggled(key)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              column.label,
+              style: active
+                  ? TextStyle(
+                      color: colors.primary, fontWeight: FontWeight.w700)
+                  : null,
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              active
+                  ? (sort.descending
+                      ? Icons.arrow_downward_rounded
+                      : Icons.arrow_upward_rounded)
+                  : Icons.unfold_more_rounded,
+              size: 13,
+              color: active ? colors.primary : colors.textTertiary,
+            ),
+          ],
+        ),
       ),
     );
   }

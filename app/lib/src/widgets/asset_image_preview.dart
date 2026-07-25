@@ -8,6 +8,7 @@ import 'package:image/image.dart' as image_codec;
 import 'package:path/path.dart' as p;
 
 import '../util/l10n_ext.dart';
+import '../widgets/df_toast.dart';
 
 class ImagePreviewActions {
   final Future<Uint8List> Function(String absPath) readImageBytes;
@@ -103,13 +104,11 @@ class AssetImagePreviewPage extends StatelessWidget {
       final clipboardBytes = await compute(imageBytesForClipboard, source);
       await actions.copyImageBytes(clipboardBytes);
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.imageActionCopied)));
+        showDFToast(context, l10n.imageActionCopied);
       }
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.imageActionCopyFailed)));
+        showDFToast(context, l10n.imageActionCopyFailed);
       }
     }
   }
@@ -120,8 +119,7 @@ class AssetImagePreviewPage extends StatelessWidget {
       await actions.saveImage(absPath);
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.imageActionSaveFailed)));
+        showDFToast(context, l10n.imageActionSaveFailed);
       }
     }
   }
@@ -171,6 +169,211 @@ class AssetImagePreviewPage extends StatelessWidget {
                 icon: const Icon(Icons.close_rounded, color: Colors.white),
               ),
             ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+Future<void> showAssetGalleryPreview(
+  BuildContext context, {
+  required List<String> paths,
+  required int initialIndex,
+  ImagePreviewActions? actions,
+}) {
+  return Navigator.of(context, rootNavigator: true).push<void>(
+    PageRouteBuilder<void>(
+      opaque: false,
+      barrierDismissible: true,
+      barrierColor: Colors.black87,
+      pageBuilder: (_, __, ___) => AssetGalleryPreviewPage(
+        paths: paths,
+        initialIndex: initialIndex,
+        actions: actions,
+      ),
+      transitionsBuilder: (_, animation, __, child) =>
+          FadeTransition(opacity: animation, child: child),
+    ),
+  );
+}
+
+class AssetGalleryPreviewPage extends StatefulWidget {
+  final List<String> paths;
+  final int initialIndex;
+  final ImagePreviewActions actions;
+
+  AssetGalleryPreviewPage({
+    super.key,
+    required this.paths,
+    required this.initialIndex,
+    ImagePreviewActions? actions,
+  }) : actions = actions ?? ImagePreviewActions.system;
+
+  @override
+  State<AssetGalleryPreviewPage> createState() => _AssetGalleryPreviewPageState();
+}
+
+class _AssetGalleryPreviewPageState extends State<AssetGalleryPreviewPage> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _copy(BuildContext context, String absPath) async {
+    final l10n = context.l10n;
+    try {
+      final source = await widget.actions.readImageBytes(absPath);
+      final clipboardBytes = await compute(imageBytesForClipboard, source);
+      await widget.actions.copyImageBytes(clipboardBytes);
+      if (context.mounted) {
+        showDFToast(context, l10n.imageActionCopied);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        showDFToast(context, l10n.imageActionCopyFailed);
+      }
+    }
+  }
+
+  Future<void> _save(BuildContext context, String absPath) async {
+    final l10n = context.l10n;
+    try {
+      await widget.actions.saveImage(absPath);
+    } catch (_) {
+      if (context.mounted) {
+        showDFToast(context, l10n.imageActionSaveFailed);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final currentPath = widget.paths[_currentIndex];
+    return Scaffold(
+      key: const Key('asset-gallery-preview'),
+      backgroundColor: Colors.transparent,
+      body: Stack(children: [
+        PageView.builder(
+          controller: _pageController,
+          itemCount: widget.paths.length,
+          onPageChanged: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          itemBuilder: (context, index) {
+            final path = widget.paths[index];
+            return Center(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Image.file(
+                  File(path),
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        if (MediaQuery.sizeOf(context).width >= 600 && widget.paths.length > 1) ...[
+          if (_currentIndex > 0)
+            Positioned(
+              left: 24,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 32),
+                  onPressed: () {
+                    _pageController.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+              ),
+            ),
+          if (_currentIndex < widget.paths.length - 1)
+            Positioned(
+              right: 24,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 32),
+                  onPressed: () {
+                    _pageController.nextPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
+        Positioned(
+          top: 8,
+          right: 8,
+          child: SafeArea(
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(
+                tooltip: l10n.imageActionCopy,
+                onPressed: () => _copy(context, currentPath),
+                icon: const Icon(Icons.copy_outlined, color: Colors.white),
+              ),
+              IconButton(
+                tooltip: l10n.imageActionSave,
+                onPressed: () => _save(context, currentPath),
+                icon: const Icon(Icons.download_outlined, color: Colors.white),
+              ),
+              IconButton(
+                tooltip: l10n.commonClose,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+              ),
+            ]),
+          ),
+        ),
+        Positioned(
+          bottom: 24,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_currentIndex + 1} / ${widget.paths.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ]),

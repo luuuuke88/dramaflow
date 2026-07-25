@@ -7,6 +7,7 @@ import '../../state/providers.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 Future<bool?> showEditNovelDialog(BuildContext context, WidgetRef ref,
     {required NovelRow row}) {
@@ -54,13 +55,11 @@ class _EditNovelBodyState extends State<_EditNovelBody> {
             event: _event.text,
             chapterData: _content.text,
           );
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.novelEditDialogMsgUpdateSuccess)));
+      showDFToast(context, l10n.novelEditDialogMsgUpdateSuccess);
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(localizeError(context, e))));
+        showDFToast(context, localizeError(context, e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

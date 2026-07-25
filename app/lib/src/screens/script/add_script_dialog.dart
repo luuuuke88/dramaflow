@@ -20,6 +20,7 @@ import '../../widgets/df_tag_chip.dart';
 import '../../widgets/desktop_drop_file.dart';
 import '../../widgets/script_markdown_editor.dart';
 import 'asset_picker.dart';
+import '../../widgets/df_toast.dart';
 
 const _maxFileBytes = 10 * 1024 * 1024;
 
@@ -65,7 +66,7 @@ class _AddScriptBodyState extends State<_AddScriptBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _pickFile() async {

@@ -666,17 +666,30 @@ class _MobileProjectTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final menus = _visibleProjectMenus(project);
     return SizedBox(
-      height: 44,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        children: [
-          for (final menu in menus)
-            Padding(
-              padding: const EdgeInsets.only(right: 8, top: 6, bottom: 6),
-              child: _MobileTabChip(menu: menu, path: path, project: project),
-            ),
-        ],
+      height: 48,
+      child: ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Colors.transparent,
+              Colors.white,
+              Colors.white,
+              Colors.transparent
+            ],
+            stops: [0.0, 0.05, 0.95, 1.0],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: [
+            for (final menu in menus)
+              _MobileTabChip(menu: menu, path: path, project: project),
+          ],
+        ),
       ),
     );
   }
@@ -693,23 +706,35 @@ class _MobileTabChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final df = context.df;
     final selected = path.startsWith('/p/${project.id}/${menu.path}');
-    return Material(
-      color: selected ? df.primarySubtle : df.surfaceMuted,
-      borderRadius: BorderRadius.circular(DFTokens.radiusChip),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(DFTokens.radiusChip),
-        onTap: () => context.go('/p/${project.id}/${menu.path}'),
-        child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            menu.label(context),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? df.primary : df.textPrimary,
+    return InkWell(
+      onTap: () => context.go('/p/${project.id}/${menu.path}'),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Spacer(),
+            Text(
+              menu.label(context),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected ? df.textPrimary : df.textSecondary,
+              ),
             ),
-          ),
+            const Spacer(),
+            Container(
+              height: 3,
+              width: 16,
+              decoration: BoxDecoration(
+                color: selected ? df.textPrimary : Colors.transparent,
+                borderRadius: BorderRadius.circular(1.5),
+              ),
+            ),
+          ],
         ),
       ),
     );

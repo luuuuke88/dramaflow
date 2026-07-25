@@ -16,6 +16,9 @@ import '../../theme/tokens.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/policy_confirm.dart';
+import 'production_node_card.dart';
+import '../../widgets/df_canvas.dart';
+import '../../widgets/df_toast.dart';
 
 /// 剧本规划节点卡片。桌面（画布节点）与移动端（Tab 内容）共用同一实现。
 class ScriptPlanNode extends ConsumerStatefulWidget {
@@ -44,30 +47,39 @@ class _ScriptPlanNodeState extends ConsumerState<ScriptPlanNode> {
             )
             .stale;
 
-    return _NodeFrame(
+    return ProductionNodeCard(
+      stage: ProductionStage.scriptPlan,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _NodeHeader(
+        ProductionNodeHeader(
+          stage: ProductionStage.scriptPlan,
+          // 铅笔就是「撰写/编辑」这一个动作，提示文字写具体，
+          // 免得空状态里没了正文按钮就找不到入口。
+          editTooltip: l10n.scriptPlanWrite,
           title: l10n.productionNodeScriptPlanTitle,
           onEdit: () => _openEditor(markdown),
-          action: Tooltip(
-            message: l10n.directorPlanGenerateTooltip,
-            child: FilledButton.icon(
-              key: const Key('script-plan-generate'),
-              onPressed: canGenerate ? _generatePlan : null,
-              icon: const Icon(Icons.auto_awesome, size: 13),
-              label: Text(
-                hasPlan
-                    ? l10n.directorPlanRegenerate
-                    : l10n.directorPlanGenerate,
-                style: const TextStyle(fontSize: 11),
-              ),
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                minimumSize: const Size(0, 28),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-            ),
-          ),
+          // 空状态中间已经有一个更醒目的「生成」，标题栏这个只在有内容时
+          // 出现，那时它的语义是「重新生成」，不再重复。
+          action: !hasPlan
+              ? null
+              : Tooltip(
+                  message: l10n.directorPlanGenerateTooltip,
+                  child: FilledButton.icon(
+                    key: const Key('script-plan-generate'),
+                    onPressed: canGenerate ? _generatePlan : null,
+                    icon: const Icon(Icons.auto_awesome, size: 13),
+                    label: Text(
+                      hasPlan
+                          ? l10n.directorPlanRegenerate
+                          : l10n.directorPlanGenerate,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      minimumSize: const Size(0, 28),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
+                ),
         ),
         if (stale)
           Container(
@@ -86,13 +98,14 @@ class _ScriptPlanNodeState extends ConsumerState<ScriptPlanNode> {
             child: hasPlan
                 ? Padding(
                     padding: const EdgeInsets.all(12),
-                    child: SingleChildScrollView(
-                      child: Text(
-                        markdown,
-                        style: const TextStyle(fontSize: 12, height: 1.5),
+                    child: DFCanvasScrollRegion(
+                      child: SingleChildScrollView(
+                        child: Text(
+                          markdown,
+                          style: const TextStyle(fontSize: 12, height: 1.5),
+                        ),
                       ),
-                    ),
-                  )
+                    ))
                 : Center(
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.notes_outlined,
@@ -102,11 +115,15 @@ class _ScriptPlanNodeState extends ConsumerState<ScriptPlanNode> {
                           textAlign: TextAlign.center,
                           style:
                               TextStyle(fontSize: 12, color: df.textTertiary)),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
+                      // 空状态里「让 AI 生成」才是主动作，放中间当主按钮；
+                      // 手写降为次要。原先反过来：生成缩在标题栏角落，
+                      // 中间的大蓝按钮却是手写。
                       FilledButton.icon(
-                        onPressed: () => _openEditor(markdown),
-                        icon: const Icon(Icons.edit_note, size: 16),
-                        label: Text(l10n.scriptPlanWrite,
+                        key: const Key('script-plan-generate-empty'),
+                        onPressed: canGenerate ? _generatePlan : null,
+                        icon: const Icon(Icons.auto_awesome, size: 15),
+                        label: Text(l10n.directorPlanGenerate,
                             style: const TextStyle(fontSize: 12)),
                       ),
                     ]),
@@ -129,9 +146,7 @@ class _ScriptPlanNodeState extends ConsumerState<ScriptPlanNode> {
     final taskId = engine.generateDirectorPlan(widget.projectId);
     if (taskId == 0) return;
     ref.read(activeJobsProvider.notifier).poke();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.directorPlanGenerating)),
-    );
+    showDFToast(context, context.l10n.directorPlanGenerating);
   }
 
   Future<void> _openEditor(String current) async {
@@ -175,8 +190,7 @@ class _ScriptPlanEditorState extends ConsumerState<_ScriptPlanEditor> {
     if (!mounted) return;
     final l10n = context.l10n;
     Navigator.of(context).pop(true);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l10n.scriptPlanSaved)));
+    showDFToast(context, l10n.scriptPlanSaved);
   }
 
   @override
@@ -211,67 +225,6 @@ class _ScriptPlanEditorState extends ConsumerState<_ScriptPlanEditor> {
             child: Text(l10n.commonSave),
           ),
         ]),
-      ]),
-    );
-  }
-}
-
-class _NodeFrame extends StatelessWidget {
-  final Widget child;
-  const _NodeFrame({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final df = context.df;
-    return Container(
-      decoration: BoxDecoration(
-        color: df.surface,
-        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-        border: Border.all(color: df.stroke),
-        boxShadow: DFTokens.cardRest,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
-  }
-}
-
-class _NodeHeader extends StatelessWidget {
-  final String title;
-  final VoidCallback onEdit;
-  final Widget? action;
-  const _NodeHeader({
-    required this.title,
-    required this.onEdit,
-    this.action,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final df = context.df;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-      color: df.textPrimary,
-      child: Row(children: [
-        Expanded(
-          child: Text(title,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: df.surface)),
-        ),
-        if (action != null) ...[
-          action!,
-          const SizedBox(width: 4),
-        ],
-        IconButton(
-          tooltip: context.l10n.commonEdit,
-          visualDensity: VisualDensity.compact,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          icon: Icon(Icons.edit_outlined, size: 15, color: df.surface),
-          onPressed: onEdit,
-        ),
       ]),
     );
   }

@@ -11,6 +11,7 @@ import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/script_markdown_editor.dart';
 import '../../widgets/df_tag_chip.dart';
 import 'asset_picker.dart';
+import '../../widgets/df_toast.dart';
 
 Future<bool?> showEditScriptDialog(BuildContext context, WidgetRef ref,
     {required int projectId, required ScriptRow row}) {
@@ -57,7 +58,7 @@ class _EditScriptBodyState extends State<_EditScriptBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _save() async {

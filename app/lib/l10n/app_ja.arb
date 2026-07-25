@@ -391,6 +391,9 @@
   "scriptNextStepBannerButton": "配音の割り当てへ",
   "cornerScapeNextStepBannerText": "配音の割り当てが完了しました。映像制作に進めます",
   "cornerScapeNextStepBannerButton": "映像制作へ",
+  "cornerScapeNoAudioBannerText": "ステップ3には音声素材が必要ですが、まだ1つもありません",
+  "cornerScapeNoAudioBannerButton": "音声を準備",
+  "cornerScapeNoAudioBannerHint": "「アセット → 音声」でテキスト音声からセリフを生成するか、既存の音声をアップロードしてください",
   "agentNextStepBannerText": "脚本を {count} 話生成しました。脚本管理で確認・修正できます",
   "@agentNextStepBannerText": {
     "placeholders": {
@@ -510,6 +513,8 @@
   "assetsColDescribe": "説明",
   "assetsColRemark": "備考",
   "assetsColCreateTime": "作成日時",
+  "assetsColStatus": "ステータス",
+  "assetsSortPreviewTip": "生成が新しい順に並べ替え",
   "assetsColOperation": "操作",
   "assetsGenerate": "生成",
   "assetsEdit": "編集",
@@ -627,6 +632,21 @@
   "productionDerivedAssetDeleteGeneratingConfirm": "この派生アセットは画像を生成中です。削除すると生成が中断され、元に戻せません。削除を続行しますか？",
   "productionNodeStoryboardTableTitle": "絵コンテ表",
   "productionNodeStoryboardTitle": "絵コンテ",
+  "productionNextStepLabel": "次のステップ",
+  "productionNextStepPlan": "脚本プランを作成 — 全体の流れとテンポを決める",
+  "productionNextStepTable": "絵コンテ表を作成 — 脚本をカットに分解",
+  "productionNextStepStoryboard": "絵コンテを生成 — カットごとに画を用意",
+  "productionNextStepImages": "絵コンテ画像を生成 — 残り {count} カット",
+  "@productionNextStepImages": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "productionNextStepWorkbench": "ワークベンチを開く — カットを動画に合成",
+  "productionNextStepDone": "全カットが揃いました。ワークベンチで合成できます",
+  "productionNextStepLocate": "そこへ移動",
   "productionNodeWorkbenchTitle": "ワークベンチ",
   "productionMobileNodeInspector": "ノードインスペクター",
   "productionMobileCurrentNode": "現在のノード",
@@ -666,7 +686,7 @@
   "productionNoScripts": "脚本がありません。脚本管理で作成してください",
   "productionGoToScripts": "脚本を作成",
   "productionStoryboardGenerate": "絵コンテ生成",
-  "productionStoryboardRegenerate": "絵コンテ再生成",
+  "productionStoryboardRegenerate": "カットを再分解",
   "storyboardGenerateDescription": "絵コンテ表から構造化された絵コンテを生成",
   "storyboardGenerateTooltip": "現在の絵コンテ表から画像プロンプトとカメラワークを生成",
   "storyboardReplaceDescription": "既存の絵コンテ、画像、動画、タイムラインを置き換え",
@@ -886,7 +906,7 @@
   "cornerScapeAutoMatching": "マッチング中...",
   "cornerScapeSelectAudio": "音声を選択",
   "cornerScapeNoAudio": "未割り当て",
-  "cornerScapeNoAudioPool": "音声素材がありません。先にアセットでアップロードしてください",
+  "cornerScapeNoAudioPool": "音声素材がありません。「アセット → 音声」でテキスト音声から生成するか、既存の音声をアップロードしてください",
   "cornerScapeNoRoles": "キャラクター資産がありません。先にアセットで作成してください",
   "cornerScapeSelectAtLeastOne": "キャラクターを1件以上選択してください",
   "cornerScapeBindSuccess": "割り当てました",
@@ -911,6 +931,7 @@
   "cornerScapeOtherPromptHint": "画風、構図、一貫性の要件を追加",
   "cornerScapeGeneratePrompts": "プロンプト生成",
   "cornerScapeMatchAudio": "AI音声マッチング",
+  "cornerScapeStepOptional": "任意",
   "cornerScapeStartBatch": "画像を生成",
   "cornerScapeModelUnreachableTitle": "モデルに接続できません",
   "cornerScapeModelUnreachableBody": "「{model}」に接続できません。「設定 → プロバイダ」でアドレスとAPIキーを確認するか、他のモデルを選んでください。",

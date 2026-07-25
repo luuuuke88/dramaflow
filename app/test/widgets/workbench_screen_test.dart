@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
+import 'package:dramaflow/src/widgets/df_toast.dart';
 
 class _NoopGateway implements ProviderGateway {
   int textCalls = 0;
@@ -6142,7 +6143,7 @@ void main() {
 
     expect(
       find.descendant(
-        of: find.byType(SnackBar),
+        of: find.byKey(dfToastKey),
         matching: find.text('该素材还没有生成完成的文件，暂时无法作为参考。'),
       ),
       findsOneWidget,

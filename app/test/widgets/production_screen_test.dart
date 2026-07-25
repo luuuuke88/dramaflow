@@ -188,6 +188,46 @@ void main() {
     expect(find.text('还没有剧本规划，点此撰写整体思路、节奏与要点。'), findsOneWidget);
   });
 
+  testWidgets('画布常驻「下一步」条，随流水线进度推进', (tester) async {
+    final scriptId =
+        engine.addScript(projectId: projectId, name: '第一集', content: '正文内容');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+
+    // 什么都没做时，指向第一步：写规划。
+    final bar = find.byKey(const Key('production-next-step'));
+    expect(bar, findsOneWidget);
+    // 断言收在提示条内部：节点上的按钮也叫同样的名字。
+    Finder inBar(String text) =>
+        find.descendant(of: bar, matching: find.textContaining(text));
+    expect(inBar('生成剧本规划'), findsOneWidget);
+    expect(find.text('下一步 · 2'), findsOneWidget,
+        reason: '序号要和卡片上的编号对得上，用户才知道去点哪张卡');
+
+    // 写完规划后自动推进到分镜表。
+    engine.saveScriptPlan(projectId, '测试导演规划');
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+    expect(inBar('生成分镜表'), findsOneWidget);
+    expect(find.text('下一步 · 3'), findsOneWidget);
+
+    // 分镜表写完后推进到分镜。
+    engine.saveStoryboardTable(projectId, scriptId, '| 镜号 |\n| --- |\n| 1 |');
+    await tester.pumpWidget(app(1400));
+    await tester.pumpAndSettle();
+    expect(inBar('生成分镜'), findsOneWidget);
+    expect(find.text('下一步 · 4'), findsOneWidget);
+
+    // 「带我去」按钮始终在，用于在无限画布上定位到那张卡片。
+    expect(
+      find.byKey(const Key('production-next-step-locate')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('桌面画布：会话滚轮模式立即传给主 DFCanvas', (tester) async {
     engine.addScript(projectId: projectId, name: '第一集', content: '正文内容');
     tester.view.physicalSize = const Size(1400, 900);
@@ -253,7 +293,7 @@ void main() {
     await tester.pumpAndSettle();
     // 面板打开后出现欢迎语与发送按钮。
     expect(find.textContaining('我是制作 Agent'), findsOneWidget);
-    expect(find.text('发送'), findsOneWidget);
+    expect(find.byTooltip('发送'), findsOneWidget);
   });
 
   testWidgets('桌面画布：刷新会重建当前视图并反馈结果', (tester) async {
@@ -626,7 +666,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.smart_toy_outlined));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, '制作 Agent'), findsOneWidget);
-    expect(find.text('发送'), findsOneWidget);
+    expect(find.byTooltip('发送'), findsOneWidget);
   });
 
   testWidgets('点击「生成分镜」触发任务入队', (tester) async {
@@ -709,9 +749,9 @@ void main() {
     await tester.pumpWidget(app(1400));
     await tester.pumpAndSettle();
 
-    // 空态展示「撰写分镜表」按钮；点击打开编辑器。
-    expect(find.text('撰写分镜表'), findsOneWidget);
-    await tester.tap(find.text('撰写分镜表'));
+    // 撰写入口并入标题栏铅笔，正文空态只留「生成」这一个主动作。
+    expect(find.byTooltip('撰写分镜表'), findsOneWidget);
+    await tester.tap(find.byTooltip('撰写分镜表'));
     await tester.pumpAndSettle();
     expect(find.text('编辑分镜表'), findsWidgets);
 

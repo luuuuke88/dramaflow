@@ -16,6 +16,7 @@ import '../../theme/theme.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 /// kind: 'visual' | 'director'
 Future<bool?> showManualEditor(
@@ -98,7 +99,7 @@ class _ManualEditorState extends State<_ManualEditor> {
   }
 
   void _toast(String msg, {bool warning = true}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   /// 从 .docx / .md / .txt 导入正文，填充当前标签内容。

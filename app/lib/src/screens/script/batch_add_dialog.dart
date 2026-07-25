@@ -17,6 +17,7 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/df_data_table.dart';
+import '../../widgets/df_toast.dart';
 
 const _maxFileBytes = 10 * 1024 * 1024;
 
@@ -70,7 +71,7 @@ class _BatchAddBodyState extends State<_BatchAddBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   void _validateRegex() {

@@ -7,6 +7,7 @@ import '../api/models.dart';
 import '../engine/util.dart';
 import '../state/providers.dart';
 import '../theme/theme.dart';
+import '../widgets/df_toast.dart';
 
 /// 状态 → 视觉语义 的唯一映射，全 App 统一。
 class StatusChip extends StatelessWidget {
@@ -197,7 +198,7 @@ class EmptyHint extends StatelessWidget {
   }
 }
 
-/// 执行生成类动作的统一封装：错误弹 SnackBar，成功后立刻 poke 轮询器。
+/// 执行生成类动作的统一封装：错误弹提示条，成功后立刻 poke 轮询器。
 Future<bool> runAction(
   BuildContext context,
   WidgetRef ref,
@@ -207,27 +208,16 @@ Future<bool> runAction(
   // 在 await 之前取全局 notifier：请求期间 widget 可能被卸载（关对话框/切页），
   // 卸载后再用 widget 的 ref 会被 Riverpod 3 直接抛 StateError
   final jobsNotifier = ref.read(activeJobsProvider.notifier);
-  final messenger = ScaffoldMessenger.maybeOf(context);
   try {
     await action();
     jobsNotifier.poke();
-    if (successMessage != null && messenger != null) {
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-            content: Text(successMessage),
-            duration: const Duration(seconds: 2)),
-      );
+    if (successMessage != null && context.mounted) {
+      showDFToast(context, successMessage);
     }
     return true;
   } on EngineException catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(engineErrorText(context, e),
-            style: const TextStyle(color: Colors.white)),
-        backgroundColor: context.df.red,
-        duration: const Duration(seconds: 4),
-      ));
+      showDFToast(context, engineErrorText(context, e), isError: true);
     }
     return false;
   }

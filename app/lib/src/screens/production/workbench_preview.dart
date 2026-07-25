@@ -15,6 +15,7 @@ import '../../theme/tokens.dart';
 import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import 'workbench_preview_controller.dart';
+import '../../widgets/df_toast.dart';
 
 Future<void> showWorkbenchQuickPreview(
   BuildContext context,
@@ -183,8 +184,7 @@ class _WorkbenchQuickPreviewPageState
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    showDFToast(context, message);
   }
 
   @override

@@ -21,6 +21,7 @@ import '../widgets/common.dart';
 import '../widgets/shell.dart';
 import 'provider_preset_form.dart';
 import 'provider_preset_gallery.dart';
+import '../widgets/df_toast.dart';
 
 // 应用版本（对齐 pubspec version；package_info_plus 未引入，引擎版本另经 health 展示）。
 const _appVersion = '0.1.0';
@@ -705,9 +706,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           await showProviderPresetForm(context, ref, presetId: presetId);
       if (!mounted) return;
       if (saved) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.settingsProviderAdded)),
-        );
+        showDFToast(context, context.l10n.settingsProviderAdded);
         _invalidateProvidersAndBindings();
       }
       return;
@@ -2960,9 +2959,7 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
         _drafts.map((draft) => draft.modelId.text.trim()).toSet();
     final newIds = fetched!.where((id) => !existingIds.contains(id)).toList();
     if (newIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.settingsFetchModelsNoneFound)),
-      );
+      showDFToast(context, l10n.settingsFetchModelsNoneFound);
       return;
     }
 
@@ -2983,9 +2980,7 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
     final l10n = context.l10n;
     for (final draft in _drafts) {
       if (draft.modelId.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.settingsModelIdRequired)),
-        );
+        showDFToast(context, l10n.settingsModelIdRequired);
         return;
       }
       final capabilityError = draft.videoCapabilityError;
@@ -2998,8 +2993,7 @@ class _ProviderModelsEditorState extends ConsumerState<_ProviderModelsEditor> {
           _VideoCapabilityError.listRequired =>
             l10n.settingsVideoCapabilityListRequired,
         };
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
+        showDFToast(context, message);
         return;
       }
     }

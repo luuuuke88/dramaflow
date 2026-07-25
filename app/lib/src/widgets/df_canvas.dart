@@ -5,6 +5,7 @@
 // 换算为场景位移。背景与节点是命中测试的同级层，保证卡片内的输入控件不被画布抢手势。
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show PointMode;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +18,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../state/canvas_wheel_mode.dart';
-import '../theme/theme.dart';
 import '../util/l10n_ext.dart';
 
 class DFCanvasNode {
@@ -203,6 +203,42 @@ class DFCanvasDragRegion extends StatelessWidget {
   }
 }
 
+/// 卡片内可滚动区域的标记：包在它里面的滚动内容优先吃掉滚轮/双指，
+/// 画布不再抢着平移。
+///
+/// 背景：节点内容盖在背景手势层之上，画布为了还能平移，在
+/// [DFCanvasViewportSignalRegion] 里把节点上的滚轮与触控板双指**无条件**
+/// 转发给了画布。代价是卡片自己的列表永远滚不动——手指在卡片上滑，动的却是
+/// 整块画布。这里让可滚动区域先认领事件，转发层看到已被认领就放行。
+///
+/// 事件派发是「由内向外」的，所以内层这个 Listener 一定先于外层的转发层执行，
+/// 认领标记来得及生效。
+class DFCanvasScrollRegion extends StatefulWidget {
+  final Widget child;
+
+  const DFCanvasScrollRegion({super.key, required this.child});
+
+  @override
+  State<DFCanvasScrollRegion> createState() => _DFCanvasScrollRegionState();
+}
+
+class _DFCanvasScrollRegionState extends State<DFCanvasScrollRegion> {
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.deferToChild,
+      onPointerSignal: (event) => _claimedSignals.add(event),
+      onPointerPanZoomStart: (event) => _claimedPointers.add(event.pointer),
+      onPointerPanZoomEnd: (event) => _claimedPointers.remove(event.pointer),
+      child: widget.child,
+    );
+  }
+}
+
+/// 被卡片内滚动区域认领的触控板指针 / 滚轮事件。
+final Set<int> _claimedPointers = <int>{};
+final Set<PointerSignalEvent> _claimedSignals = <PointerSignalEvent>{};
+
 /// 将普通节点卡片上的滚轮信号交还给画布，而不改变节点的拖拽区域。
 class DFCanvasViewportSignalRegion extends StatelessWidget {
   final Widget child;
@@ -217,10 +253,22 @@ class DFCanvasViewportSignalRegion extends StatelessWidget {
     final handlers = _DFCanvasNodeDragScope.maybeOf(context);
     if (handlers == null) return child;
     return Listener(
-      onPointerSignal: handlers.handleViewportPointerSignal,
-      onPointerPanZoomStart: handlers.handleViewportPanZoomStart,
-      onPointerPanZoomUpdate: handlers.handleViewportPanZoomUpdate,
-      onPointerPanZoomEnd: handlers.handleViewportPanZoomEnd,
+      onPointerSignal: (event) {
+        if (_claimedSignals.remove(event)) return;
+        handlers.handleViewportPointerSignal(event);
+      },
+      onPointerPanZoomStart: (event) {
+        if (_claimedPointers.contains(event.pointer)) return;
+        handlers.handleViewportPanZoomStart(event);
+      },
+      onPointerPanZoomUpdate: (event) {
+        if (_claimedPointers.contains(event.pointer)) return;
+        handlers.handleViewportPanZoomUpdate(event);
+      },
+      onPointerPanZoomEnd: (event) {
+        if (_claimedPointers.contains(event.pointer)) return;
+        handlers.handleViewportPanZoomEnd(event);
+      },
       child: child,
     );
   }
@@ -271,13 +319,25 @@ class _DFCanvasNodeDragScope extends InheritedWidget {
 /// 在挂载期间注册的 [fitView]。未挂载时调用是安全的空操作。
 class DFCanvasController extends TransformationController {
   VoidCallback? _fitView;
+  void Function(String nodeId)? _focusNode;
 
   void fitView() => _fitView?.call();
+
+  /// 把某个节点移到视口中央，供「带我去」这类定位用。
+  /// 无限画布上光说「该做第 2 步」不够，还得让人找得到它在哪。
+  void focusNode(String nodeId) => _focusNode?.call(nodeId);
 
   void _attachFitView(VoidCallback callback) => _fitView = callback;
 
   void _detachFitView(VoidCallback callback) {
     if (_fitView == callback) _fitView = null;
+  }
+
+  void _attachFocusNode(void Function(String nodeId) callback) =>
+      _focusNode = callback;
+
+  void _detachFocusNode(void Function(String nodeId) callback) {
+    if (_focusNode == callback) _focusNode = null;
   }
 }
 
@@ -346,12 +406,14 @@ class _DFCanvasState extends State<DFCanvas> {
     _controller.addListener(_handleTransformChanged);
     if (_controller case final DFCanvasController canvasController) {
       canvasController._attachFitView(_fitView);
+      canvasController._attachFocusNode(_focusNode);
     }
   }
 
   void _releaseController() {
     if (_controller case final DFCanvasController canvasController) {
       canvasController._detachFitView(_fitView);
+      canvasController._detachFocusNode(_focusNode);
     }
     _controller.removeListener(_handleTransformChanged);
     if (_ownsController) _controller.dispose();
@@ -621,34 +683,78 @@ class _DFCanvasState extends State<DFCanvas> {
         .register(event, _handleBackgroundPointerSignal);
   }
 
-  void _handleBackgroundPointerSignal(PointerSignalEvent event) {
-    if (event is! PointerScrollEvent || _spacePanPointer != null) return;
+  /// 以某个屏幕点为锚点缩放：该点在缩放前后停在原地（Figma 的「定点缩放」）。
+  void _zoomAt(Offset focalPoint, double factor) {
     final transform = Matrix4.copy(_controller.value);
-    if (widget.wheelMode == CanvasWheelMode.scroll) {
-      if (event.scrollDelta == Offset.zero) return;
-      _beginInteraction();
-      transform.storage[12] -= event.scrollDelta.dx;
-      transform.storage[13] -= event.scrollDelta.dy;
-      _controller.value = transform;
-      _endInteractionAfterDelay();
-      return;
-    }
-    if (event.scrollDelta.dy == 0) return;
     final scale = _canvasScale(transform);
     if (scale <= 0) return;
+    final targetScale = (scale * factor).clamp(0.1, 10.0);
+    final applied = targetScale / scale;
+    if (applied == 1.0) return;
     _beginInteraction();
-    final targetScale =
-        (scale * math.exp(-event.scrollDelta.dy / 200)).clamp(0.1, 10.0);
-    final factor = targetScale / scale;
-    transform.storage[0] *= factor;
-    transform.storage[5] *= factor;
-    final focalPoint = _viewportPositionOf(event);
+    transform.storage[0] *= applied;
+    transform.storage[5] *= applied;
     transform.storage[12] =
-        focalPoint.dx - (focalPoint.dx - transform.storage[12]) * factor;
+        focalPoint.dx - (focalPoint.dx - transform.storage[12]) * applied;
     transform.storage[13] =
-        focalPoint.dy - (focalPoint.dy - transform.storage[13]) * factor;
+        focalPoint.dy - (focalPoint.dy - transform.storage[13]) * applied;
     _controller.value = transform;
     _endInteractionAfterDelay();
+  }
+
+  void _panBy(Offset delta) {
+    if (delta == Offset.zero) return;
+    final transform = Matrix4.copy(_controller.value);
+    _beginInteraction();
+    transform.storage[12] -= delta.dx;
+    transform.storage[13] -= delta.dy;
+    _controller.value = transform;
+    _endInteractionAfterDelay();
+  }
+
+  /// 画布输入按 Figma 的约定分派，不再依赖「滚轮=缩放/平移」的模式开关：
+  ///
+  /// - 触控板捏合（PointerScaleEvent）→ 定点缩放
+  /// - ⌘/Ctrl + 滚轮 → 定点缩放（各家画布的通用约定）
+  /// - Shift + 滚轮 → 左右平移（只有竖向滚轮的鼠标靠它横向移动）
+  /// - 其余滚动 → 平移，横竖两个方向都跟随
+  ///
+  /// 模式开关仍然保留：切到 zoom 时裸滚轮即缩放，方便习惯了旧行为的用户；
+  /// 但无论哪种模式，上面这些带修饰键的组合都始终有效——这是关键，
+  /// 之前二选一的做法会让另一半操作彻底消失。
+  void _handleBackgroundPointerSignal(PointerSignalEvent event) {
+    if (_spacePanPointer != null) return;
+
+    // 触控板捏合：系统直接给出缩放比例，天然就是定点的。
+    if (event is PointerScaleEvent) {
+      if (event.scale == 1.0) return;
+      _zoomAt(_viewportPositionOf(event), event.scale);
+      return;
+    }
+    if (event is! PointerScrollEvent) return;
+    if (event.scrollDelta == Offset.zero) return;
+
+    final keys = HardwareKeyboard.instance;
+    final zoomModifier = keys.isMetaPressed || keys.isControlPressed;
+    final wheelZoom =
+        widget.wheelMode == CanvasWheelMode.zoom && !keys.isShiftPressed;
+
+    if (zoomModifier || wheelZoom) {
+      if (event.scrollDelta.dy == 0) return;
+      _zoomAt(
+        _viewportPositionOf(event),
+        math.exp(-event.scrollDelta.dy / 200),
+      );
+      return;
+    }
+
+    // Shift + 滚轮：把竖向滚动量转成横向位移。触控板本来就给得出 dx，
+    // 这里只对「只有 dy」的鼠标滚轮做转换，免得双指斜滑被拧成纯横移。
+    if (keys.isShiftPressed && event.scrollDelta.dx == 0) {
+      _panBy(Offset(event.scrollDelta.dy, 0));
+      return;
+    }
+    _panBy(event.scrollDelta);
   }
 
   @override
@@ -668,6 +774,24 @@ class _DFCanvasState extends State<DFCanvas> {
         oldWidget.nodes.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     }
+  }
+
+  /// 把指定节点居中，缩放保持不变（突然改变缩放会让人失去方位感）。
+  void _focusNode(String nodeId) {
+    final node =
+        widget.nodes.where((n) => n.id == nodeId).firstOrNull;
+    if (node == null) return;
+    if (!mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || box.size.isEmpty) return;
+    final size = box.size;
+    final scale = _canvasScale(_controller.value);
+    if (scale <= 0) return;
+    final center = node.position + Offset(node.size.width / 2, node.size.height / 2);
+    final transform = Matrix4.copy(_controller.value);
+    transform.storage[12] = size.width / 2 - center.dx * scale;
+    transform.storage[13] = size.height / 2 - center.dy * scale;
+    _controller.value = transform;
   }
 
   void _fitView() {
@@ -743,7 +867,6 @@ class _DFCanvasState extends State<DFCanvas> {
 
   @override
   Widget build(BuildContext context) {
-    final df = context.df;
     return RawGestureDetector(
       behavior: HitTestBehavior.translucent,
       gestures: {
@@ -784,6 +907,27 @@ class _DFCanvasState extends State<DFCanvas> {
             return Stack(
               fit: StackFit.expand,
               children: [
+                // 网格垫在最底层，且不吃点击：它只是参照物，所有手势仍旧
+                // 交给下面那层背景手势层处理。
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      key: const ValueKey('df-canvas-grid'),
+                      painter: _CanvasGridPainter(
+                        transform: _controller,
+                        // 淡蓝点阵：比原来的中性描边色更有"画布"的味道，
+                        // 又淡到不会跟卡片和连线抢注意力。深色主题下压暗一档，
+                        // 否则蓝点在深背景上会显得发亮刺眼。
+                        dotColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF5B7CB8)
+                                    .withValues(alpha: 0.42)
+                                : const Color(0xFF7FA0D4)
+                                    .withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+                ),
                 Positioned.fill(
                   child: Listener(
                     onPointerSignal: _registerBackgroundPointerSignal,
@@ -802,14 +946,12 @@ class _DFCanvasState extends State<DFCanvas> {
                             recognizer.onStart = _startViewportGesture;
                             recognizer.onUpdate = _updateViewportGesture;
                             recognizer.onEnd = _endViewportGesture;
-                            // Bug 3: 触控板双指默认被 ScaleGestureRecognizer 当成
-                            // 平移(trackpadScrollCausesScale 默认 false)，从不
-                            // 查询画布自己的 wheelMode 设置。这里让它和现有
-                            // PointerScrollEvent 分支(_handleBackgroundPointerSignal
-                            // 里 widget.wheelMode == CanvasWheelMode.scroll 的判断)
-                            // 保持同一套读取方式，缩放模式下让触控板双指也走缩放。
-                            recognizer.trackpadScrollCausesScale =
-                                widget.wheelMode == CanvasWheelMode.zoom;
+                            // 触控板双指一律以 PointerScrollEvent 的形式交给
+                            // _handleBackgroundPointerSignal，由那一处按 Figma
+                            // 约定统一判定「平移还是定点缩放」。若在这里就把它
+                            // 转成 scale 手势，同一个动作会有两套互相打架的判定，
+                            // 而且真正的捏合(PointerScaleEvent)反而收不到。
+                            recognizer.trackpadScrollCausesScale = false;
                           },
                         ),
                       },
@@ -829,16 +971,10 @@ class _DFCanvasState extends State<DFCanvas> {
                     child: SizedBox(
                       width: 12000,
                       height: 8000,
-                      child: Stack(children: [
-                        RepaintBoundary(
-                          child: IgnorePointer(
-                            child: CustomPaint(
-                              size: const Size(12000, 8000),
-                              painter: _GridPainter(
-                                  color: df.stroke.withValues(alpha: 0.4)),
-                            ),
-                          ),
-                        ),
+                      // Stack 默认 hardEdge 裁剪：卡片被拖到场景矩形外（比如
+                      // 坐标变负）时会被生生切掉半张。画布本来就该是无限的，
+                      // 这里必须放行超出部分。
+                      child: Stack(clipBehavior: Clip.none, children: [
                         if (visibleEdges.isNotEmpty)
                           RepaintBoundary(
                             child: IgnorePointer(
@@ -934,31 +1070,6 @@ class _DFCanvasState extends State<DFCanvas> {
   }
 }
 
-class _GridPainter extends CustomPainter {
-  final Color color;
-  const _GridPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1;
-    const step = 40.0;
-    for (var x = 0.0; x < size.width; x += step) {
-      canvas.drawCircle(Offset(x, 0), 0.8, paint);
-    }
-    for (var x = 0.0; x < size.width; x += step) {
-      for (var y = 0.0; y < size.height; y += step) {
-        canvas.drawCircle(Offset(x, y), 0.8, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _GridPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
 class _EdgePainter extends CustomPainter {
   final List<DFCanvasEdge> edges;
   final Map<String, DFCanvasNode> nodes;
@@ -988,4 +1099,94 @@ class _EdgePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _EdgePainter oldDelegate) =>
       oldDelegate.edges != edges || oldDelegate.nodes != nodes;
+}
+
+/// 无限画布的点阵背景（对齐 VueFlow / Figma / Miro 的通用做法）。
+///
+/// 三个要点：
+/// 1. **跟着画布走** —— 点阵随平移缩放一起动，用户才感觉得到自己在移动；
+///    背景静止不动的话，拖动画布会像什么都没发生。
+/// 2. **间距自适应** —— 缩小时点会越挤越密，糊成一片灰。这里让间距按 4 倍
+///    逐级放大，直到屏幕上的实际间距回到可读区间；放大时同理逐级细分。
+/// 3. **只画看得见的** —— 按视口反算出需要的行列范围再画，不是画满整块
+///    12000×8000 的场景，否则缩到最小时要画掉几十万个点。
+class _CanvasGridPainter extends CustomPainter {
+  final TransformationController transform;
+  final Color dotColor;
+
+  /// 场景坐标下的基准间距。屏幕上的实际间距 = 它 × 当前缩放。
+  static const _baseGap = 24.0;
+
+  /// 一级点阵在屏幕上至少要有这么宽的间距，低于它就升到更粗的一级。
+  static const _minScreenGap = 14.0;
+
+  _CanvasGridPainter({required this.transform, required this.dotColor})
+      : super(repaint: transform);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final matrix = transform.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    if (scale <= 0) return;
+    final t = matrix.getTranslation();
+    final translation = Offset(t.x, t.y);
+
+    // 选出「屏幕间距 ≥ 下限」里最细的一级。级差固定 4 倍。
+    var gap = _baseGap;
+    while (gap * scale < _minScreenGap) {
+      gap *= 4;
+    }
+    while ((gap / 4) * scale >= _minScreenGap) {
+      gap /= 4;
+    }
+
+    // 主级恒定完全可见；比它细一级的点随缩放淡入——它的屏幕间距从 5px
+    // 长到 14px 的过程中透明度 0→1，到 14px 正好接班成为新的主级。
+    // 这样缩放全程点阵密度连续变化，没有「到阈值突然翻倍」的跳变。
+    _paintLevel(canvas, size, translation, scale, gap, 1.0);
+    final finer = gap / 4;
+    final finerScreenGap = finer * scale;
+    final fade = ((finerScreenGap - 5.0) / (_minScreenGap - 5.0)).clamp(0.0, 1.0);
+    if (fade > 0) {
+      _paintLevel(canvas, size, translation, scale, finer, fade);
+    }
+  }
+
+  void _paintLevel(Canvas canvas, Size size, Offset translation, double scale,
+      double gap, double opacity) {
+    final screenGap = gap * scale;
+    // 视口左上角对应的场景坐标，向下取整到网格线上。
+    final firstX =
+        (-translation.dx / scale / gap).floorToDouble() * gap * scale +
+            translation.dx;
+    final firstY =
+        (-translation.dy / scale / gap).floorToDouble() * gap * scale +
+            translation.dy;
+
+    // 点的大小跟着本级的屏幕间距走：间距越宽点略大，层级感和 Figma 一致；
+    // 同时保证换级瞬间粗细连续（间距连续 → 半径连续）。
+    final radius = (screenGap / 22.0).clamp(0.7, 1.6);
+    final paint = Paint()
+      ..color = dotColor.withValues(alpha: dotColor.a * opacity)
+      ..strokeWidth = radius * 2
+      ..strokeCap = StrokeCap.round;
+
+    final columns = (size.width / screenGap).ceil() + 1;
+    final rows = (size.height / screenGap).ceil() + 1;
+    final points = <Offset>[];
+    for (var i = 0; i <= columns; i++) {
+      final x = firstX + i * screenGap;
+      if (x < -screenGap || x > size.width + screenGap) continue;
+      for (var j = 0; j <= rows; j++) {
+        final y = firstY + j * screenGap;
+        if (y < -screenGap || y > size.height + screenGap) continue;
+        points.add(Offset(x, y));
+      }
+    }
+    canvas.drawPoints(PointMode.points, points, paint);
+  }
+
+  @override
+  bool shouldRepaint(_CanvasGridPainter oldDelegate) =>
+      oldDelegate.dotColor != dotColor;
 }

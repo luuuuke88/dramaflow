@@ -226,7 +226,7 @@ void main() {
       expect(isSelected(tester, scene), isTrue);
       expect(tester.getSize(sceneCard).width, greaterThanOrEqualTo(350));
       expect(tester.getSize(sceneCard).width, lessThanOrEqualTo(390));
-      await tester.tap(sceneCard);
+      await openAssetDetail(tester, sceneCard);
       await tester.pumpAndSettle();
       expect(
         find.byKey(Key('cornerscape-detail-$scene')),
@@ -321,12 +321,19 @@ void main() {
     expect(find.widgetWithText(FilledButton, '生成图片'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'AI 匹配音频'), findsOneWidget);
 
-    // 图也出完了 → 主按钮移到第 3 步。
+    // 图也出完了 → 三个都是描边，没有蓝色主按钮。
+    // 第 3 步配音是可选的，不该被高亮成「接下来必须做这个」，
+    // 真正的出口由「去视频生产」提示条给出。
     setImageState(blank, stateDone);
     await pumpDesktop(tester);
     expect(find.widgetWithText(OutlinedButton, '生成提示词'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '生成图片'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'AI 匹配音频'), findsOneWidget);
+    for (final label in ['生成提示词', '生成图片', 'AI 匹配音频']) {
+      expect(find.widgetWithText(FilledButton, label), findsNothing,
+          reason: '图出完后「$label」不该再是蓝色主按钮，尤其不能把用户推向可选的配音');
+    }
+    expect(find.text('可选'), findsOneWidget,
+        reason: '第 3 步必须明确标出「可选」');
   });
 
   testWidgets('未选择图片模型时确认批量生成不会创建图片任务', (tester) async {
@@ -662,14 +669,14 @@ void main() {
         .toSet();
     expect(heights, hasLength(1));
 
-    await tester.tap(find.byKey(Key('cornerscape-card-$generating')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$generating')));
     await tester.pump();
     expect(
       find.byKey(Key('cornerscape-detail-$generating')),
       findsNothing,
     );
 
-    await tester.tap(find.byKey(Key('cornerscape-card-$done')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$done')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.byKey(Key('cornerscape-detail-$done')), findsOneWidget);
@@ -721,7 +728,7 @@ void main() {
     );
 
     expect(find.text('音频匹配失败'), findsOneWidget);
-    await tester.tap(find.byKey(Key('cornerscape-card-$failed')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$failed')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.byKey(Key('cornerscape-detail-$failed')), findsOneWidget);
@@ -786,7 +793,7 @@ void main() {
     final currentId = imageRows.last['id'] as int;
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     expect(
@@ -941,7 +948,7 @@ void main() {
     );
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final resolution = tester.widget<SegmentedButton<String>>(
@@ -985,7 +992,7 @@ void main() {
     );
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('cornerscape-history-image-$historyId')));
     await tester.pump();
@@ -1010,7 +1017,7 @@ void main() {
     setImageState(assetId, stateFailed);
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final detail = find.byKey(Key('cornerscape-detail-$assetId'));
@@ -1034,7 +1041,7 @@ void main() {
     );
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
     expect(find.text('林朝雪 · 角色'), findsOneWidget);
 
@@ -1072,7 +1079,7 @@ void main() {
     engine.config.update({'policy.confirmMoney': '1'});
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final polishButton = find.byKey(Key('cornerscape-polish-$assetId'));
@@ -1096,7 +1103,7 @@ void main() {
     engine.config.update({'policy.confirmMoney': '1'});
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final polishButton = find.byKey(Key('cornerscape-polish-$assetId'));
@@ -1130,7 +1137,7 @@ void main() {
     engine.config.update({'policy.confirmMoney': '1'});
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final polishButton = find.byKey(Key('cornerscape-polish-$assetId'));
@@ -1159,7 +1166,7 @@ void main() {
     engine.config.update({'policy.confirmMoney': '1'});
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final promptField = find.byKey(Key('cornerscape-prompt-$assetId'));
@@ -1205,7 +1212,7 @@ void main() {
     engine.config.update({'policy.confirmMoney': '1'});
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final promptField = find.byKey(Key('cornerscape-prompt-$assetId'));
@@ -1231,7 +1238,7 @@ void main() {
 
     await tester.tap(find.byTooltip('关闭').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -1285,7 +1292,7 @@ void main() {
     );
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$sceneId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$sceneId')));
     await tester.pumpAndSettle();
     expect(find.text('雪山 · 场景'), findsOneWidget);
 
@@ -1347,7 +1354,7 @@ void main() {
 
     await tester.tap(find.byTooltip('关闭').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(Key('cornerscape-card-$toolId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$toolId')));
     await tester.pumpAndSettle();
     expect(find.text('长剑 · 道具'), findsOneWidget);
 
@@ -1383,7 +1390,7 @@ void main() {
     engine.config.update({'policy.confirmMoney': '1'});
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final modelField = find.byKey(Key('cornerscape-model-$assetId'));
@@ -1439,7 +1446,7 @@ void main() {
     engine.config.update({'policy.confirmMoney': '1'});
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final modelField = find.byKey(Key('cornerscape-model-$assetId'));
@@ -1490,7 +1497,7 @@ void main() {
     engine.config.update({'policy.confirmMoney': '1'});
 
     await pumpDesktop(tester);
-    await tester.tap(find.byKey(Key('cornerscape-card-$assetId')));
+    await openAssetDetail(tester, find.byKey(Key('cornerscape-card-$assetId')));
     await tester.pumpAndSettle();
 
     final modelField = find.byKey(Key('cornerscape-model-$assetId'));
@@ -1565,4 +1572,19 @@ void main() {
         .toSet();
     expect(heights, hasLength(1));
   });
+
+
+}
+
+/// 打开资产详情：卡片上半部分（160dp 高的图片区）现在归「点开看大图」，
+/// 点它会弹图库预览而不是详情面板；详情要点下半部分的文字区。
+/// 直接按坐标落在卡片底部，避免依赖具体有哪些文字节点。
+/// 只做「点开详情」这一个动作，等待交给调用方——「生成中」的卡片上有常驻
+/// 转圈动画，helper 内部若 pumpAndSettle 会永远等不到静止。
+Future<void> openAssetDetail(WidgetTester tester, Finder card) async {
+  await tester.ensureVisible(card);
+  await tester.pump();
+  final rect = tester.getRect(card);
+  await tester.tapAt(rect.bottomCenter - const Offset(0, 16));
+  await tester.pump();
 }

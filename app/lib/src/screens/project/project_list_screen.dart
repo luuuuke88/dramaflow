@@ -16,6 +16,7 @@ import '../../util/error_l10n.dart';
 import '../../util/l10n_ext.dart';
 import '../../widgets/df_empty.dart';
 import 'project_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 final projectsTickProvider = StateProvider<int>((_) => 0);
 final projectsProvider = Provider.autoDispose<List<ProjectRow>>((ref) {
@@ -71,13 +72,11 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
       }
       ref.read(projectsTickProvider.notifier).state++;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.projectMsgDeleteSuccess)));
+        showDFToast(context, l10n.projectMsgDeleteSuccess);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(localizeError(context, e))));
+        showDFToast(context, localizeError(context, e));
       }
     }
   }

@@ -146,8 +146,8 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    expect(find.text('预览全部'), findsOneWidget);
-    await tester.tap(find.text('预览全部'));
+    expect(find.byTooltip('预览全部'), findsOneWidget);
+    await tester.tap(find.byTooltip('预览全部'));
     await tester.pump();
     // compute() 合成耗时随系统负载浮动，固定 100ms 延迟在负载高时会在
     // isolate 完成前提前 pump，导致偶发找不到预览 widget；改为轮询等待。
@@ -189,8 +189,8 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    expect(find.text('导出全部'), findsOneWidget);
-    await tester.tap(find.text('导出全部'));
+    expect(find.byTooltip('导出全部'), findsOneWidget);
+    await tester.tap(find.byTooltip('导出全部'));
     await tester.pump();
     // 无可导出图片：出现本地化提示 SnackBar（未触及平台文件面板）。
     expect(find.text('还没有可导出的首帧图'), findsOneWidget);
@@ -211,7 +211,7 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
-      await tester.tap(find.text('导出全部'));
+      await tester.tap(find.byTooltip('导出全部'));
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
     await tester.pumpAndSettle();
@@ -234,7 +234,7 @@ void main() {
 
     await tester.pumpWidget(app(width: 390));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('预览全部'));
+    await tester.tap(find.byTooltip('预览全部'));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
@@ -257,7 +257,7 @@ void main() {
 
     await tester.pumpWidget(app(width: 390));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('预览全部'));
+    await tester.tap(find.byTooltip('预览全部'));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
@@ -370,7 +370,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(await engine.projectJobs(projectId), isEmpty);
 
-    expect(tester.widget<FilledButton>(generate).onPressed, isNotNull);
+    // 已有分镜时它是描边的「重新拆分镜头」，主按钮让给了「生成图片」。
+    expect(tester.widget<OutlinedButton>(generate).onPressed, isNotNull);
     await tester.tap(generate);
     await tester.pumpAndSettle();
     expect(find.text('危险操作确认'), findsOneWidget);

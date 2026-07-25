@@ -29,11 +29,14 @@ import '../../widgets/df_empty.dart';
 import '../../widgets/policy_confirm.dart';
 import '../../widgets/script_markdown_editor.dart';
 import 'canvas_chat_panel.dart';
+import 'production_next_step.dart';
+import 'production_node_card.dart';
 import 'image_flow_editor.dart';
 import 'script_plan_node.dart';
 import 'workbench_screen.dart';
 import 'production_guide.dart';
 import 'storyboard_canvas_node.dart';
+import '../../widgets/df_toast.dart';
 
 class ProductionScreen extends ConsumerStatefulWidget {
   final int projectId;
@@ -72,12 +75,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
   void _refreshProduction() {
     setState(() => _productionViewRevision++);
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.productionRefreshed),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    showDFToast(context, context.l10n.productionRefreshed);
   }
 
   @override
@@ -332,10 +330,19 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
           size: const Size(storyboardW, 620),
           onDragUpdate: (delta) => _moveNode('storyboard', delta),
           child: DFCanvasViewportSignalRegion(
-            child: _NodeFrame(
-              title: context.l10n.productionNodeStoryboardTitle,
-              child: StoryboardCanvasNode(
-                  projectId: projectId, scriptId: script.id),
+            child: ProductionNodeCard(
+              stage: ProductionStage.storyboard,
+              child: Column(children: [
+                ProductionNodeHeader(
+                  stage: ProductionStage.storyboard,
+                  editTooltip: context.l10n.commonEdit,
+                  title: context.l10n.productionNodeStoryboardTitle,
+                ),
+                Expanded(
+                  child: StoryboardCanvasNode(
+                      projectId: projectId, scriptId: script.id),
+                ),
+              ]),
             ),
           ),
         ),
@@ -360,7 +367,25 @@ class _CanvasLayoutState extends State<_CanvasLayout> {
 
     final df = context.df;
     return Stack(children: [
-      Positioned.fill(child: canvas),
+      Positioned.fill(
+        child: Column(children: [
+          // 这层 Consumer 只为拿到 ref：_CanvasLayout 本身是普通 StatefulWidget，
+          // 而「下一步」需要随任务进度重算。
+          Consumer(builder: (context, ref, _) {
+            final nextStep = resolveProductionNextStep(
+              ref,
+              context,
+              projectId: projectId,
+              scriptId: script.id,
+            );
+            return ProductionNextStepBar(
+              step: nextStep,
+              onLocate: () => _canvasController.focusNode(nextStep.nodeId),
+            );
+          }),
+          Expanded(child: canvas),
+        ]),
+      ),
       // 右上角 Agent 对话入口（面板打开时隐藏，让位于面板头部的关闭按钮）。
       if (!_chatOpen)
         Positioned(
@@ -609,66 +634,6 @@ class _MobileTabsLayoutState extends State<_MobileTabsLayout>
   }
 }
 
-class _NodeFrame extends StatelessWidget {
-  final String title;
-  final Widget child;
-  const _NodeFrame({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final df = context.df;
-    return Container(
-      decoration: BoxDecoration(
-        color: df.surface,
-        borderRadius: BorderRadius.circular(DFTokens.radiusCard),
-        border: Border.all(color: df.stroke),
-        boxShadow: DFTokens.cardRest,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
-  }
-}
-
-class _NodeHeader extends StatelessWidget {
-  final String title;
-  final VoidCallback? onEdit;
-  final Widget? action;
-  const _NodeHeader({required this.title, this.onEdit, this.action});
-
-  @override
-  Widget build(BuildContext context) {
-    final df = context.df;
-    return Container(
-      padding: EdgeInsets.fromLTRB(12, onEdit == null ? 8 : 4,
-          onEdit == null ? 12 : 4, onEdit == null ? 8 : 4),
-      color: df.textPrimary,
-      child: Row(children: [
-        Expanded(
-          child: Text(title,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: df.surface)),
-        ),
-        if (action != null) ...[
-          action!,
-          const SizedBox(width: 4),
-        ],
-        if (onEdit != null)
-          IconButton(
-            tooltip: context.l10n.commonEdit,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            icon: Icon(Icons.edit_outlined, size: 15, color: df.surface),
-            onPressed: onEdit,
-          ),
-      ]),
-    );
-  }
-}
-
 /// 剧本节点（照抄 ToonFlow production script 节点）：展示剧本正文，头部提供
 /// 编辑入口，弹出对话框改写名称/正文并经 engine.updateScript 持久化。
 /// engine 无响应式，保存后 setState 重读预览。
@@ -691,10 +656,12 @@ class _ScriptNodeState extends ConsumerState<_ScriptNode> {
             .where((s) => s.id == widget.script.id)
             .firstOrNull ??
         widget.script;
-    return _NodeFrame(
-      title: l10n.productionNodeScriptTitle,
+    return ProductionNodeCard(
+      stage: ProductionStage.script,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _NodeHeader(
+        ProductionNodeHeader(
+          stage: ProductionStage.script,
+          editTooltip: l10n.commonEdit,
           title: '${l10n.productionNodeScriptTitle} · ${script.name ?? ''}',
           onEdit: () => _openEditor(script),
         ),
@@ -702,11 +669,13 @@ class _ScriptNodeState extends ConsumerState<_ScriptNode> {
           child: InkWell(
             onTap: () => _openEditor(script),
             child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: SingleChildScrollView(
-                child: ScriptMarkdownPreview(markdown: script.content ?? ''),
-              ),
-            ),
+                padding: const EdgeInsets.all(12),
+                child: DFCanvasScrollRegion(
+                  child: SingleChildScrollView(
+                    child:
+                        ScriptMarkdownPreview(markdown: script.content ?? ''),
+                  ),
+                )),
           ),
         ),
       ]),
@@ -747,8 +716,7 @@ class _ScriptNodeEditorState extends ConsumerState<_ScriptNodeEditor> {
   void _save() {
     final l10n = context.l10n;
     if (_name.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.scriptNodeNameRequired)));
+      showDFToast(context, l10n.scriptNodeNameRequired);
       return;
     }
     ref.read(engineProvider).updateScript(
@@ -758,8 +726,7 @@ class _ScriptNodeEditorState extends ConsumerState<_ScriptNodeEditor> {
         );
     if (!mounted) return;
     Navigator.of(context).pop(true);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l10n.scriptNodeSaved)));
+    showDFToast(context, l10n.scriptNodeSaved);
   }
 
   @override
@@ -1055,57 +1022,63 @@ class _AssetsNodeState extends ConsumerState<_AssetsNode> {
     final df = context.df;
     final ids = widget.script.relatedAssets.map((a) => a.id).toList();
     final assets = ref.watch(engineProvider).assetsByIds(ids);
-    return _NodeFrame(
-      title: l10n.productionNodeAssetsTitle,
+    return ProductionNodeCard(
+      stage: ProductionStage.assets,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _NodeHeader(title: l10n.productionNodeAssetsTitle),
-        Expanded(
-          child: assets.isEmpty
-              ? Center(
-                  child: Text(l10n.scriptAddNoAssets,
-                      style: TextStyle(fontSize: 11, color: df.textTertiary)))
-              : ListView.separated(
-                  padding: const EdgeInsets.all(10),
-                  itemCount: assets.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(height: 20, color: df.stroke),
-                  itemBuilder: (c, i) {
-                    final original = assets[i];
-                    final derived = original.sonAssets;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _parentRow(context, original),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 22, top: 4),
-                          child: Icon(Icons.arrow_downward_rounded,
-                              size: 16, color: df.textTertiary),
-                        ),
-                        if (derived.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 28, top: 2),
-                            child: Text(l10n.productionNoDerivedAssets,
-                                style: TextStyle(
-                                    fontSize: 11, color: df.textTertiary)),
-                          )
-                        else
-                          SizedBox(
-                            height: 84,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.only(left: 20),
-                              itemCount: derived.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(width: 10),
-                              itemBuilder: (_, j) =>
-                                  _derivedRow(context, original, derived[j]),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+        ProductionNodeHeader(
+          stage: ProductionStage.assets,
+          editTooltip: l10n.commonEdit,
+          title: l10n.productionNodeAssetsTitle,
         ),
+        Expanded(
+            child: assets.isEmpty
+                ? Center(
+                    child: Text(l10n.scriptAddNoAssets,
+                        style: TextStyle(fontSize: 11, color: df.textTertiary)))
+                : DFCanvasScrollRegion(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(10),
+                      itemCount: assets.length,
+                      separatorBuilder: (_, __) =>
+                          Divider(height: 20, color: df.stroke),
+                      itemBuilder: (c, i) {
+                        final original = assets[i];
+                        final derived = original.sonAssets;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _parentRow(context, original),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 22, top: 4),
+                              child: Icon(Icons.arrow_downward_rounded,
+                                  size: 16, color: df.textTertiary),
+                            ),
+                            if (derived.isEmpty)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(left: 28, top: 2),
+                                child: Text(l10n.productionNoDerivedAssets,
+                                    style: TextStyle(
+                                        fontSize: 11, color: df.textTertiary)),
+                              )
+                            else
+                              SizedBox(
+                                height: 84,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.only(left: 20),
+                                  itemCount: derived.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(width: 10),
+                                  itemBuilder: (_, j) => _derivedRow(
+                                      context, original, derived[j]),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  )),
       ]),
     );
   }
@@ -1143,31 +1116,36 @@ class _StoryboardTableNodeState extends ConsumerState<_StoryboardTableNode> {
               scriptId: widget.scriptId,
             )
             .stale;
-    return _NodeFrame(
-      title: l10n.productionNodeStoryboardTableTitle,
+    return ProductionNodeCard(
+      stage: ProductionStage.storyboardTable,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _NodeHeader(
+        ProductionNodeHeader(
+          stage: ProductionStage.storyboardTable,
+          editTooltip: l10n.storyboardTableWrite,
           title: l10n.productionNodeStoryboardTableTitle,
           onEdit: () => _openEditor(markdown),
-          action: Tooltip(
-            message: l10n.storyboardTableGenerateTooltip,
-            child: FilledButton.icon(
-              key: Key('storyboard-table-generate-${widget.scriptId}'),
-              onPressed: canGenerate ? _generateTable : null,
-              icon: const Icon(Icons.auto_awesome, size: 13),
-              label: Text(
-                hasTable
-                    ? l10n.storyboardTableRegenerate
-                    : l10n.storyboardTableGenerate,
-                style: const TextStyle(fontSize: 11),
-              ),
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                minimumSize: const Size(0, 28),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-            ),
-          ),
+          // 同上：空状态中间已有更醒目的「生成」，标题栏只在有内容时出现。
+          action: !hasTable
+              ? null
+              : Tooltip(
+                  message: l10n.storyboardTableGenerateTooltip,
+                  child: FilledButton.icon(
+                    key: Key('storyboard-table-generate-${widget.scriptId}'),
+                    onPressed: canGenerate ? _generateTable : null,
+                    icon: const Icon(Icons.auto_awesome, size: 13),
+                    label: Text(
+                      hasTable
+                          ? l10n.storyboardTableRegenerate
+                          : l10n.storyboardTableGenerate,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      minimumSize: const Size(0, 28),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
+                ),
         ),
         if (stale)
           Container(
@@ -1186,11 +1164,12 @@ class _StoryboardTableNodeState extends ConsumerState<_StoryboardTableNode> {
             child: hasTable
                 ? Padding(
                     padding: const EdgeInsets.all(12),
-                    child: SingleChildScrollView(
-                      child: Text(markdown,
-                          style: const TextStyle(fontSize: 12, height: 1.5)),
-                    ),
-                  )
+                    child: DFCanvasScrollRegion(
+                      child: SingleChildScrollView(
+                        child: Text(markdown,
+                            style: const TextStyle(fontSize: 12, height: 1.5)),
+                      ),
+                    ))
                 : Center(
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.table_rows_outlined,
@@ -1203,11 +1182,14 @@ class _StoryboardTableNodeState extends ConsumerState<_StoryboardTableNode> {
                             style: TextStyle(
                                 fontSize: 12, color: df.textTertiary)),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
+                      // 同剧本规划：空状态里 AI 生成是主动作，手写是次要。
                       FilledButton.icon(
-                        onPressed: () => _openEditor(markdown),
-                        icon: const Icon(Icons.edit_note, size: 16),
-                        label: Text(l10n.storyboardTableWrite,
+                        key: Key(
+                            'storyboard-table-generate-empty-${widget.scriptId}'),
+                        onPressed: canGenerate ? _generateTable : null,
+                        icon: const Icon(Icons.auto_awesome, size: 15),
+                        label: Text(l10n.storyboardTableGenerate,
                             style: const TextStyle(fontSize: 12)),
                       ),
                     ]),
@@ -1231,9 +1213,7 @@ class _StoryboardTableNodeState extends ConsumerState<_StoryboardTableNode> {
         engine.generateStoryboardTable(widget.projectId, widget.scriptId);
     if (taskId == 0) return;
     ref.read(activeJobsProvider.notifier).poke();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.storyboardTableGenerating)),
-    );
+    showDFToast(context, context.l10n.storyboardTableGenerating);
   }
 
   Future<void> _openEditor(String current) async {
@@ -1282,8 +1262,7 @@ class _StoryboardTableEditorState
     if (!mounted) return;
     final l10n = context.l10n;
     Navigator.of(context).pop(true);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l10n.storyboardTableSaved)));
+    showDFToast(context, l10n.storyboardTableSaved);
   }
 
   @override
@@ -1333,10 +1312,14 @@ class _WorkbenchNode extends ConsumerWidget {
     final engine = ref.watch(engineProvider);
     final paths = engine.orderedSelectedVideoPaths(scriptId);
     final ready = paths.where((p) => p != null && p.isNotEmpty).length;
-    return _NodeFrame(
-      title: l10n.workbenchTitle,
+    return ProductionNodeCard(
+      stage: ProductionStage.workbench,
       child: Column(children: [
-        _NodeHeader(title: l10n.workbenchTitle),
+        ProductionNodeHeader(
+          stage: ProductionStage.workbench,
+          editTooltip: l10n.commonEdit,
+          title: l10n.workbenchTitle,
+        ),
         Expanded(
           child: Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [

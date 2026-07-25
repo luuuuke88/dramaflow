@@ -22,6 +22,7 @@ import 'add_audio_asset_dialog.dart';
 import 'add_tts_audio_dialog.dart';
 import 'batch_generation_dialog.dart';
 import 'generate_image_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 const assetTabs = ['role', 'tool', 'scene', 'clip', 'audio'];
 
@@ -48,6 +49,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
         });
   String _search = '';
   int _page = 1;
+  DFSortState _sort = DFSortState.none;
   static const _limit = 10;
   final Set<String> _selected = {};
   final Set<int> _expanded = {};
@@ -61,7 +63,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   String _tabLabel(String type) => switch (type) {
@@ -210,6 +212,24 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
     );
   }
 
+  /// 出图状态角标：和「状态」栏的排序口径一致（未生成 → 失败 → 生成中 → 已完成）。
+  Widget _imageStatusCell(AssetRow row) {
+    final l10n = context.l10n;
+    return switch (row.imageState) {
+      stateGenerating =>
+        DFStatusTag(kind: DFStatusKind.processing, text: l10n.statusRunning),
+      stateFailed => Tooltip(
+          message: localizeReason(l10n, row.imageErrorReason) ?? '',
+          child:
+              DFStatusTag(kind: DFStatusKind.failed, text: l10n.statusFailed),
+        ),
+      stateDone =>
+        DFStatusTag(kind: DFStatusKind.success, text: l10n.statusDone),
+      _ => DFStatusTag(
+          kind: DFStatusKind.pending, text: l10n.statusNotGenerated),
+    };
+  }
+
   Widget _promptCell(AssetRow row) {
     final l10n = context.l10n;
     final df = context.df;
@@ -304,6 +324,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12)),
+          if (!isAudio) _imageStatusCell(row),
           Text(
             row.startTime == null
                 ? ''
@@ -342,6 +363,8 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 12)),
+              // 子行同样要补上「状态」这一格，否则列与表头会整体错位。
+              if (!isAudio) _imageStatusCell(son),
               const SizedBox.shrink(),
               _operations(son),
             ],
@@ -361,7 +384,9 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
         type: _type,
         page: _page,
         limit: _limit,
-        search: _search.isEmpty ? null : _search);
+        search: _search.isEmpty ? null : _search,
+        sort: _sort.key,
+        descending: _sort.descending);
     final isAudio = _type == 'audio';
     final canGenerate = _type == 'role' || _type == 'tool' || _type == 'scene';
 
@@ -472,19 +497,33 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen>
                 child: LayoutBuilder(builder: (context, tableConstraints) {
                   final table = DFDataTable(
                     columns: [
-                      DFDataColumn(label: l10n.assetsColPreview),
+                      // 预览栏按「当前选中图的生成先后」排：点它＝最近出的图排前面。
+                      DFDataColumn(
+                          label: l10n.assetsColPreview,
+                          sortKey: isAudio ? null : 'generated'),
                       DFDataColumn(
                           label: isAudio
                               ? l10n.assetsAudioName
-                              : l10n.assetsColName),
+                              : l10n.assetsColName,
+                          sortKey: 'name'),
                       DFDataColumn(
                           label:
-                              isAudio ? l10n.assetsSex : l10n.assetsColPrompt),
+                              isAudio ? l10n.assetsSex : l10n.assetsColPrompt,
+                          sortKey: isAudio ? null : 'prompt'),
                       DFDataColumn(label: l10n.assetsColDescribe),
                       if (!isAudio) DFDataColumn(label: l10n.assetsColRemark),
-                      DFDataColumn(label: l10n.assetsColCreateTime),
+                      if (!isAudio)
+                        DFDataColumn(
+                            label: l10n.assetsColStatus, sortKey: 'status'),
+                      DFDataColumn(
+                          label: l10n.assetsColCreateTime, sortKey: 'created'),
                       DFDataColumn(label: l10n.assetsColOperation),
                     ],
+                    sort: _sort,
+                    onSortChanged: (next) => setState(() {
+                      _sort = next;
+                      _page = 1; // 换了排序还停在第 5 页会看得一头雾水
+                    }),
                     selectable: true,
                     selectedIds: _selected,
                     onSelectionChanged: (ids) => setState(() => _selected

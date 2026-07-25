@@ -424,6 +424,9 @@
   "scriptNextStepBannerButton": "Go bind voices",
   "cornerScapeNextStepBannerText": "Voices are bound. You can move on to production.",
   "cornerScapeNextStepBannerButton": "Go to production",
+  "cornerScapeNoAudioBannerText": "Step 3 needs audio assets, and there are none yet",
+  "cornerScapeNoAudioBannerButton": "Prepare audio",
+  "cornerScapeNoAudioBannerHint": "Go to Assets → Audio and use Text to Speech to have AI voice your lines, or upload your own audio.",
   "agentNextStepBannerText": "{count} scripts generated. You can review and edit them in Scripts.",
   "@agentNextStepBannerText": {
     "placeholders": {
@@ -543,6 +546,8 @@
   "assetsColDescribe": "Description",
   "assetsColRemark": "Remark",
   "assetsColCreateTime": "Created",
+  "assetsColStatus": "Status",
+  "assetsSortPreviewTip": "Sort by most recently generated",
   "assetsColOperation": "Actions",
   "assetsGenerate": "Generate",
   "assetsEdit": "Edit",
@@ -660,6 +665,21 @@
   "productionDerivedAssetDeleteGeneratingConfirm": "This derived asset is still generating an image. Deleting it now will interrupt the generation and cannot be undone. Delete anyway?",
   "productionNodeStoryboardTableTitle": "Storyboard Table",
   "productionNodeStoryboardTitle": "Storyboard",
+  "productionNextStepLabel": "Next",
+  "productionNextStepPlan": "Write the plan — set the arc, pacing, and key beats",
+  "productionNextStepTable": "Build the shot list — break the script into shots",
+  "productionNextStepStoryboard": "Generate storyboards — one frame per shot",
+  "productionNextStepImages": "Generate shot images — {count} shots still have none",
+  "@productionNextStepImages": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "productionNextStepWorkbench": "Open the workbench — assemble the shots into video",
+  "productionNextStepDone": "Every shot is ready. Head to the workbench to assemble.",
+  "productionNextStepLocate": "Take me there",
   "productionNodeWorkbenchTitle": "Workbench",
   "productionMobileNodeInspector": "Node Inspector",
   "productionMobileCurrentNode": "Current node",
@@ -699,7 +719,7 @@
   "productionNoScripts": "No scripts yet — create one in Scripts",
   "productionGoToScripts": "Go create a script",
   "productionStoryboardGenerate": "Generate Storyboard",
-  "productionStoryboardRegenerate": "Regenerate Storyboards",
+  "productionStoryboardRegenerate": "Re-split shots",
   "storyboardGenerateDescription": "Generate structured storyboards from the storyboard table",
   "storyboardGenerateTooltip": "Generate visual prompts and motion descriptions from the current storyboard table",
   "storyboardReplaceDescription": "Replace existing storyboards, images, videos, and timeline clips",
@@ -919,7 +939,7 @@
   "cornerScapeAutoMatching": "Matching...",
   "cornerScapeSelectAudio": "Select audio",
   "cornerScapeNoAudio": "Unbound",
-  "cornerScapeNoAudioPool": "No audio assets yet — upload some in Assets first",
+  "cornerScapeNoAudioPool": "No audio assets yet. Go to Assets → Audio to generate voices with Text to Speech, or upload your own.",
   "cornerScapeNoRoles": "No role assets yet — create roles in Assets first",
   "cornerScapeSelectAtLeastOne": "Select at least one role",
   "cornerScapeBindSuccess": "Bound",
@@ -944,6 +964,7 @@
   "cornerScapeOtherPromptHint": "Add style, composition, or consistency requirements",
   "cornerScapeGeneratePrompts": "Generate prompts",
   "cornerScapeMatchAudio": "AI match audio",
+  "cornerScapeStepOptional": "Optional",
   "cornerScapeStartBatch": "Generate images",
   "cornerScapeModelUnreachableTitle": "Model unreachable",
   "cornerScapeModelUnreachableBody": "\"{model}\" cannot be reached. Check its address and API key under Settings → Providers, or pick another model.",

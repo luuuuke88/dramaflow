@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -957,6 +958,44 @@ END
     expect(row.state, sbFailed);
     expect(EngineException.fromReasonJson(row.reason)?.errKey, errAppRestart);
   });
+
+  test('分镜批量出图默认并发生成，不再一张出完才发下一张', () async {
+    // 回归防线：资产批量出图曾因默认并发是 1 而整批串行，这里把分镜这条
+    // 路的并发默认值也钉死在实测最优的 5（8 路实测反而更慢且会失败）。
+    final ids = [
+      for (var i = 0; i < 4; i++)
+        engine.addStoryboard(
+          projectId: projectId,
+          scriptId: scriptId,
+          prompt: '并发镜头$i',
+        ),
+    ];
+
+    var inFlight = 0;
+    var peak = 0;
+    final release = Completer<void>();
+    final allStarted = Completer<void>();
+    gateway.imageFutureHandler = (_) async {
+      inFlight++;
+      if (inFlight > peak) peak = inFlight;
+      if (peak >= ids.length && !allStarted.isCompleted) {
+        allStarted.complete();
+      }
+      await release.future;
+      inFlight--;
+      return 'p/parallel.png';
+    };
+
+    engine.batchGenerateStoryboardImages(projectId, ids, compulsory: true);
+
+    await allStarted.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => throw StateError(
+          '4 个镜头没能同时开工，实际最高并发只有 $peak —— 分镜出图退回了串行'),
+    );
+    expect(peak, ids.length);
+    release.complete();
+  });
 }
 
 class _Gateway implements ProviderGateway {
@@ -967,6 +1006,7 @@ class _Gateway implements ProviderGateway {
   int toolCalls = 0;
   String Function(String prompt, String projectId, String? refPath)?
       imageHandler;
+  Future<String> Function(String prompt)? imageFutureHandler;
 
   @override
   Future<TextResult> generateText(String system, String user,
@@ -999,6 +1039,7 @@ class _Gateway implements ProviderGateway {
       String? quality,
       String? modelOverride}) async {
     expect(stage, 'shot_image');
+    if (imageFutureHandler case final handler?) return handler(prompt);
     await Future<void>.delayed(const Duration(milliseconds: 5));
     return imageHandler!(prompt, projectId,
         referenceAbsPaths.isEmpty ? null : referenceAbsPaths.first);

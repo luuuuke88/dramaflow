@@ -102,7 +102,9 @@ void main() {
 
     expect(find.text('剧本规划'), findsOneWidget); // 节点标题
     expect(find.text('还没有剧本规划，点此撰写整体思路、节奏与要点。'), findsOneWidget);
-    expect(find.text('撰写规划'), findsOneWidget);
+    // 撰写已并入标题栏的铅笔，正文里不再重复放一个同义按钮。
+    expect(find.byTooltip('撰写规划'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '撰写规划'), findsNothing);
   });
 
   testWidgets('已有规划时预览已存 Markdown 文本', (tester) async {
@@ -134,8 +136,8 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    // 打开编辑对话框。
-    await tester.tap(find.text('撰写规划'));
+    // 打开编辑对话框：入口是标题栏的铅笔。
+    await tester.tap(find.byTooltip('撰写规划'));
     await tester.pumpAndSettle();
     expect(find.text('编辑剧本规划'), findsOneWidget);
 
@@ -169,8 +171,17 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    final generate = find.byKey(const Key('script-plan-generate'));
+    // 空状态下「生成」在卡片中间当主按钮，标题栏那个只在有内容时出现
+    //（那时它的语义是「重新生成」），避免同一个动作出现两次。
+    final generate = find.byKey(const Key('script-plan-generate-empty'));
     expect(generate, findsOneWidget);
+    expect(find.byKey(const Key('script-plan-generate')), findsNothing,
+        reason: '空状态不该在标题栏再放一个重复的生成按钮');
+    expect(
+      find.byTooltip('撰写规划'),
+      findsOneWidget,
+      reason: '手写并入标题栏铅笔，仍需可达',
+    );
     await tester.tap(generate);
     await tester.pumpAndSettle();
     expect(find.text('花费确认'), findsOneWidget);

@@ -21,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
+import '../support/toast_finders.dart';
 
 class _NoopGateway implements ProviderGateway {
   String Function(String system, String user, String stage)? textResult;
@@ -311,7 +312,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.widgetWithText(SnackBar, '.doc文件不支持解析,请转换为.txt或.docx文件'),
+      findDFToastWithText('.doc文件不支持解析,请转换为.txt或.docx文件'),
       findsOneWidget,
     );
   });
@@ -331,7 +332,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.upload_file_outlined));
     await tester.pump();
 
-    expect(find.widgetWithText(SnackBar, '文件读取失败'), findsOneWidget);
+    expect(findDFToastWithText('文件读取失败'), findsOneWidget);
   });
 
   testWidgets('桌面端新增剧本点击上传超过 10MB 时拒绝文件', (tester) async {
@@ -353,7 +354,7 @@ void main() {
     await tester.pump();
 
     expect(
-        find.widgetWithText(SnackBar, '文件大小超过10MB，请上传更小的文件'), findsOneWidget);
+        findDFToastWithText('文件大小超过10MB，请上传更小的文件'), findsOneWidget);
   });
 
   testWidgets('桌面端新增剧本拖入旧 doc 时提示转换格式', (tester) async {
@@ -387,7 +388,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.widgetWithText(SnackBar, '.doc文件不支持解析,请转换为.txt或.docx文件'),
+      findDFToastWithText('.doc文件不支持解析,请转换为.txt或.docx文件'),
       findsOneWidget,
       reason: 'ToonFlow addScript.vue 对 application/msword 给出转换格式的专门提示',
     );
@@ -513,7 +514,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '确认'));
     await tester.pump();
 
-    expect(find.widgetWithText(SnackBar, '请上传或输入剧本内容'), findsOneWidget,
+    expect(findDFToastWithText('请上传或输入剧本内容'), findsOneWidget,
         reason: 'ToonFlow addScript.vue 先校验正文，再校验名称');
     expect(engine.scripts(projectId), isEmpty);
   });

@@ -15,6 +15,7 @@ import '../../widgets/df_search_field.dart';
 import '../../widgets/df_status_tag.dart';
 import '../../widgets/policy_confirm.dart';
 import '../project/model_select.dart';
+import '../../widgets/df_toast.dart';
 
 Future<bool?> showBatchGenerationDialog(BuildContext context, WidgetRef ref,
     {required int projectId, required String type, required int mode}) {
@@ -70,7 +71,7 @@ class _BatchGenerationBodyState extends ConsumerState<_BatchGenerationBody> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   TextEditingController _promptCtl(AssetRow row) =>

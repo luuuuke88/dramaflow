@@ -2200,6 +2200,24 @@ abstract class AppLocalizations {
   /// **'去视频生产'**
   String get cornerScapeNextStepBannerButton;
 
+  /// No description provided for @cornerScapeNoAudioBannerText.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 3 步需要音频素材，现在一个都还没有'**
+  String get cornerScapeNoAudioBannerText;
+
+  /// No description provided for @cornerScapeNoAudioBannerButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'去准备音频'**
+  String get cornerScapeNoAudioBannerButton;
+
+  /// No description provided for @cornerScapeNoAudioBannerHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'去「资产中心 → 音频」，用「文本配音」让 AI 念出台词，或直接上传现成音频'**
+  String get cornerScapeNoAudioBannerHint;
+
   /// No description provided for @agentNextStepBannerText.
   ///
   /// In zh, this message translates to:
@@ -2817,6 +2835,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'创建时间'**
   String get assetsColCreateTime;
+
+  /// No description provided for @assetsColStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get assetsColStatus;
+
+  /// No description provided for @assetsSortPreviewTip.
+  ///
+  /// In zh, this message translates to:
+  /// **'按最近生成排序'**
+  String get assetsSortPreviewTip;
 
   /// No description provided for @assetsColOperation.
   ///
@@ -3460,6 +3490,54 @@ abstract class AppLocalizations {
   /// **'分镜'**
   String get productionNodeStoryboardTitle;
 
+  /// No description provided for @productionNextStepLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get productionNextStepLabel;
+
+  /// No description provided for @productionNextStepPlan.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成剧本规划——先定整体思路、节奏与要点'**
+  String get productionNextStepPlan;
+
+  /// No description provided for @productionNextStepTable.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成分镜表——把剧本拆成一个个镜头'**
+  String get productionNextStepTable;
+
+  /// No description provided for @productionNextStepStoryboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成分镜——给每个镜头出画面'**
+  String get productionNextStepStoryboard;
+
+  /// No description provided for @productionNextStepImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成分镜图——还有 {count} 个镜头没出画面'**
+  String productionNextStepImages(String count);
+
+  /// No description provided for @productionNextStepWorkbench.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开工作台——把镜头合成视频'**
+  String get productionNextStepWorkbench;
+
+  /// No description provided for @productionNextStepDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一集的镜头都齐了，可以去工作台合成了'**
+  String get productionNextStepDone;
+
+  /// No description provided for @productionNextStepLocate.
+  ///
+  /// In zh, this message translates to:
+  /// **'带我去'**
+  String get productionNextStepLocate;
+
   /// No description provided for @productionNodeWorkbenchTitle.
   ///
   /// In zh, this message translates to:
@@ -3619,7 +3697,7 @@ abstract class AppLocalizations {
   /// No description provided for @productionStoryboardRegenerate.
   ///
   /// In zh, this message translates to:
-  /// **'重新生成分镜'**
+  /// **'重新拆分镜头'**
   String get productionStoryboardRegenerate;
 
   /// No description provided for @storyboardGenerateDescription.
@@ -4561,7 +4639,7 @@ abstract class AppLocalizations {
   /// No description provided for @cornerScapeNoAudioPool.
   ///
   /// In zh, this message translates to:
-  /// **'暂无音频素材，请先在「资产中心」上传音频'**
+  /// **'暂无音频素材。去「资产中心 → 音频」用「文本配音」让 AI 生成，或直接上传现成音频'**
   String get cornerScapeNoAudioPool;
 
   /// No description provided for @cornerScapeNoRoles.
@@ -4707,6 +4785,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'AI 匹配音频'**
   String get cornerScapeMatchAudio;
+
+  /// No description provided for @cornerScapeStepOptional.
+  ///
+  /// In zh, this message translates to:
+  /// **'可选'**
+  String get cornerScapeStepOptional;
 
   /// No description provided for @cornerScapeStartBatch.
   ///

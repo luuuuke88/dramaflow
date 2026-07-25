@@ -23,6 +23,7 @@ import '../../util/l10n_ext.dart';
 import '../../widgets/df_adaptive_dialog.dart';
 import '../../widgets/external_link_text.dart';
 import '../../widgets/policy_confirm.dart';
+import '../../widgets/df_toast.dart';
 
 class AgentChatScreen extends ConsumerStatefulWidget {
   final int projectId;
@@ -111,9 +112,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
         .read(engineProvider)
         .clearAssistantChat(widget.projectId, family: _family);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.agentChatMemoryCleared)),
-    );
+    showDFToast(context, l10n.agentChatMemoryCleared);
     setState(() {});
   }
 
@@ -960,18 +959,11 @@ class _DeployEditBodyState extends ConsumerState<_DeployEditBody> {
                         disabled: _disabled,
                       );
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.agentDeploySaved)),
-                  );
+                  showDFToast(context, l10n.agentDeploySaved);
                   Navigator.pop(context, true);
                 } on EngineException catch (e) {
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(localizeError(context, e)),
-                      backgroundColor: context.df.danger,
-                    ),
-                  );
+                  showDFToast(context, localizeError(context, e), isError: true);
                 }
               },
               child: Text(l10n.commonSave),
@@ -1092,10 +1084,7 @@ class _AssistantSkillsPaneState extends ConsumerState<_AssistantSkillsPane> {
   }
 
   void _toast(String message, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: error ? context.df.danger : null,
-    ));
+    showDFToast(context, message, isError: true);
   }
 
   Future<void> _importSkill() async {
@@ -1470,9 +1459,7 @@ class _ProjectNotesPaneState extends ConsumerState<_ProjectNotesPane> {
     if (!ok) return;
     engine.deleteProjectNote(widget.projectId, note.id);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.agentMemoryDeleted)),
-      );
+      showDFToast(context, context.l10n.agentMemoryDeleted);
       setState(() {});
     }
   }

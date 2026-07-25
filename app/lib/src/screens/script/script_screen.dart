@@ -23,6 +23,7 @@ import '../../widgets/policy_confirm.dart';
 import 'add_script_dialog.dart';
 import 'batch_add_dialog.dart';
 import 'edit_script_dialog.dart';
+import '../../widgets/df_toast.dart';
 
 class ScriptScreen extends ConsumerStatefulWidget {
   final int projectId;
@@ -38,7 +39,7 @@ class _ScriptScreenState extends ConsumerState<ScriptScreen> {
   bool _nextStepBannerDismissed = false;
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Widget? _nextStepBanner(List<ScriptRow> scripts) {

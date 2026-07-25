@@ -83,7 +83,11 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
   /// 当前该干的是第几步：蓝色主按钮跟着它走，永远等于「现在该点这个」。
   ///
   /// 判断对象是已勾选的资产；一个都没勾时看当前可见的全部，这样空手进来
-  /// 也有正确的指引。缺提示词 → 1；提示词齐了但图没出全 → 2；都齐了 → 3。
+  /// 也有正确的指引。缺提示词 → 1；提示词齐了但图没出全 → 2。
+  ///
+  /// 图出完之后返回 0（没有任何一步是蓝的）：第 3 步配音是**可选**的，
+  /// 视频生产那边「有音频就用、没有就跳过」。把它标成蓝色主按钮等于催用户
+  /// 去做一件本来可做可不做的事，出口改由「去视频生产」提示条给出。
   int _activeStep(List<CornerScapeAsset> visible) {
     final selectedIds = _selectedVisible(visible).toSet();
     final targets = selectedIds.isEmpty
@@ -94,7 +98,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       return 1;
     }
     if (targets.any((item) => item.asset.imageState != stateDone)) return 2;
-    return 3;
+    return 0;
   }
 
   Future<bool> _isCurrentImageCandidate(String selectedModel) async {
@@ -391,6 +395,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
     required VoidCallback? onPressed,
     required Widget icon,
     required String label,
+    bool optional = false,
   }) {
     final df = context.df;
     return Row(
@@ -429,7 +434,24 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
                 : OutlinedButton.icon(
                     onPressed: onPressed,
                     icon: icon,
-                    label: Text(label, style: const TextStyle(fontSize: 14)),
+                    // 可选步骤在名字后面挂一个「可选」小字，明说它可做可不做，
+                    // 免得序号让人以为不做就走不下去。
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(label, style: const TextStyle(fontSize: 14)),
+                        if (optional) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            context.l10n.cornerScapeStepOptional,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: df.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     style: OutlinedButton.styleFrom(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       side: BorderSide(color: df.stroke.withValues(alpha: 0.6)),
@@ -446,9 +468,11 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       Map<int, String?> audioByAsset) {
     if (_nextStepBannerDismissed) return null;
     if (assets.isEmpty) return null;
-    final allBound =
-        assets.every((item) => audioByAsset[item.asset.id] != null);
-    if (!allBound) return null;
+    // 出口只看图出完没有。配音是可选项（视频生产那边「有音频才用，没有就跳过」），
+    // 之前把它当成前置条件，跳过配音的人就永远等不到这条提示。
+    final allImagesDone =
+        assets.every((item) => item.asset.imageState == stateDone);
+    if (!allImagesDone) return null;
 
     final l10n = context.l10n;
     final df = context.df;
@@ -811,7 +835,8 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
                 const SizedBox(height: DFTokens.s8),
                 _stepButton(
                   step: 3,
-                  active: activeStep == 3,
+                  active: false,
+                  optional: true,
                   onPressed: () => _matchAudio(currentVisible()),
                   icon: const Icon(Icons.graphic_eq_rounded, size: 17),
                   label: l10n.cornerScapeMatchAudio,
@@ -898,7 +923,7 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             final item = visible[index];
-            return _assetCard(item, audioByAsset[item.asset.id]);
+            return _assetCard(item, audioByAsset[item.asset.id], visible);
           },
           childCount: visible.length,
         ),
@@ -929,12 +954,12 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
       itemCount: visible.length,
       itemBuilder: (context, index) {
         final item = visible[index];
-        return _assetCard(item, audioByAsset[item.asset.id]);
+        return _assetCard(item, audioByAsset[item.asset.id], visible);
       },
     );
   }
 
-  Widget _assetCard(CornerScapeAsset item, String? audioName) {
+  Widget _assetCard(CornerScapeAsset item, String? audioName, List<CornerScapeAsset> visible) {
     final l10n = context.l10n;
     final df = context.df;
     final asset = item.asset;
@@ -990,26 +1015,63 @@ class _CornerScapeScreenState extends ConsumerState<CornerScapeScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ColoredBox(
-                    color: df.surfaceMuted,
-                    child: _cardPreview(
-                      item,
-                      status: audioMatching
-                          ? DFStatusTag(
-                              kind: DFStatusKind.processing,
-                              text: l10n.cornerScapeAudioMatching,
-                            )
-                          : status,
-                      filePath: filePath,
-                      forceStatus: audioMatching,
+                  GestureDetector(
+                    onTap: () {
+                      if (!done || filePath == null || filePath.isEmpty) return;
+                      final validAssets = visible
+                          .where((a) =>
+                              a.asset.imageState == stateDone &&
+                              _selectedImage(a)?.filePath?.isNotEmpty == true)
+                          .toList();
+                      if (validAssets.isEmpty) return;
+                      
+                      final paths = validAssets
+                          .map((a) => ref.read(engineProvider).mediaAbsPath(_selectedImage(a)!.filePath!))
+                          .toList();
+                      
+                      final clickedPath = ref.read(engineProvider).mediaAbsPath(filePath);
+                      final initialIndex = paths.indexOf(clickedPath).clamp(0, paths.length - 1);
+                      
+                      showAssetGalleryPreview(
+                        context,
+                        paths: paths,
+                        initialIndex: initialIndex,
+                      );
+                    },
+                    child: ColoredBox(
+                      color: df.surfaceMuted,
+                      child: _cardPreview(
+                        item,
+                        status: audioMatching
+                            ? DFStatusTag(
+                                kind: DFStatusKind.processing,
+                                text: l10n.cornerScapeAudioMatching,
+                              )
+                            : status,
+                        filePath: filePath,
+                        forceStatus: audioMatching,
+                      ),
                     ),
                   ),
-                  if (done)
+                  if (done) ...[
                     Positioned(
                       right: DFTokens.s8,
                       bottom: DFTokens.s8,
                       child: status,
                     ),
+                    Positioned(
+                      right: DFTokens.s8,
+                      top: DFTokens.s8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.zoom_out_map, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ],
                   Positioned(
                     left: DFTokens.s8,
                     top: DFTokens.s8,

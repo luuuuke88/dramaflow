@@ -13,6 +13,7 @@ import '../../widgets/df_data_table.dart';
 import '../../widgets/df_empty.dart';
 import '../../widgets/df_search_field.dart';
 import '../../widgets/policy_confirm.dart';
+import '../../widgets/df_toast.dart';
 
 class EventTab extends ConsumerStatefulWidget {
   final int projectId;
@@ -29,7 +30,7 @@ class _EventTabState extends ConsumerState<EventTab> {
   final Set<String> _selected = {};
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   Future<void> _regenerate() async {

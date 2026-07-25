@@ -1,28 +1,49 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../theme/theme.dart';
 import '../theme/tokens.dart';
 
-void showDFToast(BuildContext context, String message, {bool isError = false}) {
-  final df = context.df;
-  final overlay = Overlay.of(context);
-  late OverlayEntry entry;
+/// 提示条的定位标识：测试与自动化按它找当前提示，不必依赖内部结构。
+const dfToastKey = Key('df-toast');
 
+/// 当前正在显示的提示条。全应用同一时刻只留一条：连着做几个动作时，
+/// 若每条都堆上去会糊成一片，最后一条才是用户关心的。
+OverlayEntry? _currentToast;
+
+/// 全应用统一的提示条：一律从**顶部**滑出。
+///
+/// 这里取代了 Flutter 默认的 SnackBar（从底部弹出）——两套并存时，
+/// 同一个软件里有的提示从上面来、有的从下面来，很跳。
+void showDFToast(BuildContext context, String message, {bool isError = false}) {
+  final overlay = Overlay.maybeOf(context);
+  if (overlay == null) return;
+  // 主题扩展缺席时退回一套中性配色：提示条是最外围的反馈，
+  // 绝不该因为拿不到配色就把整个界面拖崩。
+  final df = Theme.of(context).extension<DFColors>() ??
+      DFColors.light(primary: Theme.of(context).colorScheme.primary);
+
+  _currentToast?.remove();
+  _currentToast = null;
+
+  late OverlayEntry entry;
   entry = OverlayEntry(
     builder: (context) {
       return _ToastWidget(
+        key: dfToastKey,
         message: message,
         isError: isError,
         df: df,
         onDismissed: () {
           if (entry.mounted) entry.remove();
+          if (identical(_currentToast, entry)) _currentToast = null;
         },
       );
     },
   );
 
+  _currentToast = entry;
   overlay.insert(entry);
 }
 
@@ -33,6 +54,7 @@ class _ToastWidget extends StatefulWidget {
   final VoidCallback onDismissed;
 
   const _ToastWidget({
+    super.key,
     required this.message,
     required this.isError,
     required this.df,
@@ -94,57 +116,76 @@ class _ToastWidgetState extends State<_ToastWidget>
       top: 60,
       left: 0,
       right: 0,
-      child: SafeArea(
-        child: Material(
-          color: Colors.transparent,
-          child: Center(
-            child: FadeTransition(
-              opacity: _opacity,
-              child: SlideTransition(
-                position: _slide,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: widget.isError ? widget.df.danger : widget.df.surface,
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
+      // 提示条是被动通知，没有任何可点内容：必须让点击穿透过去。
+      // 顶部提示会压在正文上方，若还拦截手势，用户就会点不动被它盖住的东西
+      //（底部 SnackBar 时代不存在这个问题，换到顶部才暴露出来）。
+      child: IgnorePointer(
+        child: SafeArea(
+          child: Material(
+            color: Colors.transparent,
+            child: Center(
+              child: FadeTransition(
+                opacity: _opacity,
+                child: SlideTransition(
+                  position: _slide,
+                  child: Container(
+                    // 窄屏上长文案原本会把提示条撑出屏幕。这里给出上限并留出
+                    // 两侧边距，文字改为换行显示。
+                    constraints: BoxConstraints(
+                      maxWidth: math.min(
+                        520,
+                        MediaQuery.sizeOf(context).width - 32,
                       ),
-                    ],
-                    border: widget.isError
-                        ? null
-                        : Border.all(color: widget.df.stroke),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.isError)
-                        const Padding(
-                          padding: EdgeInsets.only(right: 8),
-                          child: Icon(Icons.error_outline,
-                              color: Colors.white, size: 18),
-                        )
-                      else
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Icon(Icons.info_outline,
-                              color: widget.df.primary, size: 18),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color:
+                          widget.isError ? widget.df.danger : widget.df.surface,
+                      borderRadius: BorderRadius.circular(32),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
                         ),
-                      Text(
-                        widget.message,
-                        style: TextStyle(
-                          color: widget.isError
-                              ? Colors.white
-                              : widget.df.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                      ],
+                      border: widget.isError
+                          ? null
+                          : Border.all(color: widget.df.stroke),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.isError)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 8),
+                            child: Icon(Icons.error_outline,
+                                color: Colors.white, size: 18),
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Icon(Icons.info_outline,
+                                color: widget.df.primary, size: 18),
+                          ),
+                        Flexible(
+                          child: Text(
+                            widget.message,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: widget.isError
+                                  ? Colors.white
+                                  : widget.df.textPrimary,
+                              fontSize: 14,
+                              height: 1.4,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

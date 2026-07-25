@@ -26,6 +26,7 @@ import '../../widgets/df_canvas.dart';
 import '../../widgets/common.dart';
 import '../script/asset_picker.dart';
 import 'storyboard_image_picker.dart';
+import '../../widgets/df_toast.dart';
 
 const _nodeWidth = 260.0;
 // upload 节点含头部、图片、带“直接采用”操作的手柄行，留出稳定余量避免溢出。
@@ -275,7 +276,7 @@ class _ImageFlowEditorPageState extends State<_ImageFlowEditorPage> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showDFToast(context, msg);
   }
 
   /// 对齐 ToonFlow 的 LR 自动布局：按入边层级稳定排序，异常循环图也保证可见。
